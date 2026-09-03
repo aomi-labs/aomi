@@ -24,19 +24,21 @@ const installers = [
   {
     id: "cli",
     label: "CLI",
-    command: "npm install -g @aomi-labs/cli",
+    command: "npm install -g @aomi-labs/client",
     icon: Terminal,
   },
   {
     id: "mcp",
     label: "MCP",
-    command: "codex mcp add aomi --url https://chat.aomi.dev/api/mcp",
+    command:
+      "codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp",
     icon: Waypoints,
   },
   {
     id: "api",
     label: "API",
-    command: "curl https://api.aomi.dev/v1/agents",
+    command:
+      'curl -H "Authorization: Bearer $AOMI_TOKEN" https://chat.aomi.dev/v1/pipeline/apps',
     icon: Code2,
   },
 ] as const;
@@ -246,16 +248,22 @@ const walletSnippets = {
     description:
       "Authenticate an existing EOA. No embedded-provider import required.",
     auth: 'auth={{ kind: "browser_wallet" }}',
+    providerImport: "",
+    login: "aomi account login --wallet",
   },
   Para: {
     description:
       "Resolve a Para wallet while the integrator retains provider credentials.",
-    auth: 'auth={{ kind: "para", provider: para }}',
+    auth: 'auth={{ kind: "embedded_wallet", provider: "para", environment: "PROD" }}',
+    providerImport: 'import "@aomi-labs/widget-lib/providers/para";\n',
+    login: "aomi account login --provider para",
   },
   Privy: {
     description:
       "Use the signed-in Privy wallet as the owner and signing boundary.",
-    auth: 'auth={{ kind: "privy", provider: privy }}',
+    auth: 'auth={{ kind: "embedded_wallet", provider: "privy", environment: "production" }}',
+    providerImport: 'import "@aomi-labs/widget-lib/providers/privy";\n',
+    login: "aomi account login --provider privy",
   },
 } as const;
 
@@ -265,8 +273,8 @@ export function WalletCodeDemo() {
   const [surface, setSurface] = useState<"UI" | "Terminal">("UI");
   const snippet =
     surface === "UI"
-      ? `import { AomiWidget } from "@aomi-labs/widget-lib";\nimport "@aomi-labs/widget-lib/styles.css";\n\nexport default function Assistant() {\n  return (\n    <AomiWidget\n      applicationId={process.env.AOMI_APPLICATION_ID!}\n      apiUrl={process.env.AOMI_API_URL!}\n      ${walletSnippets[wallet].auth}\n    />\n  );\n}`
-      : `aomi auth login --wallet ${wallet.toLowerCase().replace(" ", "-")}\naomi chat "rebalance approved liquidity"\naomi tx list\naomi tx sign <request-id>`;
+      ? `import { AomiWidget } from "@aomi-labs/widget-lib";\n${walletSnippets[wallet].providerImport}import "@aomi-labs/widget-lib/styles.css";\n\nexport default function Assistant() {\n  return (\n    <AomiWidget\n      applicationId={process.env.AOMI_APPLICATION_ID!}\n      apiUrl={process.env.AOMI_API_URL!}\n      ${walletSnippets[wallet].auth}\n    />\n  );\n}`
+      : `${walletSnippets[wallet].login}\naomi chat "rebalance approved liquidity"\naomi tx list\naomi tx sign <request-id>`;
 
   return (
     <div className={styles.walletDemo}>

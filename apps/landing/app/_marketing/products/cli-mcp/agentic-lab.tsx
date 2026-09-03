@@ -46,20 +46,20 @@ const mcpClients: Record<
   codex: {
     label: "Codex",
     format: "Terminal",
-    code: "codex mcp add aomi --url https://chat.aomi.dev/api/mcp\ncodex mcp login aomi",
+    code: "codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp\ncodex mcp login aomi-agent",
   },
   claude: {
     label: "Claude Code",
     format: "Terminal",
-    code: "claude mcp add --transport http aomi https://chat.aomi.dev/api/mcp",
+    code: "claude mcp add --transport http aomi-agent https://chat.aomi.dev/v1/agent/mcp",
   },
   cursor: {
     label: "Cursor",
     format: "mcp.json",
     code: `{
   "mcpServers": {
-    "aomi": {
-      "url": "https://chat.aomi.dev/api/mcp"
+    "aomi-agent": {
+      "url": "https://chat.aomi.dev/v1/agent/mcp"
     }
   }
 }`,
@@ -86,7 +86,7 @@ const surfaceMatrix = [
   {
     id: "mcp-agent",
     name: "MCP · agent",
-    sub: "/api/mcp",
+    sub: "/v1/agent/mcp",
     api: "Agent API · aomi_chat",
     runs: "Aomi server",
     state: "Thread on your account",
@@ -100,19 +100,19 @@ const surfaceMatrix = [
     ],
   },
   {
-    id: "mcp-direct",
-    name: "MCP · direct",
-    sub: "/api/mcp/direct",
-    api: "Pipeline API · aomi_call_tool",
+    id: "mcp-pipeline",
+    name: "MCP · pipeline",
+    sub: "/v1/pipeline/mcp",
+    api: "Pipeline API · catalog + tools",
     runs: "Aomi server",
     state: "Stateless · App passed per call",
     signing: "Hand-off → portal or CLI",
     trace: [
-      "aomi_search_tools",
+      "aomi_list_apps",
+      "aomi_select_app",
+      "aomi_list_tools",
       "aomi_describe_tool",
-      "aomi_run",
-      "awaiting_user",
-      "confirmed ✓",
+      "aomi_call_tool",
     ],
   },
   {
@@ -123,13 +123,7 @@ const surfaceMatrix = [
     runs: "Your machine",
     state: "Local sessions · session resume",
     signing: "Local key · tx sign",
-    trace: [
-      "aomi --prompt",
-      "tx list",
-      "tx simulate",
-      "tx sign",
-      "session resume",
-    ],
+    trace: ["aomi chat", "tx list", "tx simulate", "tx sign", "session resume"],
   },
 ] as const;
 
