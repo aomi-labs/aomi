@@ -1,5 +1,14 @@
 # Canonical Landing
 
+Current session goal: **UNIFIED TELEGRAM PARA AUTHORIZATION CUTOVER LOCALLY
+VERIFIED 2026-09-06** — the Telegram Mini App is now a single Para login and
+permission-signing surface with no transaction preview, bundle-signing, or
+broadcast path. Portal no longer provisions a global managed agent wallet;
+application-scoped provisioning is owned by the backend. Telegram production
+build, typecheck, lint, six contract tests, Portal typecheck, and focused
+authorization tests pass. The World handover frontend authorizes the backend-
+provided OperatingAccount while preserving the existing QR journey.
+
 Current session goal: **PROVIDER AND DEVICE AUTH RECOVERY LOCALLY VERIFIED
 2026-09-02** — `/device-auth` and `/oauth/device` now select Para or Privy at
 the single root wallet-provider boundary, OAuth device decisions claim and
