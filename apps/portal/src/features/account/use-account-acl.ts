@@ -17,7 +17,6 @@ import { accountScopedFetch } from "@portal/lib/settings-api";
 import {
   explainAccountError,
   fetchAccountAcl,
-  provisionAgentWallet,
   revokeProviderDelegation,
 } from "./account-api";
 import { bindWalletVia } from "./wallet-bind";
@@ -71,15 +70,11 @@ export type AccountAcl = {
   delegatedAccounts: DelegatedAccountView[];
   /** Connected adapter accounts not yet linked via the bind ceremony. */
   unboundWallets: UnboundWallet[];
-  /** Para login wallet exists but no provider-managed agent wallet yet. */
-  needsParaAgentWallet: boolean;
   refresh: () => Promise<void>;
   /** Run the permit ceremony; resolves once the new mode is committed. */
   commitMode: (wallet: WalletPolicy, mode: SignerMode) => Promise<void>;
   /** Link a connected wallet to the account (bind ceremony). */
   bindWallet: (wallet: UnboundWallet) => Promise<"bound" | "already_bound">;
-  /** Provision a Para agent wallet for auto-signing. */
-  provisionParaAgentWallet: () => Promise<void>;
   revokeDelegation: (delegation: DelegatedAccountView) => Promise<void>;
   stopAllAuto: () => Promise<void>;
   canConnectPrivy: boolean;
@@ -115,16 +110,6 @@ function unboundFromAccounts(
     }));
 }
 
-function detectNeedsParaAgentWallet(wallets: WalletPolicy[]): boolean {
-  const hasParaLogin = wallets.some(
-    (wallet) => wallet.linkedVia === "para" && !wallet.providerManaged,
-  );
-  const hasParaAgent = wallets.some(
-    (wallet) => wallet.linkedVia === "para" && wallet.providerManaged,
-  );
-  return hasParaLogin && !hasParaAgent;
-}
-
 export function useAccountAcl(): AccountAcl {
   const adapter = useAomiWalletKit();
   const runtime = useOptionalAomiRuntime();
@@ -156,10 +141,6 @@ export function useAccountAcl(): AccountAcl {
   const unboundWallets = useMemo(
     () => unboundFromAccounts(adapter.accounts ?? [], wallets),
     [adapter.accounts, wallets],
-  );
-  const needsParaAgentWallet = useMemo(
-    () => detectNeedsParaAgentWallet(wallets),
-    [wallets],
   );
 
   const refresh = useCallback(async () => {
@@ -301,11 +282,6 @@ export function useAccountAcl(): AccountAcl {
     ],
   );
 
-  const provisionParaAgentWallet = useCallback(async () => {
-    await readable(() => provisionAgentWallet("para"));
-    await refresh();
-  }, [refresh]);
-
   const revokeDelegation = useCallback(
     async (delegation: DelegatedAccountView) => {
       const providerKey =
@@ -398,11 +374,9 @@ export function useAccountAcl(): AccountAcl {
       wallets,
       delegatedAccounts,
       unboundWallets,
-      needsParaAgentWallet,
       refresh,
       commitMode,
       bindWallet,
-      provisionParaAgentWallet,
       revokeDelegation,
       stopAllAuto,
       canConnectPrivy,
@@ -418,8 +392,6 @@ export function useAccountAcl(): AccountAcl {
       connectPrivy,
       error,
       delegatedAccounts,
-      needsParaAgentWallet,
-      provisionParaAgentWallet,
       refresh,
       renewDelegation,
       revokeDelegation,

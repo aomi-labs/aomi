@@ -80,14 +80,6 @@ export function revokeProviderDelegation(
   );
 }
 
-/** Provision a provider-managed agent wallet (Para auto-signing prerequisite). */
-export async function provisionAgentWallet(provider: string): Promise<void> {
-  await accountScopedFetch(
-    `/api/account/providers/${encodeURIComponent(provider)}/agent-wallet`,
-    { method: "POST", body: JSON.stringify({}) },
-  );
-}
-
 const DELEGATION_KIND_LABELS: Record<string, string> = {
   session_delegation: "Session delegation",
   agent_delegation: "Agent delegation",

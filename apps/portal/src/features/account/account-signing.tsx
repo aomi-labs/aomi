@@ -18,11 +18,9 @@ interface AccountSigningViewProps {
   wallets: WalletPolicy[];
   delegatedAccounts: DelegatedAccountView[];
   unboundWallets: UnboundWallet[];
-  needsParaAgentWallet: boolean;
   /** Run the permit ceremony. Rejects with a user-facing message. */
   onCommit: (wallet: WalletPolicy, mode: SignerMode) => Promise<void>;
   onBindWallet: (wallet: UnboundWallet) => Promise<"bound" | "already_bound">;
-  onProvisionParaAgentWallet: () => Promise<void>;
   onRevokeDelegation: (delegation: DelegatedAccountView) => Promise<void>;
   onStopAllAuto: () => Promise<void>;
   canConnectPrivy: boolean;
@@ -34,17 +32,14 @@ interface AccountSigningViewProps {
 
 /** Busy/error key for the account-wide "stop all auto-signing" action. */
 const STOP_ALL_KEY = "__stop_all__";
-const PARA_AGENT_KEY = "__para_agent__";
 const CONNECT_PRIVY_KEY = "__connect_privy__";
 
 export function AccountSigningView({
   wallets,
   delegatedAccounts,
   unboundWallets,
-  needsParaAgentWallet,
   onCommit,
   onBindWallet,
-  onProvisionParaAgentWallet,
   onRevokeDelegation,
   onStopAllAuto,
   canConnectPrivy,
@@ -213,10 +208,6 @@ export function AccountSigningView({
     });
   };
 
-  const provisionParaAgent = () => {
-    void run(PARA_AGENT_KEY, onProvisionParaAgentWallet);
-  };
-
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5">
       <div className="flex flex-col gap-6">
@@ -233,37 +224,6 @@ export function AccountSigningView({
               className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 h-8 shrink-0 rounded-full border px-3 text-[13px] font-medium transition-colors"
             >
               Fix
-            </button>
-          </div>
-        )}
-
-        {needsParaAgentWallet && (
-          <div className="border-aomi-border bg-aomi-surface-2/40 flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <span className="text-aomi-fg block text-[13px] font-medium">
-                Provision Para agent wallet
-              </span>
-              <span className="text-aomi-muted mt-0.5 block text-[12px] leading-snug">
-                Para auto-signing needs a separate provider-managed signer.
-              </span>
-              {errors[PARA_AGENT_KEY] && (
-                <span className="text-aomi-danger mt-1 block text-[12px]">
-                  {errors[PARA_AGENT_KEY]}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={provisionParaAgent}
-              disabled={Boolean(busy[PARA_AGENT_KEY])}
-              className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
-            >
-              {busy[PARA_AGENT_KEY] && (
-                <Loader2 size={13} className="animate-spin" />
-              )}
-              {busy[PARA_AGENT_KEY]
-                ? "Provisioning…"
-                : "Provision agent wallet"}
             </button>
           </div>
         )}

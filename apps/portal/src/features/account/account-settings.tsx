@@ -38,10 +38,8 @@ export function AccountSettings() {
       wallets={acl.wallets}
       delegatedAccounts={acl.delegatedAccounts}
       unboundWallets={acl.unboundWallets}
-      needsParaAgentWallet={acl.needsParaAgentWallet}
       onCommit={acl.commitMode}
       onBindWallet={acl.bindWallet}
-      onProvisionParaAgentWallet={acl.provisionParaAgentWallet}
       onRevokeDelegation={acl.revokeDelegation}
       onStopAllAuto={acl.stopAllAuto}
       canConnectPrivy={acl.canConnectPrivy}

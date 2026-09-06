@@ -129,24 +129,6 @@ function installFetchRecorder(overrides: Record<string, () => Response> = {}) {
       if (url.pathname.endsWith("/delegation") && method === "DELETE") {
         return Response.json({ status: "revoked", provider: "privy" });
       }
-      if (
-        url.pathname === "/api/account/providers/para/agent-wallet" &&
-        method === "POST"
-      ) {
-        return Response.json({
-          wallet: {
-            address: "ParaAgentWallet111111111111111111111111111",
-            chain_type: "svm",
-            wallet_provider: "para",
-            signing: "delegated",
-            is_primary: false,
-            signing_mode: "manual",
-            authorization_version: 0,
-            has_delegated_account: false,
-            provider_managed: true,
-          },
-        });
-      }
       return new Response(`Unexpected ${method} ${url.pathname}`, {
         status: 500,
       });
@@ -428,7 +410,7 @@ describe("account ACL wiring", () => {
     });
   });
 
-  it("provisions a Para agent wallet through the provider route", async () => {
+  it("does not expose obsolete account-wide Para agent provisioning", async () => {
     const paraAccount = {
       user_accounts: [
         {
@@ -440,20 +422,15 @@ describe("account ACL wiring", () => {
       signing_policies: [ACCOUNT.signing_policies[0]],
       delegated_accounts: [],
     };
-    const { calls } = installFetchRecorder({
+    installFetchRecorder({
       "/api/account": () => Response.json(paraAccount),
     });
 
     await renderAcl();
-    await click(
-      await screen.findByRole("button", { name: "Provision agent wallet" }),
-    );
-
-    await waitFor(() =>
-      expect(paths(calls)).toContain(
-        "/api/account/providers/para/agent-wallet",
-      ),
-    );
+    await screen.findByText("0x71c7…976f");
+    expect(
+      screen.queryByRole("button", { name: "Provision agent wallet" }),
+    ).toBeNull();
   });
 
   it("runs the one-time Privy delegation ceremony before Auto is available", async () => {
