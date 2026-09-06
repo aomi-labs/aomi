@@ -129,6 +129,12 @@ export const { GET, POST, PUT, PATCH, DELETE } = createBackendProxy({
   allowedRoutes: ALLOWED_ROUTES,
   resolveCanonicalUserId: async () => null,
   applyDefaults: rewriteLegacyThreadPath,
+  // Local landing has no Rust backend, so the shared proxy's 127.0.0.1:8080
+  // default 502s the demo widget. Keep Vercel preview→staging and
+  // production→prod. Override anytime with AOMI_PROXY_BACKEND_URL.
+  upstreamBaseUrl:
+    process.env.AOMI_PROXY_BACKEND_URL ||
+    (process.env.VERCEL_ENV ? undefined : "https://api.aomi.dev"),
 });
 
 export const dynamic = "force-dynamic";
