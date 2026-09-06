@@ -42,14 +42,7 @@ export function nativeProviderResolutionPolicy(
 
 export { createDefaultWalletAttesters } from "./default-wallet-attesters";
 
-export {
-  createPrivyAccessTokenVerifier,
-  listPrivyWalletsForUser,
-  verifyPrivyToken,
-  type PrivyAccessTokenVerifierConfig,
-  type VerifiedPrivyAccessToken,
-  type VerifyPrivyAccessToken,
-} from "./privy";
+export { listPrivyWalletsForUser, verifyPrivyToken } from "./privy";
 
 export {
   createParaWidgetDescriptor,
