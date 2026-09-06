@@ -210,7 +210,7 @@ describe("public OAuth and session principal resolution", () => {
     ).resolves.toMatchObject({
       canonicalUserId: "canonical-guest",
       scopes: ["agent:write", "agent:actions:resolve"],
-      principalClass: "user",
+      principalClass: "guest",
     });
 
     await expect(
@@ -229,7 +229,7 @@ describe("public OAuth and session principal resolution", () => {
     ).resolves.toMatchObject({
       canonicalUserId: "canonical-guest",
       scopes: ["agent:actions:resolve"],
-      principalClass: "user",
+      principalClass: "guest",
     });
   });
 

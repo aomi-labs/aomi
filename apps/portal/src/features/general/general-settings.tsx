@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
-import { getChainInfo } from "@aomi-labs/react";
-import { formatAuthMethod, useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { ChevronRight, Shield } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
+import type { AomiCreditPosition } from "@aomi-labs/client";
+import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { ChevronRight, Shield, UserRound } from "lucide-react";
 import { countDriftedWallets } from "@portal/features/account/wallet-attention";
 import { useAccountAcl } from "@portal/features/account/use-account-acl";
+import {
+  buildUnifiedAccountWallets,
+  walletConnectionSummary,
+} from "@portal/features/account/wallet-management-model";
 import { useAccountOverview } from "@portal/lib/account-overview";
 import { useSettings, type ColorMode } from "@portal/lib/use-settings";
 
@@ -26,36 +31,53 @@ export function GeneralSettings({
   const identity = adapter.identity;
   const { settings, updateSetting } = useSettings();
   const account = useAccountOverview();
+  const { account: runtimeAccount } = useAomiRuntime();
   const acl = useAccountAcl();
+  const [credits, setCredits] = useState<AomiCreditPosition | null>(null);
+
+  useEffect(() => {
+    if (!adapter.accountUser || adapter.accountGuest) {
+      setCredits(null);
+      return;
+    }
+    let mounted = true;
+    void runtimeAccount.credits
+      .get({ limit: 1 })
+      .then((position) => {
+        if (mounted) setCredits(position);
+      })
+      .catch(() => {
+        if (mounted) setCredits(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [adapter.accountGuest, adapter.accountUser, runtimeAccount]);
 
   const networkTicker = identity.chainId
     ? getChainInfo(identity.chainId)?.ticker
     : undefined;
 
-  const identityType = useMemo(() => {
-    if (identity.status !== "connected") return "Disconnected";
-    return formatAuthMethod(identity.authMethod) ?? "Wallet";
-  }, [identity.authMethod, identity.status]);
-
-  const address =
-    identity.address ?? account?.user.public_key ?? "Not connected";
-  const primary =
-    account?.user.verified_email ??
-    (identity.address ? truncateAddress(identity.address) : address);
-
   const walletAttentionCount =
     acl.status === "ready" ? countDriftedWallets(acl.wallets) : 0;
 
-  const disconnect = (
-    adapter as { disconnect?: () => void | Promise<void> }
-  ).disconnect;
-
-  const walletHint =
-    identity.address &&
-    account?.user.public_key &&
-    identity.address.toLowerCase() !== account.user.public_key.toLowerCase()
-      ? identity.address
-      : "Active signing session";
+  const wallets = useMemo(
+    () =>
+      buildUnifiedAccountWallets({
+        accounts: adapter.accounts ?? [],
+        linkedWallets: adapter.accountWallets ?? [],
+        policies: acl.wallets,
+      }),
+    [acl.wallets, adapter.accountWallets, adapter.accounts],
+  );
+  const connectedWallets = wallets.filter((wallet) => wallet.connected).length;
+  const linkedWallets = wallets.filter((wallet) => wallet.linked).length;
+  const linkedWalletStatus = walletConnectionSummary(wallets);
+  const accountName =
+    adapter.accountUser?.displayName?.trim() ||
+    adapter.accountUser?.email ||
+    account?.user.verified_email ||
+    "Aomi account";
 
   const themeChoices: { mode: ColorMode; label: string }[] = [
     { mode: "dark", label: "Dark" },
@@ -73,11 +95,11 @@ export function GeneralSettings({
       )}
 
       <AccountSummaryCard
-        primary={primary}
-        identityDesc={`${identityType} · ${address}`}
+        primary={accountName}
+        walletDesc={linkedWalletStatus}
         tier={account?.user.tier}
         memberSince={formatMemberSince(account?.user.created_at)}
-        usage={account?.usage}
+        credits={credits}
         onManageAccount={onManageAccount}
         onViewUsage={onViewUsage}
       />
@@ -114,27 +136,18 @@ export function GeneralSettings({
         <Divider />
 
         <FlatSettingRow
-          label="Connected wallet"
-          hint={walletHint}
-          hintMono={walletHint !== "Active signing session"}
+          label="Wallets"
+          hint={`${connectedWallets} connected · ${linkedWallets} linked`}
         >
-          {disconnect ? (
+          {onManageAccount ? (
             <button
               type="button"
-              onClick={() => void disconnect()}
+              onClick={onManageAccount}
               className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors"
             >
-              Disconnect
+              Manage
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void adapter.openAccountUI?.()}
-              className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors"
-            >
-              Manage wallet
-            </button>
-          )}
+          ) : null}
         </FlatSettingRow>
       </div>
     </div>
@@ -143,37 +156,43 @@ export function GeneralSettings({
 
 function AccountSummaryCard({
   primary,
-  identityDesc,
+  walletDesc,
   tier,
   memberSince,
-  usage,
+  credits,
   onManageAccount,
   onViewUsage,
 }: {
   primary: string;
-  identityDesc: string;
+  walletDesc: string;
   tier?: string;
   memberSince?: string;
-  usage?: {
-    credit_used: number;
-    credit_paid: number;
-    period_utc_month?: string;
-  };
+  credits?: AomiCreditPosition | null;
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {
-  const creditsUsed = usage?.credit_used ?? 0;
-  const creditsIncluded = usage?.credit_paid ?? 0;
+  const creditsUsed =
+    credits?.included.used_microusd === undefined
+      ? 0
+      : credits.included.used_microusd / 10_000;
+  const creditsIncluded =
+    credits?.included.limit_microusd === undefined
+      ? 0
+      : credits.included.limit_microusd / 10_000;
   const remaining = Math.max(0, creditsIncluded - creditsUsed);
-  const periodLabel = formatPeriodLabel(usage?.period_utc_month);
+  const periodLabel = formatPeriodLabel(credits?.period_utc_month);
   const hasAllowance = creditsIncluded > 0;
 
   return (
     <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
       <SettingRow
         title={primary}
-        desc={identityDesc}
-        descMono
+        desc={walletDesc}
+        leading={
+          <span className="bg-aomi-surface-2 text-aomi-muted flex size-8 shrink-0 items-center justify-center rounded-full">
+            <UserRound size={16} />
+          </span>
+        }
         className="px-4 sm:px-5"
       >
         <button
@@ -210,8 +229,8 @@ function AccountSummaryCard({
                 {remaining.toLocaleString()} remaining
               </span>
               <span className="text-aomi-accent-strong text-[12px] tabular-nums">
-                {creditsUsed.toLocaleString()} / {creditsIncluded.toLocaleString()}{" "}
-                used
+                {creditsUsed.toLocaleString()} /{" "}
+                {creditsIncluded.toLocaleString()} used
               </span>
             </div>
           </SettingRow>
@@ -220,8 +239,8 @@ function AccountSummaryCard({
 
       <div className="border-aomi-border flex items-start justify-between gap-3 border-t px-4 py-3 sm:px-5">
         <p className="text-aomi-muted min-w-0 flex-1 text-[12px] leading-snug">
-          Usage shows spend by app. Overflow settles via wallet pay when allowance
-          is used.
+          Usage shows spend by app. Overflow settles via wallet pay when
+          allowance is used.
         </p>
         <button
           type="button"
@@ -255,8 +274,8 @@ function WalletAttentionBanner({
           </h3>
           <p className="text-aomi-muted mt-1.5 text-[13px] leading-relaxed">
             {walletAttentionCount}{" "}
-            {walletAttentionCount === 1 ? "wallet needs" : "wallets need"} a renewed
-            provider grant before auto-signing can run.
+            {walletAttentionCount === 1 ? "wallet needs" : "wallets need"} a
+            renewed provider grant before auto-signing can run.
           </p>
         </div>
         <button
@@ -274,13 +293,13 @@ function WalletAttentionBanner({
 function SettingRow({
   title,
   desc,
-  descMono,
+  leading,
   className = "",
   children,
 }: {
   title: string;
   desc: string;
-  descMono?: boolean;
+  leading?: ReactNode;
   className?: string;
   children?: ReactNode;
 }) {
@@ -288,15 +307,14 @@ function SettingRow({
     <div
       className={`flex items-center justify-between gap-4 py-3.5 ${className}`}
     >
-      <div className="min-w-0 flex-1">
-        <span className="text-sm font-medium leading-none">{title}</span>
-        <span
-          className={`text-aomi-muted mt-1 block truncate text-[13px] leading-snug ${
-            descMono ? "font-mono" : ""
-          }`}
-        >
-          {desc}
-        </span>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {leading}
+        <div className="min-w-0 flex-1">
+          <span className="text-sm font-medium leading-none">{title}</span>
+          <span className="text-aomi-muted mt-1 block truncate text-[13px] leading-snug">
+            {desc}
+          </span>
+        </div>
       </div>
       {children}
     </div>
@@ -362,13 +380,18 @@ function formatPeriodLabel(periodUtcMonth?: string): string {
   }
   const [year, month] = periodUtcMonth.split("-").map(Number);
   const names = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
   return `${names[month - 1] ?? periodUtcMonth} ${year}`;
-}
-
-function truncateAddress(value: string): string {
-  if (value.length <= 12) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }

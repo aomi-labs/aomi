@@ -1,76 +1,61 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./credit-bank", () => ({
+  CreditBank: () => <div>Credit Bank</div>,
+}));
 
 import { UsageSettings } from "./usage-settings";
-import { seedAccountOverview } from "@portal/lib/account-overview";
 
 const STATEMENT = {
-  period_utc_from: "2026-07-01",
-  period_utc_to: "2026-07-31",
-  apps: [
+  entries: [
     {
-      app: "default",
-      turns: 8,
-      input_tokens: 2000,
+      usage_event_id: "usage-1",
+      operation_id: "operation-1",
+      application: "default",
+      provider: "anthropic",
+      model: "claude-sonnet-5",
+      input_tokens: 2_000,
       output_tokens: 400,
-      credits_used: 80,
-      usd: 0.8,
-      by_model: [
-        {
-          model: "claude-sonnet-5",
-          provider: "anthropic",
-          payment_method: "null",
-          turns: 8,
-          input_tokens: 2000,
-          output_tokens: 400,
-          credits_used: 80,
-          usd: 0.8,
-        },
-      ],
+      inference_funding_source: "platform",
+      gross_charge_microusd: 800_000,
+      included_applied_microusd: 800_000,
+      bank_debit_microusd: 0,
+      occurred_at: Math.floor(Date.now() / 1_000),
     },
   ],
-  payment: [
-    {
-      method: "null",
-      credits_used: 80,
-      usd: 0.8,
-      paid_credits: 0,
-      paid_usd: 0,
-    },
-  ],
-  total_credits_used: 80,
-  total_usd: 0.8,
+  next_cursor: null,
+};
+
+const CREDITS = {
+  period_utc_month: "2026-09-01",
+  included: {
+    limit_microusd: 5_000_000,
+    used_microusd: 800_000,
+    remaining_microusd: 4_200_000,
+  },
+  bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+  entries: [],
+  next_before_id: null,
 };
 
 describe("usage settings wiring", () => {
-  beforeEach(() => {
-    seedAccountOverview({
-      user: { user_id: "acct-1", verified_email: "alice@example.com" },
-      usage: {
-        input_tokens: 2000,
-        output_tokens: 400,
-        credit_used: 80,
-        credit_paid: 500,
-      },
-    });
-  });
-
-  afterEach(async () => {
+  afterEach(() => {
     vi.unstubAllGlobals();
-    await act(async () => {
-      seedAccountOverview(null);
-    });
   });
 
-  it("loads the month from the statement route and renders subjects honestly", async () => {
+  it("loads API-owned usage and renders subjects honestly", async () => {
     const calls: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input.toString(), "https://portal.test");
         calls.push(url.pathname + url.search);
-        if (url.pathname === "/api/account/statement") {
+        if (url.pathname === "/v1/account/statement") {
           return Response.json(STATEMENT);
+        }
+        if (url.pathname === "/v1/account/credits") {
+          return Response.json(CREDITS);
         }
         return new Response("unexpected", { status: 500 });
       }),
@@ -80,36 +65,38 @@ describe("usage settings wiring", () => {
       render(<UsageSettings />);
     });
 
-    // One statement fetch, month-ranged.
-    const statementCall = calls.find((c) =>
-      c.startsWith("/api/account/statement"),
+    const statementCall = calls.find((call) =>
+      call.startsWith("/v1/account/statement?"),
     );
-    expect(statementCall).toMatch(/from_date=\d{4}-\d{2}-01/);
-
-    // Model spend is real (Models row, Total, and the matrix all carry it);
-    // unwritten subjects render as absent, not $0.00.
+    expect(statementCall).toBeTruthy();
+    const statementQuery = new URL(statementCall!, "https://portal.test");
+    expect(statementQuery.searchParams.get("limit")).toBe("100");
+    expect(statementQuery.searchParams.get("from")).toBeTruthy();
+    expect(statementQuery.searchParams.get("to")).toBeTruthy();
+    expect(calls).toContain("/v1/account/credits?limit=1");
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText(/8 turns/).length).toBeGreaterThanOrEqual(1);
-    // Allowance meter fed by the profile's credit position.
+    expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/80.*500.*used/)).toBeTruthy();
+    expect(screen.getByText("Credit Bank")).toBeTruthy();
   });
 
-  it("recomputes a cached statement when the account allowance arrives later", async () => {
-    seedAccountOverview(null);
-    let finishAccount: ((response: Response) => void) | undefined;
-    const calls: string[] = [];
+  it("composes allowance from Credit Bank instead of the profile response", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input.toString(), "https://portal.test");
-        calls.push(url.pathname);
-        if (url.pathname === "/api/account/statement") {
-          return Response.json(STATEMENT);
+        if (url.pathname === "/v1/account/statement") {
+          return Response.json({ entries: [], next_cursor: null });
         }
-        if (url.pathname === "/api/account") {
-          return new Promise<Response>((resolve) => {
-            finishAccount = resolve;
+        if (url.pathname === "/v1/account/credits") {
+          return Response.json({
+            ...CREDITS,
+            included: {
+              limit_microusd: 50_000_000,
+              used_microusd: 12_500_000,
+              remaining_microusd: 37_500_000,
+            },
           });
         }
         return new Response("unexpected", { status: 500 });
@@ -119,38 +106,24 @@ describe("usage settings wiring", () => {
     await act(async () => {
       render(<UsageSettings />);
     });
-    expect(screen.queryByText(/Credits 80\/500/)).toBeNull();
 
-    await act(async () => {
-      finishAccount?.(
-        Response.json({
-          user: { user_id: "acct-1" },
-          usage: {
-            input_tokens: 2000,
-            output_tokens: 400,
-            credit_used: 80,
-            credit_paid: 500,
-          },
-        }),
-      );
-    });
-
-    expect(screen.getByText(/80.*500.*used/)).toBeTruthy();
-    expect(
-      calls.filter((path) => path === "/api/account/statement"),
-    ).toHaveLength(1);
+    expect(screen.getByText(/1,250.*5,000.*used/)).toBeTruthy();
+    expect(screen.getByText("No usage this month yet.")).toBeTruthy();
   });
 
-  it("turns widget auth failures into an actionable message", async () => {
+  it("turns account auth failures into an actionable message", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input.toString(), "https://portal.test");
-        if (url.pathname === "/api/account/statement") {
+        if (url.pathname === "/v1/account/statement") {
           return Response.json(
             { error: "widget_auth_failed" },
             { status: 401 },
           );
+        }
+        if (url.pathname === "/v1/account/credits") {
+          return Response.json(CREDITS);
         }
         return new Response("unexpected", { status: 500 });
       }),

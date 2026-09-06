@@ -15,7 +15,11 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
   };
 });
 
-import { ProgressiveRenderedText, WorkingTrace } from "./working-trace";
+import {
+  MinimalWorkingTrace,
+  ProgressiveRenderedText,
+  WorkingTrace,
+} from "./working-trace";
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
   agentId: "task-agent:9f2c1a2b3c4d",
@@ -28,6 +32,61 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("uses a compact status pill before trace steps arrive", () => {
+    const { container, getByRole } = render(<MinimalWorkingTrace />);
+
+    expect(getByRole("status", { name: "Aomi is thinking" })).toHaveTextContent(
+      "Thinking",
+    );
+    expect(container.querySelector(".aui-working-trace-start")).toHaveClass(
+      "h-8",
+      "w-fit",
+      "rounded-full",
+      "pr-4",
+      "pl-3",
+    );
+    expect(container.querySelector(".aui-working-shimmer")).toHaveClass(
+      "text-[13px]",
+      "font-medium",
+      "leading-none",
+    );
+    expect(container.querySelector(".aui-working-live")).toBeTruthy();
+    expect(container.querySelector(".aui-working-trace")).toBeNull();
+    expect(getByRole("status")).toHaveTextContent(/^Thinking$/);
+  });
+
+  it("shows completed duration as whole seconds", () => {
+    const now = Date.now();
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const { getByRole, rerender } = render(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          orchestrating={false}
+          startedAtMs={now - 6400}
+        />,
+      );
+
+      rerender(
+        <WorkingTrace
+          running={false}
+          items={[]}
+          revealed={0}
+          orchestrating={false}
+          startedAtMs={now - 6400}
+        />,
+      );
+
+      expect(getByRole("button", { name: /Worked for/ })).toHaveTextContent(
+        "Worked for 6s",
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it("progressively reveals a buffered final answer", async () => {
     vi.useFakeTimers();
     try {
@@ -53,13 +112,20 @@ describe("WorkingTrace", () => {
   });
 
   it("uses Working while the orchestrator badge identifies the mode", () => {
-    const { container } = render(
+    const { container, getByText } = render(
       <WorkingTrace running items={[]} revealed={0} orchestrating />,
     );
 
     expect(container).toHaveTextContent("Working");
+    expect(getByText("Working")).toHaveClass(
+      "text-[13px]",
+      "font-medium",
+      "leading-none",
+    );
     expect(container).toHaveTextContent("orchestrator");
     expect(container).not.toHaveTextContent("Orchestrating");
+    expect(container.querySelector(".aui-working-live")).toBeTruthy();
+    expect(container).not.toHaveTextContent("0 steps");
   });
 
   it("keeps the trace body mounted while animating it open and closed", () => {

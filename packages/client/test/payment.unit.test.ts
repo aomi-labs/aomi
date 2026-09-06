@@ -1,7 +1,10 @@
 import type { x402Client } from "@x402/core/client";
 import { describe, expect, it, vi } from "vitest";
 
-import { wrapFetchWithPaymentChallenges } from "../src/payment";
+import {
+  createEvmPaymentClient,
+  wrapFetchWithPaymentChallenges,
+} from "../src/payment";
 import { wrapFetchWithPublicApiAuthorization } from "../src/client";
 import type { AomiOAuthTokenRequest } from "../src/authorization";
 
@@ -194,7 +197,7 @@ describe("wrapFetchWithPaymentChallenges", () => {
     expect(rawFetch).toHaveBeenCalledTimes(1);
   });
 
-  it("fails after four sequential settled challenges", async () => {
+  it("returns the final response after four sequential settled challenges", async () => {
     let calls = 0;
     const rawFetch = vi.fn(async () => {
       calls += 1;
@@ -202,10 +205,49 @@ describe("wrapFetchWithPaymentChallenges", () => {
     });
     const { client, createPaymentPayload } = paymentClient();
 
-    await expect(
-      wrapFetchWithPaymentChallenges(rawFetch, client)(PAID_URL),
-    ).rejects.toThrow("Exceeded 4 sequential x402 payment challenges");
+    const response = await wrapFetchWithPaymentChallenges(
+      rawFetch,
+      client,
+    )(PAID_URL);
+
+    expect(response.status).toBe(402);
     expect(rawFetch).toHaveBeenCalledTimes(5);
     expect(createPaymentPayload).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("createEvmPaymentClient", () => {
+  it("adapts the configured Aomi wallet to x402 signing and chain switching", async () => {
+    const signTypedData = vi.fn(async () => `0x${"1".repeat(130)}`);
+    const switchChain = vi.fn(async () => undefined);
+    const client = createEvmPaymentClient({
+      address: "0x9cb9ec43b1Dcbe0ea37bfA9A99f2c9AAe2eBf2EB",
+      chainId: 1,
+      signTypedData,
+      switchChain,
+    });
+
+    await client!.createPaymentPayload({
+      x402Version: 2,
+      resource: { url: PAID_URL },
+      accepts: [
+        {
+          scheme: "exact",
+          network: "eip155:84532",
+          asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+          amount: "1000",
+          payTo: "0x9cb9ec43b1Dcbe0ea37bfA9A99f2c9AAe2eBf2EB",
+          maxTimeoutSeconds: 60,
+          extra: { name: "USDC", version: "2" },
+        },
+      ],
+    });
+
+    expect(switchChain).toHaveBeenCalledWith(84532);
+    expect(signTypedData).toHaveBeenCalledWith({
+      typedData: expect.objectContaining({
+        primaryType: "TransferWithAuthorization",
+      }),
+    });
   });
 });

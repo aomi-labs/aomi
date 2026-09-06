@@ -9,6 +9,7 @@ import {
   type AomiClientOptions,
   type AomiPlatformFilter,
 } from "@aomi-labs/client";
+import type { AomiInferenceFundingSource } from "../interface";
 import { ControlContextProvider } from "../contexts/control-context";
 import { NotificationContextProvider } from "../contexts/notification-context";
 import {
@@ -32,6 +33,7 @@ export type AomiRuntimeProviderProps = {
   applicationId?: number | string | null;
   appPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
+  inferenceFunding?: AomiInferenceFundingSource;
   actions?: ActionCapabilities;
   /** Whether a canonical account session can load threads without a wallet. */
   accountSessionAvailable?: boolean;
@@ -55,6 +57,7 @@ export function AomiRuntimeProvider({
   applicationId,
   appPlatforms,
   clientOptions,
+  inferenceFunding,
   actions,
   accountSessionAvailable = false,
   initialThreadId,
@@ -111,6 +114,7 @@ export function AomiRuntimeProvider({
         <ExtUserProvider>
           <AomiRuntimeInner
             aomiClient={aomiClient}
+            inferenceFunding={inferenceFunding}
             applicationId={applicationId}
             appPlatforms={appPlatforms}
             accountSessionAvailable={accountSessionAvailable}
@@ -133,6 +137,7 @@ export function AomiRuntimeProvider({
 type AomiRuntimeInnerProps = {
   children: ReactNode;
   aomiClient: AomiClient;
+  inferenceFunding?: AomiInferenceFundingSource;
   applicationId?: number | string | null;
   appPlatforms?: AomiPlatformFilter;
   accountSessionAvailable: boolean;
@@ -144,6 +149,7 @@ type AomiRuntimeInnerProps = {
 function AomiRuntimeInner({
   children,
   aomiClient,
+  inferenceFunding,
   applicationId,
   appPlatforms,
   accountSessionAvailable,
@@ -161,6 +167,7 @@ function AomiRuntimeInner({
       updateThreadMetadata={threadContext.updateThreadMetadata}
       appPlatforms={appPlatforms}
       applicationId={applicationId}
+      inferenceFunding={inferenceFunding}
     >
       <AomiRuntimeCore
         aomiClient={aomiClient}

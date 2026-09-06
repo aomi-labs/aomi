@@ -8,832 +8,834 @@
  * Original note:
  *
  * STUB DATA — settings redesign (see docs/SETTINGS-REDESIGN-GAPS.md).
- * Three reconciled months of a per-app usage statement. Real source:
- * /api/account/usage covers per-app credits today; the full statement
- * (tool/outcome subjects, monthly history, payment rails) needs a new
- * backend endpoint.
+ * Three reconciled months of a per-app usage statement. The live source is
+ * API-server `/v1/account/statement`; tool/outcome subjects remain absent
+ * until their ledger writers exist.
  */
 import type { UsageFixtureData } from "./types";
 
 export const usageFixture: UsageFixtureData = {
-  "account": {
-    "userId": "usr_9f31c0",
-    "handle": "mira.eth",
-    "authType": "Wallet",
-    "address": "0x7A3fC2e9b48D5a1F0c6E92b7D3A45f8901c29C21",
-    "network": "Ethereum",
-    "tier": "pro",
-    "status": "Active",
-    "byok": false,
-    "verifiedEmail": "mira@example.xyz",
-    "createdAt": "2026-03-12",
-    "lastSeenAt": "2026-07-24"
+  account: {
+    userId: "usr_9f31c0",
+    handle: "mira.eth",
+    authType: "Wallet",
+    address: "0x7A3fC2e9b48D5a1F0c6E92b7D3A45f8901c29C21",
+    network: "Ethereum",
+    tier: "pro",
+    status: "Active",
+    byok: false,
+    verifiedEmail: "mira@example.xyz",
+    createdAt: "2026-03-12",
+    lastSeenAt: "2026-07-24",
   },
-  "months": [
+  months: [
     {
-      "period": {
-        "periodLabel": "July 2026",
-        "from": "2026-07-01",
-        "to": "2026-07-31",
-        "issued": "2026-08-01"
+      period: {
+        periodLabel: "July 2026",
+        from: "2026-07-01",
+        to: "2026-07-31",
+        issued: "2026-08-01",
       },
-      "summary": {
-        "modelUsd": 36.45,
-        "toolUsd": 0.59,
-        "outcomeUsd": 46.75,
-        "computeUsd": 37.04,
-        "onchainUsd": 46.75,
-        "totalUsd": 83.79,
-        "managedMarkupUsd": 1.5
+      summary: {
+        modelUsd: 36.45,
+        toolUsd: 0.59,
+        outcomeUsd: 46.75,
+        computeUsd: 37.04,
+        onchainUsd: 46.75,
+        totalUsd: 83.79,
+        managedMarkupUsd: 1.5,
       },
-      "payment": {
-        "settledVia": "Coinbase x402",
-        "allowanceCredits": {
-          "included": 500,
-          "used": 500
+      payment: {
+        settledVia: "Coinbase x402",
+        allowanceCredits: {
+          included: 500,
+          used: 500,
         },
-        "allowanceAppliedUsd": 5.0,
-        "x402SettledUsd": 32.04,
-        "onchainUsd": 46.75,
-        "onchainNote": "paid in-token (ETH, USDC) atomically on your own transactions"
+        allowanceAppliedUsd: 5.0,
+        creditBankAppliedUsd: 32.04,
+        onchainUsd: 46.75,
+        onchainNote:
+          "paid in-token (ETH, USDC) atomically on your own transactions",
       },
-      "apps": [
+      apps: [
         {
-          "id": "default",
-          "name": "Aomi",
-          "native": true,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 0,
-            "note": "Native app — model billed at base cost, no markup"
+          id: "default",
+          name: "Aomi",
+          native: true,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 0,
+            note: "Native app — model billed at base cost, no markup",
           },
-          "model": {
-            "baseUsd": 19.95,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 19.95,
-            "turns": 80,
-            "byModel": [
+          model: {
+            baseUsd: 19.95,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 19.95,
+            turns: 80,
+            byModel: [
               {
-                "model": "claude-opus-4-8",
-                "turns": 25,
-                "inputTokens": 800000,
-                "outputTokens": 240000,
-                "baseUsd": 10.0,
-                "chargedUsd": 10.0
+                model: "claude-opus-4-8",
+                turns: 25,
+                inputTokens: 800000,
+                outputTokens: 240000,
+                baseUsd: 10.0,
+                chargedUsd: 10.0,
               },
               {
-                "model": "claude-sonnet-4-6",
-                "turns": 40,
-                "inputTokens": 1300000,
-                "outputTokens": 320000,
-                "baseUsd": 8.7,
-                "chargedUsd": 8.7
+                model: "claude-sonnet-4-6",
+                turns: 40,
+                inputTokens: 1300000,
+                outputTokens: 320000,
+                baseUsd: 8.7,
+                chargedUsd: 8.7,
               },
               {
-                "model": "claude-haiku-4-5",
-                "turns": 15,
-                "inputTokens": 500000,
-                "outputTokens": 150000,
-                "baseUsd": 1.25,
-                "chargedUsd": 1.25
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 15,
+                inputTokens: 500000,
+                outputTokens: 150000,
+                baseUsd: 1.25,
+                chargedUsd: 1.25,
+              },
+            ],
           },
-          "tool": null,
-          "outcome": null,
-          "appTotalUsd": 19.95
+          tool: null,
+          outcome: null,
+          appTotalUsd: 19.95,
         },
         {
-          "id": "somm",
-          "name": "Somm",
-          "native": false,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 10,
-            "note": "Third-party app on Aomi's managed key — model billed at base + 10%"
+          id: "somm",
+          name: "Somm",
+          native: false,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 10,
+            note: "Third-party app on Aomi's managed key — model billed at base + 10%",
           },
-          "model": {
-            "baseUsd": 11.5,
-            "markupPct": 10,
-            "markupUsd": 1.15,
-            "chargedUsd": 12.65,
-            "turns": 38,
-            "byModel": [
+          model: {
+            baseUsd: 11.5,
+            markupPct: 10,
+            markupUsd: 1.15,
+            chargedUsd: 12.65,
+            turns: 38,
+            byModel: [
               {
-                "model": "claude-sonnet-4-6",
-                "turns": 30,
-                "inputTokens": 1000000,
-                "outputTokens": 300000,
-                "baseUsd": 7.5,
-                "chargedUsd": 8.25
+                model: "claude-sonnet-4-6",
+                turns: 30,
+                inputTokens: 1000000,
+                outputTokens: 300000,
+                baseUsd: 7.5,
+                chargedUsd: 8.25,
               },
               {
-                "model": "claude-opus-4-8",
-                "turns": 8,
-                "inputTokens": 300000,
-                "outputTokens": 100000,
-                "baseUsd": 4.0,
-                "chargedUsd": 4.4
-              }
-            ]
+                model: "claude-opus-4-8",
+                turns: 8,
+                inputTokens: 300000,
+                outputTokens: 100000,
+                baseUsd: 4.0,
+                chargedUsd: 4.4,
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.29,
-            "calls": 45,
-            "items": [
+          tool: {
+            chargedUsd: 0.29,
+            calls: 45,
+            items: [
               {
-                "tool": "somm.get_quote",
-                "calls": 40,
-                "unitCredits": 0.5,
-                "usd": 0.2
+                tool: "somm.get_quote",
+                calls: 40,
+                unitCredits: 0.5,
+                usd: 0.2,
               },
               {
-                "tool": "somm.deposit",
-                "calls": 3,
-                "unitCredits": 2.0,
-                "usd": 0.06
+                tool: "somm.deposit",
+                calls: 3,
+                unitCredits: 2.0,
+                usd: 0.06,
               },
               {
-                "tool": "somm.rebalance",
-                "calls": 2,
-                "unitCredits": 1.5,
-                "usd": 0.03
-              }
-            ]
+                tool: "somm.rebalance",
+                calls: 2,
+                unitCredits: 1.5,
+                usd: 0.03,
+              },
+            ],
           },
-          "outcome": {
-            "chargedUsd": 30.75,
-            "txns": 2,
-            "items": [
+          outcome: {
+            chargedUsd: 30.75,
+            txns: 2,
+            items: [
               {
-                "date": "2026-07-03",
-                "action": "vault deposit",
-                "chain": "Ethereum",
-                "flow": "5.00 ETH",
-                "bps": 15,
-                "feeToken": "0.0075 ETH",
-                "usd": 18.75,
-                "tx": "0x9c4a7b21e0f3d8c6519a4be27f0d15a83c6e42b9d70158fa9c3e21d4067ab5c1"
+                date: "2026-07-03",
+                action: "vault deposit",
+                chain: "Ethereum",
+                flow: "5.00 ETH",
+                bps: 15,
+                feeToken: "0.0075 ETH",
+                usd: 18.75,
+                tx: "0x9c4a7b21e0f3d8c6519a4be27f0d15a83c6e42b9d70158fa9c3e21d4067ab5c1",
               },
               {
-                "date": "2026-07-19",
-                "action": "rebalance",
-                "chain": "Ethereum",
-                "flow": "3.20 ETH",
-                "bps": 15,
-                "feeToken": "0.0048 ETH",
-                "usd": 12.0,
-                "tx": "0x7f8140d2ac91be6350f7a2c48e01d9b6537ca8021ef94db7605c3ae182f47dd0"
-              }
-            ]
+                date: "2026-07-19",
+                action: "rebalance",
+                chain: "Ethereum",
+                flow: "3.20 ETH",
+                bps: 15,
+                feeToken: "0.0048 ETH",
+                usd: 12.0,
+                tx: "0x7f8140d2ac91be6350f7a2c48e01d9b6537ca8021ef94db7605c3ae182f47dd0",
+              },
+            ],
           },
-          "appTotalUsd": 43.69
+          appTotalUsd: 43.69,
         },
         {
-          "id": "foo-app",
-          "name": "foo app",
-          "native": false,
-          "settings": {
-            "modelKey": "byok",
-            "appByok": true,
-            "managedMarkupPct": 0,
-            "note": "App runs on its own model key (BYOK) — Aomi does not bill the user for model"
+          id: "foo-app",
+          name: "foo app",
+          native: false,
+          settings: {
+            modelKey: "byok",
+            appByok: true,
+            managedMarkupPct: 0,
+            note: "App runs on its own model key (BYOK) — Aomi does not bill the user for model",
           },
-          "model": {
-            "baseUsd": 1.35,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 0.0,
-            "billed": false,
-            "turns": 20,
-            "byModel": [
+          model: {
+            baseUsd: 1.35,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 0.0,
+            billed: false,
+            turns: 20,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 20,
-                "inputTokens": 600000,
-                "outputTokens": 150000,
-                "baseUsd": 1.35,
-                "chargedUsd": 0.0,
-                "note": "paid by foo app's own provider key"
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 20,
+                inputTokens: 600000,
+                outputTokens: 150000,
+                baseUsd: 1.35,
+                chargedUsd: 0.0,
+                note: "paid by foo app's own provider key",
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.18,
-            "calls": 60,
-            "items": [
+          tool: {
+            chargedUsd: 0.18,
+            calls: 60,
+            items: [
               {
-                "tool": "foo.lookup",
-                "calls": 60,
-                "unitCredits": 0.3,
-                "usd": 0.18
-              }
-            ]
+                tool: "foo.lookup",
+                calls: 60,
+                unitCredits: 0.3,
+                usd: 0.18,
+              },
+            ],
           },
-          "outcome": null,
-          "appTotalUsd": 0.18
+          outcome: null,
+          appTotalUsd: 0.18,
         },
         {
-          "id": "meme-coin-trader",
-          "name": "meme coin trader",
-          "native": false,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 10,
-            "note": "Third-party app on Aomi's managed key — model billed at base + 10%"
+          id: "meme-coin-trader",
+          name: "meme coin trader",
+          native: false,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 10,
+            note: "Third-party app on Aomi's managed key — model billed at base + 10%",
           },
-          "model": {
-            "baseUsd": 3.5,
-            "markupPct": 10,
-            "markupUsd": 0.35,
-            "chargedUsd": 3.85,
-            "turns": 50,
-            "byModel": [
+          model: {
+            baseUsd: 3.5,
+            markupPct: 10,
+            markupUsd: 0.35,
+            chargedUsd: 3.85,
+            turns: 50,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 50,
-                "inputTokens": 1500000,
-                "outputTokens": 400000,
-                "baseUsd": 3.5,
-                "chargedUsd": 3.85
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 50,
+                inputTokens: 1500000,
+                outputTokens: 400000,
+                baseUsd: 3.5,
+                chargedUsd: 3.85,
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.12,
-            "calls": 28,
-            "items": [
+          tool: {
+            chargedUsd: 0.12,
+            calls: 28,
+            items: [
               {
-                "tool": "memetrader.scan",
-                "calls": 20,
-                "unitCredits": 0.2,
-                "usd": 0.04
+                tool: "memetrader.scan",
+                calls: 20,
+                unitCredits: 0.2,
+                usd: 0.04,
               },
               {
-                "tool": "memetrader.snipe",
-                "calls": 8,
-                "unitCredits": 1.0,
-                "usd": 0.08
-              }
-            ]
+                tool: "memetrader.snipe",
+                calls: 8,
+                unitCredits: 1.0,
+                usd: 0.08,
+              },
+            ],
           },
-          "outcome": {
-            "chargedUsd": 16.0,
-            "txns": 2,
-            "items": [
+          outcome: {
+            chargedUsd: 16.0,
+            txns: 2,
+            items: [
               {
-                "date": "2026-07-11",
-                "action": "swap",
-                "chain": "Ethereum",
-                "flow": "12,000 USDC",
-                "bps": 10,
-                "feeToken": "12.00 USDC",
-                "usd": 12.0,
-                "tx": "0x3d2f9a15c8e740b16de29f03a5c184bb70e6c2915df048a3e17b95d206c4a8f2"
+                date: "2026-07-11",
+                action: "swap",
+                chain: "Ethereum",
+                flow: "12,000 USDC",
+                bps: 10,
+                feeToken: "12.00 USDC",
+                usd: 12.0,
+                tx: "0x3d2f9a15c8e740b16de29f03a5c184bb70e6c2915df048a3e17b95d206c4a8f2",
               },
               {
-                "date": "2026-07-22",
-                "action": "swap",
-                "chain": "Base",
-                "flow": "4,000 USDC",
-                "bps": 10,
-                "feeToken": "4.00 USDC",
-                "usd": 4.0,
-                "tx": "0xa15c630bd9e28f4471a0c5e93b6d208f1c74ae59027df3b6810e4a2cd75f9013"
-              }
-            ]
+                date: "2026-07-22",
+                action: "swap",
+                chain: "Base",
+                flow: "4,000 USDC",
+                bps: 10,
+                feeToken: "4.00 USDC",
+                usd: 4.0,
+                tx: "0xa15c630bd9e28f4471a0c5e93b6d208f1c74ae59027df3b6810e4a2cd75f9013",
+              },
+            ],
           },
-          "appTotalUsd": 19.97
-        }
+          appTotalUsd: 19.97,
+        },
       ],
-      "byApp": [
+      byApp: [
         {
-          "app": "default",
-          "modelUsd": 19.95,
-          "toolUsd": null,
-          "outcomeUsd": null,
-          "totalUsd": 19.95
+          app: "default",
+          modelUsd: 19.95,
+          toolUsd: null,
+          outcomeUsd: null,
+          totalUsd: 19.95,
         },
         {
-          "app": "somm",
-          "modelUsd": 12.65,
-          "toolUsd": 0.29,
-          "outcomeUsd": 30.75,
-          "totalUsd": 43.69
+          app: "somm",
+          modelUsd: 12.65,
+          toolUsd: 0.29,
+          outcomeUsd: 30.75,
+          totalUsd: 43.69,
         },
         {
-          "app": "foo app",
-          "modelUsd": 0.0,
-          "toolUsd": 0.18,
-          "outcomeUsd": null,
-          "totalUsd": 0.18
+          app: "foo app",
+          modelUsd: 0.0,
+          toolUsd: 0.18,
+          outcomeUsd: null,
+          totalUsd: 0.18,
         },
         {
-          "app": "meme coin trader",
-          "modelUsd": 3.85,
-          "toolUsd": 0.12,
-          "outcomeUsd": 16.0,
-          "totalUsd": 19.97
-        }
+          app: "meme coin trader",
+          modelUsd: 3.85,
+          toolUsd: 0.12,
+          outcomeUsd: 16.0,
+          totalUsd: 19.97,
+        },
       ],
-      "columnTotals": {
-        "modelUsd": 36.45,
-        "toolUsd": 0.59,
-        "outcomeUsd": 46.75,
-        "totalUsd": 83.79
-      }
+      columnTotals: {
+        modelUsd: 36.45,
+        toolUsd: 0.59,
+        outcomeUsd: 46.75,
+        totalUsd: 83.79,
+      },
     },
     {
-      "period": {
-        "periodLabel": "June 2026",
-        "from": "2026-06-01",
-        "to": "2026-06-30",
-        "issued": "2026-07-01"
+      period: {
+        periodLabel: "June 2026",
+        from: "2026-06-01",
+        to: "2026-06-30",
+        issued: "2026-07-01",
       },
-      "summary": {
-        "modelUsd": 25.86,
-        "toolUsd": 0.51,
-        "outcomeUsd": 11.16,
-        "computeUsd": 26.37,
-        "onchainUsd": 11.16,
-        "totalUsd": 37.53,
-        "managedMarkupUsd": 1.06
+      summary: {
+        modelUsd: 25.86,
+        toolUsd: 0.51,
+        outcomeUsd: 11.16,
+        computeUsd: 26.37,
+        onchainUsd: 11.16,
+        totalUsd: 37.53,
+        managedMarkupUsd: 1.06,
       },
-      "payment": {
-        "settledVia": "Coinbase x402",
-        "allowanceCredits": {
-          "included": 500,
-          "used": 500
+      payment: {
+        settledVia: "Coinbase x402",
+        allowanceCredits: {
+          included: 500,
+          used: 500,
         },
-        "allowanceAppliedUsd": 5.0,
-        "x402SettledUsd": 21.37,
-        "onchainUsd": 11.16,
-        "onchainNote": "paid in-token (ETH, USDC) atomically on your own transactions"
+        allowanceAppliedUsd: 5.0,
+        creditBankAppliedUsd: 21.37,
+        onchainUsd: 11.16,
+        onchainNote:
+          "paid in-token (ETH, USDC) atomically on your own transactions",
       },
-      "apps": [
+      apps: [
         {
-          "id": "default",
-          "name": "Aomi",
-          "native": true,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 0,
-            "note": "Native app — model billed at base cost, no markup"
+          id: "default",
+          name: "Aomi",
+          native: true,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 0,
+            note: "Native app — model billed at base cost, no markup",
           },
-          "model": {
-            "baseUsd": 14.2,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 14.2,
-            "turns": 61,
-            "byModel": [
+          model: {
+            baseUsd: 14.2,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 14.2,
+            turns: 61,
+            byModel: [
               {
-                "model": "claude-opus-4-8",
-                "turns": 12,
-                "inputTokens": 500000,
-                "outputTokens": 140000,
-                "baseUsd": 6.0,
-                "chargedUsd": 6.0
+                model: "claude-opus-4-8",
+                turns: 12,
+                inputTokens: 500000,
+                outputTokens: 140000,
+                baseUsd: 6.0,
+                chargedUsd: 6.0,
               },
               {
-                "model": "claude-sonnet-4-6",
-                "turns": 34,
-                "inputTokens": 1050000,
-                "outputTokens": 260000,
-                "baseUsd": 7.0,
-                "chargedUsd": 7.0
+                model: "claude-sonnet-4-6",
+                turns: 34,
+                inputTokens: 1050000,
+                outputTokens: 260000,
+                baseUsd: 7.0,
+                chargedUsd: 7.0,
               },
               {
-                "model": "claude-haiku-4-5",
-                "turns": 15,
-                "inputTokens": 480000,
-                "outputTokens": 130000,
-                "baseUsd": 1.2,
-                "chargedUsd": 1.2
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 15,
+                inputTokens: 480000,
+                outputTokens: 130000,
+                baseUsd: 1.2,
+                chargedUsd: 1.2,
+              },
+            ],
           },
-          "tool": null,
-          "outcome": null,
-          "appTotalUsd": 14.2
+          tool: null,
+          outcome: null,
+          appTotalUsd: 14.2,
         },
         {
-          "id": "somm",
-          "name": "Somm",
-          "native": false,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 10,
-            "note": "Third-party app on Aomi's managed key — model billed at base + 10%"
+          id: "somm",
+          name: "Somm",
+          native: false,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 10,
+            note: "Third-party app on Aomi's managed key — model billed at base + 10%",
           },
-          "model": {
-            "baseUsd": 8.0,
-            "markupPct": 10,
-            "markupUsd": 0.8,
-            "chargedUsd": 8.8,
-            "turns": 24,
-            "byModel": [
+          model: {
+            baseUsd: 8.0,
+            markupPct: 10,
+            markupUsd: 0.8,
+            chargedUsd: 8.8,
+            turns: 24,
+            byModel: [
               {
-                "model": "claude-sonnet-4-6",
-                "turns": 24,
-                "inputTokens": 950000,
-                "outputTokens": 240000,
-                "baseUsd": 8.0,
-                "chargedUsd": 8.8
-              }
-            ]
+                model: "claude-sonnet-4-6",
+                turns: 24,
+                inputTokens: 950000,
+                outputTokens: 240000,
+                baseUsd: 8.0,
+                chargedUsd: 8.8,
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.22,
-            "calls": 32,
-            "items": [
+          tool: {
+            chargedUsd: 0.22,
+            calls: 32,
+            items: [
               {
-                "tool": "somm.get_quote",
-                "calls": 28,
-                "unitCredits": 0.5,
-                "usd": 0.14
+                tool: "somm.get_quote",
+                calls: 28,
+                unitCredits: 0.5,
+                usd: 0.14,
               },
               {
-                "tool": "somm.deposit",
-                "calls": 4,
-                "unitCredits": 2.0,
-                "usd": 0.08
-              }
-            ]
+                tool: "somm.deposit",
+                calls: 4,
+                unitCredits: 2.0,
+                usd: 0.08,
+              },
+            ],
           },
-          "outcome": {
-            "chargedUsd": 9.0,
-            "txns": 1,
-            "items": [
+          outcome: {
+            chargedUsd: 9.0,
+            txns: 1,
+            items: [
               {
-                "date": "2026-06-14",
-                "action": "vault deposit",
-                "chain": "Ethereum",
-                "flow": "2.40 ETH",
-                "bps": 15,
-                "feeToken": "0.0036 ETH",
-                "usd": 9.0,
-                "tx": "0x5b21d9c4a7e83f60b12c94de07a3518c6f92eb04d1785ac3906bd2ef418c7a25"
-              }
-            ]
+                date: "2026-06-14",
+                action: "vault deposit",
+                chain: "Ethereum",
+                flow: "2.40 ETH",
+                bps: 15,
+                feeToken: "0.0036 ETH",
+                usd: 9.0,
+                tx: "0x5b21d9c4a7e83f60b12c94de07a3518c6f92eb04d1785ac3906bd2ef418c7a25",
+              },
+            ],
           },
-          "appTotalUsd": 18.02
+          appTotalUsd: 18.02,
         },
         {
-          "id": "yield-scout",
-          "name": "yield scout",
-          "native": false,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 10,
-            "note": "Third-party app on Aomi's managed key — model billed at base + 10%"
+          id: "yield-scout",
+          name: "yield scout",
+          native: false,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 10,
+            note: "Third-party app on Aomi's managed key — model billed at base + 10%",
           },
-          "model": {
-            "baseUsd": 2.6,
-            "markupPct": 10,
-            "markupUsd": 0.26,
-            "chargedUsd": 2.86,
-            "turns": 19,
-            "byModel": [
+          model: {
+            baseUsd: 2.6,
+            markupPct: 10,
+            markupUsd: 0.26,
+            chargedUsd: 2.86,
+            turns: 19,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 19,
-                "inputTokens": 900000,
-                "outputTokens": 210000,
-                "baseUsd": 2.6,
-                "chargedUsd": 2.86
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 19,
+                inputTokens: 900000,
+                outputTokens: 210000,
+                baseUsd: 2.6,
+                chargedUsd: 2.86,
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.17,
-            "calls": 28,
-            "items": [
+          tool: {
+            chargedUsd: 0.17,
+            calls: 28,
+            items: [
               {
-                "tool": "yscout.scan",
-                "calls": 22,
-                "unitCredits": 0.5,
-                "usd": 0.11
+                tool: "yscout.scan",
+                calls: 22,
+                unitCredits: 0.5,
+                usd: 0.11,
               },
               {
-                "tool": "yscout.report",
-                "calls": 6,
-                "unitCredits": 1.0,
-                "usd": 0.06
-              }
-            ]
+                tool: "yscout.report",
+                calls: 6,
+                unitCredits: 1.0,
+                usd: 0.06,
+              },
+            ],
           },
-          "outcome": {
-            "chargedUsd": 2.16,
-            "txns": 1,
-            "items": [
+          outcome: {
+            chargedUsd: 2.16,
+            txns: 1,
+            items: [
               {
-                "date": "2026-06-21",
-                "action": "vault rotate",
-                "chain": "Base",
-                "flow": "1,800 USDC",
-                "bps": 12,
-                "feeToken": "2.16 USDC",
-                "usd": 2.16,
-                "tx": "0xe07c31a95d24f8b6702e15c49ab8d3f1608a2c7bd493561ef0b8a4d217c9e638"
-              }
-            ]
+                date: "2026-06-21",
+                action: "vault rotate",
+                chain: "Base",
+                flow: "1,800 USDC",
+                bps: 12,
+                feeToken: "2.16 USDC",
+                usd: 2.16,
+                tx: "0xe07c31a95d24f8b6702e15c49ab8d3f1608a2c7bd493561ef0b8a4d217c9e638",
+              },
+            ],
           },
-          "appTotalUsd": 5.19
+          appTotalUsd: 5.19,
         },
         {
-          "id": "foo-app",
-          "name": "foo app",
-          "native": false,
-          "settings": {
-            "modelKey": "byok",
-            "appByok": true,
-            "managedMarkupPct": 0,
-            "note": "App runs on its own model key (BYOK) — Aomi does not bill the user for model"
+          id: "foo-app",
+          name: "foo app",
+          native: false,
+          settings: {
+            modelKey: "byok",
+            appByok: true,
+            managedMarkupPct: 0,
+            note: "App runs on its own model key (BYOK) — Aomi does not bill the user for model",
           },
-          "model": {
-            "baseUsd": 0.95,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 0.0,
-            "billed": false,
-            "turns": 14,
-            "byModel": [
+          model: {
+            baseUsd: 0.95,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 0.0,
+            billed: false,
+            turns: 14,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 14,
-                "inputTokens": 400000,
-                "outputTokens": 95000,
-                "baseUsd": 0.95,
-                "chargedUsd": 0.0,
-                "note": "paid by foo app's own provider key"
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 14,
+                inputTokens: 400000,
+                outputTokens: 95000,
+                baseUsd: 0.95,
+                chargedUsd: 0.0,
+                note: "paid by foo app's own provider key",
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.12,
-            "calls": 40,
-            "items": [
+          tool: {
+            chargedUsd: 0.12,
+            calls: 40,
+            items: [
               {
-                "tool": "foo.lookup",
-                "calls": 40,
-                "unitCredits": 0.3,
-                "usd": 0.12
-              }
-            ]
+                tool: "foo.lookup",
+                calls: 40,
+                unitCredits: 0.3,
+                usd: 0.12,
+              },
+            ],
           },
-          "outcome": null,
-          "appTotalUsd": 0.12
-        }
+          outcome: null,
+          appTotalUsd: 0.12,
+        },
       ],
-      "byApp": [
+      byApp: [
         {
-          "app": "default",
-          "modelUsd": 14.2,
-          "toolUsd": null,
-          "outcomeUsd": null,
-          "totalUsd": 14.2
+          app: "default",
+          modelUsd: 14.2,
+          toolUsd: null,
+          outcomeUsd: null,
+          totalUsd: 14.2,
         },
         {
-          "app": "somm",
-          "modelUsd": 8.8,
-          "toolUsd": 0.22,
-          "outcomeUsd": 9.0,
-          "totalUsd": 18.02
+          app: "somm",
+          modelUsd: 8.8,
+          toolUsd: 0.22,
+          outcomeUsd: 9.0,
+          totalUsd: 18.02,
         },
         {
-          "app": "yield scout",
-          "modelUsd": 2.86,
-          "toolUsd": 0.17,
-          "outcomeUsd": 2.16,
-          "totalUsd": 5.19
+          app: "yield scout",
+          modelUsd: 2.86,
+          toolUsd: 0.17,
+          outcomeUsd: 2.16,
+          totalUsd: 5.19,
         },
         {
-          "app": "foo app",
-          "modelUsd": 0.0,
-          "toolUsd": 0.12,
-          "outcomeUsd": null,
-          "totalUsd": 0.12
-        }
+          app: "foo app",
+          modelUsd: 0.0,
+          toolUsd: 0.12,
+          outcomeUsd: null,
+          totalUsd: 0.12,
+        },
       ],
-      "columnTotals": {
-        "modelUsd": 25.86,
-        "toolUsd": 0.51,
-        "outcomeUsd": 11.16,
-        "totalUsd": 37.53
-      }
+      columnTotals: {
+        modelUsd: 25.86,
+        toolUsd: 0.51,
+        outcomeUsd: 11.16,
+        totalUsd: 37.53,
+      },
     },
     {
-      "period": {
-        "periodLabel": "May 2026",
-        "from": "2026-05-01",
-        "to": "2026-05-31",
-        "issued": "2026-06-01"
+      period: {
+        periodLabel: "May 2026",
+        from: "2026-05-01",
+        to: "2026-05-31",
+        issued: "2026-06-01",
       },
-      "summary": {
-        "modelUsd": 3.2,
-        "toolUsd": 0.1,
-        "outcomeUsd": 1.2,
-        "computeUsd": 3.3,
-        "onchainUsd": 1.2,
-        "totalUsd": 4.5,
-        "managedMarkupUsd": 0.1
+      summary: {
+        modelUsd: 3.2,
+        toolUsd: 0.1,
+        outcomeUsd: 1.2,
+        computeUsd: 3.3,
+        onchainUsd: 1.2,
+        totalUsd: 4.5,
+        managedMarkupUsd: 0.1,
       },
-      "payment": {
-        "settledVia": "Coinbase x402",
-        "allowanceCredits": {
-          "included": 500,
-          "used": 330
+      payment: {
+        settledVia: "Coinbase x402",
+        allowanceCredits: {
+          included: 500,
+          used: 330,
         },
-        "allowanceAppliedUsd": 3.3,
-        "x402SettledUsd": 0.0,
-        "onchainUsd": 1.2,
-        "onchainNote": "paid in-token (ETH, USDC) atomically on your own transactions"
+        allowanceAppliedUsd: 3.3,
+        creditBankAppliedUsd: 0.0,
+        onchainUsd: 1.2,
+        onchainNote:
+          "paid in-token (ETH, USDC) atomically on your own transactions",
       },
-      "apps": [
+      apps: [
         {
-          "id": "default",
-          "name": "Aomi",
-          "native": true,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 0,
-            "note": "Native app — model billed at base cost, no markup"
+          id: "default",
+          name: "Aomi",
+          native: true,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 0,
+            note: "Native app — model billed at base cost, no markup",
           },
-          "model": {
-            "baseUsd": 2.1,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 2.1,
-            "turns": 15,
-            "byModel": [
+          model: {
+            baseUsd: 2.1,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 2.1,
+            turns: 15,
+            byModel: [
               {
-                "model": "claude-sonnet-4-6",
-                "turns": 7,
-                "inputTokens": 210000,
-                "outputTokens": 50000,
-                "baseUsd": 1.3,
-                "chargedUsd": 1.3
+                model: "claude-sonnet-4-6",
+                turns: 7,
+                inputTokens: 210000,
+                outputTokens: 50000,
+                baseUsd: 1.3,
+                chargedUsd: 1.3,
               },
               {
-                "model": "claude-haiku-4-5",
-                "turns": 8,
-                "inputTokens": 260000,
-                "outputTokens": 70000,
-                "baseUsd": 0.8,
-                "chargedUsd": 0.8
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 8,
+                inputTokens: 260000,
+                outputTokens: 70000,
+                baseUsd: 0.8,
+                chargedUsd: 0.8,
+              },
+            ],
           },
-          "tool": null,
-          "outcome": null,
-          "appTotalUsd": 2.1
+          tool: null,
+          outcome: null,
+          appTotalUsd: 2.1,
         },
         {
-          "id": "meme-coin-trader",
-          "name": "meme coin trader",
-          "native": false,
-          "settings": {
-            "modelKey": "managed",
-            "appByok": false,
-            "managedMarkupPct": 10,
-            "note": "Third-party app on Aomi's managed key — model billed at base + 10%"
+          id: "meme-coin-trader",
+          name: "meme coin trader",
+          native: false,
+          settings: {
+            modelKey: "managed",
+            appByok: false,
+            managedMarkupPct: 10,
+            note: "Third-party app on Aomi's managed key — model billed at base + 10%",
           },
-          "model": {
-            "baseUsd": 1.0,
-            "markupPct": 10,
-            "markupUsd": 0.1,
-            "chargedUsd": 1.1,
-            "turns": 12,
-            "byModel": [
+          model: {
+            baseUsd: 1.0,
+            markupPct: 10,
+            markupUsd: 0.1,
+            chargedUsd: 1.1,
+            turns: 12,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 12,
-                "inputTokens": 380000,
-                "outputTokens": 100000,
-                "baseUsd": 1.0,
-                "chargedUsd": 1.1
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 12,
+                inputTokens: 380000,
+                outputTokens: 100000,
+                baseUsd: 1.0,
+                chargedUsd: 1.1,
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.04,
-            "calls": 12,
-            "items": [
+          tool: {
+            chargedUsd: 0.04,
+            calls: 12,
+            items: [
               {
-                "tool": "memetrader.scan",
-                "calls": 10,
-                "unitCredits": 0.2,
-                "usd": 0.02
+                tool: "memetrader.scan",
+                calls: 10,
+                unitCredits: 0.2,
+                usd: 0.02,
               },
               {
-                "tool": "memetrader.snipe",
-                "calls": 2,
-                "unitCredits": 1.0,
-                "usd": 0.02
-              }
-            ]
+                tool: "memetrader.snipe",
+                calls: 2,
+                unitCredits: 1.0,
+                usd: 0.02,
+              },
+            ],
           },
-          "outcome": {
-            "chargedUsd": 1.2,
-            "txns": 1,
-            "items": [
+          outcome: {
+            chargedUsd: 1.2,
+            txns: 1,
+            items: [
               {
-                "date": "2026-05-18",
-                "action": "swap",
-                "chain": "Ethereum",
-                "flow": "1,200 USDC",
-                "bps": 10,
-                "feeToken": "1.20 USDC",
-                "usd": 1.2,
-                "tx": "0x81f4c26e9ab05d73c1e8402f5b96da14709c3be82d15f647a09d3c5e8b12f760"
-              }
-            ]
+                date: "2026-05-18",
+                action: "swap",
+                chain: "Ethereum",
+                flow: "1,200 USDC",
+                bps: 10,
+                feeToken: "1.20 USDC",
+                usd: 1.2,
+                tx: "0x81f4c26e9ab05d73c1e8402f5b96da14709c3be82d15f647a09d3c5e8b12f760",
+              },
+            ],
           },
-          "appTotalUsd": 2.34
+          appTotalUsd: 2.34,
         },
         {
-          "id": "foo-app",
-          "name": "foo app",
-          "native": false,
-          "settings": {
-            "modelKey": "byok",
-            "appByok": true,
-            "managedMarkupPct": 0,
-            "note": "App runs on its own model key (BYOK) — Aomi does not bill the user for model"
+          id: "foo-app",
+          name: "foo app",
+          native: false,
+          settings: {
+            modelKey: "byok",
+            appByok: true,
+            managedMarkupPct: 0,
+            note: "App runs on its own model key (BYOK) — Aomi does not bill the user for model",
           },
-          "model": {
-            "baseUsd": 0.35,
-            "markupPct": 0,
-            "markupUsd": 0.0,
-            "chargedUsd": 0.0,
-            "billed": false,
-            "turns": 6,
-            "byModel": [
+          model: {
+            baseUsd: 0.35,
+            markupPct: 0,
+            markupUsd: 0.0,
+            chargedUsd: 0.0,
+            billed: false,
+            turns: 6,
+            byModel: [
               {
-                "model": "claude-haiku-4-5",
-                "turns": 6,
-                "inputTokens": 170000,
-                "outputTokens": 40000,
-                "baseUsd": 0.35,
-                "chargedUsd": 0.0,
-                "note": "paid by foo app's own provider key"
-              }
-            ]
+                model: "claude-haiku-4-5",
+                turns: 6,
+                inputTokens: 170000,
+                outputTokens: 40000,
+                baseUsd: 0.35,
+                chargedUsd: 0.0,
+                note: "paid by foo app's own provider key",
+              },
+            ],
           },
-          "tool": {
-            "chargedUsd": 0.06,
-            "calls": 20,
-            "items": [
+          tool: {
+            chargedUsd: 0.06,
+            calls: 20,
+            items: [
               {
-                "tool": "foo.lookup",
-                "calls": 20,
-                "unitCredits": 0.3,
-                "usd": 0.06
-              }
-            ]
+                tool: "foo.lookup",
+                calls: 20,
+                unitCredits: 0.3,
+                usd: 0.06,
+              },
+            ],
           },
-          "outcome": null,
-          "appTotalUsd": 0.06
-        }
+          outcome: null,
+          appTotalUsd: 0.06,
+        },
       ],
-      "byApp": [
+      byApp: [
         {
-          "app": "default",
-          "modelUsd": 2.1,
-          "toolUsd": null,
-          "outcomeUsd": null,
-          "totalUsd": 2.1
+          app: "default",
+          modelUsd: 2.1,
+          toolUsd: null,
+          outcomeUsd: null,
+          totalUsd: 2.1,
         },
         {
-          "app": "meme coin trader",
-          "modelUsd": 1.1,
-          "toolUsd": 0.04,
-          "outcomeUsd": 1.2,
-          "totalUsd": 2.34
+          app: "meme coin trader",
+          modelUsd: 1.1,
+          toolUsd: 0.04,
+          outcomeUsd: 1.2,
+          totalUsd: 2.34,
         },
         {
-          "app": "foo app",
-          "modelUsd": 0.0,
-          "toolUsd": 0.06,
-          "outcomeUsd": null,
-          "totalUsd": 0.06
-        }
+          app: "foo app",
+          modelUsd: 0.0,
+          toolUsd: 0.06,
+          outcomeUsd: null,
+          totalUsd: 0.06,
+        },
       ],
-      "columnTotals": {
-        "modelUsd": 3.2,
-        "toolUsd": 0.1,
-        "outcomeUsd": 1.2,
-        "totalUsd": 4.5
-      }
-    }
-  ]
+      columnTotals: {
+        modelUsd: 3.2,
+        toolUsd: 0.1,
+        outcomeUsd: 1.2,
+        totalUsd: 4.5,
+      },
+    },
+  ],
 };

@@ -3,6 +3,22 @@
 // =============================================================================
 
 export { AomiClient, secretNamesFrom } from "./client";
+export {
+  AccountCreditsTransport,
+  AccountTransport,
+  MAX_CREDIT_TOP_UP,
+  MICROUSD_PER_CREDIT,
+  MIN_CREDIT_TOP_UP,
+} from "./account/credits";
+export type {
+  AomiCreditActivity,
+  AomiCreditListOptions,
+  AomiCreditPaymentReceipt,
+  AomiCreditPosition,
+  AomiCreditTopUpOptions,
+  AomiCreditTopUpResult,
+} from "./account/credits";
+export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
 export {
   EvmPipelineTransport,
@@ -72,6 +88,7 @@ export type {
   Session as AgentSession,
   SessionPage,
   StartTurnIntent,
+  AomiInferenceFundingSource,
   TaskActivityEvent,
   TaskCompletedEvent,
   TaskPhaseEvent,
@@ -176,6 +193,7 @@ export type { AomiOperationBuildOptions } from "./sdk/pipeline";
 export { buildSiwsMessage } from "./siws";
 export type { SiwsChainId, SiwsIntent } from "./siws";
 export {
+  createEvmPaymentClient,
   handlePaymentChallenges,
   wrapFetchWithPaymentChallenges,
 } from "./payment";
@@ -215,13 +233,15 @@ export type {
   AomiPolicyWindow,
   AomiProviderBinding,
   AomiSigningPolicy,
-  AomiUsageStats,
   AomiUser,
   AomiUserAccount,
   GetAccountBearer,
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
+  AomiByokKeyEntry,
+  AomiListByokKeysResponse,
+  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,

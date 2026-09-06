@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/client",
-  "version": "0.6.9",
+  "version": "0.6.11",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "type": "module",
   "main": "./dist/index.cjs",

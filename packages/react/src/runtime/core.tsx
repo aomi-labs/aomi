@@ -97,6 +97,7 @@ export function AomiRuntimeCore({
     getPreferredThreadControl,
     markControlSynced,
   } = useControl();
+  const inferenceFunding = getControlState().inferenceFunding;
 
   // ---------------------------------------------------------------------------
   // Orchestrator (manages ClientSession per thread)
@@ -114,6 +115,7 @@ export function AomiRuntimeCore({
     aomiClientRef,
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState,
+    inferenceFunding,
     getApp: getCurrentThreadApp,
     getModel: () => {
       const control = getCurrentThreadControl();
@@ -164,7 +166,8 @@ export function AomiRuntimeCore({
         notificationContext.showNotification({
           type: "error",
           title: "Conversation unavailable",
-          message: "This conversation is no longer accessible. Start a new chat and send your message again.",
+          message:
+            "This conversation is no longer accessible. Start a new chat and send your message again.",
         });
         return;
       }
@@ -183,7 +186,8 @@ export function AomiRuntimeCore({
   });
 
   const actions = useActions(currentSession);
-  const isRunning = snapshot.isSubmitting || snapshot.turnState === "processing";
+  const isRunning =
+    snapshot.isSubmitting || snapshot.turnState === "processing";
 
   // ---------------------------------------------------------------------------
   // Refs for stable access
@@ -269,11 +273,7 @@ export function AomiRuntimeCore({
     return () => {
       cancelled = true;
     };
-  }, [
-    ensureInitialState,
-    threadContext.currentThreadId,
-    warmThread,
-  ]);
+  }, [ensureInitialState, threadContext.currentThreadId, warmThread]);
 
   // The server's user event can trail the start response by a poll or two.
   // Echo it immediately with the same ordinal id the canonical projection will
@@ -442,6 +442,7 @@ export function AomiRuntimeCore({
 
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
     () => ({
+      account: aomiClient.account,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
@@ -489,6 +490,7 @@ export function AomiRuntimeCore({
     }),
     [
       userContext,
+      aomiClient.account,
       threadContext.currentThreadId,
       threadContext.threadViewKey,
       threadContext.allThreadsMetadata,

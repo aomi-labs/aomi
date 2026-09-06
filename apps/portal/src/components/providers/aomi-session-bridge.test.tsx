@@ -7,6 +7,7 @@ import { useAomiSession } from "./aomi-session-bridge";
 type AdapterState = {
   identity: { status: "anonymous" | "booting" | "connected" };
   accountStatus: "disabled" | "loading" | "ready" | "error";
+  accountGuest?: boolean;
   accountUser?: { id: string };
   connect: ReturnType<typeof vi.fn>;
 };
@@ -131,6 +132,24 @@ describe("useAomiSession lifecycle", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(screen.getByRole("button")).toHaveTextContent("anonymous");
+  });
+
+  it("treats the temporary Better Auth guest as signed out account chrome", async () => {
+    adapterState.current = {
+      identity: { status: "connected" },
+      accountStatus: "ready",
+      accountGuest: true,
+      accountUser: undefined,
+      connect: vi.fn(async () => undefined),
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SessionProbe />);
+    await flushEffects();
+
+    expect(screen.getByRole("button")).toHaveTextContent("anonymous");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("restarts provider authentication when the user retries", () => {

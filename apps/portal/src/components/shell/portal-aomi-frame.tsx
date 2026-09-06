@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AomiFrame, useAomiWalletKit } from "@aomi-labs/widget-lib";
+import type { WalletAccountMenuOptions } from "@aomi-labs/widget-lib";
 import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
 import { HeaderControls } from "@portal/components/shell/header-controls";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import { PackagesModal } from "@portal/components/shell/packages-modal";
 import { SettingsModal } from "@portal/components/settings/settings-modal";
+import type { SettingsTab } from "@portal/components/settings/settings-modal";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
@@ -124,6 +126,45 @@ export function ThreadUrlBootstrap() {
   return null;
 }
 
+function PortalFrameContents({
+  requestedApp,
+  requestedApplicationId,
+  locked,
+  openSettings,
+  onWalletAccountMenuChange,
+}: {
+  requestedApp: string | null;
+  requestedApplicationId: string | null;
+  locked: boolean;
+  openSettings: (tab: SettingsTab) => void;
+  onWalletAccountMenuChange: (
+    menu: WalletAccountMenuOptions | undefined,
+  ) => void;
+}) {
+  // AomiFrame.Root creates the runtime provider. Keep this hook in its
+  // subtree; calling it in PortalAomiFrame would read the provider before it
+  // exists and make the real portal route fail during server rendering.
+  const walletAccountMenu = usePortalWalletAccountMenu(
+    useCallback(() => openSettings("general"), [openSettings]),
+    useCallback(() => openSettings("account"), [openSettings]),
+  );
+
+  useEffect(() => {
+    onWalletAccountMenuChange(walletAccountMenu);
+  }, [onWalletAccountMenuChange, walletAccountMenu]);
+
+  return (
+    <>
+      <ThreadUrlBootstrap />
+      <AppSelectUrlBootstrap
+        requestedApp={requestedApp}
+        requestedApplicationId={requestedApplicationId}
+        locked={locked}
+      />
+    </>
+  );
+}
+
 export function PortalAomiFrame() {
   const { accountStatus, accountUser } = useAomiWalletKit();
   const accountUserId = accountUser?.id;
@@ -144,10 +185,13 @@ export function PortalAomiFrame() {
   const [overlay, setOverlay] = useState<"none" | "settings" | "packages">(
     "none",
   );
-  const walletAccountMenu = usePortalWalletAccountMenu(
-    useCallback(() => setOverlay("settings"), []),
-  );
-
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
+  const [walletAccountMenu, setWalletAccountMenu] =
+    useState<WalletAccountMenuOptions>();
+  const openSettings = useCallback((tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setOverlay("settings");
+  }, []);
   useEffect(() => {
     if (accountStatus !== "loading") {
       setHasResolvedInitialAccount(true);
@@ -160,13 +204,10 @@ export function PortalAomiFrame() {
   ) {
     setAccountFrameScope({
       accountUserId,
-      // Preserve anonymous conversation state when sign-in establishes the
-      // first account. Remount when leaving an authenticated account so its
-      // threads and in-flight sessions cannot cross into another principal.
-      revision:
-        accountFrameScope.accountUserId === undefined
-          ? accountFrameScope.revision
-          : accountFrameScope.revision + 1,
+      // A backend thread is owned by the principal that created it. Always
+      // remount across an identity transition so an anonymous or previous
+      // account's in-flight session cannot be submitted by the new principal.
+      revision: accountFrameScope.revision + 1,
     });
   }
 
@@ -185,33 +226,37 @@ export function PortalAomiFrame() {
       className="bg-background relative h-full w-full overflow-hidden"
     >
       <AomiFrame.Root
-        key={accountFrameScope.revision}
+        key={`principal-v2:${accountFrameScope.revision}:${accountFrameScope.accountUserId ?? "preauth"}`}
         width="100%"
         height="100%"
         backendUrl={backendUrl}
         applicationId={lockedApplicationId}
         accountSessionAvailable={Boolean(accountUser)}
-        // Scope the remembered thread to the signed-in principal so a
-        // sign-out (or a different account) never restores another
-        // principal's thread id, which the backend rejects with
-        // session_not_found.
-        threadPersistenceScope={accountUserId ?? "guest"}
+        // Do not restore a shared pre-auth thread: it may belong to a deleted
+        // anonymous identity. Once Better Auth resolves a canonical user id,
+        // persistence is isolated to that exact principal.
+        persistThread={Boolean(accountUserId)}
+        threadPersistenceScope={accountUserId}
         showSidebar={!lockedApp}
         walletPosition="footer"
         walletFamilies={["evm", "solana"]}
+        walletConnectLabel="Sign in"
         walletAccountMenu={walletAccountMenu}
         className="portal-aomi-frame aui-suggestions-marquee rounded-none border-0 shadow-none"
         clientOptions={clientOptions}
+        inferenceFunding={requestedApp.inferenceFunding}
       >
-        <ThreadUrlBootstrap />
-        <AppSelectUrlBootstrap
+        <PortalFrameContents
           requestedApp={requestedApp.app}
           requestedApplicationId={requestedApp.applicationId}
           locked={Boolean(lockedApp)}
+          openSettings={openSettings}
+          onWalletAccountMenuChange={setWalletAccountMenu}
         />
         <AomiFrame.Header>
           <HeaderControls
-            onOpenSettings={() => setOverlay("settings")}
+            showSettings={Boolean(accountUser)}
+            onOpenSettings={() => openSettings("general")}
             onOpenPackages={() => setOverlay("packages")}
           />
         </AomiFrame.Header>
@@ -230,7 +275,11 @@ export function PortalAomiFrame() {
             backdrop still covers the sidebar and chat as one surface. */}
         {overlay === "settings" && (
           <OverlayPortal>
-            <SettingsModal onClose={() => setOverlay("none")} />
+            <SettingsModal
+              key={settingsTab}
+              initialTab={settingsTab}
+              onClose={() => setOverlay("none")}
+            />
           </OverlayPortal>
         )}
         {overlay === "packages" && (

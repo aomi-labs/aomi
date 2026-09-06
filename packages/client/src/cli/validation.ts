@@ -1,6 +1,7 @@
 import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "../chains";
 import type { AAMode } from "../aa/types";
 import type { CliAAProvider, CliPaymentMethod } from "./types";
+import type { AomiInferenceFundingSource } from "../agent/types";
 import { fatal } from "./errors";
 import { parseSolanaKeypairSecret } from "./solana-signer";
 
@@ -74,4 +75,15 @@ export function parsePaymentMethod(
     return normalized;
   }
   fatal("Unsupported payment method. Use `coinbase`.");
+}
+
+export function parseInferenceFunding(
+  value: string | undefined,
+): AomiInferenceFundingSource | undefined {
+  if (value === undefined || value.trim() === "") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "user_byok") {
+    return normalized;
+  }
+  fatal("Unsupported inference funding. Use `user_byok`.");
 }

@@ -516,6 +516,23 @@
   }
 }
 
+@keyframes aui-working-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+.aui-working-live-halo {
+  animation: aui-working-breathe 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  transform-origin: center;
+}
+
 /* Shimmering "Working" label — a soft highlight drifts across the text while
    the agent is still working. Uses the theme's own foreground/muted tokens so
    it inherits each app's palette (and dark mode) automatically.
@@ -548,6 +565,12 @@
     animation: none;
     color: var(--muted-foreground);
     -webkit-text-fill-color: var(--muted-foreground);
+  }
+
+  .aui-working-live-halo {
+    animation: none;
+    opacity: 0.55;
+    transform: none;
   }
 }
 

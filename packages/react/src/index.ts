@@ -51,6 +51,7 @@ export {
   useOptionalAomiRuntime,
 } from "./interface";
 export type { AomiRuntimeApi } from "./interface";
+export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 // =============================================================================
 // Handler Hooks

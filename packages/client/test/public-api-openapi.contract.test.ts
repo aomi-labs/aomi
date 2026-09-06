@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent and Pipeline OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(45);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(48);
     expect(
       publicApi["x-aomi-route-manifest"].filter((route) =>
         route.includes("/v1/agent/"),
@@ -102,8 +102,14 @@ describe("public Agent and Pipeline OpenAPI snapshot", () => {
       preferences: { type: "object", additionalProperties: true },
       ext: { type: "object", additionalProperties: true },
     });
-    expect(publicApi.components.schemas.UserStateConnection.additionalProperties).toBe(false);
-    expect(publicApi.components.schemas.UserStateEvm.additionalProperties).toBe(false);
-    expect(publicApi.components.schemas.UserStateSvm.additionalProperties).toBe(false);
+    expect(
+      publicApi.components.schemas.UserStateConnection.additionalProperties,
+    ).toBe(false);
+    expect(publicApi.components.schemas.UserStateEvm.additionalProperties).toBe(
+      false,
+    );
+    expect(publicApi.components.schemas.UserStateSvm.additionalProperties).toBe(
+      false,
+    );
   });
 });

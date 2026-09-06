@@ -140,6 +140,7 @@ export const ConnectButton: FC<ConnectButtonProps> = ({
       <DualWalletBar
         families={pickerFamilies}
         className={className}
+        disconnectedLabel={connectLabel}
         onConnectionChange={onConnectionChange}
         accountMenu={accountMenu}
       />

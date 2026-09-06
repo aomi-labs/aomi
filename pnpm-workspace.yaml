@@ -32,6 +32,12 @@ packageExtensions:
   "@inkjs/ui":
     peerDependencies:
       react: "*"
+  # react-sdk imports these chain-specific react-core entrypoints at runtime,
+  # but 2.24.0 omits react-core from its published dependency manifest. Keep
+  # pnpm from resolving an unrelated hoisted version from another workspace.
+  "@getpara/react-sdk@2.24.0":
+    dependencies:
+      "@getpara/react-core": "2.24.0"
 
 # @better-auth/mcp 1.7.1 automatically adds its primary MCP endpoint to every
 # dynamically registered client's default resources. This widens Agent,

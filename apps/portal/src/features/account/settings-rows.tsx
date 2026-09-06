@@ -8,7 +8,7 @@ export function SettingRow({
   className = "",
   children,
 }: {
-  title: string;
+  title: ReactNode;
   desc: string;
   descMono?: boolean;
   leading?: ReactNode;
@@ -22,7 +22,9 @@ export function SettingRow({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-sm font-medium leading-none">{title}</span>
+          <div className="truncate text-sm font-medium leading-none">
+            {title}
+          </div>
           <span
             className={`text-aomi-muted truncate text-[13px] leading-snug ${descMono ? "font-mono" : ""}`}
           >

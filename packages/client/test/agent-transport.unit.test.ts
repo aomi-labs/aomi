@@ -20,7 +20,11 @@ describe("AgentTransport", () => {
 
     await agent.start(
       { sessionId: "session-1", message: "hello", app: "default" },
-      { idempotencyKey: "idem-fixed", paymentSignature: "payment" },
+      {
+        idempotencyKey: "idem-fixed",
+        paymentSignature: "payment",
+        inferenceFunding: "user_byok",
+      },
     );
     await agent.poll("session-1", { cursor: "cursor-1", waitMs: 40_000 });
 
@@ -28,9 +32,27 @@ describe("AgentTransport", () => {
     const startHeaders = new Headers(fetch.mock.calls[0][1].headers);
     expect(startHeaders.get("idempotency-key")).toBe("idem-fixed");
     expect(startHeaders.get("payment-signature")).toBe("payment");
+    expect(startHeaders.get("x-aomi-inference-funding")).toBe("user_byok");
     expect(fetch.mock.calls[1][0]).toBe(
       "https://portal.example/v1/agent/chat/session-1?cursor=cursor-1&wait=30000",
     );
+  });
+
+  it("applies the client funding default to Agent turns", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(Response.json({ events: [], has_more: false }));
+    const client = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch,
+      guest: false,
+      inferenceFunding: "user_byok",
+    });
+
+    await client.agent.start({ sessionId: "session-1", message: "hello" });
+
+    const headers = new Headers(fetch.mock.calls[0][1].headers);
+    expect(headers.get("x-aomi-inference-funding")).toBe("user_byok");
   });
 
   it("parses stable public errors and retry classification", async () => {

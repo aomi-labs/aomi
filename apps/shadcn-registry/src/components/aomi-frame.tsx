@@ -12,6 +12,7 @@ import {
   cn,
   useAomiRuntime,
   type AomiClientOptions,
+  type AomiInferenceFundingSource,
 } from "@aomi-labs/react";
 import { Thread } from "@/components/assistant-ui/thread";
 import {
@@ -58,6 +59,8 @@ type RootProps = {
   walletPosition?: "header" | "footer" | null;
   /** Which wallet families to show as dual slots (omit for single-family mode) */
   walletFamilies?: Array<"evm" | "solana">;
+  /** Host-specific label for the anonymous wallet/account entry point. */
+  walletConnectLabel?: string;
   /** Optional account menu on the sidebar wallet chip (portal supplies live data). */
   walletAccountMenu?: WalletAccountMenuOptions;
   /** Products in the sidebar wordmark dropdown. Pass `null` for a plain wordmark. */
@@ -74,6 +77,8 @@ type RootProps = {
   applicationId?: number | string | null;
   /** Optional runtime client overrides. */
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
+  /** Explicit inference funding lane for Agent turns. */
+  inferenceFunding?: AomiInferenceFundingSource;
   /** Whether an account session can load thread history without a wallet. */
   accountSessionAvailable?: boolean;
   /** Persist the active materialized thread in localStorage. Defaults to true. */
@@ -125,6 +130,7 @@ const Root: FC<RootProps> = ({
   style,
   walletPosition = "footer",
   walletFamilies,
+  walletConnectLabel,
   walletAccountMenu,
   products,
   currentProductId,
@@ -133,6 +139,7 @@ const Root: FC<RootProps> = ({
   backendUrl,
   applicationId,
   clientOptions,
+  inferenceFunding,
   accountSessionAvailable,
   persistThread,
   threadPersistenceKey,
@@ -152,6 +159,7 @@ const Root: FC<RootProps> = ({
       actions={actions}
       applicationId={applicationId}
       clientOptions={clientOptions}
+      inferenceFunding={inferenceFunding}
       accountSessionAvailable={accountSessionAvailable}
       persistThread={persistThread}
       threadPersistenceKey={threadPersistenceKey}
@@ -173,6 +181,7 @@ const Root: FC<RootProps> = ({
             <ThreadListSidebar
               walletPosition={walletPosition}
               walletFamilies={walletFamilies}
+              walletConnectLabel={walletConnectLabel}
               walletAccountMenu={walletAccountMenu}
               products={products}
               currentProductId={currentProductId}

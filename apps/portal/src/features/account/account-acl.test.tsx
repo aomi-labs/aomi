@@ -51,7 +51,7 @@ const ACCOUNT = {
   user_accounts: [
     {
       address: { chain: "evm", address: CONNECTED_EVM.toLowerCase() },
-      auth_provider: null,
+      auth_provider: "para",
       is_primary: true,
       provider_managed: false,
     },
@@ -171,6 +171,10 @@ const click = async (el: HTMLElement) => {
   });
 };
 
+const findWalletRow = async () =>
+  (await screen.findAllByText(/0x71c7…976f/i)).at(-1)!;
+const findPrivyRow = async () => (await screen.findAllByText("Privy")).at(-1)!;
+
 const paths = (calls: FetchCall[]) =>
   calls.map(
     (call) => new URL(call.input.toString(), "https://portal.test").pathname,
@@ -212,12 +216,12 @@ describe("account ACL wiring", () => {
 
     await renderAcl();
 
-    await screen.findByText("0x71c7…976f");
+    await findWalletRow();
     expect(paths(calls).filter((path) => path === "/api/account")).toHaveLength(
       1,
     );
     // Privy provenance + live delegation render inside the expanded row.
-    await click(await screen.findByText("Privy"));
+    await click(await findPrivyRow());
     expect(screen.getByText(/Privy · Session delegation/)).toBeTruthy();
   });
 
@@ -233,7 +237,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await screen.findByText("Privy"));
+    await click(await findPrivyRow());
 
     expect(
       screen
@@ -255,7 +259,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await screen.findByText("Privy"));
+    await click(await findPrivyRow());
 
     expect(screen.getByText("Delegation expired")).toBeTruthy();
     expect(
@@ -267,7 +271,7 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    const row = await screen.findByText("0x71c7…976f");
+    const row = await findWalletRow();
 
     await click(row);
     await click(await screen.findByText("Auto-approve"));
@@ -306,7 +310,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await screen.findByText("0x71c7…976f"));
+    await click(await findWalletRow());
 
     const accept = await screen.findByRole("button", {
       name: /^Auto-approve/,
@@ -341,7 +345,7 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    const row = await screen.findByText("0x71c7…976f");
+    const row = await findWalletRow();
 
     await click(row);
     await click(await screen.findByText("Auto-approve"));
@@ -366,7 +370,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await screen.findByText("0x71c7…976f"));
+    await click(await findWalletRow());
     await click(await screen.findByText("Auto-approve"));
     await click(await screen.findByText("Sign to authorize"));
 
@@ -381,7 +385,7 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    await click(await screen.findByText("Privy"));
+    await click(await findPrivyRow());
     await click(await screen.findByText("Revoke"));
 
     await waitFor(() =>

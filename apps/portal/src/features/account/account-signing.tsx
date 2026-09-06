@@ -300,10 +300,10 @@ export function AccountSigningView({
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold">Wallet signing</span>
+            <span className="text-sm font-semibold">Provider signing</span>
             <span className="text-aomi-muted text-[13px]">
-              Choose who can sign for each wallet. Changes require your
-              signature.
+              Configure signing for Para and Privy wallets. External wallets
+              always remain under their wallet app’s control.
             </span>
             {activeDelegations > 0 && (
               <span className="text-aomi-muted text-[12px]">

@@ -83,8 +83,18 @@ type E2ESolanaResponse =
 const useRealE2EExecution =
   process.env.NEXT_PUBLIC_AOMI_E2E_EXECUTION_MODE === "real";
 
+export function stringifyE2EPayload(value: unknown): string {
+  // viem's EIP-712 payload carries integer fields as bigint. The disposable
+  // browser signer hashes the payload instead of serializing it onto a wire,
+  // so preserve those values losslessly as decimal strings for a stable fake
+  // signature.
+  return JSON.stringify(value, (_key, nested) =>
+    typeof nested === "bigint" ? nested.toString() : nested,
+  );
+}
+
 function fakeTxHash(payload: WalletTxPayload): `0x${string}` {
-  const encoded = JSON.stringify({
+  const encoded = stringifyE2EPayload({
     chainId: payload.chainId,
     calls: payload.calls,
     txId: payload.txId,
@@ -99,7 +109,7 @@ function fakeTxHash(payload: WalletTxPayload): `0x${string}` {
 }
 
 function fakeSignature(payload: WalletEip712Payload): `0x${string}` {
-  const encoded = JSON.stringify(payload);
+  const encoded = stringifyE2EPayload(payload);
   let hash = 0;
   for (let i = 0; i < encoded.length; i += 1) {
     hash = (hash * 31 + encoded.charCodeAt(i)) >>> 0;

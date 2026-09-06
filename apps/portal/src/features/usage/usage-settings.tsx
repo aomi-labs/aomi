@@ -11,10 +11,11 @@ import {
   SpendBreakdownSection,
   USAGE_MATRIX_HINT,
 } from "./usage-shared";
+import { CreditBank } from "./credit-bank";
 
 /**
  * Settings › Usage — design-sync hierarchy (hero, spend breakdown, allowance,
- * by-app matrix) on the live model statement (`/api/account/statement`).
+ * by-app matrix) on the live model statement (`/v1/account/statement`).
  * Tool and on-chain subjects show "—" until their ledger writers exist.
  */
 export function UsageSettings() {
@@ -25,11 +26,11 @@ export function UsageSettings() {
     return (
       <div className="flex-1 overflow-y-auto px-[22px] py-5">
         {statement.status === "error" ? (
-          <p className="text-[13px] text-aomi-danger">
+          <p className="text-aomi-danger text-[13px]">
             {statement.error ?? "Couldn't load usage."}
             <button
               onClick={statement.retry}
-              className="ml-2 underline underline-offset-2 hover:text-aomi-fg"
+              className="hover:text-aomi-fg ml-2 underline underline-offset-2"
             >
               Retry
             </button>
@@ -51,11 +52,16 @@ export function UsageSettings() {
   return (
     <div className="flex-1 overflow-y-auto px-[22px] py-5">
       <div className="flex flex-col gap-6">
-        <PeriodTotalHero periodLabel={period.periodLabel} totalUsd={month.summary.totalUsd} />
+        <PeriodTotalHero
+          periodLabel={period.periodLabel}
+          totalUsd={month.summary.totalUsd}
+        />
 
         <SpendBreakdownSection month={month} />
 
-        <AllowanceSettlementSection month={month} showAllowance={hasAllowance} />
+        <AllowanceSettlementSection month={month} showAllowance={hasAllowance}>
+          <CreditBank />
+        </AllowanceSettlementSection>
 
         {month.apps.length > 0 ? (
           <section className="flex flex-col gap-2.5">
@@ -65,22 +71,26 @@ export function UsageSettings() {
             </div>
           </section>
         ) : (
-          <p className="text-aomi-muted text-[13px]">No usage this month yet.</p>
+          <p className="text-aomi-muted text-[13px]">
+            No usage this month yet.
+          </p>
         )}
 
         <Link
           href="/statement"
-          className="border-aomi-border bg-aomi-bg/40 group flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors hover:bg-aomi-surface-2/40 sm:px-5"
+          className="border-aomi-border bg-aomi-bg/40 hover:bg-aomi-surface-2/40 group flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors sm:px-5"
         >
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium leading-none">Full statement</span>
+            <span className="text-sm font-medium leading-none">
+              Full statement
+            </span>
             <span className="text-aomi-muted text-[12px] leading-snug">
               Itemized lines, past months, and filters
             </span>
           </div>
           <ChevronDown
             size={14}
-            className="text-aomi-muted shrink-0 -rotate-90 transition-colors group-hover:text-aomi-fg"
+            className="text-aomi-muted group-hover:text-aomi-fg shrink-0 -rotate-90 transition-colors"
           />
         </Link>
       </div>

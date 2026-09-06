@@ -111,8 +111,14 @@ function GateNotice({
  * 900×600 panel, left nav, content header with the active tab title and a
  * close button.
  */
-export function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<SettingsTab>("general");
+export function SettingsModal({
+  onClose,
+  initialTab = "general",
+}: {
+  onClose: () => void;
+  initialTab?: SettingsTab;
+}) {
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
 

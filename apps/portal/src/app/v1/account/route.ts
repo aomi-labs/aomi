@@ -10,7 +10,10 @@ import {
   requirePortalPrincipal,
   resolvePortalPrincipal,
 } from "@portal/server/widget-auth/principal";
-import { widgetPreflight, widgetRoute } from "@portal/server/widget-auth/response";
+import {
+  widgetPreflight,
+  widgetRoute,
+} from "@portal/server/widget-auth/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,8 +21,16 @@ export const dynamic = "force-dynamic";
 export const GET = widgetRoute(async (req: Request) => {
   const principal = await resolvePortalPrincipal(req);
   const body =
-    principal.kind === "anonymous"
-      ? { user: null, linkedAccounts: [], wallets: [], session: null }
+    principal.kind === "anonymous" ||
+    (principal.kind === "better_auth" &&
+      principal.session?.user?.isAnonymous === true)
+      ? {
+          guest: principal.kind === "better_auth",
+          user: null,
+          linkedAccounts: [],
+          wallets: [],
+          session: null,
+        }
       : await accountResponseForPrincipal(req, principal);
   return Response.json(body);
 }, "account.read");

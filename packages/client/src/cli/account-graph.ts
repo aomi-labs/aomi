@@ -3,6 +3,8 @@ import { joinUrl, normalizeBaseUrl, safeResponseText } from "./auth";
 import type { CliSession } from "./cli-session";
 import { fatal } from "./errors";
 import type { CliConfig } from "./types";
+import { AccountCreditsTransport } from "../account/credits";
+import type { AomiRequestOptions } from "../types";
 
 export type AccountGraphUser = {
   id: string;
@@ -79,6 +81,7 @@ export type ResolvedAccountLink =
   | { kind: "wallet"; id: string; link: AccountGraphWallet };
 
 export class AccountGraphClient {
+  readonly credits: AccountCreditsTransport;
   private readonly baseUrl: string;
   private readonly sessionToken: string;
   private readonly fetchImpl: typeof fetch;
@@ -91,6 +94,22 @@ export class AccountGraphClient {
     this.baseUrl = normalizeBaseUrl(input.baseUrl);
     this.sessionToken = input.sessionToken;
     this.fetchImpl = input.fetch ?? fetch;
+    this.credits = new AccountCreditsTransport(
+      (method, path, options) =>
+        this.requestResponse(
+          path,
+          {
+            method,
+            headers: options?.headers,
+            body:
+              options?.body === undefined
+                ? undefined
+                : JSON.stringify(options.body),
+          },
+          options?.query,
+        ),
+      "/v1/account/credits",
+    );
   }
 
   getAccount(): Promise<AccountGraphResponse> {
@@ -209,15 +228,7 @@ export class AccountGraphClient {
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {
-    const response = await this.fetchImpl(joinUrl(this.baseUrl, path), {
-      ...init,
-      credentials: "include",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${this.sessionToken}`,
-        ...(init.headers ?? {}),
-      },
-    });
+    const response = await this.requestResponse(path, init);
     if (!response.ok) {
       throw new Error(
         formatAccountGraphError(
@@ -229,16 +240,44 @@ export class AccountGraphClient {
     }
     return (await response.json().catch(() => ({}))) as T;
   }
+
+  private requestResponse(
+    path: string,
+    init: RequestInit,
+    query?: AomiRequestOptions["query"],
+  ): Promise<Response> {
+    const url = new URL(joinUrl(this.baseUrl, path));
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return this.fetchImpl(url, {
+      ...init,
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${this.sessionToken}`,
+        ...(init.headers ?? {}),
+      },
+    });
+  }
 }
 
-export function requireAccountGraphClient(cli: CliSession): AccountGraphClient {
-  const sessionToken = cli.auth?.sessionToken;
+export function requireAccountGraphClient(
+  cli: CliSession,
+  fetchImpl?: typeof fetch,
+): AccountGraphClient {
+  const sessionToken = cli.accountBearer ?? cli.auth?.sessionToken;
   if (!sessionToken) {
-    fatal("No account session. Run `aomi account login` first.");
+    fatal(
+      "No account session. Run `aomi account login` first or pass `--account-bearer`.",
+    );
   }
   return new AccountGraphClient({
     baseUrl: cli.baseUrl,
     sessionToken: sessionToken!,
+    fetch: fetchImpl,
   });
 }
 

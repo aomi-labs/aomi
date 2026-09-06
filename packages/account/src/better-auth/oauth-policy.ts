@@ -18,6 +18,9 @@ export const AOMI_SCOPES = [
   "mcp:agent",
   "mcp:pipeline",
   "payments:submit",
+  "account:credits:read",
+  "account:credits:topup",
+  "account:usage:read",
   "custody:delegate",
   "openid",
   "profile",
@@ -39,6 +42,12 @@ export const PIPELINE_SCOPES = [
   "mcp:pipeline",
   "payments:submit",
   "custody:delegate",
+] as const;
+export const ACCOUNT_SCOPES = [
+  "account:credits:read",
+  "account:credits:topup",
+  "account:usage:read",
+  "payments:submit",
 ] as const;
 
 /**
@@ -67,7 +76,8 @@ export type AomiOAuthResourceKind =
   | "agentRest"
   | "pipelineRest"
   | "agentMcp"
-  | "pipelineMcp";
+  | "pipelineMcp"
+  | "accountRest";
 
 export type AomiOAuthResourcePolicy = {
   kind: AomiOAuthResourceKind;
@@ -112,6 +122,7 @@ export function aomiOAuthResources(
     pipelineMcp: `${portalOrigin}/v1/pipeline/mcp`,
     agentRest: `${portalOrigin}/v1/agent`,
     pipelineRest: `${portalOrigin}/v1/pipeline`,
+    accountRest: `${portalOrigin}/v1/account`,
   } as const;
 }
 
@@ -138,6 +149,13 @@ export function aomiOAuthResourcePolicies(
       identifier: resources.pipelineRest,
       allowedScopes: PIPELINE_REST_SCOPES,
       guestScopes: ["pipeline:catalog", "pipeline:execute", "offline_access"],
+      dpopBoundAccessTokensRequired: false,
+    },
+    {
+      kind: "accountRest",
+      identifier: resources.accountRest,
+      allowedScopes: ACCOUNT_SCOPES,
+      guestScopes: [],
       dpopBoundAccessTokensRequired: false,
     },
     {

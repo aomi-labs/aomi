@@ -33,6 +33,14 @@ const renderControlContext = (
     getApps: vi.fn(async () => [{ name: "default" }]),
     getModels: vi.fn(async () => []),
     setModel: vi.fn(async () => ({})),
+    listByokKeys: vi.fn(async () => []),
+    saveByokKey: vi.fn(async () => ({
+      provider: "openai",
+      key_prefix: "sk-open",
+      label: null,
+      is_active: true,
+    })),
+    deleteByokKey: vi.fn(async () => true),
     ingestSecrets: vi.fn(async () => ({ handles: {} })),
     deleteSecret: vi.fn(async () => ({ deleted: true })),
     clearSecrets: vi.fn(async () => ({ cleared: true })),
@@ -136,9 +144,18 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("sends a targeted backend removal when a BYOK key is deleted", async () => {
-    const deleteSecret = vi.fn(async () => ({ deleted: true }));
-    const { aomiClient, getControl } = renderControlContext({ deleteSecret });
+  it("saves and removes BYOK keys through the account model-key API", async () => {
+    const saveByokKey = vi.fn(async () => ({
+      provider: "openai",
+      key_prefix: "sk-open",
+      label: null,
+      is_active: true,
+    }));
+    const deleteByokKey = vi.fn(async () => true);
+    const { getControl } = renderControlContext({
+      saveByokKey,
+      deleteByokKey,
+    });
 
     await waitFor(() => {
       expect(getControl().state.clientId).toBeTruthy();
@@ -151,7 +168,7 @@ describe("ControlContextProvider", () => {
     });
 
     await waitFor(() => {
-      expect(getControl().state.byokKeys.openai?.apiKey).toBe("sk-openai-123");
+      expect(getControl().state.byokKeys.openai?.key_prefix).toBe("sk-open");
     });
 
     await act(async () => {
@@ -159,47 +176,40 @@ describe("ControlContextProvider", () => {
     });
 
     await waitFor(() => {
-      expect(deleteSecret).toHaveBeenCalledWith(
+      expect(deleteByokKey).toHaveBeenCalledWith(
         `control:${clientId}`,
-        clientId,
-        "PROVIDER_KEY:openai",
+        "openai",
       );
     });
 
     expect(getControl().state.byokKeys.openai).toBeUndefined();
-    expect(aomiClient.ingestSecrets).toHaveBeenCalledWith(
+    expect(saveByokKey).toHaveBeenCalledWith(
       `control:${clientId}`,
-      clientId,
-      {
-        "PROVIDER_KEY:openai": "sk-openai-123",
-      },
+      "openai",
+      "sk-openai-123",
+      undefined,
     );
   });
 
-  it("auto-ingests BYOK keys loaded from localStorage on mount", async () => {
+  it("loads redacted BYOK keys from the account model-key API", async () => {
     globalThis.localStorage.setItem("aomi_client_id", "client-stored");
-    globalThis.localStorage.setItem(
-      "aomi_byok_keys",
-      JSON.stringify({
-        openai: {
-          apiKey: "sk-openai-abc",
-          keyPrefix: "sk-open",
-          label: "Primary",
-        },
-      }),
-    );
-
-    const ingestSecrets = vi.fn(async () => ({ handles: {} }));
-    renderControlContext({ ingestSecrets });
+    const listByokKeys = vi.fn(async () => [
+      {
+        provider: "openai",
+        key_prefix: "sk-open",
+        label: "Primary",
+        is_active: true,
+      },
+    ]);
+    const { getControl } = renderControlContext({ listByokKeys });
 
     await waitFor(() => {
-      expect(ingestSecrets).toHaveBeenCalledWith(
-        "control:client-stored",
-        "client-stored",
-        {
-          "PROVIDER_KEY:openai": "sk-openai-abc",
-        },
-      );
+      expect(getControl().state.byokKeys.openai).toEqual({
+        provider: "openai",
+        key_prefix: "sk-open",
+        label: "Primary",
+        is_active: true,
+      });
     });
   });
 
@@ -414,5 +424,4 @@ describe("ControlContextProvider", () => {
       controlDirty: true,
     });
   });
-
 });

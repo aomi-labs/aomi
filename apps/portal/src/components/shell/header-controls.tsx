@@ -16,9 +16,11 @@ const headerButtonClass =
 export function HeaderControls({
   onOpenSettings,
   onOpenPackages,
+  showSettings = true,
 }: {
   onOpenSettings: () => void;
   onOpenPackages: () => void;
+  showSettings?: boolean;
 }) {
   const { settings, updateSetting } = useSettings();
 
@@ -41,14 +43,16 @@ export function HeaderControls({
       >
         <Package size={18} />
       </button>
-      <button
-        type="button"
-        onClick={onOpenSettings}
-        className={headerButtonClass}
-        aria-label="Open settings"
-      >
-        <Settings size={18} />
-      </button>
+      {showSettings ? (
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={headerButtonClass}
+          aria-label="Open settings"
+        >
+          <Settings size={18} />
+        </button>
+      ) : null}
       <ThemeSwitch
         dark={isDark}
         onToggle={() => updateSetting("colorMode", isDark ? "light" : "dark")}

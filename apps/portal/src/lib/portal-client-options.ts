@@ -4,27 +4,23 @@
  * The portal's runtime fetch stack, extracted from the frame shell so the
  * component file stays presentational.
  *
- * Layers (inside-out): native fetch → debug logging → payment handling
- * (x402 + optional mppx/tempo) → locked-app query scoping. The composed fetch
- * plus the AccountBearer provider become the widget's `clientOptions`.
+ * The routed fetch handles debug logging and locked-app query scoping. The
+ * x402 signer and AccountBearer provider are passed separately so the shared
+ * client owns payment retries and recovery probes.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { type AomiClientOptions } from "@aomi-labs/react";
+import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { Mppx, tempo } from "mppx/client";
-import { useConfig } from "wagmi";
-import { getConnectorClient } from "wagmi/actions";
 import { createPortalAccountBearerProvider } from "@portal/lib/account-bearer";
-import {
-  createPortalPaymentFetch,
-  createPortalX402Client,
-} from "@portal/lib/payment-fetch";
+import { createPortalX402Client } from "@portal/lib/payment-fetch";
 
 export type RequestedAppConfig = {
   app: string | null;
   applicationId: string | null;
   locked: boolean;
+  inferenceFunding: AomiInferenceFundingSource | undefined;
 };
 
 export function getRequestedAppConfig(search: string): RequestedAppConfig {
@@ -50,7 +46,17 @@ export function getRequestedAppConfig(search: string): RequestedAppConfig {
       params.get("lock_app") === "true" ||
       params.get("app_locked") === "1" ||
       params.get("app_locked") === "true",
+    inferenceFunding: parseInferenceFunding(
+      params.get("inference_funding") ?? params.get("funding"),
+    ),
   };
+}
+
+function parseInferenceFunding(
+  value: string | null,
+): AomiInferenceFundingSource | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "user_byok" ? normalized : undefined;
 }
 
 export function useRequestedAppConfig(): RequestedAppConfig {
@@ -58,6 +64,7 @@ export function useRequestedAppConfig(): RequestedAppConfig {
     app: null,
     applicationId: null,
     locked: false,
+    inferenceFunding: undefined,
   });
 
   useEffect(() => {
@@ -65,14 +72,6 @@ export function useRequestedAppConfig(): RequestedAppConfig {
   }, []);
 
   return config;
-}
-
-function useOptionalWagmiConfig(): ReturnType<typeof useConfig> | undefined {
-  try {
-    return useConfig();
-  } catch {
-    return undefined;
-  }
 }
 
 export function withDebugLogging(
@@ -213,7 +212,6 @@ export function usePortalClientOptions(
   lockedApp: string | null,
   lockedApplicationId: string | null,
 ): Omit<AomiClientOptions, "baseUrl"> | undefined {
-  const wagmiConfig = useOptionalWagmiConfig();
   const nativeFetch = useMemo(() => globalThis.fetch.bind(globalThis), []);
   const {
     getAccountCredential,
@@ -235,27 +233,6 @@ export function usePortalClientOptions(
     [accountAccessTokenProvider],
   );
 
-  const mppFetch = useMemo(() => {
-    if (!wagmiConfig) {
-      return undefined;
-    }
-
-    const mppx = Mppx.create({
-      polyfill: false,
-      methods: [
-        tempo({
-          getClient: (parameters) =>
-            getConnectorClient(
-              wagmiConfig,
-              parameters as Parameters<typeof getConnectorClient>[1],
-            ),
-        }),
-      ],
-    });
-
-    return mppx.fetch;
-  }, [wagmiConfig]);
-
   const paymentClient = useMemo(
     () =>
       createPortalX402Client({
@@ -268,13 +245,8 @@ export function usePortalClientOptions(
 
   return useMemo(() => {
     const rawFetch = withDebugLogging("native.fetch", nativeFetch);
-    const paymentFetch = createPortalPaymentFetch({
-      fetch: rawFetch,
-      mppFetch: mppFetch ? withDebugLogging("mppx.fetch", mppFetch) : undefined,
-      x402: paymentClient,
-    });
     const routedFetch: typeof fetch = async (input, init) => {
-      return paymentFetch(
+      return rawFetch(
         await applyLockedAppScope(input, lockedApp, lockedApplicationId),
         init,
       );
@@ -282,13 +254,13 @@ export function usePortalClientOptions(
 
     return {
       fetch: routedFetch,
+      x402: paymentClient,
       getAccountBearer: accountAccessTokenProvider ?? undefined,
     };
   }, [
     accountAccessTokenProvider,
     lockedApp,
     lockedApplicationId,
-    mppFetch,
     nativeFetch,
     paymentClient,
   ]);

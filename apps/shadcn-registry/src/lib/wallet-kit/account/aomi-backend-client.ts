@@ -3,6 +3,8 @@ import type { SvmCluster } from "../types";
 import type { AccountRuntime, AccountWallet } from "./types";
 
 export type AomiBackendAccountResponse = {
+  /** A temporary Better Auth guest. It is intentionally not an account owner. */
+  guest?: boolean;
   user: AccountRuntime["user"] | null;
   linkedAccounts: AccountRuntime["linkedAccounts"];
   wallets: AccountWallet[];
@@ -131,7 +133,12 @@ export function createAomiBackendAccountClient(input: {
       request<AomiBackendDeleteAccountResponse>(endpoints.accountPath, {
         method: "DELETE",
       }),
-    signOut: () => requestVoid(endpoints.signOutPath, { method: "POST" }),
+    signOut: () =>
+      requestVoid(endpoints.signOutPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
     exchangeProviderCredential: (
       credential: AomiAccountCredential,
       options: { hasAccount: boolean },
@@ -181,18 +188,13 @@ export function createAomiBackendAccountClient(input: {
       requestVoid(endpoints.walletPath(walletId), { method: "DELETE" }),
     unlinkAuthIdentity: (identityId: string) =>
       requestVoid(endpoints.identityPath(identityId), { method: "DELETE" }),
-    createSiweNonce: (body: { walletAddress: string; chainId: number }) =>
+    createSiweNonce: () =>
       request<AomiBackendNonceResponse>(endpoints.siweNoncePath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({}),
       }),
-    verifySiwe: (body: {
-      message: string;
-      signature: string;
-      walletAddress: string;
-      chainId: number;
-    }) =>
+    verifySiwe: (body: { message: string; signature: string }) =>
       requestVoid(endpoints.siweVerifyPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

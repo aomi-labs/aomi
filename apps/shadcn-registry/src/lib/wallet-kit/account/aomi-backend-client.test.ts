@@ -3,20 +3,27 @@ import { createAomiBackendAccountClient } from "./aomi-backend-client";
 
 describe("createAomiBackendAccountClient", () => {
   it("accepts an empty successful sign-out response", async () => {
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
+    const fetchImpl = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(null, { status: 204 }),
+    );
     const client = createAomiBackendAccountClient({ fetch: fetchImpl });
 
     await expect(client.signOut()).resolves.toBeUndefined();
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "/api/auth/sign-out",
-      expect.objectContaining({ method: "POST", credentials: "include" }),
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/auth/sign-out");
+    expect(init).toMatchObject({
+      method: "POST",
+      credentials: "include",
+      body: JSON.stringify({}),
+    });
+    expect(new Headers(init?.headers).get("content-type")).toBe(
+      "application/json",
     );
   });
 
   it("accepts an empty 200 sign-out response", async () => {
-    const fetchImpl = vi.fn(
-      async () => new Response("", { status: 200 }),
-    );
+    const fetchImpl = vi.fn(async () => new Response("", { status: 200 }));
     const client = createAomiBackendAccountClient({ fetch: fetchImpl });
 
     await expect(client.signOut()).resolves.toBeUndefined();
@@ -73,6 +80,43 @@ describe("createAomiBackendAccountClient", () => {
         { hasAccount: false },
       ),
     ).rejects.toThrow(expected);
+  });
+
+  it("uses Better Auth's strict SIWE request bodies", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ nonce: "nonce" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createAomiBackendAccountClient({
+      fetch: fetchImpl as unknown as typeof fetch,
+    });
+
+    await client.createSiweNonce();
+    await client.verifySiwe({ message: "message", signature: "signature" });
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "/api/auth/siwe/nonce",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "/api/auth/siwe/verify",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({ message: "message", signature: "signature" }),
+      }),
+    );
   });
 
   it("uses BetterAuth SIWS endpoints for browser sign-in and linking", async () => {

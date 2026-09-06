@@ -44,6 +44,7 @@ export class ClientSession {
   private model?: string | null;
   private applicationId?: number | string | null;
   private getUserState?: SessionOptions["getUserState"];
+  private inferenceFunding?: SessionOptions["inferenceFunding"];
   private clientId: string;
   private pollIntervalMs: number;
   private logger?: { debug: (...args: unknown[]) => void };
@@ -92,6 +93,7 @@ export class ClientSession {
     this.model = sessionOptions?.model;
     this.applicationId = sessionOptions?.applicationId;
     this.getUserState = sessionOptions?.getUserState;
+    this.inferenceFunding = sessionOptions?.inferenceFunding;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
     this.pollIntervalMs = sessionOptions?.pollIntervalMs ?? 500;
     this.logger = sessionOptions?.logger;
@@ -167,6 +169,7 @@ export class ClientSession {
     this.applicationId = options.applicationId;
     this.clientId = options.clientId ?? this.clientId;
     this.getUserState = options.getUserState;
+    this.inferenceFunding = options.inferenceFunding;
     if (options.actions) this.actions.setCapabilities(options.actions);
   }
 
@@ -268,7 +271,10 @@ export class ClientSession {
               }
             : {}),
         },
-        { idempotencyKey: operation.idempotencyKey },
+        {
+          idempotencyKey: operation.idempotencyKey,
+          inferenceFunding: this.inferenceFunding,
+        },
       );
       this.startOperation = undefined;
       this.applyEventPage(page);

@@ -22,18 +22,8 @@ export type AccountProfile = {
   apps?: string[];
 };
 
-/** The profile's monthly credit position (backend `UsageStats`, transparent numbers). */
-export type AccountUsageStats = {
-  period_utc_month?: string;
-  input_tokens: number;
-  output_tokens: number;
-  credit_used: number;
-  credit_paid: number;
-};
-
 export type AccountOverview = {
   user: AccountProfile;
-  usage?: AccountUsageStats;
 };
 
 let current: AccountOverview | null = null;

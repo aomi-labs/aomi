@@ -14,10 +14,12 @@ import {
   type AomiAuthStrategy,
 } from "./auth";
 import { AomiPipeline } from "./pipeline";
+import type { AccountTransport } from "../account/credits";
+import { createEvmPaymentClient } from "../payment";
 
 type AomiManagedAuthOptions = Omit<
   AomiClientOptions,
-  "getAccountBearer" | "guest" | "oauth"
+  "getAccountBearer" | "guest" | "oauth" | "x402"
 > & {
   auth: AomiAuthStrategy;
 };
@@ -28,7 +30,7 @@ type AomiExecutionOptions =
 
 export type AomiOptions = (
   | AomiManagedAuthOptions
-  | (AomiClientOptions & { auth?: never })
+  | (Omit<AomiClientOptions, "x402"> & { auth?: never })
 ) &
   AomiExecutionOptions;
 
@@ -37,6 +39,7 @@ export class Aomi {
   readonly raw: AomiClient;
   readonly pipeline: AomiPipeline;
   readonly agent: AomiAgent;
+  readonly account: AccountTransport;
   readonly auth: AomiAuthController;
   readonly wallet?: Wallets;
 
@@ -44,6 +47,11 @@ export class Aomi {
     const { actions, wallet, auth, ...unmanagedClientOptions } = options;
     const clientOptions: AomiClientOptions = unmanagedClientOptions;
     const fetchImpl = clientOptions.fetch ?? globalThis.fetch.bind(globalThis);
+    const paidClientOptions: AomiClientOptions = {
+      ...clientOptions,
+      fetch: fetchImpl,
+      x402: wallet?.evm ? createEvmPaymentClient(wallet.evm) : undefined,
+    };
 
     if (auth) {
       if (
@@ -62,7 +70,7 @@ export class Aomi {
       });
       this.auth = runtime.controller;
       this.raw = new AomiClient({
-        ...clientOptions,
+        ...paidClientOptions,
         oauth: runtime.tokenProvider,
         guest: false,
       });
@@ -79,7 +87,7 @@ export class Aomi {
               fetch: fetchImpl,
             });
       this.auth = createGuestAuthController(guest);
-      this.raw = new AomiClient({ ...clientOptions, guest });
+      this.raw = new AomiClient({ ...paidClientOptions, guest });
     } else {
       this.auth = createPassiveAuthController(
         clientOptions.oauth
@@ -90,12 +98,13 @@ export class Aomi {
               ? "none"
               : "custom",
       );
-      this.raw = new AomiClient(clientOptions);
+      this.raw = new AomiClient(paidClientOptions);
     }
 
     this.wallet = wallet;
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
     this.pipeline = new AomiPipeline(this.raw.pipeline);
+    this.account = this.raw.account;
     this.agent = new AomiAgent(this.raw.agent, this.raw, capabilities, () =>
       wallet ? walletUserState(wallet) : undefined,
     );

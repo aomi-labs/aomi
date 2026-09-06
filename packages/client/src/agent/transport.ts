@@ -7,6 +7,7 @@ import type {
   Session,
   SessionPage,
   StartTurnIntent,
+  AomiInferenceFundingSource,
 } from "./types";
 
 type RequestResponse = (
@@ -32,16 +33,27 @@ export class AgentApiError extends Error {
 export class AgentTransport {
   readonly sessions: AgentSessionsTransport;
 
-  constructor(private readonly requestResponse: RequestResponse) {
+  constructor(
+    private readonly requestResponse: RequestResponse,
+    private readonly defaultInferenceFunding?: AomiInferenceFundingSource,
+  ) {
     this.sessions = new AgentSessionsTransport(requestResponse);
   }
 
   start(
     intent: StartTurnIntent,
-    options: { idempotencyKey?: string; paymentSignature?: string } = {},
+    options: {
+      idempotencyKey?: string;
+      paymentSignature?: string;
+      inferenceFunding?: AomiInferenceFundingSource;
+    } = {},
   ): Promise<EventPage> {
     return this.json("POST", "/v1/agent/chat", {
-      headers: mutationHeaders(options),
+      headers: mutationHeaders({
+        ...options,
+        inferenceFunding:
+          options.inferenceFunding ?? this.defaultInferenceFunding,
+      }),
       body: intent,
     });
   }
@@ -156,12 +168,19 @@ export class AgentSessionsTransport {
 }
 
 function mutationHeaders(
-  options: { idempotencyKey?: string; paymentSignature?: string } = {},
+  options: {
+    idempotencyKey?: string;
+    paymentSignature?: string;
+    inferenceFunding?: AomiInferenceFundingSource;
+  } = {},
 ): Record<string, string> {
   return {
     "idempotency-key": options.idempotencyKey ?? randomIdempotencyKey(),
     ...(options.paymentSignature
       ? { "payment-signature": options.paymentSignature }
+      : {}),
+    ...(options.inferenceFunding
+      ? { "x-aomi-inference-funding": options.inferenceFunding }
       : {}),
   };
 }

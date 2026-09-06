@@ -2,6 +2,7 @@ import {
   AGENT_SCOPES,
   AOMI_SCOPES,
   PIPELINE_SCOPES,
+  ACCOUNT_SCOPES,
   aomiOAuthResourcePolicies,
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
@@ -14,6 +15,7 @@ export {
   AGENT_SCOPES,
   AOMI_SCOPES,
   PIPELINE_SCOPES,
+  ACCOUNT_SCOPES,
   aomiOAuthResourcePolicies,
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
@@ -26,7 +28,8 @@ export type AomiPublicResource = ReturnType<typeof aomiOAuthResources>[
   | "agentMcp"
   | "pipelineMcp"
   | "agentRest"
-  | "pipelineRest"];
+  | "pipelineRest"
+  | "accountRest"];
 
 export function protectedResourceMetadataPath(resource: AomiPublicResource) {
   return `/.well-known/oauth-protected-resource${new URL(resource).pathname}`;

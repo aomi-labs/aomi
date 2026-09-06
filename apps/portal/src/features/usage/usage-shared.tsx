@@ -322,7 +322,10 @@ export function SettingsChip({ app }: { app: AppUsageEntry }) {
       .map((row) => row.paymentMethod)
       .filter((method): method is string => Boolean(method)),
   );
-  if (paymentMethods.has("byok") && paymentMethods.size > 1) {
+  if (
+    [...paymentMethods].some((method) => method.endsWith("byok")) &&
+    paymentMethods.size > 1
+  ) {
     return <Chip>mixed billing</Chip>;
   }
   if (app.settings.appByok) return <Chip>app key · model free</Chip>;
@@ -356,9 +359,7 @@ export function ModelRow({
   app: AppUsageEntry;
   row: AppModelRow;
 }) {
-  const isByok =
-    row.paymentMethod === "byok" ||
-    (row.paymentMethod === undefined && app.settings.appByok);
+  const isByok = row.paymentMethod?.endsWith("byok") ?? app.settings.appByok;
   const hasMarkup = !isByok && row.baseUsd !== row.chargedUsd;
 
   return (
@@ -507,7 +508,13 @@ export function StatTile({
 export const USAGE_MATRIX_HINT =
   "Hover a cell for counts · — means not billed · $0 + app key = app BYOK";
 
-export function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+export function SectionHeading({
+  title,
+  hint,
+}: {
+  title: string;
+  hint?: string;
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 px-0.5">
       <span className="text-sm font-medium leading-none">{title}</span>
@@ -539,7 +546,9 @@ export function PeriodTotalHero({
         <span className="font-mono text-2xl font-semibold tabular-nums leading-none">
           {usd(totalUsd)}
         </span>
-        <span className="text-aomi-muted mt-1 block text-[11px]">Total spend</span>
+        <span className="text-aomi-muted mt-1 block text-[11px]">
+          Total spend
+        </span>
       </div>
     </div>
   );
@@ -552,12 +561,13 @@ function monthActivityStats(month: MonthlyStatement) {
   const hasToolData = month.apps.some((a) => a.tool !== null);
   const hasOutcomeData = month.apps.some((a) => a.outcome !== null);
   const { payment, summary } = month;
-  const over = payment.x402SettledUsd > 0;
+  const over = payment.creditBankAppliedUsd > 0;
   const hasAllowance = payment.allowanceCredits.included > 0;
   const creditsPct = hasAllowance
     ? Math.min(
         100,
-        (payment.allowanceCredits.used / payment.allowanceCredits.included) * 100,
+        (payment.allowanceCredits.used / payment.allowanceCredits.included) *
+          100,
       )
     : 0;
   const computeShare =
@@ -582,8 +592,15 @@ function monthActivityStats(month: MonthlyStatement) {
 
 export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
   const { summary } = month;
-  const { turns, toolCalls, txns, hasToolData, hasOutcomeData, computeShare, onchainShare } =
-    monthActivityStats(month);
+  const {
+    turns,
+    toolCalls,
+    txns,
+    hasToolData,
+    hasOutcomeData,
+    computeShare,
+    onchainShare,
+  } = monthActivityStats(month);
 
   return (
     <section className="flex flex-col gap-2.5">
@@ -592,7 +609,11 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
         hint={`${computeShare}% compute · ${onchainShare}% on-chain`}
       />
       <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-        <StatTile label="Models" value={usd(summary.modelUsd)} detail={`${turns} turns`} />
+        <StatTile
+          label="Models"
+          value={usd(summary.modelUsd)}
+          detail={`${turns} turns`}
+        />
         <StatTile
           label="Tool calls"
           value={hasToolData ? usd(summary.toolUsd) : "—"}
@@ -601,13 +622,21 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
         <StatTile
           label="On-chain"
           value={hasOutcomeData ? usd(summary.onchainUsd) : "—"}
-          detail={hasOutcomeData ? `${txns} txn${txns === 1 ? "" : "s"}` : "no charges"}
+          detail={
+            hasOutcomeData
+              ? `${txns} txn${txns === 1 ? "" : "s"}`
+              : "no charges"
+          }
         />
       </div>
       <p className="text-aomi-muted px-0.5 text-[12px] leading-snug">
         Compute subtotal {usd(summary.computeUsd)} (models + tools)
         {summary.managedMarkupUsd > 0 && (
-          <> · includes {usd(summary.managedMarkupUsd)} managed markup on third-party apps</>
+          <>
+            {" "}
+            · includes {usd(summary.managedMarkupUsd)} managed markup on
+            third-party apps
+          </>
         )}
         . On-chain fees settle separately in-token on your transactions.
       </p>
@@ -618,10 +647,12 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
 export function AllowanceSettlementSection({
   month,
   showAllowance = true,
+  children,
 }: {
   month: MonthlyStatement;
   /** Hide when viewing a past month — profile credits only match the current month. */
   showAllowance?: boolean;
+  children?: ReactNode;
 }) {
   const { payment } = month;
   const { over, hasAllowance, creditsPct } = monthActivityStats(month);
@@ -633,7 +664,9 @@ export function AllowanceSettlementSection({
       <SectionHeading title="Allowance & settlement" />
       <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
         <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
-          <span className="text-[13px] font-medium text-aomi-fg">Monthly credits</span>
+          <span className="text-aomi-fg text-[13px] font-medium">
+            Monthly credits
+          </span>
           <span className="text-aomi-muted text-[13px] tabular-nums">
             {payment.allowanceCredits.used.toLocaleString()} /{" "}
             {payment.allowanceCredits.included.toLocaleString()} used
@@ -644,7 +677,7 @@ export function AllowanceSettlementSection({
           <span className="text-aomi-muted text-[12px] leading-snug">
             Paid via {payment.settledVia}.{" "}
             {over
-              ? `${usd(payment.x402SettledUsd)} billed via x402 beyond your ${usd(
+              ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
                   payment.allowanceAppliedUsd,
                 )} monthly allowance.`
               : `Compute fully covered by your allowance (${usd(
@@ -653,6 +686,7 @@ export function AllowanceSettlementSection({
             On-chain fees {payment.onchainNote}.
           </span>
         </div>
+        {children}
       </div>
     </section>
   );

@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { accountScopedFetch } from "@portal/lib/settings-api";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchModelStatement,
   monthRange,
   recentMonthKeys,
   toMonthlyStatement,
   type WireModelStatement,
 } from "./statement-api";
+
+vi.mock("@portal/lib/settings-api", () => ({ accountScopedFetch: vi.fn() }));
+
+const fetchMock = vi.mocked(accountScopedFetch);
 
 const WIRE: WireModelStatement = {
   period_utc_from: "2026-07-01",
@@ -64,14 +70,14 @@ const WIRE: WireModelStatement = {
   ],
   payment: [
     {
-      method: "null",
+      method: "included",
       credits_used: 100,
       usd: 1.0,
       paid_credits: 0,
       paid_usd: 0,
     },
     {
-      method: "coinbase",
+      method: "credit_bank",
       credits_used: 20,
       usd: 0.2,
       paid_credits: 20,
@@ -90,6 +96,8 @@ const WIRE: WireModelStatement = {
 };
 
 describe("statement adapter", () => {
+  beforeEach(() => fetchMock.mockReset());
+
   it("computes month ranges including leap/short months", () => {
     expect(monthRange("2026-07")).toEqual({
       from: "2026-07-01",
@@ -138,14 +146,59 @@ describe("statement adapter", () => {
     expect(uni?.model.billed).toBe(false);
     expect(uni?.model.byModel[0]?.note).toBe("paid by your own key");
 
-    // Payment strip: quota applied + x402 settlement, allowance passed through.
+    // Payment strip reports account funding buckets, not inference key ownership.
     expect(month.payment.allowanceAppliedUsd).toBeCloseTo(1.0);
-    expect(month.payment.x402SettledUsd).toBeCloseTo(0.2);
-    expect(month.payment.settledVia).toBe("coinbase");
+    expect(month.payment.creditBankAppliedUsd).toBeCloseTo(0.2);
+    expect(month.payment.settledVia).toBe(
+      "monthly allowance + Credit Bank + your own key",
+    );
     expect(month.payment.allowanceCredits).toEqual({
       included: 500,
       used: 120,
     });
+  });
+
+  it("paginates every row in the requested month and preserves funding buckets", async () => {
+    const row = (index: number) => ({
+      usage_event_id: `usage-${index}`,
+      operation_id: `operation-${index}`,
+      application: "default",
+      provider: "openai",
+      model: "gpt-test",
+      input_tokens: 10,
+      output_tokens: 5,
+      inference_funding_source: "platform" as const,
+      gross_charge_microusd: 10_000,
+      included_applied_microusd: index < 125 ? 10_000 : 0,
+      bank_debit_microusd: index < 125 ? 0 : 10_000,
+      occurred_at: 1_785_542_400 + index,
+    });
+    fetchMock
+      .mockResolvedValueOnce({
+        entries: Array.from({ length: 100 }, (_, index) => row(index)),
+        next_cursor: "page-2",
+      })
+      .mockResolvedValueOnce({
+        entries: Array.from({ length: 100 }, (_, index) => row(index + 100)),
+        next_cursor: "page-3",
+      })
+      .mockResolvedValueOnce({
+        entries: Array.from({ length: 50 }, (_, index) => row(index + 200)),
+        next_cursor: null,
+      });
+
+    const statement = await fetchModelStatement("2026-08");
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
+    expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
+    expect(statement.apps[0]?.turns).toBe(250);
+    expect(statement.total_credits_used).toBe(250);
+    expect(statement.payment).toMatchObject([
+      { method: "included", credits_used: 125 },
+      { method: "credit_bank", credits_used: 125 },
+    ]);
   });
 
   it("keeps provider and payment method on otherwise-identical model rows", () => {

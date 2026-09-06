@@ -11,6 +11,7 @@ const REQUEST_HEADERS = new Set([
   "mcp-protocol-version",
   "payment-signature",
   "x-request-id",
+  "x-aomi-inference-funding",
 ]);
 
 const RESPONSE_HEADERS = new Set([

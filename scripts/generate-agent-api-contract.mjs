@@ -17,8 +17,8 @@ const document = `${JSON.stringify(JSON.parse(serialized), null, 2)}\n`;
 writeFileSync(source, document);
 
 const formatSource = spawnSync(
-  "pnpm",
-  ["exec", "prettier", "--write", source],
+  join(root, "node_modules/.bin/prettier"),
+  ["--write", source],
   { cwd: root, encoding: "utf8" },
 );
 if (formatSource.status !== 0) {
@@ -28,8 +28,8 @@ if (formatSource.status !== 0) {
 }
 
 const result = spawnSync(
-  "pnpm",
-  ["dlx", "openapi-typescript@7.13.0", source, "-o", generated],
+  "npx",
+  ["--yes", "openapi-typescript@7.13.0", source, "-o", generated],
   { cwd: root, encoding: "utf8" },
 );
 if (result.status !== 0) {
@@ -47,10 +47,11 @@ writeFileSync(
   `// Rust Agent contract SHA256: ${sourceHash}\n${types}`,
 );
 
-const format = spawnSync("pnpm", ["exec", "prettier", "--write", generated], {
-  cwd: root,
-  encoding: "utf8",
-});
+const format = spawnSync(
+  join(root, "node_modules/.bin/prettier"),
+  ["--write", generated],
+  { cwd: root, encoding: "utf8" },
+);
 if (format.status !== 0) {
   process.stderr.write(format.stdout);
   process.stderr.write(format.stderr);
