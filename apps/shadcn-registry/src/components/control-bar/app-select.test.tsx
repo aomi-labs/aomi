@@ -21,6 +21,7 @@ vi.mock("@aomi-labs/react", () => ({
   cn: (...classes: Array<string | false | null | undefined>) =>
     classes.filter(Boolean).join(" "),
   useControl: () => control,
+  useAomiRuntime: () => ({ isRunning: control.isProcessing }),
 }));
 
 vi.mock("@/components/ui/button", () => ({

@@ -93,7 +93,7 @@ export function delegationKindLabel(kind: string): string {
 /**
  * Normalize the kernel's `signing_mode` to the view's `SignerMode`. Only the
  * canonical ladder spellings (`denied → manual → client_auto → server_auto`)
- * are recognized; anything else fail-safes to `manual`.
+ * are recognized; anything else fails closed.
  */
 export function normalizeSignerMode(mode: string): SignerMode {
   switch (mode) {
@@ -104,8 +104,10 @@ export function normalizeSignerMode(mode: string): SignerMode {
       return "client_auto";
     case "denied":
       return "denied";
-    default:
+    case "manual":
       return "manual";
+    default:
+      return "denied";
   }
 }
 
@@ -136,6 +138,9 @@ function toWalletPolicy(
     ? delegations.find(
         (delegation) =>
           delegation.status === "active" &&
+          delegation.revoked_at === null &&
+          (delegation.expires_at === null ||
+            delegation.expires_at * 1000 > Date.now()) &&
           delegation.delegation_provider.toLowerCase() === provider,
       )
     : undefined;
@@ -164,9 +169,17 @@ function toDelegatedAccountView(row: DelegatedAccount): DelegatedAccountView {
     id: String(row.id),
     provider: titleCase(row.delegation_provider),
     providerKey: row.delegation_provider,
+    address: row.address,
     scope: delegationScope(row),
     kind: delegationKindLabel(row.kind),
-    status: row.status,
+    status:
+      row.revoked_at !== null
+        ? "revoked"
+        : row.status === "active" &&
+            row.expires_at !== null &&
+            row.expires_at * 1000 <= Date.now()
+          ? "expired"
+          : row.status,
   };
 }
 
@@ -239,7 +252,7 @@ export function explainAccountError(cause: unknown): string {
       // The version CAS lost — someone (or another tab) committed first.
       return "This wallet changed while you were signing. Reload and try again.";
     case "wrong_signer":
-      return "That signature came from a wallet not linked to this account.";
+      return "The signature did not match the wallet required for this change. Nothing changed.";
     case "missing_delegated_account":
       return "No active delegated account backs this wallet yet.";
     case "mode_illegal_for_provider":

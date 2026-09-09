@@ -13,6 +13,7 @@ export type BindWalletSigner = {
   address: string;
   signTypedData?: (args: WalletEip712Payload) => Promise<{ signature: string }>;
   signSolanaMessage?: (args: {
+    signer?: string;
     message: string;
     cluster?: string;
     description: string;
@@ -48,6 +49,7 @@ export async function bindWalletVia(
       );
     }
     const { signature } = await signer.signTypedData({
+      signer: signer.address,
       typed_data: challenge.typed_data as WalletEip712Payload["typed_data"],
       description: BIND_DESCRIPTION,
     });
@@ -64,6 +66,7 @@ export async function bindWalletVia(
     throw new Error("Connect a Solana wallet that can sign messages.");
   }
   const { signature } = await signer.signSolanaMessage({
+    signer: signer.address,
     message: challenge.message_base64,
     cluster: signer.svmCluster,
     description: BIND_DESCRIPTION,

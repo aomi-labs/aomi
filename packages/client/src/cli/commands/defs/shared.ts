@@ -1,12 +1,12 @@
 import type { ArgsDef } from "citty";
 import { privateKeyToAccount } from "viem/accounts";
+import { PublicKey } from "@solana/web3.js";
+import { parseSolanaKeypairSecret } from "../../solana-signer";
 import type { CliConfig, CliExecutionMode } from "../../types";
 import { fatal } from "../../errors";
 import {
   parseChainId,
   normalizePrivateKey,
-  parseAAProvider,
-  parseAAMode,
   validateSolanaPrivateKey,
   parsePaymentMethod,
   parseInferenceFunding,
@@ -97,6 +97,11 @@ export const globalArgs = {
     type: "string",
     description: "Wallet address (so the agent knows your wallet)",
   },
+  "solana-public-key": {
+    type: "string",
+    description:
+      "Exact Solana account address; Auto uses its server delegation, not a local private key",
+  },
   "private-key": {
     type: "string",
     description: "Hex private key for signing",
@@ -156,13 +161,7 @@ function resolveExecution(
     fatal("Choose only one of `--aa` or `--eoa`.");
   }
   if (flagEoa) return "eoa";
-  if (
-    flagAA ||
-    str(args["aa-provider"]) !== undefined ||
-    str(args["aa-mode"]) !== undefined
-  ) {
-    return "aa";
-  }
+  if (flagAA) return "aa";
   return undefined;
 }
 
@@ -195,7 +194,7 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   ) {
     fatal(
       "`--public-key` must be a 0x-prefixed EVM address. " +
-        "For a Solana identity, run `aomi wallet set --solana <key>` or pass `--solana-private-key`.",
+        "For a Solana identity, pass `--solana-public-key` or configure its signing key.",
     );
   }
 
@@ -209,17 +208,33 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     );
   }
 
-  const aaProvider = parseAAProvider(
-    str(args["aa-provider"]) ?? process.env.AOMI_AA_PROVIDER,
-  );
-  const aaMode = parseAAMode(str(args["aa-mode"]) ?? process.env.AOMI_AA_MODE);
-
-  if (execution === "eoa" && (aaProvider || aaMode)) {
-    fatal("`--aa-provider` and `--aa-mode` cannot be used with `--eoa`.");
+  // No longer declared flags; citty still accepts unknown options (and parses
+  // the `--flag value` form as `true`), so reject any presence explicitly.
+  if (args["aa-provider"] !== undefined || args["aa-mode"] !== undefined) {
+    fatal(
+      "AA provider and account implementation are backend application policy, not CLI overrides.",
+    );
   }
   const solanaPrivateKey = validateSolanaPrivateKey(
     str(args["solana-private-key"]) ?? process.env.SOLANA_PRIVATE_KEY,
   );
+  let svmPublicKey = str(args["solana-public-key"]);
+  if (svmPublicKey) {
+    try {
+      svmPublicKey = new PublicKey(svmPublicKey.trim()).toBase58();
+    } catch {
+      fatal("`--solana-public-key` must be a valid base58 Solana address.");
+    }
+    if (
+      solanaPrivateKey &&
+      parseSolanaKeypairSecret(solanaPrivateKey).publicKey.toBase58() !==
+        svmPublicKey
+    ) {
+      fatal(
+        "`--solana-public-key` does not match the configured local signing key.",
+      );
+    }
+  }
 
   const svmCluster = parseSvmCluster(
     str(args.cluster) ?? process.env.AOMI_SOLANA_CLUSTER,
@@ -231,6 +246,7 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     json: args.json === true,
     verbose: args.verbose === true,
     accountBearer,
+    svmPublicKey,
     app: str(args.app) ?? process.env.AOMI_APP,
     applicationId:
       str(args["application-id"]) ?? process.env.AOMI_APPLICATION_ID,
@@ -245,8 +261,6 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     chain: parseChainId(str(args.chain) ?? process.env.AOMI_CHAIN_ID),
     secrets: {},
     execution,
-    aaProvider,
-    aaMode,
     paymentMethod: parsePaymentMethod(
       str(args["payment-method"]) ?? process.env.AOMI_PAYMENT_METHOD,
     ),

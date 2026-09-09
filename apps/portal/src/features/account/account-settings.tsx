@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { signOutAndDisconnect, useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { useContext, useMemo, useState } from "react";
+import {
+  signOutAndDisconnect,
+  useAomiWalletKit,
+  WalletSignInOptionsContext,
+} from "@aomi-labs/widget-lib";
 import { AccountSigningView } from "./account-signing";
 import {
   AccountManagement,
@@ -20,6 +24,7 @@ import { resolveWalletBrandKey } from "./wallet-brands";
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings() {
   const adapter = useAomiWalletKit();
+  const providerOptions = useContext(WalletSignInOptionsContext);
   const acl = useAccountAcl();
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -129,12 +134,15 @@ export function AccountSettings() {
   );
   const addSignInOptions = useMemo<AddSignInOption[]>(
     () =>
-      (adapter.socialLoginOptions ?? []).map((option) => ({
+      (providerOptions.length
+        ? providerOptions
+        : (adapter.socialLoginOptions ?? [])
+      ).map((option) => ({
         id: option.id,
         label: option.label,
         ready: option.status !== "unavailable",
       })),
-    [adapter.socialLoginOptions],
+    [adapter.socialLoginOptions, providerOptions],
   );
 
   const run = async (
@@ -189,6 +197,27 @@ export function AccountSettings() {
 
   const connectWallet = async (wallet: UnifiedAccountWallet) => {
     await run(`connect:${wallet.key}`, async () => {
+      const provider = wallet.provider?.toLowerCase();
+      if (
+        wallet.kind === "embedded" &&
+        (provider === "para" || provider === "privy")
+      ) {
+        const option = providerOptions.find((option) => option.id === provider);
+        if (option) {
+          await option.connect();
+          return;
+        }
+        if (
+          adapter.identity.embeddedProvider === provider &&
+          adapter.connectSocial
+        ) {
+          await adapter.connectSocial(provider);
+          return;
+        }
+        throw new Error(
+          `${provider === "para" ? "Para" : "Privy"} is not available on this page. It cannot be connected through another provider.`,
+        );
+      }
       const brand = resolveWalletBrandKey(
         `${wallet.walletName ?? ""} ${wallet.label ?? ""} ${
           wallet.provider ?? ""
@@ -262,6 +291,13 @@ export function AccountSettings() {
         }
         onAddSignIn={async (option) =>
           run(`add-sign-in:${option.id}`, async () => {
+            const provider = providerOptions.find(
+              (provider) => provider.id === option.id,
+            );
+            if (provider) {
+              await provider.connect();
+              return;
+            }
             if (adapter.connectSocial) {
               await adapter.connectSocial(option.id);
               return;
@@ -339,6 +375,8 @@ export function AccountSettings() {
             delegatedAccounts={acl.delegatedAccounts}
             unboundWallets={acl.unboundWallets}
             onCommit={acl.commitMode}
+            onPrepare={acl.prepareMode}
+            onSelectWallet={acl.selectWallet}
             onBindWallet={acl.bindWallet}
             onRevokeDelegation={acl.revokeDelegation}
             onStopAllAuto={acl.stopAllAuto}

@@ -53,6 +53,8 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Queued", icon: ClockIcon };
     case "pending":
       return { label: "Pending confirmation", icon: ClockIcon };
+    case "pending_approval":
+      return { label: "Pending approval", icon: ClockIcon };
     case "success":
       return { label: "Success", icon: CircleCheckIcon };
     case "failed":

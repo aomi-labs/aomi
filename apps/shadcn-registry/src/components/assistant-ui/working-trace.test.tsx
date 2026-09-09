@@ -190,6 +190,8 @@ describe("WorkingTrace", () => {
       {
         kind: "tool_call",
         toolName: "get_chain_context",
+        args: null,
+        resultPreview: "",
         childSeq: 1,
       },
     ]);

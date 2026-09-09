@@ -37,12 +37,12 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
 const adapterState = {
   current: {
     identity: {
-      status: "connected",
-      isConnected: true,
+      status: "connected" as "connected" | "disconnected",
+      isConnected: true as boolean,
       address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
       chainId: 1,
       svmAddress: undefined,
-    },
+    } as AomiWalletKit["identity"],
     accounts: [
       {
         id: "mm",
@@ -50,7 +50,7 @@ const adapterState = {
         address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
         walletName: "MetaMask",
         chainId: 1,
-        active: true,
+        active: true as boolean,
       },
     ],
     walletModalRows: [

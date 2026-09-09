@@ -1,6 +1,7 @@
 import type {
   AomiClient,
   EvmStagedBuild,
+  SvmBuild,
   SvmStageInput,
   SvmStagedBuild,
 } from "../src";
@@ -8,6 +9,38 @@ import type {
 declare const client: AomiClient;
 declare const evmStaged: EvmStagedBuild;
 declare const svmStaged: SvmStagedBuild;
+declare const svmBuild: SvmBuild;
+
+function svmActionsNarrowByLane() {
+  for (const action of svmBuild.actions) {
+    if (action.lane === "instruction") {
+      const programId: string = action.instruction.program_id;
+      void programId;
+      const fee = action.instruction.fee_outcome;
+      if (fee.kind === "flow") {
+        const amount: string = fee.amount;
+        void amount;
+        if (fee.asset.kind === "token") {
+          const token: string = fee.asset.address;
+          void token;
+        }
+      }
+      // @ts-expect-error the server sends a tagged object, never a string
+      const invalidFee: typeof fee = "unmeasured";
+      void invalidFee;
+      // @ts-expect-error the instruction lane carries no transaction record
+      void action.transaction;
+    } else {
+      const payer: string = action.transaction.payer;
+      void payer;
+      // @ts-expect-error the transaction lane carries no instruction record
+      void action.instruction;
+    }
+  }
+  const title: string | undefined = svmBuild.summary?.title;
+  void title;
+}
+void svmActionsNarrowByLane;
 
 async function lifecycleTransitions() {
   const simulated = await client.pipeline.evm.simulate(evmStaged);

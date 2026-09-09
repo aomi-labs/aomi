@@ -42,7 +42,13 @@ export type WalletEip712Payload = {
   /** Stable public Agent action id when projected from the canonical API. */
   requestId?: string;
   typed_data?: {
-    domain?: { chainId?: number | string };
+    domain?: {
+      name?: string;
+      version?: string;
+      chainId?: number | string;
+      verifyingContract?: string;
+      salt?: `0x${string}`;
+    };
     types?: Record<string, Array<{ name: string; type: string }>>;
     primaryType?: string;
     message?: Record<string, unknown>;
@@ -85,6 +91,8 @@ export type WalletSolanaSignPayload = {
 };
 
 export type WalletSolanaSignMessagePayload = {
+  /** Exact wallet whose message signature is required. */
+  signer?: string;
   /** Stable public Agent action id when projected from the canonical API. */
   requestId?: string;
   /** Base64 of the raw message bytes to sign. */

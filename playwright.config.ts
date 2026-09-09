@@ -16,7 +16,7 @@ export default defineConfig({
     {
       name: "local-agent",
       testMatch:
-        /(?:local-(?:agent-cutover|auth-session|guest-hello)|lean-payment-boundary)\.spec\.ts/,
+        /(?:local-(?:agent-cutover|auth-session|guest-hello)|lean-payment-boundary|routing-ui-(?:manual|locked|sign-action|solana))\.spec\.ts/,
       fullyParallel: false,
       use: {
         baseURL: process.env.LOCAL_PORTAL_URL ?? "http://127.0.0.1:3000",

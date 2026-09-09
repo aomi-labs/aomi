@@ -64,21 +64,12 @@ const txSignDef = defineCommand({
     eoa: {
       type: "boolean",
       description:
-        "Plain EOA execution (the default; local signing is always EOA)",
+        "Require an ordinary EVM Action; never rewrite a prepared AA operation",
     },
     aa: {
       type: "boolean",
       description:
-        "Request AA execution — errors: AA now runs in the backend lane",
-    },
-    "aa-provider": {
-      type: "string",
-      description:
-        "AA provider preference synced to user_state: alchemy | pimlico",
-    },
-    "aa-mode": {
-      type: "string",
-      description: "AA mode preference synced to user_state: 4337 | 7702",
+        "Require a backend-prepared AA owner authorization; backend submits",
     },
     txIds: {
       type: "positional",

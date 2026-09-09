@@ -51,7 +51,11 @@ export class ClientSession {
   private cursor?: string;
   private turnId?: string;
   private turnState?: TurnState;
-  private startOperation?: { message: string; idempotencyKey: string };
+  private startOperation?: {
+    message: string;
+    idempotencyKey: string;
+    intent?: StartTurnIntent;
+  };
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
   private pollingActive = false;
   private pollInFlight = false;
@@ -232,7 +236,7 @@ export class ClientSession {
     const text = message.trim();
     if (!text) throw new TypeError("message is required");
     const applicationId = Number(this.applicationId);
-    const operation =
+    const operation: NonNullable<ClientSession["startOperation"]> =
       this.startOperation?.message === text
         ? this.startOperation
         : {
@@ -255,9 +259,14 @@ export class ClientSession {
     this.error = undefined;
     this.publish();
     try {
-      const state = this.getUserState?.();
-      const page = await this.client.agent.start(
-        {
+      if (!operation.intent) {
+        const selected = this.getUserState?.();
+        const state = selected
+          ? await this.client.prepareUserState(this.sessionId, selected)
+          : undefined;
+        // An uncertain start must replay exactly the same intent and key.
+        // Fresh operations refresh policy; execution still checks live authority.
+        operation.intent = {
           sessionId: this.sessionId,
           clientId: this.clientId,
           message: text,
@@ -267,15 +276,15 @@ export class ClientSession {
           ...(this.model ? { model: this.model } : {}),
           ...(state
             ? {
-                userState: state as StartTurnIntent["userState"],
+                userState: structuredClone(state),
               }
             : {}),
-        },
-        {
-          idempotencyKey: operation.idempotencyKey,
-          inferenceFunding: this.inferenceFunding,
-        },
-      );
+        };
+      }
+      const page = await this.client.agent.start(operation.intent, {
+        idempotencyKey: operation.idempotencyKey,
+        inferenceFunding: this.inferenceFunding,
+      });
       this.startOperation = undefined;
       this.applyEventPage(page);
       return page;

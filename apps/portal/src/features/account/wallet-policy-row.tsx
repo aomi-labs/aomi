@@ -26,6 +26,7 @@ interface WalletPolicyRowProps {
   onToggle: () => void;
   onDraft: (mode: SignerMode) => void;
   onCommit: () => void;
+  onSelectWallet?: () => void;
   onCancel: () => void;
   onRenewDelegation: () => void;
   onRevokeDelegation: (delegationId: string) => void;
@@ -43,6 +44,7 @@ export function WalletPolicyRow({
   onToggle,
   onDraft,
   onCommit,
+  onSelectWallet,
   onCancel,
   onRenewDelegation,
   onRevokeDelegation,
@@ -109,6 +111,19 @@ export function WalletPolicyRow({
             inset
             onSelect={onDraft}
           />
+          {!pending &&
+            wallet.desiredMode === "auto" &&
+            wallet.canUseAuto &&
+            onSelectWallet && (
+              <button
+                type="button"
+                onClick={onSelectWallet}
+                disabled={busy}
+                className="border-aomi-border text-aomi-fg rounded-md border px-3 py-2 text-[13px]"
+              >
+                Use for this session
+              </button>
+            )}
 
           {wallet.desiredMode === "auto" && delegation && (
             <>
@@ -152,7 +167,7 @@ export function WalletPolicyRow({
           {pending ? (
             <div className="border-aomi-border bg-aomi-bg/60 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
               <span className="text-aomi-fg text-[13px]">
-                {blocked ?? "Sign to apply this change."}
+                {blocked ?? "Review and confirm this policy change."}
               </span>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -170,7 +185,7 @@ export function WalletPolicyRow({
                   className="bg-aomi-accent-strong text-aomi-on-accent flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   {busy && <Loader2 size={13} className="animate-spin" />}
-                  {busy ? "Waiting for signature…" : "Sign to authorize"}
+                  {busy ? "Applying change…" : "Review change"}
                 </button>
               </div>
             </div>

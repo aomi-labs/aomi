@@ -146,6 +146,9 @@ describe("RuntimeTxHandler", () => {
         requestId: "sign-1",
         chainFamily: "evm",
         executionKind: "erc4337",
+        broadcaster: "hosted",
+        sponsorship: "required",
+        maxNetworkFee: "123456",
         signer: "0x1111111111111111111111111111111111111111",
         chainId: 1,
         description: "Authorize account execution",
@@ -155,6 +158,9 @@ describe("RuntimeTxHandler", () => {
 
     render(<RuntimeTxHandler />);
     expect(runtime.executeAction).not.toHaveBeenCalled();
+    expect(screen.getByText("Sponsorship required")).toBeTruthy();
+    expect(screen.getByText("123456")).toBeTruthy();
+    expect(screen.getByText("hosted")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 

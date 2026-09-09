@@ -8,6 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { AomiWalletOption } from "../../lib/wallet-kit/types";
+
+/** Host-owned provider choices; selecting one does not grant wallet authority. */
+export const WalletSignInOptionsContext = createContext<
+  readonly (AomiWalletOption & { connect: () => Promise<void> })[]
+>([]);
 
 export type WalletPickerContextValue = {
   open: boolean;
