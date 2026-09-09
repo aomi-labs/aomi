@@ -4,6 +4,15 @@ set -euo pipefail
 : "${GH_TOKEN:?GH_TOKEN is required}"
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 : "${CANDIDATE_SHA:?CANDIDATE_SHA is required}"
+: "${ALLOW_PUBLISHABLE_PACKAGE_DRIFT:=false}"
+
+case "$ALLOW_PUBLISHABLE_PACKAGE_DRIFT" in
+  true | false) ;;
+  *)
+    echo "ALLOW_PUBLISHABLE_PACKAGE_DRIFT must be true or false" >&2
+    exit 1
+    ;;
+esac
 
 [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
   echo "candidate_sha must be a full lowercase commit SHA" >&2
@@ -28,8 +37,9 @@ git merge-base --is-ancestor "$CANDIDATE_SHA" origin/main || {
 # main says these packages are: a commit that main later reverted stays an
 # ancestor forever, so ancestry alone would happily publish reverted code.
 # Nothing structural distinguishes "reverted" from "superseded", so this fails
-# closed on both — if the published code itself moved on main since the
-# candidate, a human decides whether to re-cut the candidate or proceed.
+# closed on both by default. A release captain may explicitly acknowledge the
+# drift for an already-soaked immutable candidate; the workflow-dispatch input
+# is retained in the Actions audit trail rather than silently publishing it.
 # Deliberately scoped to the publishable package paths rather than the whole
 # tree: unrelated churn is exactly what the freeze is supposed to tolerate.
 PUBLISHABLE_PATHS=(
@@ -42,9 +52,12 @@ if ! git diff --quiet "$CANDIDATE_SHA" origin/main -- "${PUBLISHABLE_PATHS[@]}";
   echo "Publishable packages changed on main since $CANDIDATE_SHA:" >&2
   git diff --name-only "$CANDIDATE_SHA" origin/main -- "${PUBLISHABLE_PATHS[@]}" \
     | cut -d/ -f1-2 | sort -u | sed 's/^/  /' >&2
-  echo "Refusing to publish: main may have reverted or superseded this code." >&2
-  echo "Re-cut the candidate, or publish from a SHA whose packages match main." >&2
-  exit 1
+  if [[ "$ALLOW_PUBLISHABLE_PACKAGE_DRIFT" != true ]]; then
+    echo "Refusing to publish: main may have reverted or superseded this code." >&2
+    echo "Re-cut the candidate, or explicitly acknowledge package drift for an already-soaked candidate." >&2
+    exit 1
+  fi
+  echo "Continuing with explicitly acknowledged publishable-package drift." >&2
 fi
 # Filter server-side on head_sha as well as branch: a candidate that has soaked
 # for a while can otherwise fall outside the newest page of main's CI runs.

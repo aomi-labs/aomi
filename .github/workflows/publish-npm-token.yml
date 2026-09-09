@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: Full current main SHA
+        description: Full immutable candidate SHA merged into main
         required: true
         type: string
+      allow_package_drift:
+        description: Publish this already-soaked candidate even though publishable package paths changed on main
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -30,6 +35,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ALLOW_PUBLISHABLE_PACKAGE_DRIFT: ${{ inputs.allow_package_drift }}
         run: .github/scripts/verify-main-ci.sh
 
       - name: Enable corepack
