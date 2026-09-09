@@ -141,21 +141,21 @@ export function printPaymentEvent(event: CliPaymentEvent): void {
       ]
         .filter(Boolean)
         .join(" · ");
-      console.log(
+      console.error(
         `${YELLOW}💳 x402 payment required${details ? `: ${details}` : ""}${RESET}`,
       );
       return;
     }
     case "submitting":
-      console.log(`${DIM}✍️ Signing and submitting x402 payment…${RESET}`);
+      console.error(`${DIM}✍️ Signing and submitting x402 payment…${RESET}`);
       return;
     case "settled":
-      console.log(
+      console.error(
         `${GREEN}✔ x402 payment settled${event.receiptId ? `: ${event.receiptId}` : ""}${RESET}`,
       );
       return;
     case "rejected":
-      console.log(
+      console.error(
         `\x1b[31m✖ x402 payment rejected (HTTP ${event.status})${event.reason ? `: ${event.reason}` : ""}${RESET}`,
       );
   }

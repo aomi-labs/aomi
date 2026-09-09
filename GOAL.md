@@ -1,5 +1,14 @@
 # Canonical Landing
 
+Current session goal: **CLI SDK PARITY AND WALLET EXPORTS VERIFIED 2026-09-08**
+— replace the obsolete flat Pipeline CLI with a compact filesystem, scoped
+operation, and EVM/SVM Build lifecycle interface backed by the canonical SDK;
+restore EIP-5792, MegaETH MOSS, and MetaMask Agent Wallet handoff artifacts on
+the Action model; remove orphaned pre-Action signing code; and align the CLI
+documentation and package release. Verified with client and backend Pipeline
+tests, typecheck, lint, production package build, built-CLI smoke checks, and an
+npm dry-run tarball audit for `0.6.13`.
+
 Current session goal: **LEGACY AGENT TRACE GROUPING VERIFIED 2026-09-07** —
 group null-turn historical Agent tool steps and final answers by their preceding
 user message while preserving canonical turn identities and stable pagination.
@@ -1809,3 +1818,7 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
   tests, Build TypeScript, scoped lint, deploy package build and pack dry run.
   Backend workflows and cross-environment candidate behavior are unchanged in
   this frontend follow-up. No database or hosted runtime changes were made.
+- 2026-09-09 deployment recovery PR sync: merged current main after the required
+  up-to-date check changed. The merge was conflict-free and all 324 focused
+  launch and deployment-route tests pass. Companion Manager, community, Krexa,
+  and template PR CI is green. No hosted rollout or database changes were made.
