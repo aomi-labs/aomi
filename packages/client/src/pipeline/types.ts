@@ -14,7 +14,6 @@ export interface PipelineDirectoryEntry {
   href: string;
   description?: string;
 }
-
 export interface PipelineDirectory {
   kind: "directory";
   path: string;
@@ -99,16 +98,20 @@ export type PipelineGuardResult = Schemas["PipelineGuardResult"];
 export type PipelineGasEstimate = Schemas["PipelineGasEstimate"];
 export type PipelineLog = Schemas["PipelineLog"];
 
+/** Server-authored Build summary. The wire schema leaves it open, so this is a
+ * structural view of the fields the server emits today; unknown fields pass
+ * through untouched. */
 export interface PipelineActionSummary {
   title?: string;
   description?: string;
   actionCount?: number;
   transactionCount?: number;
-  assetsIn?: string[];
-  assetsOut?: string[];
+  assetsIn?: PipelineBalanceChange[] | string[];
+  assetsOut?: PipelineBalanceChange[] | string[];
   contracts?: string[];
   programs?: string[];
   chains?: Array<number | string>;
+  [key: string]: unknown;
 }
 
 export interface EvmCallInput {
@@ -232,6 +235,9 @@ export type SvmStageInput = PipelineExecutionScope &
 
 export type SvmDirectInput = SvmStageInput;
 
+export type SvmAssembledAccountMeta = SvmAccountMeta;
+export type AssembledSvmInstruction = Schemas["AssembledSvmInstruction"];
+
 export type SvmStagedAction =
   | {
       lane: "instruction";
@@ -244,6 +250,7 @@ export type SvmStagedAction =
       transaction: Schemas["AssembledSvmTransaction"];
     };
 
+export type SvmBuildAction = SvmStagedAction;
 export type SvmPresentedAction = SvmStagedAction & { chainFamily: "svm" };
 
 export interface SvmStagedBuild {

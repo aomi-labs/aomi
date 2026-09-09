@@ -13,6 +13,16 @@ sources_of_truth:
 
 # Solana Transactions
 
+For the current Action-based UI/CLI contract and supported adapters, see
+[Wallet routing](../../auth/facts/wallet-kit.md). Auto can select an exact SVM
+account with `--solana-public-key` without possessing its private key. The
+backend checks delegation before execution; sealing a transaction is not AA.
+
+## Historical verification (July 2026)
+
+The evidence below describes the former approval/callback protocol, not a live
+verification of the current Action contract.
+
 The Solana HTTP transaction path was completed and verified locally on
 2026-07-15. This page records its durable client contract, root causes, and
 acceptance evidence.

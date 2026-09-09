@@ -1,9 +1,7 @@
-import type { AAMode } from "../aa/types";
 import type { AomiInferenceFundingSource } from "../agent/types";
 
 export type CliExecutionMode = "aa" | "eoa";
 export type CliAgentMode = "auto" | "direct";
-export type CliAAProvider = "alchemy" | "pimlico";
 export type CliPaymentMethod = "coinbase";
 
 export type CliConfig = {
@@ -20,13 +18,15 @@ export type CliConfig = {
   model?: string;
   freshSession?: boolean;
   publicKey?: string;
+  /** Exact Solana transaction account; Auto does not require its private key. */
+  svmPublicKey?: string;
   privateKey?: string;
   /**
    * Solana keypair secret. Accepts:
    *  - base58 of the 64-byte secret key (Phantom / Solflare export format)
    *  - JSON array of bytes (`[1,2,...,64]`, the `solana-keygen` format)
    * EVM-only sessions can leave this unset — `aomi tx sign` only requires it
-   * when the targeted pending tx is `solana_sign` kind.
+   * when the targeted Action requests SVM signing or execution.
    */
   solanaPrivateKey?: string;
   /**
@@ -40,14 +40,10 @@ export type CliConfig = {
   chain?: number;
   secrets: Record<string, string>;
   /**
-   * undefined = auto (local execution is always EOA). "aa" records an AA
-   * execution request, which the CLI rejects locally — AA runs in the
-   * backend lane. aaProvider/aaMode are preferences synced to user_state
-   * so the backend routes accordingly; they never drive local execution.
+   * Optional assertion on the already-prepared Action, never a routing
+   * override. AA owner signatures use the same Action lifecycle as the UI.
    */
   execution?: CliExecutionMode;
-  aaProvider?: CliAAProvider;
-  aaMode?: AAMode;
   paymentMethod?: CliPaymentMethod;
   /** Explicit inference funding lane selected for chat. */
   inferenceFunding?: AomiInferenceFundingSource;

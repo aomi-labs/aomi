@@ -64,13 +64,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Hide the dev-tools indicator when recording demo takes. It renders a
-  // badge in the bottom-left corner, directly on top of the account chip,
-  // and reads on camera as "this product has N issues". Opt-in via env so
-  // normal local development keeps the indicator.
+  // Keep the development badge clear of the account and sign-in controls.
+  // Demo recordings may hide it entirely.
   ...(process.env.AOMI_HIDE_DEV_INDICATOR === "true"
     ? { devIndicators: false as const }
-    : {}),
+    : { devIndicators: { position: "bottom-right" as const } }),
   env: {
     NEXT_PUBLIC_BACKEND_URL:
       process.env.NEXT_PUBLIC_BACKEND_URL ||

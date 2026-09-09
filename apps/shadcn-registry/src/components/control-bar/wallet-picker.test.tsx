@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 // Type-side registration of the jest-dom matchers the root vitest.setup.ts
 // installs at runtime; the app tsconfig doesn't load the augmentation globally.
 import "@testing-library/jest-dom/vitest";
-import { useEffect } from "react";
+import { useEffect, type ContextType } from "react";
 import {
   act,
   cleanup,
@@ -20,6 +20,7 @@ import { registerWalletProvider } from "@/lib/wallet-kit/providers/plugin-regist
 import {
   requestWalletPickerOpen,
   WalletPickerProvider,
+  WalletSignInOptionsContext,
   useWalletPicker,
 } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
@@ -62,6 +63,7 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
       svmAddress: "9xQpubKey",
       authMethod: "google",
       embeddedProvider: "para",
+      sessionProvider: "para",
       primaryLabel: "0xAAA..AA",
     },
     isReady: true,
@@ -224,6 +226,7 @@ function renderPicker(
   adapter: AomiWalletKit,
   hasBlockingActions = false,
   initiallyOpen = true,
+  signInOptions: ContextType<typeof WalletSignInOptionsContext> = [],
 ) {
   const runtime = {
     hasBlockingActions,
@@ -238,9 +241,11 @@ function renderPicker(
             evmChains={evmChains}
             solanaNetworks={solanaNetworks}
           >
-            <WalletPickerProvider>
-              {initiallyOpen ? <OpenAndRender /> : <WalletPicker />}
-            </WalletPickerProvider>
+            <WalletSignInOptionsContext.Provider value={signInOptions}>
+              <WalletPickerProvider>
+                {initiallyOpen ? <OpenAndRender /> : <WalletPicker />}
+              </WalletPickerProvider>
+            </WalletSignInOptionsContext.Provider>
           </AomiWalletNetworkPreferencesProvider>
         </AomiWalletKitContextProvider>
       </AomiRuntimeApiProvider>
@@ -293,6 +298,7 @@ describe("WalletPicker", () => {
           status: "disconnected",
           isConnected: false,
           embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -322,6 +328,7 @@ describe("WalletPicker", () => {
           status: "disconnected",
           isConnected: false,
           embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -789,6 +796,7 @@ describe("WalletPicker", () => {
           status: "disconnected",
           isConnected: false,
           embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
       }),
@@ -1121,6 +1129,72 @@ describe("WalletPicker", () => {
     ).toBe(true);
   });
 
+  it("hides the connected host provider and offers the other one as a link", async () => {
+    const privy = vi.fn(async () => undefined);
+    const para = vi.fn(async () => undefined);
+    renderPicker(
+      makeAdapter({
+        identity: {
+          status: "connected",
+          isConnected: true,
+          sessionProvider: "privy",
+          walletProviderSubject: "privy-user",
+        },
+      }),
+      false,
+      true,
+      [
+        {
+          id: "privy",
+          label: "Privy",
+          status: "available",
+          family: "multichain",
+          kind: "social",
+          connect: privy,
+        },
+        {
+          id: "para",
+          label: "Para",
+          status: "available",
+          family: "multichain",
+          kind: "social",
+          connect: para,
+        },
+      ],
+    );
+    expect(screen.queryByRole("button", { name: "Privy" })).toBeNull();
+    expect(screen.getByText("Link another provider")).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Para" }));
+    });
+    expect(para).toHaveBeenCalledOnce();
+    expect(privy).not.toHaveBeenCalled();
+  });
+
+  it("shows both host providers as ways to sign in when no provider account is connected", () => {
+    renderPicker(makeAdapter({}), false, true, [
+      {
+        id: "privy",
+        label: "Privy",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+      {
+        id: "para",
+        label: "Para",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+    ]);
+    expect(screen.getByText("Other ways to sign in")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Para" })).toBeVisible();
+  });
+
   it("hides the social sign-in row when the Para account is connected", () => {
     renderPicker(
       makeAdapter({
@@ -1244,6 +1318,7 @@ describe("WalletPicker", () => {
           address: "0xAAAAAAAA",
           chainId: 1,
           embeddedProvider: "privy",
+          sessionProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         socialLoginOptions: [
@@ -1299,6 +1374,7 @@ describe("WalletPicker", () => {
           address: "0xAAAAAAAA",
           chainId: 1,
           embeddedProvider: "privy",
+          sessionProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         walletModalRows: [

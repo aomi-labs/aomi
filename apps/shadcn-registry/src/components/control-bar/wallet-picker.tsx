@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -43,7 +44,10 @@ import {
 import type { AomiWalletKit, WalletFamily } from "../../lib/wallet-kit/types";
 import { ModalBackdrop } from "../ui/modal-backdrop";
 import { WalletIconSlot } from "./wallet-icon-slot";
-import { useWalletPicker } from "./wallet-picker-context";
+import {
+  useWalletPicker,
+  WalletSignInOptionsContext,
+} from "./wallet-picker-context";
 import {
   buildAccountAccessEntries,
   buildConnectedEntries,
@@ -491,6 +495,7 @@ export function WalletPicker() {
     [walletActions, connectedFamilyBrandKeys],
   );
 
+  const hostSignInOptions = useContext(WalletSignInOptionsContext);
   const socialLoginOptions = useMemo(
     () =>
       walletActions.filter(
@@ -519,9 +524,34 @@ export function WalletPicker() {
   );
   const supportedEvmChains =
     adapter.supportedNetworks?.evm ?? adapter.supportedChains ?? [];
-  const socialOptionsToShow = providerAccountConnected
-    ? []
-    : providerSignInOptions;
+  // Host provider choices: while no provider account exists they are ways to
+  // sign in. Once one is connected, the connected provider disappears and the
+  // remaining choices become ways to link another provider.
+  const socialOptionsToShow: WalletAction[] = hostSignInOptions.length
+    ? hostSignInOptions
+        .filter(
+          (option) => !providerAccountConnected || option.id !== sessionProvider,
+        )
+        .map((option) => ({
+          ...option,
+          family: "evm",
+          source: "option",
+          status: option.ready === false ? "unavailable" : "available",
+          provider: option.id,
+          actionKey: `social:${option.id}`,
+          actions: [
+            {
+              kind: "authenticate",
+              label: providerAccountConnected ? "Link" : "Sign in",
+            },
+          ],
+        }))
+    : providerAccountConnected
+      ? []
+      : providerSignInOptions;
+  const socialSectionLabel = providerAccountConnected
+    ? "Link another provider"
+    : "Other ways to sign in";
   const hasAccountManagement = Boolean(adapter.accountUser);
   const accountView = hasAccountManagement && view === "account";
   const accountDisplayName =
@@ -570,14 +600,16 @@ export function WalletPicker() {
 
   const quickSignInSection = socialOptionsToShow.length ? (
     <section className="flex flex-col gap-2">
-      <SectionLabel>Other ways to sign in</SectionLabel>
+      <SectionLabel>{socialSectionLabel}</SectionLabel>
       <div className="border-aomi-border divide-aomi-border divide-y overflow-hidden rounded-xl border">
         {socialOptionsToShow.map((option) => (
           <SocialLoginRow
             key={option.id}
             option={option}
             pending={pending}
-            brandLabel={providerBrandLabel}
+            brandLabel={
+              formatWalletProvider(option.provider) ?? providerBrandLabel
+            }
             onClick={() =>
               void runAction(`social:${option.id}`, async () => {
                 await option.connect();
@@ -2403,9 +2435,10 @@ function SocialLoginRow({
   onClick: () => void;
 }) {
   const title = brandLabel ?? option.label;
-  const subtitle = brandLabel
-    ? option.label
-    : (option.description ?? "Use an Aomi account");
+  const subtitle =
+    brandLabel && brandLabel !== option.label
+      ? option.label
+      : (option.description ?? "Use an Aomi account");
   return (
     <button
       type="button"

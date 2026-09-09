@@ -94,15 +94,29 @@ describe("WalletReview", () => {
         requestId: "sign-1",
         chainFamily: "evm",
         executionKind: "erc4337",
+        broadcaster: "hosted",
+        sponsorship: "required",
+        maxNetworkFee: "123456",
         signer: "0x1111111111111111111111111111111111111111",
         chainId: 1,
         description: "Authorize account execution",
         payloads: [{ kind: "evm_personal", message: "0x01" }],
+        fees: [
+          {
+            asset: { kind: "native" },
+            amount: "42",
+            recipient: "0x2222222222222222222222222222222222222222",
+          },
+        ],
       }),
     ];
 
     render(<ActivitySidebar />);
     expect(runtime.executeAction).not.toHaveBeenCalled();
+    expect(screen.getByText("hosted")).toBeInTheDocument();
+    expect(screen.getByText("Sponsorship required")).toBeInTheDocument();
+    expect(screen.getByText("123456 native base units")).toBeInTheDocument();
+    expect(screen.getByText("Application fee")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
 

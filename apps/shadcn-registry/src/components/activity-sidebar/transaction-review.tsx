@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import type { Action } from "@aomi-labs/client";
+import type { Action, ActionRequest } from "@aomi-labs/client";
 import { Wallet, Fuel } from "lucide-react";
 import { Button } from "../ui/button";
 import { ImpactPanel } from "./wallet-impact";
@@ -77,6 +77,9 @@ export function TransactionReview({
           showNetwork
           failed={failed ?? false}
         />
+        {request.type === "sign" ? (
+          <SigningRequestMetadata request={request} />
+        ) : null}
         <dl className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-[11px]">
           {[...new Set(signers)].filter(Boolean).map((signer) => (
             <div key={signer} className="flex items-center gap-2">
@@ -134,5 +137,64 @@ export function TransactionReview({
         )}
       </footer>
     </section>
+  );
+}
+function SigningRequestMetadata({
+  request,
+}: {
+  request: Extract<ActionRequest, { type: "sign" }>;
+}) {
+  const facts = [
+    request.broadcaster
+      ? { label: "Submitted by", value: request.broadcaster }
+      : undefined,
+    request.sponsorship
+      ? {
+          label: "Network funding",
+          value:
+            request.sponsorship === "required"
+              ? "Sponsorship required"
+              : "User-funded",
+        }
+      : undefined,
+    request.maxNetworkFee
+      ? {
+          label: "Network cost ceiling",
+          value: `${request.maxNetworkFee} native base units`,
+        }
+      : undefined,
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
+
+  if (facts.length === 0 && !request.fees?.length) return null;
+  return (
+    <dl className="border-aomi-border bg-aomi-raised grid gap-2 rounded-xl border p-3 text-[11px]">
+      {facts.map((fact) => (
+        <div
+          key={fact.label}
+          className="flex items-start justify-between gap-3"
+        >
+          <dt className="text-aomi-muted">{fact.label}</dt>
+          <dd className="max-w-[60%] break-words text-right font-medium">
+            {fact.value}
+          </dd>
+        </div>
+      ))}
+      {request.fees?.map((fee, index) => (
+        <div
+          key={`${fee.recipient}-${index}`}
+          className="border-aomi-border flex items-start justify-between gap-3 border-t pt-2"
+        >
+          <dt className="text-aomi-muted">Application fee</dt>
+          <dd className="max-w-[60%] break-all text-right font-medium">
+            {fee.amount}{" "}
+            {fee.asset.kind === "native"
+              ? "native"
+              : compact(fee.asset.address)}
+            {" → "}
+            {compact(fee.recipient)}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }

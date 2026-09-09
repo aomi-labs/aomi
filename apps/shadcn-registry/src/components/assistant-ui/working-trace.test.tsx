@@ -256,9 +256,9 @@ describe("WorkingTrace", () => {
     const updatedRun = run([
       {
         kind: "tool_call",
-        resultPreview: "",
-        args: {},
         toolName: "get_chain_context",
+        args: null,
+        resultPreview: "",
         childSeq: 1,
       },
     ]);

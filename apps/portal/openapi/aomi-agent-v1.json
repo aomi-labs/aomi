@@ -23,20 +23,29 @@
     "GET /v1/pipeline/apps/{app}/operations/{operation}",
     "GET /v1/pipeline/core",
     "GET /v1/pipeline/evm",
+    "GET /v1/pipeline/evm/account",
     "GET /v1/pipeline/evm/build",
     "GET /v1/pipeline/evm/commit",
+    "GET /v1/pipeline/evm/context",
+    "GET /v1/pipeline/evm/contract",
+    "GET /v1/pipeline/evm/encode-call",
     "GET /v1/pipeline/evm/simulate",
     "GET /v1/pipeline/evm/stage",
+    "GET /v1/pipeline/evm/token-holdings",
     "GET /v1/pipeline/skills",
     "GET /v1/pipeline/skills/{skill}",
     "GET /v1/pipeline/skills/{skill}/SKILL.md",
     "GET /v1/pipeline/skills/{skill}/operations",
     "GET /v1/pipeline/skills/{skill}/operations/{operation}",
     "GET /v1/pipeline/svm",
+    "GET /v1/pipeline/svm/account",
     "GET /v1/pipeline/svm/build",
     "GET /v1/pipeline/svm/commit",
+    "GET /v1/pipeline/svm/context",
+    "GET /v1/pipeline/svm/program",
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
+    "GET /v1/pipeline/svm/token-holdings",
     "PATCH /v1/agent/sessions/{sessionId}",
     "POST /v1/account/credits/top-up",
     "POST /v1/agent/chat",
@@ -44,16 +53,25 @@
     "POST /v1/agent/chat/{sessionId}/interrupt",
     "POST /v1/agent/mcp",
     "POST /v1/pipeline/apps/{app}/operations/{operation}",
+    "POST /v1/pipeline/evm/account",
     "POST /v1/pipeline/evm/build",
     "POST /v1/pipeline/evm/commit",
+    "POST /v1/pipeline/evm/context",
+    "POST /v1/pipeline/evm/contract",
+    "POST /v1/pipeline/evm/encode-call",
     "POST /v1/pipeline/evm/simulate",
     "POST /v1/pipeline/evm/stage",
+    "POST /v1/pipeline/evm/token-holdings",
     "POST /v1/pipeline/mcp",
     "POST /v1/pipeline/skills/{skill}/operations/{operation}",
+    "POST /v1/pipeline/svm/account",
     "POST /v1/pipeline/svm/build",
     "POST /v1/pipeline/svm/commit",
+    "POST /v1/pipeline/svm/context",
+    "POST /v1/pipeline/svm/program",
     "POST /v1/pipeline/svm/simulate",
-    "POST /v1/pipeline/svm/stage"
+    "POST /v1/pipeline/svm/stage",
+    "POST /v1/pipeline/svm/token-holdings"
   ],
   "paths": {
     "/health": {
@@ -1383,7 +1401,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineBuild"
+                  "$ref": "#/components/schemas/PipelineEvmCommitResult"
                 }
               }
             }
@@ -1647,7 +1665,637 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PipelineBuild"
+                  "$ref": "#/components/schemas/PipelineSvmCommitResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/account": {
+      "get": {
+        "operationId": "describeEvmAccount",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmAccount",
+        "description": "Read an EVM account's native balance and nonce, optionally with recent transaction history.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmAccountResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/contract": {
+      "get": {
+        "operationId": "describeEvmContract",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmContract",
+        "description": "Retrieve contract metadata: parsed ABI (default) or verified source, following EIP-1967 proxies to the implementation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmContractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmContractResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/token-holdings": {
+      "get": {
+        "operationId": "describeEvmTokenHoldings",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmTokenHoldings",
+        "description": "Read an ERC-20 token balance for a holder. A token filter is required today; unfiltered enumeration is not yet supported on EVM.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmTokenHoldingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmTokenHoldingsResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/context": {
+      "get": {
+        "operationId": "describeEvmContext",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmContext",
+        "description": "Current time and on-chain context for the connected EVM network: chain, block number, gas price, and supported chains.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmContextResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/encode-call": {
+      "get": {
+        "operationId": "describeEvmEncodeCall",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "simulateEvmCall",
+        "description": "Encode calldata from a function signature and simulate the contract call in one step. Simulation only — nothing is signed or broadcast.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmEncodeCallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmEncodeCallResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/account": {
+      "get": {
+        "operationId": "describeSvmAccount",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmAccount",
+        "description": "Fetch and typed-decode any Solana account: wallet, token account, mint, PDA, or program account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmAccountResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/program": {
+      "get": {
+        "operationId": "describeSvmProgram",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmProgram",
+        "description": "Look up a Solana program by id or fuzzy name; returns metadata and, by default, the full Anchor IDL.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmProgramRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmProgramResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/token-holdings": {
+      "get": {
+        "operationId": "describeSvmTokenHoldings",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmTokenHoldings",
+        "description": "List an owner's SPL token holdings, aggregated per mint, with the underlying token accounts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmTokenHoldingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmTokenHoldingsResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/context": {
+      "get": {
+        "operationId": "describeSvmContext",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmContext",
+        "description": "Current time and cluster context for the connected Solana wallet: slot, blockhash, balance, and priority-fee signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmContextResult"
+                    }
+                  }
                 }
               }
             }
@@ -1927,6 +2575,11 @@
           },
           "ens_name": {
             "type": ["string", "null"]
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
           }
         }
       },
@@ -1951,6 +2604,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
           }
         }
       },
@@ -2926,7 +3584,13 @@
             }
           },
           "sponsorship": {
-            "type": "string"
+            "type": "string",
+            "enum": ["none", "required"]
+          },
+          "maxNetworkFee": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Maximum network cost in native base units, separate from application fees and principal."
           },
           "domain": {
             "type": "object",
@@ -3128,6 +3792,602 @@
           "error": {}
         }
       },
+      "PipelineEvmAccountRequest": {
+        "type": "object",
+        "required": ["address", "chain_id"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "0x-prefixed EVM address to query."
+          },
+          "chain_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "EVM chain ID (e.g. 1, 137, 42161)."
+          },
+          "include_tx_history": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return recent transactions; the heaviest part of the call."
+          },
+          "history_limit": {
+            "type": ["integer", "null"],
+            "description": "Max transactions when include_tx_history is true (default 100)."
+          },
+          "history_offset": {
+            "type": ["integer", "null"],
+            "description": "Transaction-history pagination offset."
+          }
+        }
+      },
+      "PipelineEvmAccountResult": {
+        "type": "object",
+        "required": [
+          "address",
+          "balance_wei",
+          "balance_native",
+          "native_currency",
+          "nonce"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "balance_wei": {
+            "type": "string"
+          },
+          "balance_native": {
+            "type": "string"
+          },
+          "native_currency": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "integer"
+          },
+          "history_count": {
+            "type": "integer"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "execution": {
+            "type": "object",
+            "description": "Present when policy routes the connected owner through an ERC-4337 executor account."
+          }
+        }
+      },
+      "PipelineEvmContractRequest": {
+        "type": "object",
+        "required": ["address"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Contract address. Pass the zero address together with metadata fields to search instead."
+          },
+          "chain_id": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Chain ID; required alongside a concrete address."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["abi", "source"],
+            "default": "abi",
+            "description": "`abi` returns parsed signatures; `source` returns verified Solidity (heavier)."
+          },
+          "auto_resolve_proxy": {
+            "type": "boolean",
+            "default": true,
+            "description": "Follow EIP-1967/OZ proxies through to the implementation's metadata."
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Fuzzy contract-name search."
+          },
+          "symbol": {
+            "type": ["string", "null"],
+            "description": "Token-symbol search."
+          },
+          "protocol": {
+            "type": ["string", "null"],
+            "description": "Fuzzy protocol search."
+          },
+          "contract_type": {
+            "type": ["string", "null"],
+            "description": "Exact contract-type match."
+          },
+          "version": {
+            "type": ["string", "null"],
+            "description": "Exact protocol-version match."
+          }
+        }
+      },
+      "PipelineEvmContractResult": {
+        "type": "object",
+        "required": ["found", "count", "contracts"],
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["address", "chain", "chain_id"],
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "chain": {
+                  "type": "string"
+                },
+                "chain_id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "is_proxy": {
+                  "type": ["boolean", "null"]
+                },
+                "implementation_address": {
+                  "type": ["string", "null"]
+                },
+                "fetched_from_etherscan": {
+                  "type": "boolean"
+                },
+                "abi": {
+                  "description": "Parsed ABI; present in `abi` mode."
+                },
+                "source_code": {
+                  "type": "string",
+                  "description": "Verified source; present in `source` mode."
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineEvmTokenHoldingsRequest": {
+        "type": "object",
+        "required": ["chain_id", "token_address"],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "EVM chain ID to read."
+          },
+          "token_address": {
+            "type": "string",
+            "description": "ERC-20 token contract address. Required — holdings enumeration without a token filter is not yet supported on EVM."
+          },
+          "holder_address": {
+            "type": ["string", "null"],
+            "description": "Holder to read. Defaults to the connected EVM wallet."
+          },
+          "block_tag": {
+            "type": ["string", "null"],
+            "description": "Optional block tag; defaults to latest."
+          }
+        }
+      },
+      "PipelineEvmTokenHoldingsResult": {
+        "type": "object",
+        "required": [
+          "chain_id",
+          "token",
+          "holder",
+          "balance_raw",
+          "balance",
+          "decimals"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string"
+          },
+          "holder": {
+            "type": "string"
+          },
+          "balance_raw": {
+            "type": "string",
+            "description": "Raw base-unit amount; may exceed f64 precision."
+          },
+          "balance": {
+            "type": "string",
+            "description": "Decimal-adjusted numeric string."
+          },
+          "decimals": {
+            "type": "integer"
+          }
+        }
+      },
+      "PipelineEvmContextRequest": {
+        "type": "object",
+        "properties": {},
+        "description": "No parameters; send an empty JSON object."
+      },
+      "PipelineEvmContextResult": {
+        "type": "object",
+        "required": [
+          "current_time_unix",
+          "current_time_iso",
+          "supported_chains"
+        ],
+        "properties": {
+          "chain_name": {
+            "type": "string"
+          },
+          "chain_id": {
+            "type": "integer"
+          },
+          "rpc_endpoint": {
+            "type": "string"
+          },
+          "current_time_unix": {
+            "type": "integer"
+          },
+          "current_time_iso": {
+            "type": "string"
+          },
+          "block_number": {
+            "type": "integer"
+          },
+          "gas_price_wei": {
+            "type": ["string", "null"]
+          },
+          "native_currency": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string"
+              },
+              "internal_decimals": {
+                "type": "integer"
+              },
+              "display_decimals": {
+                "type": "integer"
+              }
+            }
+          },
+          "simulation_warning": {
+            "type": ["string", "null"]
+          },
+          "supported_chains": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "chain_id": {
+                  "type": "integer"
+                },
+                "native_currency": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineEvmEncodeCallRequest": {
+        "type": "object",
+        "required": ["function_signature", "arguments", "to"],
+        "properties": {
+          "function_signature": {
+            "type": "string",
+            "description": "Solidity function signature, e.g. `balanceOf(address)`."
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "ABI arguments as strings; encode nested tuples/arrays as JSON strings."
+          },
+          "to": {
+            "type": "string",
+            "description": "Target contract address or ENS name."
+          },
+          "value": {
+            "type": ["string", "null"],
+            "description": "Native value in wei for payable simulations. Defaults to 0."
+          },
+          "from": {
+            "type": ["string", "null"],
+            "description": "Sender for the simulation. Defaults to the connected wallet's execution account; pass explicitly to dry-run as an arbitrary address."
+          },
+          "chain_id": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Chain override; defaults to the connected wallet's chain."
+          }
+        }
+      },
+      "PipelineEvmEncodeCallResult": {
+        "type": "string",
+        "description": "Human-readable simulation report: the decoded return value or a state-change preview."
+      },
+      "PipelineSvmAccountRequest": {
+        "type": "object",
+        "required": ["pubkey"],
+        "properties": {
+          "pubkey": {
+            "type": "string",
+            "description": "Base58 Solana account public key."
+          }
+        }
+      },
+      "PipelineSvmAccountResult": {
+        "type": "object",
+        "required": ["pubkey", "cluster", "found"],
+        "properties": {
+          "pubkey": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "lamports": {
+            "type": "integer"
+          },
+          "owner_program_id": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "boolean"
+          },
+          "rent_epoch": {
+            "type": "integer"
+          },
+          "space": {
+            "type": ["integer", "null"]
+          },
+          "decoded": {
+            "description": "Typed decode: user, token_account, mint, program_data, anchor, or a raw base64 fallback."
+          }
+        }
+      },
+      "PipelineSvmProgramRequest": {
+        "type": "object",
+        "properties": {
+          "program_id": {
+            "type": ["string", "null"],
+            "description": "Base58 program id. Pass null for name search."
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Fuzzy program-name search when program_id is absent."
+          },
+          "framework": {
+            "type": ["string", "null"],
+            "enum": ["anchor", "native", null],
+            "description": "Optional framework filter."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["idl", "metadata"],
+            "default": "idl",
+            "description": "`idl` includes the full IDL JSON; `metadata` omits it."
+          }
+        }
+      },
+      "PipelineSvmProgramResult": {
+        "type": "object",
+        "required": ["found", "count", "programs"],
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["program_id", "cluster"],
+              "properties": {
+                "program_id": {
+                  "type": "string"
+                },
+                "cluster": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "framework": {
+                  "type": ["string", "null"]
+                },
+                "idl_source": {
+                  "type": ["string", "null"]
+                },
+                "description": {
+                  "type": ["string", "null"]
+                },
+                "deployer": {
+                  "type": ["string", "null"]
+                },
+                "upgrade_authority": {
+                  "type": ["string", "null"]
+                },
+                "deployed_slot": {
+                  "type": ["integer", "null"]
+                },
+                "bpf_hash": {
+                  "type": ["string", "null"]
+                },
+                "last_fetched_at": {
+                  "type": ["string", "null"]
+                },
+                "fetched_from_remote": {
+                  "type": "boolean"
+                },
+                "idl": {
+                  "description": "Full IDL JSON; present in `idl` mode, null when unavailable."
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineSvmTokenHoldingsRequest": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": ["string", "null"],
+            "description": "Base58 owner. Defaults to the connected SVM wallet."
+          },
+          "mint": {
+            "type": ["string", "null"],
+            "description": "Filter to one SPL mint. Mutually exclusive with program_id."
+          },
+          "program_id": {
+            "type": ["string", "null"],
+            "description": "Token program to scan; defaults to the classic Token Program. Ignored when mint is set."
+          },
+          "include_token_2022": {
+            "type": "boolean",
+            "default": false,
+            "description": "Merge classic and Token-2022 accounts when no mint/program_id filter is set."
+          }
+        }
+      },
+      "PipelineSvmTokenHoldingsResult": {
+        "type": "object",
+        "required": ["cluster", "owner", "holdings", "accounts"],
+        "properties": {
+          "cluster": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "mint": {
+            "type": ["string", "null"]
+          },
+          "program_ids": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "holdings": {
+            "type": "array",
+            "description": "Per-mint aggregation of the raw token accounts.",
+            "items": {
+              "type": "object",
+              "required": [
+                "mint",
+                "amount",
+                "decimals",
+                "ui_amount_string",
+                "token_account_count"
+              ],
+              "properties": {
+                "mint": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "amount": {
+                  "type": "string"
+                },
+                "decimals": {
+                  "type": "integer"
+                },
+                "ui_amount_string": {
+                  "type": "string"
+                },
+                "token_account_count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Underlying RPC token accounts."
+          }
+        }
+      },
+      "PipelineSvmContextRequest": {
+        "type": "object",
+        "properties": {},
+        "description": "No parameters; send an empty JSON object. Requires a connected SVM wallet."
+      },
+      "PipelineSvmContextResult": {
+        "type": "object",
+        "required": [
+          "cluster",
+          "rpc_endpoint",
+          "supported_clusters",
+          "current_time_unix",
+          "current_time_iso",
+          "address"
+        ],
+        "properties": {
+          "cluster": {
+            "type": "string"
+          },
+          "rpc_endpoint": {
+            "type": "string"
+          },
+          "supported_clusters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "current_time_unix": {
+            "type": "integer"
+          },
+          "current_time_iso": {
+            "type": "string"
+          },
+          "current_slot": {
+            "type": ["integer", "null"]
+          },
+          "latest_blockhash": {
+            "type": ["string", "null"]
+          },
+          "last_valid_block_height": {
+            "type": ["integer", "null"]
+          },
+          "address": {
+            "type": "string"
+          },
+          "lamports": {
+            "type": ["integer", "null"]
+          },
+          "recent_prioritization_fee_microlamports": {
+            "type": ["integer", "null"],
+            "description": "Cluster-wide mean priority fee in micro-lamports per compute unit; null when the RPC sample is empty."
+          }
+        }
+      },
       "PipelineDirectory": {
         "type": "object",
         "required": ["kind", "path", "entries"],
@@ -3191,10 +4451,18 @@
       },
       "PipelineBuild": {
         "type": "object",
-        "required": ["version", "status", "actions", "provenance", "digest"],
+        "required": [
+          "version",
+          "status",
+          "actions",
+          "origin",
+          "expiresAt",
+          "digest",
+          "attestation"
+        ],
         "properties": {
           "version": {
-            "const": 1
+            "const": 2
           },
           "status": {
             "enum": ["staged", "simulated"]
@@ -3202,16 +4470,78 @@
           "actions": {
             "type": "array"
           },
-          "provenance": {
-            "type": "object"
+          "origin": {
+            "type": "object",
+            "description": "App, skills, and Catalog operations that assembled the actions.",
+            "required": ["app", "operations"],
+            "properties": {
+              "app": {
+                "type": "string"
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "operations": {
+                "type": "array"
+              }
+            }
           },
           "simulation": {
             "$ref": "#/components/schemas/PipelineSimulation"
           },
           "summary": {},
+          "expiresAt": {
+            "type": "integer",
+            "description": "Unix timestamp after which commit is rejected."
+          },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "attestation": {
+            "type": "string",
+            "description": "Server authentication of the Build, its owner, and app scope."
+          }
+        }
+      },
+      "PipelineEvmCommitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "digest", "result", "requests"],
+        "properties": {
+          "status": {
+            "const": "committed"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "result": {},
+          "requests": {
+            "type": "array"
+          }
+        }
+      },
+      "PipelineSvmCommitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "digest", "results", "requests"],
+        "properties": {
+          "status": {
+            "const": "committed"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "results": {
+            "type": "array"
+          },
+          "requests": {
+            "type": "array"
           }
         }
       },

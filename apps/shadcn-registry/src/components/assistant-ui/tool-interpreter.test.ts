@@ -715,7 +715,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "2 txs",
-      "Pending confirmation",
+      "Pending approval",
     ]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
@@ -736,7 +736,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Commit transactions");
-    expect(labelsFor(step.chips)).toEqual(["6 txs", "Pending confirmation"]);
+    expect(labelsFor(step.chips)).toEqual(["6 txs", "Pending approval"]);
   });
   it("recognizes a delegated task with the child label and staged count", () => {
     const step = interpretToolStep({

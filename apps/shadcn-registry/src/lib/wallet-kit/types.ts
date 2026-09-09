@@ -353,6 +353,8 @@ export type AomiWalletKit = {
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
+  /** Live message-signing capability, not merely a linked account record. */
+  canSignFor?: (family: "evm" | "svm", address: string) => boolean;
   signMessage?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;

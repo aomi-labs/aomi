@@ -423,6 +423,36 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
   });
 
+  it("shows a failed provider handoff without claiming an Aomi account exists", async () => {
+    mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
+      new Error("credential verification failed"),
+    );
+    const { result } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: "authenticated",
+          provider: "para",
+          subject: "para-user",
+          getCredential: vi
+            .fn()
+            .mockResolvedValue({
+              provider: "para",
+              providerToken: "provider-session",
+            }),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+      ),
+    );
+    expect(result.current.user).toBeUndefined();
+  });
+
   it("exposes an account conflict instead of silently swallowing provider sign-in failure", async () => {
     const credential: AomiAccountCredential = {
       provider: "para",

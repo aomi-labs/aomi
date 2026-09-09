@@ -205,6 +205,9 @@ describe("Pipeline SDK lifecycle", () => {
     expect(JSON.parse(fetch.mock.calls[1][1]?.body as string)).toEqual({
       build: evmStaged,
     });
+    expect(JSON.parse(fetch.mock.calls[2][1]?.body as string)).toEqual({
+      build: evmSimulated,
+    });
     expect(
       new Headers(fetch.mock.calls[2][1]?.headers).get("idempotency-key"),
     ).toBe(evmSimulated.digest);
@@ -468,6 +471,8 @@ describe("Pipeline SDK lifecycle", () => {
         return Response.json({
           status: "committed",
           digest: evmSimulated.digest,
+          result: {},
+          requests: [],
         });
       }
       throw new Error(`Unexpected request ${url}`);

@@ -4,6 +4,26 @@ import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
 
 describe("buildEvmExecutionRuntime", () => {
+  it("pins typed-data signing to the selected address, not the connector's first account", async () => {
+    const address = "0x2222222222222222222222222222222222222222";
+    const signTypedDataAsync = vi.fn().mockResolvedValue("0xsignature");
+    const evm = {
+      activeConnector: { id: "para" },
+      activeEvmConnection: { address },
+      signTypedDataAsync,
+      chainsById: {},
+    } as unknown as EvmWalletRuntime;
+    await buildEvmExecutionRuntime(evm).signTypedData?.({
+      typed_data: { primaryType: "Permit" },
+    });
+    expect(signTypedDataAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account: address,
+        connector: evm.activeConnector,
+      }),
+    );
+  });
+
   it("does not switch again when the caller already selected the transaction chain", async () => {
     const sendTransactionAsync = vi.fn().mockResolvedValue("0x111");
     const switchChainAsync = vi.fn();

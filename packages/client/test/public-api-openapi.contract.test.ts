@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent and Pipeline OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(48);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(66);
     expect(
       publicApi["x-aomi-route-manifest"].filter((route) =>
         route.includes("/v1/agent/"),

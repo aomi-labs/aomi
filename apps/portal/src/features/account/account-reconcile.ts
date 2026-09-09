@@ -4,7 +4,7 @@ import type {
   SignerMode,
   WalletPolicy,
 } from "./types";
-import { shortenAddress } from "./account-api";
+import { UserState } from "@aomi-labs/client";
 
 export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   {
@@ -19,8 +19,8 @@ export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   },
   {
     id: "auto",
-    label: "Bypass permissions",
-    hint: "Aomi signs on your behalf for scheduled and background actions. Requires an active delegated account.",
+    label: "Auto",
+    hint: "The delegated provider authorizes transactions; Hosted submits by default. Application and sponsorship limits still apply.",
   },
   {
     id: "denied",
@@ -140,10 +140,11 @@ export const CUSTODY_GROUPS: { key: Custody; label: string }[] = [
  * Which modes this wallet may hold — backend truth wins where the wire carries it.
  */
 export function modeValidFor(wallet: WalletPolicy, mode: SignerMode): boolean {
-  if (wallet.providerManaged) return mode === "auto" || mode === "denied";
+  if (wallet.providerManaged)
+    return mode === "denied" || (mode === "auto" && wallet.canUseAuto === true);
   if (mode === "denied" || mode === "manual") return true;
   if (mode === "client_auto") return true;
-  return wallet.canUseAuto ?? custodyOf(wallet.linkedVia) === "embedded";
+  return wallet.canUseAuto === true;
 }
 
 export function unavailableReason(
@@ -154,7 +155,7 @@ export function unavailableReason(
     return "This is a provider-managed signer — you hold no key for it.";
   }
   if (mode === "auto")
-    return "Only available on embedded wallets (Para or Privy).";
+    return "Requires an active delegation for this exact wallet.";
   if (mode === "client_auto") return "Only available on self-custody wallets.";
   return "Not available for this wallet.";
 }
@@ -181,7 +182,8 @@ export function reconcile(wallet: WalletPolicy): Recon {
           }
         : {
             status: "drifted",
-            detail: "Bypass permissions is set, but the delegation expired.",
+            detail:
+              "Auto is set, but the delegation is unavailable. Execution is blocked.",
             action: "Renew delegation",
           };
   }
@@ -191,13 +193,15 @@ export function findDelegationForWallet(
   delegatedAccounts: DelegatedAccountView[],
   wallet: WalletPolicy,
 ): DelegatedAccountView | undefined {
-  const short = shortenAddress(wallet.address);
-  return delegatedAccounts.find(
+  const matching = delegatedAccounts.filter(
     (delegation) =>
-      delegation.scope.includes(wallet.address) ||
-      delegation.scope.includes(short) ||
-      (wallet.provider !== undefined &&
-        delegation.providerKey === wallet.provider),
+      UserState.sameAddress(delegation.address, {
+        chain: wallet.chain,
+        address: wallet.address,
+      }) && delegation.providerKey === wallet.provider,
+  );
+  return (
+    matching.find((delegation) => delegation.status === "active") ?? matching[0]
   );
 }
 

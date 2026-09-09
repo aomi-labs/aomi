@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
-import type { CliAAProvider, CliAgentMode } from "./types";
+import type { CliAgentMode } from "./types";
 import type { AomiOAuthResource } from "../authorization";
 
 export type CliAuthSession = {
@@ -60,9 +60,6 @@ export type CliSessionState = {
    * command. Never printed in output. */
   svmPrivateKey?: string;
   chainId?: number;
-  aaProvider?: CliAAProvider;
-  aaMode?: "none" | "4337" | "7702" | null;
-  smartAccount?: string | null;
   secretHandles?: Record<string, string>;
   auth?: CliAuthSession;
   oauthGrants?: Record<string, CliOAuthGrant>;
@@ -136,9 +133,6 @@ function toCliSessionState(stored: StoredSessionState): CliSessionState {
     svmCluster: stored.svmCluster,
     svmPrivateKey: stored.svmPrivateKey,
     chainId: stored.chainId,
-    aaProvider: stored.aaProvider,
-    aaMode: stored.aaMode,
-    smartAccount: stored.smartAccount,
     secretHandles: stored.secretHandles,
     auth: stored.auth,
     oauthGrants: stored.oauthGrants,
@@ -182,9 +176,6 @@ function readStoredSession(path: string): StoredSessionState | null {
       svmCluster: parsed.svmCluster,
       svmPrivateKey: parsed.svmPrivateKey,
       chainId: parsed.chainId,
-      aaProvider: parsed.aaProvider,
-      aaMode: parsed.aaMode,
-      smartAccount: parsed.smartAccount,
       secretHandles: parsed.secretHandles,
       auth: normalizeAuthSession(parsed.auth),
       oauthGrants: normalizeOAuthGrants(parsed.oauthGrants),

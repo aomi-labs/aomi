@@ -35,7 +35,10 @@ export class AomiEvmPipeline {
     if ("calls" in input) {
       return (await this.stage(input, options)).simulate(options);
     }
-    return new EvmBuild(await this.raw.build(input, options), this.raw);
+    const build = options
+      ? await this.raw.build(input, options)
+      : await this.raw.build(input);
+    return new EvmBuild(build, this.raw);
   }
 
   async stage(
@@ -58,7 +61,10 @@ export class AomiEvmPipeline {
               gas_limit: call.gas,
             })),
           };
-    return new EvmStaged(await this.raw.stage(request, options), this.raw);
+    const build = options
+      ? await this.raw.stage(request, options)
+      : await this.raw.stage(request);
+    return new EvmStaged(build, this.raw);
   }
 
   async simulate(
@@ -66,7 +72,10 @@ export class AomiEvmPipeline {
     options?: PipelineMutationOptions,
   ): Promise<EvmBuild> {
     const value = build instanceof EvmStaged ? build.raw : build;
-    return new EvmBuild(await this.raw.simulate(value, options), this.raw);
+    const simulated = options
+      ? await this.raw.simulate(value, options)
+      : await this.raw.simulate(value);
+    return new EvmBuild(simulated, this.raw);
   }
 
   commit(
@@ -89,14 +98,20 @@ export class AomiSvmPipeline {
     if ("kind" in input) {
       return (await this.stage(input, options)).simulate(options);
     }
-    return new SvmBuild(await this.raw.build(input, options), this.raw);
+    const build = options
+      ? await this.raw.build(input, options)
+      : await this.raw.build(input);
+    return new SvmBuild(build, this.raw);
   }
 
   async stage(
     input: SvmStageInput,
     options?: PipelineMutationOptions,
   ): Promise<SvmStaged> {
-    return new SvmStaged(await this.raw.stage(input, options), this.raw);
+    const build = options
+      ? await this.raw.stage(input, options)
+      : await this.raw.stage(input);
+    return new SvmStaged(build, this.raw);
   }
 
   async simulate(
@@ -104,7 +119,10 @@ export class AomiSvmPipeline {
     options?: PipelineMutationOptions,
   ): Promise<SvmBuild> {
     const value = build instanceof SvmStaged ? build.raw : build;
-    return new SvmBuild(await this.raw.simulate(value, options), this.raw);
+    const simulated = options
+      ? await this.raw.simulate(value, options)
+      : await this.raw.simulate(value);
+    return new SvmBuild(simulated, this.raw);
   }
 
   commit(
@@ -156,16 +174,19 @@ export class AomiPipelineOperationScope {
   ): Promise<EvmBuild | SvmBuild> {
     const descriptor = await this.raw.operation(name);
     validatePipelineArguments(args, descriptor.inputSchema);
+    const { chainFamily: requestedChainFamily, ...mutationOptions } = options;
     const chainFamily =
-      options.chainFamily ?? descriptor.chainFamily ?? inferChainFamily(args);
+      requestedChainFamily ?? descriptor.chainFamily ?? inferChainFamily(args);
+    const transportOptions =
+      Object.keys(mutationOptions).length > 0 ? mutationOptions : undefined;
     const input = {
       ...this.raw.executionScope,
       operation: descriptor.href,
       arguments: args,
     };
     return chainFamily === "svm"
-      ? this.svm.build(input, options)
-      : this.evm.build(input, options);
+      ? this.svm.build(input, transportOptions)
+      : this.evm.build(input, transportOptions);
   }
 }
 
