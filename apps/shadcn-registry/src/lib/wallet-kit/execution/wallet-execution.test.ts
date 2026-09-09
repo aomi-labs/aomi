@@ -21,6 +21,57 @@ const CALLS: NonNullable<WalletTxPayload["calls"]> = [
   },
 ];
 
+describe("prepared ordinary wallet route", () => {
+  it("does not inject an optional paymaster or convert it to wallet AA", async () => {
+    const paymaster = vi.fn(() => "https://paymaster.example");
+    const sendCalls = vi.fn();
+    const result = await executeWalletKitTransaction({
+      payload: { ...singleCallPayload(), aaPreference: "none" },
+      state: {
+        currentChainId: 1,
+        capabilities: {
+          "0x1": {
+            atomic: { status: "supported" },
+            paymasterService: { supported: true },
+          },
+        },
+        nativeWalletExecution: {
+          executionKind: "wallet_sendCalls",
+          sponsorship: { mode: "optional", getPaymasterServiceUrl: paymaster },
+        },
+        sendCallsSyncAsync: sendCalls,
+        sendTransactionAsync: vi.fn().mockResolvedValue("0x111"),
+        chainsById: { 1: mainnet },
+        waitForTransactionReceipt: vi
+          .fn()
+          .mockResolvedValue({ status: "success" }),
+      },
+    });
+    expect(paymaster).not.toHaveBeenCalled();
+    expect(sendCalls).not.toHaveBeenCalled();
+    expect(result.sponsored).toBe(false);
+    expect(result.executionKind).toBe("eoa");
+  });
+
+  it("rejects an incompatible required funding policy before invoking the wallet", async () => {
+    const send = vi.fn();
+    await expect(
+      executeWalletKitTransaction({
+        payload: { ...singleCallPayload(), aaPreference: "none" },
+        state: {
+          nativeWalletExecution: {
+            executionKind: "wallet_sendCalls",
+            sponsorship: { mode: "required" },
+          },
+          sendTransactionAsync: send,
+          chainsById: { 1: mainnet },
+        },
+      }),
+    ).rejects.toThrow("wallet_sponsorship_incompatible");
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 function strictFeeBatchPayload(): WalletTxPayload {
   return {
     aaPreference: "eip7702",

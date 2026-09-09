@@ -71,6 +71,12 @@ export const seedWalletPolicies: WalletPolicy[] = [
 export const seedDelegatedAccounts: DelegatedAccountView[] = [
   {
     id: "g-privy",
+    address: {
+      chain: "svm",
+      address: seedWalletPolicies.find((wallet) => wallet.chain === "svm")!
+        .address,
+    },
+    providerKey: "privy",
     provider: "Privy",
     scope: "Solana · 8xKn…9QpS",
     kind: "session delegation",
@@ -78,6 +84,12 @@ export const seedDelegatedAccounts: DelegatedAccountView[] = [
   },
   {
     id: "g-para",
+    address: {
+      chain: "evm",
+      address: seedWalletPolicies.find((wallet) => wallet.provider === "para")!
+        .address,
+    },
+    providerKey: "para",
     provider: "Para",
     scope: "Ethereum · 0x9f2B…A41c",
     kind: "session delegation",

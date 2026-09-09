@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import type { AomiAuthorizationChallenge } from "@aomi-labs/client";
 import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
 import type { UnboundWallet } from "./use-account-acl";
 import {
@@ -8,6 +10,9 @@ import {
   reconcile,
   sortWallets,
   walletGroupKey,
+  walletDisplayName,
+  modeLabel,
+  modeHintFor,
 } from "./account-reconcile";
 import { WalletPolicyRow } from "./wallet-policy-row";
 import { UnboundWalletRow } from "./unbound-wallet-row";
@@ -18,8 +23,17 @@ interface AccountSigningViewProps {
   wallets: WalletPolicy[];
   delegatedAccounts: DelegatedAccountView[];
   unboundWallets: UnboundWallet[];
-  /** Run the permit ceremony. Rejects with a user-facing message. */
-  onCommit: (wallet: WalletPolicy, mode: SignerMode) => Promise<void>;
+  onPrepare: (
+    wallet: WalletPolicy,
+    mode: SignerMode,
+  ) => Promise<AomiAuthorizationChallenge>;
+  /** Sign the exact reviewed permit. Rejects with a user-facing message. */
+  onCommit: (
+    wallet: WalletPolicy,
+    mode: SignerMode,
+    challenge: AomiAuthorizationChallenge,
+  ) => Promise<void>;
+  onSelectWallet?: (wallet: WalletPolicy) => void;
   onBindWallet: (wallet: UnboundWallet) => Promise<"bound" | "already_bound">;
   onRevokeDelegation: (delegation: DelegatedAccountView) => Promise<void>;
   onStopAllAuto: () => Promise<void>;
@@ -39,6 +53,8 @@ export function AccountSigningView({
   delegatedAccounts,
   unboundWallets,
   onCommit,
+  onPrepare,
+  onSelectWallet,
   onBindWallet,
   onRevokeDelegation,
   onStopAllAuto,
@@ -53,6 +69,12 @@ export function AccountSigningView({
   const [flashId, setFlashId] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [confirmation, setConfirmation] = useState<{
+    wallet: WalletPolicy;
+    mode: SignerMode;
+    challenge: AomiAuthorizationChallenge;
+  } | null>(null);
+  const confirming = useRef(false);
 
   useEffect(() => {
     const fresh = wallets.filter((w) => !seeded[w.id]);
@@ -132,7 +154,7 @@ export function AccountSigningView({
           delegation.status === "active" &&
           (delegation.providerKey ?? delegation.provider).toLowerCase() ===
             "privy" &&
-          !delegation.scope.toLowerCase().startsWith("solana"),
+          delegation.address.chain === "evm",
       ),
     [delegatedAccounts],
   );
@@ -170,12 +192,29 @@ export function AccountSigningView({
 
   const walletById = (id: string) => wallets.find((w) => w.id === id);
 
-  const commit = async (id: string) => {
-    const mode = drafts[id];
-    const wallet = walletById(id);
-    if (!mode || !wallet) return;
-    const ok = await run(id, () => onCommit(wallet, mode));
-    if (ok) cancelDraft(id);
+  const commit = async () => {
+    if (!confirmation || confirming.current) return;
+    const { wallet, mode, challenge } = confirmation;
+    confirming.current = true;
+    setConfirmation(null);
+    try {
+      const ok = await run(wallet.id, () => {
+        const current = walletById(wallet.id);
+        if (
+          !current ||
+          current.authVersion !== wallet.authVersion ||
+          current.desiredMode !== wallet.desiredMode
+        ) {
+          throw new Error(
+            "This wallet's policy changed. Review the updated policy before signing.",
+          );
+        }
+        return onCommit(current, mode, challenge);
+      });
+      if (ok) cancelDraft(wallet.id);
+    } finally {
+      confirming.current = false;
+    }
   };
 
   const renewDelegation = (id: string) => {
@@ -300,7 +339,27 @@ export function AccountSigningView({
                           }))
                         }
                         onDraft={(mode) => setDraft(wallet.id, mode)}
-                        onCommit={() => void commit(wallet.id)}
+                        onCommit={() => {
+                          const mode = drafts[wallet.id];
+                          if (mode && !confirming.current) {
+                            confirming.current = true;
+                            void run(wallet.id, async () => {
+                              const challenge = await onPrepare(wallet, mode);
+                              setConfirmation({ wallet, mode, challenge });
+                            }).finally(() => {
+                              confirming.current = false;
+                            });
+                          }
+                        }}
+                        onSelectWallet={
+                          onSelectWallet
+                            ? () => {
+                                void run(wallet.id, async () => {
+                                  onSelectWallet(wallet);
+                                });
+                              }
+                            : undefined
+                        }
                         onCancel={() => cancelDraft(wallet.id)}
                         onRenewDelegation={() => renewDelegation(wallet.id)}
                         onRevokeDelegation={revokeDelegation}
@@ -340,7 +399,7 @@ export function AccountSigningView({
             <SettingRow
               className="pt-4"
               title="Stop all auto-signing"
-              desc="Revokes every provider delegation. Wallets set to Bypass permissions will fall back to manual until renewed."
+              desc="Revokes every provider delegation. Auto execution stops until you renew delegation or explicitly choose Manual."
             >
               <button
                 type="button"
@@ -362,6 +421,94 @@ export function AccountSigningView({
           </div>
         )}
       </div>
+      <Dialog.Root
+        open={Boolean(confirmation)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmation(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[3px]" />
+          <Dialog.Content className="border-aomi-overlay-border bg-aomi-raised text-aomi-fg fixed left-1/2 top-1/2 z-[81] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-[460px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.32)] focus:outline-none">
+            <Dialog.Title className="text-lg font-semibold">
+              Confirm signing policy
+            </Dialog.Title>
+            <Dialog.Description className="text-aomi-muted mt-2 text-sm">
+              Review this wallet’s new permissions before authorizing the
+              change.
+            </Dialog.Description>
+            {confirmation && (
+              <>
+                <div className="border-aomi-border mt-5 rounded-lg border p-4">
+                  <p className="text-sm font-medium">
+                    {walletDisplayName(confirmation.wallet)} ·{" "}
+                    {confirmation.wallet.chain === "evm"
+                      ? "Ethereum"
+                      : "Solana"}
+                  </p>
+                  <p className="text-aomi-muted mt-1 break-all font-mono text-xs">
+                    {confirmation.wallet.address}
+                  </p>
+                  <p className="mt-4 font-semibold">
+                    {modeLabel(confirmation.wallet.desiredMode)} →{" "}
+                    {modeLabel(confirmation.mode)}
+                  </p>
+                  <p className="text-aomi-muted mt-2 text-sm">
+                    {modeHintFor(confirmation.wallet, confirmation.mode)}
+                  </p>
+                </div>
+                <div className="mt-4">
+                  <p className="text-sm font-medium">
+                    {confirmation.wallet.chain === "evm"
+                      ? "EIP-712 typed data"
+                      : "Solana message"}
+                  </p>
+                  <pre
+                    aria-label="Payload to sign"
+                    className="border-aomi-border bg-aomi-bg mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg border p-3 font-mono text-xs"
+                  >
+                    {confirmation.wallet.chain === "evm"
+                      ? JSON.stringify(
+                          confirmation.challenge.typed_data,
+                          null,
+                          2,
+                        )
+                      : new TextDecoder().decode(
+                          Uint8Array.from(
+                            atob(confirmation.challenge.message_base64 ?? ""),
+                            (c) => c.charCodeAt(0),
+                          ),
+                        )}
+                  </pre>
+                </div>
+                <p className="text-aomi-muted mt-4 text-sm">
+                  Sign the payload above to authorize this policy change. The
+                  backend verifies your wallet signature before applying it. An
+                  embedded wallet may sign without another popup. No funds will
+                  be sent.
+                </p>
+              </>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="border-aomi-border rounded-lg border px-4 py-2 text-sm"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={() => void commit()}
+                className="bg-aomi-accent-strong text-aomi-on-accent rounded-lg px-4 py-2 text-sm font-semibold"
+              >
+                Sign to approve
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

@@ -2,6 +2,47 @@
 
 ## Last Updated
 
+2026-09-09 — TRANSACTION ROUTING SURFACES: FIX + TEST PROGRAM (branch
+  `codex/wallet-routing-surfaces`, working tree, uncommitted; pairs with
+  product-mono `cecilia/para-evm-envelope`). Review findings resolved:
+  - H1 `UserState.route()` no longer throws (`packages/client/src/user-state/index.ts`).
+    It only selects: Auto with a live delegation defaults to Hosted (explicit Venue
+    stays); explicit selections are preserved in every mode,
+    everything else goes as-is. The backend commit gate is the authority
+    (`signing_denied`, `broadcaster_incompatible`, `broadcaster_unsupported_for_chain`),
+    so a Locked wallet or an expired delegation still chats.
+  - H2 `WalletProviders` renders children (and server-renders) under
+    `AOMI_BOOTING_WALLET_KIT` while the remembered provider is restored; no SDK
+    mounts before restore; one `ExtUserProvider` is hoisted over both trees.
+    New exports from widget-lib: `AOMI_BOOTING_WALLET_KIT`, `AomiWalletNetworkPreferencesProvider`.
+  - M1 `selectWallet` no longer asserts `is_connected`; `AomiWalletKitSync` sends
+    `is_connected` only on a connect/disconnect transition.
+  - M2 picker hides the connected host provider and offers the other as
+    "Link another provider".
+  - M3 CLI `--eoa` rejects only a prepared AA `sign` Action; L3 `--aa-provider`/
+    `--aa-mode` declarations removed (presence still fatal; citty is non-strict);
+    README signing-modes section rewritten to assertion-only semantics.
+  - L1 typed `SvmBuildAction` (lane-tagged), `AssembledSvmInstruction`,
+    `SvmAssembledAccountMeta`, structural `PipelineActionSummary`; new
+    `packages/client/CHANGELOG.md` for 0.7.0.
+  - Docs: `docs/topics/auth/facts/wallet-kit.md` says the client never blocks a turn.
+  Test program deliverables: `scripts/routing-matrix-e2e.mts` (HTTP harness for
+  every EVM/SVM/Telegram cell, three stages, JSONL verdicts, blocked lanes never
+  pass), four Playwright specs `tests/e2e/routing-ui-{manual,locked,sign-action,solana}.spec.ts`
+  registered in the `local-agent` project.
+  Verified: root check 1383 tests, portal 546, widget-lib 370, portal typecheck,
+  `pnpm --filter portal build` (NEXT_DIST_DIR=.next-routing-build) all green; spec
+  regeneration from the BE worktree produced no diff.
+  NOT run (blocked by infra): T2 harness, T3 CLI lanes, T4 Playwright lanes, T5
+  computer-use lanes, T6 compat table, T7 staging. Local Supabase/Docker was
+  unresponsive (`docker info` and `psql` hang) and `SUPABASE_DB_URL` (hosted) is
+  set in the shell. A backend on :8080 and api-server on :8082 belong to another
+  session and were not used. `output/routing-program/` holds baseline logs and is
+  not gitignored; do not `git add -A`.
+  Pending decisions: `prepareUserState` still throws on a 5xx profile fetch
+  (default kept); T7 testnet for Hosted Auto / AA execution (Base Sepolia
+  proposed); BE lands first (`origin/main` whitelist has no `broadcaster`).
+
 2026-09-03 — MCP GRANTS NEVER CARRIED A REFRESH TOKEN (branch
   `fix/mcp-offline-access-advertised`). Agent MCP and Pipeline MCP sessions
   went invalid a few minutes after login. The refresh machinery was fine —

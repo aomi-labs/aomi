@@ -48,8 +48,24 @@ export class EvmPipelineTransport {
   }
 
   stage(input: EvmStageInput): Promise<EvmStagedBuild> {
+    const actions = input.actions.flatMap((action) =>
+      action.calls.map((call) => {
+        if (call.from)
+          throw new TypeError(
+            "Pipeline selects the authorizing account from account policy; from cannot override it",
+          );
+        return {
+          to: call.to,
+          data: { raw: call.data ?? "0x" },
+          value: call.value,
+          gas_limit: call.gas,
+          chain_id: action.chainId,
+          description: call.description ?? action.description ?? "Transaction",
+        };
+      }),
+    );
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/stage", {
-      body: jsonBody(input),
+      body: jsonBody({ actions }),
     });
   }
 
@@ -80,8 +96,43 @@ export class SvmPipelineTransport {
   }
 
   stage(input: SvmStageInput): Promise<SvmStagedBuild> {
+    const selected = input.kind === "instructions" ? input : input.transaction;
+    if (selected.cluster || selected.feePayer) {
+      throw new TypeError(
+        "Pipeline SVM staging uses the account's configured chain and payer; explicit cluster/feePayer overrides are unsupported",
+      );
+    }
+    const body =
+      input.kind === "instructions"
+        ? {
+            kind: input.kind,
+            instructions: [
+              {
+                description: "Transaction",
+                instructions: input.instructions.map((ix) => {
+                  if (ix.encoding && ix.encoding !== "base64")
+                    throw new TypeError(
+                      "Pipeline instructions require base64 data",
+                    );
+                  return {
+                    program_id: ix.programId,
+                    data_base64: ix.data,
+                    accounts: ix.accounts.map((account) => ({
+                      pubkey: account.pubkey,
+                      is_signer: account.isSigner,
+                      is_writable: account.isWritable,
+                    })),
+                  };
+                }),
+              },
+            ],
+          }
+        : {
+            kind: input.kind,
+            transaction: { tx: input.transaction.transaction },
+          };
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/stage", {
-      body: jsonBody(input),
+      body,
     });
   }
 
@@ -228,7 +279,6 @@ export class PipelineTransport {
       options,
     );
   }
-
 }
 
 async function invokeOperation<T>(
@@ -281,7 +331,9 @@ async function pipelineError(response: Response): Promise<PipelineApiError> {
     response.status === 408 ||
       response.status === 429 ||
       response.status >= 500,
-    stringValue(error?.requestId) ?? response.headers.get("x-request-id") ?? undefined,
+    stringValue(error?.requestId) ??
+      response.headers.get("x-request-id") ??
+      undefined,
     error?.details,
   );
 }

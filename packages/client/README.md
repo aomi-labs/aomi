@@ -129,6 +129,17 @@ const result = await run.result();
 primitives have distinct DTOs and lifecycle transitions; TypeScript rejects a
 commit of a merely staged Build.
 
+Build V2 values retain the server's native action records, `origin`, `expiresAt`,
+`digest`, and `attestation`. Pass the complete value through simulate/commit;
+do not reconstruct it from displayed calls. Commit returns `result` (EVM) or
+`results` (SVM), plus `requests`; it does not manufacture a session Action or
+execute a wallet request. An expired Build requires fresh preparation.
+
+The direct staging helpers translate calls into Catalog staging parameters.
+Pipeline chooses the authorizing account from account policy: a caller `from`
+override is rejected. SVM cluster/payer overrides and non-base64 instruction
+data are currently unsupported and rejected rather than ignored.
+
 ```ts
 const staged = await client.pipeline.evm.stage({
   actions: [
@@ -535,9 +546,11 @@ $ npx @aomi-labs/client tx sign action-2 --private-key 0xac0974...
 ✅ action-2 completed
 ```
 
-Local Action execution is EOA. The CLI rejects `--aa`; account-abstraction
-execution and the `--aa-provider` / `--aa-mode` preferences belong to the
-backend execution lane.
+`aomi tx sign` executes whatever Action the backend prepared. Account
+abstraction is decided by backend application policy, never by the CLI: an AA
+operation arrives as a `sign` Action whose owner authorization the local key
+signs once, and the backend submits it. `--aa` and `--eoa` only assert which
+kind of Action you expect; see "Signing modes" below.
 
 ### Verbose mode & conversation log
 
@@ -606,11 +619,19 @@ npx @aomi-labs/client tx sign action-1 \
 
 ### Signing modes
 
-`aomi tx sign` executes Actions with the configured local wallet. EVM
-transactions use direct EOA execution; `--eoa` makes that choice explicit and
-`--aa` is rejected because account abstraction now belongs to the backend
-execution lane. EVM and SVM message or typed-data requests use the matching
-local signing capability.
+The flags are assertions about an already-prepared Action, not routing
+overrides. The backend chose the route (Wallet, Hosted, or Venue submission;
+ordinary transaction or AA) from the account's signing policy and the
+application's execution policy before the Action reached you.
+
+- Default: execute the prepared Action as-is.
+- `--aa`: require a backend-prepared AA owner authorization (an EVM `sign`
+  Action with `executionKind: "erc4337"` and an `operationId`); anything else
+  is rejected and nothing is signed.
+- `--eoa`: reject such an AA Action; ordinary EVM executions, permits, and
+  Solana Actions pass through unchanged.
+- `--aa-provider` / `--aa-mode` are rejected: the AA provider and account
+  implementation belong to backend application policy.
 
 ### How state works
 

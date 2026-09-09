@@ -121,11 +121,15 @@ describe("WorkingAgent", () => {
         {
           kind: "tool_call",
           toolName: "get_account_info",
+          args: null,
+          resultPreview: "",
           childSeq: 1,
         },
         {
           kind: "tool_call",
           toolName: "thread_return",
+          args: null,
+          resultPreview: "",
           childSeq: 2,
         },
         {
@@ -322,6 +326,8 @@ describe("WorkingAgent", () => {
             {
               kind: "tool_call",
               toolName: "get_chain_context",
+              args: null,
+              resultPreview: "",
               childSeq: 1,
             },
             { kind: "note", text: '{"staged":[{"tx_id":1}]}', childSeq: 2 },
@@ -329,6 +335,7 @@ describe("WorkingAgent", () => {
               kind: "tool_call",
               toolName: "thread_return",
               args: { status: "completed" },
+              resultPreview: "",
               childSeq: 3,
             },
           ],

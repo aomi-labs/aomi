@@ -35,19 +35,26 @@ function pendingAction(request: Action["request"]): Action {
 }
 
 const evmStaged: EvmStagedBuild = {
-  version: 1,
+  version: 2,
+  origin: {
+    app: "default",
+    operations: [{ operation: "evm_stage_tx", arguments: {} }],
+  },
+  expiresAt: 4_000_000_000,
+  attestation: "fixture-evm-attestation",
   status: "staged",
   actions: [
     {
-      id: "action-1",
-      chainId: 1,
-      calls: [
-        {
-          to: "0x1111111111111111111111111111111111111111",
-          data: "0x",
-          value: "0",
-        },
-      ],
+      pending_tx_id: 1,
+      chain_id: 1,
+      from: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      broadcaster: "hosted",
+      label: "Transfer",
+      kind: "transfer",
+      fee_outcome: { kind: "flat" },
+      to: "0x1111111111111111111111111111111111111111",
+      data: "0x",
+      value: "0",
     },
   ],
   digest: "sha256:evm-staged",
@@ -69,24 +76,35 @@ const evmSimulated: EvmSimulatedBuild = {
     ],
     fees: [{ asset: "ETH", amount: "0.0001" }],
     warnings: [],
+    guards: [],
+    gas: null,
+    logs: [],
   },
 };
 
 const svmStaged: SvmStagedBuild = {
-  version: 1,
+  version: 2,
+  origin: {
+    app: "default",
+    operations: [{ operation: "svm_stage_ix", arguments: {} }],
+  },
+  expiresAt: 4_000_000_000,
+  attestation: "fixture-svm-attestation",
   status: "staged",
   actions: [
     {
-      id: "svm-action-1",
-      kind: "instructions",
-      cluster: "solana:devnet",
-      instructions: [
-        {
-          programId: "Program1111111111111111111111111111111111",
-          accounts: [{ pubkey: "Owner111", isSigner: true, isWritable: true }],
-          data: "AA==",
-        },
-      ],
+      id: 1,
+      lane: "instruction",
+      instruction: {
+        payer: "Owner111",
+        cluster: "solana:mainnet",
+        program_id: "Program1111111111111111111111111111111111",
+        accounts: [{ pubkey: "Owner111", is_signer: true, is_writable: true }],
+        data_base64: "AA==",
+        description: "Transfer",
+        kind: "transfer",
+        fee_outcome: { kind: "flat" },
+      },
     },
   ],
   digest: "sha256:svm-staged",
@@ -101,6 +119,9 @@ const svmSimulated: SvmSimulatedBuild = {
     balanceChanges: [],
     fees: [{ asset: "SOL", amount: "0.000005" }],
     warnings: [],
+    guards: [],
+    gas: null,
+    logs: [],
   },
 };
 
@@ -111,10 +132,10 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/simulate")) return Response.json(evmSimulated);
       if (url.endsWith("/commit")) {
         return Response.json({
-          version: 1,
           status: "committed",
           digest: evmSimulated.digest,
-          receipts: [{ transactionId: "0xtx", status: "confirmed" }],
+          result: { hashes: ["0xtx"] },
+          requests: [],
         });
       }
       throw new Error(`Unexpected request ${url} ${init?.method}`);
@@ -149,10 +170,13 @@ describe("Pipeline SDK lifecycle", () => {
       "https://api.example/v1/pipeline/evm/commit",
     ]);
     expect(JSON.parse(fetch.mock.calls[0][1]?.body as string)).toMatchObject({
-      actions: [{ calls: [{ value: "0" }] }],
+      actions: [{ chain_id: 1, value: "0", data: { raw: "0x" } }],
     });
     expect(JSON.parse(fetch.mock.calls[1][1]?.body as string)).toEqual({
       build: evmStaged,
+    });
+    expect(JSON.parse(fetch.mock.calls[2][1]?.body as string)).toEqual({
+      build: evmSimulated,
     });
     expect(
       new Headers(fetch.mock.calls[2][1]?.headers).get("idempotency-key"),
@@ -173,19 +197,37 @@ describe("Pipeline SDK lifecycle", () => {
 
     const staged = await aomi.pipeline.svm.stage({
       kind: "instructions",
-      cluster: "solana:devnet",
-      instructions:
-        svmStaged.actions[0].kind === "instructions"
-          ? svmStaged.actions[0].instructions
-          : [],
+      instructions: [
+        {
+          programId: "Program111",
+          accounts: [{ pubkey: "Owner111", isSigner: true, isWritable: true }],
+          data: "AA==",
+        },
+      ],
     });
     const build = await staged.simulate();
 
     expect(build).toBeInstanceOf(SvmBuild);
     expect(build.status).toBe("simulated");
+    expect(build.actions[0]).toMatchObject({
+      lane: "instruction",
+      instruction: {
+        program_id: "Program1111111111111111111111111111111111",
+      },
+    });
     expect(JSON.parse(fetch.mock.calls[0][1]?.body as string)).toMatchObject({
       kind: "instructions",
-      cluster: "solana:devnet",
+      instructions: [
+        {
+          instructions: [
+            {
+              program_id: "Program111",
+              data_base64: "AA==",
+              accounts: [{ is_signer: true, is_writable: true }],
+            },
+          ],
+        },
+      ],
     });
   });
 
@@ -296,9 +338,10 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/evm/build")) return Response.json(evmSimulated);
       if (url.endsWith("/evm/commit")) {
         return Response.json({
-          version: 1,
           status: "committed",
           digest: evmSimulated.digest,
+          result: {},
+          requests: [],
         });
       }
       throw new Error(`Unexpected request ${url}`);
@@ -314,7 +357,7 @@ describe("Pipeline SDK lifecycle", () => {
       .build("supply", { asset: "USDC", amount: "100" });
 
     expect(build).toBeInstanceOf(EvmBuild);
-    expect(build.summary?.title).toBe("Supply USDC");
+    expect(build.summary).toMatchObject({ title: "Supply USDC" });
     expect(build.simulation.balanceChanges[0]?.asset).toBe("USDC");
     await expect(build.commit()).resolves.toMatchObject({
       status: "committed",
@@ -326,7 +369,7 @@ describe("Pipeline SDK lifecycle", () => {
     });
   });
 
-  it("returns the canonical Action without implicitly executing it", async () => {
+  it("returns execution requests separately from the sealed Build without executing them", async () => {
     const action = pendingAction({
       type: "execute_evm",
       transactions: [
@@ -347,10 +390,10 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/simulate")) return Response.json(evmSimulated);
       if (url.endsWith("/commit")) {
         return Response.json({
-          version: 1,
-          status: "awaiting_wallet",
+          status: "committed",
           digest: evmSimulated.digest,
-          action,
+          result: {},
+          requests: [action.request],
         });
       }
       throw new Error(`Unexpected request ${url}`);
@@ -373,7 +416,7 @@ describe("Pipeline SDK lifecycle", () => {
     const result = await build.commit();
 
     expect(sendCalls).not.toHaveBeenCalled();
-    expect(result.action).toEqual(action);
+    expect(result.requests).toEqual([action.request]);
   });
 });
 

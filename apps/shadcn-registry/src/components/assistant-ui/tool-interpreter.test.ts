@@ -707,7 +707,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Await wallet approval");
+    expect(step.title).toBe("Commit transactions");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "2 txs",
@@ -731,7 +731,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Await wallet approval");
+    expect(step.title).toBe("Commit transactions");
     expect(labelsFor(step.chips)).toEqual(["6 txs", "Pending approval"]);
   });
   it("recognizes a delegated task with the child label and staged count", () => {

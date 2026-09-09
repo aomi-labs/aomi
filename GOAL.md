@@ -1,5 +1,61 @@
 # Canonical Landing
 
+Wallet-provider cleanup (2026-09-09): the existing wallet-kit provider owns its
+loading contexts; Portal supplies initialization state instead of duplicating
+the provider tree. Folded the repeated test-network wrapper. Kept the app-level
+user store above device-auth error recovery. Portal: 546 tests passed, 23
+environment-dependent tests skipped; widget: 370 passed. Both typechecks,
+widget build, and scoped strict lint/format passed. No live wallet actions.
+
+Staging cutover preparation (2026-09-09): integrate current main's Pipeline CLI
+and wallet exports while retaining explicit routing and AA authorization.
+Keep client 0.7.0; staging verification is pending. Production is out of scope.
+
+Routing review follow-up (2026-09-09): preserve explicit Manual Hosted/Venue
+selections, correct the SVM fee-outcome wire type, and require real commit
+evidence in routing tests. Client routing/Pipeline/CLI tests: 26 passed;
+typecheck and scoped lint/format pass. Harness self-test passes. Live provider
+execution was not run; no account settings changed. Work remains uncommitted.
+
+Aomi policy confirmation follow-up (2026-09-08): replaces the earlier native
+provider-popup requirement. Settings reviews the exact wallet and old/new mode
+alongside the backend-generated EIP-712 JSON (or Solana message). Review fetches
+an unsigned challenge; only Sign to approve signs that exact payload and submits
+the permit. Cancel/Escape never sign or commit. Embedded wallets may sign without
+a second popup, explicitly disclosed. Removed the temporary Para block and
+forced-native request plumbing. Exact-wallet/backend permit checks remain intact.
+Live typed-data review/cancel verified; no authorization submitted by the agent.
+61 account/provider tests, Portal typecheck, strict lint and formatting pass.
+
+Settings reconnect follow-up (2026-09-08): linked embedded-wallet Connect and
+Add method use the host's exact Para/Privy selector, not whichever SDK happens
+to be mounted. Verified Para Connect in the existing local browser: Para modal
+opened and all three linked Para wallets became connected. No authorization
+submitted. Account/provider regression suite: 48 tests passed.
+
+Para authorization follow-up (2026-09-08): Settings now resolves live signing
+capability for the exact target address, independently of the globally selected
+wallet. EVM typed-data requests pin the signer; Para validates the recovered EVM
+address and exposes its embedded Solana message signer (raw message, base64
+Ed25519 signature). Linked does not imply currently signable. Remember the user's
+provider choice across reloads without opening login or granting authority.
+Real permission changes remain user-operated; no signatures or transactions
+submitted by the agent.
+
+Local sign-in follow-up (2026-09-08): expose both configured Privy and Para
+choices, opening only the selected SDK. Browser verified both login forms and
+switching back after cancellation; no login, signature, or delegation submitted.
+Move the development badge away from the account button. Wallet-picker tests,
+provider-switching tests, typechecks, and widget package build cover the change.
+
+Current session work: **TRANSACTION ROUTING SURFACES 2026-09-08** — explicit
+Manual/Auto authorization separated from Wallet/Hosted/Venue submission and AA
+execution. UI/CLI select Hosted for new Auto preparations, validate exact live
+delegation, preserve sealed requests and payer, and reject unsupported routes.
+Pipeline V2 replaces old handwritten envelopes. Uncommitted; no deployment or
+live provider transaction. See the maintained wallet-routing page for the
+supported UI/CLI matrix and release gates.
+
 Current session goal: **CLI SDK PARITY AND WALLET EXPORTS VERIFIED 2026-09-08**
 — replace the obsolete flat Pipeline CLI with a compact filesystem, scoped
 operation, and EVM/SVM Build lifecycle interface backed by the canonical SDK;

@@ -90,7 +90,33 @@ export function RuntimeTxHandler() {
         <div className="bg-muted/40 grid gap-3 rounded-xl border p-4 text-sm">
           <Fact label="Network" value={chainName} />
           {request.type === "sign" ? (
-            <Fact label="Account" value={compact(request.signer)} mono />
+            <>
+              <Fact
+                label="Authorizing account"
+                value={compact(request.signer)}
+                mono
+              />
+              {request.broadcaster && (
+                <Fact label="Submitted by" value={request.broadcaster} />
+              )}
+              {request.sponsorship && (
+                <Fact
+                  label="Network funding"
+                  value={
+                    request.sponsorship === "required"
+                      ? "Sponsorship required"
+                      : "User-funded"
+                  }
+                />
+              )}
+              {request.maxNetworkFee && (
+                <Fact
+                  label="Network cost ceiling (native base units)"
+                  value={request.maxNetworkFee}
+                  mono
+                />
+              )}
+            </>
           ) : null}
           <Fact
             label="Operations"
@@ -112,6 +138,7 @@ export function RuntimeTxHandler() {
               key={index}
               className="bg-background rounded-lg border p-3 text-xs"
             >
+              <p className="mb-1 font-medium">Application fee</p>
               <p className="break-all font-mono">
                 Asset: {feeAssetLabel(fee.asset)}
               </p>

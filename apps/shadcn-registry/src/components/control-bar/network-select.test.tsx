@@ -103,7 +103,7 @@ function createHarnessAdapter(options?: {
       address: options?.address,
       chainId: options?.chainId ?? 8453,
       svmAddress: options?.svmAddress,
-      solanaCluster: options?.solanaCluster ?? "solana:devnet",
+      svmCluster: options?.solanaCluster ?? "solana:devnet",
     },
     isReady: true,
     isSwitchingChain: false,

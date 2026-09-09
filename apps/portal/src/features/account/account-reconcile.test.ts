@@ -44,13 +44,13 @@ describe("modeHintFor", () => {
 });
 
 describe("normalizeSignerMode", () => {
-  it("maps only the canonical ladder spellings; everything else fail-safes to manual", () => {
+  it("maps only the canonical ladder spellings; everything else fails closed", () => {
     expect(normalizeSignerMode("server_auto")).toBe("auto");
     expect(normalizeSignerMode("client_auto")).toBe("client_auto");
     expect(normalizeSignerMode("denied")).toBe("denied");
     expect(normalizeSignerMode("manual")).toBe("manual");
     // The canonical account DTO names the server-controlled mode `auto`.
     expect(normalizeSignerMode("auto")).toBe("auto");
-    expect(normalizeSignerMode("agent_sync")).toBe("manual");
+    expect(normalizeSignerMode("agent_sync")).toBe("denied");
   });
 });

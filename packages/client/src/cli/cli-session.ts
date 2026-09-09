@@ -85,7 +85,7 @@ export class CliSession {
     sessionId: string = crypto.randomUUID(),
   ): CliSession {
     // Derive Solana public key from private key when provided.
-    let svmPublicKey: string | undefined;
+    let svmPublicKey = config.svmPublicKey;
     if (config.solanaPrivateKey) {
       try {
         svmPublicKey = parseSolanaKeypairSecret(
@@ -114,8 +114,6 @@ export class CliSession {
       // Keys supplied via --solana-private-key/env stay transient.
       svmPrivateKey: seed?.svmPrivateKey,
       chainId: config.chain ?? seed?.chainId,
-      aaProvider: config.aaProvider ?? seed?.aaProvider,
-      aaMode: config.aaMode ?? seed?.aaMode,
       secretHandles: seed?.secretHandles,
       auth: seed?.auth,
       oauthGrants: seed?.oauthGrants,
@@ -219,6 +217,13 @@ export class CliSession {
       this.state.publicKey = config.publicKey;
       changed = true;
     }
+    if (
+      config.svmPublicKey !== undefined &&
+      config.svmPublicKey !== this.state.svmPublicKey
+    ) {
+      this.state.svmPublicKey = config.svmPublicKey;
+      changed = true;
+    }
     // Derive and persist the Solana public key when a keypair secret is provided.
     if (config.solanaPrivateKey !== undefined) {
       try {
@@ -242,17 +247,6 @@ export class CliSession {
     }
     if (config.chain !== undefined && config.chain !== this.state.chainId) {
       this.state.chainId = config.chain;
-      changed = true;
-    }
-    if (
-      config.aaProvider !== undefined &&
-      config.aaProvider !== this.state.aaProvider
-    ) {
-      this.state.aaProvider = config.aaProvider;
-      changed = true;
-    }
-    if (config.aaMode !== undefined && config.aaMode !== this.state.aaMode) {
-      this.state.aaMode = config.aaMode;
       changed = true;
     }
     if (!this.state.clientId) {

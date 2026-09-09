@@ -23,6 +23,7 @@ import type {
   ApplicationId,
 } from "./types";
 import { normalizeAppDescriptor } from "./app-descriptor";
+import { UserState } from "./user-state";
 import { AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
 import { AccountTransport } from "./account/credits";
@@ -320,10 +321,12 @@ export class AomiClient {
   private readonly fetchImpl: typeof fetch;
   private readonly rawFetchImpl: typeof fetch;
   private readonly logger?: Logger;
+  private readonly hasAccountAuth: boolean;
 
   constructor(options: AomiClientOptions) {
     // Strip trailing slash
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.hasAccountAuth = Boolean(options.getAccountBearer || options.oauth);
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     // Keep the caller's fetch implementation for tests and browser adapters;
@@ -627,6 +630,19 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiAccountProfile;
+  }
+
+  /** Re-read policy on each new preparation; mode changes and revocations
+   * must not be hidden behind a session-long account cache.
+   */
+  async prepareUserState(
+    sessionId: string,
+    state: UserState,
+  ): Promise<UserState> {
+    if (!this.hasAccountAuth || (!state.evm?.address && !state.svm?.address))
+      return state;
+    const profile = await this.fetchAccountProfile(sessionId);
+    return profile ? UserState.route(state, profile) : state;
   }
 
   /**

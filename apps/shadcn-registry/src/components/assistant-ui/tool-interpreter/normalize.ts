@@ -168,6 +168,9 @@ export const statusFact = (
   const raw = asString(value);
   if (!raw) return null;
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
+  if (normalized === "pending approval") {
+    return { kind: "status", value: "pending_approval", source };
+  }
   if (normalized.includes("pending")) {
     return { kind: "status", value: "pending", source };
   }

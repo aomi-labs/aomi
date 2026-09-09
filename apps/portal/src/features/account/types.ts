@@ -70,7 +70,8 @@ export interface DelegatedAccountView {
   provider: string;
   /** Raw provider key the revoke route is addressed by, e.g. "privy". */
   providerKey?: string;
-  /** Exact address this delegated capability can sign for. */
+  /** Exact identity; scope below is presentation only. */
+  address: import("@aomi-labs/client").AomiOnchainAddress;
   scope: string;
   kind: string;
   status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";

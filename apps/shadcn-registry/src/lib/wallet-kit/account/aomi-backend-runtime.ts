@@ -332,6 +332,10 @@ export function useAomiBackendAccountRuntime(input: {
           error.code === "already_linked_to_another_account"
         ) {
           setAccountError(error.message);
+        } else {
+          setAccountError(
+            "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+          );
         }
         setStatus("ready");
         setErrorVersion((version) => version + 1);
