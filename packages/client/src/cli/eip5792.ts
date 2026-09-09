@@ -1,5 +1,11 @@
 import { getAddress, toHex, type Address, type Hex } from "viem";
-import type { AAWalletCall } from "../aa";
+
+export type Eip5792CallInput = {
+  chainId: number;
+  to: string;
+  data?: string;
+  value: bigint;
+};
 
 export type Eip5792Call = {
   to: Address;
@@ -30,7 +36,7 @@ function normalizeChainId(value: number): number {
   return value;
 }
 
-function normalizeData(value: Hex | undefined, index: number): Hex {
+function normalizeData(value: string | undefined, index: number): Hex {
   const data = value ?? "0x";
   if (!/^0x(?:[0-9a-fA-F]{2})*$/.test(data)) {
     throw new Error(`Call ${index + 1} data must be a hex byte string.`);
@@ -41,7 +47,7 @@ function normalizeData(value: Hex | undefined, index: number): Hex {
 export function toEip5792SendCallsParams(input: {
   from: string;
   chainId: number;
-  calls: readonly AAWalletCall[];
+  calls: readonly Eip5792CallInput[];
 }): Eip5792SendCallsParams {
   const chainId = normalizeChainId(input.chainId);
   if (input.calls.length === 0) {

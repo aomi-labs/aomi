@@ -1,5 +1,14 @@
 # Canonical Landing
 
+Current session goal: **CLI SDK PARITY AND WALLET EXPORTS VERIFIED 2026-09-08**
+— replace the obsolete flat Pipeline CLI with a compact filesystem, scoped
+operation, and EVM/SVM Build lifecycle interface backed by the canonical SDK;
+restore EIP-5792, MegaETH MOSS, and MetaMask Agent Wallet handoff artifacts on
+the Action model; remove orphaned pre-Action signing code; and align the CLI
+documentation and package release. Verified with client and backend Pipeline
+tests, typecheck, lint, production package build, built-CLI smoke checks, and an
+npm dry-run tarball audit for `0.6.13`.
+
 Current session goal: **LEGACY AGENT TRACE GROUPING VERIFIED 2026-09-07** —
 group null-turn historical Agent tool steps and final answers by their preceding
 user message while preserving canonical turn identities and stable pagination.

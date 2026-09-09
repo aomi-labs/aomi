@@ -1,11 +1,43 @@
+import { readFile } from "node:fs/promises";
+import type {
+  EvmDirectInput,
+  EvmSimulatedBuild,
+  EvmStageInput,
+  EvmStagedBuild,
+  PipelineDirectory,
+  PipelineOperationBuildInput,
+  SvmDirectInput,
+  SvmSimulatedBuild,
+  SvmStageInput,
+  SvmStagedBuild,
+} from "../../pipeline/types";
+import {
+  AomiPipeline,
+  type AomiPipelineOperationScope,
+} from "../../sdk/pipeline";
 import { CliSession } from "../cli-session";
 import { createControlClient } from "../context";
 import { printJson, printPaymentEvent } from "../output";
 import type { CliConfig } from "../types";
 
+type Chain = "evm" | "svm";
+type Lifecycle = "build" | "stage" | "simulate" | "commit";
+
+interface ScopeOptions {
+  app?: string;
+  skill?: string;
+}
+
+export async function pipelineReadCommand(
+  config: CliConfig,
+  path?: string,
+): Promise<void> {
+  printJson(await createControlClient(config).pipeline.read(path));
+}
+
 export async function pipelineAppsCommand(
   config: CliConfig,
-  options: { query?: string; limit?: number },
+  options: { filter?: string; limit?: number },
 ): Promise<void> {
   const directory = await createControlClient(config).pipeline.apps.list();
   printJson(filterEntries(directory, options));
@@ -18,101 +50,224 @@ export async function pipelineAppCommand(
   printJson(await createControlClient(config).pipeline.app(app).directory());
 }
 
-export async function pipelineToolsCommand(
-  config: CliConfig,
-  options: { query?: string; app?: string; namespace?: string; limit?: number },
-): Promise<void> {
-  const app =
-    options.app?.trim() || CliSession.load()?.app || config.app || "default";
-  const directory = await createControlClient(config)
-    .pipeline.app(app)
-    .operations();
-  printJson(filterEntries(directory, options));
-}
-
-export async function pipelineToolCommand(
-  config: CliConfig,
-  operation: string,
-  app?: string,
-): Promise<void> {
-  const owner =
-    app?.trim() || CliSession.load()?.app || config.app || "default";
-  printJson(
-    await createControlClient(config).pipeline.app(owner).operation(operation),
-  );
-}
-
 export async function pipelineSkillsCommand(
   config: CliConfig,
-  limit?: number,
+  options: { filter?: string; limit?: number },
 ): Promise<void> {
   const directory = await createControlClient(config).pipeline.skills.list();
-  printJson(filterEntries(directory, { limit }));
+  printJson(filterEntries(directory, options));
 }
 
 export async function pipelineSkillCommand(
   config: CliConfig,
   skill: string,
+  instructions = false,
 ): Promise<void> {
+  const selected = createControlClient(config).pipeline.skill(skill);
+  if (instructions) {
+    process.stdout.write(await selected.instructions());
+    return;
+  }
+  printJson(await selected.directory());
+}
+
+export async function pipelineOperationsCommand(
+  config: CliConfig,
+  options: ScopeOptions & { filter?: string; limit?: number },
+): Promise<void> {
+  const directory = await pipelineScope(config, options).operations();
+  printJson(filterEntries(directory, options));
+}
+
+export async function pipelineOperationCommand(
+  config: CliConfig,
+  operation: string,
+  options: ScopeOptions,
+): Promise<void> {
+  printJson(await pipelineScope(config, options).operation(operation));
+}
+
+export async function pipelineInvokeCommand(
+  config: CliConfig,
+  operation: string,
+  options: ScopeOptions & { arguments?: string; idempotencyKey?: string },
+): Promise<void> {
+  const scope = pipelineScope(config, options, true);
   printJson(
-    await createControlClient(config).pipeline.skill(skill).directory(),
+    await scope.invoke(
+      operation,
+      await readPipelineObject(options.arguments, "--arguments", {}),
+      { idempotencyKey: options.idempotencyKey },
+    ),
   );
 }
 
-export async function pipelineCallCommand(
+export async function pipelineBuildCommand(
   config: CliConfig,
-  options: {
-    toolId: string;
+  operation: string,
+  options: ScopeOptions & {
     arguments?: string;
-    app?: string;
-    applicationId?: string;
-    platform?: string;
-    idempotencyKey: string;
+    chainFamily?: Chain;
   },
 ): Promise<void> {
-  if (options.applicationId || options.platform) {
-    throw new TypeError(
-      "Pipeline filesystem operations do not accept hosted-app control metadata",
-    );
-  }
-  const app =
-    options.app?.trim() || CliSession.load()?.app || config.app || "default";
-  const client = createControlClient(config, {
-    payment: true,
-    onPayment: printPaymentEvent,
-  });
-  printJson(
-    await client.pipeline
-      .app(app)
-      .invoke(options.toolId, parsePipelineArguments(options.arguments), {
-        idempotencyKey: options.idempotencyKey,
-      }),
+  const scope = pipelineScope(config, options, true);
+  const build = await scope.build(
+    operation,
+    await readPipelineObject(options.arguments, "--arguments", {}),
+    { chainFamily: options.chainFamily },
   );
+  printJson(build);
 }
 
-export function parsePipelineArguments(
-  input?: string,
+export async function pipelineLifecycleCommand(
+  config: CliConfig,
+  chain: Chain,
+  lifecycle: Lifecycle,
+  input: string,
+  idempotencyKey?: string,
+): Promise<void> {
+  const value = await readPipelineObject(input, "input");
+  const pipeline = createPipeline(config, true);
+
+  if (chain === "evm") {
+    const evm = pipeline.evm;
+    switch (lifecycle) {
+      case "build":
+        printJson(
+          await evm.build(
+            value as PipelineOperationBuildInput | EvmDirectInput,
+          ),
+        );
+        return;
+      case "stage":
+        printJson(
+          await evm.stage(value as unknown as EvmStageInput | EvmDirectInput),
+        );
+        return;
+      case "simulate":
+        requireBuildStatus(value, "staged");
+        printJson(await evm.simulate(value as unknown as EvmStagedBuild));
+        return;
+      case "commit":
+        requireBuildStatus(value, "simulated");
+        printJson(
+          await evm.commit(value as unknown as EvmSimulatedBuild, {
+            idempotencyKey,
+          }),
+        );
+        return;
+    }
+  }
+
+  const svm = pipeline.svm;
+  switch (lifecycle) {
+    case "build":
+      printJson(
+        await svm.build(value as PipelineOperationBuildInput | SvmDirectInput),
+      );
+      return;
+    case "stage":
+      printJson(await svm.stage(value as unknown as SvmStageInput));
+      return;
+    case "simulate":
+      requireBuildStatus(value, "staged");
+      printJson(await svm.simulate(value as unknown as SvmStagedBuild));
+      return;
+    case "commit":
+      requireBuildStatus(value, "simulated");
+      printJson(
+        await svm.commit(value as unknown as SvmSimulatedBuild, {
+          idempotencyKey,
+        }),
+      );
+  }
+}
+
+async function readPipelineObject(
+  input: string | undefined,
+  label: string,
+  fallback?: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!input?.trim()) {
+    if (fallback) return fallback;
+    throw new TypeError(`${label} is required`);
+  }
+  const source = input.trim();
+  const json =
+    source.startsWith("{") || source.startsWith("[")
+      ? source
+      : source === "-"
+        ? await readStdin()
+        : await readFile(
+            source.startsWith("@") ? source.slice(1) : source,
+            "utf8",
+          );
+  return pipelineObject(JSON.parse(json) as unknown, label);
+}
+
+function pipelineObject(
+  value: unknown,
+  label: string,
 ): Record<string, unknown> {
-  if (!input?.trim()) return {};
-  const value = JSON.parse(input) as unknown;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new TypeError("--arguments must be a JSON object");
+    throw new TypeError(`${label} must be a JSON object`);
   }
   return value as Record<string, unknown>;
 }
 
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function pipelineScope(
+  config: CliConfig,
+  options: ScopeOptions,
+  payment = false,
+): AomiPipelineOperationScope {
+  if (options.app && options.skill) {
+    throw new TypeError("Choose only one of --app or --skill");
+  }
+  const pipeline = createPipeline(config, payment);
+  if (options.skill) return pipeline.skill(options.skill);
+  const app =
+    options.app?.trim() || CliSession.load()?.app || config.app || "default";
+  return pipeline.app(app);
+}
+
+function createPipeline(config: CliConfig, payment = false): AomiPipeline {
+  const client = payment
+    ? createControlClient(config, {
+        payment: true,
+        onPayment: printPaymentEvent,
+      })
+    : createControlClient(config);
+  return new AomiPipeline(client.pipeline);
+}
+
 function filterEntries(
-  directory: { entries: Array<{ name: string }> },
-  options: { query?: string; namespace?: string; limit?: number },
-) {
-  const query = options.query?.trim().toLowerCase();
-  const namespace = options.namespace?.trim().toLowerCase();
-  const entries = directory.entries.filter((entry) => {
-    const name = entry.name.toLowerCase();
-    return (
-      (!query || name.includes(query)) &&
-      (!namespace || name.startsWith(`${namespace}.`))
-    );
-  });
-  return { ...directory, entries: entries.slice(0, options.limit) };
+  directory: PipelineDirectory,
+  options: { filter?: string; limit?: number },
+): PipelineDirectory {
+  const filter = options.filter?.trim().toLowerCase();
+  const entries = directory.entries.filter(
+    (entry) => !filter || entry.name.toLowerCase().includes(filter),
+  );
+  return {
+    ...directory,
+    entries:
+      options.limit === undefined ? entries : entries.slice(0, options.limit),
+  };
+}
+
+function requireBuildStatus(
+  value: Record<string, unknown>,
+  expected: "staged" | "simulated",
+): void {
+  if (value.status !== expected) {
+    throw new TypeError(`input must be a ${expected} Pipeline Build`);
+  }
 }
