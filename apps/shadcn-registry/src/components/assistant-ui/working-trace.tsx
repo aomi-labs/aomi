@@ -13,6 +13,7 @@ import {
   CogIcon,
   LightbulbIcon,
   MoreHorizontalIcon,
+  XIcon,
 } from "lucide-react";
 
 import {
@@ -66,27 +67,6 @@ const useIsomorphicLayoutEffect =
 const WINDOW_ANIM_MS = 300;
 
 /**
- * Paces how many trace items are shown, revealing them one at a time so a burst
- * of tool calls that lands in a single update cascades instead of flashing in.
- *
- * The cadence adapts to backlog: a lone pending step waits ~1200ms (a deliberate
- * beat that fills the otherwise-idle shimmer time), but the delay tightens toward
- * ~360ms as more items queue up, so a model that ran ahead is caught up quickly
- * and in order — never held back. Once the turn ends we drain any remainder fast
- * (~220ms) so the final answer is never gated on the stagger. Under
- * `prefers-reduced-motion` everything is revealed immediately.
- *
- * Pacing applies ONLY to a turn that is live (running) while this is mounted.
- * A turn that's already complete when it mounts — a reloaded thread, scrollback,
- * a thread switch — reveals everything at once, so a finished answer never sits
- * behind an animation replaying from scratch.
- */
-const REVEAL_BASE_MS = 1200;
-const REVEAL_MIN_MS = 360;
-const REVEAL_STEP_MS = 320;
-const REVEAL_TAIL_MS = 220;
-
-/**
  * Whenever the trace is open — live or after completion — it is capped to this
  * height so a long run of steps doesn't march down the whole screen. Newest
  * steps stay pinned at the bottom; older ones remain available by scrolling the
@@ -95,40 +75,6 @@ const REVEAL_TAIL_MS = 220;
  * remains available when an uncapped overview is more useful.
  */
 const WORKING_WINDOW_PX = 260;
-
-const useStaggeredReveal = (target: number, running: boolean): number => {
-  const reduced = prefersReducedMotion();
-  // Only pace a turn we saw working live. If it wasn't running at mount, it's a
-  // completed/loaded turn — start fully revealed.
-  const startedLive = useRef(running && !reduced);
-  const [revealed, setRevealed] = useState(startedLive.current ? 0 : target);
-
-  useEffect(() => {
-    if (running && !reduced) startedLive.current = true;
-  }, [running, reduced]);
-
-  useEffect(() => {
-    if (!startedLive.current) {
-      if (revealed !== target) setRevealed(target);
-      return;
-    }
-    if (revealed >= target) return;
-    // Reveal the first item promptly for responsiveness; pace the rest.
-    if (revealed === 0) {
-      setRevealed(1);
-      return;
-    }
-    const backlog = target - revealed;
-    const delay = running
-      ? Math.max(REVEAL_MIN_MS, REVEAL_BASE_MS - (backlog - 1) * REVEAL_STEP_MS)
-      : REVEAL_TAIL_MS;
-    const timer = setTimeout(() => setRevealed((n) => n + 1), delay);
-    return () => clearTimeout(timer);
-  }, [revealed, target, running, reduced]);
-
-  // Clamp in case a turn's content ever shrinks (it is append-only in practice).
-  return Math.min(revealed, target);
-};
 
 /**
  * One tool call of the mother's own trace. The presentation lives in
@@ -140,7 +86,8 @@ const WorkingStep: FC<{
   relatedResults?: unknown[];
   active: boolean;
   animate: boolean;
-}> = ({ tool, relatedResults, active, animate }) => {
+  live: boolean;
+}> = ({ tool, relatedResults, active, animate, live }) => {
   const done = tool.result !== undefined;
   const argsText =
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
@@ -158,6 +105,7 @@ const WorkingStep: FC<{
       done={done}
       active={active}
       animate={animate}
+      animateUpdates={live}
     />
   );
 };
@@ -233,8 +181,11 @@ const WORKING_STATUS_TEXT_CLASS = "text-[13px] font-medium leading-none";
 const WORKING_COLLAPSED_CHIP_CLASS =
   "border-aomi-border bg-aomi-surface h-8 w-fit rounded-full pl-3 pr-4";
 
+type WorkingTraceOutcome = "running" | "complete" | "failed" | "interrupted";
+
 export const WorkingTrace: FC<{
   running: boolean;
+  outcome?: WorkingTraceOutcome;
   items: TraceItem[];
   revealed: number;
   /** Final-answer playback has begun, so the open trace may fold away. */
@@ -245,7 +196,14 @@ export const WorkingTrace: FC<{
    * end), so mount time alone under-reports "Orchestrated for Ns" badly.
    */
   startedAtMs?: number;
-}> = ({ running, items, revealed, collapseReady = true, startedAtMs }) => {
+}> = ({
+  running,
+  outcome = running ? "running" : "complete",
+  items,
+  revealed,
+  collapseReady = true,
+  startedAtMs,
+}) => {
   const [open, setOpen] = useState(running);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -397,11 +355,16 @@ export const WorkingTrace: FC<{
     return () => clearTimeout(timer);
   }, [collapseReady, fullyRevealed]);
 
-  const label = running
-    ? "Working"
-    : elapsed != null
-      ? `Worked for ${formatDuration(elapsed)}`
-      : "Worked it out";
+  const elapsedLabel =
+    elapsed != null ? ` after ${formatDuration(elapsed)}` : "";
+  const label =
+    outcome === "running"
+      ? "Working"
+      : outcome === "complete"
+        ? elapsed != null
+          ? `Worked for ${formatDuration(elapsed)}`
+          : "Worked it out"
+        : `Stopped${elapsedLabel}`;
 
   // Keep the status treatment continuous from Thinking into Working. The newest
   // revealed step retains its contextual shimmer while the header consistently
@@ -446,8 +409,16 @@ export const WorkingTrace: FC<{
               ),
         )}
       >
-        {running ? (
+        {outcome === "running" ? (
           <WorkingStatusGlyph />
+        ) : outcome === "failed" ? (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <XIcon className="text-aomi-danger size-3.5" />
+          </span>
+        ) : outcome === "interrupted" ? (
+          <span className="text-aomi-muted flex size-4 shrink-0 items-center justify-center">
+            <MoreHorizontalIcon className="size-3.5" />
+          </span>
         ) : (
           <span className="flex size-4 shrink-0 items-center justify-center">
             <CheckIcon className="text-aomi-success size-3.5" />
@@ -519,7 +490,7 @@ export const WorkingTrace: FC<{
                 className="aui-working-trace-body relative isolate flex flex-col gap-1 px-3.5 pb-3.5 pt-3 text-sm"
               >
                 {visibleItems.map((item, i) => {
-                  const animate = i >= animatedCount.current;
+                  const animate = running && i >= animatedCount.current;
                   if (item.kind === "tool") {
                     return (
                       <WorkingStep
@@ -534,6 +505,7 @@ export const WorkingTrace: FC<{
                           )}
                         active={i === activeIndex}
                         animate={animate}
+                        live={running}
                       />
                     );
                   }
@@ -865,22 +837,22 @@ export const AssistantTurnParts: FC = () => {
       runtime?.turnState === "processing" ||
       (witnessedRunning.current && answerText.length === 0));
   const traceLive = !terminal && (running || awaitingContinuation);
+  const outcome: WorkingTraceOutcome = traceLive
+    ? "running"
+    : isLast && runtime?.turnState === "failed"
+      ? "failed"
+      : isLast && runtime?.turnState === "interrupted"
+        ? "interrupted"
+        : "complete";
+  // A durable backend notice is projected as the following assistant message,
+  // making this turn no longer last. While none exists, keep a failed turn from
+  // ending in partial prose (or a tool trace) with no explanation.
+  const showFailureFallback = outcome === "failed";
 
-  // Pace the reveal so a burst of tool calls cascades instead of flashing in.
-  // Called unconditionally (before the branches below) to satisfy hook rules;
-  // it's a harmless no-op with an empty trace.
-  const staggered = useStaggeredReveal(items.length, traceLive);
-
-  // Staggered-reveal choice: an agent row backed by a live sidecar is never
-  // held hostage to the reveal backlog. Everything up to and including the
-  // newest sidecar-backed agent row is shown at once (in practice that row is
-  // last, so an orchestrating turn reveals immediately); the mother's own
-  // steps keep their paced cascade before and after the delegation.
-  const revealFloor = items.reduce(
-    (floor, item, i) => (item.kind === "agent" && item.run ? i + 1 : floor),
-    0,
-  );
-  const revealed = Math.max(staggered, revealFloor);
+  // Transcript state is never delayed behind presentation. Rows enter the DOM
+  // immediately; their bounded CSS entrance and chip cascade provide motion
+  // without falling behind the activity rail during a batch.
+  const revealed = items.length;
 
   // When the work actually began, for the header's "Orchestrated for Ns".
   // Anchored to the earliest signal we have: the moment this turn was first
@@ -912,22 +884,27 @@ export const AssistantTurnParts: FC = () => {
       ) : null;
     }
 
-    return answerText.length > 0 ? (
-      <ProgressiveRenderedText
-        text={answerText}
-        animate={witnessedRunning.current}
-      />
+    return answerText.length > 0 || showFailureFallback ? (
+      <>
+        {answerText.length > 0 && (
+          <ProgressiveRenderedText
+            text={answerText}
+            animate={witnessedRunning.current}
+          />
+        )}
+        {showFailureFallback && <TurnFailureFallback />}
+      </>
     ) : null;
   }
 
-  // Hold the answer until the trace has fully caught up, so the steps finish
-  // cascading before it fades in — nothing moves between the two regions.
+  // Every trace item is already mounted, so presentation never gates the answer.
   const answerReady = !traceLive && revealed >= items.length;
 
   return (
     <>
       <WorkingTrace
         running={traceLive}
+        outcome={outcome}
         items={items}
         revealed={revealed}
         collapseReady={answerText.length > 0}
@@ -941,6 +918,13 @@ export const AssistantTurnParts: FC = () => {
           />
         </div>
       )}
+      {answerReady && showFailureFallback && <TurnFailureFallback />}
     </>
   );
 };
+
+const TurnFailureFallback: FC = () => (
+  <p className="text-aomi-danger mt-2 text-sm leading-5" role="status">
+    This run stopped before it could finish.
+  </p>
+);

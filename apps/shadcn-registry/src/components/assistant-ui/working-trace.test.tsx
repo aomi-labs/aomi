@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
+import { CircleIcon } from "lucide-react";
 
 import type { TaskRunState } from "@aomi-labs/react";
 
@@ -22,6 +23,7 @@ import {
   ProgressiveRenderedText,
   WorkingTrace,
 } from "./working-trace";
+import { ToolStepRow } from "./working-trace-rows";
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
   agentId: "task-agent:9f2c1a2b3c4d",
@@ -34,6 +36,93 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("animates only badges that arrive on an existing live row", () => {
+    const base = {
+      icon: CircleIcon,
+      title: "Commit transactions",
+      confidence: "high" as const,
+      rawLabel: "evm_commit_txs",
+      failed: false,
+    };
+    const { getByText, rerender } = render(
+      <ToolStepRow
+        interpretation={{ ...base, chips: [{ label: "Pending" }] }}
+        done={false}
+        active
+        animate={false}
+        animateUpdates
+      />,
+    );
+
+    expect(getByText("Pending").parentElement).not.toHaveClass("animate-in");
+
+    rerender(
+      <ToolStepRow
+        interpretation={{
+          ...base,
+          chips: [{ label: "Base" }, { label: "Pending" }],
+        }}
+        done
+        active={false}
+        animate={false}
+        animateUpdates
+      />,
+    );
+
+    expect(getByText("Base").parentElement).toHaveClass("animate-in");
+    expect(getByText("Pending").parentElement).not.toHaveClass("animate-in");
+
+    rerender(
+      <ToolStepRow
+        interpretation={{
+          ...base,
+          chips: [{ label: "Base" }, { label: "Success" }],
+        }}
+        done
+        active={false}
+        animate={false}
+        animateUpdates
+      />,
+    );
+
+    expect(getByText("Base").parentElement).not.toHaveClass("animate-in");
+    expect(getByText("Success").parentElement).toHaveClass("animate-in");
+
+    rerender(
+      <ToolStepRow
+        interpretation={{
+          ...base,
+          chips: [{ label: "Base" }, { label: "Success" }],
+        }}
+        done
+        active={false}
+        animate={false}
+        animateUpdates
+      />,
+    );
+
+    expect(getByText("Base").parentElement).not.toHaveClass("animate-in");
+    expect(getByText("Success").parentElement).not.toHaveClass("animate-in");
+
+    rerender(
+      <ToolStepRow
+        interpretation={{
+          ...base,
+          chips: [
+            { label: "Base" },
+            { label: "21,000 gas" },
+            { label: "Success" },
+          ],
+        }}
+        done
+        active={false}
+        animate={false}
+      />,
+    );
+
+    expect(getByText("21,000 gas").parentElement).not.toHaveClass("animate-in");
+  });
+
   it("uses a compact status pill before trace steps arrive", () => {
     const { container, getByRole } = render(<MinimalWorkingTrace />);
 

@@ -102,14 +102,20 @@ export const matchChainContext: ToolMatcher = ({ rawLabel, resultRecord }) => {
   ]);
 };
 
-export const matchNativeBalance: ToolMatcher = ({ rawLabel, resultRecord }) => {
+export const matchNativeBalance: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
   if (!resultRecord) return null;
   const address = addressFact(resultRecord.address, "owner");
   const balance = amountFact(resultRecord.balance_eth, "ETH");
   if (!address || !balance) return null;
 
+  const args = asRecord(parsedArgs);
+
   return op("evm.account.native_balance", rawLabel, [
-    chainFactFromRecord(resultRecord),
+    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
     address,
     { ...balance, role: "native" },
   ]);

@@ -1,5 +1,18 @@
 # Current work
 
+**TRANSACTION TRACE LABEL AND BADGE POLISH 2026-09-09** — transaction lifecycle
+tools now keep stable Stage transaction, Simulate transaction, and Commit
+transactions titles while active, failed, awaiting approval, or completed.
+Badges use transaction-scoped chain context, a canonical chain-first/status-last
+order, and a short identity-aware cascade that animates newly arriving facts
+without delaying trace state, replaying stable badges, or replaying history.
+Account reads show chain context only when their result or arguments expose it.
+Failed terminal turns now end with a red Stopped trace and a concise fallback
+when no durable error notice follows; interrupted turns use a neutral Stopped
+state, while successful turns retain the green Worked treatment.
+Focused trace/interpreter tests, scoped ESLint, Portal TypeScript, widget ESM/DTS
+build, formatting, and diff checks pass. Widget version: 2.0.41.
+
 **PAIRED MERGE READINESS CLEANUP 2026-09-07** — consolidated wallet review in the
 Activity sidebar, split composer/catalog/picker and sidebar responsibilities,
 removed superseded UI prototypes, preserved complete signing and permission
