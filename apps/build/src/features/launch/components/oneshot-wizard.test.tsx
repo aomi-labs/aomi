@@ -68,7 +68,6 @@ function baseProgress(): LaunchProgress {
 describe("OneshotWizard", () => {
   const defaultProps = {
     progress: baseProgress(),
-    actor: "test-user",
     beginInstall: noop,
     installing: false,
     installError: null,
@@ -143,7 +142,7 @@ describe("OneshotWizard", () => {
     render(<OneshotWizard {...defaultProps} />);
     expect(screen.getByText("Install")).toBeInTheDocument();
     expect(screen.getByText("Create")).toBeInTheDocument();
-    expect(screen.getByText("Build")).toBeInTheDocument();
+    expect(screen.getByText("Configure")).toBeInTheDocument();
     expect(screen.getByText("Live")).toBeInTheDocument();
   });
 
@@ -200,81 +199,18 @@ describe("OneshotWizard", () => {
     });
   });
 
-  it("wires progress.projectId into DeployStep's required-secrets gate at the build step", async () => {
-    vi.mocked(deploymentRequiredSecrets).mockResolvedValue({
-      byApp: {
-        "my-bot": {
-          applicationId: 71,
-          slots: [],
-          missing: ["MY_BOT_API_KEY"],
-        },
-      },
-    });
-
+  it("takes the created project to shared setup without starting a deployment", () => {
     render(
       <OneshotWizard
         {...defaultProps}
-        progress={{
-          installationId: "12345",
-          repo: "alice/bot",
-          projectId: 7,
-          deploymentId: "dep_1",
-          apps: ["my-bot"],
-        }}
+        progress={{ installationId: "12345", repo: "alice/bot", projectId: 7 }}
       />,
     );
-
-    await waitFor(() => {
-      expect(deploymentRequiredSecrets).toHaveBeenCalledWith({
-        projectId: 7,
-      });
-    });
     expect(
-      await screen.findByText(/1 required secret missing/i),
-    ).toBeInTheDocument();
-  });
-
-  it("lets a new project save the missing required secret before activation", async () => {
-    vi.mocked(deploymentRequiredSecrets).mockResolvedValue({
-      byApp: {
-        "my-bot": {
-          applicationId: 71,
-          slots: [
-            {
-              name: "MY_BOT_API_KEY",
-              description: "API key for the bot.",
-              required: true,
-            },
-          ],
-          missing: ["MY_BOT_API_KEY"],
-        },
-      },
-    });
-
-    render(
-      <OneshotWizard
-        {...defaultProps}
-        progress={{
-          installationId: "12345",
-          repo: "alice/bot",
-          projectId: 7,
-          deploymentId: "dep_1",
-          apps: ["my-bot"],
-        }}
-      />,
-    );
-
-    const input = await screen.findByLabelText("my-bot MY_BOT_API_KEY");
-    fireEvent.change(input, { target: { value: "secret-value" } });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save required secrets" }),
-    );
-
-    await waitFor(() =>
-      expect(deploymentSetSecrets).toHaveBeenCalledWith({
-        applicationId: 71,
-        secrets: { MY_BOT_API_KEY: "secret-value" },
-      }),
-    );
+      screen.getByRole("link", { name: "Configure deployment" }),
+    ).toHaveAttribute("href", "/projects/7?tab=deployments&platform=community");
+    expect(
+      screen.queryByRole("button", { name: /Deploy/i }),
+    ).not.toBeInTheDocument();
   });
 });

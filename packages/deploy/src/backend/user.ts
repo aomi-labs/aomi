@@ -1,4 +1,4 @@
-import { DeployError } from "../errors";
+import { BackendError, DeployError } from "../errors";
 import type {
   BotRegistration,
   BuilderBotsInput,
@@ -101,6 +101,52 @@ function botRegistrations(raw: Record<string, unknown>): BotRegistration[] {
  * happen in the backend.
  */
 export class BackendClient extends BackendPlatformClient {
+  async projectDeploymentAttempts(
+    input: OwnedOperateProjectInput & { runId?: number; page?: number },
+  ) {
+    const { projectId, params, bearer } = this.ownedOperateRequest(input);
+    if (input.page) params.set("page", String(input.page));
+    const suffix = input.runId === undefined ? "" : `/${input.runId}`;
+    return this.get<{
+      attempts?: import("../types").ProjectDeploymentAttempt[];
+      attempt?: import("../types").ProjectDeploymentAttempt;
+      nextPage?: number | null;
+    }>(
+      this.userPath(`projects/${projectId}/attempts${suffix}`, params),
+      "deployment_status",
+      bearer,
+    );
+  }
+
+  async startProjectDeploymentAttempt(
+    input: OwnedOperateProjectInput & { branch?: string },
+  ) {
+    const { projectId, params, bearer } = this.ownedOperateRequest(input);
+    return this.post<{
+      attempt: import("../types").ProjectDeploymentAttempt;
+      existing: boolean;
+    }>(
+      this.userPath(`projects/${projectId}/attempts`, params),
+      { branch: input.branch },
+      "deploy",
+      bearer,
+    );
+  }
+
+  async cancelProjectDeploymentAttempt(
+    input: OwnedOperateProjectInput & { runId: number },
+  ) {
+    const { projectId, params, bearer } = this.ownedOperateRequest(input);
+    return this.post<{ ok: boolean; status?: string }>(
+      this.userPath(
+        `projects/${projectId}/attempts/${input.runId}/cancel`,
+        params,
+      ),
+      {},
+      "deploy",
+      bearer,
+    );
+  }
   // ──────────────────── Sign-in: identity + user projects ──────────────────
 
   /**
@@ -356,7 +402,10 @@ export class BackendClient extends BackendPlatformClient {
       "promote",
       bearer,
     );
-    await this.audit("promote", input.actor, { projectId, apps: input.apps ?? [] });
+    await this.audit("promote", input.actor, {
+      projectId,
+      apps: input.apps ?? [],
+    });
     const ok = raw.ok === true;
     const activation = camelActivateResult(raw).activation;
     return {
@@ -405,6 +454,42 @@ export class BackendClient extends BackendPlatformClient {
         apps: ((raw.apps ?? []) as unknown[]).map(camelPlatformApp),
       }),
     );
+  }
+
+  /** Authorize the project first, then probe the exact active release on a runtime host. */
+  async projectRuntimeApps(
+    input: OwnedOperateProjectInput,
+  ): Promise<UserProjectAppsResult> {
+    const result = await this.listUserProjectApps(input);
+    const { bearer } = this.ownedOperateRequest(input);
+    const apps = await Promise.all(
+      result.apps.map(async (app) => {
+        if (!app.isActive || !app.appReleaseTag)
+          return { ...app, loaded: false };
+        try {
+          const raw = await this.get<{ app: Record<string, unknown> }>(
+            `/api/platforms/${encodeURIComponent(result.platform)}/apps/${encodeURIComponent(app.name)}?release_tag=${encodeURIComponent(app.appReleaseTag)}`,
+            "get_project_runtime_app",
+            bearer,
+          );
+          return {
+            ...app,
+            loaded:
+              raw.app.id === app.id &&
+              raw.app.project_id === input.projectId &&
+              raw.app.app_release_tag === app.appReleaseTag &&
+              raw.app.artifact_ready === true,
+          };
+        } catch (error) {
+          // A missing app is not loaded yet. Other failures must reach the
+          // caller so retries preserve the last verified runtime result.
+          if (!(error instanceof BackendError) || error.status !== 404)
+            throw error;
+          return { ...app, loaded: false };
+        }
+      }),
+    );
+    return { ...result, apps };
   }
 
   async listUserProjectBots(
