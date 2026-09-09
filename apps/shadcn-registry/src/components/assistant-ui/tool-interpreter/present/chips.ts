@@ -102,13 +102,13 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       if (fact.role === "native") {
         return {
           label: formatNativeAmount(fact.value),
-          icon: getChainIcon(1),
+          icon: CoinsIcon,
         };
       }
       if (fact.role === "primary" || fact.role === "secondary") {
         return { label: fact.label ?? fact.value, icon: CoinsIcon };
       }
-      return { label: fact.label ?? fact.value };
+      return { label: fact.label ?? fact.value, icon: CoinsIcon };
     case "block":
       return { label: formatInteger(fact.value), icon: BlocksIcon };
     case "chain": {

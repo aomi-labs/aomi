@@ -149,10 +149,15 @@ export const matchError: ToolMatcher = ({ rawLabel, resultRecord }) => {
     asString(errorRecord?.code) ??
     asString(errorRecord?.type);
 
-  return op("tool.error", rawLabel, [
-    statusFact("failed"),
-    code
-      ? { kind: "code", role: "error", value: code, source: "result" }
-      : null,
-  ]);
+  return {
+    ...op("tool.error", rawLabel, [
+      statusFact("failed"),
+      code
+        ? { kind: "code", role: "error", value: code, source: "result" }
+        : null,
+    ]),
+    title: /^(?:evm[_ .-])?get[_ .-]erc20[_ .-]balance$/i.test(rawLabel)
+      ? "Get balance"
+      : undefined,
+  };
 };

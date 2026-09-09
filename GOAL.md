@@ -1,5 +1,11 @@
 # Current work
 
+**TOKEN TRACE BADGE POLISH 2026-09-09** — ERC-20 balance traces now read “Get
+balance”, including active and failed raw tool calls. Amount badges use the
+neutral token glyph instead of the blue-dot marker. Base USDC approval amounts
+are normalized with verified chain, contract, and decimal metadata; unknown
+tokens remain raw units. Widget version: 2.0.42.
+
 **TRANSACTION TRACE LABEL AND BADGE POLISH 2026-09-09** — transaction lifecycle
 tools now keep stable Stage transaction, Simulate transaction, and Commit
 transactions titles while active, failed, awaiting approval, or completed.

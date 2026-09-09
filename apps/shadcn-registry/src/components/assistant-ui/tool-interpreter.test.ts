@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { PencilLineIcon, PuzzleIcon } from "lucide-react";
+import { CoinsIcon, PencilLineIcon, PuzzleIcon } from "lucide-react";
 
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
+import { formatTokenUnits } from "@/components/assistant-ui/tool-interpreter/token-registry";
 import { getSkillIcon } from "@/components/icons/skills";
 
 const labelsFor = (chips: { label: string }[]) =>
   chips.map((chip) => chip.label);
 
 describe("tool interpreter", () => {
+  it("formats token units without losing bigint precision", () => {
+    expect(formatTokenUnits("123456789012345678901234", 6)).toBe(
+      "123456789012345678.901234",
+    );
+  });
+
   it("recognizes web search results", () => {
     const step = interpretToolStep({
       toolName: "Check current ETH price",
@@ -467,7 +474,7 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Check connected wallet balance on Base");
     expect(labelsFor(step.chips)).toEqual(["0xda65...3cf0", "0.00087"]);
-    expect(step.chips[1].icon).toBeTypeOf("function");
+    expect(step.chips[1].icon).toBe(CoinsIcon);
   });
 
   it("shows the native balance chain when its own arguments expose it", () => {
@@ -558,11 +565,65 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Check token balance");
+    expect(step.title).toBe("Get balance");
     expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0xda65...3cf0"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
+  });
+
+  it("uses a generic token icon for decoded approval amounts", () => {
+    const step = interpretToolStep({
+      toolName: "Approve token spend",
+      result: {
+        success: true,
+        tx: {
+          input: `0x095ea7b3${"0".repeat(24)}cf77a3ba9a5ca399b7c97c74d54e5b1beb874e43${"0".repeat(60)}c350`,
+          chain_id: 8453,
+        },
+      },
+    });
+
+    expect(step.title).toBe("Approve token spend");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xcf77...4e43",
+      "50000 raw units",
+    ]);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
+  });
+
+  it("normalizes approval units only for a verified chain and token contract", () => {
+    const step = interpretToolStep({
+      toolName: "Approve token spend",
+      result: {
+        success: true,
+        tx: {
+          to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          input: `0x095ea7b3${"0".repeat(24)}cf77a3ba9a5ca399b7c97c74d54e5b1beb874e43${"0".repeat(60)}c350`,
+          chain_id: 8453,
+        },
+      },
+    });
+
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xcf77...4e43",
+      "0.05 USDC",
+    ]);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
+  });
+
+  it("uses the exact Get balance title before and after tool errors", () => {
+    expect(interpretToolStep({ toolName: "get_erc20_balance" }).title).toBe(
+      "Get balance",
+    );
+    expect(
+      interpretToolStep({
+        toolName: "get_erc20_balance",
+        result: { is_error: true, error: "upstream unavailable" },
+      }).title,
+    ).toBe("Get balance");
   });
 
   it("recognizes ERC-20 decimal reads", () => {
