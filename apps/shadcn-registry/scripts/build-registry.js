@@ -14,11 +14,19 @@ const baseDir = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(baseDir, "../dist");
 const srcDir = path.resolve(baseDir, "../src");
 
-function resolveFileType(filePath) {
-  if (filePath.endsWith(".css")) return "registry:style";
-  if (filePath.includes("/hooks/")) return "registry:hook";
-  if (filePath.includes("/lib/")) return "registry:lib";
-  return "registry:component";
+function resolveFileLocation(filePath) {
+  if (filePath.endsWith(".css")) return { type: "registry:style" };
+  for (const [prefix, type, alias] of [
+    ["components/ui/", "registry:ui", "@ui/"],
+    ["components/", "registry:component", "@components/"],
+    ["hooks/", "registry:hook", "@hooks/"],
+    ["lib/", "registry:lib", "@lib/"],
+  ]) {
+    if (filePath.startsWith(prefix)) {
+      return { type, target: alias + filePath.slice(prefix.length) };
+    }
+  }
+  throw new Error(`Unknown registry file location: ${filePath}`);
 }
 
 function fileExists(registryFilePath) {
@@ -107,7 +115,7 @@ function buildComponent(entry) {
 
   const files = filePaths.map((f) => {
     const content = readFileSync(path.join(srcDir, f), "utf8");
-    return { type: resolveFileType(f), path: f, content };
+    return { ...resolveFileLocation(f), path: f, content };
   });
   validateInternalImports(entry, files);
 
@@ -129,7 +137,11 @@ function buildComponent(entry) {
     name: entry.name,
     type: entry.type ?? "registry:component",
     description: entry.description,
-    files: files.map(({ type, path: p }) => ({ type, path: p })),
+    files: files.map(({ type, path: p, target }) => ({
+      type,
+      path: p,
+      target,
+    })),
     dependencies: entry.dependencies ?? [],
     registryDependencies: entry.registryDependencies ?? [],
   };

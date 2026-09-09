@@ -1,5 +1,14 @@
 # Current work
 
+**REGISTRY INSTALL DESTINATIONS 2026-09-09** — a real shadcn 4.21.0 fresh
+installation exposed flattened nested files despite complete source dependency
+closure. The generator now emits alias-relative targets and correctly classifies
+root lib/hooks paths and UI primitives. A fresh CLI install now preserves the
+nested paths; widget ESM/DTS/CSS build, scoped lint, and source/mirror checks pass.
+Widget version is 2.0.44. Final fresh-consumer compilation and same-head CI are
+being checked before merge; the default anonymous Terra budget failure is also
+present on main and billing policy is unchanged.
+
 **ASSISTANT THREAD REGISTRY PACKAGING FIX 2026-09-09** — added the capability
 message renderer and token metadata registry to the assistant-thread registry
 payload. Completed the sidebar item's hook and primitive dependency closure,
