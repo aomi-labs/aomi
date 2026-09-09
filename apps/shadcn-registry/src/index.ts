@@ -75,8 +75,10 @@ export type {
   LinkedAuthAccount,
 } from "./lib/wallet-kit";
 export {
+  AOMI_BOOTING_WALLET_KIT,
   AomiWalletKitContextProvider,
   AomiWalletKitProvider,
+  AomiWalletNetworkPreferencesProvider,
   signOutAndDisconnect,
   useAomiWalletKit,
 } from "./lib/wallet-kit";

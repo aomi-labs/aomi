@@ -118,6 +118,91 @@ describe("CLI Action capabilities", () => {
     ).toBe("0xFCAd0B19bB29D4674531d6f115237E16AfCE377c");
   });
 
+  it("--eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const cli = CliSession.create({
+      baseUrl: "https://example.test",
+      secrets: {},
+    });
+    const session = cli.createClientSession({ privateKey: PRIVATE_KEY });
+    const ordinary = action("ordinary-1");
+    const permit = action("permit-1");
+    permit.request = {
+      type: "sign",
+      requestId: "sign-permit",
+      chainFamily: "evm",
+      executionKind: "message",
+      signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+      chainId: 1,
+      description: "Permit",
+      payloads: [{ kind: "evm_typed_data", typed_data: {} }],
+    };
+    const solana = action("svm-1");
+    solana.request = {
+      type: "sign",
+      requestId: "sign-svm",
+      chainFamily: "svm",
+      executionKind: "message",
+      signer: "So11111111111111111111111111111111111111112",
+      description: "Solana message",
+      payloads: [{ kind: "svm_message", message_base64: "AA==" }],
+    };
+    const aa = action("aa-1");
+    aa.request = {
+      type: "sign",
+      requestId: "sign-aa",
+      chainFamily: "evm",
+      executionKind: "erc4337",
+      operationId: "op-1",
+      broadcaster: "hosted",
+      signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+      chainId: 1,
+      description: "AA",
+      payloads: [{ kind: "evm_personal", message: "0x0102" }],
+    };
+    for (const prepared of [ordinary, permit, solana, aa]) {
+      session.actions.ingest(prepared);
+    }
+    vi.spyOn(CliSession, "load").mockReturnValue(cli);
+    vi.spyOn(cli, "createClientSession").mockReturnValue(session);
+    vi.spyOn(session, "fetchCurrentState").mockResolvedValue();
+    vi.spyOn(session.actions, "canExecute").mockReturnValue(true);
+    const execute = vi
+      .spyOn(session.actions, "execute")
+      .mockImplementation(async (id) => ({
+        ...action(id),
+        state: "resolved",
+      }));
+    const close = vi.spyOn(session, "close").mockImplementation(() => {});
+    await signCommand({ secrets: {}, execution: "eoa" }, [
+      "ordinary-1",
+      "permit-1",
+      "svm-1",
+    ]);
+    expect(execute.mock.calls.map(([id]) => id)).toEqual([
+      "ordinary-1",
+      "permit-1",
+      "svm-1",
+    ]);
+    await expect(
+      signCommand({ secrets: {}, execution: "eoa" }, ["aa-1"]),
+    ).rejects.toBeInstanceOf(Error);
+    expect(execute).toHaveBeenCalledTimes(3);
+    close.mockRestore();
+    session.close();
+  });
+
+  it("rejects obsolete --aa-provider/--aa-mode in both --flag=value and --flag value forms", async () => {
+    const { buildCliConfig } = await import(
+      "../../src/cli/commands/defs/shared"
+    );
+    expect(() => buildCliConfig({ "aa-provider": "alchemy" })).toThrow();
+    expect(() => buildCliConfig({ "aa-provider": true })).toThrow();
+    expect(() => buildCliConfig({ "aa-mode": "7702" })).toThrow();
+    expect(() => buildCliConfig({})).not.toThrow();
+  });
+
   it("--aa authorizes the existing Hosted AA Action and rejects an ordinary Action", async () => {
     const { CliSession } = await import("../../src/cli/cli-session");
     const { signCommand } = await import("../../src/cli/commands/wallet");

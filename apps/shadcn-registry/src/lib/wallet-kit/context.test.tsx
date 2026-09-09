@@ -33,6 +33,11 @@ describe("connector facts versus selected transaction account", () => {
       </AomiWalletKitContextProvider>,
     );
     expect(setUser.mock.lastCall?.[0].evm).toEqual({ chain_id: 8453 });
+    // A chain-only refresh carries no is_connected, so a session-local
+    // transaction account selection survives it.
+    expect(setUser.mock.lastCall?.[0].connection).not.toHaveProperty(
+      "is_connected",
+    );
     const switched = {
       ...network,
       identity: { ...network.identity, address: "0xOther" },
@@ -53,11 +58,40 @@ describe("connector facts versus selected transaction account", () => {
         {null}
       </AomiWalletKitContextProvider>,
     );
+    expect(setUser.mock.lastCall?.[0].connection.is_connected).toBe(false);
     view.rerender(
       <AomiWalletKitContextProvider value={switched}>
         {null}
       </AomiWalletKitContextProvider>,
     );
+    expect(setUser.mock.lastCall?.[0].connection.is_connected).toBe(true);
     expect(setUser.mock.lastCall?.[0].evm.address).toBe("0xOther");
+  });
+
+  it("does not resend is_connected on an auth or cluster refresh while disconnected", () => {
+    setUser.mockClear();
+    const disconnected = {
+      identity: { ...AOMI_SESSION_DISCONNECTED_IDENTITY },
+    } as AomiWalletKit;
+    const view = render(
+      <AomiWalletKitContextProvider value={disconnected}>
+        {null}
+      </AomiWalletKitContextProvider>,
+    );
+    expect(setUser.mock.lastCall?.[0].connection.is_connected).toBe(false);
+    view.rerender(
+      <AomiWalletKitContextProvider
+        value={{
+          ...disconnected,
+          identity: { ...disconnected.identity, svmCluster: "solana:devnet" },
+        }}
+      >
+        {null}
+      </AomiWalletKitContextProvider>,
+    );
+    expect(setUser.mock.lastCall?.[0].connection).not.toHaveProperty(
+      "is_connected",
+    );
+    expect(setUser.mock.lastCall?.[0].svm.cluster).toBe("solana:devnet");
   });
 });

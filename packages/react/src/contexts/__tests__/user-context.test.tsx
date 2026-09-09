@@ -28,6 +28,28 @@ function renderHarness() {
 }
 
 describe("ExtUserProvider.setUser", () => {
+  it("keeps a selected transaction account across a connection-less identity refresh", () => {
+    const ref = renderHarness();
+    act(() => ref.current!.setUser({ connection: { is_connected: false } }));
+    act(() =>
+      ref.current!.setUser({ svm: { address: "Agent", broadcaster: "hosted" } }),
+    );
+    // A refresh that carries no is_connected must not wipe the selection.
+    act(() =>
+      ref.current!.setUser({
+        connection: { provider: null, auth_method: null },
+        evm: { chain_id: 1 },
+      }),
+    );
+    expect(ref.current!.user.svm).toEqual({
+      address: "Agent",
+      broadcaster: "hosted",
+    });
+    // An explicit disconnect still does.
+    act(() => ref.current!.setUser({ connection: { is_connected: false } }));
+    expect(ref.current!.user.svm).toBeUndefined();
+  });
+
   it("clears previous submitters on EVM and case-sensitive SVM wallet switches", () => {
     const ref = renderHarness();
     act(() =>

@@ -443,6 +443,18 @@ describe("account ACL wiring", () => {
     expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
   });
 
+  it("selects an agent account without asserting a wallet connection", async () => {
+    runtime.setUser.mockClear();
+    installFetchRecorder();
+    await renderAcl();
+    await click(await findPrivyRow());
+    await click(screen.getByRole("button", { name: "Use for this session" }));
+    const update = runtime.setUser.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(update).toBeDefined();
+    expect(update).not.toHaveProperty("connection");
+    expect(update.svm).toEqual({ address: PRIVY_SVM, broadcaster: "hosted" });
+  });
+
   it("does not use another provider's delegation as signing capability", async () => {
     const mismatchedDelegation = {
       ...ACCOUNT,

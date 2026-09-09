@@ -78,7 +78,21 @@ export type PipelineGuardResult = Schemas["PipelineGuardResult"];
 export type PipelineGasEstimate = Schemas["PipelineGasEstimate"];
 export type PipelineLog = Schemas["PipelineLog"];
 
-export type PipelineActionSummary = Schemas["PipelineBuild"]["summary"];
+/** Server-authored Build summary. The wire schema leaves it open, so this is a
+ * structural view of the fields the server emits today; unknown fields pass
+ * through untouched. */
+export interface PipelineActionSummary {
+  title?: string;
+  description?: string;
+  actionCount?: number;
+  transactionCount?: number;
+  assetsIn?: PipelineBalanceChange[] | string[];
+  assetsOut?: PipelineBalanceChange[] | string[];
+  contracts?: string[];
+  programs?: string[];
+  chains?: Array<number | string>;
+  [key: string]: unknown;
+}
 
 export interface EvmCallInput {
   to: `0x${string}`;
@@ -117,11 +131,13 @@ export interface EvmDirectInput {
 export type EvmStagedBuild = Schemas["PipelineBuild"] & {
   status: "staged";
   actions: Schemas["AssembledEvmTransaction"][];
+  summary?: PipelineActionSummary;
 };
 export type EvmSimulatedBuild = Schemas["PipelineBuild"] & {
   status: "simulated";
   actions: Schemas["AssembledEvmTransaction"][];
   simulation: PipelineSimulation;
+  summary?: PipelineActionSummary;
 };
 export type EvmCommitResult = Schemas["PipelineEvmCommitResult"];
 
@@ -160,10 +176,51 @@ export type SvmStageInput =
 
 export type SvmDirectInput = SvmStageInput;
 
-export type SvmStagedBuild = Schemas["PipelineBuild"] & { status: "staged" };
+/** Account meta exactly as the server assembled it (snake_case wire form). */
+export interface SvmAssembledAccountMeta {
+  pubkey: string;
+  is_signer: boolean;
+  is_writable: boolean;
+}
+
+/** One server-assembled instruction inside an SVM Build. */
+export interface AssembledSvmInstruction {
+  payer: string;
+  cluster: string;
+  program_id: string;
+  accounts: SvmAssembledAccountMeta[];
+  data_base64: string;
+  description: string;
+  kind: string;
+  fee_outcome:
+    | { kind: "flat" }
+    | {
+        kind: "flow";
+        asset: { kind: "native" } | { kind: "token"; address: string };
+        amount: string;
+      };
+  [key: string]: unknown;
+}
+
+/** SVM Build actions are tagged by lane, mirroring the server's records. */
+export type SvmBuildAction =
+  | { lane: "instruction"; id: number; instruction: AssembledSvmInstruction }
+  | {
+      lane: "transaction";
+      id: number;
+      transaction: Schemas["AssembledSvmTransaction"];
+    };
+
+export type SvmStagedBuild = Schemas["PipelineBuild"] & {
+  status: "staged";
+  actions: SvmBuildAction[];
+  summary?: PipelineActionSummary;
+};
 export type SvmSimulatedBuild = Schemas["PipelineBuild"] & {
   status: "simulated";
+  actions: SvmBuildAction[];
   simulation: PipelineSimulation;
+  summary?: PipelineActionSummary;
 };
 export type SvmCommitResult = Schemas["PipelineSvmCommitResult"];
 export type PipelineErrorBody = Schemas["ErrorEnvelope"];

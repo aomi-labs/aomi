@@ -30,6 +30,15 @@ vi.mock("@aomi-labs/widget-lib", async () => {
   >([]);
   return {
     WalletSignInOptionsContext,
+    AOMI_BOOTING_WALLET_KIT: { isReady: false },
+    AomiWalletKitContextProvider: ({ children }: { children: ReactNode }) =>
+      children,
+    AomiWalletNetworkPreferencesProvider: ({
+      children,
+    }: {
+      children: ReactNode;
+    }) => children,
+    ExtUserProvider: ({ children }: { children: ReactNode }) => children,
     AomiWalletKitProvider: ({
       auth,
       children,
@@ -108,6 +117,41 @@ describe("WalletProviders Privy configuration", () => {
     walletKit.connectSocial.mockClear();
     navigation.pathname = "/settings";
     navigation.search = "";
+  });
+
+  it("serves children on the server without mounting an auth SDK", async () => {
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
+    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
+    const { renderToString } = await import("react-dom/server");
+    const { WalletProviders } = await import("./wallet-providers");
+    const html = renderToString(
+      <WalletProviders>
+        <span>chat</span>
+      </WalletProviders>,
+    );
+    expect(html).toContain("chat");
+    expect(html).not.toContain("wallet-provider-root");
+    expect(walletKit.auth).toBeUndefined();
+    expect(walletKit.providerMounts).toBe(0);
+  });
+
+  it("keeps children mounted while the remembered provider is restored", async () => {
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
+    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
+    window.localStorage.setItem("aomi:wallet-provider", "para");
+    const { WalletProviders } = await import("./wallet-providers");
+    render(
+      <WalletProviders>
+        <span>chat</span>
+      </WalletProviders>,
+    );
+    expect(screen.getByText("chat")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(walletKit.auth).toMatchObject({ provider: "para" }),
+    );
+    expect(walletKit.providerMounts).toBe(1);
+    expect(walletKit.connectSocial).not.toHaveBeenCalled();
+    expect(screen.getByText("chat")).toBeInTheDocument();
   });
 
   it("restores the selected provider after remount without opening login again", async () => {

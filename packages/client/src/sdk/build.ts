@@ -9,6 +9,7 @@ import type {
   PipelineActionSummary,
   PipelineCommitOptions,
   PipelineSimulation,
+  SvmBuildAction,
   SvmCommitResult,
   SvmSimulatedBuild,
   SvmStagedBuild,
@@ -101,7 +102,7 @@ export class SvmStaged {
     return this.raw.status;
   }
 
-  get actions(): unknown[] {
+  get actions(): SvmBuildAction[] {
     return this.raw.actions;
   }
 
@@ -135,7 +136,7 @@ export class SvmBuild {
     return this.raw.status;
   }
 
-  get actions(): unknown[] {
+  get actions(): SvmBuildAction[] {
     return this.raw.actions;
   }
 

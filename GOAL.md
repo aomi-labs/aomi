@@ -1,5 +1,11 @@
 # Canonical Landing
 
+Routing review follow-up (2026-09-09): preserve explicit Manual Hosted/Venue
+selections, correct the SVM fee-outcome wire type, and require real commit
+evidence in routing tests. Client routing/Pipeline/CLI tests: 26 passed;
+typecheck and scoped lint/format pass. Harness self-test passes. Live provider
+execution was not run; no account settings changed. Work remains uncommitted.
+
 Aomi policy confirmation follow-up (2026-09-08): replaces the earlier native
 provider-popup requirement. Settings reviews the exact wallet and old/new mode
 alongside the backend-generated EIP-712 JSON (or Solana message). Review fetches

@@ -449,7 +449,7 @@ Kind:    transaction
 Tx:      tx-1 -> 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD
 Value:   1000000000000000000
 Chain:   1
-Exec:    aa (alchemy, 7702; fallback: eoa)
+Exec:    eoa (local key signs and submits)
 ✅ Sent! Hash: 0xabc123...
 Backend notified.
 
@@ -542,10 +542,11 @@ Type:    Order
 Backend notified.
 ```
 
-By default, `aomi tx sign` tries account abstraction first. In default mode the CLI
-retries unsponsored Alchemy AA when sponsorship is unavailable, then falls back
-to direct EOA signing automatically if AA still fails. Use `--aa` to require AA
-only, or `--eoa` to force EOA only.
+`aomi tx sign` executes whatever Action the backend prepared. Account
+abstraction is decided by backend application policy, never by the CLI: an AA
+operation arrives as a `sign` Action whose owner authorization the local key
+signs once, and the backend submits it. `--aa` and `--eoa` only assert which
+kind of Action you expect; see "Signing modes" below.
 
 ### Verbose mode & conversation log
 
@@ -614,11 +615,19 @@ npx @aomi-labs/client tx sign tx-1 \
 
 ### Signing modes
 
-`aomi tx sign` supports three practical modes:
+The flags are assertions about an already-prepared Action, not routing
+overrides. The backend chose the route (Wallet, Hosted, or Venue submission;
+ordinary transaction or AA) from the account's signing policy and the
+application's execution policy before the Action reached you.
 
-- Default: AA first, then automatic EOA fallback if AA is unavailable or fails
-- `--aa`: require AA and do not fall back to EOA
-- `--eoa`: force direct EOA execution
+- Default: execute the prepared Action as-is.
+- `--aa`: require a backend-prepared AA owner authorization (an EVM `sign`
+  Action with `executionKind: "erc4337"` and an `operationId`); anything else
+  is rejected and nothing is signed.
+- `--eoa`: reject such an AA Action; ordinary EVM executions, permits, and
+  Solana Actions pass through unchanged.
+- `--aa-provider` / `--aa-mode` are rejected: the AA provider and account
+  implementation belong to backend application policy.
 
 ### How state works
 

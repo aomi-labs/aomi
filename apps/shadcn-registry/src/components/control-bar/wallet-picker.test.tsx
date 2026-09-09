@@ -1112,7 +1112,7 @@ describe("WalletPicker", () => {
     ).toBe(true);
   });
 
-  it("keeps host provider choices available beside an existing provider session", async () => {
+  it("hides the connected host provider and offers the other one as a link", async () => {
     const privy = vi.fn(async () => undefined);
     const para = vi.fn(async () => undefined);
     renderPicker(
@@ -1144,12 +1144,37 @@ describe("WalletPicker", () => {
         },
       ],
     );
-    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Privy" })).toBeNull();
+    expect(screen.getByText("Link another provider")).toBeVisible();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Para" }));
     });
     expect(para).toHaveBeenCalledOnce();
     expect(privy).not.toHaveBeenCalled();
+  });
+
+  it("shows both host providers as ways to sign in when no provider account is connected", () => {
+    renderPicker(makeAdapter({}), false, [
+      {
+        id: "privy",
+        label: "Privy",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+      {
+        id: "para",
+        label: "Para",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+    ]);
+    expect(screen.getByText("Other ways to sign in")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Para" })).toBeVisible();
   });
 
   it("hides the social sign-in row when the Para account is connected", () => {

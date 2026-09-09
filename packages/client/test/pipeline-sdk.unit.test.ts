@@ -51,7 +51,7 @@ const evmStaged: EvmStagedBuild = {
       broadcaster: "hosted",
       label: "Transfer",
       kind: "transfer",
-      fee_outcome: "unmeasured",
+      fee_outcome: { kind: "flat" },
       to: "0x1111111111111111111111111111111111111111",
       data: "0x",
       value: "0",
@@ -103,7 +103,7 @@ const svmStaged: SvmStagedBuild = {
         data_base64: "AA==",
         description: "Transfer",
         kind: "transfer",
-        fee_outcome: "unmeasured",
+        fee_outcome: { kind: "flat" },
       },
     },
   ],
@@ -209,6 +209,12 @@ describe("Pipeline SDK lifecycle", () => {
 
     expect(build).toBeInstanceOf(SvmBuild);
     expect(build.status).toBe("simulated");
+    expect(build.actions[0]).toMatchObject({
+      lane: "instruction",
+      instruction: {
+        program_id: "Program1111111111111111111111111111111111",
+      },
+    });
     expect(JSON.parse(fetch.mock.calls[0][1]?.body as string)).toMatchObject({
       kind: "instructions",
       instructions: [

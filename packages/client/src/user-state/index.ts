@@ -42,7 +42,13 @@ export namespace UserState {
   }
 
   /** Choose the submitter before assembly, without changing the selected account.
-   * Backend authorization and app capability checks remain authoritative.
+   *
+   * This only selects; it never blocks a turn. Auto with a live delegation
+   * defaults to Hosted. Explicit selections are preserved in every mode;
+   * this boundary cannot distinguish an intentional route from a stale one.
+   * Every rejection (locked wallet, missing delegation, Auto × Wallet, unknown mode) is left
+   * for the backend commit gate, which is authoritative and only fires when a
+   * transaction is actually prepared.
    */
   export function route(
     state: UserState,
@@ -58,10 +64,8 @@ export namespace UserState {
         sameAddress(row.address, address),
       );
       if (!policy) continue; // Guest/unbound wallets still face the backend gate.
-      if (policy.mode === "denied") throw new Error("This wallet is locked.");
-      if (policy.mode === "manual" || policy.mode === "client_auto") continue;
-      if (policy.mode !== "auto")
-        throw new Error("Unsupported signing policy.");
+      if (policy.mode !== "auto") continue;
+      if (wallet.broadcaster === "wallet") continue; // Backend rejects Auto × Wallet.
       const owner = profile.user_accounts.find((row) =>
         sameAddress(row.address, address),
       );
@@ -73,14 +77,7 @@ export namespace UserState {
           row.revoked_at === null &&
           (row.expires_at === null || row.expires_at * 1000 > now),
       );
-      if (!delegation)
-        throw new Error(
-          "Auto requires an active delegation for this exact wallet.",
-        );
-      if (wallet.broadcaster === "wallet")
-        throw new Error(
-          "Auto cannot use the wallet broadcaster. Select Hosted before preparing a transaction.",
-        );
+      if (!delegation) continue; // Backend gate reports the missing delegation.
       next[chain] = { ...wallet, broadcaster: wallet.broadcaster ?? "hosted" };
     }
     return next;

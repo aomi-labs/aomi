@@ -62,12 +62,10 @@ export async function signCommand(
         action.request.chainFamily === "evm" &&
         action.request.executionKind === "erc4337" &&
         Boolean(action.request.operationId);
-      if (
-        config.execution &&
-        (config.execution === "aa"
-          ? !aa
-          : action.request.type !== "execute_evm")
-      ) {
+      // `--aa` asserts a backend-prepared AA owner authorization; `--eoa`
+      // asserts the opposite. Neither flag routes: ordinary executions,
+      // permits, and Solana Actions all pass under `--eoa`.
+      if (config.execution && (config.execution === "aa" ? !aa : aa)) {
         fatal(
           "The requested execution mode does not match the prepared Action; prepare a new operation instead.",
         );

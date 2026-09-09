@@ -108,24 +108,50 @@ describe("preparation route selection", () => {
   it.each(["evm", "svm"] as const)(
     "keeps signing independent of all three %s submitters",
     (chain) => {
+      const address = profile(chain, "manual").user_accounts[0].address.address;
       for (const broadcaster of ["wallet", "hosted", "venue"] as const) {
-        const state = {
-          [chain]: {
-            address: profile(chain, "manual").user_accounts[0].address.address,
-            broadcaster,
-          },
-        };
-        expect(UserState.route(state, profile(chain, "manual"))).toEqual(state);
-        if (broadcaster === "wallet") {
-          expect(() => UserState.route(state, profile(chain, "auto"))).toThrow(
-            "Auto cannot use",
+        const state = { [chain]: { address, broadcaster } };
+        const manual = UserState.route(state, profile(chain, "manual"));
+        expect(manual).toEqual(state);
+        // Auto never rewrites an explicit selection; the backend rejects
+        // Auto × Wallet at commit instead of the client blocking the turn.
+        expect(() =>
+          UserState.route(state, profile(chain, "auto")),
+        ).not.toThrow();
+        expect(UserState.route(state, profile(chain, "auto"))).toEqual(state);
+      }
+    },
+  );
+
+  it.each(["evm", "svm"] as const)(
+    "preserves explicit %s submitters after a policy change",
+    (chain) => {
+      const address = profile(chain, "manual").user_accounts[0].address.address;
+      for (const mode of ["manual", "client_auto", "denied"] as const) {
+        for (const broadcaster of ["hosted", "venue"] as const) {
+          const routed = UserState.route(
+            { [chain]: { address, broadcaster } },
+            profile(chain, mode),
           );
-        } else {
-          expect(UserState.route(state, profile(chain, "auto"))).toEqual(state);
+          expect(routed[chain]).toEqual({ address, broadcaster });
         }
       }
     },
   );
+
+  it("never throws for denied, unknown, or unsupported policy modes", () => {
+    for (const mode of ["denied", "manual", "client_auto", "auto", "weird"]) {
+      for (const broadcaster of [undefined, "hosted"] as const) {
+        const state = { evm: { address: "0xAlice", broadcaster } };
+        const account = profile("evm", mode as never);
+        expect(() => UserState.route(state, account)).not.toThrow();
+        if (mode === "weird") {
+          // Unknown modes are sent unchanged so the backend decides.
+          expect(UserState.route(state, account)).toEqual(state);
+        }
+      }
+    }
+  });
 
   it("UI and CLI choose Hosted for Auto without changing the exact account", () => {
     const ui: UserState = { evm: { address: "0xALICE", chain_id: 8453 } };
@@ -145,7 +171,7 @@ describe("preparation route selection", () => {
     expect(UserState.route(state, profile("evm", "auto"))).toEqual(state);
   });
 
-  it("rejects missing, revoked, expired, wrong-provider and case-mismatched SVM delegations", () => {
+  it("leaves Auto unrouted for missing, revoked, expired, wrong-provider and case-mismatched SVM delegations", () => {
     const state = { svm: { address: "SoLana" } };
     const cases = [
       { status: "revoked" as const },
@@ -157,17 +183,16 @@ describe("preparation route selection", () => {
     for (const change of cases) {
       const account = profile("svm", "auto");
       Object.assign(account.delegated_accounts[0], change);
-      expect(() => UserState.route(state, account)).toThrow("exact wallet");
+      // No hosted default without a live delegation; the backend gate reports it.
+      expect(UserState.route(state, account)).toEqual(state);
     }
     const account = profile("svm", "auto");
     account.delegated_accounts = [];
-    expect(() => UserState.route(state, account)).toThrow("exact wallet");
-    expect(() => UserState.route(state, profile("svm", "denied"))).toThrow(
-      "locked",
-    );
+    expect(UserState.route(state, account)).toEqual(state);
+    expect(UserState.route(state, profile("svm", "denied"))).toEqual(state);
   });
 
-  it("refreshes policy at the actual session send boundary and never submits after revocation", async () => {
+  it("refreshes policy at the send boundary and sends without a hosted broadcaster after revocation", async () => {
     const client = new AomiClient({
       baseUrl: "https://example.test",
       getAccountBearer: async () => "fixture",
@@ -176,14 +201,12 @@ describe("preparation route selection", () => {
     const lookup = vi
       .spyOn(client, "fetchAccountProfile")
       .mockResolvedValue(profile("evm", "auto"));
-    const start = vi
-      .spyOn(client.agent, "start")
-      .mockResolvedValue({
-        session_id: "test",
-        events: [],
-        cursor: "1",
-        has_more: false,
-      });
+    const start = vi.spyOn(client.agent, "start").mockResolvedValue({
+      session_id: "test",
+      events: [],
+      cursor: "1",
+      has_more: false,
+    });
     const session = new Session(client, {
       sessionId: "test",
       getUserState: () => buildCliUserState("0xAlice", 1),
@@ -195,11 +218,49 @@ describe("preparation route selection", () => {
       const revoked = profile("evm", "auto");
       revoked.delegated_accounts = [];
       lookup.mockResolvedValue(revoked);
-      await expect(session.sendAsync("prepare again")).rejects.toThrow(
-        "exact wallet",
+      // Chat still goes out; the backend gate blocks execution, not the client.
+      await session.sendAsync("prepare again");
+      session.stopPolling();
+      expect(lookup).toHaveBeenCalledTimes(2);
+      expect(start).toHaveBeenCalledTimes(2);
+      expect(start.mock.calls[1][0].userState?.evm).not.toHaveProperty(
+        "broadcaster",
       );
+      expect(start.mock.calls[1][1]?.idempotencyKey).not.toBe(
+        start.mock.calls[0][1]?.idempotencyKey,
+      );
+    } finally {
+      session.close();
+    }
+  });
+
+  it("chat still starts when the selected wallet is locked", async () => {
+    const client = new AomiClient({
+      baseUrl: "https://example.test",
+      getAccountBearer: async () => "fixture",
+      guest: false,
+    });
+    vi.spyOn(client, "fetchAccountProfile").mockResolvedValue(
+      profile("evm", "denied"),
+    );
+    const start = vi.spyOn(client.agent, "start").mockResolvedValue({
+      session_id: "test",
+      events: [],
+      cursor: "1",
+      has_more: false,
+    });
+    const session = new Session(client, {
+      sessionId: "test",
+      getUserState: () => buildCliUserState("0xAlice", 1),
+    });
+    try {
+      await session.sendAsync("hello");
+      session.stopPolling();
       expect(start).toHaveBeenCalledTimes(1);
-      expect(session.actions.pending()).toEqual([]);
+      expect(start.mock.calls[0][0].userState?.evm).toEqual({
+        address: "0xAlice",
+        chain_id: 1,
+      });
     } finally {
       session.close();
     }

@@ -8,7 +8,10 @@ import {
   type ReactNode,
 } from "react";
 import { useUser } from "@aomi-labs/react";
-import { AOMI_SESSION_DISCONNECTED_IDENTITY } from "./identity";
+import {
+  AOMI_SESSION_BOOTING_IDENTITY,
+  AOMI_SESSION_DISCONNECTED_IDENTITY,
+} from "./identity";
 import type { AomiWalletKit } from "./types";
 
 const DISCONNECTED_WALLET_KIT: AomiWalletKit = {
@@ -28,6 +31,16 @@ const DISCONNECTED_WALLET_KIT: AomiWalletKit = {
     solana: [],
   },
   connect: async () => undefined,
+};
+
+/** Wallet kit for a host that has not mounted any provider SDK yet. Children
+ * can render (and be server-rendered) while the remembered provider is being
+ * restored; `isReady: false` tells them not to treat it as a disconnect.
+ */
+export const AOMI_BOOTING_WALLET_KIT: AomiWalletKit = {
+  ...DISCONNECTED_WALLET_KIT,
+  identity: AOMI_SESSION_BOOTING_IDENTITY,
+  isReady: false,
 };
 
 const AomiWalletKitContext = createContext<AomiWalletKit>(
@@ -57,7 +70,13 @@ function AomiWalletKitSync({ walletKit }: { walletKit: AomiWalletKit }) {
     // connection facts (owner, chain, provider, auth) are synced here.
     setUser({
       connection: {
-        is_connected: identity.isConnected,
+        // Only a real connect/disconnect transition carries is_connected. A
+        // chain or auth refresh while disconnected must not re-send `false`,
+        // which would wipe a session-local transaction account selection.
+        ...(!previous.current ||
+        previous.current.isConnected !== identity.isConnected
+          ? { is_connected: identity.isConnected }
+          : {}),
         provider: identity.isConnected
           ? (identity.sessionProvider ?? identity.embeddedProvider ?? null)
           : null,

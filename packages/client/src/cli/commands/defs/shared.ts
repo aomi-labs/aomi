@@ -208,7 +208,9 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     );
   }
 
-  if (str(args["aa-provider"]) || str(args["aa-mode"])) {
+  // No longer declared flags; citty still accepts unknown options (and parses
+  // the `--flag value` form as `true`), so reject any presence explicitly.
+  if (args["aa-provider"] !== undefined || args["aa-mode"] !== undefined) {
     fatal(
       "AA provider and account implementation are backend application policy, not CLI overrides.",
     );

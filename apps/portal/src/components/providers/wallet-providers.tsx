@@ -26,7 +26,11 @@ import {
 } from "wagmi/chains";
 import { type Chain } from "viem";
 import {
+  AOMI_BOOTING_WALLET_KIT,
+  AomiWalletKitContextProvider,
   AomiWalletKitProvider,
+  AomiWalletNetworkPreferencesProvider,
+  ExtUserProvider,
   FullTestnetWalletRouter,
   arcTestnet,
   monad,
@@ -242,7 +246,27 @@ export function WalletProviders({ children, e2eWallet }: Props) {
 
   // Restore before mounting any SDK: a cached session in the default provider
   // must not start an account exchange while the selected provider is loading.
-  if (!providerRestored) return null;
+  // Children still render (and server-render) under a booting wallet kit, so
+  // the page never blanks; only the provider SDKs wait for the restore. The
+  // shared ExtUserProvider sits above both trees so the user store survives
+  // the swap to the real provider tree.
+  if (!providerRestored) {
+    return (
+      <ExtUserProvider>
+        <WalletSignInOptionsContext.Provider value={[]}>
+          <AomiWalletNetworkPreferencesProvider
+            evmChains={routedChains}
+            solanaNetworks={solanaNetworks}
+            storageKey={null}
+          >
+            <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
+              {children}
+            </AomiWalletKitContextProvider>
+          </AomiWalletNetworkPreferencesProvider>
+        </WalletSignInOptionsContext.Provider>
+      </ExtUserProvider>
+    );
+  }
 
   const providerTree = (
     <WalletSignInOptionsContext.Provider
@@ -308,7 +332,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
   );
-  return isDeviceAuthRoute(pathname) && selectedProvider ? (
+  const mounted = isDeviceAuthRoute(pathname) && selectedProvider ? (
     <DeviceAuthProviderErrorBoundary
       key={`${pathname}:${selectedProvider}`}
       provider={selectedProvider}
@@ -318,6 +342,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
   ) : (
     providerTree
   );
+  return <ExtUserProvider>{mounted}</ExtUserProvider>;
 }
 
 function ProviderSignIn({ provider }: { provider: DeviceAuthProvider }) {

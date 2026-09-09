@@ -199,8 +199,9 @@ export function useAccountAcl(): AccountAcl {
           { chain: wallet.chain, address: wallet.address },
         ),
       );
+      // Connection facts belong to the identity sync; selecting a transaction
+      // account must not assert that a wallet is connected.
       runtime.setUser({
-        connection: { ...state.connection, is_connected: true },
         [wallet.chain]: {
           ...selected,
           address: wallet.address,

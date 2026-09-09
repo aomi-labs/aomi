@@ -44,16 +44,6 @@ const txSignDef = defineCommand({
       description:
         "Require a backend-prepared AA owner authorization; backend submits",
     },
-    "aa-provider": {
-      type: "string",
-      description:
-        "Unsupported: provider selection belongs to backend application policy",
-    },
-    "aa-mode": {
-      type: "string",
-      description:
-        "Unsupported: account implementation belongs to backend application policy",
-    },
     txIds: {
       type: "positional",
       description: "Action IDs to execute",

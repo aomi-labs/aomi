@@ -65,15 +65,21 @@ the prior account's route. Para's login address is never replaced implicitly
 with a Para agent address.
 
 The shared `ClientSession` boundary refreshes AccountProfile and resolves the
-selected account with `UserState.route`. Auto requires an active, unrevoked,
-unexpired delegation for that exact address, chain, and provider. EVM address
-comparison ignores case; SVM comparison does not. Missing Auto capability blocks
-execution, not falls back to Manual. An uncertain start retries the same complete
-intent and idempotency key.
+selected account with `UserState.route`. `route` only selects and never blocks
+a turn: Auto with an active, unrevoked, unexpired delegation for that exact
+address, chain, and provider defaults to Hosted; explicit selections are never
+rewritten, including Manual Hosted/Venue; everything else is sent as-is.
+EVM address comparison ignores case; SVM comparison does not. The backend commit
+gate is what blocks (`signing_denied`, `broadcaster_incompatible`,
+`broadcaster_unsupported_for_chain`), and it fires only when a transaction is
+prepared, so a locked wallet or a missing delegation still lets the user chat.
+Missing Auto capability blocks execution there; it never falls back to Manual.
+An uncertain start retries the same complete intent and idempotency key.
 
 `userState.evm.broadcaster` and `userState.svm.broadcaster` are optional values
 `wallet | hosted | venue`, not authorization. Backend app policy bounds them.
-Assembly freezes the resolved submitter; commit rejects Auto × Wallet and
+Assembly freezes explicit selections and app defaults. Otherwise commit defaults
+to Hosted for Auto or Wallet for Manual; it rejects Auto × Wallet and
 unsupported adapters without changing authorizer, submitter, or payer.
 
 ## EVM routes available today
@@ -89,7 +95,8 @@ unsupported adapters without changing authorizer, submitter, or payer.
 
 SVM sealing is not AA. Supported no-AA adapters additionally allow Manual Hosted
 (supported app-bound instructions) and Manual/Auto Venue (with the venue adapter).
-Signed bytes return through the existing Action lifecycle, not Wallet submission.
+Clients preserve explicit Hosted/Venue selections under Manual. Signed bytes return
+through the existing Action lifecycle, not Wallet submission.
 
 ## Client contract
 
