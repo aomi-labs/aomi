@@ -6,6 +6,7 @@ import type {
   AomiAppDescriptor,
   AomiBeginAccountAuthResponse,
   AomiClientOptions,
+  AomiClearAppSecretsResponse,
   AomiClearSecretsResponse,
   AomiDeleteByokKeyResponse,
   AomiDeleteSecretResponse,
@@ -16,6 +17,7 @@ import type {
   AomiByokKeyEntry,
   AomiSaveByokKeyResponse,
   AomiSimulateResponse,
+  AomiUserAppSecrets,
   GetAccountBearer,
   Logger,
   AomiHttpMethod,
@@ -307,6 +309,24 @@ function absoluteBase(baseUrl: string): string {
  * backend, so it has to read both — and a browser tab cached across the
  * cutover will hit each of them in turn.
  */
+function appSecretsPath(applicationId: ApplicationId): string {
+  const id = String(applicationId ?? "").trim();
+  if (!id) {
+    throw new Error("applicationId is required for app secrets");
+  }
+  return `/api/account/apps/${encodeURIComponent(id)}/secrets`;
+}
+
+/** Best-effort `{ error }` body reader for user-facing failure messages. */
+async function readErrorDetail(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body?.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
 export function secretNamesFrom(response: AomiListSecretsResponse): string[] {
   if (response.names) return response.names;
   return Object.values(response.by_app ?? {}).flat();
@@ -850,6 +870,106 @@ export class AomiClient {
 
     const data = (await response.json()) as AomiDeleteByokKeyResponse;
     return data.deleted;
+  }
+
+  // ===========================================================================
+  // Per-user app secrets (client-supplied API keys)
+  // ===========================================================================
+  //
+  // An app that wraps an account-bound venue (an exchange, a prediction
+  // market) trades the key owner's own account, so each signed-in user
+  // supplies their own keys for it. Account-scoped and durable on the
+  // backend: a key saved here applies to every thread the account runs on
+  // that app from the next turn, on every fleet host. Distinct from
+  // `ingestSecrets`, which is the ephemeral browser-scoped store.
+
+  /**
+   * The slots an app declares with the current account's configuration
+   * state. Never values.
+   */
+  async listAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiUserAppSecrets> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to list app secrets: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /**
+   * Save (upsert) the current account's own values for some of an app's
+   * slots. Slots omitted from `secrets` are left untouched, so one key can
+   * be rotated without re-entering the others.
+   */
+  async saveAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+    secrets: Record<string, string>,
+  ): Promise<AomiUserAppSecrets> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      method: "POST",
+      headers: withSessionHeader(sessionId, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ secrets }),
+    });
+
+    if (!response.ok) {
+      const detail = await readErrorDetail(response);
+      throw new Error(
+        `Failed to save app secrets: HTTP ${response.status}${detail ? ` (${detail})` : ""}`,
+      );
+    }
+
+    return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /** Remove one of the current account's own values for an app. */
+  async deleteAppSecret(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+  ): Promise<AomiDeleteSecretResponse> {
+    const url = joinApiPath(
+      this.baseUrl,
+      `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+    );
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete app secret: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiDeleteSecretResponse;
+  }
+
+  /** Remove every value the current account stored for an app. */
+  async clearAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiClearAppSecretsResponse> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to clear app secrets: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiClearAppSecretsResponse;
   }
 
   // ===========================================================================

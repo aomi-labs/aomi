@@ -191,6 +191,42 @@ describe("ControlContextProvider", () => {
     );
   });
 
+  it("routes per-user app secrets through the control session", async () => {
+    globalThis.localStorage.setItem("aomi_client_id", "client-stored");
+    const listAppSecrets = vi.fn(async () => ({
+      application_id: 42,
+      app: "okx",
+      slots: [],
+    }));
+    const saveAppSecrets = vi.fn(async () => ({
+      application_id: 42,
+      app: "okx",
+      slots: [],
+    }));
+    const deleteAppSecret = vi.fn(async () => ({ deleted: true }));
+    const { getControl } = renderControlContext({
+      listAppSecrets,
+      saveAppSecrets,
+      deleteAppSecret,
+    });
+
+    await act(async () => {
+      await getControl().listAppSecrets(42);
+      await getControl().saveAppSecrets(42, { OKX_API_KEY: "key" });
+      expect(await getControl().deleteAppSecret(42, "OKX_API_KEY")).toBe(true);
+    });
+
+    expect(listAppSecrets).toHaveBeenCalledWith("control:client-stored", 42);
+    expect(saveAppSecrets).toHaveBeenCalledWith("control:client-stored", 42, {
+      OKX_API_KEY: "key",
+    });
+    expect(deleteAppSecret).toHaveBeenCalledWith(
+      "control:client-stored",
+      42,
+      "OKX_API_KEY",
+    );
+  });
+
   it("loads redacted BYOK keys from the account model-key API", async () => {
     globalThis.localStorage.setItem("aomi_client_id", "client-stored");
     const listByokKeys = vi.fn(async () => [
