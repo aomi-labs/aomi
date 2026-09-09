@@ -21,7 +21,7 @@ export const knownToken = (
 export const formatTokenUnits = (raw: string, decimals: number): string => {
   const value = BigInt(raw);
   if (decimals === 0) return value.toString();
-  const scale = 10n ** BigInt(decimals);
+  const scale = BigInt(10) ** BigInt(decimals);
   const whole = value / scale;
   const fraction = (value % scale)
     .toString()

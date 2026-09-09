@@ -1,5 +1,16 @@
 # Current work
 
+**ASSISTANT THREAD REGISTRY PACKAGING FIX 2026-09-09** — added the capability
+message renderer and token metadata registry to the assistant-thread registry
+payload. Completed the sidebar item's hook and primitive dependency closure,
+made token formatting compatible with the Portal's ES2017 TypeScript target,
+regenerated committed registry artifacts, and bumped the widget to 2.0.43.
+Verified widget ESM/DTS/CSS builds, 479 widget tests, repository lint, root and
+Portal types, and an isolated extracted registry bundle (npm/external registry
+dependencies remain external). Full shadcn CLI installation and remote CI remain
+for the merge procedure. Restored the local Portal stack after a pnpm launcher
+dependency relink; its existing HTTPS URL returns 200.
+
 **TOKEN TRACE BADGE POLISH 2026-09-09** — ERC-20 balance traces now read “Get
 balance”, including active and failed raw tool calls. Amount badges use the
 neutral token glyph instead of the blue-dot marker. Base USDC approval amounts

@@ -213,6 +213,7 @@ export const registry: RegistryComponent[] = [
     file: [
       "components/assistant-ui/thread.tsx",
       "components/assistant-ui/thread-loading.ts",
+      "components/assistant-ui/capability-message-text.tsx",
       "components/assistant-ui/capability-composer.tsx",
       "components/assistant-ui/capability-composer/provider.tsx",
       "components/assistant-ui/capability-composer/input.tsx",
@@ -234,6 +235,7 @@ export const registry: RegistryComponent[] = [
       "components/assistant-ui/tool-interpreter/unwrap.ts",
       "components/assistant-ui/tool-interpreter/normalize.ts",
       "components/assistant-ui/tool-interpreter/pipeline.ts",
+      "components/assistant-ui/tool-interpreter/token-registry.ts",
       "components/assistant-ui/tool-interpreter/families/simple.ts",
       "components/assistant-ui/tool-interpreter/families/evm-call.ts",
       "components/assistant-ui/tool-interpreter/families/evm-tx.ts",
@@ -531,8 +533,21 @@ export const registry: RegistryComponent[] = [
   },
   {
     name: "sidebar",
-    file: "components/ui/sidebar.tsx",
-    dependencies: ["@radix-ui/react-slot", "class-variance-authority"],
+    file: ["components/ui/sidebar.tsx", "hooks/use-mobile.ts"],
+    dependencies: [
+      "@aomi-labs/react",
+      "@radix-ui/react-slot",
+      "class-variance-authority",
+      "lucide-react",
+    ],
+    registryDependencies: [
+      "button",
+      "input",
+      "separator",
+      "sheet",
+      "skeleton",
+      "tooltip",
+    ],
     description: "Displays a sidebar navigation component.",
   },
   {

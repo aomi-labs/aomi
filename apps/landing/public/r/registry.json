@@ -548,6 +548,10 @@
         },
         {
           "type": "registry:component",
+          "path": "components/assistant-ui/capability-message-text.tsx"
+        },
+        {
+          "type": "registry:component",
           "path": "components/assistant-ui/capability-composer.tsx"
         },
         {
@@ -629,6 +633,10 @@
         {
           "type": "registry:component",
           "path": "components/assistant-ui/tool-interpreter/pipeline.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/token-registry.ts"
         },
         {
           "type": "registry:component",
@@ -1312,13 +1320,26 @@
         {
           "type": "registry:component",
           "path": "components/ui/sidebar.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "hooks/use-mobile.ts"
         }
       ],
       "dependencies": [
+        "@aomi-labs/react",
         "@radix-ui/react-slot",
-        "class-variance-authority"
+        "class-variance-authority",
+        "lucide-react"
       ],
-      "registryDependencies": []
+      "registryDependencies": [
+        "button",
+        "input",
+        "separator",
+        "sheet",
+        "skeleton",
+        "tooltip"
+      ]
     },
     {
       "name": "dialog",
