@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "../../../landing/public/assets/landing/home/fonts/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "Aomi Wallet",
-  description: "Respond to Aomi Actions with Para in Telegram.",
+  description: "Link Para and sign Aomi permissions from Telegram.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

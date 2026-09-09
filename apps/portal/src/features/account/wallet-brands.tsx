@@ -107,27 +107,54 @@ export function BackpackMark({ size = 16, ...props }: BrandProps) {
         fill="none"
       />
       <rect x="13.2" y="14.2" width="5.6" height="3.2" rx="1" fill="#E33E3F" />
-      <path d="M10 18.8h12" stroke="#E33E3F" strokeWidth="1.4" strokeLinecap="round" />
+      <path
+        d="M10 18.8h12"
+        stroke="#E33E3F"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
-const WALLET_MARKS: Record<string, (p: { size?: number }) => React.ReactNode> = {
-  metamask: MetaMaskMark,
-  rabby: RabbyMark,
-  coinbase: CoinbaseMark,
-  walletconnect: WalletConnectMark,
-  rainbow: RainbowMark,
-  phantom: PhantomMark,
-  backpack: BackpackMark,
-  para: ParaMark,
-  privy: PrivyMark,
-};
+const WALLET_MARKS: Record<string, (p: { size?: number }) => React.ReactNode> =
+  {
+    metamask: MetaMaskMark,
+    rabby: RabbyMark,
+    coinbase: CoinbaseMark,
+    walletconnect: WalletConnectMark,
+    rainbow: RainbowMark,
+    phantom: PhantomMark,
+    backpack: BackpackMark,
+    para: ParaMark,
+    privy: PrivyMark,
+  };
+
+/** Resolve persisted labels such as "Rabby 1" to their canonical brand. */
+export function resolveWalletBrandKey(value: string): string | null {
+  const key = value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (key.includes("metamask")) return "metamask";
+  if (key.includes("rabby")) return "rabby";
+  if (key.includes("coinbase")) return "coinbase";
+  if (key.includes("walletconnect")) return "walletconnect";
+  if (key.includes("rainbow")) return "rainbow";
+  if (key.includes("phantom")) return "phantom";
+  if (key.includes("backpack")) return "backpack";
+  if (key.includes("para")) return "para";
+  if (key.includes("privy")) return "privy";
+  return null;
+}
 
 /** Wallet id or name → brand mark (null when unknown). */
-export function WalletMark({ name, size = 16 }: { name: string; size?: number }) {
-  const key = name.toLowerCase().replace(/\s+wallet$/, "").replace(/\s+/g, "");
-  const Mark = WALLET_MARKS[key];
+export function WalletMark({
+  name,
+  size = 16,
+}: {
+  name: string;
+  size?: number;
+}) {
+  const key = resolveWalletBrandKey(name);
+  const Mark = key ? WALLET_MARKS[key] : undefined;
   return Mark ? <>{Mark({ size })}</> : null;
 }
 
@@ -138,10 +165,15 @@ export function WalletProviderAvatar({
   markKey: string | null;
   size?: number;
 }) {
-  const mark = markKey ? <WalletMark name={markKey} size={size} /> : null;
+  const brand = markKey ? resolveWalletBrandKey(markKey) : null;
+  const mark = brand ? <WalletMark name={brand} size={size} /> : null;
 
   return (
-    <span className="bg-aomi-surface-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+    <span
+      className="bg-aomi-surface-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+      data-wallet-brand={brand ?? undefined}
+      title={brand ? `${brand} wallet` : undefined}
+    >
       {mark ?? <WalletIcon size={16} className="text-aomi-muted" />}
     </span>
   );

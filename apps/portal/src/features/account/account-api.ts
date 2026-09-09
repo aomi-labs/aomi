@@ -1,101 +1,93 @@
 "use client";
 
-/**
- * Wire layer for the Account tab — the two read endpoints behind the ACL
- * editor, plus the grant revoke, mapped onto the view types.
- *
- * Two axes, two endpoints (see the backend's own note on `delegated_approval`):
- * `/api/account/wallets` is the **policy** axis (`public_keys.signing_mode` —
- * what the user wants), `/api/account/grants` is the **capability** axis (is
- * there a live delegated grant to honor an `auto` policy with). Drift is the
- * two disagreeing, which is why the view needs both rather than one merged
- * payload.
+/** Canonical account wire layer. Policy and exact-address delegation state are
+ * returned together so the ACL view never reconciles two independently-timed
+ * snapshots.
  */
 
 import { accountScopedFetch } from "@portal/lib/settings-api";
-import type { DelegationGrant, LinkedVia, SignerMode, WalletPolicy } from "./types";
+import type {
+  AomiAccountProfile,
+  AomiChainKind,
+  AomiDelegatedAccount,
+  AomiOnchainAddress,
+  AomiSigningPolicy,
+  AomiUserAccount,
+} from "@aomi-labs/client";
+import type {
+  DelegatedAccountView,
+  LinkedVia,
+  SignerMode,
+  WalletPolicy,
+} from "./types";
 
-/** One row of `GET /api/account/wallets` (backend `AccountWalletView`). */
-export type AccountWalletRow = {
-  address: string;
-  chain_type: string;
-  /** Provider provenance on the key row; absent for provider-less keys. */
-  wallet_provider?: string | null;
-  signing: string;
-  is_primary: boolean;
-  signing_mode: string;
-  authorization_version: number;
-  last_authorized_at?: number;
-  last_authorized_by?: string;
-  auth_provider_id?: number | null;
-  has_delegated_grant: boolean;
-  provider_managed: boolean;
-  can_use_auto: boolean;
-  expires_at?: number;
-};
+export type AccountProfile = AomiAccountProfile;
+export type DelegatedAccount = AomiDelegatedAccount;
+export type OnchainAddress = AomiOnchainAddress;
+export type SigningPolicy = AomiSigningPolicy;
+export type UserAccount = AomiUserAccount;
+type ChainKind = AomiChainKind;
 
-/** One row of `GET /api/account/grants` (backend `GrantView`). */
-export type AccountGrantRow = {
-  id: number;
-  provider: string;
-  grant_kind: string;
-  status: "active" | "expired" | "revoked";
-  created_at: number;
-  expires_at?: number;
-  revoked_at?: number;
-  revocation_reason?: string;
-  chain_type?: string;
-  address?: string;
-};
-
-export async function fetchWalletPolicies(): Promise<WalletPolicy[]> {
-  const data = await accountScopedFetch<{ wallets: AccountWalletRow[] }>(
-    "/api/account/wallets",
-  );
+export async function fetchAccountAcl(): Promise<{
+  wallets: WalletPolicy[];
+  delegatedAccounts: DelegatedAccountView[];
+}> {
+  const data = await accountScopedFetch<AccountProfile>("/api/account");
   const owned = new Set(
-    data.wallets.map((wallet) => wallet.address.toLowerCase()),
+    data.user_accounts.map((account) => addressKey(account.address)),
   );
-  return data.wallets.map((wallet) => toWalletPolicy(wallet, owned));
+  const userAccountsByAddress = new Map(
+    data.user_accounts.map((account) => [addressKey(account.address), account]),
+  );
+  const delegationsByAddress = new Map<string, DelegatedAccount[]>();
+  for (const delegation of data.delegated_accounts) {
+    const key = addressKey(delegation.address);
+    delegationsByAddress.set(key, [
+      ...(delegationsByAddress.get(key) ?? []),
+      delegation,
+    ]);
+  }
+  return {
+    wallets: data.signing_policies.map((policy) =>
+      toWalletPolicy(
+        policy,
+        userAccountsByAddress.get(addressKey(policy.address)),
+        delegationsByAddress.get(addressKey(policy.address)) ?? [],
+        owned,
+      ),
+    ),
+    delegatedAccounts: data.delegated_accounts.map(toDelegatedAccountView),
+  };
 }
 
-export async function fetchGrants(): Promise<DelegationGrant[]> {
-  const data = await accountScopedFetch<{ grants: AccountGrantRow[] }>(
-    "/api/account/grants",
-  );
-  return data.grants.map(toDelegationGrant);
+function addressKey(address: OnchainAddress): string {
+  const value =
+    address.chain === "evm" ? address.address.toLowerCase() : address.address;
+  return `${address.chain}:${value}`;
 }
 
 /**
- * Cut a provider's live grant. The backend revokes per *provider identity*, not
- * per grant row (`DELETE /providers/:provider/grant`), because the vault secrets
- * it clears hang off the identity — so revoking one row of a provider revokes
- * that provider's capability wholesale. The view reflects that by keying its
- * revoke button on `providerKey`.
+ * Cut a provider's exact delegated accounts. Vault secrets hang off the
+ * provider identity, so the endpoint revokes that provider capability as one
+ * operation rather than pretending each address has independent secrets.
  */
-export function revokeProviderGrant(providerKey: string): Promise<unknown> {
+export function revokeProviderDelegation(
+  providerKey: string,
+): Promise<unknown> {
   return accountScopedFetch(
-    `/api/account/providers/${encodeURIComponent(providerKey)}/grant`,
+    `/api/account/providers/${encodeURIComponent(providerKey)}/delegation`,
     { method: "DELETE" },
   );
 }
 
-/** Provision a provider-managed agent wallet (Para auto-signing prerequisite). */
-export async function provisionAgentWallet(provider: string): Promise<AccountWalletRow> {
-  const data = await accountScopedFetch<{ wallet: AccountWalletRow }>(
-    `/api/account/providers/${encodeURIComponent(provider)}/agent-wallet`,
-    { method: "POST", body: JSON.stringify({}) },
-  );
-  return data.wallet;
-}
-
-const GRANT_KIND_LABELS: Record<string, string> = {
+const DELEGATION_KIND_LABELS: Record<string, string> = {
   session_delegation: "Session delegation",
   agent_delegation: "Agent delegation",
   signing_delegation: "Signing delegation",
 };
 
-export function grantKindLabel(kind: string): string {
-  return GRANT_KIND_LABELS[kind] ?? kind.replace(/_/g, " ");
+export function delegationKindLabel(kind: string): string {
+  return DELEGATION_KIND_LABELS[kind] ?? kind.replace(/_/g, " ");
 }
 
 /**
@@ -105,6 +97,7 @@ export function grantKindLabel(kind: string): string {
  */
 export function normalizeSignerMode(mode: string): SignerMode {
   switch (mode) {
+    case "auto":
     case "server_auto":
       return "auto";
     case "client_auto":
@@ -121,60 +114,65 @@ export function normalizeSignerMode(mode: string): SignerMode {
  * it came from, and a key with no provider was necessarily proven by a wallet
  * signature — SIWE on EVM, SIWS on SVM.
  */
-function linkedViaOf(row: AccountWalletRow, chain: "evm" | "svm"): LinkedVia {
-  const provider = row.wallet_provider?.toLowerCase();
+function linkedViaOf(
+  row: UserAccount | undefined,
+  chain: ChainKind,
+): LinkedVia {
+  const provider = row?.auth_provider?.toLowerCase();
   if (provider === "privy") return "privy";
   if (provider === "para") return "para";
   return chain === "svm" ? "siws" : "siwe";
 }
 
 function toWalletPolicy(
-  row: AccountWalletRow,
+  row: SigningPolicy,
+  userAccount: UserAccount | undefined,
+  delegations: DelegatedAccount[],
   ownedAddresses: Set<string>,
 ): WalletPolicy {
-  const chain = row.chain_type.toLowerCase() === "svm" ? "svm" : "evm";
+  const chain = row.address.chain;
+  const provider = userAccount?.auth_provider?.toLowerCase();
+  const active = provider
+    ? delegations.find(
+        (delegation) =>
+          delegation.status === "active" &&
+          delegation.delegation_provider.toLowerCase() === provider,
+      )
+    : undefined;
   return {
-    // No key id is exposed on the wire; (chain, address) is the table's own
-    // uniqueness constraint, so it is a stable identity for React keys.
-    id: `${chain}:${row.address}`,
+    id: `${chain}:${row.address.address}`,
     chain,
-    address: row.address,
-    linkedVia: linkedViaOf(row, chain),
-    primary: row.is_primary,
-    desiredMode: normalizeSignerMode(row.signing_mode),
-    grantActive: row.has_delegated_grant,
-    grantExpiresLabel: formatDate(row.expires_at),
+    address: row.address.address,
+    linkedVia: linkedViaOf(userAccount, chain),
+    primary: userAccount?.is_primary ?? false,
+    desiredMode: normalizeSignerMode(row.mode),
+    delegationActive: Boolean(active),
+    delegationExpiresLabel: formatDate(active?.expires_at),
     authVersion: row.authorization_version,
     lastPermit: formatPermit(row, ownedAddresses),
-    provider: row.wallet_provider ?? undefined,
-    canUseAuto: row.can_use_auto,
-    providerManaged: row.provider_managed,
+    provider: userAccount?.auth_provider ?? undefined,
+    // Offerability is current capability, not the policy already selected.
+    // A manual wallet with a live delegated account must be able to move to
+    // auto; a stale auto policy without that capability must not.
+    canUseAuto: Boolean(active),
+    providerManaged: userAccount?.provider_managed ?? false,
   };
 }
 
-function toDelegationGrant(row: AccountGrantRow): DelegationGrant {
+function toDelegatedAccountView(row: DelegatedAccount): DelegatedAccountView {
   return {
     id: String(row.id),
-    provider: titleCase(row.provider),
-    providerKey: row.provider,
-    scope: grantScope(row),
-    kind: grantKindLabel(row.grant_kind),
+    provider: titleCase(row.delegation_provider),
+    providerKey: row.delegation_provider,
+    scope: delegationScope(row),
+    kind: delegationKindLabel(row.kind),
     status: row.status,
-    expiresLabel:
-      row.status === "revoked"
-        ? (formatDate(row.revoked_at) ?? "")
-        : (formatDate(row.expires_at) ?? "no expiry"),
   };
 }
 
-function grantScope(row: AccountGrantRow): string {
-  if (!row.address) {
-    // A provider-level grant (`public_key_id` null) covers every key under the
-    // identity — say so rather than inventing a wallet it isn't bound to.
-    return "All wallets on this provider";
-  }
-  const chain = row.chain_type?.toLowerCase() === "svm" ? "Solana" : "Ethereum";
-  return `${chain} · ${shortenAddress(row.address)}`;
+function delegationScope(row: DelegatedAccount): string {
+  const chain = row.address.chain === "svm" ? "Solana" : "Ethereum";
+  return `${chain} · ${shortenAddress(row.address.address)}`;
 }
 
 /**
@@ -183,16 +181,16 @@ function grantScope(row: AccountGrantRow): string {
  * the wallet being changed.
  */
 function formatPermit(
-  row: AccountWalletRow,
+  row: SigningPolicy,
   ownedAddresses: Set<string>,
 ): string | undefined {
   const when = formatDate(row.last_authorized_at);
   if (!when) return undefined;
   const by = row.last_authorized_by;
   if (!by) return when;
-  return ownedAddresses.has(by.toLowerCase())
+  return ownedAddresses.has(addressKey(by))
     ? `you · ${when}`
-    : `${shortenAddress(by)} · ${when}`;
+    : `${shortenAddress(by.address)} · ${when}`;
 }
 
 function formatDate(unixSeconds?: number | null): string | undefined {
@@ -242,8 +240,8 @@ export function explainAccountError(cause: unknown): string {
       return "This wallet changed while you were signing. Reload and try again.";
     case "wrong_signer":
       return "That signature came from a wallet not linked to this account.";
-    case "missing_delegated_grant":
-      return "No active delegation grant backs this wallet yet.";
+    case "missing_delegated_account":
+      return "No active delegated account backs this wallet yet.";
     case "mode_illegal_for_provider":
       return "This wallet's provider can't hold that signing mode.";
     case "unknown_wallet":

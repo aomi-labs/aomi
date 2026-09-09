@@ -8,10 +8,9 @@ import {
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
 import { accountScopedFetch } from "@portal/lib/settings-api";
 
-type WalletRow = {
-  address: string;
-  chain_type: string;
-  signing_mode: string;
+type SigningPolicy = {
+  address: { chain: "evm" | "svm"; address: string };
+  mode: string;
 };
 
 export type SvmBindingState =
@@ -48,17 +47,17 @@ export function useSvmWalletBinding() {
     }
     setState({ status: "loading" });
     try {
-      const data = await accountScopedFetch<{ wallets: WalletRow[] }>(
-        "/api/account/wallets",
-      );
-      const row = data.wallets.find(
-        (wallet) =>
-          wallet.chain_type.toLowerCase() === "svm" &&
-          wallet.address === svmAddress,
+      const data = await accountScopedFetch<{
+        signing_policies: SigningPolicy[];
+      }>("/api/account");
+      const row = data.signing_policies.find(
+        (policy) =>
+          policy.address.chain === "svm" &&
+          policy.address.address === svmAddress,
       );
       setState(
         row
-          ? { status: "bound", signingMode: row.signing_mode }
+          ? { status: "bound", signingMode: row.mode }
           : { status: "unbound" },
       );
     } catch (error) {

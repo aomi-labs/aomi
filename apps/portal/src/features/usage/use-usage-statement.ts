@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { explainAccountError } from "@portal/features/account/account-api";
-import { useAccountOverview } from "@portal/lib/account-overview";
 import type { MonthlyStatement } from "./types";
 import {
   currentMonthKey,
   fetchModelStatement,
+  fetchCreditAllowance,
   recentMonthKeys,
   toMonthlyStatement,
   type WireModelStatement,
@@ -22,7 +22,6 @@ export type StatementStatus = "loading" | "ready" | "error";
  * past months the credits meter is hidden rather than shown wrong.
  */
 export function useUsageStatement(monthCount = 6) {
-  const account = useAccountOverview();
   const monthKeys = useMemo(() => recentMonthKeys(monthCount), [monthCount]);
   const [selectedKey, setSelectedKey] = useState(() => currentMonthKey());
   const [wireMonths, setWireMonths] = useState<
@@ -30,15 +29,13 @@ export function useUsageStatement(monthCount = 6) {
   >({});
   const [status, setStatus] = useState<StatementStatus>("loading");
   const [error, setError] = useState<string | undefined>();
+  const [creditAllowance, setCreditAllowance] = useState({
+    included: 0,
+    used: 0,
+  });
   const inflight = useRef<Set<string>>(new Set());
 
-  const allowance = useMemo(
-    () => ({
-      included: account?.usage?.credit_paid ?? 0,
-      used: account?.usage?.credit_used ?? 0,
-    }),
-    [account],
-  );
+  const allowance = creditAllowance;
   const months = useMemo<Record<string, MonthlyStatement>>(
     () =>
       Object.fromEntries(
@@ -55,7 +52,13 @@ export function useUsageStatement(monthCount = 6) {
     inflight.current.add(monthKey);
     setStatus("loading");
     try {
-      const wire = await fetchModelStatement(monthKey);
+      const [wire, credits] = await Promise.all([
+        fetchModelStatement(monthKey),
+        monthKey === currentMonthKey()
+          ? fetchCreditAllowance()
+          : Promise.resolve(null),
+      ]);
+      if (credits) setCreditAllowance(credits);
       setWireMonths((cache) => ({
         ...cache,
         [monthKey]: wire,

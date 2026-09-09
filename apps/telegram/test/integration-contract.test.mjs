@@ -36,23 +36,23 @@ test("Telegram launches are verified before a production wallet flow", async () 
   assert.doesNotMatch(verifier, /BOT_TOKEN|bot token/i);
 });
 
-test("the Mini App consumes canonical Actions and submits Action results", async () => {
-  const [actionSession, control] = await Promise.all([
-    read("src/hooks/use-aomi-action.ts"),
-    read("src/hooks/use-action-control.ts"),
+test("the Mini App only links Para and signs permission permits", async () => {
+  const [page, permission] = await Promise.all([
+    read("src/app/page.tsx"),
+    read("src/hooks/use-permission-control.ts"),
   ]);
 
-  assert.match(actionSession, /new Session/);
-  assert.match(actionSession, /session\.subscribe/);
-  assert.match(actionSession, /session\.getSnapshot/);
-  assert.match(actionSession, /fetchCurrentState/);
-  assert.match(control, /walletCapabilities/);
-  assert.match(control, /EvmWallet/);
-  assert.match(control, /toViemSignTypedDataArgs/);
-  assert.match(control, /toViemSignMessageArgs/);
-  assert.match(control, /handler\s*\.execute/);
-  assert.match(control, /handler\s*\.reject/);
-  assert.match(control, /waitForTransactionReceipt/);
+  assert.match(page, /useCanonicalAccount/);
+  assert.match(page, /usePermissionControl/);
+  assert.match(page, /Sign permission/);
+  assert.match(permission, /authorizationChallenge/);
+  assert.match(permission, /authorizationCommit/);
+  assert.match(permission, /signTypedData/);
+  assert.doesNotMatch(
+    page,
+    /ActionHandler|sendTransaction|Sign All|transaction bundle/i,
+  );
+  assert.doesNotMatch(permission, /waitForTransactionReceipt|sendTransaction/);
 });
 
 test("Para and the app share one React Query context", async () => {
@@ -72,28 +72,15 @@ test("the legacy relay and multi-page wallet are absent", async () => {
   assert.doesNotMatch(page, /\/api\/operation|Swap assets|Review & sign/i);
 });
 
-test("signing is gated behind explicit approval of a rendered Action", async () => {
-  const [control, page, describe] = await Promise.all([
-    read("src/hooks/use-action-control.ts"),
-    read("src/app/page.tsx"),
-    read("src/lib/action.ts"),
+test("permission signing targets one exact wallet and mode", async () => {
+  const [launch, permission] = await Promise.all([
+    read("src/lib/telegram.ts"),
+    read("src/hooks/use-permission-control.ts"),
   ]);
 
-  // The Telegram button only opens the app; the user must read the request and
-  // approve it here. Para signs headlessly, so this screen is the only place a
-  // Telegram user ever sees what they are signing.
-  assert.match(control, /approve: \(\) => void/);
-  assert.match(control, /reject: \(\) => void/);
-  assert.match(page, /onClick=\{execution\.approve\}/);
-  assert.match(page, /onClick=\{execution\.reject\}/);
-  assert.match(page, /describeAction/);
-  assert.match(describe, /export function describeAction/);
-
-  // The approval callback delegates to the one session-owned ActionHandler.
-  const approveIndex = control.indexOf("const approve = useCallback");
-  assert.ok(approveIndex > 0, "approve callback is present");
-  assert.ok(
-    control.indexOf("handler.execute", approveIndex) > approveIndex,
-    "wallet execution is reached through ActionHandler after approval",
-  );
+  assert.match(launch, /permission_chain/);
+  assert.match(launch, /permission_wallet/);
+  assert.match(launch, /permission_mode/);
+  assert.match(permission, /wallet: target\.wallet/);
+  assert.match(permission, /mode: target\.mode/);
 });

@@ -26,7 +26,7 @@ jobs:
           ref: ${{ inputs.candidate_sha }}
           fetch-depth: 0
 
-      - name: Verify current main and successful same-SHA CI
+      - name: Verify the candidate is on main with successful same-SHA CI
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}

@@ -49,8 +49,8 @@ describe("normalizeSignerMode", () => {
     expect(normalizeSignerMode("client_auto")).toBe("client_auto");
     expect(normalizeSignerMode("denied")).toBe("denied");
     expect(normalizeSignerMode("manual")).toBe("manual");
-    // Pre-rename spellings are not wire values anymore — no aliases.
-    expect(normalizeSignerMode("auto")).toBe("manual");
+    // The canonical account DTO names the server-controlled mode `auto`.
+    expect(normalizeSignerMode("auto")).toBe("auto");
     expect(normalizeSignerMode("agent_sync")).toBe("manual");
   });
 });

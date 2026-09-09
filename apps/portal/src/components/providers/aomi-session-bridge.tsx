@@ -30,6 +30,7 @@ export function useAomiSession(): {
   const adapter = useAomiWalletKit();
   const adapterStatus = adapter.identity.status;
   const accountStatus = adapter.accountStatus;
+  const accountGuest = adapter.accountGuest === true;
   const accountUserId = adapter.accountUser?.id;
   const [probeStatus, setProbeStatus] =
     useState<AomiSessionStatus>("establishing");
@@ -56,6 +57,11 @@ export function useAomiSession(): {
   }, [adapterSettling]);
 
   useEffect(() => {
+    if (accountGuest) {
+      seedAccountOverview(null);
+      setProbeStatus("anonymous");
+      return;
+    }
     if (adapterSettling && !adapterWaitExpired) {
       setProbeStatus("establishing");
       return;
@@ -110,7 +116,9 @@ export function useAomiSession(): {
           return;
         }
 
-        await new Promise((resolve) => globalThis.setTimeout(resolve, nextDelay));
+        await new Promise((resolve) =>
+          globalThis.setTimeout(resolve, nextDelay),
+        );
         waitedMs += nextDelay;
         nextDelay = Math.min(
           Math.round(nextDelay * SESSION_RETRY_BACKOFF_FACTOR),
@@ -127,6 +135,7 @@ export function useAomiSession(): {
     };
   }, [
     adapterSettling,
+    accountGuest,
     adapterStatus,
     accountStatus,
     accountUserId,

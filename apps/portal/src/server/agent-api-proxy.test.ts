@@ -55,6 +55,8 @@ describe("Agent API proxy", () => {
           "mcp-protocol-version": "2025-06-18",
           "payment-signature": "payment",
           "x-request-id": "request-1",
+          "x-session-id": "session-1",
+          "x-thread-id": "thread-1",
         },
         body: "{}",
       }),
@@ -80,6 +82,8 @@ describe("Agent API proxy", () => {
     expect(headers.get("idempotency-key")).toBe("idem-1");
     expect(headers.get("mcp-protocol-version")).toBe("2025-06-18");
     expect(headers.get("payment-signature")).toBe("payment");
+    expect(headers.get("x-session-id")).toBe("session-1");
+    expect(headers.get("x-thread-id")).toBe("thread-1");
     expect(response.headers.get("payment-response")).toBe("paid");
     expect(response.headers.get("payment-receipt")).toBe("receipt");
     expect(response.headers.get("mcp-protocol-version")).toBe("2025-06-18");

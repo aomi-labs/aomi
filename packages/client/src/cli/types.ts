@@ -1,4 +1,5 @@
 import type { AAMode } from "../aa/types";
+import type { AomiInferenceFundingSource } from "../agent/types";
 
 export type CliExecutionMode = "aa" | "eoa";
 export type CliAAProvider = "alchemy" | "pimlico";
@@ -46,4 +47,6 @@ export type CliConfig = {
   aaProvider?: CliAAProvider;
   aaMode?: AAMode;
   paymentMethod?: CliPaymentMethod;
+  /** Explicit inference funding lane selected for chat. */
+  inferenceFunding?: AomiInferenceFundingSource;
 };

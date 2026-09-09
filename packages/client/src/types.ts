@@ -1,5 +1,7 @@
 import type { AomiOAuthTokenProvider } from "./authorization";
 import type { GuestSessionProvider } from "./guest-auth";
+import type { x402Client, x402HTTPClient } from "@x402/core/client";
+import type { AomiInferenceFundingSource } from "./agent/types";
 
 export { UserState } from "./user-state";
 export type {
@@ -32,6 +34,10 @@ export type AomiClientOptions = {
   fetch?: typeof fetch;
   /** Default API key for non-default apps */
   apiKey?: string;
+  /** Optional x402 signer used by the bounded payment retry transport. */
+  x402?: x402Client | x402HTTPClient;
+  /** Default inference funding lane used by high-level Agent sessions. */
+  inferenceFunding?: AomiInferenceFundingSource;
   /** Supplies a short-lived Aomi account bearer for REST and SSE requests. */
   getAccountBearer?: GetAccountBearer;
   /** Resource-bound developer OAuth. Takes precedence over session/guest auth. */
@@ -137,74 +143,125 @@ export type AomiAccountResponse = AomiAccountProfile;
  */
 export interface AomiUser {
   user_id: string;
-  username?: string | null;
-  apps?: string[];
-  tier?: string;
-  verified_email?: string | null;
-  status?: string;
-  last_seen_at?: number | null;
-  created_at?: number;
-  updated_at?: number;
+  username: string | null;
+  apps: string[];
+  tier: "anon" | "free" | "pro";
+  verified_email: string | null;
+  status: string;
+  last_seen_at: number | null;
+  created_at: number;
+  updated_at: number;
 }
 
-export interface AomiAuthIdentity {
+export type AomiChainKind = "evm" | "svm";
+export type AomiAccountRecordStatus =
+  | "provisioning"
+  | "active"
+  | "expired"
+  | "revoked"
+  | "unavailable";
+
+export interface AomiOnchainAddress {
+  chain: AomiChainKind;
+  address: string;
+}
+
+export interface AomiAuthProvider {
   id: number;
-  application?: string | null;
-  wallet_provider: string;
-  auth_method: string;
-  auth_verified_at?: number | null;
+  provider: string;
+  method: string;
+  verified_at: number | null;
   is_primary: boolean;
   created_at: number;
 }
 
-export interface AomiIdentityWallet {
-  wallet_id?: string | null;
-  address: string;
-  chain_type: string;
-  wallet_provider: string;
+export interface AomiUserAccount {
+  address: AomiOnchainAddress;
+  auth_provider?: string | null;
+  is_primary: boolean;
+  provider_managed: boolean;
 }
 
-export interface AomiUsageStats {
-  period_utc_month?: string;
-  input_tokens: number;
-  output_tokens: number;
-  credit_used: number;
-  credit_paid: number;
+export interface AomiSigningPolicy {
+  address: AomiOnchainAddress;
+  mode: "auto" | "manual" | "client_auto" | "denied";
+  authorization_version: number;
+  last_authorized_at: number | null;
+  last_authorized_by: AomiOnchainAddress | null;
+}
+
+export interface AomiDelegatedAccount {
+  id: number;
+  address: AomiOnchainAddress;
+  delegation_provider: string;
+  kind: string;
+  status: AomiAccountRecordStatus;
+  created_at: number;
+  updated_at: number;
+  expires_at: number | null;
+  revoked_at: number | null;
+  revocation_reason: string | null;
+}
+
+export interface AomiOperatingAccount {
+  id: number;
+  owner: AomiOnchainAddress;
+  operating: AomiOnchainAddress;
+  chain_ref: string;
+  provider: string;
+  kind: string;
+  status: AomiAccountRecordStatus;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export type AomiPolicyWindow =
+  | { unit: "slots"; value: number }
+  | { unit: "blocks"; value: number }
+  | { unit: "seconds"; value: number };
+
+export type AomiOnchainPolicyRule =
+  | { type: "allowed_call_target"; target: AomiOnchainAddress }
+  | { type: "lifetime_native_asset_limit"; amount: string }
+  | {
+      type: "recurring_native_asset_limit";
+      amount: string;
+      window: AomiPolicyWindow;
+    };
+
+export interface AomiOnchainPolicy {
+  version: number;
+  rules: AomiOnchainPolicyRule[];
+}
+
+export type AomiProviderBinding = {
+  provider: "swig";
+  binding: { swig_account: AomiOnchainAddress; role_id: number };
+};
+
+export interface AomiOnchainPolicyBinding {
+  id: number;
+  owner: AomiOnchainAddress;
+  delegate: AomiOnchainAddress;
+  operating_account_id: number;
+  policy: AomiOnchainPolicy;
+  provider_binding: AomiProviderBinding;
+  status: AomiAccountRecordStatus;
+  created_at: number;
+  updated_at: number;
+  confirmed_at: number | null;
+  revoked_at: number | null;
 }
 
 export interface AomiAccountProfile {
   user: AomiUser;
-  auth_identities?: AomiAuthIdentity[];
-  identity_wallets?: AomiIdentityWallet[];
-  usage?: AomiUsageStats;
-}
-
-export interface AomiCreateApprovalRequest {
-  auth_identity_id: number;
-  grant_kind: string;
-  secret_handle: string;
-  external_subject?: string | null;
-  display_label?: string | null;
-  scopes?: string[];
-  expires_at?: number | null;
-  metadata?: unknown;
-}
-
-export interface AomiAccessApproval {
-  id: number;
-  user_id: string;
-  auth_identity_id: number;
-  external_subject?: string | null;
-  display_label?: string | null;
-  grant_kind: string;
-  scopes: string[];
-  secret_handle: string;
-  expires_at?: number | null;
-  granted_at: number;
-  revoked_at?: number | null;
-  metadata: unknown;
-  created_at: number;
-  updated_at: number;
+  auth_providers: AomiAuthProvider[];
+  user_accounts: AomiUserAccount[];
+  signing_policies: AomiSigningPolicy[];
+  delegated_accounts: AomiDelegatedAccount[];
+  operating_accounts: AomiOperatingAccount[];
+  onchain_policy_bindings: AomiOnchainPolicyBinding[];
 }
 
 export interface AomiBeginAccountAuthResponse {
@@ -218,10 +275,7 @@ export type AomiAuthWalletFamily = "evm" | "solana";
 /** Provider login intent. Linking ownership never implies delegated signing. */
 export type AomiAuthPurpose = "link_wallet" | "delegate_signing";
 
-/**
- * GET/POST/DELETE /api/account/payment/byok
- * Lists or saves BYOK keys (one per LLM provider) for the account.
- */
+/** GET/POST/DELETE /api/account/model-keys. */
 export interface AomiByokKeyEntry {
   provider: string;
   key_prefix: string;
@@ -230,7 +284,7 @@ export interface AomiByokKeyEntry {
 }
 
 export interface AomiListByokKeysResponse {
-  byok: AomiByokKeyEntry[];
+  keys: AomiByokKeyEntry[];
 }
 
 export interface AomiSaveByokKeyResponse {

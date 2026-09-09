@@ -14,7 +14,9 @@ export type LaunchContext = {
     telegramUserId: string;
   } | null;
   sessionId: string | null;
-  requestId: string | null;
+  permissionChain: string | null;
+  permissionWallet: string | null;
+  permissionMode: string | null;
   verified: boolean;
 };
 
@@ -36,14 +38,18 @@ export async function establishTelegramLaunch(): Promise<LaunchContext> {
   webApp?.expand();
 
   const querySessionId = queryValue("session_id");
-  const requestId = queryValue("request_id");
+  const permissionChain = queryValue("permission_chain");
+  const permissionWallet = queryValue("permission_wallet");
+  const permissionMode = queryValue("permission_mode");
   if (!webApp?.initData) {
     if (!isLocalPreview()) throw new Error("open_from_telegram");
     return {
       inTelegram: false,
       proof: null,
       sessionId: querySessionId,
-      requestId,
+      permissionChain,
+      permissionWallet,
+      permissionMode,
       verified: false,
     };
   }
@@ -73,7 +79,9 @@ export async function establishTelegramLaunch(): Promise<LaunchContext> {
       telegramUserId: launch.telegramUserId,
     },
     sessionId: querySessionId ?? launch.startParam ?? null,
-    requestId,
+    permissionChain,
+    permissionWallet,
+    permissionMode,
     verified: true,
   };
 }

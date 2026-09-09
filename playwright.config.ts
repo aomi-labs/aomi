@@ -15,7 +15,8 @@ export default defineConfig({
     { name: "preview", testMatch: /preview-smoke\.spec\.ts/ },
     {
       name: "local-agent",
-      testMatch: /local-(?:agent-cutover|auth-session|guest-hello)\.spec\.ts/,
+      testMatch:
+        /(?:local-(?:agent-cutover|auth-session|guest-hello)|lean-payment-boundary)\.spec\.ts/,
       fullyParallel: false,
       use: {
         baseURL: process.env.LOCAL_PORTAL_URL ?? "http://127.0.0.1:3000",

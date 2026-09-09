@@ -172,6 +172,9 @@ export class CliSession {
   get auth(): CliAuthSession | undefined {
     return this.state.auth;
   }
+  get accountBearer(): string | undefined {
+    return this.state.accountBearer;
+  }
   get oauthGrants(): Readonly<Record<string, CliOAuthGrant>> {
     return this.state.oauthGrants ?? {};
   }
@@ -427,6 +430,7 @@ export class CliSession {
             svmCluster: this.resolvedSvmCluster(config?.svmCluster),
           }),
         actions: cliActionCapabilities(this, config),
+        inferenceFunding: config?.inferenceFunding,
       },
     );
     return session;

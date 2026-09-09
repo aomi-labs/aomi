@@ -24,16 +24,17 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   Button: (props: React.ComponentProps<"button">) => <button {...props} />,
 }));
 
-const wallets: Array<{
-  address: string;
-  chain_type: string;
-  signing_mode: string;
+const policies: Array<{
+  address: { chain: "svm"; address: string };
+  mode: string;
 }> = [];
 const posts: Array<{ path: string; body: unknown }> = [];
 
 vi.mock("@portal/lib/settings-api", () => ({
   accountScopedFetch: async (path: string, options?: RequestInit) => {
-    if (path.endsWith("/wallets")) return { wallets: [...wallets] };
+    if (path === "/api/account") {
+      return { signing_policies: [...policies] };
+    }
     const body = options?.body ? JSON.parse(String(options.body)) : undefined;
     posts.push({ path, body });
     if (path.endsWith("/challenge")) {
@@ -49,10 +50,9 @@ vi.mock("@portal/lib/settings-api", () => ({
         message_base64: Buffer.from(MESSAGE).toString("base64"),
       };
     }
-    wallets.push({
-      address: SVM_ADDRESS,
-      chain_type: "svm",
-      signing_mode: "human_sync",
+    policies.push({
+      address: { chain: "svm", address: SVM_ADDRESS },
+      mode: "manual",
     });
     return {
       address: SVM_ADDRESS,
@@ -67,15 +67,15 @@ import { SvmWalletBinding } from "./svm-wallet-binding";
 
 describe("SvmWalletBinding", () => {
   beforeEach(() => {
-    wallets.length = 0;
+    policies.length = 0;
     posts.length = 0;
     signSolanaMessage.mockClear();
   });
 
-  it("binds with the exact challenge and reflects human_sync", async () => {
+  it("binds with the exact challenge and reflects manual signing", async () => {
     render(<SvmWalletBinding />);
     fireEvent.click(await screen.findByRole("button", { name: "Bind wallet" }));
-    await screen.findByText(/signing mode: human_sync/i);
+    await screen.findByText(/signing mode: manual/i);
     expect(signSolanaMessage).toHaveBeenCalledOnce();
     expect(
       posts.find((post) => post.path.endsWith("/commit"))?.body,
@@ -86,14 +86,13 @@ describe("SvmWalletBinding", () => {
   });
 
   it("shows an existing binding without an action", async () => {
-    wallets.push({
-      address: SVM_ADDRESS,
-      chain_type: "svm",
-      signing_mode: "human_sync",
+    policies.push({
+      address: { chain: "svm", address: SVM_ADDRESS },
+      mode: "manual",
     });
     render(<SvmWalletBinding />);
     await waitFor(() =>
-      expect(screen.getByText(/signing mode: human_sync/i)).toBeInTheDocument(),
+      expect(screen.getByText(/signing mode: manual/i)).toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: "Bind wallet" })).toBeNull();
   });

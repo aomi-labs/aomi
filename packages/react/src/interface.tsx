@@ -7,11 +7,14 @@ import type {
   Action,
   ActionAttempt,
   ActionResult,
+  AomiInferenceFundingSource,
   AomiSimulateResponse,
   Event,
   TurnState,
   UserState,
 } from "@aomi-labs/client";
+import type { AccountTransport } from "@aomi-labs/client";
+export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import type { ThreadMetadata } from "./state/thread-store";
 import type {
   Notification,
@@ -23,6 +26,8 @@ import type {
 // =============================================================================
 
 export type AomiRuntimeApi = {
+  /** Shared authenticated account transport configured by the runtime. */
+  account: AccountTransport;
   // -------------------------------------------------------------------------
   // USER API
   // -------------------------------------------------------------------------

@@ -65,13 +65,18 @@ export {
   robinhood,
 } from "@aomi-labs/client";
 export type {
+  AccountWallet,
+  AomiAccount,
+  AomiUserRef,
   AomiWalletKit,
   AomiSessionIdentity,
   AomiSessionStatus,
+  LinkedAuthAccount,
 } from "./lib/wallet-kit";
 export {
   AomiWalletKitContextProvider,
   AomiWalletKitProvider,
+  signOutAndDisconnect,
   useAomiWalletKit,
 } from "./lib/wallet-kit";
 export {

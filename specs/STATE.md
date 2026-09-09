@@ -2,6 +2,36 @@
 
 ## Last Updated
 
+2026-09-03 — MCP GRANTS NEVER CARRIED A REFRESH TOKEN (branch
+  `fix/mcp-offline-access-advertised`). Agent MCP and Pipeline MCP sessions
+  went invalid a few minutes after login. The refresh machinery was fine —
+  proven end to end in `apps/portal/src/app/api/auth/oauth-mcp-refresh.postgres.test.ts`,
+  which drives DCR → authorize → consent → token → refresh against a real
+  Postgres and gets a correctly-audienced JWT back. What was wrong is what
+  the resource ADVERTISES. `/.well-known/oauth-protected-resource/v1/{agent,pipeline}/mcp`
+  published `policy.allowedScopes`, and the `WWW-Authenticate` challenge
+  published `challengeScopes`; neither named `offline_access`. An MCP client
+  builds its authorization request out of exactly that set, so it never asked
+  for `offline_access`, Better Auth issued no refresh token
+  (`isRefreshToken` requires the scope on the request or the prior grant), and
+  the grant died at the 5-minute `accessTokenTtl` with nothing to refresh.
+  Every other layer already allowed it — the seeded `ba_oauth_resources` row,
+  `narrowScopesForAomiResource`, `validateAomiResourceScopes` and the SDK
+  (`sdk/auth.ts` appends `offline_access` to every token request, which is why
+  the CLI/device path never showed this). The three open-coded
+  `[...allowedScopes, "offline_access"]` spellings are now one derived
+  `AomiOAuthResourcePolicy.grantableScopes`: `allowedScopes` stays the ceiling
+  on what a principal may DO (`downscopeMcpPrincipal` still strips
+  `offline_access`), `grantableScopes` is what a grant may CARRY and is what
+  gets advertised, seeded, and narrowed to.
+  NOT fixed here, and worth a decision: `refreshTokenReuseInterval: 0` in
+  `packages/account/src/better-auth/auth.ts` means two in-flight refreshes with
+  the same token leave one caller with `invalid_grant`, and a client that
+  RETRIES that call presents an already-rotated token, which trips
+  `invalidateRefreshFamily` and destroys every grant for that client+user. With
+  a 5-minute access token and a parallel MCP client that race is reachable; a
+  short reuse interval (RFC 9700's rotation grace) would absorb it.
+
 2026-09-03 — CLI DEVICE-AUTH HANDOFF vs PARA JWT BACKOFF (branch
   `codex/auth-provider-device`, PR #561). Live Para login on
   `/device-auth` succeeded in the browser but the CLI never got its loopback
@@ -1494,8 +1524,8 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   on fixtures; it now reads and writes live state. New files, all under
   `apps/portal/src/features/account/`:
 
-  - `account-api.ts` — wire types + mappers for `GET /api/account/wallets`
-    (policy axis) and `GET /api/account/grants` (capability axis), plus
+  - `account-api.ts` — wire types + mappers for canonical `GET /api/account`
+    ownership, policy, and capability collections, plus
     `DELETE /api/account/providers/:provider/grant`. `linkedVia` is derived,
     not stored: `wallet_provider` privy/para, else siwe/siws by chain. Legacy
     `human_sync`/`agent_sync` wire values normalize to the renamed modes.
@@ -1508,7 +1538,8 @@ NOTE: this worktree's landing dev server runs on port 3001, not 3000.
   local mutation, per-row busy/error, and **nothing optimistic** — a mode flips
   only on the committed backend value, so a rejected signature or a failed
   version CAS can never look applied. Mode availability now follows backend
-  truth (`can_use_auto`, `provider_managed`) instead of inferring from custody.
+  truth (`SigningPolicy` plus current `DelegatedAccount` capability) instead of
+  storing a second auto-availability boolean.
   Direction (loosen vs tighten) is pre-computed client-side against the
   kernel's rank ladder purely to explain "connect this wallet itself" before
   the prompt — the backend still decides. The posture strip counts only

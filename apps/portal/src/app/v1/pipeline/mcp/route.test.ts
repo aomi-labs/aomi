@@ -69,7 +69,7 @@ describe("canonical Pipeline MCP route", () => {
     expect(mocks.options).toMatchObject({
       resource: "https://chat.aomi.dev/v1/pipeline/mcp",
       requiredScopes: ["mcp:pipeline"],
-      challengeScopes: ["mcp:pipeline", "pipeline:catalog"],
+      challengeScopes: ["mcp:pipeline", "pipeline:catalog", "offline_access"],
       dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
     });
     for (const method of ["initialize", "tools/list", "tools/call"]) {

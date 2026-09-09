@@ -47,6 +47,7 @@
     "example:oauth-token": "pnpm --filter @aomi-labs/example-headless-client oauth:token",
     "example:walkthrough": "pnpm --filter @aomi-labs/example-headless-client walkthrough",
     "example:wallet-terminal": "pnpm --filter @aomi-labs/example-headless-client wallet-terminal",
+    "example:account:credits": "pnpm --filter @aomi-labs/example-headless-client account:credits",
     "build:lib": "pnpm run build:client && tsup",
     "build:client": "pnpm --filter @aomi-labs/client build",
     "build:deploy": "pnpm --filter @aomi-labs/deploy build",

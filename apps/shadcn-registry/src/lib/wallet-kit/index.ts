@@ -23,6 +23,11 @@ export type {
   SvmWalletDescriptor,
   WalletFamily,
 } from "./types";
+export type {
+  AccountWallet,
+  AomiUserRef,
+  LinkedAuthAccount,
+} from "./account/types";
 export {
   AOMI_SESSION_BOOTING_IDENTITY,
   AOMI_SESSION_DISCONNECTED_IDENTITY,

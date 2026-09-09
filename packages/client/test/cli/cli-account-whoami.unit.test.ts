@@ -40,18 +40,36 @@ describe("aomi account whoami", () => {
       statusText: "OK",
       json: vi.fn(async () => ({
         user: { user_id: "user-1", verified_email: "a@b.c", tier: "free" },
-        identity_wallets: [
+        user_accounts: [
           {
-            wallet_id: "wallet-evm-1",
-            address: "0xabc",
-            chain_type: "ethereum",
-            wallet_provider: "privy",
+            address: { chain: "evm", address: "0xabc" },
+            auth_provider: "privy",
+            is_primary: true,
+            provider_managed: false,
           },
           {
-            wallet_id: "wallet-sol-1",
-            address: "So11111111111111111111111111111111111111112",
-            chain_type: "solana",
-            wallet_provider: "privy",
+            address: {
+              chain: "svm",
+              address: "So11111111111111111111111111111111111111112",
+            },
+            auth_provider: "privy",
+            is_primary: false,
+            provider_managed: false,
+          },
+        ],
+        signing_policies: [
+          {
+            address: { chain: "evm", address: "0xabc" },
+            mode: "manual",
+            authorization_version: 1,
+          },
+          {
+            address: {
+              chain: "svm",
+              address: "So11111111111111111111111111111111111111112",
+            },
+            mode: "auto",
+            authorization_version: 1,
           },
         ],
       })),

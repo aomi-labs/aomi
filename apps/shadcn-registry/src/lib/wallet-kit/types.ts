@@ -276,6 +276,8 @@ export type AomiWalletKit = {
   walletModalRows?: readonly WalletModalRow[];
   accountStatus?: AccountRuntimeStatus;
   accountError?: string;
+  /** The current Portal session is temporary and must not own linked wallets. */
+  accountGuest?: boolean;
   accountUser?: AomiUserRef;
   accountLinkedAccounts?: readonly LinkedAuthAccount[];
   accountWallets?: readonly AccountWallet[];

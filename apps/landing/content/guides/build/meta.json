@@ -2,6 +2,7 @@
   "title": "Build with Aomi",
   "pages": [
     "overview",
+    "console",
     "cli",
     "frontend-setup",
     "widget-installation",

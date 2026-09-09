@@ -1,8 +1,8 @@
 "use client";
 
-import type { DelegationGrant, SignerMode, WalletPolicy } from "./types";
+import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
 import {
-  findGrantForWallet,
+  findDelegationForWallet,
   reconcile,
   walletDisplayName,
   walletMarkKey,
@@ -16,7 +16,7 @@ import { shortenAddress } from "./account-api";
 
 interface WalletPolicyRowProps {
   wallet: WalletPolicy;
-  grants: DelegationGrant[];
+  delegatedAccounts: DelegatedAccountView[];
   draft?: SignerMode;
   expanded: boolean;
   flash: boolean;
@@ -27,13 +27,13 @@ interface WalletPolicyRowProps {
   onDraft: (mode: SignerMode) => void;
   onCommit: () => void;
   onCancel: () => void;
-  onRegrant: () => void;
-  onRevokeGrant: (grantId: string) => void;
+  onRenewDelegation: () => void;
+  onRevokeDelegation: (delegationId: string) => void;
 }
 
 export function WalletPolicyRow({
   wallet,
-  grants,
+  delegatedAccounts,
   draft,
   expanded,
   flash,
@@ -44,14 +44,14 @@ export function WalletPolicyRow({
   onDraft,
   onCommit,
   onCancel,
-  onRegrant,
-  onRevokeGrant,
+  onRenewDelegation,
+  onRevokeDelegation,
 }: WalletPolicyRowProps) {
   const selected = draft ?? wallet.desiredMode;
   const pending = draft !== undefined && draft !== wallet.desiredMode;
   const recon = reconcile(wallet);
   const open = expanded || pending;
-  const grant = findGrantForWallet(grants, wallet);
+  const delegation = findDelegationForWallet(delegatedAccounts, wallet);
   const displayName = walletDisplayName(wallet);
   const status = walletStatusLabel(wallet, recon, pending);
   const blocked = pending ? (blockedReason?.(wallet, selected) ?? null) : null;
@@ -75,7 +75,9 @@ export function WalletPolicyRow({
       >
         <SettingRow
           className="px-4"
-          leading={<WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />}
+          leading={
+            <WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />
+          }
           title={displayName}
           desc={shortenAddress(wallet.address)}
           descMono
@@ -83,7 +85,9 @@ export function WalletPolicyRow({
           <span className="flex items-center gap-1">
             <span
               className={`max-w-[9.5rem] truncate text-right text-[13px] font-medium sm:max-w-none ${
-                recon.status === "drifted" ? "text-aomi-danger" : "text-aomi-muted"
+                recon.status === "drifted"
+                  ? "text-aomi-danger"
+                  : "text-aomi-muted"
               }`}
             >
               {status}
@@ -106,35 +110,39 @@ export function WalletPolicyRow({
             onSelect={onDraft}
           />
 
-          {wallet.desiredMode === "auto" && grant && (
+          {wallet.desiredMode === "auto" && delegation && (
             <>
               <Divider />
               <SettingRow
                 className="py-2"
-                title="Provider grant"
+                title="Delegated account"
                 desc={
                   recon.status === "drifted"
                     ? recon.detail
-                    : `${grant.provider} · ${grant.kind}`
+                    : `${delegation.provider} · ${delegation.kind}`
                 }
               >
-                {grant.status === "active" ? (
+                {delegation.status === "active" ? (
                   <button
                     type="button"
-                    onClick={() => onRevokeGrant(grant.id)}
+                    onClick={() => onRevokeDelegation(delegation.id)}
                     disabled={busy}
                     className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 items-center rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
                   >
-                    {busy ? <Loader2 size={13} className="animate-spin" /> : "Revoke"}
+                    {busy ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      "Revoke"
+                    )}
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={onRegrant}
+                    onClick={onRenewDelegation}
                     disabled={busy}
                     className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 items-center rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
                   >
-                    Renew grant
+                    Renew delegation
                   </button>
                 )}
               </SettingRow>
@@ -168,12 +176,14 @@ export function WalletPolicyRow({
             </div>
           ) : (
             recon.status === "drifted" &&
-            !(wallet.desiredMode === "auto" && grant) && (
+            !(wallet.desiredMode === "auto" && delegation) && (
               <div className="flex items-center justify-between gap-3">
-                <span className="text-aomi-muted text-[13px]">{recon.detail}</span>
+                <span className="text-aomi-muted text-[13px]">
+                  {recon.detail}
+                </span>
                 <button
                   type="button"
-                  onClick={onRegrant}
+                  onClick={onRenewDelegation}
                   disabled={busy}
                   className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 shrink-0 items-center rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
                 >
@@ -183,7 +193,9 @@ export function WalletPolicyRow({
             )
           )}
 
-          {error && <span className="text-aomi-danger text-[13px]">{error}</span>}
+          {error && (
+            <span className="text-aomi-danger text-[13px]">{error}</span>
+          )}
 
           <span className="text-aomi-muted/75 pt-0.5 text-[11px]">
             Last updated {wallet.lastPermit?.replace(/^you · /, "") ?? "—"}

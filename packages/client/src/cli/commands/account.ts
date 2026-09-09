@@ -1,6 +1,8 @@
 import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
-import { printDataFileLocation, printJson } from "../output";
+import { printDataFileLocation, printJson, printPaymentEvent } from "../output";
+import { createCliPaymentFetch } from "../payment";
+import type { AomiCreditPosition } from "../../account/credits";
 import {
   linkCliSiwsWallet,
   signInWithCliSiwe,
@@ -47,6 +49,15 @@ export type AccountRenameOptions = {
 
 export type AccountDeleteOptions = {
   yes?: boolean;
+};
+
+export type AccountCreditsShowOptions = {
+  limit?: string;
+  before?: string;
+};
+
+export type AccountCreditsTopUpOptions = {
+  idempotencyKey?: string;
 };
 
 export async function accountLoginCommand(
@@ -265,12 +276,19 @@ export async function accountWhoamiCommand(config: CliConfig): Promise<void> {
     }
     if (user.tier) console.log(`Tier:     ${user.tier}`);
     if (user.status) console.log(`Status:   ${user.status}`);
-    const wallets = account.identity_wallets ?? [];
-    console.log(`Wallets:  ${wallets.length}`);
-    for (const wallet of wallets) {
-      const walletId = wallet.wallet_id ? ` (${wallet.wallet_id})` : "";
+    const policies = account.signing_policies;
+    console.log(`Wallets:  ${policies.length}`);
+    for (const policy of policies) {
+      const userAccount = account.user_accounts.find(
+        (candidate) =>
+          candidate.address.chain === policy.address.chain &&
+          (policy.address.chain === "evm"
+            ? candidate.address.address.toLowerCase() ===
+              policy.address.address.toLowerCase()
+            : candidate.address.address === policy.address.address),
+      );
       console.log(
-        `- ${formatWalletChainType(wallet.chain_type)} [${wallet.wallet_provider}]: ${wallet.address}${walletId}`,
+        `- ${formatWalletChainType(policy.address.chain)} [${userAccount?.auth_provider ?? "self-custody"}]: ${policy.address.address}`,
       );
     }
     printDataFileLocation({ verbose: config.verbose });
@@ -510,6 +528,67 @@ export function accountSwitchCommand(selector: string): void {
   resumeSessionCommand(selector);
 }
 
+export async function accountCreditsShowCommand(
+  config: CliConfig,
+  options: AccountCreditsShowOptions = {},
+): Promise<void> {
+  const cli = loadMergedCli(config);
+  const position = await requireAccountGraphClient(cli).credits.get({
+    limit: parsePositiveInteger(options.limit, "--limit") ?? 25,
+    beforeId: parsePositiveInteger(options.before, "--before"),
+  });
+  if (config.json) {
+    printJson(position);
+    return;
+  }
+  printCreditPosition(position);
+  printDataFileLocation({ verbose: config.verbose });
+}
+
+export async function accountCreditsTopUpCommand(
+  config: CliConfig,
+  rawCredits: string,
+  options: AccountCreditsTopUpOptions = {},
+): Promise<void> {
+  const credits = Number(rawCredits);
+  if (!Number.isFinite(credits)) {
+    fatal("Credits must be a number between 1 and 100,000.");
+  }
+  const idempotencyKey = options.idempotencyKey?.trim();
+  if (!idempotencyKey) {
+    fatal(
+      "Provide --idempotency-key for this purchase and reuse it when retrying an unknown payment outcome.",
+    );
+  }
+  const cli = loadMergedCli(config);
+  const paymentFetch = createCliPaymentFetch(
+    {
+      ...config,
+      paymentMethod: "coinbase",
+      privateKey: config.privateKey ?? cli.privateKey,
+    },
+    config.json ? undefined : printPaymentEvent,
+  );
+  const result = await requireAccountGraphClient(
+    cli,
+    paymentFetch,
+  ).credits.topUp({
+    credits,
+    idempotencyKey,
+  });
+  if (config.json) {
+    printJson(result);
+    return;
+  }
+  console.log(
+    `Credit bank: ${formatMicrousd(result.bank.balance_microusd)} credits available`,
+  );
+  if (result.receipt?.transaction) {
+    console.log(`Transaction: ${result.receipt.transaction}`);
+  }
+  printDataFileLocation({ verbose: config.verbose });
+}
+
 function hasAccountCredential(
   state: ReturnType<CliSession["toState"]>,
 ): boolean {
@@ -574,11 +653,16 @@ export async function logoutCommand(config: CliConfig): Promise<void> {
 
 function loadMergedCli(config: CliConfig): CliSession {
   const cli = CliSession.load();
-  if (!cli) {
-    fatal("No active session. Run `aomi account login` first.");
+  if (cli) {
+    cli.mergeConfig(config);
+    return cli;
   }
-  cli!.mergeConfig(config);
-  return cli!;
+  if (config.accountBearer) {
+    return CliSession.loadOrCreate(config);
+  }
+  fatal(
+    "No active session. Run `aomi account login` first or pass `--account-bearer`.",
+  );
 }
 
 function normalizeProviderOption(
@@ -722,4 +806,45 @@ function requireConfirmed(
   if (!confirmed) {
     fatal(`Refusing to ${action} without --yes.`);
   }
+}
+
+function parsePositiveInteger(
+  value: string | undefined,
+  flag: string,
+): number | undefined {
+  if (value === undefined) return undefined;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    fatal(`${flag} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function printCreditPosition(position: AomiCreditPosition): void {
+  console.log(
+    `Monthly:     ${formatMicrousd(position.included.used_microusd)} / ${formatMicrousd(position.included.limit_microusd)} credits used`,
+  );
+  console.log(
+    `Credit bank: ${formatMicrousd(position.bank.balance_microusd)} credits available`,
+  );
+  if (position.entries.length === 0) {
+    console.log("Activity:    none");
+    return;
+  }
+  console.log("Activity:");
+  for (const entry of position.entries) {
+    const sign = entry.amount_microusd >= 0 ? "+" : "";
+    const detail = entry.payment_method ? ` via ${entry.payment_method}` : "";
+    console.log(
+      `- ${sign}${formatMicrousd(entry.amount_microusd)} ${entry.entry_kind}${detail} · ${new Date(entry.created_at * 1000).toISOString()}`,
+    );
+  }
+}
+
+function formatCredits(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
+function formatMicrousd(value: number): string {
+  return formatCredits(value / 10_000);
 }

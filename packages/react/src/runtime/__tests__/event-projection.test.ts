@@ -123,6 +123,162 @@ describe("projectAssistantMessages", () => {
     ]);
   });
 
+  it("groups legacy null-turn tools and answers by their preceding user message", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message", null),
+        type: "message",
+        sender: "user",
+        content: "first",
+      },
+      {
+        ...meta(2, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "first-tool-1",
+        tool_name: "search",
+        tool_result: ["Search", '{"matches":2}'],
+      },
+      {
+        ...meta(3, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "first-tool-2",
+        tool_name: "inspect",
+        tool_result: ["Inspect", '{"valid":true}'],
+      },
+      {
+        ...meta(4, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "First answer",
+      },
+      {
+        ...meta(5, "message", null),
+        type: "message",
+        sender: "user",
+        content: "second",
+      },
+      {
+        ...meta(6, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "second-tool",
+        tool_name: "quote",
+        tool_result: ["Quote", '{"price":"1"}'],
+      },
+      {
+        ...meta(7, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "Second answer",
+      },
+    ];
+
+    const firstPage = projectAssistantMessages(events.slice(0, 4));
+    const projected = projectAssistantMessages(events);
+
+    expect(projected).toHaveLength(4);
+    expect(projected[1]).toMatchObject({
+      id: firstPage[1]?.id,
+      role: "assistant",
+      content: [
+        { type: "tool-call", toolName: "search", result: { matches: 2 } },
+        { type: "tool-call", toolName: "inspect", result: { valid: true } },
+        { type: "text", text: "First answer" },
+      ],
+    });
+    expect(projected[3]).toMatchObject({
+      role: "assistant",
+      content: [
+        { type: "tool-call", toolName: "quote", result: { price: "1" } },
+        { type: "text", text: "Second answer" },
+      ],
+    });
+  });
+
+  it("keeps explicit turn ids authoritative and deduplicates null-turn typed completions", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "canonical-turn"),
+        type: "message",
+        sender: "agent",
+        content: "Canonical",
+      },
+      {
+        ...meta(2, "message", null),
+        type: "message",
+        sender: "user",
+        content: "legacy",
+      },
+      {
+        ...meta(3, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "inline-quote",
+        tool_name: "quote",
+        tool_result: ["Quote", '{"price":"old"}'],
+      },
+      {
+        ...meta(4, "tool_complete", null),
+        type: "tool_complete",
+        id: "quote",
+        call_id: "typed-quote",
+        tool_name: "quote",
+        result: { price: "new" },
+      },
+    ];
+
+    const projected = projectAssistantMessages(events);
+    expect(projected[0]?.id).toBe("turn:canonical-turn");
+    expect(projected[2]?.content).toEqual([
+      {
+        type: "tool-call",
+        toolCallId: "typed-quote",
+        toolName: "quote",
+        args: undefined,
+        result: { price: "new" },
+      },
+    ]);
+  });
+
+  it("starts a new legacy group after a user message with an explicit turn id", () => {
+    const projected = projectAssistantMessages([
+      {
+        ...meta(1, "message", null),
+        type: "message",
+        sender: "user",
+        content: "legacy",
+      },
+      {
+        ...meta(2, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "Legacy answer",
+      },
+      {
+        ...meta(3, "message", "canonical-turn"),
+        type: "message",
+        sender: "user",
+        content: "canonical request",
+      },
+      {
+        ...meta(4, "message", null),
+        type: "message",
+        sender: "agent",
+        content: "Imported answer after canonical user",
+      },
+    ]);
+
+    expect(projected).toHaveLength(4);
+    expect(projected[1]?.id).toBe("turn:legacy:event-1");
+    expect(projected[3]?.id).toBe("turn:legacy:event-3");
+  });
+
   it("keeps an inline tool's trace when a different tool completed typed in the same turn", () => {
     const events: Event[] = [
       {

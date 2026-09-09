@@ -4,7 +4,7 @@ import { launchConfig } from "@portal/server/bff/launch/config";
 import { portalFailures } from "@portal/server/bff/failures";
 import { widgetPreflight, widgetRoute } from "@portal/server/widget-auth/response";
 
-export const ALLOWED_ROUTES: AllowedRoute[] = [
+const ALLOWED_ROUTES: AllowedRoute[] = [
   {
     pattern: /^\/api\/account(\/.*)?$/,
     methods: new Set(["GET", "POST", "PATCH", "PUT", "DELETE"]),

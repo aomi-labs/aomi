@@ -49,7 +49,7 @@ export interface UsagePayment {
   settledVia: string;
   allowanceCredits: UsageAllowance;
   allowanceAppliedUsd: number;
-  x402SettledUsd: number;
+  creditBankAppliedUsd: number;
   onchainUsd: number;
   onchainNote: string;
 }

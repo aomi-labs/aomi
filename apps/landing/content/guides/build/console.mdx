@@ -1,0 +1,90 @@
+---
+title: Builder Console
+description: Manage Aomi projects, platforms, deployments, and environments in Aomi Build.
+---
+
+# Builder Console
+
+[Aomi Build](https://build.aomi.dev) is the control plane for builders. Use it
+to connect a GitHub repository, deploy its Aomi Apps, configure runtime
+environment values, and monitor deployments.
+
+## Choose the right environment
+
+Use staging while testing a repository or a deployment workflow, and use
+production for the live application:
+
+| Environment | Builder console                                          | Backend API                    | Purpose                      |
+| ----------- | -------------------------------------------------------- | ------------------------------ | ---------------------------- |
+| Staging     | [build-staging.aomi.dev](https://build-staging.aomi.dev) | `https://api-staging.aomi.dev` | Test changes and deployments |
+| Production  | [build.aomi.dev](https://build.aomi.dev)                 | `https://api.aomi.dev`         | Live applications            |
+
+Staging and production use separate project registries, applications,
+deployments, credentials, and runtime data. A repository can therefore have a
+separate Project in each environment. A Project created in staging does not
+make an application available in production; deploy the intended commit to
+the intended environment separately.
+
+## Projects and platforms
+
+A **Project** is a GitHub repository connected to Aomi. Each Project is owned
+by one builder and is bound to one deployment platform within that environment.
+The platform determines the platform repository and deployment destination for
+the Project.
+
+**Community** is the default platform for projects that are not associated
+with a partner deployment. Partner platforms use their exact platform name,
+such as `world-market-apps`.
+
+The platform switcher changes which platform's Projects page you are viewing.
+It does not move, copy, or rebind a Project. Once a repository has been
+connected, project-scoped deployment and detail requests use the platform
+stored on that Project.
+
+## Import a repository
+
+1. Sign in to Build with the GitHub account that owns or administers the
+   repository.
+2. Select the exact platform you want to use in the platform switcher. If you
+   are building an unscoped application, use `community`.
+3. Open **New app** and connect the repository.
+4. Complete the deploy flow and configure any required values in the
+   Project's **Environment** tab before activation.
+
+The platform is selected when the Project is created. Changing the platform
+selector later only changes the page filter; it does not change the Project's
+binding.
+
+## When a repository is already connected
+
+If Build says that a repository is already connected but the current Projects
+page is empty, check the selected platform first. This usually means:
+
+```text
+Current page: community
+Existing Project: world-market-apps
+Result: the community list is empty, but importing the same repository reports
+        that it is already connected
+```
+
+Switch to the exact platform named by the existing Project and open that
+Project. Do not create a duplicate Project or assume that changing
+`.aomi/config.json` alone will rebind it. If the repository must move to a
+different platform, ask the platform operator to perform the supported
+rebind/ownership procedure after checking its existing applications and
+deployment history.
+
+## Deployment model
+
+Project creation and deployment are separate steps:
+
+1. Build validates the repository's `.aomi/config.json` and application
+   manifests.
+2. A preflight resolves an immutable source commit.
+3. Deployment builds the listed applications in the selected platform's
+   pipeline.
+4. Activation loads the resulting release into the runtime for that
+   environment.
+
+For a deployment troubleshooting checklist, see [How It Works](/docs/build/how-it-works).
+For the SDK and application structure, see [Getting Started](/docs/build/getting-started).

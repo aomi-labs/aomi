@@ -210,7 +210,13 @@ export function projectAssistantMessages(
   const assistantTurns = new Map<string, AssistantProjection>();
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
-  const turnKey = (event: Event) => event.turn_id ?? `event:${event.event_id}`;
+  let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
+  const turnKeys = events.map((event) => {
+    if (event.type === "message" && event.sender === "user") {
+      legacyTurnKey = `legacy:${event.event_id}`;
+    }
+    return event.turn_id ?? legacyTurnKey;
+  });
   // Inline results only ever arrive as `tool_result` message events, so an
   // inline part may be suppressed only when the SAME tool also produced a
   // typed completion in the turn — suppressing per turn would drop a sync
@@ -218,15 +224,15 @@ export function projectAssistantMessages(
   const typedToolKey = (turn: string, toolName: string) =>
     `${turn}::${toolName}`;
   const typedToolCompletions = new Set(
-    events.flatMap((event) =>
+    events.flatMap((event, index) =>
       event.type === "tool_complete" && event.tool_name !== "task"
-        ? [typedToolKey(turnKey(event), event.tool_name)]
+        ? [typedToolKey(turnKeys[index]!, event.tool_name)]
         : [],
     ),
   );
 
-  const assistantTurn = (event: Event): AssistantProjection => {
-    const key = turnKey(event);
+  const assistantTurn = (event: Event, index: number): AssistantProjection => {
+    const key = turnKeys[index]!;
     const existing = assistantTurns.get(key);
     if (existing) return existing;
     const projection: AssistantProjection = {
@@ -245,17 +251,17 @@ export function projectAssistantMessages(
     return projection;
   };
 
-  for (const event of events) {
+  for (const [index, event] of events.entries()) {
     if (event.type === "message") {
       if (event.sender === "system") continue;
       if (event.sender === "agent") {
-        const projection = assistantTurn(event);
+        const projection = assistantTurn(event, index);
         const key = event.message_key ?? event.event_id;
         const toolResult = inlineToolResult(event);
         if (toolResult) {
           if (
             !typedToolCompletions.has(
-              typedToolKey(turnKey(event), toolResult.toolName),
+              typedToolKey(turnKeys[index]!, toolResult.toolName),
             )
           ) {
             upsertPart(
@@ -277,16 +283,16 @@ export function projectAssistantMessages(
       let projected = toInboundMessage(event, output.length);
       if (!projected) continue;
       const key = event.message_key ?? event.event_id;
-      const index = standaloneMessages.get(key);
-      if (index === undefined) {
+      const existingIndex = standaloneMessages.get(key);
+      if (existingIndex === undefined) {
         if (projected.role === "user") {
           projected = { ...projected, id: userMessageId(userMessageOrdinal++) };
         }
         standaloneMessages.set(key, output.length);
         output.push(projected);
       } else {
-        const previous = output[index];
-        output[index] =
+        const previous = output[existingIndex];
+        output[existingIndex] =
           projected.role === "user" && previous && !("parts" in previous)
             ? { ...projected, id: previous.id }
             : projected;
@@ -298,7 +304,7 @@ export function projectAssistantMessages(
       (event.type === "tool_update" || event.type === "tool_complete") &&
       event.tool_name !== "task"
     ) {
-      const projection = assistantTurn(event);
+      const projection = assistantTurn(event, index);
       upsertPart(
         projection,
         projection.toolParts,

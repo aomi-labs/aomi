@@ -52,6 +52,7 @@ type ThreadListSidebarProps = React.ComponentProps<typeof Sidebar> & {
   /** Position of the wallet button: "header" (top), "footer" (bottom), or null (hidden) */
   walletPosition?: "header" | "footer" | null;
   walletFamilies?: Array<"evm" | "solana">;
+  walletConnectLabel?: string;
   walletAccountMenu?: WalletAccountMenuOptions;
   /** Products offered in the wordmark dropdown. Pass `null` for a plain wordmark. */
   products?: SidebarProduct[] | null;
@@ -144,6 +145,7 @@ function ProductSwitcher({
 export function ThreadListSidebar({
   walletPosition = "footer",
   walletFamilies,
+  walletConnectLabel,
   walletAccountMenu,
   products = DEFAULT_SIDEBAR_PRODUCTS,
   currentProductId = "chat",
@@ -171,7 +173,11 @@ export function ThreadListSidebar({
             />
           )}
           {walletPosition === "header" && (
-            <ConnectButton families={walletFamilies} accountMenu={walletAccountMenu} />
+            <ConnectButton
+              families={walletFamilies}
+              connectLabel={walletConnectLabel}
+              accountMenu={walletAccountMenu}
+            />
           )}
         </div>
       </SidebarHeader>
@@ -185,6 +191,7 @@ export function ThreadListSidebar({
           <ConnectButton
             className="w-full"
             families={walletFamilies}
+            connectLabel={walletConnectLabel}
             accountMenu={walletAccountMenu}
           />
         </SidebarFooter>

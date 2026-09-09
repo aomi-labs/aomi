@@ -21,6 +21,23 @@ const widgetMock = vi.hoisted(() => ({
 
 vi.mock("@aomi-labs/react", () => ({
   getChainInfo: () => ({ ticker: "ETH" }),
+  useAomiRuntime: () => ({
+    account: {
+      credits: {
+        get: vi.fn(async () => ({
+          period_utc_month: "2026-07",
+          included: {
+            limit_microusd: 100 * 10_000,
+            used_microusd: 12 * 10_000,
+            remaining_microusd: 88 * 10_000,
+          },
+          bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+          entries: [],
+          next_before_id: null,
+        })),
+      },
+    },
+  }),
 }));
 
 vi.mock("@aomi-labs/widget-lib", () => ({
@@ -33,7 +50,33 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
   formatAuthMethod: () => "Wallet",
   useAomiWalletKit: () => ({
-    accountUser: { id: "acct-user-1" },
+    accountUser: { id: "acct-user-1", displayName: "Aron" },
+    accountWallets: [
+      {
+        id: "wallet-rabby",
+        family: "evm",
+        address: "0xabc",
+        label: "Rabby",
+        kind: "external",
+      },
+      {
+        id: "wallet-metamask",
+        family: "evm",
+        address: "0xdef",
+        label: "MetaMask",
+        kind: "external",
+      },
+    ],
+    accounts: [
+      {
+        id: "rabby",
+        family: "evm",
+        address: "0xabc",
+        walletName: "Rabby",
+        active: true,
+        linked: true,
+      },
+    ],
     canConnect: true,
     canOpenAccountUI: true,
     connect: widgetMock.connect,
@@ -53,12 +96,12 @@ vi.mock("./account/use-account-acl", () => ({
   useAccountAcl: () => ({
     status: "ready",
     wallets: [],
-    grants: [],
+    delegatedAccounts: [],
     refresh: vi.fn(),
     commitMode: vi.fn(),
-    revokeGrant: vi.fn(),
+    revokeDelegation: vi.fn(),
     stopAllAuto: vi.fn(),
-    regrant: vi.fn(),
+    renewDelegation: vi.fn(),
     blockedReason: () => null,
   }),
 }));
@@ -82,13 +125,6 @@ const ACCOUNT_OVERVIEW = {
     updated_at: 1_700_000_100,
     user_id: "acct-user-1",
     verified_email: "alice@example.com",
-  },
-  usage: {
-    credit_paid: 100,
-    credit_used: 12,
-    input_tokens: 1234,
-    output_tokens: 5678,
-    period_utc_month: "2026-07",
   },
 };
 
@@ -154,9 +190,10 @@ describe("settings route callers", () => {
 
     render(<GeneralSettings />);
 
-    await waitFor(() =>
-      expect(screen.getByText("alice@example.com")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("Aron")).toBeTruthy());
+    expect(
+      screen.getByText("2 linked wallets · 1 not connected on this device"),
+    ).toBeTruthy();
     expect(screen.getByText("Pro")).toBeTruthy();
     expect(screen.getByText(/88 remaining/)).toBeTruthy();
     expect(screen.getByText(/12 \/ 100 used/)).toBeTruthy();

@@ -1,5 +1,5 @@
 import type {
-  DelegationGrant,
+  DelegatedAccountView,
   LinkedVia,
   SignerMode,
   WalletPolicy,
@@ -20,7 +20,7 @@ export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   {
     id: "auto",
     label: "Bypass permissions",
-    hint: "Aomi signs on your behalf for scheduled and background actions. Requires an active provider grant.",
+    hint: "Aomi signs on your behalf for scheduled and background actions. Requires an active delegated account.",
   },
   {
     id: "denied",
@@ -174,29 +174,30 @@ export function reconcile(wallet: WalletPolicy): Recon {
         detail: "Your wallet auto-signs each transaction.",
       };
     case "auto":
-      return wallet.grantActive
+      return wallet.delegationActive
         ? {
             status: "reconciled",
-            detail: `Grant valid to ${wallet.grantExpiresLabel ?? "—"}.`,
+            detail: `Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}.`,
           }
         : {
             status: "drifted",
-            detail: "Bypass permissions is set, but the provider grant expired.",
-            action: "Renew grant",
+            detail: "Bypass permissions is set, but the delegation expired.",
+            action: "Renew delegation",
           };
   }
 }
 
-export function findGrantForWallet(
-  grants: DelegationGrant[],
+export function findDelegationForWallet(
+  delegatedAccounts: DelegatedAccountView[],
   wallet: WalletPolicy,
-): DelegationGrant | undefined {
+): DelegatedAccountView | undefined {
   const short = shortenAddress(wallet.address);
-  return grants.find(
-    (g) =>
-      g.scope.includes(wallet.address) ||
-      g.scope.includes(short) ||
-      (wallet.provider !== undefined && g.providerKey === wallet.provider),
+  return delegatedAccounts.find(
+    (delegation) =>
+      delegation.scope.includes(wallet.address) ||
+      delegation.scope.includes(short) ||
+      (wallet.provider !== undefined &&
+        delegation.providerKey === wallet.provider),
   );
 }
 
@@ -206,9 +207,9 @@ export function walletStatusLabel(
   pending: boolean,
 ): string {
   if (pending) return "Awaiting signature";
-  if (recon.status === "drifted") return "Grant expired";
-  if (wallet.desiredMode === "auto" && wallet.grantActive) {
-    return `Grant valid to ${wallet.grantExpiresLabel ?? "—"}`;
+  if (recon.status === "drifted") return "Delegation expired";
+  if (wallet.desiredMode === "auto" && wallet.delegationActive) {
+    return `Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}`;
   }
   return modeLabel(wallet.desiredMode);
 }

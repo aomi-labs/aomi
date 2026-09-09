@@ -268,7 +268,7 @@ export const auth = betterAuth({
             resources: seedOAuthResources
               ? resourcePolicies.map((policy) => ({
                   identifier: policy.identifier,
-                  allowedScopes: [...policy.allowedScopes, "offline_access"],
+                  allowedScopes: [...policy.grantableScopes],
                   accessTokenTtl: 5 * 60,
                   dpopBoundAccessTokensRequired:
                     policy.dpopBoundAccessTokensRequired,

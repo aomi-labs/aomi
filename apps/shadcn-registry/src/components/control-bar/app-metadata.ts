@@ -65,6 +65,11 @@ const APP_DISPLAY_NAMES: Record<string, Omit<AppInfo, "id">> = {
     abbr: "B",
     category: APP_CATEGORIES.cex,
   },
+  cambrian: {
+    displayName: "Cambrian",
+    abbr: "Ca",
+    category: APP_CATEGORIES.analytics,
+  },
   cow: {
     displayName: "CoW Protocol",
     abbr: "CoW",
@@ -135,6 +140,11 @@ const APP_DISPLAY_NAMES: Record<string, Omit<AppInfo, "id">> = {
     abbr: "M",
     category: APP_CATEGORIES.yield,
   },
+  "morpho-vaults": {
+    displayName: "Morpho Vaults",
+    abbr: "MV",
+    category: APP_CATEGORIES.yield,
+  },
   neynar: {
     displayName: "Neynar",
     abbr: "N",
@@ -180,6 +190,11 @@ const APP_DISPLAY_NAMES: Record<string, Omit<AppInfo, "id">> = {
     abbr: "PR",
     category: APP_CATEGORIES.prediction,
   },
+  vaultsfyi: {
+    displayName: "vaults.fyi",
+    abbr: "VF",
+    category: APP_CATEGORIES.yield,
+  },
   x: {
     displayName: "X",
     abbr: "X",
@@ -212,6 +227,9 @@ const APP_ALIASES: Record<string, string> = {
   "para-customer": "para",
   para_consumer: "para-consumer",
   polymarket_rewards: "polymarket-rewards",
+  morpho_vaults: "morpho-vaults",
+  "vaults.fyi": "vaultsfyi",
+  "vaults-fyi": "vaultsfyi",
   twitter: "x",
 };
 

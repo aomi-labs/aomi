@@ -19,10 +19,11 @@ memory for the life of the client.
 
 ## Pick an authentication path
 
-| Path  | Use it when                                     | Example                                                                                             |
-| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Guest | The operation is available without an account   | [`src/agent/guest.ts`](./src/agent/guest.ts) and [`src/pipeline/guest.ts`](./src/pipeline/guest.ts) |
-| OAuth | A user authorizes a CLI, bot, or server process | [`src/oauth/device.ts`](./src/oauth/device.ts) · `pnpm example:oauth`                               |
+| Path            | Use it when                                           | Example                                                                                             |
+| --------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Guest           | The operation is available without an account         | [`src/agent/guest.ts`](./src/agent/guest.ts) and [`src/pipeline/guest.ts`](./src/pipeline/guest.ts) |
+| OAuth           | A user authorizes a CLI, bot, or server process       | [`src/oauth/device.ts`](./src/oauth/device.ts) · `pnpm example:oauth`                               |
+| Account credits | A signed-in process reads or purchases durable credit | [`src/account/credits.ts`](./src/account/credits.ts) · `pnpm example:account:credits`               |
 
 The OAuth example uses a provisioned public client and device login—never a
 client secret. Set the environment-specific public client ID before running it:
@@ -80,6 +81,40 @@ non-exportable DPoP keys and intentionally remains memory-only.
 - [`src/wallet-terminal.ts`](./src/wallet-terminal.ts) adds a local Viem wallet
   adapter and requires manual approval for every Action. Run it with
   `pnpm example:wallet-terminal`.
+- [`src/account/credits.ts`](./src/account/credits.ts) reads the monthly
+  allowance, Credit Bank balance, debt, and recent activity.
+  Set `AOMI_TOP_UP_CREDITS` to purchase credits through the SDK's normal x402
+  wallet path. The account bearer and private key are read from the environment
+  and are never printed or persisted by the example.
+
+## Account credits
+
+The high-level SDK keeps billing under the account it belongs to:
+
+```ts
+const position = await aomi.account.credits.get({ limit: 25 });
+const topUp = await aomi.account.credits.topUp({
+  credits: 100,
+  idempotencyKey: crypto.randomUUID(),
+});
+```
+
+There is no separate debt-payment endpoint. The Credit Bank position reports
+any outstanding usage debt, while paid Agent and Pipeline requests satisfy an
+x402 challenge automatically through the same wallet transport. A top-up
+creates a durable balance for subsequent usage.
+
+For the runnable top-up example, use a short-lived signed-in account bearer and
+a funded throwaway EVM development wallet:
+
+```sh
+AOMI_BASE_URL=http://localhost:3000 \
+AOMI_ACCOUNT_BEARER="$AOMI_ACCOUNT_BEARER" \
+AOMI_PRIVATE_KEY="$AOMI_PRIVATE_KEY" \
+AOMI_TOP_UP_CREDITS=100 \
+AOMI_PAYMENT_CHAIN_ID=84532 \
+pnpm example:account:credits
+```
 
 ## Optional Pipeline walkthrough
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AOMI_SCOPES,
   MCP_CLIENT_REGISTRATION_SCOPES,
+  OFFLINE_ACCESS_SCOPE,
   narrowScopesForAomiResource,
   aomiOAuthResourcePolicies,
   aomiOAuthResources,
@@ -131,11 +132,50 @@ describe("Aomi OAuth resource policy", () => {
   it("narrows to nothing when no requested scope suits the resource", () => {
     const resources = aomiOAuthResources(env);
     expect(
-      narrowScopesForAomiResource(resources.agentMcp, ["pipeline:execute"], env),
+      narrowScopesForAomiResource(
+        resources.agentMcp,
+        ["pipeline:execute"],
+        env,
+      ),
     ).toEqual([]);
-    expect(
-      narrowScopesForAomiResource(resources.agentMcp, [], env),
-    ).toEqual([]);
+    expect(narrowScopesForAomiResource(resources.agentMcp, [], env)).toEqual(
+      [],
+    );
+  });
+
+  // Regression: the protected-resource metadata and the WWW-Authenticate
+  // challenge both advertise a resource's scope set, and a client asks for
+  // exactly what it is shown. Advertising only the API capabilities meant no
+  // client ever requested `offline_access`, no grant carried a refresh token,
+  // and every MCP session died at the five-minute access-token expiry with
+  // nothing to refresh. What a grant may carry has to be one derived set.
+  it("keeps offline_access in every resource's grantable scopes", () => {
+    for (const policy of aomiOAuthResourcePolicies(env)) {
+      expect(policy.grantableScopes).toContain(OFFLINE_ACCESS_SCOPE);
+      expect(policy.grantableScopes).toEqual([
+        ...policy.allowedScopes,
+        OFFLINE_ACCESS_SCOPE,
+      ]);
+      // The advertised set must survive its own narrowing and validation, or
+      // a client that asks for exactly what it was shown is refused.
+      const narrowed = narrowScopesForAomiResource(
+        policy.identifier,
+        [...policy.grantableScopes],
+        env,
+      );
+      expect(narrowed).toEqual([...policy.grantableScopes]);
+      expect(
+        validateAomiResourceScopes(policy.identifier, narrowed, env).ok,
+      ).toBe(true);
+    }
+  });
+
+  // offline_access buys a refresh token; it is never an API capability, so it
+  // must stay out of the ceiling that bounds what a principal may do.
+  it("keeps offline_access out of the capability ceiling", () => {
+    for (const policy of aomiOAuthResourcePolicies(env)) {
+      expect(policy.allowedScopes).not.toContain(OFFLINE_ACCESS_SCOPE);
+    }
   });
 
   it("refuses the union of every scope against one MCP resource", () => {

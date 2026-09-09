@@ -48,11 +48,15 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         applicationId,
         children,
         showSidebar,
+        persistThread,
+        threadPersistenceScope,
       }: {
         accountSessionAvailable: boolean;
         applicationId?: string | null;
         children?: React.ReactNode;
         showSidebar?: boolean;
+        persistThread?: boolean;
+        threadPersistenceScope?: string | null;
       }) => {
         const [instance] = React.useState(() => ++frameInstances.next);
         // Renders children: the real Root mounts the Aomi runtime around
@@ -63,6 +67,8 @@ vi.mock("@aomi-labs/widget-lib", async () => {
             data-application-id={applicationId ?? ""}
             data-instance={instance}
             data-show-sidebar={String(showSidebar)}
+            data-persist-thread={String(persistThread)}
+            data-thread-persistence-scope={threadPersistenceScope ?? ""}
             data-testid="aomi-frame"
           >
             {children}
@@ -182,9 +188,13 @@ describe("PortalAomiFrame account bootstrap", () => {
       "data-account-session-available",
       "false",
     );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-persist-thread",
+      "false",
+    );
   });
 
-  it("preserves the anonymous frame when sign-in establishes an account", async () => {
+  it("isolates anonymous threads when sign-in establishes an account", async () => {
     walletKitState.current = {
       accountStatus: "error",
       accountUser: undefined,
@@ -202,12 +212,20 @@ describe("PortalAomiFrame account bootstrap", () => {
       view.rerender(<PortalAomiFrame />);
     });
 
-    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+    expect(screen.getByTestId("aomi-frame")).not.toHaveAttribute(
       "data-instance",
       initialInstance,
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-account-session-available",
+      "true",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-thread-persistence-scope",
+      "acct-a",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-persist-thread",
       "true",
     );
   });

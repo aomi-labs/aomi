@@ -1,5 +1,43 @@
 # Canonical Landing
 
+Current session goal: **LEGACY AGENT TRACE GROUPING VERIFIED 2026-09-07** —
+group null-turn historical Agent tool steps and final answers by their preceding
+user message while preserving canonical turn identities and stable pagination.
+
+Current session goal: **LEAN PAYMENT REVIEW FRONTEND CONSUMER FIXES VERIFIED
+2026-09-06** — SDK BYOK routes and response shapes use `/api/account/model-keys`,
+Agent and CLI calls can explicitly select `user_byok`, Portal credit top-ups
+retain one account-scoped idempotency key through uncertain outcomes, and the
+Portal uses the shared SDK credit transport and x402 signer. Client/React/Portal
+typechecks, focused tests, package builds, and npm dry-run audits pass.
+
+Current session goal: **PAYMENT BOUNDARY REVIEW FIXES VERIFIED 2026-09-04** —
+paginate complete monthly statements, report allowance and Credit Bank debits as
+separate account-funding buckets, classify anonymous widget principals as
+guests, derive receipt explorers from the settled network, and return the final
+bounded x402 challenge to callers. The branch is rebased onto the OAuth refresh
+fixes on `main`, preserving `offline_access` and refresh-resource inheritance.
+Portal/client tests, lint, formatting, and typechecks pass. The publishable
+client is patch-bumped to `@aomi-labs/client@0.6.11`.
+
+Current session goal: **LEAN PAYMENT BOUNDARY IMPLEMENTED AND LOCALLY VERIFIED
+2026-09-03** — move public execution admission, customer-rate accounting, and
+Credit Bank ownership into api-server; persist correlated raw usage before
+completion; remove runtime pricing and child admission; and expose the paired
+account, SDK, CLI, OpenAPI, and Portal contracts. The payment-aligned Credit
+Bank disclosure and top-up review UI are restored, with one credit as the
+minimum purchase. Capped Rust and TypeScript checks, focused Portal/client
+tests, a live Base Sepolia one-credit x402 settlement, idempotent replay, and
+database postconditions pass. The publishable client is patch-bumped to
+`@aomi-labs/client@0.6.10`; paired backend and frontend draft PRs are prepared
+for review. A final behavior-preserving cleanup removed the duplicate Diesel
+lease projection, centralized UTC billing-month calculation, moved lease
+acquisition onto its owning payment service, and split both oversized Portal
+account/payment components below the 500-line limit. Rust fmt, clippy, compile,
+and 201 affected-package tests pass; Portal typecheck and 457 tests, client
+typecheck/build and 265 tests, plus the widget build and 93 changed/artifact
+tests pass with capped concurrency.
+
 Current session goal: **PROVIDER AND DEVICE AUTH RECOVERY LOCALLY VERIFIED
 2026-09-02** — `/device-auth` and `/oauth/device` now select Para or Privy at
 the single root wallet-provider boundary, OAuth device decisions claim and
@@ -9,11 +47,11 @@ legacy CLI grants/link intents use encrypted five-minute one-time
 `ba_verifications` records instead of process-local maps. Portal lint,
 typecheck, all 468 tests, 139 account tests, and six disposable-PostgreSQL
 integration tests pass, including real Agent REST and Pipeline REST Better
-Auth flows from DCR through authenticated claim, approval, and token. Public clients are exact-resource-bound without
-widening resource-less Codex registration, and provider/link records survive
-cross-instance exchange with atomic replay protection. Live provider
-credentials and staging were intentionally not exercised in this isolated
-implementation slice.
+Auth flows from DCR through authenticated claim, approval, and token. Public
+clients are exact-resource-bound without widening resource-less Codex
+registration, and provider/link records survive cross-instance exchange with
+atomic replay protection. Live provider credentials and staging were
+intentionally not exercised in this isolated implementation slice.
 
 Current session goal: **CLI AGENT CHAT AUTH, ORDER, AND TOOL TRACES VERIFIED
 2026-08-31** — anonymous Agent and Pipeline calls now receive a guest bearer
@@ -43,6 +81,15 @@ arguments, and parsed result. Typed `tool_complete` events take precedence for
 the turn, so the compatibility path does not duplicate traces after the backend
 cutover. Focused React tests, library typecheck, lint, formatting, build, and
 package dry-run inspection pass.
+
+Current session goal: **CANONICAL CROSS-CHAIN ACCOUNT MODEL IMPLEMENTED AND
+LOCALLY VERIFIED 2026-08-26** — portal account settings and the TypeScript
+client consume the single `GET /api/account` `AccountProfile` response. Legacy
+wallet/grant routes and fields are removed from consumers while signing mode
+changes, exact-address delegation history, revoke/regrant, Para agent
+provisioning, drift warnings, and SVM binding remain intact. Portal tests,
+typecheck, focused ESLint/Prettier, client build, and generated OpenAPI contract
+checks pass. No package was published and no hosted database was changed.
 
 Current session goal: **PRIVY LOGIN POLICY DRIFT FIXED 2026-08-30** — the
 portal no longer hard-codes login methods into Privy's modal. The Privy app
@@ -142,7 +189,6 @@ around the Human Interface demo, stop global pressed-button styling from leaking
 into widget traces, keep the footer mark and wordmark the same color, and restore
 Sign-stage text contrast in dark mode. Verified in Playwright in light and dark
 themes at desktop and 390px widths; landing lint and production build pass.
-
 Current session goal: **CANONICAL LANDING IMPLEMENTATION CLEANUP VERIFIED
 2026-08-25** — remove migration-era version names and generated-export
 scaffolding from the one production landing implementation, give every retained

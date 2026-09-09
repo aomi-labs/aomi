@@ -120,7 +120,7 @@ export function AomiWalletKitComposer({
     const walletModalRows = mergeWalletRows({
       accounts,
       storedWallets: account.wallets,
-      canLinkWallet: Boolean(account.linkWallet),
+      canLinkWallet: Boolean(account.linkWallet) && account.status === "ready",
       auth,
       options: [...evmWalletOptions, ...svmWalletOptions, ...auth.methods],
     });
@@ -165,9 +165,13 @@ export function AomiWalletKitComposer({
       walletModalRows,
       accountStatus: account.status,
       accountError: account.error,
-      accountUser: account.user,
-      accountLinkedAccounts: account.linkedAccounts,
-      accountWallets: account.wallets,
+      accountGuest: account.guest,
+      // Temporary Better Auth guests are a transport principal, never an
+      // account-management principal. Keep that boundary at the adapter too,
+      // so stale or non-canonical account responses cannot expose guest chrome.
+      accountUser: account.guest ? undefined : account.user,
+      accountLinkedAccounts: account.guest ? [] : account.linkedAccounts,
+      accountWallets: account.guest ? [] : account.wallets,
       signOutAccount: account.signOut,
       deleteAccount: account.deleteAccount,
       updateAccount: account.updateAccount,
@@ -214,6 +218,7 @@ export function AomiWalletKitComposer({
     account.linkedAccounts,
     account.status,
     account.error,
+    account.guest,
     account.deleteAccount,
     account.updateAccount,
     account.linkWallet,

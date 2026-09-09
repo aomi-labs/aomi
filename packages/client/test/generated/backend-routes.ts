@@ -4,479 +4,9 @@ import type { AomiEndpointSpec } from "../routes";
 
 export const AOMI_BACKEND_ENDPOINTS = [
   {
-    method: "DELETE",
-    path: "/api/_internal/agent/sessions/:thread_id",
-    auth: ["delegated"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/_internal/secrets",
-    auth: ["service"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/app-keys/:key_hash",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/bots/:id",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/payment/byok/:provider",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/payment/tempo",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/providers/:provider/grant",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/scheduled-intents/:id",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/integrations/github-app/user/bots/:bot_id",
-    auth: ["service"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/integrations/github-app/user/model-keys/:key_id",
-    auth: ["service"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/integrations/github-app/user/projects/:id/bots/:bot_id",
-    auth: ["service"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/platforms/:name/tokens/:id",
-    auth: ["activation"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/secrets",
-    auth: ["thread"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/secrets/:name",
-    auth: ["thread"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/threads/:thread_id",
-    auth: ["account","thread"],
-  },
-  {
     method: "GET",
-    path: "/api/_internal/agent/sessions",
-    auth: ["delegated"],
-  },
-  {
-    method: "GET",
-    path: "/api/_internal/agent/sessions/:thread_id",
-    auth: ["delegated"],
-  },
-  {
-    method: "GET",
-    path: "/api/_internal/agent/sessions/:thread_id/delta",
-    auth: ["delegated"],
-  },
-  {
-    method: "GET",
-    path: "/api/_internal/secrets",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/account",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/app-keys",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/apps",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/bots",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/grants",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/payment",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/scheduled-intents",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/scheduled-intents/:id",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/statement",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/status",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/usage",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/wallets",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/app-store",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/apps/public",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/release",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/skills",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/admin/skills/:id",
-    auth: ["admin"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id/detail",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/builder/applications/:application_id/tools/:tool/trace",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/oauth/callback",
+    path: "/health",
     auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/oauth/exchange",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/oauth/result",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/oauth/start",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/bots",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/deployments",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/logs",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/model-keys",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/observability",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/payments",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/apps",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/bots",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/deployments",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/deployments/:deployment",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/latest-deployment",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/logs",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/observability",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/required-secrets",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/sdk-upgrade-status",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/statement",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/transactions",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/projects/:id/usage",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/statement",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/transactions",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/integrations/github-app/user/usage",
-    auth: ["service"],
-  },
-  {
-    method: "GET",
-    path: "/api/openapi.json",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/apps",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/apps/:app",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/apps/:app/records",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/deployments/:deployment/status",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/:name/tokens",
-    auth: ["activation"],
-  },
-  {
-    method: "GET",
-    path: "/api/platforms/server-tags",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/apps",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/apps/:app",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/search/apps",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/search/tools",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/skills",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/skills/:skill_id",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/tools",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/resource/tools/:tool_id",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/secrets",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/skills",
-    auth: [],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/apps",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/events",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/models",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/runtime/models",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/updates",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/threads",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/threads/:thread_id",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/widget/v1/aa-operations/:operation_id",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/widget/v1/execution-profile",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/widget/v1/signing-requests",
-    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -485,7 +15,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/health",
+    path: "/api/openapi.json",
     auth: [],
   },
   {
@@ -494,34 +24,99 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
-    method: "PATCH",
-    path: "/api/_internal/agent/sessions/:thread_id",
-    auth: ["delegated"],
+    method: "POST",
+    path: "/api/exec/simulate",
+    auth: ["thread"],
   },
   {
-    method: "PATCH",
-    path: "/api/integrations/github-app/user/bots/:bot_id",
+    method: "POST",
+    path: "/api/exec/tool-call",
+    auth: ["account", "thread", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/exec/run",
+    auth: ["account", "thread", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/evm/build",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/evm/stage",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/evm/simulate",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/evm/commit",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/svm/build",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/svm/stage",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/svm/simulate",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/svm/commit",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/apps/{app}/operations/{operation}",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/pipeline/skills/{skill}/operations/{operation}",
+    auth: ["account", "app_gate", "delegated"],
+  },
+  {
+    method: "GET",
+    path: "/api/widget/v1/execution-profile",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "PUT",
+    path: "/api/widget/v1/aa-accounts/{chain_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/widget/v1/aa-operations/{operation_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/widget/v1/signing-requests",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/widget/v1/signing-requests/{request_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/_internal/secrets",
     auth: ["service"],
-  },
-  {
-    method: "PATCH",
-    path: "/api/threads/:thread_id",
-    auth: ["account","thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/_internal/agent/sessions/:thread_id/actions/:action_id/result",
-    auth: ["delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/_internal/agent/sessions/:thread_id/interrupt",
-    auth: ["delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/_internal/agent/turns",
-    auth: ["delegated","app_gate"],
   },
   {
     method: "POST",
@@ -529,8 +124,103 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
+    method: "DELETE",
+    path: "/api/_internal/secrets",
+    auth: ["service"],
+  },
+  {
     method: "POST",
-    path: "/api/account/app-keys",
+    path: "/api/auth/privy/begin",
+    auth: ["thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/auth/privy/callback",
+    auth: [],
+  },
+  {
+    method: "POST",
+    path: "/api/auth/para/begin",
+    auth: ["thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/auth/para/callback",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/secrets",
+    auth: ["thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/secrets",
+    auth: ["thread"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/secrets",
+    auth: ["thread"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/secrets/{name}",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/threads",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/threads",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/threads/{thread_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "PATCH",
+    path: "/api/threads/{thread_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/threads/{thread_id}",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/threads/{thread_id}/archive",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/threads/{thread_id}/unarchive",
+    auth: ["account", "thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/account",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/apps",
+    auth: ["account"],
+  },
+  {
+    method: "PUT",
+    path: "/api/account/apps",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/status",
     auth: ["account"],
   },
   {
@@ -545,32 +235,257 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/account/providers/{provider}/agent-wallet",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/providers/{provider}/delegation",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/{provider}/attach/prepare",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/{provider}/attach/confirm",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/{provider}/revoke/prepare",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/{provider}/revoke/confirm",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/scheduled-intents",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/scheduled-intents/{id}",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/scheduled-intents/{id}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/app-keys",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/app-keys",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/app-keys/{key_hash}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
     path: "/api/account/bots",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/payment/byok",
+    path: "/api/account/bots",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/bots/{id}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/payment/tempo",
+    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {
-    method: "POST",
-    path: "/api/account/providers/:provider/agent-wallet",
+    method: "DELETE",
+    path: "/api/account/model-keys/{provider}",
     auth: ["account"],
   },
   {
+    method: "GET",
+    path: "/api/resource/apps",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/apps/{app}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/tools",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/tools/{tool_id}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/skills",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/skills/{skill_id}",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/search/apps",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/resource/search/tools",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/updates",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/events",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/apps",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/runtime/models",
+    auth: ["thread"],
+  },
+  {
     method: "POST",
-    path: "/api/admin/apps/:app/reload",
+    path: "/api/thread/runtime/model",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/models",
+    auth: ["thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/thread/model",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/apps",
+    auth: ["activation"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/apps/{app}",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/_internal/agent/turns",
+    auth: ["delegated", "app_gate"],
+  },
+  {
+    method: "GET",
+    path: "/api/_internal/agent/sessions",
+    auth: ["delegated"],
+  },
+  {
+    method: "GET",
+    path: "/api/_internal/agent/sessions/{thread_id}",
+    auth: ["delegated"],
+  },
+  {
+    method: "PATCH",
+    path: "/api/_internal/agent/sessions/{thread_id}",
+    auth: ["delegated"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/_internal/agent/sessions/{thread_id}",
+    auth: ["delegated"],
+  },
+  {
+    method: "GET",
+    path: "/api/_internal/agent/sessions/{thread_id}/delta",
+    auth: ["delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/_internal/agent/sessions/{thread_id}/interrupt",
+    auth: ["delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/_internal/agent/sessions/{thread_id}/actions/{action_id}/result",
+    auth: ["delegated"],
+  },
+  {
+    method: "POST",
+    path: "/api/bots/telegram/{webhook_secret}",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/admin/app-store",
+    auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/admin/release",
     auth: ["admin"],
   },
   {
     method: "POST",
     path: "/api/admin/release/sentry-smoke",
+    auth: ["admin"],
+  },
+  {
+    method: "POST",
+    path: "/api/admin/apps/{app}/reload",
+    auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/admin/apps/public",
+    auth: ["admin"],
+  },
+  {
+    method: "PUT",
+    path: "/api/admin/apps/public",
+    auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/admin/skills",
     auth: ["admin"],
   },
   {
@@ -584,44 +499,59 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["admin"],
   },
   {
-    method: "POST",
-    path: "/api/auth/para/begin",
-    auth: ["thread"],
+    method: "GET",
+    path: "/api/admin/skills/{id}",
+    auth: ["admin"],
   },
   {
-    method: "POST",
-    path: "/api/auth/para/callback",
+    method: "PUT",
+    path: "/api/admin/skills/{id}",
+    auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/skills",
     auth: [],
   },
   {
     method: "POST",
-    path: "/api/auth/privy/begin",
-    auth: ["thread"],
+    path: "/api/system",
+    auth: ["account", "thread"],
   },
   {
-    method: "POST",
-    path: "/api/auth/privy/callback",
+    method: "GET",
+    path: "/api/integrations/github-app/oauth/start",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/oauth/callback",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/oauth/result",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms",
+    auth: [],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/server-tags",
     auth: [],
   },
   {
     method: "POST",
-    path: "/api/bots/telegram/:webhook_secret",
+    path: "/api/integrations/github-app/webhook",
     auth: [],
   },
   {
-    method: "POST",
-    path: "/api/exec/run",
-    auth: ["account","thread","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/exec/simulate",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/exec/tool-call",
-    auth: ["account","thread","app_gate","delegated"],
+    method: "GET",
+    path: "/api/integrations/github-app/oauth/exchange",
+    auth: ["service"],
   },
   {
     method: "POST",
@@ -629,13 +559,183 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/builder/applications/{application_id}",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/deployments",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/latest-deployment",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/required-secrets",
+    auth: ["service"],
+  },
+  {
     method: "POST",
-    path: "/api/integrations/github-app/platforms/:name/projects/create-from-template",
-    auth: ["activation"],
+    path: "/api/integrations/github-app/user/projects/{id}/sdk-upgrade",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/sdk-upgrade-status",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/deployments",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/promote",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}/refresh",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/{id}/releases/activate",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/{id}/deployments/import",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/apps",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/transactions",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/usage",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/logs",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/observability",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/observability",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/payments",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/transactions",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/statement",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/usage",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/logs",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/statement",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/builder/applications/{application_id}/detail",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/builder/applications/{application_id}/tools/{tool}/trace",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/{id}/bots",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/{id}/bots",
+    auth: ["service"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/integrations/github-app/user/projects/{id}/bots/{bot_id}",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/bots",
+    auth: ["service"],
   },
   {
     method: "POST",
     path: "/api/integrations/github-app/user/bots",
+    auth: ["service"],
+  },
+  {
+    method: "PATCH",
+    path: "/api/integrations/github-app/user/bots/{bot_id}",
+    auth: ["service"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/integrations/github-app/user/bots/{bot_id}",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/model-keys",
     auth: ["service"],
   },
   {
@@ -644,213 +744,113 @@ export const AOMI_BACKEND_ENDPOINTS = [
     auth: ["service"],
   },
   {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/bots",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/deployments/:deployment/promote",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/deployments/:deployment/refresh",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/deployments/import",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/releases/activate",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/user/projects/:id/sdk-upgrade",
-    auth: ["service"],
-  },
-  {
-    method: "POST",
-    path: "/api/integrations/github-app/webhook",
-    auth: [],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/apps/:app/operations/:operation",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/evm/build",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/evm/commit",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/evm/simulate",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/evm/stage",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/skills/:skill/operations/:operation",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/svm/build",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/svm/commit",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/svm/simulate",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/pipeline/svm/stage",
-    auth: ["account","app_gate","delegated"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/activate",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/applications/:application_id/deactivate",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/apps/activate",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/deactivate",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/deployments/:deployment/rerun",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/projects",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id/activate",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/telegram/handover/:bot/:id/revoke",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/platforms/:name/tokens",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/projects/:project_id/deploy",
-    auth: ["activation"],
-  },
-  {
-    method: "POST",
-    path: "/api/secrets",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/system",
-    auth: ["account","thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/thread/model",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/thread/runtime/model",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/threads",
-    auth: ["thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/threads/:thread_id/archive",
-    auth: ["account","thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/threads/:thread_id/unarchive",
-    auth: ["account","thread"],
-  },
-  {
-    method: "POST",
-    path: "/api/widget/v1/signing-requests/:request_id",
-    auth: ["account","thread"],
-  },
-  {
     method: "PUT",
-    path: "/api/account/apps",
-    auth: ["account"],
+    path: "/api/integrations/github-app/user/model-keys/{key_id}",
+    auth: ["service"],
   },
   {
-    method: "PUT",
-    path: "/api/admin/apps/public",
-    auth: ["admin"],
-  },
-  {
-    method: "PUT",
-    path: "/api/admin/skills/:id",
-    auth: ["admin"],
-  },
-  {
-    method: "PUT",
-    path: "/api/integrations/github-app/user/model-keys/:key_id",
+    method: "DELETE",
+    path: "/api/integrations/github-app/user/model-keys/{key_id}",
     auth: ["service"],
   },
   {
     method: "PUT",
-    path: "/api/integrations/github-app/user/model-keys/:key_id/grants",
+    path: "/api/integrations/github-app/user/model-keys/{key_id}/grants",
     auth: ["service"],
   },
   {
-    method: "PUT",
-    path: "/api/widget/v1/aa-accounts/:chain_id",
-    auth: ["account","thread"],
+    method: "POST",
+    path: "/api/integrations/github-app/platforms/{name}/projects/create-from-template",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/activate",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/deactivate",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/projects/{project_id}/deploy",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/apps/activate",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/applications/{application_id}/deactivate",
+    auth: ["activation"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/deployments/{deployment}/status",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/deployments/{deployment}/rerun",
+    auth: ["activation"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/apps/{app}/records",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/projects",
+    auth: ["activation"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/tokens",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/tokens",
+    auth: ["activation"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/platforms/{name}/tokens/{id}",
+    auth: ["activation"],
+  },
+  {
+    method: "GET",
+    path: "/api/platforms/{name}/telegram/handover/{bot}/{id}",
+    auth: ["activation"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke",
+    auth: ["activation-or-wallet"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/telegram/handover",
+    auth: ["activation-or-wallet"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/telegram/handover/nonce",
+    auth: ["wallet"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/telegram/handover/{bot}/{id}/status",
+    auth: ["wallet-session"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate",
+    auth: ["activation-or-wallet"],
   },
 ] as const satisfies readonly AomiEndpointSpec[];

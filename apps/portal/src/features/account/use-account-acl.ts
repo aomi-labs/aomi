@@ -16,13 +16,11 @@ import {
 import { accountScopedFetch } from "@portal/lib/settings-api";
 import {
   explainAccountError,
-  fetchGrants,
-  fetchWalletPolicies,
-  provisionAgentWallet,
-  revokeProviderGrant,
+  fetchAccountAcl,
+  revokeProviderDelegation,
 } from "./account-api";
 import { bindWalletVia } from "./wallet-bind";
-import type { DelegationGrant, SignerMode, WalletPolicy } from "./types";
+import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
 
 const post: AuthorizationPoster = (path, body) =>
   accountScopedFetch(path, { method: "POST", body: JSON.stringify(body) });
@@ -69,24 +67,20 @@ export type AccountAcl = {
   status: AclStatus;
   error?: string;
   wallets: WalletPolicy[];
-  grants: DelegationGrant[];
+  delegatedAccounts: DelegatedAccountView[];
   /** Connected adapter accounts not yet linked via the bind ceremony. */
   unboundWallets: UnboundWallet[];
-  /** Para login wallet exists but no provider-managed agent wallet yet. */
-  needsParaAgentWallet: boolean;
   refresh: () => Promise<void>;
   /** Run the permit ceremony; resolves once the new mode is committed. */
   commitMode: (wallet: WalletPolicy, mode: SignerMode) => Promise<void>;
   /** Link a connected wallet to the account (bind ceremony). */
   bindWallet: (wallet: UnboundWallet) => Promise<"bound" | "already_bound">;
-  /** Provision a Para agent wallet for auto-signing. */
-  provisionParaAgentWallet: () => Promise<void>;
-  revokeGrant: (grant: DelegationGrant) => Promise<void>;
+  revokeDelegation: (delegation: DelegatedAccountView) => Promise<void>;
   stopAllAuto: () => Promise<void>;
   canConnectPrivy: boolean;
   connectPrivy: () => Promise<void>;
-  /** Re-open the provider so a fresh grant can be minted, then reload. */
-  regrant: (wallet: WalletPolicy) => Promise<void>;
+  /** Re-open the provider so a fresh delegation can be established. */
+  renewDelegation: (wallet: WalletPolicy) => Promise<void>;
   /** Why this wallet can't sign the given change right now, or null if it can. */
   blockedReason: (wallet: WalletPolicy, mode: SignerMode) => string | null;
 };
@@ -116,22 +110,14 @@ function unboundFromAccounts(
     }));
 }
 
-function detectNeedsParaAgentWallet(wallets: WalletPolicy[]): boolean {
-  const hasParaLogin = wallets.some(
-    (wallet) => wallet.linkedVia === "para" && !wallet.providerManaged,
-  );
-  const hasParaAgent = wallets.some(
-    (wallet) => wallet.linkedVia === "para" && wallet.providerManaged,
-  );
-  return hasParaLogin && !hasParaAgent;
-}
-
 export function useAccountAcl(): AccountAcl {
   const adapter = useAomiWalletKit();
   const runtime = useOptionalAomiRuntime();
   const privyDelegation = usePrivyDelegation();
   const [wallets, setWallets] = useState<WalletPolicy[]>([]);
-  const [grants, setGrants] = useState<DelegationGrant[]>([]);
+  const [delegatedAccounts, setDelegatedAccounts] = useState<
+    DelegatedAccountView[]
+  >([]);
   const [status, setStatus] = useState<AclStatus>("loading");
   const [error, setError] = useState<string | undefined>();
   const mounted = useRef(true);
@@ -156,20 +142,13 @@ export function useAccountAcl(): AccountAcl {
     () => unboundFromAccounts(adapter.accounts ?? [], wallets),
     [adapter.accounts, wallets],
   );
-  const needsParaAgentWallet = useMemo(
-    () => detectNeedsParaAgentWallet(wallets),
-    [wallets],
-  );
 
   const refresh = useCallback(async () => {
     try {
-      const [nextWallets, nextGrants] = await Promise.all([
-        fetchWalletPolicies(),
-        fetchGrants(),
-      ]);
+      const account = await fetchAccountAcl();
       if (!mounted.current) return;
-      setWallets(nextWallets);
-      setGrants(nextGrants);
+      setWallets(account.wallets);
+      setDelegatedAccounts(account.delegatedAccounts);
       setStatus("ready");
       setError(undefined);
     } catch (cause) {
@@ -197,7 +176,7 @@ export function useAccountAcl(): AccountAcl {
   const blockedReason = useCallback(
     (wallet: WalletPolicy, mode: SignerMode): string | null => {
       if (mode === "auto" && wallet.canUseAuto === false) {
-        return "This wallet has no active delegation grant to sign with.";
+        return "This wallet has no active delegated account to sign with.";
       }
       const signer = signerFor(wallet);
       const chainLabel = wallet.chain === "evm" ? "Ethereum" : "Solana";
@@ -303,15 +282,11 @@ export function useAccountAcl(): AccountAcl {
     ],
   );
 
-  const provisionParaAgentWallet = useCallback(async () => {
-    await readable(() => provisionAgentWallet("para"));
-    await refresh();
-  }, [refresh]);
-
-  const revokeGrant = useCallback(
-    async (grant: DelegationGrant) => {
-      const providerKey = grant.providerKey ?? grant.provider.toLowerCase();
-      await readable(() => revokeProviderGrant(providerKey));
+  const revokeDelegation = useCallback(
+    async (delegation: DelegatedAccountView) => {
+      const providerKey =
+        delegation.providerKey ?? delegation.provider.toLowerCase();
+      await readable(() => revokeProviderDelegation(providerKey));
       await refresh();
     },
     [refresh],
@@ -319,15 +294,18 @@ export function useAccountAcl(): AccountAcl {
 
   const stopAllAuto = useCallback(async () => {
     const providers = new Set(
-      grants
-        .filter((grant) => grant.status === "active")
-        .map((grant) => grant.providerKey ?? grant.provider.toLowerCase()),
+      delegatedAccounts
+        .filter((delegation) => delegation.status === "active")
+        .map(
+          (delegation) =>
+            delegation.providerKey ?? delegation.provider.toLowerCase(),
+        ),
     );
     for (const provider of providers) {
-      await readable(() => revokeProviderGrant(provider));
+      await readable(() => revokeProviderDelegation(provider));
     }
     await refresh();
-  }, [grants, refresh]);
+  }, [delegatedAccounts, refresh]);
 
   const connectPrivy = useCallback(async () => {
     if (!currentThreadId) {
@@ -369,7 +347,7 @@ export function useAccountAcl(): AccountAcl {
     await refresh();
   }, [currentThreadId, privyDelegation, refresh]);
 
-  const regrant = useCallback(
+  const renewDelegation = useCallback(
     async (wallet: WalletPolicy) => {
       if (
         wallet.chain === "evm" &&
@@ -380,7 +358,7 @@ export function useAccountAcl(): AccountAcl {
       }
       if (!openAccountUI) {
         throw new Error(
-          "Reconnect this provider from the wallet menu to mint a new grant.",
+          "Reconnect this provider from the wallet menu to establish a new delegation.",
         );
       }
       await openAccountUI({ family: wallet.chain });
@@ -394,18 +372,16 @@ export function useAccountAcl(): AccountAcl {
       status,
       error,
       wallets,
-      grants,
+      delegatedAccounts,
       unboundWallets,
-      needsParaAgentWallet,
       refresh,
       commitMode,
       bindWallet,
-      provisionParaAgentWallet,
-      revokeGrant,
+      revokeDelegation,
       stopAllAuto,
       canConnectPrivy,
       connectPrivy,
-      regrant,
+      renewDelegation,
       blockedReason,
     }),
     [
@@ -415,12 +391,10 @@ export function useAccountAcl(): AccountAcl {
       commitMode,
       connectPrivy,
       error,
-      grants,
-      needsParaAgentWallet,
-      provisionParaAgentWallet,
+      delegatedAccounts,
       refresh,
-      regrant,
-      revokeGrant,
+      renewDelegation,
+      revokeDelegation,
       status,
       stopAllAuto,
       unboundWallets,

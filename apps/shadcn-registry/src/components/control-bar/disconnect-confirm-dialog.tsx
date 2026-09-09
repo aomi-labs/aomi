@@ -4,12 +4,14 @@ import { formatWalletAddress } from "../../lib/wallet-kit";
 
 export function DisconnectConfirmDialog({
   open,
+  mode,
   address,
   busy,
   onConfirm,
   onCancel,
 }: {
   open: boolean;
+  mode: "signout" | "disconnect";
   address?: string;
   busy?: boolean;
   onConfirm: () => void;
@@ -18,6 +20,13 @@ export function DisconnectConfirmDialog({
   if (!open) return null;
 
   const label = address ? formatWalletAddress(address) : "this wallet";
+  const signingOut = mode === "signout";
+  const title = signingOut ? "Sign out of Aomi?" : "Disconnect wallet?";
+  const description = signingOut
+    ? "Ends your Aomi account session. Your wallet stays connected in this browser."
+    : `Stops using ${label} in Aomi. Your Aomi account stays signed in.`;
+  const actionLabel = signingOut ? "Sign out" : "Disconnect";
+  const busyLabel = signingOut ? "Signing out…" : "Disconnecting…";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -38,11 +47,10 @@ export function DisconnectConfirmDialog({
           id="disconnect-dialog-title"
           className="text-aomi-fg text-base font-semibold"
         >
-          Disconnect wallet?
+          {title}
         </h2>
         <p className="text-aomi-muted mt-2 text-[14px] leading-5">
-          Disconnects {label} and signs you out. Your chat history remains in
-          your Aomi account.
+          {description}
         </p>
         <div className="mt-5 flex justify-end gap-2.5">
           <button
@@ -57,9 +65,13 @@ export function DisconnectConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="bg-aomi-danger text-aomi-on-danger h-9 rounded-full px-3.5 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            className={`${
+              signingOut
+                ? "bg-aomi-danger text-aomi-on-danger"
+                : "bg-aomi-fg text-aomi-bg"
+            } h-9 rounded-full px-3.5 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50`}
           >
-            {busy ? "Disconnecting…" : "Disconnect"}
+            {busy ? busyLabel : actionLabel}
           </button>
         </div>
       </div>

@@ -1,13 +1,11 @@
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
-  AomiAccessApproval,
   AomiAuthPurpose,
   AomiAuthWalletFamily,
   AomiAppDescriptor,
   AomiBeginAccountAuthResponse,
   AomiClientOptions,
-  AomiCreateApprovalRequest,
   AomiClearSecretsResponse,
   AomiDeleteByokKeyResponse,
   AomiDeleteSecretResponse,
@@ -27,6 +25,7 @@ import type {
 import { normalizeAppDescriptor } from "./app-descriptor";
 import { AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
+import { AccountTransport } from "./account/credits";
 import type {
   AomiOAuthTokenProvider,
   AomiOAuthResource,
@@ -35,6 +34,7 @@ import {
   createGuestSessionProvider,
   type GuestSessionProvider,
 } from "./guest-auth";
+import { wrapFetchWithPaymentChallenges } from "./payment";
 
 // =============================================================================
 // Internal helpers
@@ -266,6 +266,22 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       method: method.toUpperCase(),
     };
   }
+  if (
+    url.pathname === "/v1/account" ||
+    url.pathname.startsWith("/v1/account/")
+  ) {
+    const scope =
+      url.pathname === "/v1/account/statement"
+        ? "account:usage:read"
+        : url.pathname === "/v1/account/credits/top-up"
+          ? "account:credits:topup"
+          : "account:credits:read";
+    return {
+      resource: `${origin}/v1/account` as AomiOAuthResource,
+      scopes: [scope, ...payment],
+      method: method.toUpperCase(),
+    };
+  }
   return null;
 }
 
@@ -298,6 +314,7 @@ export function secretNamesFrom(response: AomiListSecretsResponse): string[] {
 export class AomiClient {
   readonly agent: AgentTransport;
   readonly pipeline: PipelineTransport;
+  readonly account: AccountTransport;
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
@@ -309,10 +326,10 @@ export class AomiClient {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
-    const rawFetchImpl =
-      typeof globalThis.fetch === "function"
-        ? globalThis.fetch.bind(globalThis)
-        : fetchImpl;
+    // Keep the caller's fetch implementation for tests and browser adapters;
+    // `raw` only bypasses the payment wrapper, it must not bypass auth or the
+    // configured transport itself.
+    const rawFetchImpl = fetchImpl;
     const guest =
       options.oauth ||
       options.guest === false ||
@@ -324,7 +341,7 @@ export class AomiClient {
               baseUrl: this.baseUrl,
               fetch: fetchImpl,
             });
-    this.fetchImpl = wrapFetchWithAccountBearer(
+    const authenticatedFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
         fetch: fetchImpl,
         baseUrl: this.baseUrl,
@@ -333,7 +350,7 @@ export class AomiClient {
       }),
       options.getAccountBearer,
     );
-    this.rawFetchImpl = wrapFetchWithAccountBearer(
+    const authenticatedRawFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
         fetch: rawFetchImpl,
         baseUrl: this.baseUrl,
@@ -342,11 +359,23 @@ export class AomiClient {
       }),
       options.getAccountBearer,
     );
+    this.fetchImpl = options.x402
+      ? wrapFetchWithPaymentChallenges(authenticatedFetch, options.x402)
+      : authenticatedFetch;
+    // Raw requests are used for recovery probes. Re-wrapping them in x402
+    // would create a fresh proof for an idempotency key whose original proof
+    // may already have settled.
+    this.rawFetchImpl = authenticatedRawFetch;
     this.logger = options.logger;
-    this.agent = new AgentTransport((method, path, requestOptions) =>
-      this.requestResponse(method, path, requestOptions),
+    this.agent = new AgentTransport(
+      (method, path, requestOptions) =>
+        this.requestResponse(method, path, requestOptions),
+      options.inferenceFunding,
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
+      this.requestResponse(method, path, requestOptions),
+    );
+    this.account = new AccountTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
     );
   }
@@ -618,15 +647,6 @@ export class AomiClient {
     return (await response.json()) as AomiAccountResponse;
   }
 
-  async createAccountApproval(
-    request: AomiCreateApprovalRequest,
-  ): Promise<AomiAccessApproval> {
-    return this.request<AomiAccessApproval>("POST", "/api/account/approvals", {
-      body: request,
-      raw: true,
-    });
-  }
-
   /**
    * Mint a Privy browser auth URL bound to the current backend session.
    */
@@ -752,7 +772,7 @@ export class AomiClient {
    * List BYOK keys (one per LLM provider) bound to the current account.
    */
   async listByokKeys(sessionId: string): Promise<AomiByokKeyEntry[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/payment");
+    const url = buildApiUrl(this.baseUrl, "/api/account/model-keys");
     const response = await this.fetchImpl(url, {
       headers: withSessionHeader(sessionId),
     });
@@ -762,7 +782,7 @@ export class AomiClient {
     }
 
     const data = (await response.json()) as AomiListByokKeysResponse;
-    return data.byok ?? [];
+    return data.keys ?? [];
   }
 
   /**
@@ -774,7 +794,7 @@ export class AomiClient {
     byokKey: string,
     label?: string,
   ): Promise<AomiByokKeyEntry> {
-    const url = joinApiPath(this.baseUrl, "/api/account/payment/byok");
+    const url = joinApiPath(this.baseUrl, "/api/account/model-keys");
     const response = await this.fetchImpl(url, {
       method: "POST",
       headers: withSessionHeader(sessionId, {
@@ -801,7 +821,7 @@ export class AomiClient {
   async deleteByokKey(sessionId: string, provider: string): Promise<boolean> {
     const url = buildApiUrl(
       this.baseUrl,
-      `/api/account/payment/byok/${encodeURIComponent(provider)}`,
+      `/api/account/model-keys/${encodeURIComponent(provider)}`,
     );
     const response = await this.fetchImpl(url, {
       method: "DELETE",

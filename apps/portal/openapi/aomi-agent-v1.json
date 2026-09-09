@@ -11,6 +11,8 @@
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
+    "GET /v1/account/credits",
+    "GET /v1/account/statement",
     "GET /v1/agent/chat/{sessionId}",
     "GET /v1/agent/sessions",
     "GET /v1/agent/sessions/{sessionId}",
@@ -36,6 +38,7 @@
     "GET /v1/pipeline/svm/simulate",
     "GET /v1/pipeline/svm/stage",
     "PATCH /v1/agent/sessions/{sessionId}",
+    "POST /v1/account/credits/top-up",
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
     "POST /v1/agent/chat/{sessionId}/interrupt",
@@ -84,6 +87,123 @@
             "description": "This document"
           }
         }
+      }
+    },
+    "/v1/account/credits": {
+      "get": {
+        "operationId": "getAccountCredits",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current included allowance, Credit Bank balance, and recent activity"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/top-up": {
+      "post": {
+        "operationId": "topUpAccountCredits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount_microusd"],
+                "additionalProperties": false,
+                "properties": {
+                  "amount_microusd": {
+                    "type": "integer",
+                    "minimum": 10000,
+                    "maximum": 1000000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Credit Bank position"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credits:topup"]
+          }
+        ]
+      }
+    },
+    "/v1/account/statement": {
+      "get": {
+        "operationId": "getAccountStatement",
+        "responses": {
+          "200": {
+            "description": "Priced usage statement"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:usage:read"]
+          }
+        ]
       }
     },
     "/v1/agent/chat": {
@@ -3007,6 +3127,9 @@
               "agent:actions:resolve": "Resolve a durable Agent Action",
               "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
+              "account:credits:read": "Read included allowance and Credit Bank activity",
+              "account:credits:topup": "Buy durable Credit Bank value through x402",
+              "account:usage:read": "Read priced account usage",
               "mcp:agent": "Use the Agent MCP protected resource",
               "mcp:pipeline": "Use the Pipeline MCP protected resource",
               "payments:submit": "Attach a client-held payment signature",
@@ -3019,7 +3142,8 @@
           "agent": "https://chat.aomi.dev/v1/agent",
           "pipeline": "https://chat.aomi.dev/v1/pipeline",
           "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
-          "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp"
+          "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
+          "account": "https://chat.aomi.dev/v1/account"
         }
       }
     }

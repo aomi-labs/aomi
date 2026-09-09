@@ -67,7 +67,12 @@ describe("canonical Agent MCP route", () => {
     expect(mocks.options).toMatchObject({
       resource: "https://chat.aomi.dev/v1/agent/mcp",
       requiredScopes: ["mcp:agent"],
-      challengeScopes: ["mcp:agent", "agent:read", "agent:write"],
+      challengeScopes: [
+        "mcp:agent",
+        "agent:read",
+        "agent:write",
+        "offline_access",
+      ],
       dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
     });
     for (const method of ["initialize", "tools/list", "tools/call"]) {

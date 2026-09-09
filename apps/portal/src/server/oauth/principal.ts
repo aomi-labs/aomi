@@ -110,11 +110,7 @@ export async function resolveApiPrincipal(input: {
       scopes,
       resource: input.resource,
       authSource: "session",
-      // Widget requests are delegated through the BFF as user-class thread
-      // credentials so the backend can select the configured guest-safe
-      // model. The original widget auth method still applies the guest scope
-      // ceiling above.
-      principalClass: "user",
+      principalClass: isAnonymousWidget ? "guest" : "user",
       sid: "widget-session",
       widgetOrigin: widget.origin,
     };

@@ -40,61 +40,6 @@ body {
   font-size: 14px;
 }
 
-.wallet-review {
-  width: 100%;
-  max-width: 460px;
-  display: grid;
-  gap: 20px;
-}
-
-.wallet-review h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 650;
-}
-
-.wallet-review dl {
-  margin: 0;
-  display: grid;
-  gap: 12px;
-}
-
-.wallet-review dt {
-  color: var(--tg-theme-hint-color, #a1a1aa);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.wallet-review dd {
-  margin: 4px 0 0;
-  font-size: 15px;
-  overflow-wrap: anywhere;
-}
-
-.wallet-review dd.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-  max-height: 220px;
-  overflow: auto;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--tg-theme-secondary-bg-color, #1c1c1f);
-}
-
-.wallet-actions {
-  display: grid;
-  gap: 10px;
-}
-
-.para-button--ghost {
-  background: transparent;
-  color: var(--tg-theme-hint-color, #a1a1aa);
-  border: 1px solid var(--tg-theme-hint-color, #3f3f46);
-  font-weight: 550;
-}
-
 .para-button:disabled {
   opacity: 0.55;
   cursor: default;

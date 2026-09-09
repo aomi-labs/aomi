@@ -1,7 +1,7 @@
 /**
  * Wallet signing ACL types — synced from the design mock
  * (aomi-chat-design contracts.ts). Mirrors the backend `SigningMode`
- * on `public_keys` and `delegated_approval` rows.
+ * on the canonical account response.
  */
 
 /**
@@ -37,20 +37,20 @@ export interface WalletPolicy {
   primary?: boolean;
   /** The ACL — the committed desired signing mode. */
   desiredMode: SignerMode;
-  /** Whether a live delegated grant currently backs `auto` (capability axis). */
-  grantActive?: boolean;
-  /** Human label for the backing grant's expiry, when relevant. */
-  grantExpiresLabel?: string;
+  /** Whether a live delegated account currently backs `auto` (capability axis). */
+  delegationActive?: boolean;
+  /** Human label for the delegated account's expiry, when relevant. */
+  delegationExpiresLabel?: string;
   /** Monotonic authorization_version (bumped by each committed permit). */
   authVersion: number;
   /** Audit label of the last permit that set the mode. */
   lastPermit?: string;
-  /** Raw `auth_providers.provider` — what a grant revoke is keyed on. */
+  /** Raw `auth_providers.provider` — what delegation revocation is keyed on. */
   provider?: string;
   /**
-   * Backend truth for whether `auto` is offerable (provenance AND a live
-   * grant). The client must not re-derive this from `linkedVia`: a Para or
-   * Privy wallet with no grant still can't go auto.
+   * Whether `auto` is currently offerable, derived from a matching active
+   * `DelegatedAccount`. The client must not infer this from the saved policy
+   * mode or `linkedVia`: provenance alone is not a signing capability.
    */
   canUseAuto?: boolean;
   /**
@@ -61,18 +61,17 @@ export interface WalletPolicy {
 }
 
 /**
- * A `delegated_approval` row — the capability axis. Its presence + validity is
+ * A `DelegatedAccount` — the capability axis. Its presence + validity is
  * what lets an `auto` ACL actually reconcile.
  */
-export interface DelegationGrant {
+export interface DelegatedAccountView {
   id: string;
   /** Display name, e.g. "Privy". */
   provider: string;
   /** Raw provider key the revoke route is addressed by, e.g. "privy". */
   providerKey?: string;
-  /** What the grant is scoped to, e.g. "Solana · 8xKn…9QpS". */
+  /** Exact address this delegated capability can sign for. */
   scope: string;
   kind: string;
-  status: "active" | "expired" | "revoked";
-  expiresLabel: string;
+  status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";
 }
