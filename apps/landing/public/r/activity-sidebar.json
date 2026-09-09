@@ -132,16 +132,16 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/client",
-    "@aomi-labs/react",
-    "@assistant-ui/react",
-    "lucide-react",
-    "viem",
-    "motion"
+    "@aomi-labs/client@0.7.1",
+    "@aomi-labs/react@0.6.13",
+    "@assistant-ui/react@^0.14.0",
+    "lucide-react@^0.545.0",
+    "viem@^2.47.11",
+    "motion@^12.23.22"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/aomi-wallet-kit.json",
     "https://r.assistant-ui.com/markdown-text.json",
-    "button"
+    "https://aomi.dev/r/button.json"
   ]
 }

@@ -12,7 +12,7 @@
     }
   ],
   "dependencies": [
-    "@radix-ui/react-slot"
+    "@radix-ui/react-slot@^1.2.3"
   ],
   "registryDependencies": []
 }

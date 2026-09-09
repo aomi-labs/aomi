@@ -12,7 +12,7 @@
     }
   ],
   "dependencies": [
-    "@radix-ui/react-tooltip"
+    "@radix-ui/react-tooltip@^1.2.8"
   ],
   "registryDependencies": []
 }

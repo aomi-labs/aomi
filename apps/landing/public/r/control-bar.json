@@ -246,19 +246,19 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/client",
-    "@aomi-labs/react",
-    "lucide-react",
-    "wagmi"
+    "@aomi-labs/client@0.7.1",
+    "@aomi-labs/react@0.6.13",
+    "lucide-react@^0.545.0",
+    "wagmi@^2.19.5"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/agent-routing.json",
     "https://aomi.dev/r/aomi-wallet-kit.json",
-    "button",
-    "popover",
-    "command",
-    "dialog",
-    "input",
-    "label"
+    "https://aomi.dev/r/button.json",
+    "https://aomi.dev/r/popover.json",
+    "https://aomi.dev/r/command.json",
+    "https://aomi.dev/r/dialog.json",
+    "https://aomi.dev/r/input.json",
+    "https://aomi.dev/r/label.json"
   ]
 }

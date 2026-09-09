@@ -24,10 +24,10 @@
     }
   ],
   "dependencies": [
-    "lucide-react"
+    "lucide-react@^0.545.0"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/assistant-thread-list.json",
-    "sidebar"
+    "https://aomi.dev/r/sidebar.json"
   ]
 }

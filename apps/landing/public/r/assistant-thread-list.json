@@ -12,14 +12,14 @@
     }
   ],
   "dependencies": [
-    "@assistant-ui/react@~0.11.28",
-    "lucide-react"
+    "@assistant-ui/react@^0.14.0",
+    "lucide-react@^0.545.0"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/aomi-wallet-kit.json",
     "https://r.assistant-ui.com/tooltip-icon-button.json",
-    "button",
-    "dialog",
-    "skeleton"
+    "https://aomi.dev/r/button.json",
+    "https://aomi.dev/r/dialog.json",
+    "https://aomi.dev/r/skeleton.json"
   ]
 }

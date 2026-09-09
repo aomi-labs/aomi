@@ -18,8 +18,8 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/react",
-    "sonner"
+    "@aomi-labs/react@0.6.13",
+    "sonner@^1.7.4"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/sonner.json"

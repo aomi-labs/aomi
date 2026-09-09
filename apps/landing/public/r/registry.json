@@ -28,7 +28,7 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react"
+        "@aomi-labs/react@0.6.13"
       ],
       "registryDependencies": []
     },
@@ -49,8 +49,8 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/agent-routing.json",
@@ -75,7 +75,7 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react"
+        "@aomi-labs/react@0.6.13"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-theme.json",
@@ -84,9 +84,9 @@
         "https://aomi.dev/r/aomi-wallet-kit.json",
         "https://aomi.dev/r/control-bar.json",
         "https://aomi.dev/r/activity-sidebar.json",
-        "separator",
-        "breadcrumb",
-        "sidebar"
+        "https://aomi.dev/r/separator.json",
+        "https://aomi.dev/r/breadcrumb.json",
+        "https://aomi.dev/r/sidebar.json"
       ]
     },
     {
@@ -406,14 +406,14 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "@solana/wallet-adapter-react",
-        "@solana/wallet-standard-wallet-adapter-react",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@solana/wallet-adapter-react@^0.15.39",
+        "@solana/wallet-standard-wallet-adapter-react@1.1.4",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": []
     },
@@ -624,20 +624,20 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "lucide-react",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "lucide-react@^0.545.0",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/agent-routing.json",
         "https://aomi.dev/r/aomi-wallet-kit.json",
-        "button",
-        "popover",
-        "command",
-        "dialog",
-        "input",
-        "label"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/popover.json",
+        "https://aomi.dev/r/command.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/input.json",
+        "https://aomi.dev/r/label.json"
       ]
     },
     {
@@ -847,12 +847,12 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "@assistant-ui/react@~0.11.28",
-        "@assistant-ui/react-markdown@~0.11.1",
-        "lucide-react",
-        "motion",
-        "remark-gfm"
+        "@aomi-labs/react@0.6.13",
+        "@assistant-ui/react@^0.14.0",
+        "@assistant-ui/react-markdown@^0.14.0",
+        "lucide-react@^0.545.0",
+        "motion@^12.23.22",
+        "remark-gfm@^4.0.1"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/agent-routing.json",
@@ -862,10 +862,10 @@
         "https://r.assistant-ui.com/tooltip-icon-button.json",
         "https://aomi.dev/r/attachment.json",
         "https://aomi.dev/r/assistant-tool-fallback.json",
-        "button",
-        "command",
-        "popover",
-        "skeleton"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/command.json",
+        "https://aomi.dev/r/popover.json",
+        "https://aomi.dev/r/skeleton.json"
       ]
     },
     {
@@ -880,15 +880,15 @@
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "lucide-react"
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json",
         "https://r.assistant-ui.com/tooltip-icon-button.json",
-        "button",
-        "dialog",
-        "skeleton"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/skeleton.json"
       ]
     },
     {
@@ -913,11 +913,11 @@
         }
       ],
       "dependencies": [
-        "lucide-react"
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/assistant-thread-list.json",
-        "sidebar"
+        "https://aomi.dev/r/sidebar.json"
       ]
     },
     {
@@ -932,17 +932,17 @@
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "lucide-react"
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "button"
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
       "name": "attachment",
       "type": "registry:component",
-      "description": "Attachment renderer compatible with @assistant-ui/react 0.11.x.",
+      "description": "Attachment renderer compatible with @assistant-ui/react 0.14.x.",
       "files": [
         {
           "type": "registry:component",
@@ -951,16 +951,16 @@
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "@aomi-labs/react",
-        "lucide-react",
-        "zustand"
+        "@assistant-ui/react@^0.14.0",
+        "@aomi-labs/react@0.6.13",
+        "lucide-react@^0.545.0",
+        "zustand@^5.0.8"
       ],
       "registryDependencies": [
         "https://r.assistant-ui.com/tooltip-icon-button.json",
-        "tooltip",
-        "dialog",
-        "avatar"
+        "https://aomi.dev/r/tooltip.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/avatar.json"
       ]
     },
     {
@@ -980,8 +980,8 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "sonner"
+        "@aomi-labs/react@0.6.13",
+        "sonner@^1.7.4"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/sonner.json"
@@ -999,7 +999,7 @@
         }
       ],
       "dependencies": [
-        "sonner"
+        "sonner@^1.7.4"
       ],
       "registryDependencies": []
     },
@@ -1115,17 +1115,17 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "@assistant-ui/react",
-        "lucide-react",
-        "viem",
-        "motion"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0",
+        "viem@^2.47.11",
+        "motion@^12.23.22"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json",
         "https://r.assistant-ui.com/markdown-text.json",
-        "button"
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
@@ -1275,15 +1275,15 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "@getpara/react-sdk",
-        "@getpara/wagmi-v2-connector",
-        "@solana/wallet-adapter-react",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@getpara/react-sdk@2.19.0",
+        "@getpara/wagmi-v2-connector@2.19.0",
+        "@solana/wallet-adapter-react@^0.15.39",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json"
@@ -1376,13 +1376,13 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "@privy-io/react-auth",
-        "@privy-io/wagmi",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/react@0.6.13",
+        "@privy-io/react-auth@^2.0.0",
+        "@privy-io/wagmi@^1.0.0",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json"
@@ -1400,8 +1400,8 @@
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "class-variance-authority"
+        "@radix-ui/react-slot@^1.2.3",
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -1431,7 +1431,7 @@
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-label@^2.1.7"
       ],
       "registryDependencies": []
     },
@@ -1461,7 +1461,7 @@
         }
       ],
       "dependencies": [
-        "class-variance-authority"
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -1477,7 +1477,7 @@
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-avatar@^1.1.10"
       ],
       "registryDependencies": []
     },
@@ -1507,7 +1507,7 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-tooltip"
+        "@radix-ui/react-tooltip@^1.2.8"
       ],
       "registryDependencies": []
     },
@@ -1523,7 +1523,7 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-separator"
+        "@radix-ui/react-separator@^1.1.7"
       ],
       "registryDependencies": []
     },
@@ -1539,7 +1539,7 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-slot"
+        "@radix-ui/react-slot@^1.2.3"
       ],
       "registryDependencies": []
     },
@@ -1560,18 +1560,18 @@
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "@radix-ui/react-slot",
-        "class-variance-authority",
-        "lucide-react"
+        "@aomi-labs/react@0.6.13",
+        "@radix-ui/react-slot@^1.2.3",
+        "class-variance-authority@^0.7.1",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "button",
-        "input",
-        "separator",
-        "sheet",
-        "skeleton",
-        "tooltip"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/input.json",
+        "https://aomi.dev/r/separator.json",
+        "https://aomi.dev/r/sheet.json",
+        "https://aomi.dev/r/skeleton.json",
+        "https://aomi.dev/r/tooltip.json"
       ]
     },
     {
@@ -1586,11 +1586,11 @@
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "button"
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
@@ -1605,8 +1605,8 @@
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": []
     },
@@ -1622,7 +1622,7 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-collapsible"
+        "@radix-ui/react-collapsible@^1.1.12"
       ],
       "registryDependencies": []
     },
@@ -1638,12 +1638,12 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-dialog",
-        "cmdk",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "cmdk@^1.0.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "dialog"
+        "https://aomi.dev/r/dialog.json"
       ]
     },
     {
@@ -1658,7 +1658,7 @@
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-popover@^1.1.4"
       ],
       "registryDependencies": []
     },
@@ -1674,7 +1674,7 @@
         }
       ],
       "dependencies": [
-        "class-variance-authority"
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -1690,8 +1690,8 @@
         }
       ],
       "dependencies": [
-        "@radix-ui/react-accordion",
-        "lucide-react"
+        "@radix-ui/react-accordion@^1.2.3",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": []
     },
@@ -1707,7 +1707,7 @@
         }
       ],
       "dependencies": [
-        "vaul"
+        "vaul@^1.1.2"
       ],
       "registryDependencies": []
     }

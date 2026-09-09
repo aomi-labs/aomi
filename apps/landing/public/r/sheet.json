@@ -12,8 +12,8 @@
     }
   ],
   "dependencies": [
-    "radix-ui",
-    "lucide-react"
+    "@radix-ui/react-dialog@^1.1.15",
+    "lucide-react@^0.545.0"
   ],
   "registryDependencies": []
 }

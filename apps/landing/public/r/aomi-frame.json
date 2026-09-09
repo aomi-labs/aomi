@@ -18,7 +18,7 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/react"
+    "@aomi-labs/react@0.6.13"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/aomi-theme.json",
@@ -27,8 +27,8 @@
     "https://aomi.dev/r/aomi-wallet-kit.json",
     "https://aomi.dev/r/control-bar.json",
     "https://aomi.dev/r/activity-sidebar.json",
-    "separator",
-    "breadcrumb",
-    "sidebar"
+    "https://aomi.dev/r/separator.json",
+    "https://aomi.dev/r/breadcrumb.json",
+    "https://aomi.dev/r/sidebar.json"
   ]
 }

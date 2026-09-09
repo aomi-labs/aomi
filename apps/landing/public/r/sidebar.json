@@ -18,17 +18,17 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/react",
-    "@radix-ui/react-slot",
-    "class-variance-authority",
-    "lucide-react"
+    "@aomi-labs/react@0.6.13",
+    "@radix-ui/react-slot@^1.2.3",
+    "class-variance-authority@^0.7.1",
+    "lucide-react@^0.545.0"
   ],
   "registryDependencies": [
-    "button",
-    "input",
-    "separator",
-    "sheet",
-    "skeleton",
-    "tooltip"
+    "https://aomi.dev/r/button.json",
+    "https://aomi.dev/r/input.json",
+    "https://aomi.dev/r/separator.json",
+    "https://aomi.dev/r/sheet.json",
+    "https://aomi.dev/r/skeleton.json",
+    "https://aomi.dev/r/tooltip.json"
   ]
 }

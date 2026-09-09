@@ -246,12 +246,12 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/react",
-    "@assistant-ui/react@~0.11.28",
-    "@assistant-ui/react-markdown@~0.11.1",
-    "lucide-react",
-    "motion",
-    "remark-gfm"
+    "@aomi-labs/react@0.6.13",
+    "@assistant-ui/react@^0.14.0",
+    "@assistant-ui/react-markdown@^0.14.0",
+    "lucide-react@^0.545.0",
+    "motion@^12.23.22",
+    "remark-gfm@^4.0.1"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/agent-routing.json",
@@ -261,9 +261,9 @@
     "https://r.assistant-ui.com/tooltip-icon-button.json",
     "https://aomi.dev/r/attachment.json",
     "https://aomi.dev/r/assistant-tool-fallback.json",
-    "button",
-    "command",
-    "popover",
-    "skeleton"
+    "https://aomi.dev/r/button.json",
+    "https://aomi.dev/r/command.json",
+    "https://aomi.dev/r/popover.json",
+    "https://aomi.dev/r/skeleton.json"
   ]
 }

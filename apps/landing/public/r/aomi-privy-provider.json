@@ -102,13 +102,13 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/react",
-    "@privy-io/react-auth",
-    "@privy-io/wagmi",
-    "@solana/web3.js",
-    "@tanstack/react-query",
-    "viem",
-    "wagmi"
+    "@aomi-labs/react@0.6.13",
+    "@privy-io/react-auth@^2.0.0",
+    "@privy-io/wagmi@^1.0.0",
+    "@solana/web3.js@^1.98.4",
+    "@tanstack/react-query@^5.90.10",
+    "viem@^2.47.11",
+    "wagmi@^2.19.5"
   ],
   "registryDependencies": [
     "https://aomi.dev/r/aomi-wallet-kit.json"

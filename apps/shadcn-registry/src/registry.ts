@@ -254,8 +254,8 @@ export const registry: RegistryComponent[] = [
     ],
     dependencies: [
       "@aomi-labs/react",
-      "@assistant-ui/react@~0.11.28",
-      "@assistant-ui/react-markdown@~0.11.1",
+      "@assistant-ui/react",
+      "@assistant-ui/react-markdown",
       "lucide-react",
       "motion",
       "remark-gfm",
@@ -267,7 +267,7 @@ export const registry: RegistryComponent[] = [
       // From assistant-ui (unchanged)
       assistantUI("markdown-text"),
       assistantUI("tooltip-icon-button"),
-      // Attachment: our own version compatible with @assistant-ui/react 0.11.x
+      // Attachment: our own version compatible with @assistant-ui/react 0.14.x
       aomi("attachment"),
       // Internal aomi components (customized)
       aomi("assistant-tool-fallback"),
@@ -282,7 +282,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "assistant-thread-list",
     file: "components/assistant-ui/thread-list.tsx",
-    dependencies: ["@assistant-ui/react@~0.11.28", "lucide-react"],
+    dependencies: ["@assistant-ui/react", "lucide-react"],
     registryDependencies: [
       aomi("aomi-wallet-kit"),
       assistantUI("tooltip-icon-button"),
@@ -307,7 +307,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "assistant-tool-fallback",
     file: "components/assistant-ui/tool-fallback.tsx",
-    dependencies: ["@assistant-ui/react@~0.11.28", "lucide-react"],
+    dependencies: ["@assistant-ui/react", "lucide-react"],
     registryDependencies: ["button"],
     description: "Fallback renderer for assistant tool calls.",
   },
@@ -315,7 +315,7 @@ export const registry: RegistryComponent[] = [
     name: "attachment",
     file: "components/assistant-ui/attachment.tsx",
     dependencies: [
-      "@assistant-ui/react@~0.11.28",
+      "@assistant-ui/react",
       "@aomi-labs/react",
       "lucide-react",
       "zustand",
@@ -327,7 +327,7 @@ export const registry: RegistryComponent[] = [
       "avatar",
     ],
     description:
-      "Attachment renderer compatible with @assistant-ui/react 0.11.x.",
+      "Attachment renderer compatible with @assistant-ui/react 0.14.x.",
   },
   {
     name: "notification",
@@ -471,7 +471,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "button",
     file: "components/ui/button.tsx",
-    dependencies: ["radix-ui", "class-variance-authority"],
+    dependencies: ["@radix-ui/react-slot", "class-variance-authority"],
     description: "Displays a button or a component that looks like a button.",
   },
   {
@@ -484,7 +484,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "label",
     file: "components/ui/label.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-label"],
     description: "Renders an accessible label associated with controls.",
   },
   {
@@ -502,7 +502,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "avatar",
     file: "components/ui/avatar.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-avatar"],
     description: "An image element with a fallback for representing the user.",
   },
   {
@@ -553,7 +553,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "dialog",
     file: "components/ui/dialog.tsx",
-    dependencies: ["radix-ui", "lucide-react"],
+    dependencies: ["@radix-ui/react-dialog", "lucide-react"],
     registryDependencies: ["button"],
     description:
       "A window overlaid on either the primary window or another dialog window.",
@@ -561,7 +561,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "sheet",
     file: "components/ui/sheet.tsx",
-    dependencies: ["radix-ui", "lucide-react"],
+    dependencies: ["@radix-ui/react-dialog", "lucide-react"],
     description:
       "Extends the Dialog component to display content that complements the main content of the screen.",
   },
@@ -581,7 +581,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "popover",
     file: "components/ui/popover.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-popover"],
     description: "Displays rich content in a portal, triggered by a button.",
   },
   {

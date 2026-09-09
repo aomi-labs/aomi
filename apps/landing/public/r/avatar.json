@@ -12,7 +12,7 @@
     }
   ],
   "dependencies": [
-    "radix-ui"
+    "@radix-ui/react-avatar@^1.1.10"
   ],
   "registryDependencies": []
 }

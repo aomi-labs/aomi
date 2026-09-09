@@ -378,14 +378,14 @@
     }
   ],
   "dependencies": [
-    "@aomi-labs/client",
-    "@aomi-labs/react",
-    "@solana/wallet-adapter-react",
-    "@solana/wallet-standard-wallet-adapter-react",
-    "@solana/web3.js",
-    "@tanstack/react-query",
-    "viem",
-    "wagmi"
+    "@aomi-labs/client@0.7.1",
+    "@aomi-labs/react@0.6.13",
+    "@solana/wallet-adapter-react@^0.15.39",
+    "@solana/wallet-standard-wallet-adapter-react@1.1.4",
+    "@solana/web3.js@^1.98.4",
+    "@tanstack/react-query@^5.90.10",
+    "viem@^2.47.11",
+    "wagmi@^2.19.5"
   ],
   "registryDependencies": []
 }

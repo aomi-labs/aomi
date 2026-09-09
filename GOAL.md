@@ -1,5 +1,16 @@
 # Current work
 
+**REGISTRY DEPENDENCY CONTRACTS 2026-09-09** — fresh CLI verification also
+caught upstream primitive substitution and outdated/unbounded npm dependencies.
+Generated registry dependencies now point to Aomi-owned items; npm versions come
+from the widget package manifest, with candidate workspace package versions
+resolved explicitly. Primitive declarations match their actual Radix imports.
+Documented Radix initialization for fresh consumers. The real shadcn 4.21.0
+install and Next 16.1.0 production/type build pass using candidate client/react
+tarballs, without workspace links. Registry/widget builds and scoped lint pass.
+No widget CI job was added at the user's request. Final remote checks are tracked
+outside the checkout to keep the tested commit stable.
+
 **REGISTRY INSTALL DESTINATIONS 2026-09-09** — a real shadcn 4.21.0 fresh
 installation exposed flattened nested files despite complete source dependency
 closure. The generator now emits alias-relative targets and correctly classifies
