@@ -103,7 +103,7 @@ function printRootHelp(): void {
     "  deploy                       Deploy your app (also: deploy status, deploy activate)",
   );
   console.log(
-    "  pipeline                     Pipeline discovery and policy-gated execution",
+    "  pipeline                     Pipeline discovery and Build lifecycle",
   );
   console.log("");
   console.log("Use aomi <command> --help for command-specific details.");

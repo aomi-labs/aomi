@@ -1,5 +1,9 @@
 # Canonical Landing
 
+Staging cutover preparation (2026-09-09): integrate current main's Pipeline CLI
+and wallet exports while retaining explicit routing and AA authorization.
+Keep client 0.7.0; staging verification is pending. Production is out of scope.
+
 Routing review follow-up (2026-09-09): preserve explicit Manual Hosted/Venue
 selections, correct the SVM fee-outcome wire type, and require real commit
 evidence in routing tests. Client routing/Pipeline/CLI tests: 26 passed;
@@ -44,6 +48,15 @@ delegation, preserve sealed requests and payer, and reject unsupported routes.
 Pipeline V2 replaces old handwritten envelopes. Uncommitted; no deployment or
 live provider transaction. See the maintained wallet-routing page for the
 supported UI/CLI matrix and release gates.
+
+Current session goal: **CLI SDK PARITY AND WALLET EXPORTS VERIFIED 2026-09-08**
+— replace the obsolete flat Pipeline CLI with a compact filesystem, scoped
+operation, and EVM/SVM Build lifecycle interface backed by the canonical SDK;
+restore EIP-5792, MegaETH MOSS, and MetaMask Agent Wallet handoff artifacts on
+the Action model; remove orphaned pre-Action signing code; and align the CLI
+documentation and package release. Verified with client and backend Pipeline
+tests, typecheck, lint, production package build, built-CLI smoke checks, and an
+npm dry-run tarball audit for `0.6.13`.
 
 Current session goal: **LEGACY AGENT TRACE GROUPING VERIFIED 2026-09-07** —
 group null-turn historical Agent tool steps and final answers by their preceding
