@@ -87,9 +87,11 @@ test("first Agent turn preserves the signed-in Better Auth session", async ({
   expect((await session(page)).user?.id).toBe(beforeSession.user?.id);
   const anonymousAttemptsBeforeAgent = anonymousSignIns.length;
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle");
+  await page.goto("/", { waitUntil: "networkidle" });
   const input = page.getByRole("textbox", { name: "Message input" });
-  await input.fill("hello");
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially("hello");
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect.poll(() => agentStatuses, { timeout: 30_000 }).toContain(200);

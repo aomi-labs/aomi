@@ -10,6 +10,7 @@ import type {
   PipelineActionSummary,
   PipelineApprovalChange,
   PipelineBalanceChange,
+  PipelineBuildOrigin,
   PipelineCommitOptions,
   PipelineMutationOptions,
   PipelineSimulation,
@@ -25,7 +26,7 @@ export class EvmStaged {
     private readonly transport: EvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -42,6 +43,18 @@ export class EvmStaged {
 
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async simulate(options?: PipelineMutationOptions): Promise<EvmBuild> {
@@ -62,7 +75,7 @@ export class EvmBuild {
     private readonly transport: EvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -99,6 +112,18 @@ export class EvmBuild {
     return this.raw.digest;
   }
 
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
+  }
+
   async commit(options?: PipelineCommitOptions): Promise<EvmCommitResult> {
     return this.transport.commit(this.raw, options);
   }
@@ -114,7 +139,7 @@ export class SvmStaged {
     private readonly transport: SvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -131,6 +156,18 @@ export class SvmStaged {
 
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async simulate(options?: PipelineMutationOptions): Promise<SvmBuild> {
@@ -151,7 +188,7 @@ export class SvmBuild {
     private readonly transport: SvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -176,6 +213,18 @@ export class SvmBuild {
 
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async commit(options?: PipelineCommitOptions): Promise<SvmCommitResult> {

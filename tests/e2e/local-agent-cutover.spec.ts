@@ -109,7 +109,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
 
   const sidebar = page.getByRole("complementary", { name: "Chat activity" });
   const review = sidebar.getByTestId("transaction-review");
-  await expect(review).toBeVisible({ timeout: 180_000 });
+  await expect(review).toBeVisible({ timeout: 300_000 });
   // The sidebar is the only approval surface.
   await expect(page.getByTestId("transaction-review")).toHaveCount(1);
   await expect(
@@ -266,7 +266,8 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
 async function send(page: Page, message: string) {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
   await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();

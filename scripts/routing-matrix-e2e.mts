@@ -57,8 +57,9 @@ const stages = new Set(
 
 /** Anvil #0 ("Alice") and #1 ("Bob"). Keys never leave Anvil: signing goes
  * through `eth_signTypedData_v4` on the node. */
-const ALICE = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const MANUAL_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
 const BOB = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
+const DENIED_WALLET = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
 const CHAIN_ID = 31337;
 
 const AGENT_SCOPES = "agent:read agent:write agent:actions:resolve";
@@ -67,9 +68,9 @@ const PIPELINE_SCOPES = "pipeline:catalog pipeline:execute";
 
 /** Deterministic per-lane users so signing modes never collide. */
 const users = {
-  manual: "11111111-1111-4111-8111-111111111111",
+  manual: "33333333-3333-4333-8333-333333333333",
   auto: "22222222-2222-4222-8222-222222222222",
-  denied: "33333333-3333-4333-8333-333333333333",
+  denied: "44444444-4444-4444-8444-444444444444",
   nocustody: "22222222-2222-4222-8222-222222222222",
 } as const;
 
@@ -135,7 +136,13 @@ async function permit(
   wallet: string,
   mode: "bind" | "manual" | "client_auto" | "server_auto" | "denied",
   signer: string = wallet,
-): Promise<{ challenge: Response; commit?: Response; permit?: unknown }> {
+): Promise<{
+  challenge: Response;
+  commit?: Response;
+  permit?: unknown;
+  signature?: string;
+  signer?: string;
+}> {
   const challenge = await accountFetch(
     userId,
     "/api/account/authorization/challenge",
@@ -160,7 +167,7 @@ async function permit(
       }),
     },
   );
-  return { challenge, commit, permit: challenged.permit };
+  return { challenge, commit, permit: challenged.permit, signature, signer };
 }
 
 async function errorCode(response: Response): Promise<string> {
@@ -184,7 +191,10 @@ async function profile(userId: string): Promise<{
     status: string;
     delegation_provider: string;
   }>;
-  user_accounts: Array<{ address: { address: string }; auth_provider?: string }>;
+  user_accounts: Array<{
+    address: { address: string };
+    auth_provider?: string;
+  }>;
 }> {
   const response = await accountFetch(userId, "/api/account");
   assert.equal(response.status, 200, `GET /api/account ${response.status}`);
@@ -194,18 +204,19 @@ async function profile(userId: string): Promise<{
 async function bindAndSet(
   userId: string,
   mode: "manual" | "denied",
+  wallet: string,
 ): Promise<void> {
-  const bound = await permit(userId, ALICE, "bind");
+  const bound = await permit(userId, wallet, "bind");
   assert.ok(
     bound.challenge.status === 409 ||
       (bound.commit && (bound.commit.ok || bound.commit.status === 409)),
     `bind for ${userId} failed: ${bound.challenge.status}/${bound.commit?.status}`,
   );
   const current = (await profile(userId)).signing_policies.find(
-    (row) => row.address.address.toLowerCase() === ALICE.toLowerCase(),
+    (row) => row.address.address.toLowerCase() === wallet.toLowerCase(),
   );
   if (current?.mode === (mode === "manual" ? "manual" : "denied")) return;
-  const set = await permit(userId, ALICE, mode);
+  const set = await permit(userId, wallet, mode);
   assert.ok(
     set.commit?.ok,
     `set ${mode} for ${userId} failed: ${set.challenge.status}/${set.commit?.status} ${
@@ -219,7 +230,7 @@ async function bindAndSet(
 async function provisionAuto(
   userId: string,
 ): Promise<{ agent?: string; reason?: string }> {
-  await bindAndSet(userId, "manual");
+  await bindAndSet(userId, "manual", BOB);
   const provisioned = await accountFetch(
     userId,
     "/api/account/providers/para/agent-wallet",
@@ -255,12 +266,14 @@ async function provisionAuto(
   );
   if (armed?.mode !== "auto") {
     // A provider-managed key is loosened by a linked sibling key.
-    const set = await permit(userId, agent, "server_auto", ALICE);
+    const set = await permit(userId, agent, "server_auto", BOB);
     if (!set.commit?.ok) {
       return {
         agent,
         reason: `server_auto commit ${set.commit?.status ?? set.challenge.status} ${
-          set.commit ? await errorCode(set.commit) : await errorCode(set.challenge)
+          set.commit
+            ? await errorCode(set.commit)
+            : await errorCode(set.challenge)
         }`,
       };
     }
@@ -319,11 +332,16 @@ function confirmed(
   result: unknown,
 ): result is { status: "confirmed"; tx_hashes: string[] } {
   return (
-    typeof result === "object" && result !== null &&
-    "status" in result && result.status === "confirmed" &&
-    "tx_hashes" in result && Array.isArray(result.tx_hashes) &&
-    result.tx_hashes.length > 0 && result.tx_hashes.every(
-      (hash: unknown) => typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash),
+    typeof result === "object" &&
+    result !== null &&
+    "status" in result &&
+    result.status === "confirmed" &&
+    "tx_hashes" in result &&
+    Array.isArray(result.tx_hashes) &&
+    result.tx_hashes.length > 0 &&
+    result.tx_hashes.every(
+      (hash: unknown) =>
+        typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash),
     )
   );
 }
@@ -344,10 +362,14 @@ async function runTurn(
       }
       const code = toolErrorCode(event);
       if (code) return { kind: "error", code, text: JSON.stringify(event) };
-      if (event.type === "tool_complete" && event.tool_name === "evm_commit_txs") {
-        const result: unknown = typeof event.result === "string"
-          ? JSON.parse(event.result)
-          : event.result;
+      if (
+        event.type === "tool_complete" &&
+        event.tool_name === "evm_commit_txs"
+      ) {
+        const result: unknown =
+          typeof event.result === "string"
+            ? JSON.parse(event.result)
+            : event.result;
         if (confirmed(result)) {
           return { kind: "confirmed", txHashes: result.tx_hashes };
         }
@@ -408,16 +430,16 @@ function judge(
     outcome.kind === "confirmed"
       ? `confirmed:${outcome.txHashes.join(",")}`
       : outcome.kind === "action"
-      ? `action:${outcome.action.request.type}${
-          outcome.action.request.type === "sign"
-            ? `:${outcome.action.request.executionKind}:${outcome.action.request.broadcaster ?? "-"}`
-            : ""
-        }`
-      : outcome.kind === "error"
-        ? `error:${outcome.code}`
-        : outcome.kind === "http"
-          ? `http:${outcome.status}:${outcome.code}`
-          : `terminal:${outcome.state}`;
+        ? `action:${outcome.action.request.type}${
+            outcome.action.request.type === "sign"
+              ? `:${outcome.action.request.executionKind}:${outcome.action.request.broadcaster ?? "-"}`
+              : ""
+          }`
+        : outcome.kind === "error"
+          ? `error:${outcome.code}`
+          : outcome.kind === "http"
+            ? `http:${outcome.status}:${outcome.code}`
+            : `terminal:${outcome.state}`;
   let expected: string;
   let verdict: Verdict;
   if ("action" in expect) {
@@ -435,13 +457,18 @@ function judge(
   } else if ("error" in expect) {
     expected = `error:${expect.error}`;
     verdict =
-      outcome.kind === "error" && outcome.code === expect.error ? "pass" : "fail";
+      outcome.kind === "error" && outcome.code === expect.error
+        ? "pass"
+        : "fail";
   } else if ("http" in expect) {
     expected = `http:${expect.http}`;
     verdict =
-      outcome.kind === "http" && outcome.status === expect.http ? "pass" : "fail";
+      outcome.kind === "http" && outcome.status === expect.http
+        ? "pass"
+        : "fail";
   } else {
-    expected = "evm_commit_txs confirmed with transaction hashes and no caller Action";
+    expected =
+      "evm_commit_txs confirmed with transaction hashes and no caller Action";
     verdict = outcome.kind === "confirmed" ? "pass" : "fail";
   }
   report({ cell, expected, observed, verdict });
@@ -452,7 +479,10 @@ function judge(
 // Stage 1: Pipeline V2
 // ---------------------------------------------------------------------------
 
-async function stage1(auto: { agent?: string; reason?: string }): Promise<void> {
+async function stage1(auto: {
+  agent?: string;
+  reason?: string;
+}): Promise<void> {
   const call = {
     to: BOB as `0x${string}`,
     data: "0x" as `0x${string}`,
@@ -460,13 +490,58 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
     gas: "21000",
     description: "1 wei routing probe",
   };
+  const action = {
+    to: call.to,
+    description: call.description,
+    data: { signature: "", args: [], raw: call.data },
+    chain_id: CHAIN_ID,
+    value: call.value,
+    gas_limit: call.gas,
+  };
   const manual = agentClient(users.manual, `${PIPELINE_SCOPES} ${CUSTODY}`);
   try {
     const staged = await manual.pipeline.evm.stage({
-      actions: [{ chainId: CHAIN_ID, calls: [call] }],
+      actions: [action],
     });
-    const build = await staged.simulate();
-    const committed = await build.commit();
+    const build = await manual.pipeline.evm.simulate(staged);
+    // Tamper: same digest, different action → attestation must reject.
+    const tampered = {
+      ...build,
+      actions: [{ ...build.actions[0], value: "2" }],
+    };
+    try {
+      await manual.pipeline.evm.commit(tampered as never, {
+        idempotencyKey: `tamper-${crypto.randomUUID()}`,
+      });
+      report({
+        cell: "P2-4 tampered build",
+        expected: "422 pipeline_build_rejected integrity rejection",
+        observed: "committed",
+        verdict: "fail",
+      });
+    } catch (error) {
+      const pipeline = error as {
+        status?: number;
+        code?: string;
+        details?: unknown;
+      };
+      const details = JSON.stringify(pipeline.details ?? null);
+      report({
+        cell: "P2-4 tampered build",
+        expected: "422 pipeline_build_rejected integrity rejection",
+        observed:
+          `http:${pipeline.status ?? 0} ${pipeline.code ?? "unknown"} ` +
+          details.slice(0, 160),
+        verdict:
+          pipeline.status === 422 &&
+          pipeline.code === "backend_rejected" &&
+          details.includes("pipeline_build_rejected") &&
+          /(digest|attestation)/i.test(details)
+            ? "pass"
+            : "fail",
+      });
+    }
+    const committed = await manual.pipeline.evm.commit(build);
     const request = committed.requests[0] as { type?: string } | undefined;
     report({
       cell: "P2-1 stage→simulate→commit Manual",
@@ -477,28 +552,6 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
           ? "pass"
           : "fail",
     });
-    // Tamper: same digest, different action → attestation must reject.
-    const tampered = {
-      ...build.raw,
-      actions: [{ ...build.raw.actions[0], value: "2" }],
-    };
-    try {
-      await manual.pipeline.evm.commit(tampered as never);
-      report({
-        cell: "P2-4 tampered build",
-        expected: "4xx attestation rejection",
-        observed: "committed",
-        verdict: "fail",
-      });
-    } catch (error) {
-      const status = (error as { status?: number }).status ?? 0;
-      report({
-        cell: "P2-4 tampered build",
-        expected: "4xx attestation rejection",
-        observed: `http:${status}`,
-        verdict: status >= 400 && status < 500 ? "pass" : "fail",
-      });
-    }
   } catch (error) {
     report({
       cell: "P2-1 stage→simulate→commit Manual",
@@ -511,46 +564,52 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
   const denied = agentClient(users.denied, `${PIPELINE_SCOPES} ${CUSTODY}`);
   try {
     const staged = await denied.pipeline.evm.stage({
-      actions: [{ chainId: CHAIN_ID, calls: [call] }],
+      actions: [action],
     });
-    const build = await staged.simulate();
-    await build.commit();
+    const build = await denied.pipeline.evm.simulate(staged);
+    await denied.pipeline.evm.commit(build);
     report({
       cell: "P2-3 commit Denied",
-      expected: "signing_denied",
+      expected: "pipeline_commit_failed",
       observed: "committed",
       verdict: "fail",
     });
   } catch (error) {
-    const text = String((error as Error).message ?? error);
+    const pipeline = error as {
+      status?: number;
+      code?: string;
+      details?: unknown;
+    };
+    const details = JSON.stringify(pipeline.details ?? null);
     report({
       cell: "P2-3 commit Denied",
-      expected: "signing_denied",
-      observed: text.slice(0, 160),
-      verdict: text.includes("signing_denied") ? "pass" : "fail",
+      expected: "422 backend_rejected with pipeline_commit_failed",
+      observed:
+        `http:${pipeline.status ?? 0} ${pipeline.code ?? "unknown"} ` +
+        details.slice(0, 160),
+      verdict:
+        pipeline.status === 422 &&
+        pipeline.code === "backend_rejected" &&
+        details.includes("pipeline_commit_failed")
+          ? "pass"
+          : "fail",
     });
   }
 
-  const guest = new AomiClient({ baseUrl: origin, guest: true });
-  try {
-    await guest.pipeline.evm.stage({
-      actions: [{ chainId: CHAIN_ID, calls: [call] }],
-    });
-    report({
-      cell: "P2-5 guest stage",
-      expected: "401/403",
-      observed: "staged",
-      verdict: "fail",
-    });
-  } catch (error) {
-    const status = (error as { status?: number }).status ?? 0;
-    report({
-      cell: "P2-5 guest stage",
-      expected: "401/403",
-      observed: `http:${status}`,
-      verdict: status === 401 || status === 403 ? "pass" : "fail",
-    });
-  }
+  const guest = await fetch(`${origin}/v1/pipeline/evm/stage`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": `guest-${crypto.randomUUID()}`,
+    },
+    body: JSON.stringify({ actions: [action] }),
+  });
+  report({
+    cell: "P2-5 guest stage",
+    expected: "401/403",
+    observed: `http:${guest.status}`,
+    verdict: guest.status === 401 || guest.status === 403 ? "pass" : "fail",
+  });
 
   if (!auto.agent) {
     report({
@@ -578,7 +637,7 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
     const client = agentClient(users.auto, scope);
     try {
       const staged = await client.pipeline.evm.stage({
-        actions: [{ chainId: CHAIN_ID, calls: [call] }],
+        actions: [action],
       });
       const build = await staged.simulate();
       const committed = await build.commit();
@@ -587,8 +646,10 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
         expected,
         observed: `committed:${committed.status}`,
         verdict:
-          expected === "confirmed" && committed.status === "committed" &&
-          committed.requests.length === 0 && confirmed(committed.result)
+          expected === "confirmed" &&
+          committed.status === "committed" &&
+          committed.requests.length === 0 &&
+          confirmed(committed.result)
             ? "pass"
             : "fail",
       });
@@ -610,47 +671,79 @@ async function stage1(auto: { agent?: string; reason?: string }): Promise<void> 
 // Stage 2: Agent chat, one userState variant per cell
 // ---------------------------------------------------------------------------
 
-async function stage2(auto: { agent?: string; reason?: string }): Promise<void> {
+async function stage2(auto: {
+  agent?: string;
+  reason?: string;
+}): Promise<void> {
   const manual = agentClient(users.manual, `${AGENT_SCOPES} ${CUSTODY}`);
   const denied = agentClient(users.denied, `${AGENT_SCOPES} ${CUSTODY}`);
   const guest = new AomiClient({ baseUrl: origin, guest: true });
-  const run = (client: AomiClient, cell: string, evm: Record<string, unknown>, ext?: Record<string, unknown>) =>
-    runTurn(client, `routing-${Date.now()}-${cell.replace(/[^a-z0-9]+/gi, "-")}`, {
-      connection: { is_connected: true, provider: "para" },
-      evm,
-      ...(ext ? { ext } : {}),
-    });
+  const run = (
+    client: AomiClient,
+    cell: string,
+    evm: Record<string, unknown>,
+    ext?: Record<string, unknown>,
+  ) =>
+    runTurn(
+      client,
+      `routing-${Date.now()}-${cell.replace(/[^a-z0-9]+/gi, "-")}`,
+      {
+        connection: { is_connected: true, provider: "para" },
+        evm,
+        ...(ext ? { ext } : {}),
+      },
+    );
 
   judge(
     "E-Wallet-noAA-Manual (explicit wallet)",
-    await run(manual, "wallet-explicit", { address: ALICE, chain_id: CHAIN_ID, broadcaster: "wallet" }),
-    { action: "execute_evm" },
-  );
-  judge(
-    "E-Wallet-noAA-Manual (no selection)",
-    await run(manual, "wallet-default", { address: ALICE, chain_id: CHAIN_ID }),
-    { action: "execute_evm" },
-  );
-  judge(
-    "E-Hosted-noAA-Manual",
-    await run(manual, "hosted-manual", { address: ALICE, chain_id: CHAIN_ID, broadcaster: "hosted" }),
-    { error: "broadcaster_unsupported_for_chain" },
-  );
-  judge(
-    "E-Venue-noAA-Manual",
-    await run(manual, "venue-manual", { address: ALICE, chain_id: CHAIN_ID, broadcaster: "venue" }),
-    { error: "broadcaster_unsupported_for_chain" },
-  );
-  judge(
-    "TG Manual (address+chain_id only)",
-    await run(manual, "tg-manual", { address: ALICE, chain_id: CHAIN_ID }, {
-      telegram: { requires_action_approval: true },
+    await run(manual, "wallet-explicit", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+      broadcaster: "wallet",
     }),
     { action: "execute_evm" },
   );
   judge(
+    "E-Wallet-noAA-Manual (no selection)",
+    await run(manual, "wallet-default", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+    }),
+    { action: "execute_evm" },
+  );
+  judge(
+    "E-Hosted-noAA-Manual",
+    await run(manual, "hosted-manual", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+      broadcaster: "hosted",
+    }),
+    { error: "broadcaster_unsupported_for_chain" },
+  );
+  judge(
+    "E-Venue-noAA-Manual",
+    await run(manual, "venue-manual", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+      broadcaster: "venue",
+    }),
+    { error: "broadcaster_unsupported_for_chain" },
+  );
+  judge(
+    "TG Manual (address+chain_id only)",
+    await run(
+      manual,
+      "tg-manual",
+      { address: MANUAL_WALLET, chain_id: CHAIN_ID },
+      {
+        telegram: { requires_action_approval: true },
+      },
+    ),
+    { action: "execute_evm" },
+  );
+  judge(
     "Denied",
-    await run(denied, "denied", { address: ALICE, chain_id: CHAIN_ID }),
+    await run(denied, "denied", { address: DENIED_WALLET, chain_id: CHAIN_ID }),
     { error: "signing_denied" },
   );
   judge(
@@ -660,12 +753,20 @@ async function stage2(auto: { agent?: string; reason?: string }): Promise<void> 
   );
   judge(
     "Invalid broadcaster (string)",
-    await run(manual, "invalid-aomi", { address: ALICE, chain_id: CHAIN_ID, broadcaster: "aomi" }),
+    await run(manual, "invalid-aomi", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+      broadcaster: "aomi",
+    }),
     { http: 400 },
   );
   judge(
     "Invalid broadcaster (bool)",
-    await run(manual, "invalid-bool", { address: ALICE, chain_id: CHAIN_ID, broadcaster: true }),
+    await run(manual, "invalid-bool", {
+      address: MANUAL_WALLET,
+      chain_id: CHAIN_ID,
+      broadcaster: true,
+    }),
     { http: 400 },
   );
 
@@ -692,24 +793,41 @@ async function stage2(auto: { agent?: string; reason?: string }): Promise<void> 
   const noCustody = agentClient(users.nocustody, AGENT_SCOPES);
   judge(
     "E-Wallet-noAA-Auto (explicit wallet)",
-    await run(autoClient, "auto-wallet", { address: agent, chain_id: CHAIN_ID, broadcaster: "wallet" }),
+    await run(autoClient, "auto-wallet", {
+      address: agent,
+      chain_id: CHAIN_ID,
+      broadcaster: "wallet",
+    }),
     { error: "broadcaster_incompatible" },
   );
   judge(
     "E-Hosted-noAA-Auto",
-    await run(autoClient, "auto-hosted", { address: agent, chain_id: CHAIN_ID, broadcaster: "hosted" }),
+    await run(autoClient, "auto-hosted", {
+      address: agent,
+      chain_id: CHAIN_ID,
+      broadcaster: "hosted",
+    }),
     { confirmed: true },
   );
   judge(
     "E-Venue-noAA-Auto",
-    await run(autoClient, "auto-venue", { address: agent, chain_id: CHAIN_ID, broadcaster: "venue" }),
+    await run(autoClient, "auto-venue", {
+      address: agent,
+      chain_id: CHAIN_ID,
+      broadcaster: "venue",
+    }),
     { error: "broadcaster_unsupported_for_chain" },
   );
   judge(
     "TG Auto (no selection → hosted)",
-    await run(autoClient, "tg-auto", { address: agent, chain_id: CHAIN_ID }, {
-      telegram: { requires_action_approval: true },
-    }),
+    await run(
+      autoClient,
+      "tg-auto",
+      { address: agent, chain_id: CHAIN_ID },
+      {
+        telegram: { requires_action_approval: true },
+      },
+    ),
     // Telegram approval is enforced before broadcaster resolution; this
     // checks that fence, not the default submitter.
     { error: "signing_action_approval_required" },
@@ -721,7 +839,11 @@ async function stage2(auto: { agent?: string; reason?: string }): Promise<void> 
   );
   judge(
     "Auto without custody scope",
-    await run(noCustody, "auto-nocustody", { address: agent, chain_id: CHAIN_ID, broadcaster: "hosted" }),
+    await run(noCustody, "auto-nocustody", {
+      address: agent,
+      chain_id: CHAIN_ID,
+      broadcaster: "hosted",
+    }),
     { error: "signing_delegated_custody_scope_required" },
   );
 }
@@ -732,8 +854,11 @@ async function stage2(auto: { agent?: string; reason?: string }): Promise<void> 
 
 async function stage3(auto: { agent?: string }): Promise<void> {
   // Replay: commit the same permit twice → 409 stale_permit.
-  const first = await permit(users.manual, ALICE, "manual");
-  assert.ok(first.commit, "manual permit challenge failed");
+  const first = await permit(users.manual, MANUAL_WALLET, "manual");
+  assert.ok(
+    first.commit && first.signature && first.signer,
+    "manual permit challenge failed",
+  );
   const replayed = await accountFetch(
     users.manual,
     "/api/account/authorization/commit",
@@ -741,15 +866,8 @@ async function stage3(auto: { agent?: string }): Promise<void> {
       method: "POST",
       body: JSON.stringify({
         permit: first.permit,
-        signature: await anvilSignTypedData(ALICE, {
-          // The signature no longer matters once the version moved on; the
-          // permit itself is stale.
-          types: {},
-          primaryType: "Noop",
-          domain: {},
-          message: {},
-        }).catch(() => "0x00"),
-        signer: ALICE,
+        signature: first.signature,
+        signer: first.signer,
       }),
     },
   );
@@ -764,7 +882,7 @@ async function stage3(auto: { agent?: string }): Promise<void> {
   });
 
   // Foreign signer on a loosening change → 403 wrong_signer.
-  const foreign = await permit(users.manual, ALICE, "client_auto", BOB);
+  const foreign = await permit(users.manual, MANUAL_WALLET, "client_auto", BOB);
   const foreignCode = foreign.commit ? await errorCode(foreign.commit) : "";
   report({
     cell: "Foreign signer loosen",
@@ -778,11 +896,12 @@ async function stage3(auto: { agent?: string }): Promise<void> {
 
   // server_auto on a key without a delegation → 409 missing_delegated_account
   // (fails fast at challenge time).
-  const missing = await permit(users.manual, ALICE, "server_auto");
+  const missing = await permit(users.manual, MANUAL_WALLET, "server_auto");
   const missingCode = await errorCode(missing.challenge);
   report({
     cell: "server_auto without delegation",
-    expected: "409 missing_delegated_account (or 422 mode_illegal_for_provider for a non-delegating identity)",
+    expected:
+      "409 missing_delegated_account (or 422 mode_illegal_for_provider for a non-delegating identity)",
     observed: `${missing.challenge.status} ${missingCode}`,
     verdict:
       (missing.challenge.status === 409 &&
@@ -794,7 +913,12 @@ async function stage3(auto: { agent?: string }): Promise<void> {
   });
 
   if (auto.agent) {
-    const illegal = await permit(users.auto, auto.agent, "manual", ALICE);
+    const illegal = await permit(
+      users.auto,
+      auto.agent,
+      "manual",
+      MANUAL_WALLET,
+    );
     const code = await errorCode(illegal.challenge);
     report({
       cell: "manual on provider-managed key",
@@ -821,10 +945,12 @@ if (process.argv.includes("--self-test")) {
   ] as const) {
     const client = {
       agent: {
-        start: async () => ({ events: [
-          { type: "tool_complete", tool_name, result },
-          { type: "turn_state_changed", state: "complete" },
-        ] }),
+        start: async () => ({
+          events: [
+            { type: "tool_complete", tool_name, result },
+            { type: "turn_state_changed", state: "complete" },
+          ],
+        }),
       },
     } as unknown as AomiClient;
     const outcome = await runTurn(client, "fixture", {});
@@ -863,8 +989,8 @@ assert.ok(health?.ok, `backend ${backendOrigin} is not healthy`);
 const ready = await fetch(`${origin}/ready`).catch(() => undefined);
 assert.ok(ready?.ok, `api-server ${origin} is not ready`);
 
-await bindAndSet(users.manual, "manual");
-await bindAndSet(users.denied, "denied");
+await bindAndSet(users.manual, "manual", MANUAL_WALLET);
+await bindAndSet(users.denied, "denied", DENIED_WALLET);
 const auto = await provisionAuto(users.auto);
 if (auto.reason) console.error(`[routing-matrix] Auto lanes: ${auto.reason}`);
 

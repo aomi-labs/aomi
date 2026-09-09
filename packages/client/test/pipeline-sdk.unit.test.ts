@@ -35,7 +35,7 @@ function pendingAction(request: Action["request"]): Action {
 }
 
 const evmStaged: EvmStagedBuild = {
-  version: 1,
+  version: 2,
   status: "staged",
   actions: [
     {
@@ -48,7 +48,7 @@ const evmStaged: EvmStagedBuild = {
       kind: "native_transfer",
     },
   ],
-  provenance: {
+  origin: {
     app: "default",
     operations: [
       {
@@ -57,7 +57,9 @@ const evmStaged: EvmStagedBuild = {
       },
     ],
   },
+  expiresAt: 2_000_000_000,
   digest: "sha256:evm-staged",
+  attestation: "evm-attestation",
 };
 
 const evmSimulated: EvmSimulatedBuild = {
@@ -108,7 +110,7 @@ const evmSimulated: EvmSimulatedBuild = {
 };
 
 const svmStaged: SvmStagedBuild = {
-  version: 1,
+  version: 2,
   status: "staged",
   actions: [
     {
@@ -125,7 +127,7 @@ const svmStaged: SvmStagedBuild = {
       },
     },
   ],
-  provenance: {
+  origin: {
     app: "default",
     operations: [
       {
@@ -134,7 +136,9 @@ const svmStaged: SvmStagedBuild = {
       },
     ],
   },
+  expiresAt: 2_000_000_000,
   digest: "sha256:svm-staged",
+  attestation: "svm-attestation",
 };
 
 const svmSimulated: SvmSimulatedBuild = {
@@ -188,6 +192,12 @@ describe("Pipeline SDK lifecycle", () => {
     const simulated = await evm.simulate(staged);
     const receipt = await evm.commit(simulated);
 
+    expect(staged.origin).toEqual(evmStaged.origin);
+    expect(staged.expiresAt).toBe(evmStaged.expiresAt);
+    expect(staged.attestation).toBe(evmStaged.attestation);
+    expect(simulated.origin).toEqual(evmSimulated.origin);
+    expect(simulated.expiresAt).toBe(evmSimulated.expiresAt);
+    expect(simulated.attestation).toBe(evmSimulated.attestation);
     expect(receipt.status).toBe("committed");
     const keys = fetch.mock.calls.map(([, init]) =>
       new Headers(init?.headers).get("idempotency-key"),
@@ -239,6 +249,12 @@ describe("Pipeline SDK lifecycle", () => {
 
     expect(build).toBeInstanceOf(SvmBuild);
     expect(build.status).toBe("simulated");
+    expect(staged.origin).toEqual(svmStaged.origin);
+    expect(staged.expiresAt).toBe(svmStaged.expiresAt);
+    expect(staged.attestation).toBe(svmStaged.attestation);
+    expect(build.origin).toEqual(svmSimulated.origin);
+    expect(build.expiresAt).toBe(svmSimulated.expiresAt);
+    expect(build.attestation).toBe(svmSimulated.attestation);
     expect(
       fetch.mock.calls.every(([, init]) =>
         new Headers(init?.headers).has("idempotency-key"),

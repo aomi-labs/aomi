@@ -30,17 +30,22 @@ assert.ok(
   productRoot && signerFile && evidenceFile && userId,
   "backend root, disposable signer, evidence path, and local account ID are required",
 );
-// Fixed owned endpoints prevent this signing test from accepting a remote target.
-const backend = "http://127.0.0.1:8083";
-const api = "http://127.0.0.1:8084";
-const rpc = "http://127.0.0.1:18899";
+// Loopback-only overrides let the harness follow isolated workspace ports while
+// keeping this signing test unable to target a remote service.
+const backend = loopbackOrigin(
+  "AOMI_AGENT_E2E_BACKEND_ORIGIN",
+  "http://127.0.0.1:8083",
+);
+const api = loopbackOrigin("AOMI_AGENT_E2E_ORIGIN", "http://127.0.0.1:8084");
+const rpc = loopbackOrigin("AOMI_SVM_E2E_RPC_ORIGIN", "http://127.0.0.1:18899");
+const ws = loopbackOrigin("AOMI_SVM_E2E_WS_ORIGIN", "ws://127.0.0.1:18900");
 const signer = Keypair.fromSecretKey(
   Uint8Array.from(JSON.parse(readFileSync(signerFile, "utf8"))),
 );
 const wallet = signer.publicKey.toBase58();
 const connection = new Connection(rpc, {
   commitment: "confirmed",
-  wsEndpoint: "ws://127.0.0.1:18900",
+  wsEndpoint: ws,
 });
 const recipient = Keypair.generate().publicKey;
 const lamports = 1_000_000;
@@ -124,6 +129,7 @@ const staged = await client.pipeline.svm.stage({
   ],
 });
 assert.equal(staged.status, "staged");
+assert.equal(staged.version, 2);
 assert.equal(staged.actions.length, 1);
 const action = staged.actions[0];
 assert.equal(action?.lane, "instruction");
@@ -133,7 +139,7 @@ const encoded = Buffer.from(action.instruction.data_base64, "base64");
 assert.equal(encoded.length, 12);
 assert.equal(encoded.readUInt32LE(0), 2);
 assert.equal(encoded.readBigUInt64LE(4), BigInt(lamports));
-assert.equal(staged.provenance.operations.length, 1);
+assert.equal(staged.origin.operations.length, 1);
 const simulated = await client.pipeline.svm.simulate(staged);
 assert.equal(simulated.status, "simulated");
 assert.equal(simulated.simulation.status, "passed");
@@ -238,6 +244,16 @@ function record(value: unknown): Record<string, unknown> {
     "expected JSON object",
   );
   return Object.fromEntries(Object.entries(value));
+}
+
+function loopbackOrigin(name: string, fallback: string): string {
+  const value = process.env[name]?.trim() || fallback;
+  const parsed = new URL(value);
+  assert.ok(
+    parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost",
+    `${name} must remain loopback-only`,
+  );
+  return parsed.toString().replace(/\/$/, "");
 }
 
 async function bindWallet() {

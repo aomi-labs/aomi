@@ -64,11 +64,14 @@ export type PipelineOperationBuildInput<
     | { operations: PipelineOperationInvocation<Arguments>[] }
   );
 
-export interface PipelineBuildProvenance {
+export interface PipelineBuildOrigin {
   app: string;
   skills?: string[];
   operations: PipelineOperationInvocation[];
 }
+
+/** @deprecated Use PipelineBuildOrigin. */
+export type PipelineBuildProvenance = PipelineBuildOrigin;
 
 export interface PipelineMutationOptions {
   idempotencyKey?: string;
@@ -157,21 +160,25 @@ export type EvmStagedAction = Schemas["AssembledEvmTransaction"];
 export type EvmPresentedAction = EvmStagedAction & { chainFamily: "evm" };
 
 export interface EvmStagedBuild {
-  version: 1;
+  version: 2;
   status: "staged";
   actions: EvmStagedAction[];
-  provenance: PipelineBuildProvenance;
+  origin: PipelineBuildOrigin;
+  expiresAt: number;
   digest: string;
+  attestation: string;
 }
 
 export interface EvmSimulatedBuild {
-  version: 1;
+  version: 2;
   status: "simulated";
   actions: EvmStagedAction[];
-  provenance: PipelineBuildProvenance;
+  origin: PipelineBuildOrigin;
   simulation: PipelineSimulation;
   summary?: PipelineActionSummary;
+  expiresAt: number;
   digest: string;
+  attestation: string;
 }
 
 export interface EvmCommitResult {
@@ -254,21 +261,25 @@ export type SvmBuildAction = SvmStagedAction;
 export type SvmPresentedAction = SvmStagedAction & { chainFamily: "svm" };
 
 export interface SvmStagedBuild {
-  version: 1;
+  version: 2;
   status: "staged";
   actions: SvmStagedAction[];
-  provenance: PipelineBuildProvenance;
+  origin: PipelineBuildOrigin;
+  expiresAt: number;
   digest: string;
+  attestation: string;
 }
 
 export interface SvmSimulatedBuild {
-  version: 1;
+  version: 2;
   status: "simulated";
   actions: SvmStagedAction[];
-  provenance: PipelineBuildProvenance;
+  origin: PipelineBuildOrigin;
   simulation: PipelineSimulation;
   summary?: PipelineActionSummary;
+  expiresAt: number;
   digest: string;
+  attestation: string;
 }
 
 export interface SvmCommitResult {

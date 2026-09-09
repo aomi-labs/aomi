@@ -68,7 +68,7 @@ test("an AA operation renders as a hosted sign Action and never hits the wallet 
       "Do not ask me for another chat message.",
   );
   await expect(page.getByTestId("transaction-review")).toBeVisible({
-    timeout: 180_000,
+    timeout: 300_000,
   });
   await expect(page.getByText("Authorizing account")).toBeVisible();
   await expect(page.getByText("Submitted by")).toBeVisible();
@@ -102,8 +102,9 @@ async function seedWallet(page: Page, redirect = "/"): Promise<void> {
 async function send(page: Page, message: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
 }

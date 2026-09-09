@@ -12,6 +12,7 @@ for (const viewport of [
     await page.goto("/", { waitUntil: "domcontentloaded" });
     const input = page.getByRole("textbox", { name: "Message input" });
     await expect(input).toBeVisible({ timeout: 30_000 });
+    await expect(input).toHaveAttribute("contenteditable", "true");
     await page
       .getByRole("button", { name: "Add app, skill, or chain" })
       .click();
@@ -99,6 +100,7 @@ test("composer keyboard editing sends only the retained chain hint", async ({
     timeout: 30_000,
   });
   const input = page.getByRole("textbox", { name: "Message input" });
+  await expect(input).toHaveAttribute("contenteditable", "true");
   const picker = page.getByRole("listbox", {
     name: "Apps, skills, and chains",
   });
@@ -222,6 +224,7 @@ test("live Library search, details, and Try insert a skill into the composer", a
   await detail.getByRole("button", { name: "Try", exact: true }).click();
   await expect(library).toHaveCount(0);
   const input = page.getByRole("textbox", { name: "Message input" });
+  await expect(input).toHaveAttribute("contenteditable", "true");
   await expect(input.locator('[data-capability-key^="skill:"]')).toHaveCount(1);
   await expect(
     input.locator('[data-capability-key^="skill:"]'),

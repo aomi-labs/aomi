@@ -51,6 +51,7 @@ export type {
   PipelineAssetStandard,
   PipelineBalanceChange,
   PipelineCommitOptions,
+  PipelineBuildOrigin,
   PipelineBuildProvenance,
   PipelineExecutionScope,
   PipelineDirectory,

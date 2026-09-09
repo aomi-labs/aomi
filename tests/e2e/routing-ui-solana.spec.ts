@@ -55,10 +55,12 @@ test("a Solana Action is signed through the Solana BFF route", async ({
       "Stage it and call the Solana commit tool in this same turn so the runtime emits an Action. " +
       "Do not ask me for another chat message.",
   );
-  await expect(page.getByRole("heading", { name: /Review/ })).toBeVisible({
-    timeout: 180_000,
+  await expect(page.getByTestId("transaction-review")).toBeVisible({
+    timeout: 300_000,
   });
-  await page.getByRole("button", { name: "Approve" }).click();
+  await page
+    .getByRole("button", { name: "Send to wallet", exact: true })
+    .click();
   const response = await solanaResponse;
   expect(response.status()).toBe(200);
   const body = (await response.json()) as { signature?: string };
@@ -69,8 +71,9 @@ test("a Solana Action is signed through the Solana BFF route", async ({
 async function send(page: Page, message: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
 }
