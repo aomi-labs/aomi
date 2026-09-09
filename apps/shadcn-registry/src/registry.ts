@@ -139,6 +139,7 @@ export const registry: RegistryComponent[] = [
       "@solana/wallet-standard-wallet-adapter-react",
       "@solana/web3.js",
       "@tanstack/react-query",
+      "@x402/svm",
       "viem",
       "wagmi",
     ],

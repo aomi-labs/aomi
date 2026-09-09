@@ -384,6 +384,7 @@
     "@solana/wallet-standard-wallet-adapter-react@1.1.4",
     "@solana/web3.js@^1.98.4",
     "@tanstack/react-query@^5.90.10",
+    "@x402/svm@^2.21.0",
     "viem@^2.47.11",
     "wagmi@^2.19.5"
   ],
