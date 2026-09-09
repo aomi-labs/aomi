@@ -31,12 +31,19 @@ jobs:
           ref: ${{ inputs.candidate_sha }}
           fetch-depth: 0
 
-      - name: Verify the candidate is on main with successful same-SHA CI
+      - name: Verify the candidate under main's release policy
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           ALLOW_PUBLISHABLE_PACKAGE_DRIFT: ${{ inputs.allow_package_drift }}
-        run: .github/scripts/verify-main-ci.sh
+        run: |
+          # The candidate is intentionally frozen, so its checkout can contain
+          # an older verifier. Load the policy from main while retaining the
+          # candidate checkout for the ancestry and package-diff checks below.
+          git fetch origin main --quiet
+          git show origin/main:.github/scripts/verify-main-ci.sh > "$RUNNER_TEMP/verify-main-ci.sh"
+          chmod +x "$RUNNER_TEMP/verify-main-ci.sh"
+          "$RUNNER_TEMP/verify-main-ci.sh"
 
       - name: Enable corepack
         run: corepack enable
