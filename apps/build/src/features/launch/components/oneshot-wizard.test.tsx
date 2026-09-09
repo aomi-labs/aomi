@@ -68,7 +68,6 @@ function baseProgress(): LaunchProgress {
 describe("OneshotWizard", () => {
   const defaultProps = {
     progress: baseProgress(),
-    actor: "test-user",
     beginInstall: noop,
     installing: false,
     installError: null,

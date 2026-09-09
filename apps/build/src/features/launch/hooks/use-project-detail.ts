@@ -36,7 +36,6 @@ import type {
 } from "@build/features/launch/contracts";
 import { isRetryableLaunchError } from "@aomi-labs/deploy/launch";
 import { useGitHubSession } from "@build/components/control-plane/github-session-context";
-import { type DeployFlowProgress } from "@build/features/launch/components/deployments/deploy-flow-progress";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
@@ -46,11 +45,11 @@ import {
 /** Progress of an in-flight linked-source redeploy (deploy → CI → activate). */
 export type DeployFlowState =
   | { phase: "idle" }
-  | { phase: "deploying"; message: string; progress?: DeployFlowProgress }
-  | { phase: "building"; message: string; progress?: DeployFlowProgress }
-  | { phase: "activating"; message: string; progress?: DeployFlowProgress }
-  | { phase: "done"; message: string; progress?: DeployFlowProgress }
-  | { phase: "error"; message: string; progress?: DeployFlowProgress };
+  | { phase: "deploying"; message: string }
+  | { phase: "building"; message: string }
+  | { phase: "activating"; message: string }
+  | { phase: "done"; message: string }
+  | { phase: "error"; message: string };
 
 type MissingSecrets = Record<string, string[]>;
 
@@ -175,13 +174,19 @@ export function useProjectDetail(projectId: number) {
     () => projectsQuery.data?.projects.find((s) => s.id === projectId) ?? null,
     [projectsQuery.data, projectId],
   );
+  const runtimeKey = useMemo(
+    () => ["project-runtime", accountKey, projectId] as const,
+    [accountKey, projectId],
+  );
   const runtime = useQuery({
-    queryKey: ["project-runtime", accountKey, projectId],
+    queryKey: runtimeKey,
     queryFn: () => launchAppsStatus({ projectId }),
     enabled: !!accountKey && !!rawSource?.apps.some((app) => app.isActive),
     retry: (count, error) => count < 4 && isRetryableLaunchError(error),
     retryDelay: (count) => Math.min(4000 * 2 ** count, 30000),
-    refetchInterval: (query) => (query.state.error ? false : 10000),
+    // Keep polling through errors: react-query keeps the last data, and the
+    // next tick recovers once the runtime answers again.
+    refetchInterval: 10000,
     refetchOnWindowFocus: false,
   });
   const source = useMemo(
@@ -191,18 +196,20 @@ export function useProjectDetail(projectId: number) {
             ...rawSource,
             apps: rawSource.apps.map((app) => ({
               ...app,
-              loaded:
-                !runtime.isError &&
-                runtime.data?.apps.some(
-                  (current) =>
-                    current.id === app.id &&
-                    current.app_release_tag === app.appReleaseTag &&
-                    current.loaded,
-                ) === true,
+              // Only a runtime probe proves readiness. Keep its last result
+              // through refetch errors; before the first result it is unknown.
+              loaded: runtime.data
+                ? runtime.data.apps.some(
+                    (current) =>
+                      current.id === app.id &&
+                      current.app_release_tag === app.appReleaseTag &&
+                      current.loaded,
+                  )
+                : undefined,
             })),
           }
         : null,
-    [rawSource, runtime.data, runtime.isError],
+    [rawSource, runtime.data],
   );
   const sdk = sdkQuery.data ?? null;
   const loading = account.loading || projectsQuery.isPending;
@@ -264,6 +271,8 @@ export function useProjectDetail(projectId: number) {
   const recordsReq = useRef(false);
   const requiredSecretsReq = useRef(false);
   const gateMissingSecretsRef = useRef<MissingSecrets>({});
+  // `id:status` of the latest attempt last seen by the completion effect.
+  const seenAttemptRef = useRef<string>(undefined);
   const projectEpochRef = useRef(0);
   // Advance the generation after a project navigation commits. Async reads
   // capture the generation they started in and cannot write into a later page.
@@ -310,6 +319,7 @@ export function useProjectDetail(projectId: number) {
     setGateMissingSecrets({});
     gateMissingSecretsRef.current = {};
     setRequiredSecretsError(null);
+    seenAttemptRef.current = undefined;
   }, [projectId]);
 
   // A 409 describes a candidate release which the Manager cannot expose until
@@ -610,15 +620,26 @@ export function useProjectDetail(projectId: number) {
     [startAttempt, router, projectId, source?.platformName, reload],
   );
 
+  // Refresh on the transition to a completed attempt, never on first sight:
+  // opening a project whose latest attempt already completed must not refetch
+  // what the page just loaded (double-reload waterfall, empty-list flash).
   useEffect(() => {
-    if (latestAttempt?.status !== "completed") return;
+    if (!latestAttempt) return;
+    const key = `${latestAttempt.id}:${latestAttempt.status}`;
+    const seen = seenAttemptRef.current;
+    seenAttemptRef.current = key;
+    if (seen === undefined || seen === key) return;
+    if (latestAttempt.status !== "completed") return;
     void reload();
     void refreshRequiredSecrets().catch(() => undefined);
+    // Live appears right after Verify instead of on the next 10 s tick.
+    void queryClient.invalidateQueries({ queryKey: runtimeKey });
   }, [
-    latestAttempt?.id,
-    latestAttempt?.status,
+    latestAttempt,
     reload,
     refreshRequiredSecrets,
+    queryClient,
+    runtimeKey,
   ]);
 
   const upgradeSdk = useCallback(

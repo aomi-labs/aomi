@@ -28,10 +28,13 @@ export function AttemptControls({
   blocked: boolean;
 }) {
   const [branch, setBranch] = useState("");
+  // Follow the latest attempt's branch until the user types; a poll must not
+  // overwrite what they are entering.
+  const [dirty, setDirty] = useState(false);
   const latest = detail.attempts.attempts[0];
   useEffect(() => {
-    setBranch(latest?.branch ?? "");
-  }, [latest?.branch]);
+    if (!dirty) setBranch(latest?.branch ?? "");
+  }, [dirty, latest?.branch]);
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <label className="text-dim flex items-center gap-2 text-xs">
@@ -41,7 +44,10 @@ export function AttemptControls({
           placeholder="Repository default"
           maxLength={120}
           value={branch}
-          onChange={(event) => setBranch(event.target.value)}
+          onChange={(event) => {
+            setDirty(true);
+            setBranch(event.target.value);
+          }}
           disabled={detail.attempts.busy}
           className="border-border bg-background text-foreground h-9 w-40 rounded-md border px-2"
         />
@@ -92,6 +98,11 @@ export function DeploymentAttempts({ detail }: { detail: Detail }) {
       {attempts.mutationError && (
         <p role="alert" className="text-destructive px-4 py-3 text-sm">
           {attempts.mutationError}
+        </p>
+      )}
+      {attempts.mutationNotice && (
+        <p role="status" className="text-dim px-4 py-3 text-sm">
+          {attempts.mutationNotice}
         </p>
       )}
       {attempts.local.map((local) => (

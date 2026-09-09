@@ -84,6 +84,35 @@ describe("browser deployment handoff", () => {
       request.mock.calls.filter(([, options]) => options?.action === "start"),
     ).toHaveLength(1);
   });
+  it("shows the running deployment instead of duplicating it when start finds one", async () => {
+    const running = {
+      id: 11,
+      branch: "main",
+      commit: "abc",
+      status: "in_progress",
+      conclusion: null,
+    };
+    request.mockImplementation(async (_id, options) =>
+      options?.action === "start"
+        ? { attempt: running, existing: true }
+        : options?.runId
+          ? { attempt: running }
+          : { attempts: [running], nextPage: null },
+    );
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useDeploymentAttempts(7, "alice"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.attempts).toHaveLength(1));
+    await act(async () => {
+      await result.current.start("main");
+    });
+    expect(result.current.mutationNotice).toBe(
+      "A deployment is already running; showing it",
+    );
+    expect(result.current.attempts.map((item) => item.id)).toEqual([11]);
+    expect(result.current.local).toEqual([]);
+  });
   it("preserves an early failure across refresh without pretending it reached CI", async () => {
     request.mockImplementation(async (_id, options) => {
       if (options?.action === "start")

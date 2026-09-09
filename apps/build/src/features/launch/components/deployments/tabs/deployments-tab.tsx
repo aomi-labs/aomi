@@ -456,7 +456,6 @@ export function DeploymentsTab({
       deployments.length === 0 &&
       detail.attempts.isSuccess &&
       !detail.attempts.attempts.length &&
-      !detail.attempts.hasNextPage &&
       !detail.attempts.local.length &&
       !detail.recordsError ? (
         <EmptyState

@@ -52,7 +52,6 @@ export function OneshotWizard({
 }: {
   progress: LaunchProgress;
   platform?: string;
-  actor?: string;
   onRestart?: () => void;
   /**
    * Send the browser to GitHub. `authorize` skips the install ceremony for an
@@ -62,7 +61,6 @@ export function OneshotWizard({
   installing?: boolean;
   installError?: string | null;
   patch: (patch: Partial<LaunchProgress>) => void;
-  onReset?: () => void;
   onInstallRejected?: (installationId?: string) => void;
 }) {
   const step =

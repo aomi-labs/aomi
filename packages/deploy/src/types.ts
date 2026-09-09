@@ -465,7 +465,8 @@ export interface PlatformApp {
   projectId: number | null;
   appReleaseTag: string | null;
   targetTags: string[];
-  loaded: boolean;
+  /** Runtime probe result; `undefined` when no probe ran (list reads). */
+  loaded?: boolean;
   artifactReady?: boolean | null;
   /** Exact runtime-validated pricing sidecar for the loaded release. */
   pricing?: AppPricingSnapshot | null;

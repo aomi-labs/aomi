@@ -625,6 +625,61 @@ describe("createLaunchRoutes projects", () => {
 
 describe("createLaunchRoutes runtime apps", () => {
   it.each([
+    { failure: 404, status: 200 },
+    { failure: 503, status: 503 },
+    { failure: 401, status: 401 },
+    { failure: "connection", status: 502 },
+  ])(
+    "preserves runtime probe failure semantics ($failure)",
+    async ({ failure, status }) => {
+      session.mockResolvedValueOnce({
+        githubUserId: "42",
+        githubLogin: "alice",
+      });
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(ownedProjects(99))
+        .mockResolvedValueOnce(
+          Response.json({
+            project: { id: 99 },
+            platform: "community",
+            apps: [
+              {
+                id: 5,
+                name: "bot",
+                is_active: true,
+                loaded: true,
+                app_release_tag: "release-2",
+              },
+            ],
+          }),
+        );
+      if (typeof failure === "number") {
+        fetchMock.mockResolvedValueOnce(
+          Response.json({ error: "probe unavailable" }, { status: failure }),
+        );
+      } else {
+        fetchMock.mockRejectedValueOnce(new TypeError("connection lost"));
+      }
+      vi.stubGlobal("fetch", fetchMock);
+
+      const res = await routes().apps(readReq("apps", "projectId=99"));
+
+      expect(res.status).toBe(status);
+      const body = await res.json();
+      if (failure === 404) {
+        expect(body).toMatchObject({
+          state: "pending",
+          apps: [{ id: 5, loaded: false }],
+        });
+      } else {
+        expect(body.error).toBeTruthy();
+        expect(body.apps).toBeUndefined();
+      }
+    },
+  );
+
+  it.each([
     { ready: true, project: 99, release: "release-2", live: true },
     { ready: false, project: 99, release: "release-2", live: false },
     { ready: true, project: 100, release: "release-2", live: false },

@@ -26,6 +26,22 @@ export function projectDeploymentStatus(
     source.latestDeployment != null ||
     source.apps.some((app) => app.appReleaseTag != null);
 
+  // `loaded` is a runtime probe result. Rows that never probed (`undefined`,
+  // the Projects index) say "Activated" rather than claiming a verification
+  // that did not run; a probe that answered `false` is the unverified case.
+  if (
+    lifecycle.kind === "live" &&
+    source.apps.some((app) => app.loaded === undefined)
+  ) {
+    return {
+      lifecycle,
+      label: "Activated",
+      dotState: "ready",
+      isLive: false,
+      hasRecordedDeployment,
+    };
+  }
+
   if (
     lifecycle.kind === "live" &&
     !source.apps.every((app) => app.isActive && app.loaded === true)

@@ -169,7 +169,7 @@ export function launchAppStatusesResult(
     id: app.id,
     name: app.name,
     is_active: app.isActive,
-    loaded: app.loaded,
+    loaded: app.loaded === true,
     app_release_tag: app.appReleaseTag,
   }));
   const live =

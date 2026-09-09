@@ -1,4 +1,4 @@
-import { DeployError } from "../errors";
+import { BackendError, DeployError } from "../errors";
 import type {
   BotRegistration,
   BuilderBotsInput,
@@ -466,19 +466,27 @@ export class BackendClient extends BackendPlatformClient {
       result.apps.map(async (app) => {
         if (!app.isActive || !app.appReleaseTag)
           return { ...app, loaded: false };
-        const raw = await this.get<{ app: Record<string, unknown> }>(
-          `/api/platforms/${encodeURIComponent(result.platform)}/apps/${encodeURIComponent(app.name)}?release_tag=${encodeURIComponent(app.appReleaseTag)}`,
-          "get_project_runtime_app",
-          bearer,
-        );
-        return {
-          ...app,
-          loaded:
-            raw.app.id === app.id &&
-            raw.app.project_id === input.projectId &&
-            raw.app.app_release_tag === app.appReleaseTag &&
-            raw.app.artifact_ready === true,
-        };
+        try {
+          const raw = await this.get<{ app: Record<string, unknown> }>(
+            `/api/platforms/${encodeURIComponent(result.platform)}/apps/${encodeURIComponent(app.name)}?release_tag=${encodeURIComponent(app.appReleaseTag)}`,
+            "get_project_runtime_app",
+            bearer,
+          );
+          return {
+            ...app,
+            loaded:
+              raw.app.id === app.id &&
+              raw.app.project_id === input.projectId &&
+              raw.app.app_release_tag === app.appReleaseTag &&
+              raw.app.artifact_ready === true,
+          };
+        } catch (error) {
+          // A missing app is not loaded yet. Other failures must reach the
+          // caller so retries preserve the last verified runtime result.
+          if (!(error instanceof BackendError) || error.status !== 404)
+            throw error;
+          return { ...app, loaded: false };
+        }
       }),
     );
     return { ...result, apps };

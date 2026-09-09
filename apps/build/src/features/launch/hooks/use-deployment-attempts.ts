@@ -95,8 +95,9 @@ export function useDeploymentAttempts(
           .getQueryData<InfiniteData<Page>>(key)
           ?.pages.flatMap((page) => page.attempts) ?? [];
       const attempts: ProjectDeploymentAttempt[] = [];
-      // Only the latest cards and active runs need detail polling. Older cards
-      // load on expansion, keeping history reads bounded for large accounts.
+      // Only the latest cards and the newest active run need detail polling.
+      // Older cards load on expansion, keeping history reads bounded for
+      // large accounts.
       const visible = [...response.attempts];
       if (pageParam === 1)
         for (const item of cached) {
@@ -106,6 +107,9 @@ export function useDeploymentAttempts(
           )
             visible.unshift(item);
         }
+      const newestActive = visible.find(
+        (attempt) => attempt.status !== "completed",
+      )?.id;
       for (const [index, attempt] of visible.entries()) {
         const known = cached.find((item) => item.id === attempt.id);
         if (
@@ -114,10 +118,7 @@ export function useDeploymentAttempts(
           known.jobs?.length
         )
           attempts.push(known);
-        else if (
-          (pageParam === 1 && index < 2) ||
-          attempt.status !== "completed"
-        )
+        else if ((pageParam === 1 && index < 2) || attempt.id === newestActive)
           attempts.push(
             (
               await attemptRequest<{ attempt: ProjectDeploymentAttempt }>(
@@ -141,10 +142,10 @@ export function useDeploymentAttempts(
     refetchInterval: (query) =>
       query.state.error
         ? false
-        : query.state.data?.pages.some((page) =>
-              page.attempts.some((item) => item.status !== "completed"),
+        : query.state.data?.pages[0]?.attempts.some(
+              (item) => item.status !== "completed",
             )
-          ? 5000
+          ? 10000
           : 30000,
     refetchOnWindowFocus: false,
   });
@@ -160,10 +161,13 @@ export function useDeploymentAttempts(
   const [mutation, setMutation] = useState<{
     scope: string;
     error?: string;
+    notice?: string;
     cancelling?: number;
   }>({ scope: storageKey });
   const mutationError =
     mutation.scope === storageKey ? (mutation.error ?? null) : null;
+  const mutationNotice =
+    mutation.scope === storageKey ? (mutation.notice ?? null) : null;
   const cancelling =
     mutation.scope === storageKey ? (mutation.cancelling ?? null) : null;
   const updateAttempt = useCallback(
@@ -227,6 +231,12 @@ export function useDeploymentAttempts(
           existing: boolean;
         }>(projectId, { action: "start", branch });
         persist(next.filter((item) => item.id !== current.id));
+        if (result.existing)
+          setMutation({
+            scope: storageKey,
+            notice: "A deployment is already running; showing it",
+          });
+        // Keyed by id, so an existing run is surfaced, never duplicated.
         client.setQueryData<InfiniteData<Page>>(key, (data) => ({
           pageParams: data?.pageParams ?? [1],
           pages: [
@@ -297,6 +307,7 @@ export function useDeploymentAttempts(
     cancel,
     cancelling,
     mutationError,
+    mutationNotice,
     loadDetail,
     busy:
       local.some((item) => item.pending) ||

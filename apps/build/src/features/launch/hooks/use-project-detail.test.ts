@@ -6,12 +6,16 @@ import { createElement, type ReactNode } from "react";
 const attemptMocks = vi.hoisted(() => ({
   start: vi.fn(async () => ({ id: 123 })),
   push: vi.fn(),
+  attempts: [] as Array<{ id: number; status: string; conclusion: unknown }>,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: attemptMocks.push }),
 }));
 vi.mock("./use-deployment-attempts", () => ({
-  useDeploymentAttempts: () => ({ attempts: [], start: attemptMocks.start }),
+  useDeploymentAttempts: () => ({
+    attempts: attemptMocks.attempts,
+    start: attemptMocks.start,
+  }),
 }));
 vi.mock("@build/features/launch/dashboard", () => ({
   fetchGitHubSession: vi.fn(async () => ({
@@ -84,8 +88,10 @@ vi.mock("@build/features/launch/client", () => ({
   })),
 }));
 
+import { LaunchRequestError } from "@aomi-labs/deploy/launch";
 import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
 import { useProjectDetail } from "./use-project-detail";
+import { projectDeploymentStatus } from "../components/deployments/project-deployment-status";
 import {
   deploymentRecords,
   deploymentHistory,
@@ -93,6 +99,7 @@ import {
   deploymentSetSecrets,
   deploymentRequiredSecrets,
   deploymentProjects,
+  launchAppsStatus,
   launchDeploy,
   launchPreflight,
   launchActivate,
@@ -100,10 +107,9 @@ import {
 } from "@build/features/launch/client";
 
 // Fresh QueryClient per test so react-query cache never leaks across tests.
-function wrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function wrapper(
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return createElement(
       QueryClientProvider,
@@ -113,8 +119,37 @@ function wrapper() {
   };
 }
 
+// An active app so the runtime probe query is enabled; `loaded` is the
+// Manager's own flag before any probe has answered.
+function activeProject(loaded: boolean) {
+  return {
+    projects: [
+      {
+        id: 7,
+        installationId: 5,
+        repositoryLink: "a/b",
+        platformName: "community",
+        apps: [
+          {
+            id: 17,
+            name: "my-bot",
+            isActive: true,
+            loaded,
+            appReleaseTag: "t1",
+          },
+        ],
+        latestDeployment: null,
+      },
+    ],
+  };
+}
+const RUNTIME_KEY = ["project-runtime", "alice", 7];
+
 describe("useProjectDetail", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    attemptMocks.attempts = [];
+  });
 
   it("resolves the source and lazily loads history once", async () => {
     const { result } = renderHook(() => useProjectDetail(7), {
@@ -247,6 +282,136 @@ describe("useProjectDetail", () => {
       expect(result.current.requiredSecretsError).toBe("boom"),
     );
     expect(result.current.requiredSecrets).toBeNull();
+  });
+
+  it("shows Activated until the runtime verifies the Manager's active release", async () => {
+    vi.mocked(deploymentProjects).mockResolvedValueOnce(activeProject(true));
+    vi.mocked(launchAppsStatus).mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    const { result } = renderHook(() => useProjectDetail(7), {
+      wrapper: wrapper(),
+    });
+    await waitFor(() => expect(launchAppsStatus).toHaveBeenCalled());
+    expect(result.current.source?.apps[0]?.loaded).toBeUndefined();
+    expect(projectDeploymentStatus(result.current.source!)).toMatchObject({
+      label: "Activated",
+      isLive: false,
+    });
+  });
+
+  it("keeps the last probe result and keeps polling after a runtime error", async () => {
+    vi.mocked(deploymentProjects).mockResolvedValueOnce(activeProject(false));
+    vi.mocked(launchAppsStatus)
+      .mockResolvedValueOnce({
+        apps: [
+          {
+            id: 17,
+            name: "my-bot",
+            is_active: true,
+            loaded: true,
+            app_release_tag: "t1",
+          },
+        ],
+        state: "live",
+      })
+      .mockRejectedValue(
+        new LaunchRequestError("runtime down", 502, { retryable: false }),
+      );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { result } = renderHook(() => useProjectDetail(7), {
+      wrapper: wrapper(client),
+    });
+    await waitFor(() =>
+      expect(result.current.source?.apps[0]?.loaded).toBe(true),
+    );
+    await act(async () => {
+      await client.refetchQueries({ queryKey: RUNTIME_KEY });
+    });
+    // The hook only reads `data`, so an error refetch keeps the last probe
+    // result: observe the query state through the cache.
+    const runtimeQuery = () =>
+      client.getQueryCache().find({ queryKey: RUNTIME_KEY });
+    await waitFor(() => expect(runtimeQuery()?.state.status).toBe("error"));
+    expect(result.current.source?.apps[0]?.loaded).toBe(true);
+    expect(runtimeQuery()?.options.refetchInterval).toBe(10000);
+
+    vi.mocked(launchAppsStatus).mockResolvedValueOnce({
+      apps: [
+        {
+          id: 17,
+          name: "my-bot",
+          is_active: true,
+          loaded: false,
+          app_release_tag: "t1",
+        },
+      ],
+      state: "pending",
+    });
+    await act(async () => {
+      await client.refetchQueries({ queryKey: RUNTIME_KEY });
+    });
+    await waitFor(() =>
+      expect(result.current.source?.apps[0]?.loaded).toBe(false),
+    );
+    expect(projectDeploymentStatus(result.current.source!).isLive).toBe(false);
+  });
+
+  it("does not claim Live when the first runtime probe fails", async () => {
+    vi.mocked(deploymentProjects).mockResolvedValueOnce(activeProject(true));
+    vi.mocked(launchAppsStatus).mockRejectedValueOnce(
+      new LaunchRequestError("runtime down", 503, { retryable: false }),
+    );
+    const client = new QueryClient();
+    const { result } = renderHook(() => useProjectDetail(7), {
+      wrapper: wrapper(client),
+    });
+    await waitFor(() =>
+      expect(client.getQueryState(RUNTIME_KEY)?.status).toBe("error"),
+    );
+    expect(projectDeploymentStatus(result.current.source!)).toMatchObject({
+      label: "Activated",
+      isLive: false,
+    });
+  });
+
+  it("invalidates the runtime query once when the latest attempt completes, not on first load", async () => {
+    vi.mocked(deploymentProjects).mockResolvedValue(activeProject(false));
+    attemptMocks.attempts = [
+      { id: 1, status: "completed", conclusion: "success" },
+    ];
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const runtimeInvalidations = () =>
+      invalidate.mock.calls.filter(
+        ([filters]) =>
+          JSON.stringify(filters?.queryKey) === JSON.stringify(RUNTIME_KEY),
+      );
+    const { result, rerender } = renderHook(() => useProjectDetail(7), {
+      wrapper: wrapper(client),
+    });
+    await waitFor(() => expect(result.current.source?.id).toBe(7));
+    expect(deploymentProjects).toHaveBeenCalledTimes(1);
+    expect(runtimeInvalidations()).toHaveLength(0);
+
+    attemptMocks.attempts = [
+      { id: 2, status: "in_progress", conclusion: null },
+    ];
+    rerender();
+    expect(runtimeInvalidations()).toHaveLength(0);
+
+    attemptMocks.attempts = [
+      { id: 2, status: "completed", conclusion: "success" },
+    ];
+    rerender();
+    await waitFor(() => expect(runtimeInvalidations()).toHaveLength(1));
+    rerender();
+    expect(runtimeInvalidations()).toHaveLength(1);
+    await waitFor(() => expect(deploymentProjects).toHaveBeenCalledTimes(2));
   });
 
   it("starts the selected branch and moves progress to the project immediately", async () => {

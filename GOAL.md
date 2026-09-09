@@ -1802,3 +1802,10 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
   deploy package build/pack dry run, and desktop/mobile component previews with
   fixture data. Changes remain local; real staging verification follows the
   coordinated private workflow, platform detector and template rollout.
+- 2026-09-09 deployment readiness: project details and Home show Activated until
+  the first successful runtime probe. Temporary probe errors preserve the last
+  verified result and keep retries/polling; a 404 remains an app-not-loaded
+  result. Reviewed frontend attempt cleanup is retained. Verified 396 focused
+  tests, Build TypeScript, scoped lint, deploy package build and pack dry run.
+  Backend workflows and cross-environment candidate behavior are unchanged in
+  this frontend follow-up. No database or hosted runtime changes were made.
