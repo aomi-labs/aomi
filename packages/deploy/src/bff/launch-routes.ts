@@ -169,7 +169,7 @@ export function launchAppStatusesResult(
     id: app.id,
     name: app.name,
     is_active: app.isActive,
-    loaded: app.loaded,
+    loaded: app.loaded === true,
     app_release_tag: app.appReleaseTag,
   }));
   const live =
@@ -565,7 +565,7 @@ export function createLaunchRoutes(options: LaunchRoutesOptions): LaunchRoutes {
       if (!owner) {
         return jsonResponse({ error: "project not found for this user" }, 404);
       }
-      const result = await client.listUserProjectApps({
+      const result = await client.projectRuntimeApps({
         githubUserId: session.githubUserId,
         projectId: owner.id,
       });
