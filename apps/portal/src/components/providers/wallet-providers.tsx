@@ -26,10 +26,7 @@ import {
 } from "wagmi/chains";
 import { type Chain } from "viem";
 import {
-  AOMI_BOOTING_WALLET_KIT,
-  AomiWalletKitContextProvider,
   AomiWalletKitProvider,
-  AomiWalletNetworkPreferencesProvider,
   ExtUserProvider,
   FullTestnetWalletRouter,
   arcTestnet,
@@ -244,36 +241,24 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     );
   }
 
-  // Restore before mounting any SDK: a cached session in the default provider
-  // must not start an account exchange while the selected provider is loading.
-  // Children still render (and server-render) under a booting wallet kit, so
-  // the page never blanks; only the provider SDKs wait for the restore. The
-  // shared ExtUserProvider sits above both trees so the user store survives
-  // the swap to the real provider tree.
-  if (!providerRestored) {
-    return (
-      <ExtUserProvider>
-        <WalletSignInOptionsContext.Provider value={[]}>
-          <AomiWalletNetworkPreferencesProvider
-            evmChains={routedChains}
-            solanaNetworks={solanaNetworks}
-            storageKey={null}
-          >
-            <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
-              {children}
-            </AomiWalletKitContextProvider>
-          </AomiWalletNetworkPreferencesProvider>
-        </WalletSignInOptionsContext.Provider>
-      </ExtUserProvider>
-    );
-  }
-
+  const routedChildren = (
+    <FullTestnetWalletRouter
+      enabled={fullTestnetEnabled}
+      chains={routedChains}
+      routedChainIds={routedChainIds}
+      logLabel="portal:FullTestnetWalletRouter"
+    >
+      {children}
+    </FullTestnetWalletRouter>
+  );
   const providerTree = (
     <WalletSignInOptionsContext.Provider
-      value={isDeviceAuthRoute(pathname) ? [] : signInOptions}
+      value={
+        !providerRestored || isDeviceAuthRoute(pathname) ? [] : signInOptions
+      }
     >
       <AomiWalletKitProvider
-        key={selectedProvider ?? "no-auth-provider"}
+        initializing={!providerRestored}
         auth={auth}
         account={account}
         providers={{
@@ -305,43 +290,34 @@ export function WalletProviders({ children, e2eWallet }: Props) {
           },
         }}
       >
-        {!isDeviceAuthRoute(pathname) && signIn && signIn.attempt > 0 && (
-          <ProviderSignIn key={signIn.attempt} provider={signIn.provider} />
-        )}
-        {selectedProvider === "privy" ? (
-          <PrivyDelegationProvider>
-            <FullTestnetWalletRouter
-              enabled={fullTestnetEnabled}
-              chains={routedChains}
-              routedChainIds={routedChainIds}
-              logLabel="portal:FullTestnetWalletRouter"
-            >
-              {children}
-            </FullTestnetWalletRouter>
-          </PrivyDelegationProvider>
+        {providerRestored &&
+          !isDeviceAuthRoute(pathname) &&
+          signIn &&
+          signIn.attempt > 0 && (
+            <ProviderSignIn key={signIn.attempt} provider={signIn.provider} />
+          )}
+        {!providerRestored ? (
+          children
+        ) : selectedProvider === "privy" ? (
+          <PrivyDelegationProvider>{routedChildren}</PrivyDelegationProvider>
         ) : (
-          <FullTestnetWalletRouter
-            enabled={fullTestnetEnabled}
-            chains={routedChains}
-            routedChainIds={routedChainIds}
-            logLabel="portal:FullTestnetWalletRouter"
-          >
-            {children}
-          </FullTestnetWalletRouter>
+          routedChildren
         )}
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
   );
-  const mounted = isDeviceAuthRoute(pathname) && selectedProvider ? (
-    <DeviceAuthProviderErrorBoundary
-      key={`${pathname}:${selectedProvider}`}
-      provider={selectedProvider}
-    >
-      {providerTree}
-    </DeviceAuthProviderErrorBoundary>
-  ) : (
-    providerTree
-  );
+  const mounted =
+    isDeviceAuthRoute(pathname) && selectedProvider ? (
+      <DeviceAuthProviderErrorBoundary
+        key={`${pathname}:${selectedProvider}`}
+        provider={selectedProvider}
+      >
+        {providerTree}
+      </DeviceAuthProviderErrorBoundary>
+    ) : (
+      providerTree
+    );
+  // Keep account state above the route-keyed device-auth error boundary.
   return <ExtUserProvider>{mounted}</ExtUserProvider>;
 }
 

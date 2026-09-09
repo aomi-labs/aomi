@@ -24,52 +24,57 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@aomi-labs/widget-lib", async () => {
   const React = await import("react");
+  const { AomiWalletKitProvider } =
+    await import("../../../../shadcn-registry/src/lib/wallet-kit/config/AomiWalletKitProvider");
   const ProviderOwner = React.createContext(false);
   const WalletSignInOptionsContext = React.createContext<
     readonly { id: string; connect: () => Promise<void> }[]
   >([]);
+  function MockSdk({ auth, children }: { auth: unknown; children: ReactNode }) {
+    if (React.useContext(ProviderOwner)) {
+      throw new Error("Multiple PrivyProvider instances found");
+    }
+    if (walletKit.throwOnProviderMount) {
+      throw new Error(walletKit.throwOnProviderMount);
+    }
+    walletKit.auth = auth;
+    const choices = React.useContext(WalletSignInOptionsContext);
+    React.useEffect(() => {
+      walletKit.providerMounts += 1;
+    }, []);
+    return (
+      <ProviderOwner.Provider value>
+        <div data-testid="wallet-provider-root">
+          {choices.map((choice) => (
+            <button key={choice.id} onClick={() => void choice.connect()}>
+              {choice.id}
+            </button>
+          ))}
+          {children}
+        </div>
+      </ProviderOwner.Provider>
+    );
+  }
   return {
     WalletSignInOptionsContext,
-    AOMI_BOOTING_WALLET_KIT: { isReady: false },
-    AomiWalletKitContextProvider: ({ children }: { children: ReactNode }) =>
-      children,
-    AomiWalletNetworkPreferencesProvider: ({
-      children,
-    }: {
-      children: ReactNode;
-    }) => children,
     ExtUserProvider: ({ children }: { children: ReactNode }) => children,
     AomiWalletKitProvider: ({
-      auth,
-      children,
+      initializing,
+      ...props
     }: {
-      auth: unknown;
+      initializing?: boolean;
+      auth: { provider?: string } | false;
       children: ReactNode;
-    }) => {
-      if (React.useContext(ProviderOwner)) {
-        throw new Error("Multiple PrivyProvider instances found");
-      }
-      if (walletKit.throwOnProviderMount) {
-        throw new Error(walletKit.throwOnProviderMount);
-      }
-      walletKit.auth = auth;
-      const choices = React.useContext(WalletSignInOptionsContext);
-      React.useEffect(() => {
-        walletKit.providerMounts += 1;
-      }, []);
-      return (
-        <ProviderOwner.Provider value>
-          <div data-testid="wallet-provider-root">
-            {choices.map((choice) => (
-              <button key={choice.id} onClick={() => void choice.connect()}>
-                {choice.id}
-              </button>
-            ))}
-            {children}
-          </div>
-        </ProviderOwner.Provider>
-      );
-    },
+    }) =>
+      initializing ? (
+        // Exercise the real loading tree; only the SDK-backed branch is mocked.
+        <AomiWalletKitProvider initializing {...props} />
+      ) : (
+        <MockSdk
+          key={(props.auth && props.auth.provider) || "none"}
+          {...props}
+        />
+      ),
     FullTestnetWalletRouter: ({ children }: { children: ReactNode }) =>
       children,
     arcTestnet: { id: 5042002 },

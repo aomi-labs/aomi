@@ -1,5 +1,12 @@
 # Canonical Landing
 
+Wallet-provider cleanup (2026-09-09): the existing wallet-kit provider owns its
+loading contexts; Portal supplies initialization state instead of duplicating
+the provider tree. Folded the repeated test-network wrapper. Kept the app-level
+user store above device-auth error recovery. Portal: 546 tests passed, 23
+environment-dependent tests skipped; widget: 370 passed. Both typechecks,
+widget build, and scoped strict lint/format passed. No live wallet actions.
+
 Staging cutover preparation (2026-09-09): integrate current main's Pipeline CLI
 and wallet exports while retaining explicit routing and AA authorization.
 Keep client 0.7.0; staging verification is pending. Production is out of scope.
