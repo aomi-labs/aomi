@@ -191,13 +191,24 @@ export async function verifyParaWidgetCredential(input: {
   const nestedVerified = nested?.emailVerified ?? nested?.email_verified;
   const emailVerified =
     payload.email_verified === true || nestedVerified === true;
-  // Validate the wallet-claim shape (reject malformed tokens) but do NOT
-  // surface these as trusted attestations: the wallet arrays embedded in the
-  // Para session JWT are self-asserted claims whose trust level is "none".
-  // Only wallets fetched from Para's authenticated API
-  // (`listParaWalletsForUser`) are trusted for linking, so the widget path
-  // returns no attestations here.
-  walletClaims(nested?.wallets ?? payload.wallets, "wallets");
+  // `data.wallets` is Para's own signed statement of the embedded wallets it
+  // custodies for this subject. It carries exactly the trust of the `sub` we
+  // bind the canonical account to: same RS256 signature, same JWKS, same
+  // audience pinned to our API key — a client can choose which token to
+  // present but cannot alter a field in it. Treating `sub` as authoritative
+  // while calling this array unverifiable would be incoherent.
+  //
+  // Para's REST wallet list cannot replace it: `GET /v1/wallets` is indexed by
+  // pregen login handle and does not return wallets a user created through the
+  // client SDK, so it is a supplementary source (see
+  // `requireAttestedProviderWallets`), not the proof.
+  //
+  // `connectedWallets` stays discarded, and that is the boundary that matters:
+  // those are external wallets attached to the session, not Para-custodied, so
+  // they can never back hosted signing.
+  const walletAttestations = paraTokenWalletAttestations(
+    walletClaims(nested?.wallets ?? payload.wallets, "wallets"),
+  );
   walletClaims(
     nested?.connectedWallets ??
       nested?.connected_wallets ??
@@ -214,7 +225,7 @@ export async function verifyParaWidgetCredential(input: {
     expiresAt,
     email: email ? { value: email, verified: emailVerified } : undefined,
     loginIdentifier: paraLoginIdentifier(nested),
-    walletAttestations: [],
+    walletAttestations,
     metadata: {
       audience,
       expiresAt,
@@ -233,6 +244,31 @@ function paraLoginIdentifier(
   const type = stringClaim(nested?.authType);
   const value = stringClaim(nested?.identifier);
   return type && value ? { type, value } : undefined;
+}
+
+/** Convert Para's signed `data.wallets` entries into attested wallets. Only
+ *  wallets on a family we can key a `public_keys` row for, with a wallet id and
+ *  a well-formed address, survive; the entries carry no `scheme` because
+ *  membership in this array is itself the custody signal. */
+function paraTokenWalletAttestations(
+  claims: readonly unknown[],
+): AttestedWallet[] {
+  const wallets: AttestedWallet[] = [];
+  for (const claim of claims) {
+    const row = claim as { id?: unknown; type?: unknown; address?: unknown };
+    const family = paraWalletFamily(stringClaim(row.type));
+    const providerWalletId = stringClaim(row.id);
+    if (!family || !providerWalletId) continue;
+    if (!validWalletAddress(family, row.address)) continue;
+    wallets.push({
+      provider: "para",
+      providerWalletId,
+      family,
+      address: row.address,
+      chainScope: null,
+    });
+  }
+  return wallets;
 }
 
 export type ParaUserIdentifierType =

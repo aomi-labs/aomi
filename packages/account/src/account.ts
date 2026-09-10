@@ -14,6 +14,7 @@ export {
   getOrCreateAomiUserForBetterAuthSession,
   linkAnonymousCanonicalAccount,
   linkProviderIdentity,
+  mergeProviderWalletAttestations,
   renameAuthIdentity,
   renameWallet,
   resolveAttestedProviderWallets,
