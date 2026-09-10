@@ -14,6 +14,8 @@ test("Para login resolves the canonical Aomi account", async () => {
 
   assert.match(providers, /oAuthMethods: \["GOOGLE", "TELEGRAM"\]/);
   assert.match(canonicalAccount, /createProviderCredentialAdapter/);
+  assert.match(canonicalAccount, /createWalletPerType\(\{ types: \["EVM"\] \}\)/);
+  assert.match(canonicalAccount, /evmWalletProvisioning/);
   assert.match(canonicalAccount, /paraClient\.issueJwt/);
   assert.match(canonicalAccount, /createAccountSessionProvider/);
   assert.match(canonicalAccount, /\/api\/auth\/widget\/telegram\/exchange/);
