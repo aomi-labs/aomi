@@ -1,5 +1,10 @@
 # Current work
 
+**MAIN FRESHNESS SYNC 2026-09-10** — integrated the latest `main` per-user app
+secrets client and control-bar UI into the merge-ready Portal branch. Preserved
+both the branch's routing configuration import and main's app-secrets dialog in
+the sole code conflict. Exact-head CI and preview checks will gate the merge.
+
 **REGISTRY DEPENDENCY CONTRACTS 2026-09-09** — fresh CLI verification also
 caught upstream primitive substitution and outdated/unbounded npm dependencies.
 Generated registry dependencies now point to Aomi-owned items; npm versions come

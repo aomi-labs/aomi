@@ -136,6 +136,7 @@ export {
   useControl,
   useApiKey,
   useByok,
+  useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
   ControlContextProvider,

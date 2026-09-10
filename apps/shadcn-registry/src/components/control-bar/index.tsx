@@ -8,6 +8,7 @@ import { ApiKeyInput } from "./api-key-input";
 import { ConnectButton } from "./connect-button";
 import { SecretInput } from "./secret-input";
 import type { AomiRoutingConfig } from "@/components/assistant-ui/routing";
+import { AppSecretsDialog } from "./app-secrets-dialog";
 
 // =============================================================================
 // Types
@@ -33,6 +34,8 @@ export type ControlBarProps = {
   hideNetwork?: boolean;
   /** Hide the secrets input */
   hideSecrets?: boolean;
+  /** Hide the per-user API keys button for apps that declare secret slots */
+  hideAppSecrets?: boolean;
 };
 
 // =============================================================================
@@ -47,6 +50,7 @@ export const ControlBar: FC<ControlBarProps> = ({
   hideWallet = true,
   hideNetwork = false,
   hideSecrets = false,
+  hideAppSecrets = false,
 }) => {
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -54,6 +58,7 @@ export const ControlBar: FC<ControlBarProps> = ({
       {!hideModel && <ModelSelect />}
       {!hideWallet && <ConnectButton />}
       {!hideSecrets && <SecretInput />}
+      {!hideAppSecrets && <AppSecretsDialog />}
       {children}
       {!hideApiKey && <ApiKeyInput />}
     </div>
@@ -73,3 +78,7 @@ export { ApiKeyInput, type ApiKeyInputProps } from "./api-key-input";
 export { ConnectButton, type ConnectButtonProps } from "./connect-button";
 export { NetworkSelect, type NetworkSelectProps } from "./network-select";
 export { SecretInput, type SecretInputProps } from "./secret-input";
+export {
+  AppSecretsDialog,
+  type AppSecretsDialogProps,
+} from "./app-secrets-dialog";

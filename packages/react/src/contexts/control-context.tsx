@@ -12,6 +12,7 @@
 // If you need to change behavior, you almost certainly want one of:
 //   ../control/api-key.ts          — apiKey + persistence
 //   ../control/byok.ts             — BYOK keys + secret vault API
+//   ../control/app-secrets.ts      — per-user keys for account-bound apps
 //   ../control/auth-endpoints.ts   — apps + models fetch
 //   ../control/per-thread-control.ts — model/app selection + sync
 //
@@ -61,6 +62,10 @@ import {
   type AuthEndpointsActions,
 } from "../control/auth-endpoints";
 import {
+  useAppSecretsImpl,
+  type AppSecretsActions,
+} from "../control/app-secrets";
+import {
   usePerThreadControlImpl,
   type PerThreadControlActions,
 } from "../control/per-thread-control";
@@ -86,6 +91,7 @@ export type ControlState = ApiKeyState &
 
 export type ControlContextApi = ApiKeyActions &
   ByokActions &
+  AppSecretsActions &
   AuthEndpointsActions &
   PerThreadControlActions & {
     state: ControlState;
@@ -145,6 +151,18 @@ export function useByok(): { state: ByokState; actions: ByokActions } {
       clearSecrets: ctx.clearSecrets,
       deleteSecret: ctx.deleteSecret,
       listSecrets: ctx.listSecrets,
+    },
+  };
+}
+
+export function useAppSecrets(): { actions: AppSecretsActions } {
+  const ctx = useControl();
+  return {
+    actions: {
+      listAppSecrets: ctx.listAppSecrets,
+      saveAppSecrets: ctx.saveAppSecrets,
+      deleteAppSecret: ctx.deleteAppSecret,
+      clearAppSecrets: ctx.clearAppSecrets,
     },
   };
 }
@@ -277,6 +295,11 @@ export function ControlContextProvider({
     initialInferenceFunding: inferenceFunding,
   });
 
+  const appSecrets = useAppSecretsImpl({
+    aomiClientRef,
+    getControlSessionId: getCurrentControlSessionId,
+  });
+
   const authEndpoints = useAuthEndpointsImpl({
     aomiClientRef,
     apiKeyRef,
@@ -341,6 +364,7 @@ export function ControlContextProvider({
     getControlState,
     ...apiKey.actions,
     ...byok.actions,
+    ...appSecrets.actions,
     ...authEndpoints.actions,
     ...perThread,
   };
