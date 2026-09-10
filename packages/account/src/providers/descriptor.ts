@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { AttestedWallet } from "./wallet-attestation";
+import type {
+  AttestedWallet,
+  ProviderLoginIdentifier,
+} from "./wallet-attestation";
 
 export type VerifiedProviderIdentity = {
   provider: string;
@@ -8,6 +11,9 @@ export type VerifiedProviderIdentity = {
   subject: string;
   expiresAt: number;
   email?: { value: string; verified: boolean };
+  /** The provider-native login handle this token attests, when the provider
+   *  publishes one. Wallet attestation is keyed by it. */
+  loginIdentifier?: ProviderLoginIdentifier;
   walletAttestations: AttestedWallet[];
   metadata: Record<string, unknown>;
 };

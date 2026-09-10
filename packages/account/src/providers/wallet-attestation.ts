@@ -2,10 +2,22 @@ import type { WalletFamily } from "../types";
 
 export type AttestedWalletProvider = "privy" | "para" | (string & {});
 
+/** The login handle a provider verified for this session, verbatim: Para's
+ *  `data.authType` / `data.identifier`. It is what a provider's own wallet API
+ *  is keyed by — those APIs are partner-scoped and look wallets up by the
+ *  user's login handle, not by the session token's subject — so an attester
+ *  that has one can ask a question the subject alone cannot express. */
+export type ProviderLoginIdentifier = {
+  /** Provider-native identifier type, e.g. Para `email` / `telegram`. */
+  type: string;
+  value: string;
+};
+
 export type WalletAttester = (input: {
   /** Verified provider-token subject. */
   subject: string;
   email?: string | null;
+  loginIdentifier?: ProviderLoginIdentifier | null;
 }) => Promise<AttestedWallet[] | null>;
 
 export type WalletAttesterRegistry = Record<string, WalletAttester | undefined>;

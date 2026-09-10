@@ -16,6 +16,7 @@ export {
   linkProviderIdentity,
   renameAuthIdentity,
   renameWallet,
+  resolveAttestedProviderWallets,
   resolveSignal,
   syncProviderAttestedWallets,
   syncProviderWallets,
@@ -26,6 +27,7 @@ export {
   unlinkWallet,
   updateAccountProfile,
   upsertVerifiedWallet,
+  type AttestedProviderWallets,
   type DeactivateAomiAccountResult,
 } from "./service/account-service";
 
@@ -69,6 +71,7 @@ export {
 export type {
   AttestedWallet,
   AttestedWalletProvider,
+  ProviderLoginIdentifier,
   WalletAttestationLogger,
   WalletAttester,
   WalletAttesterRegistry,
