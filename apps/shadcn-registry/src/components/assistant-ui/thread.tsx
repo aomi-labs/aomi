@@ -54,6 +54,7 @@ import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
+import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
 import { ModeSelect } from "@/components/control-bar/mode-select";
 import { AppSelect } from "@/components/control-bar/app-select";
 import { ApiKeyInput } from "@/components/control-bar/api-key-input";
@@ -391,6 +392,7 @@ const ComposerAction: FC = () => {
   const hideApiKey = controlBarProps.hideApiKey ?? false;
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
+  const hideAppSecrets = controlBarProps.hideAppSecrets ?? false;
   const { hostError } = useCapabilityComposer();
 
   return (
@@ -402,6 +404,9 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           <ExecutionControl />
+          {/* Renders only when the directly targeted app declares secret
+              slots: the signed-in user's own keys for account-bound venues. */}
+          {!hideAppSecrets && <AppSecretsDialog />}
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}
         </div>
