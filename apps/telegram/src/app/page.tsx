@@ -1,37 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useLoginWithTelegram, usePrivy } from "@privy-io/react-auth";
-
 import { useCanonicalAccount } from "@/hooks/use-canonical-account";
 import { usePermissionControl } from "@/hooks/use-permission-control";
 import { useTelegramLaunch } from "@/hooks/use-telegram-launch";
 
 export default function Home() {
-  const { authenticated, ready } = usePrivy();
-  const { login } = useLoginWithTelegram();
-  const opened = useRef(false);
   const launch = useTelegramLaunch();
   const account = useCanonicalAccount(launch.context);
   const permission = usePermissionControl({
     launch: launch.context,
     provider: account.provider,
   });
-
-  useEffect(() => {
-    if (
-      launch.status !== "ready" ||
-      !ready ||
-      authenticated ||
-      opened.current
-    ) {
-      return;
-    }
-    // Telegram already proved who this is via `initData`, so the login is
-    // headless — there is no provider modal for the user to work through.
-    opened.current = true;
-    void login();
-  }, [authenticated, launch.status, login, ready]);
 
   let message = "Signing you in…";
   if (launch.status === "loading") message = "Opening your wallet…";
@@ -60,16 +39,6 @@ export default function Home() {
           <p>
             {permission.target.mode} for {permission.target.wallet}
           </p>
-        )}
-        {launch.status !== "error" && account.status !== "ready" && (
-          <button
-            className="para-button"
-            type="button"
-            disabled={!ready}
-            onClick={() => void login()}
-          >
-            {authenticated ? "Retry" : "Continue"}
-          </button>
         )}
         {permission.status === "ready" && (
           <button
