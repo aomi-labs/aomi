@@ -6,6 +6,7 @@ import nestedFixture from "./fixtures/para-widget-nested.json";
 import topLevelFixture from "./fixtures/para-widget-top-level.json";
 import {
   createParaWidgetDescriptor,
+  paraUserIdentifierType,
   verifyParaJwt,
   verifyParaWidgetCredential,
 } from "../src/providers/para";
@@ -194,5 +195,56 @@ describe("Para widget credentials", () => {
     await expect(verify(malformedWallets, "STAGING")).rejects.toThrow(
       "invalid_provider_environment",
     );
+  });
+});
+
+describe("Para login identifiers", () => {
+  it("surfaces the verified login handle a wallet lookup is keyed by", async () => {
+    // Para's wallet API is partner-scoped and indexed by the login handle, and
+    // its `userIdentifierType` enum has no member for a Para user id — so the
+    // `sub` cannot key a lookup and `data.authType` / `data.identifier` must
+    // survive verification.
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const jwk = await exportJWK(publicKey);
+    const jwksUrl = "https://para.example/.well-known/identifier-jwks.json";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ keys: [{ ...jwk, kid: "id-kid", alg: "RS256" }] }),
+      ),
+    );
+    const now = 1_900_000_000;
+    const token = await new SignJWT({
+      data: { authType: "telegram", identifier: "1234567890" },
+    })
+      .setProtectedHeader({ alg: "RS256", kid: "id-kid" })
+      .setSubject("para-user-telegram")
+      .setAudience("para-project")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 300)
+      .sign(privateKey);
+
+    const identity = await verifyParaWidgetCredential({
+      environment: "BETA",
+      providerToken: token,
+      jwksUrls: { BETA: jwksUrl, PROD: jwksUrl },
+      now: new Date(now * 1000),
+    });
+
+    expect(identity.loginIdentifier).toEqual({
+      type: "telegram",
+      value: "1234567890",
+    });
+    expect(identity.walletAttestations).toEqual([]);
+  });
+
+  it("maps Para auth types onto the REST identifier enum and refuses the rest", () => {
+    expect(paraUserIdentifierType("email")).toBe("EMAIL");
+    expect(paraUserIdentifierType("Telegram")).toBe("TELEGRAM");
+    expect(paraUserIdentifierType("x")).toBe("TWITTER");
+    // An external wallet is not Para-custodied, so there is nothing to attest
+    // and no identifier type that would name it.
+    expect(paraUserIdentifierType("externalWallet")).toBeNull();
+    expect(paraUserIdentifierType(undefined)).toBeNull();
   });
 });

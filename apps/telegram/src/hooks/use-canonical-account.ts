@@ -22,6 +22,7 @@ type CanonicalAccountState = {
 
 type TelegramExchangeResponse = {
   access_token?: unknown;
+  error?: unknown;
   expires_at?: unknown;
 };
 
@@ -70,7 +71,15 @@ function telegramParaAdapter(input: {
         typeof body?.access_token !== "string" ||
         typeof body.expires_at !== "number"
       ) {
-        throw new Error(`telegram_para_exchange_failed_${response.status}`);
+        // Keep the route's own failure code: a hosted-wallet exchange can fail
+        // for reasons the status alone cannot name (Para attests no embedded
+        // wallet, the Para API is down, no server secret is configured), and
+        // the person staring at the Mini App needs to see which one it was.
+        throw new Error(
+          typeof body?.error === "string" && body.error
+            ? `telegram_para_exchange_failed_${response.status}_${body.error}`
+            : `telegram_para_exchange_failed_${response.status}`,
+        );
       }
       return {
         accessToken: body.access_token,

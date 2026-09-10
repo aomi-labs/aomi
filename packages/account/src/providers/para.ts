@@ -5,7 +5,11 @@ import type {
   VerifiedProviderIdentity,
   WidgetProviderDescriptor,
 } from "./descriptor";
-import { validWalletAddress, type AttestedWallet } from "./wallet-attestation";
+import {
+  validWalletAddress,
+  type AttestedWallet,
+  type ProviderLoginIdentifier,
+} from "./wallet-attestation";
 
 type ParaClaims = {
   sub?: string;
@@ -209,6 +213,7 @@ export async function verifyParaWidgetCredential(input: {
     subject,
     expiresAt,
     email: email ? { value: email, verified: emailVerified } : undefined,
+    loginIdentifier: paraLoginIdentifier(nested),
     walletAttestations: [],
     metadata: {
       audience,
@@ -218,13 +223,63 @@ export async function verifyParaWidgetCredential(input: {
   };
 }
 
+/** The login handle Para verified for this session (`data.authType` +
+ *  `data.identifier`). Para's wallet API is partner-scoped and keyed by this
+ *  pair — the JWT `sub` is a Para user id and no `userIdentifierType` names
+ *  it — so this is what makes a server-side wallet attestation possible. */
+function paraLoginIdentifier(
+  nested: Record<string, unknown> | undefined,
+): ProviderLoginIdentifier | undefined {
+  const type = stringClaim(nested?.authType);
+  const value = stringClaim(nested?.identifier);
+  return type && value ? { type, value } : undefined;
+}
+
+export type ParaUserIdentifierType =
+  | "EMAIL"
+  | "PHONE"
+  | "CUSTOM_ID"
+  | "GUEST_ID"
+  | "DISCORD"
+  | "TWITTER"
+  | "TELEGRAM"
+  | "FARCASTER";
+
+/** Map a Para `authType` onto the `userIdentifierType` its REST wallet API
+ *  accepts. Unmapped types — `externalWallet` above all — have no REST
+ *  equivalent: an external wallet is not Para-custodied, so there is nothing
+ *  to attest and callers must fail closed rather than guess an identifier. */
+export function paraUserIdentifierType(
+  authType: string | undefined | null,
+): ParaUserIdentifierType | null {
+  switch (authType?.trim().toLowerCase()) {
+    case "email":
+      return "EMAIL";
+    case "phone":
+      return "PHONE";
+    case "telegram":
+      return "TELEGRAM";
+    case "farcaster":
+      return "FARCASTER";
+    case "discord":
+      return "DISCORD";
+    case "twitter":
+    case "x":
+      return "TWITTER";
+    case "guest":
+      return "GUEST_ID";
+    default:
+      return null;
+  }
+}
+
 /** Fetch every wallet Para attests is owned by the user identified by
  * `userIdentifier` / `userIdentifierType`. Filters to embedded/MPC wallets
  * Para custody-shares; external imports must still go through SIWE/SIWS. */
 export async function listParaWalletsForUser(input: {
   apiKey: string;
   userIdentifier: string;
-  userIdentifierType?: "CUSTOM_ID" | "EMAIL" | "PHONE";
+  userIdentifierType?: ParaUserIdentifierType;
 }): Promise<AttestedWallet[]> {
   const headers: Record<string, string> = {
     "X-API-Key": input.apiKey,
@@ -273,6 +328,7 @@ interface ParaWalletRow {
   address?: string;
   type?: string;
   scheme?: string;
+  status?: string;
 }
 
 function normalizeParaWalletRow(row: ParaWalletRow): AttestedWallet | null {
@@ -281,6 +337,10 @@ function normalizeParaWalletRow(row: ParaWalletRow): AttestedWallet | null {
   if (!row.id || typeof row.id !== "string") return null;
   if (!validWalletAddress(family, row.address)) return null;
   if (!isEmbeddedScheme(row.scheme)) return null;
+  // Para returns an address before key generation finishes and says to read
+  // `status`, not the presence of `address`. Linking a `creating` wallet would
+  // put a not-yet-signable key in `public_keys`.
+  if (row.status && row.status.toLowerCase() !== "ready") return null;
 
   return {
     provider: "para",
@@ -304,11 +364,21 @@ function paraWalletFamily(type: string | undefined): WalletFamily | null {
 }
 
 /** MPC / embedded custody schemes Para uses for non-extractable embedded
- * wallets. Anything else (or missing) is treated as non-custodied. */
+ * wallets. `DKLS` and `CGGMP` cover EVM and Cosmos, `ED25519` covers Solana and
+ * Stellar — Para's documented `scheme` enum is exactly these three, and every
+ * one of them is a Para-held key share. `FROST` and any other `*MPC*` name stay
+ * accepted for forward compatibility. Anything else — or a missing scheme — is
+ * treated as non-custodied and never becomes a `public_keys` row. */
 function isEmbeddedScheme(scheme: string | undefined): boolean {
   if (!scheme) return false;
   const upper = scheme.toUpperCase();
-  return upper === "DKLS" || upper === "FROST" || upper.includes("MPC");
+  return (
+    upper === "DKLS" ||
+    upper === "CGGMP" ||
+    upper === "ED25519" ||
+    upper === "FROST" ||
+    upper.includes("MPC")
+  );
 }
 
 function getJwks(url: string): ReturnType<typeof createRemoteJWKSet> {

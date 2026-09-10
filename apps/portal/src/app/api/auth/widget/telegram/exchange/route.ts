@@ -8,7 +8,10 @@ import {
   requireWidgetOrigin,
   WidgetAuthError,
 } from "@aomi-labs/account/widget-auth";
-import { verifyWidgetProviderCredential } from "@portal/server/widget-auth/exchange";
+import {
+  requireAttestedProviderWallets,
+  verifyWidgetProviderCredential,
+} from "@portal/server/widget-auth/exchange";
 import { widgetAuthRateLimit } from "@portal/server/widget-auth/rate-limit";
 import {
   widgetPreflight,
@@ -31,7 +34,8 @@ type TelegramParaExchange = {
   session_id?: unknown;
 };
 
-const DM_THREAD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DM_THREAD_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function requiredString(value: unknown, maxLength: number): string | null {
   if (typeof value !== "string") return null;
@@ -89,10 +93,18 @@ export const POST = widgetRoute(async (request: Request) => {
   if (descriptor.id !== "para" || identity.provider !== "para") {
     throw new WidgetAuthError("provider_not_enabled", 400);
   }
+  // A Para session JWT proves the human, never a wallet. Ask Para's own API,
+  // with the server-held secret, which embedded wallets it custodies for this
+  // verified subject, and hand them to the canonical link so identity, the
+  // cross-account wallet conflict check and the `public_keys` rows are all
+  // decided in one transaction. Fetching before the link keeps a provider
+  // outage from leaving a linked identity with no signer behind it.
+  const wallets = await requireAttestedProviderWallets(identity);
   const resolution = await linkVerifiedProviderIdentityForUser({
     userId,
     identity,
     policy: descriptor.policy,
+    wallets,
   });
   if (resolution.status === "conflict") {
     return Response.json(

@@ -2,6 +2,66 @@
 
 ## Last Updated
 
+2026-09-10 — TELEGRAM × PARA HOSTED WALLETS NEVER REACHED `public_keys`
+  (working tree, uncommitted). The Mini App said "Para is linked" while the bot
+  still reported `Authority: not linked`: `/api/auth/widget/telegram/exchange`
+  linked the Para identity and stopped there. Every widget descriptor returns
+  `walletAttestations: []` on purpose (a session JWT's wallet arrays are client
+  claims), and no widget route ever ran the server-side attestation, so no
+  Para-custodied wallet became a canonical row. Fixed at three layers:
+  - `requireAttestedProviderWallets` (`apps/portal/src/server/widget-auth/exchange.ts`)
+    asks Para's own API with `PARA_API_SECRET_KEY` and hands the result to
+    `linkVerifiedProviderIdentityForUser({ wallets })` BEFORE the link, so
+    identity, the cross-account wallet conflict check and `public_keys` all
+    commit in one transaction and a provider outage cannot leave a linked
+    identity with no signer. Failure codes are distinct and never fall back to
+    token claims: `provider_wallets_unconfigured` (503, no server secret),
+    `provider_wallets_unavailable` (503, API failed), `provider_hosted_wallet_missing`
+    (422, Para attests no embedded wallet). `resolveAttestedProviderWallets`
+    (`packages/account/src/service/account-service.ts`) is the new
+    three-state lookup; `fetchAttestedProviderWallets` keeps its null contract
+    on top of it.
+  - THE LOOKUP KEY WAS WRONG, and this is what actually broke staging: Para's
+    `GET /v1/wallets` is partner-scoped and keyed by the LOGIN HANDLE, and its
+    `userIdentifierType` enum (EMAIL/PHONE/CUSTOM_ID/GUEST_ID/DISCORD/TWITTER/
+    TELEGRAM/FARCASTER) has no member naming a Para user id — so the old
+    `CUSTOM_ID`-on-`sub` attester could only ever return nothing (already
+    flagged in WIDGET-AUTH-INTEGRATION-PLAN.md:253). `verifyParaWidgetCredential`
+    now surfaces `loginIdentifier` (`data.authType` + `data.identifier`), which
+    threads through `WalletAttester` to `paraWalletLookup`: login handle first,
+    verified email second, `CUSTOM_ID`-on-subject last. An unmappable handle
+    (`externalWallet`) answers `null` — "no answer", not "no wallets".
+  - THE SCHEME FILTER WAS WRONG TOO: `isEmbeddedScheme` accepted only
+    DKLS/FROST/*MPC*, but Para's documented enum is DKLS | CGGMP | ED25519, so
+    every Solana embedded wallet (ED25519) was being dropped. Now accepts the
+    documented three plus the old tolerances, and skips `status: "creating"`
+    rows (Para returns an address before key generation finishes).
+  Mini App: the exchange's failure code now rides through
+  `use-canonical-account.ts` into the visible message, so a hosted-wallet
+  failure is diagnosable instead of a bare "Could not link your account."
+  Verified: root `vitest run` 1461 tests, portal 571, telegram 6, root
+  typecheck, portal `tsc` (after `rm -rf .next/dev/types` — the checked-out
+  `.next` carried stale route validators that fail typecheck on `main` too),
+  eslint clean. `apps/portal/src/server/widget-auth/exchange.test.ts` drives the
+  real identity → attester → REST chain with only `fetch` + env stubbed.
+  NOT DONE — needs a human: the live staging matrix cell
+  `Auto × Telegram × AA × Hosted` (deploy to chat-staging.aomi.dev, DM
+  `@hoodittest_bot`, `/wallet` → Open Para → Para login → `/wallet` → expect an
+  Authority address → `/permission`). Cannot be driven from here (Telegram
+  account + Para login). Preflight done: `PARA_API_SECRET_KEY` IS set on
+  chat-portal Preview; `PARA_API_BASE_URL` is not, so the beta default host
+  applies, which matches tg-mini-app (no `NEXT_PUBLIC_PARA_ENVIRONMENT` → BETA).
+  Pending decisions/known gaps:
+  - `/api/auth/widget/exchange` and `/v1/account/provider/exchange` (widget
+    principal branch) still link identity WITHOUT attested wallets — same defect,
+    deliberately left alone to keep this change on the Telegram cell.
+    `requireAttestedProviderWallets` is shared and ready for them, but the
+    browser widget would need a decision on whether a Para user with no hosted
+    wallet may still sign in (here it may not).
+  - `paraWalletsUrl()` is deployment-global while credentials carry a BETA/PROD
+    environment; a portal serving both would query the wrong Para host. Fine
+    today (staging is BETA-only), a hazard for the production rollout.
+
 2026-09-09 — TRANSACTION ROUTING SURFACES: FIX + TEST PROGRAM (branch
   `codex/wallet-routing-surfaces`, working tree, uncommitted; pairs with
   product-mono `cecilia/para-evm-envelope`). Review findings resolved:

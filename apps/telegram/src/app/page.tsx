@@ -28,7 +28,11 @@ export default function Home() {
   if (launch.status === "loading") message = "Opening Para…";
   if (launch.status === "error") message = "Open this page from Telegram.";
   if (account.status === "loading") message = "Linking your Aomi account…";
-  if (account.status === "error") message = "Could not link your account.";
+  if (account.status === "error") {
+    message = account.error
+      ? `Could not link your account (${account.error}).`
+      : "Could not link your account.";
+  }
   if (account.status === "ready" && !permission.target) {
     message = "Para is linked.";
   }
