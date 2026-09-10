@@ -104,7 +104,20 @@ const agentResult = await aomi.agent.run("Supply 100 USDC to Aave");
 console.log(agentResult.messages);
 
 // The wire-close client is always available without a second instance.
-await aomi.raw.pipeline.evm.stage({ actions: [] });
+await aomi.raw.pipeline.root();
+```
+
+Agent runs use **Auto** routing by default. Select **Direct** only when the
+caller intentionally pins a turn to one app:
+
+```ts
+await aomi.agent.run("Summarize this market", {
+  target: { mode: "direct", app: "polymarket" },
+});
+
+await aomi.agent.run("Use our hosted research agent", {
+  target: { mode: "direct", applicationId: 2936682 },
+});
 ```
 
 For event-driven Agent integrations, retain the run object:
@@ -144,19 +157,30 @@ data are currently unsupported and rejected rather than ignored.
 const staged = await client.pipeline.evm.stage({
   actions: [
     {
-      chainId: 1,
-      calls: [{ to: "0x...", data: "0x", value: 0n }],
+      to: "0x...",
+      chain_id: 1,
+      description: "Transfer",
+      data: { signature: "", args: [], raw: "0x" },
+      value: 0n,
     },
   ],
 });
 const simulated = await client.pipeline.evm.simulate(staged);
-const receipt = await client.pipeline.evm.commit(simulated);
+const committed = await client.pipeline.evm.commit(simulated);
 
 const svmStaged = await client.pipeline.svm.stage({
   kind: "instructions",
-  instructions,
+  instructions: [{
+    description: "Transfer",
+    instructions: [{ program_id: "...", accounts: [], data_base64: "..." }],
+  }],
 });
 ```
+
+Portable builds preserve backend transaction records and operation provenance.
+Commit returns `requests` containing wallet intents (`ActionRequest[]`), plus
+operation output in `result` (EVM) or `results` (SVM). Stateless requests have
+no durable Agent Action IDs and are not automatically signed by the SDK.
 
 The Catalog is filesystem-like and arbitrary live operations deliberately stay
 runtime-schema-driven:
@@ -188,7 +212,7 @@ import { Session } from "@aomi-labs/client";
 
 const session = new Session(
   { baseUrl: "https://api.aomi.dev" },
-  { app: "default", actions: walletCapabilities },
+  { actions: walletCapabilities }, // Auto routing
 );
 
 // Blocking send — polls until the agent finishes responding
@@ -205,6 +229,14 @@ unsubscribe();
 session.close();
 ```
 
+To pin a session to one app, pass a typed Direct target:
+
+```ts
+const directSession = new Session(client, {
+  target: { mode: "direct", app: "uniswap" },
+});
+```
+
 ### Session API
 
 #### Constructor
@@ -215,15 +247,18 @@ new Session(clientOptions: AomiClientOptions, sessionOptions?: SessionOptions)
 new Session(client: AomiClient, sessionOptions?: SessionOptions)
 ```
 
-| Option           | Default               | Description                                  |
-| ---------------- | --------------------- | -------------------------------------------- |
-| `sessionId`      | `crypto.randomUUID()` | Agent session ID                             |
-| `app`            | `"default"`           | App selected for new turns                   |
-| `model`          | —                     | Optional model preference                    |
-| `getUserState`   | —                     | Reads canonical UserState when a turn starts |
-| `pollIntervalMs` | `500`                 | Event polling interval                       |
-| `actions`        | `{}`                  | Canonical wallet/action capabilities         |
-| `logger`         | —                     | Pass `console` for debug output              |
+| Option           | Default               | Description                                             |
+| ---------------- | --------------------- | ------------------------------------------------------- |
+| `sessionId`      | `crypto.randomUUID()` | Agent session ID                                        |
+| `target`         | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
+| `model`          | —                     | Optional model preference                               |
+| `getUserState`   | —                     | Reads canonical UserState when a turn starts            |
+| `pollIntervalMs` | `500`                 | Event polling interval                                  |
+| `actions`        | `{}`                  | Canonical wallet/action capabilities                    |
+| `logger`         | —                     | Pass `console` for debug output                         |
+
+Legacy `app` and `applicationId` options still imply Direct for compatibility;
+new integrations should use `target` so routing intent is unambiguous.
 
 #### Methods
 
@@ -271,6 +306,8 @@ npx @aomi-labs/client --version                         # print installed CLI ve
 npx @aomi-labs/client                                    # start the interactive REPL
 npx @aomi-labs/client --prompt "swap 1 ETH for USDC"    # one-shot prompt mode
 npx @aomi-labs/client chat "swap 1 ETH for USDC"        # explicit chat subcommand
+npx @aomi-labs/client chat "compare lending rates" --mode auto
+npx @aomi-labs/client chat "quote this swap" --mode direct --app uniswap
 npx @aomi-labs/client chat "swap 1 ETH for USDC" --model claude-sonnet-4
 npx @aomi-labs/client chat "swap 1 ETH" --verbose        # stream tool calls + responses live
 npx @aomi-labs/client --provider-key anthropic:sk-ant-... --prompt "hello"
@@ -300,7 +337,9 @@ npx @aomi-labs/client pipeline evm commit build.json
 
 The root command now mirrors the Rust CLI shape:
 
-- `aomi` starts an interactive REPL with `/app`, `/model`, `/key`, and `:exit`.
+- `aomi` starts an interactive REPL with `/mode`, `/app`, `/model`, `/key`, and `:exit`.
+- `/mode auto` restores automatic routing; `/mode direct <app>` pins one app.
+- `/app <name>` remains shorthand for `/mode direct <name>`.
 - `aomi --prompt "..."` sends a single prompt and exits.
 - The noun-verb subcommands remain available for transaction, session, secret, and control flows.
 
@@ -583,24 +622,26 @@ $ npx @aomi-labs/client session log
 
 All config can be passed as flags (which take priority over env vars):
 
-| Flag                   | Env Variable          | Default                 | Description                                  |
-| ---------------------- | --------------------- | ----------------------- | -------------------------------------------- |
-| `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                             |
-| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                 |
-| `--app`                | `AOMI_APP`            | `default`               | App                                          |
-| `--model`              | `AOMI_MODEL`          | —                       | Model rig to apply before chat               |
-| `--prompt`, `-p`       | —                     | —                       | Send a single prompt and exit                |
-| `--show-tool`          | —                     | —                       | Show tool output in root prompt/REPL mode    |
-| `--provider-key`       | —                     | —                       | Save a BYOK provider key as `PROVIDER:KEY`   |
-| `--public-key`         | `AOMI_PUBLIC_KEY`     | —                       | EVM wallet address (0x-prefixed)             |
-| `--private-key`        | `PRIVATE_KEY`         | —                       | Hex private key for `aomi tx sign`           |
-| `--solana-private-key` | `SOLANA_PRIVATE_KEY`  | —                       | Solana keypair (base58 or JSON byte array)   |
-| `--cluster`            | `AOMI_SOLANA_CLUSTER` | `mainnet-beta`          | Solana cluster (also CAIP-2 `solana:...`)    |
-| `--rpc-url`            | `CHAIN_RPC_URL`       | —                       | RPC URL for transaction submission           |
-| `--chain`              | `AOMI_CHAIN_ID`       | `1`                     | Chain ID (1, 137, 42161, 8453, 10, 11155111) |
-| `--json`               | —                     | —                       | Machine-readable JSON where supported        |
-| `--verbose`, `-v`      | —                     | —                       | Stream tool calls and agent responses live   |
-| `--version`, `-V`      | —                     | —                       | Print the installed CLI version              |
+| Flag                   | Env Variable          | Default                 | Description                                   |
+| ---------------------- | --------------------- | ----------------------- | --------------------------------------------- |
+| `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                              |
+| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                  |
+| `--mode`               | `AOMI_AGENT_MODE`     | `auto`                  | Agent routing mode (`auto` or `direct`)       |
+| `--app`                | `AOMI_APP`            | —                       | Direct app (also implies Direct when omitted) |
+| `--application-id`     | `AOMI_APPLICATION_ID` | —                       | Direct hosted application identity            |
+| `--model`              | `AOMI_MODEL`          | —                       | Model rig to apply before chat                |
+| `--prompt`, `-p`       | —                     | —                       | Send a single prompt and exit                 |
+| `--show-tool`          | —                     | —                       | Show tool output in root prompt/REPL mode     |
+| `--provider-key`       | —                     | —                       | Save a BYOK provider key as `PROVIDER:KEY`    |
+| `--public-key`         | `AOMI_PUBLIC_KEY`     | —                       | EVM wallet address (0x-prefixed)              |
+| `--private-key`        | `PRIVATE_KEY`         | —                       | Hex private key for `aomi tx sign`            |
+| `--solana-private-key` | `SOLANA_PRIVATE_KEY`  | —                       | Solana keypair (base58 or JSON byte array)    |
+| `--cluster`            | `AOMI_SOLANA_CLUSTER` | `mainnet-beta`          | Solana cluster (also CAIP-2 `solana:...`)     |
+| `--rpc-url`            | `CHAIN_RPC_URL`       | —                       | RPC URL for transaction submission            |
+| `--chain`              | `AOMI_CHAIN_ID`       | `1`                     | Chain ID (1, 137, 42161, 8453, 10, 11155111)  |
+| `--json`               | —                     | —                       | Machine-readable JSON where supported         |
+| `--verbose`, `-v`      | —                     | —                       | Stream tool calls and agent responses live    |
+| `--version`, `-V`      | —                     | —                       | Print the installed CLI version               |
 
 ```bash
 # Use a custom backend
@@ -643,6 +684,9 @@ persists local state under `AOMI_STATE_DIR` or `~/.aomi` by default:
 | --------------- | ------------------------------------------------------ |
 | `sessionId`     | Which conversation to continue                         |
 | `clientId`      | Stable client identity used for session secret handles |
+| `agentMode`     | Auto or Direct routing for the active session          |
+| `app`           | Direct app, when Direct is selected                    |
+| `applicationId` | Direct hosted app identity, when selected              |
 | `model`         | Last successfully applied model for the session        |
 | `publicKey`     | EVM wallet address (from `--public-key`)               |
 | `privateKey`    | EVM key persisted by `aomi wallet set`                 |

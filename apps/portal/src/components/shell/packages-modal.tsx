@@ -1,22 +1,37 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X as Close, Filter, Loader2, Search } from "lucide-react";
-import { ModalBackdrop } from "@/components/ui/modal-backdrop";
+import { Library, Loader2, X } from "lucide-react";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { ModalBackdrop } from "@/components/ui/modal-backdrop";
+import { requestCapabilityMention } from "@/components/assistant-ui/capability-composer";
 import {
-  seedAccountOverview,
+  useSkillCatalog,
+  type SkillSummary,
+} from "@/lib/capabilities/skill-catalog";
+import {
+  updateAccountApps,
   useAccountOverview,
 } from "@portal/lib/account-overview";
-import { PackageIcon, PackageRow } from "./package-row";
 import {
-  CATEGORY_ORDER,
-  PERSONAL_CATEGORY_ORDER,
-  PINNED_APPS,
-  type PackageVisibility,
-} from "./packages-catalog";
+  LibraryDetailPanel,
+  type LibrarySelection,
+} from "./library-detail-panel";
+import { PINNED_APPS } from "./packages-catalog";
 import { setInstalledApps } from "./packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
+import { directoryModalType } from "./directory-modal-type";
+import {
+  NAV_ITEMS,
+  CATEGORIES,
+  selectionKey,
+  useLibraryEntries,
+  type LibraryView,
+} from "./library/model";
+import { CatalogRow } from "./library/catalog-row";
+import { SearchField, SidebarButton, EmptyList } from "./library/navigation";
+
+export { inferLibraryCategory } from "./library/model";
 
 interface PackagesModalProps {
   onClose: () => void;
@@ -25,70 +40,76 @@ interface PackagesModalProps {
 export function PackagesModal({ onClose }: PackagesModalProps) {
   const activeChainId = useAomiWalletKit().identity.chainId;
   const account = useAccountOverview();
-  const { catalog, error: catalogError, retry } = usePackageCatalog();
-  const [activeView, setActiveView] = useState<PackageVisibility>("public");
+  const {
+    catalog,
+    error: catalogError,
+    retry: retryApps,
+  } = usePackageCatalog(account?.user.user_id);
+  const {
+    skills,
+    error: skillsError,
+    retry: retrySkills,
+    loading: skillsLoading,
+  } = useSkillCatalog();
+  const [view, setView] = useState<LibraryView>("discover");
   const [query, setQuery] = useState("");
-  const [installedOnly, setInstalledOnly] = useState(false);
-  // null until either the PUT response or the account overview seeds it —
-  // the PUT response is the fresher truth once any mutation has run.
-  const [installedFromServer, setInstalledFromServer] = useState<{
-    userId: string;
-    apps: string[];
-  } | null>(null);
+  const [selected, setSelected] = useState<LibrarySelection | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const mutationInFlight = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const accountUserId = account?.user.user_id;
-  const installedBaseline =
-    installedFromServer && installedFromServer.userId === accountUserId
-      ? installedFromServer.apps
-      : (account?.user.apps ?? null);
+  const installedBaseline = account?.user.apps ?? null;
   const installedReady = installedBaseline !== null;
   const installedIds = useMemo(() => {
-    const fromAccount = installedBaseline ?? [];
-    const ids = new Set(fromAccount);
+    const ids = new Set(installedBaseline ?? []);
     for (const pinned of PINNED_APPS) ids.add(pinned);
     return ids;
   }, [installedBaseline]);
 
-  /**
-   * Replace the installed set on the server. Not optimistic: the button shows
-   * busy and the row flips only on the PUT response, so a rejected write can't
-   * leave a phantom install.
-   */
   const mutateInstalled = useCallback(
     async (packageId: string, next: string[]) => {
       if (
         !installedReady ||
-        !account ||
         !accountUserId ||
         mutationInFlight.current
-      ) {
+      )
         return;
-      }
       mutationInFlight.current = true;
       setBusyId(packageId);
       setActionError(null);
       try {
         const apps = await setInstalledApps(next);
-        setInstalledFromServer({ userId: accountUserId, apps });
-        seedAccountOverview({
-          ...account,
-          user: { ...account.user, apps },
-        });
+        updateAccountApps(accountUserId, apps);
       } catch (cause) {
         setActionError(
-          cause instanceof Error ? cause.message : "Couldn't update packages",
+          cause instanceof Error ? cause.message : "Couldn’t update apps",
         );
       } finally {
         mutationInFlight.current = false;
         setBusyId(null);
       }
     },
-    [account, accountUserId, installedReady],
+    [accountUserId, installedReady],
   );
+
+  const install = (packageId: string) => {
+    void mutateInstalled(packageId, [
+      ...[...installedIds].filter((id) => id !== packageId),
+      packageId,
+    ]);
+  };
+  const uninstall = (packageId: string) => {
+    void mutateInstalled(
+      packageId,
+      [...installedIds].filter((id) => id !== packageId),
+    );
+  };
+  const trySkill = (skill: SkillSummary) => {
+    requestCapabilityMention({ kind: "skill", id: skill.id });
+    onClose();
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -96,7 +117,6 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         onClose();
         return;
       }
-      // "/" and ⌘K jump to search — the primary way into a catalog this size.
       const typingElsewhere =
         event.target instanceof HTMLElement &&
         ["INPUT", "TEXTAREA"].includes(event.target.tagName);
@@ -108,285 +128,202 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         searchRef.current?.focus();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const searching = query.trim().length > 0;
+  const {
+    appEntries,
+    skillEntries,
+    allEntries,
+    categoryCounts,
+    visible,
+    listTitle,
+  } = useLibraryEntries({ catalog, skills, installedIds, query, view });
 
-  const visiblePackages = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const source = (catalog ?? []).filter(
-      (app) => app.visibility === activeView,
-    );
-
-    return source.filter((app) => {
-      if (installedOnly && !installedIds.has(app.id)) return false;
-      if (!normalizedQuery) return true;
-      return `${app.name} ${app.description}`
-        .toLowerCase()
-        .includes(normalizedQuery);
-    });
-  }, [catalog, activeView, query, installedOnly, installedIds]);
-
-  const installedPackages = (catalog ?? []).filter((app) =>
-    installedIds.has(app.id),
-  );
-  const categories =
-    activeView === "public" ? CATEGORY_ORDER : PERSONAL_CATEGORY_ORDER;
-
-  const install = (packageId: string) => {
-    void mutateInstalled(packageId, [
-      ...[...installedIds].filter((id) => id !== packageId),
-      packageId,
-    ]);
-  };
-
-  const uninstall = (packageId: string) => {
-    void mutateInstalled(
-      packageId,
-      [...installedIds].filter((id) => id !== packageId),
-    );
-  };
+  const activeSelection =
+    selected &&
+    visible.some((entry) => selectionKey(entry) === selectionKey(selected))
+      ? selected
+      : (visible[0] ?? null);
+  const selectedInstalled =
+    activeSelection?.kind === "app" &&
+    installedIds.has(activeSelection.item.id);
+  const waiting =
+    view === "apps" || view === "installed"
+      ? catalog === null
+      : view === "skills"
+        ? skillsLoading
+        : catalog === null || skillsLoading;
+  const loadError =
+    view === "apps" || view === "installed"
+      ? catalogError
+      : view === "skills"
+        ? skillsError
+        : (catalogError ?? skillsError);
 
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
       style={{ zIndex: 60 }}
     >
-      <ModalBackdrop aria-label="Dismiss packages" onClick={onClose} />
+      <ModalBackdrop aria-label="Dismiss library" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="packages-title"
-        className="border-aomi-border bg-aomi-raised text-aomi-fg relative flex flex-col overflow-hidden rounded-2xl border"
-        // Match Settings exactly within the full Portal frame.
-        style={{ width: 900, height: 600, maxWidth: "95%", maxHeight: "92%" }}
+        aria-labelledby="library-title"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg relative overflow-hidden rounded-[22px] border shadow-[0_24px_70px_rgba(0,0,0,0.08)]"
+        style={{ width: 1080, height: 620, maxWidth: "96%", maxHeight: "92%" }}
       >
-        <header className="border-aomi-border relative shrink-0 border-b px-[22px] pb-2 pt-[22px]">
-          <h1 id="packages-title" className="text-[15px] font-semibold">
-            Packages
-          </h1>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close packages"
-            className="bg-aomi-surface-2 text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-            style={{ position: "absolute", right: 22, top: 18 }}
-          >
-            <Close size={16} />
-          </button>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col px-[22px] pb-5 pt-4">
-          <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted flex h-[38px] items-center gap-2.5 rounded-full border px-4 transition-colors">
-            <Search size={16} className="text-aomi-muted flex-shrink-0" />
-            <span className="sr-only">Search packages</span>
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search packages"
-              className="placeholder:text-aomi-muted min-w-0 flex-1 bg-transparent text-[13px] outline-none"
-            />
-            {searching ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  searchRef.current?.focus();
-                }}
-                aria-label="Clear search"
-                className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full transition-colors"
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close library"
+          className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg absolute right-4 top-4 z-20 flex size-7 items-center justify-center rounded-full transition-colors"
+        >
+          <X className="size-3.5" />
+        </button>
+        <div className="grid h-full min-h-0 md:grid-cols-[185px_minmax(0,1fr)_300px]">
+          <aside className="border-aomi-border bg-aomi-bg/40 min-h-0 overflow-y-auto border-r p-3">
+            <div className="flex items-center gap-2 px-2.5 py-3">
+              <Library className="text-aomi-accent size-4" />
+              <h1
+                id="library-title"
+                className={`flex-1 ${directoryModalType.modalTitle}`}
               >
-                <Close size={12} />
-              </button>
-            ) : (
-              <kbd className="border-aomi-border text-aomi-muted flex-shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px]">
-                /
-              </kbd>
-            )}
-          </label>
-
-          {actionError && (
-            <p className="border-aomi-border bg-aomi-surface text-aomi-danger mt-4 rounded-xl border px-4 py-3 text-[13px]">
-              {actionError}
-            </p>
-          )}
-
-          <section
-            className="border-aomi-border mt-4 border-t pt-4"
-            aria-labelledby="installed-packages-title"
-          >
-            <div className="flex items-center">
-              <h2
-                id="installed-packages-title"
-                className="text-sm font-semibold leading-5"
-              >
-                Installed
-                <span className="text-aomi-muted ml-2 font-mono text-xs font-normal">
-                  {installedPackages.length}
-                </span>
-              </h2>
+                Library
+              </h1>
             </div>
-            {installedPackages.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {installedPackages.map((app) => (
-                  <button
-                    key={app.id}
-                    type="button"
-                    title={app.description}
-                    className="hover:bg-aomi-hover group flex w-[70px] flex-col items-center gap-1.5 rounded-xl px-1 py-2 transition-colors"
-                  >
-                    <PackageIcon app={app} size="small" />
-                    <span className="text-aomi-muted group-hover:text-aomi-fg w-full truncate text-center text-[10px] transition-colors">
-                      {app.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="border-aomi-border bg-aomi-surface flex rounded-full border p-[3px]">
-              {(["public", "personal"] as PackageVisibility[]).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  onClick={() => setActiveView(view)}
-                  aria-pressed={activeView === view}
-                  className={`rounded-full px-3.5 py-[5px] text-[13px] transition-colors ${
-                    activeView === view
-                      ? "bg-aomi-accent-strong text-aomi-on-accent font-medium"
-                      : "text-aomi-muted hover:text-aomi-fg"
-                  }`}
-                >
-                  {view === "public" ? "Public" : "Personal"}
-                </button>
+            <nav className="mt-3 space-y-0.5" aria-label="Library sections">
+              {NAV_ITEMS.map((item) => (
+                <SidebarButton
+                  key={item.id}
+                  label={item.label}
+                  icon={item.icon}
+                  active={view === item.id}
+                  onClick={() => {
+                    setView(item.id);
+                    setSelected(null);
+                  }}
+                  count={
+                    item.id === "discover"
+                      ? allEntries.length
+                      : item.id === "installed"
+                        ? appEntries.filter((entry) =>
+                            installedIds.has(entry.item.id),
+                          ).length
+                        : item.id === "apps"
+                          ? appEntries.length
+                          : skillEntries.length
+                  }
+                />
               ))}
+            </nav>
+            <div className="border-aomi-border mt-5 border-t pt-4">
+              <span className="text-aomi-muted px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                Categories
+              </span>
+              <nav className="mt-2 space-y-0.5" aria-label="Library categories">
+                {CATEGORIES.map((category) => (
+                  <SidebarButton
+                    key={category.id}
+                    label={category.label}
+                    icon={category.icon}
+                    active={view === category.id}
+                    onClick={() => {
+                      setView(category.id);
+                      setSelected(null);
+                    }}
+                    count={categoryCounts.get(category.id)}
+                  />
+                ))}
+              </nav>
             </div>
-            <button
-              type="button"
-              onClick={() => setInstalledOnly((v) => !v)}
-              aria-pressed={installedOnly}
-              className={`flex items-center gap-2 rounded-full border px-3.5 py-[5px] text-[13px] transition-colors ${
-                installedOnly
-                  ? "bg-aomi-accent-strong text-aomi-on-accent border-transparent font-medium"
-                  : "border-aomi-border bg-aomi-surface-2 text-aomi-muted hover:text-aomi-fg"
-              }`}
-            >
-              <Filter size={14} />
-              Installed only
-            </button>
-          </div>
+          </aside>
 
-          <div className="border-aomi-border mt-5 min-h-0 flex-1 overflow-y-auto border-t">
-            {catalogError ? (
-              <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 px-6 py-8 text-center text-[13px]">
-                <p className="text-aomi-muted">{catalogError}</p>
-                <button
-                  type="button"
-                  onClick={retry}
-                  className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 font-medium transition-opacity hover:opacity-90"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : catalog === null ? (
-              <div className="text-aomi-muted flex h-full min-h-40 items-center justify-center gap-2 px-6 py-8 text-[13px]">
-                <Loader2 size={15} className="animate-spin" />
-                Loading packages…
-              </div>
-            ) : visiblePackages.length === 0 ? (
-              <div className="flex h-full min-h-40 flex-col items-center justify-center px-6 py-8 text-center text-[13px]">
-                <p className="font-medium">No packages found</p>
-                <p className="text-aomi-muted mt-1">
-                  {installedOnly
-                    ? "Nothing installed matches — try turning off “Installed only”."
-                    : "Try another name or capability."}
-                </p>
-                {(searching || installedOnly) && (
+          <main className="flex min-h-0 min-w-0 flex-col p-4">
+            <SearchField
+              query={query}
+              onQueryChange={setQuery}
+              searchRef={searchRef}
+            />
+            {actionError ? (
+              <p className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs">
+                {actionError}
+              </p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-between px-1">
+              <h2 className={directoryModalType.sectionTitle}>{listTitle}</h2>
+              <span className="text-aomi-muted font-mono text-[10px]">
+                {visible.length}
+              </span>
+            </div>
+            <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+              {loadError ? (
+                <div className="flex min-h-44 flex-col items-center justify-center gap-3 text-center text-xs">
+                  <p className="text-aomi-muted">{loadError}</p>
                   <button
                     type="button"
                     onClick={() => {
-                      setQuery("");
-                      setInstalledOnly(false);
+                      retryApps();
+                      retrySkills();
                     }}
-                    className="border-aomi-border hover:bg-aomi-hover mt-4 rounded-lg border px-3.5 py-2 font-medium transition-colors"
+                    className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 font-medium"
                   >
-                    Clear filters
+                    Retry
                   </button>
-                )}
-              </div>
-            ) : searching || installedOnly ? (
-              // Flat, counted list — category headers fragment a short result set.
-              <section aria-label="Search results">
-                <h2 className="border-aomi-border flex items-baseline gap-2 border-b pb-3 text-[13px] font-semibold">
-                  Results
-                  <span className="text-aomi-muted font-mono text-xs font-normal">
-                    {visiblePackages.length}
-                  </span>
-                </h2>
-                <div className="grid md:grid-cols-2 md:gap-x-8">
-                  {visiblePackages.map((app) => (
-                    <PackageRow
-                      key={app.id}
-                      app={app}
-                      installed={installedIds.has(app.id)}
-                      busy={busyId === app.id}
+                </div>
+              ) : waiting ? (
+                <div className="text-aomi-muted flex min-h-44 items-center justify-center gap-2 text-xs">
+                  <Loader2 className="size-3.5 animate-spin" /> Loading library…
+                </div>
+              ) : visible.length === 0 ? (
+                <EmptyList />
+              ) : (
+                <div className="space-y-0.5">
+                  {visible.map((entry) => (
+                    <CatalogRow
+                      key={selectionKey(entry)}
+                      selection={entry}
+                      selected={
+                        activeSelection
+                          ? selectionKey(activeSelection) ===
+                            selectionKey(entry)
+                          : false
+                      }
+                      installed={
+                        entry.kind === "app" && installedIds.has(entry.item.id)
+                      }
+                      busy={entry.kind === "app" && busyId === entry.item.id}
                       disabled={!installedReady || busyId !== null}
                       activeChainId={activeChainId}
-                      onInstall={() => install(app.id)}
-                      onUninstall={() => uninstall(app.id)}
+                      onSelect={() => setSelected(entry)}
+                      onInstall={() =>
+                        entry.kind === "app" && install(entry.item.id)
+                      }
+                      onTry={() =>
+                        entry.kind === "skill" && trySkill(entry.item)
+                      }
                     />
                   ))}
                 </div>
-              </section>
-            ) : (
-              categories.map((category) => {
-                const items = visiblePackages.filter(
-                  (app) => app.category === category,
-                );
-                if (items.length === 0) return null;
-                const categoryId = `packages-${category.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
+              )}
+            </div>
+          </main>
 
-                return (
-                  <section
-                    key={category}
-                    className="mb-6"
-                    aria-labelledby={categoryId}
-                  >
-                    <h2
-                      id={categoryId}
-                      className="border-aomi-border flex items-baseline gap-2 border-b pb-3 text-[13px] font-semibold"
-                    >
-                      {category}
-                      <span className="text-aomi-muted font-mono text-xs font-normal">
-                        {items.length}
-                      </span>
-                    </h2>
-                    <div className="grid md:grid-cols-2 md:gap-x-8">
-                      {items.map((app) => (
-                        <PackageRow
-                          key={app.id}
-                          app={app}
-                          installed={installedIds.has(app.id)}
-                          busy={busyId === app.id}
-                          disabled={!installedReady || busyId !== null}
-                          activeChainId={activeChainId}
-                          onInstall={() => install(app.id)}
-                          onUninstall={() => uninstall(app.id)}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })
-            )}
-          </div>
+          <LibraryDetailPanel
+            selection={activeSelection}
+            installed={selectedInstalled}
+            installedReady={installedReady}
+            busy={
+              activeSelection?.kind === "app" &&
+              busyId === activeSelection.item.id
+            }
+            activeChainId={activeChainId}
+            onInstall={install}
+            onUninstall={uninstall}
+            onTrySkill={trySkill}
+          />
         </div>
       </div>
     </div>

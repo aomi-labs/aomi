@@ -34,7 +34,13 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
   };
 });
 
-const adapterState = {
+const adapterState: {
+  current: Pick<AomiWalletKit, "identity" | "accounts" | "walletModalRows"> & {
+    selectAccount: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+    signOutAccount: ReturnType<typeof vi.fn>;
+  };
+} = {
   current: {
     identity: {
       status: "connected" as "connected" | "disconnected",
@@ -66,7 +72,7 @@ const adapterState = {
     selectAccount: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     signOutAccount: vi.fn(async () => undefined),
-  } satisfies Partial<AomiWalletKit>,
+  },
 };
 
 afterEach(() => {
@@ -281,7 +287,7 @@ describe("DualWalletBar account menu", () => {
     expect(screen.queryByRole("button", { name: /Sign out/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Session & wallet" }));
     expect(
-      screen.getByText("End the Aomi session; keep wallet connected"),
+      screen.getByText("End the session and disconnect this device"),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Disconnect MetaMask/ }),
@@ -297,7 +303,7 @@ describe("DualWalletBar account menu", () => {
     expect(adapterState.current.signOutAccount).not.toHaveBeenCalled();
   });
 
-  it("signs out without disconnecting the wallet", async () => {
+  it("signs out and disconnects the wallet", async () => {
     render(
       <DualWalletBar
         families={["evm"]}
@@ -310,17 +316,43 @@ describe("DualWalletBar account menu", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sign out/ }));
 
     expect(screen.getByRole("dialog")).toHaveTextContent(
-      "Your wallet stays connected in this browser.",
+      "disconnects wallets from this browser.",
     );
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() =>
       expect(adapterState.current.signOutAccount).toHaveBeenCalledTimes(1),
     );
-    expect(adapterState.current.disconnect).not.toHaveBeenCalled();
+    expect(adapterState.current.disconnect).toHaveBeenCalledWith({
+      family: "all",
+    });
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
+  });
+
+  it("disconnects the wallet after a host-provided sign-out", async () => {
+    const onSignOut = vi.fn(async () => undefined);
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{
+          enabled: true,
+          secondaryLine: "420 credits left",
+          onSignOut,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Session & wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sign out/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() => expect(onSignOut).toHaveBeenCalledTimes(1));
+    expect(adapterState.current.disconnect).toHaveBeenCalledWith({
+      family: "all",
+    });
   });
 
   it("defaults wallet disconnect to connector teardown only", async () => {
@@ -346,7 +378,7 @@ describe("DualWalletBar account menu", () => {
     expect(adapterState.current.signOutAccount).not.toHaveBeenCalled();
   });
 
-  it("never disconnects the wallet when account sign-out fails", async () => {
+  it("still disconnects the wallet when account sign-out fails", async () => {
     adapterState.current.signOutAccount.mockRejectedValueOnce(
       new Error("sign-out failed"),
     );
@@ -364,7 +396,9 @@ describe("DualWalletBar account menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(adapterState.current.disconnect).not.toHaveBeenCalled();
+    expect(adapterState.current.disconnect).toHaveBeenCalledWith({
+      family: "all",
+    });
     // The failure is contained and the dialog stays open for an explicit retry.
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     warn.mockRestore();

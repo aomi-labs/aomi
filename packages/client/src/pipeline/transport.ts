@@ -8,8 +8,10 @@ import type {
   PipelineCommitOptions,
   PipelineDirectory,
   PipelineErrorBody,
+  PipelineExecutionScope,
   PipelineFilesystemResource,
   PipelineInvokeOptions,
+  PipelineMutationOptions,
   PipelineOperationBuildInput,
   PipelineOperationDescriptor,
   SvmCommitResult,
@@ -41,36 +43,32 @@ export class PipelineApiError extends Error {
 export class EvmPipelineTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  build(input: PipelineOperationBuildInput): Promise<EvmSimulatedBuild> {
+  build(
+    input: PipelineOperationBuildInput,
+    options: PipelineMutationOptions = {},
+  ): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/build", {
+      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  stage(input: EvmStageInput): Promise<EvmStagedBuild> {
-    const actions = input.actions.flatMap((action) =>
-      action.calls.map((call) => {
-        if (call.from)
-          throw new TypeError(
-            "Pipeline selects the authorizing account from account policy; from cannot override it",
-          );
-        return {
-          to: call.to,
-          data: { raw: call.data ?? "0x" },
-          value: call.value,
-          gas_limit: call.gas,
-          chain_id: action.chainId,
-          description: call.description ?? action.description ?? "Transaction",
-        };
-      }),
-    );
+  stage(
+    input: EvmStageInput,
+    options: PipelineMutationOptions = {},
+  ): Promise<EvmStagedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/stage", {
-      body: jsonBody({ actions }),
+      headers: mutationHeaders(options),
+      body: jsonBody(input),
     });
   }
 
-  simulate(build: EvmStagedBuild): Promise<EvmSimulatedBuild> {
+  simulate(
+    build: EvmStagedBuild,
+    options: PipelineMutationOptions = {},
+  ): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/simulate", {
+      headers: mutationHeaders(options),
       body: { build: jsonBody(build) },
     });
   }
@@ -89,55 +87,32 @@ export class EvmPipelineTransport {
 export class SvmPipelineTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  build(input: PipelineOperationBuildInput): Promise<SvmSimulatedBuild> {
+  build(
+    input: PipelineOperationBuildInput,
+    options: PipelineMutationOptions = {},
+  ): Promise<SvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/build", {
+      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  stage(input: SvmStageInput): Promise<SvmStagedBuild> {
-    const selected = input.kind === "instructions" ? input : input.transaction;
-    if (selected.cluster || selected.feePayer) {
-      throw new TypeError(
-        "Pipeline SVM staging uses the account's configured chain and payer; explicit cluster/feePayer overrides are unsupported",
-      );
-    }
-    const body =
-      input.kind === "instructions"
-        ? {
-            kind: input.kind,
-            instructions: [
-              {
-                description: "Transaction",
-                instructions: input.instructions.map((ix) => {
-                  if (ix.encoding && ix.encoding !== "base64")
-                    throw new TypeError(
-                      "Pipeline instructions require base64 data",
-                    );
-                  return {
-                    program_id: ix.programId,
-                    data_base64: ix.data,
-                    accounts: ix.accounts.map((account) => ({
-                      pubkey: account.pubkey,
-                      is_signer: account.isSigner,
-                      is_writable: account.isWritable,
-                    })),
-                  };
-                }),
-              },
-            ],
-          }
-        : {
-            kind: input.kind,
-            transaction: { tx: input.transaction.transaction },
-          };
+  stage(
+    input: SvmStageInput,
+    options: PipelineMutationOptions = {},
+  ): Promise<SvmStagedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/stage", {
-      body,
+      headers: mutationHeaders(options),
+      body: jsonBody(input),
     });
   }
 
-  simulate(build: SvmStagedBuild): Promise<SvmSimulatedBuild> {
+  simulate(
+    build: SvmStagedBuild,
+    options: PipelineMutationOptions = {},
+  ): Promise<SvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/simulate", {
+      headers: mutationHeaders(options),
       body: { build: jsonBody(build) },
     });
   }
@@ -155,13 +130,16 @@ export class SvmPipelineTransport {
 
 export class PipelineOperationTransport {
   readonly href: string;
+  readonly executionScope: PipelineExecutionScope;
 
   constructor(
     private readonly requestResponse: RequestResponse,
     scope: "apps" | "skills",
     owner: string,
   ) {
-    this.href = `/v1/pipeline/${scope}/${encodeURIComponent(required("name", owner))}`;
+    const name = required("name", owner);
+    this.href = `/v1/pipeline/${scope}/${encodeURIComponent(name)}`;
+    this.executionScope = scope === "apps" ? { app: name } : { skills: [name] };
   }
 
   directory(): Promise<PipelineDirectory> {

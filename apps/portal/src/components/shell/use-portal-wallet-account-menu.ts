@@ -106,8 +106,7 @@ export function usePortalWalletAccountMenu(
       onOpenDeployments: () => {
         window.location.assign("/deployments");
       },
-      // No session overrides: DualWalletBar keeps account sign-out and wallet
-      // connector teardown as two explicit, independent actions.
+      // DualWalletBar owns the unified sign-out and wallet disconnect action.
     };
   }, [
     accountError,

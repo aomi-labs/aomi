@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import {
   CLIENT_TYPE_WEB_UI,
   Session as ClientSession,
   UserState as UserStateValue,
   type ActionCapabilities,
+  type AgentTarget,
   type AomiClient,
   type UserState,
 } from "@aomi-labs/client";
@@ -21,9 +17,8 @@ import { SessionManager } from "./session-manager";
 
 type OrchestratorOptions = {
   getUserState: () => UserState;
-  getApp: () => string;
+  getTarget: () => AgentTarget;
   getModel?: () => string | null | undefined;
-  getApplicationId?: () => number | string | null | undefined;
   getClientId?: () => string | undefined;
   inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
@@ -63,9 +58,8 @@ export function useRuntimeOrchestrator(
           CLIENT_TYPE_WEB_UI,
         );
       const sessionOptions = {
-        app: runtime.getApp(),
+        target: runtime.getTarget(),
         model: runtime.getModel?.(),
-        applicationId: runtime.getApplicationId?.(),
         clientId: runtime.getClientId?.(),
         getUserState,
         inferenceFunding: runtime.inferenceFunding,
@@ -151,9 +145,12 @@ export function useRuntimeOrchestrator(
     [getSession],
   );
 
-  const cancelGeneration = useCallback(async (threadId: string) => {
-    await sessionManager.get(threadId)?.interrupt();
-  }, [sessionManager]);
+  const cancelGeneration = useCallback(
+    async (threadId: string) => {
+      await sessionManager.get(threadId)?.interrupt();
+    },
+    [sessionManager],
+  );
 
   const currentSession = getSession(threads.currentThreadId);
   const snapshot = useSyncExternalStore(

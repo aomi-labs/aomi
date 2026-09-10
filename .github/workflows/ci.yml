@@ -106,7 +106,7 @@ jobs:
         env:
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aomi_ci_build
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
           NEXT_PUBLIC_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret

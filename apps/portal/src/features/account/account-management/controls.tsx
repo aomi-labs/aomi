@@ -37,14 +37,14 @@ export function WalletRow({
       />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{title}</span>
+          <span className="truncate text-[13px] font-medium">{title}</span>
           {wallet.connected ? (
             <StatusBadge label="Connected" tone="connected" />
           ) : null}
           {wallet.linked ? <StatusBadge label="Linked" tone="linked" /> : null}
           {wallet.active ? <StatusBadge label="Active" tone="active" /> : null}
         </div>
-        <span className="text-aomi-muted block truncate font-mono text-[12px]">
+        <span className="text-aomi-muted block truncate font-mono text-[11px]">
           {shortenAddress(wallet.address)} ·{" "}
           {wallet.family === "evm" ? "Ethereum" : "Solana"}
         </span>
@@ -122,28 +122,6 @@ export function WalletRow({
   );
 }
 
-export function SectionHeading({
-  title,
-  detail,
-  action,
-}: {
-  title: string;
-  detail?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-h-8 items-center justify-between gap-3">
-      <div className="flex items-baseline gap-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {detail ? (
-          <span className="text-aomi-muted text-[12px]">{detail}</span>
-        ) : null}
-      </div>
-      {action}
-    </div>
-  );
-}
-
 export function OptionGrid<
   T extends { id: string; label: string; markKey?: string; ready: boolean },
 >({
@@ -158,7 +136,7 @@ export function OptionGrid<
   onSelect: (option: T) => void;
 }) {
   return (
-    <div className="border-aomi-border bg-aomi-surface-2/30 grid grid-cols-1 gap-2 rounded-xl border p-2 sm:grid-cols-2">
+    <div className="border-aomi-border bg-aomi-surface-2/25 grid grid-cols-1 gap-2 rounded-xl border p-2 sm:grid-cols-2">
       {options.map((option) => {
         const busy = pending === `${prefix}:${option.id}`;
         return (
@@ -167,7 +145,7 @@ export function OptionGrid<
             type="button"
             disabled={!option.ready || busy}
             onClick={() => onSelect(option)}
-            className="border-aomi-border bg-aomi-bg hover:bg-aomi-hover text-aomi-fg flex h-10 items-center justify-between rounded-lg border px-3 text-left text-[13px] font-medium transition-colors disabled:opacity-50"
+            className="border-aomi-border bg-aomi-raised hover:bg-aomi-hover text-aomi-fg flex h-10 items-center justify-between rounded-lg border px-3 text-left text-[12px] font-medium transition-colors disabled:opacity-50"
           >
             <span className="flex min-w-0 items-center gap-2">
               {option.markKey ? (

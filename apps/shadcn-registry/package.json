@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget-lib",
-  "version": "2.0.16",
+  "version": "2.0.44",
   "description": "Shadcn registry for the Aomi widget.",
   "type": "module",
   "main": "./dist/index.js",
@@ -43,7 +43,7 @@
     "build:package": "tsup && node scripts/build-package-css.mjs",
     "clean:dist": "rm -rf dist",
     "prepublishOnly": "pnpm run build",
-    "test:runtime-action": "vitest run --config vitest.config.ts src/components/runtime-tx-handler.test.tsx"
+    "test:runtime-action": "vitest run --config vitest.config.ts src/components/activity-sidebar"
   },
   "dependencies": {
     "@aomi-labs/client": "workspace:*",
@@ -67,6 +67,7 @@
     "@solana/wallet-standard-wallet-adapter-react": "1.1.4",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.90.10",
+    "@x402/svm": "^2.21.0",
     "bs58": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.0.0",

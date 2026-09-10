@@ -127,6 +127,12 @@ describe("high-level Aomi Agent", () => {
         },
       },
     });
+    expect(
+      JSON.parse(fetch.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("mode");
+    expect(
+      JSON.parse(fetch.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("app");
   });
 
   it("executes a pending Action explicitly through the session handler", async () => {

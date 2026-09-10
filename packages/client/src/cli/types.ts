@@ -1,6 +1,7 @@
 import type { AomiInferenceFundingSource } from "../agent/types";
 
 export type CliExecutionMode = "aa" | "eoa";
+export type CliAgentMode = "auto" | "direct";
 export type CliPaymentMethod = "coinbase";
 
 export type CliConfig = {
@@ -9,6 +10,7 @@ export type CliConfig = {
   json?: boolean;
   verbose?: boolean;
   accountBearer?: string;
+  agentMode?: CliAgentMode;
   app?: string;
   applicationId?: string;
   /** Hosted app discovery platform; execution is deferred until Phase 10. */

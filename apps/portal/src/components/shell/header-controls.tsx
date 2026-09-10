@@ -1,7 +1,8 @@
 "use client";
 
-import { Moon, Package, Settings, Sun } from "lucide-react";
-import { NetworkSelect } from "@aomi-labs/widget-lib";
+import { LibraryBig, ListTree, Moon, Settings, Sun } from "lucide-react";
+import { NetworkSelect, useActivityPanel } from "@aomi-labs/widget-lib";
+import { Button } from "@/components/ui/button";
 import { useSettings } from "@portal/lib/use-settings";
 
 /** Every header control stands 32px square so the row reads as one cluster. */
@@ -9,7 +10,7 @@ const headerButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-lg text-aomi-muted transition-colors hover:bg-aomi-hover hover:text-aomi-fg";
 
 /**
- * Chat-header controls per the redesign: packages catalog, settings, and the
+ * Chat-header controls per the redesign: capability library, settings, and the
  * light/dark switch — settings and packages open as popups over the chat
  * instead of navigating away.
  */
@@ -23,6 +24,7 @@ export function HeaderControls({
   showSettings?: boolean;
 }) {
   const { settings, updateSetting } = useSettings();
+  const activity = useActivityPanel();
 
   // Resolve "auto" against the applied class so the toggle flips what you see.
   const isDark =
@@ -33,15 +35,14 @@ export function HeaderControls({
 
   return (
     <div className="flex items-center gap-2.5">
-      {/* Per-thread network picker, styled as the header pill from the mock. */}
       <NetworkSelect className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg h-8 rounded-full border px-2.5 text-[13px]" />
       <button
         type="button"
         onClick={onOpenPackages}
         className={headerButtonClass}
-        aria-label="Browse packages"
+        aria-label="Open capability library"
       >
-        <Package size={18} />
+        <LibraryBig size={18} />
       </button>
       {showSettings ? (
         <button
@@ -57,11 +58,31 @@ export function HeaderControls({
         dark={isDark}
         onToggle={() => updateSetting("colorMode", isDark ? "light" : "dark")}
       />
+      <button
+        type="button"
+        disabled={!activity.worthShowing}
+        onClick={() => activity.setOpen(!activity.open)}
+        className={`${headerButtonClass} disabled:hover:text-aomi-muted disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent ${
+          activity.open ? "bg-aomi-surface-2 text-aomi-fg" : ""
+        }`}
+        aria-label={
+          !activity.worthShowing
+            ? "Chat activity unavailable"
+            : activity.open
+              ? "Hide chat activity"
+              : activity.reviewing
+                ? "Review transactions"
+                : "Show chat activity"
+        }
+        aria-pressed={activity.worthShowing ? activity.open : false}
+      >
+        <ListTree size={18} />
+      </button>
     </div>
   );
 }
 
-/** Sliding switch — the knob carries the icon of the theme currently in use. */
+/** Theme uses the same quiet, compact icon control as the rest of the header. */
 function ThemeSwitch({
   dark,
   onToggle,
@@ -70,23 +91,18 @@ function ThemeSwitch({
   onToggle: () => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-sm"
       role="switch"
       aria-checked={dark}
       aria-label="Dark mode"
+      title={`Switch to ${dark ? "light" : "dark"} theme`}
       onClick={onToggle}
-      // Track stands 32px tall so the switch matches the icon buttons beside it.
-      className="border-aomi-border bg-aomi-surface-2 hover:border-aomi-muted relative h-8 w-14 flex-shrink-0 rounded-full border transition-colors"
+      className="text-aomi-muted hover:text-aomi-fg"
     >
-      <span
-        // Inline offset: a two-position slide is clearer as data than as two
-        // arbitrary utility classes (which Tailwind doesn't reliably emit here).
-        style={{ translate: dark ? "27px -50%" : "3px -50%" }}
-        className="bg-aomi-fg text-aomi-bg absolute left-0 top-1/2 flex h-[26px] w-[26px] items-center justify-center rounded-full transition-transform duration-200"
-      >
-        {dark ? <Moon size={15} /> : <Sun size={15} />}
-      </span>
-    </button>
+      {dark ? <Moon size={16} /> : <Sun size={16} />}
+    </Button>
   );
 }

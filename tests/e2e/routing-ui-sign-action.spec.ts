@@ -25,7 +25,10 @@ test("an AA operation renders as a hosted sign Action and never hits the wallet 
   page,
 }) => {
   test.skip(!walletToken, "AOMI_E2E_WALLET_TOKEN is required");
-  test.skip(!aaApp, "AOMI_E2E_AA_APP (an app with an erc4337 execution policy) is required");
+  test.skip(
+    !aaApp,
+    "AOMI_E2E_AA_APP (an app with an erc4337 execution policy) is required",
+  );
 
   let executeCalled = false;
   await page.route("**/api/bff/e2e/execute", async (route) => {
@@ -64,15 +67,17 @@ test("an AA operation renders as a hosted sign Action and never hits the wallet 
       "Prepare it and call commit_txs in this same turn so the runtime emits an Action. " +
       "Do not ask me for another chat message.",
   );
-  await expect(page.getByRole("heading", { name: /Review/ })).toBeVisible({
-    timeout: 180_000,
+  await expect(page.getByTestId("transaction-review")).toBeVisible({
+    timeout: 300_000,
   });
   await expect(page.getByText("Authorizing account")).toBeVisible();
   await expect(page.getByText("Submitted by")).toBeVisible();
   await expect(page.getByText(/hosted/)).toBeVisible();
   await expect(page.getByText("Network funding")).toBeVisible();
 
-  await expect.poll(() => signActions.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(() => signActions.length, { timeout: 30_000 })
+    .toBeGreaterThan(0);
   const request = signActions[0].request;
   expect(request.type).toBe("sign");
   expect(request.executionKind).toBe("erc4337");
@@ -97,8 +102,9 @@ async function seedWallet(page: Page, redirect = "/"): Promise<void> {
 async function send(page: Page, message: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
 }

@@ -44,6 +44,7 @@ const walletKit = vi.hoisted(() => ({
 const privyDelegation = vi.hoisted(() => ({ start: vi.fn() }));
 
 vi.mock("@aomi-labs/widget-lib", async () => ({
+  requestWalletPickerOpen: vi.fn(),
   WalletSignInOptionsContext: (await import("react")).createContext([]),
   useAomiWalletKit: () => walletKit,
   usePrivyDelegation: () => privyDelegation,
@@ -449,7 +450,10 @@ describe("account ACL wiring", () => {
     await renderAcl();
     await click(await findPrivyRow());
     await click(screen.getByRole("button", { name: "Use for this session" }));
-    const update = runtime.setUser.mock.calls[0]?.[0] as Record<string, unknown>;
+    const update = runtime.setUser.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(update).toBeDefined();
     expect(update).not.toHaveProperty("connection");
     expect(update.svm).toEqual({ address: PRIVY_SVM, broadcaster: "hosted" });
@@ -746,7 +750,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await screen.findByRole("button", { name: "Activate" }));
+    await click(await screen.findByRole("button", { name: "Link" }));
 
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/authorization/commit"),

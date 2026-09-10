@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AomiFrame, useAomiWalletKit } from "@aomi-labs/widget-lib";
-import type { WalletAccountMenuOptions } from "@aomi-labs/widget-lib";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AomiFrame,
+  useAomiWalletKit,
+  type AomiRoutingConfig,
+  type DirectRoutingApp,
+  type WalletAccountMenuOptions,
+} from "@aomi-labs/widget-lib";
 import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
 import { HeaderControls } from "@portal/components/shell/header-controls";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
@@ -16,86 +21,46 @@ import {
 import { getBackendUrl } from "@portal/lib/settings-api";
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
 import { usePortalWalletAccountMenu } from "@portal/components/shell/use-portal-wallet-account-menu";
+import { useAccountOverview } from "@portal/lib/account-overview";
 
-function AppSelectUrlBootstrap({
+const DEFAULT_ENABLED_APPS = ["default"] as const;
+
+function directTarget(
+  app: string,
+  applicationId: string | null,
+): DirectRoutingApp {
+  const parsed = applicationId === null ? NaN : Number(applicationId);
+  return Number.isSafeInteger(parsed) && parsed > 0
+    ? { app, applicationId: parsed }
+    : { app };
+}
+
+function RequestedAppBootstrap({
   requestedApp,
   requestedApplicationId,
-  locked,
+  enabledApps,
 }: {
   requestedApp: string | null;
   requestedApplicationId: string | null;
-  locked: boolean;
+  enabledApps: readonly string[];
 }) {
-  const { createThread, currentThreadId } = useAomiRuntime();
-  const { onAppSelect } = usePerThreadControl().actions;
+  const { onAgentTargetSelect } = usePerThreadControl().actions;
   const hasAppliedRequestedAppRef = useRef(false);
-  const hasStartedLockedThreadRef = useRef<string | null>(null);
-  const isDisposedRef = useRef(false);
-  const [lockedThreadId, setLockedThreadId] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      isDisposedRef.current = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (hasAppliedRequestedAppRef.current) {
-      return;
-    }
-
-    if (!requestedApp) {
-      return;
-    }
-
-    if (!locked) {
-      onAppSelect(requestedApp, { applicationId: requestedApplicationId });
-      hasAppliedRequestedAppRef.current = true;
-      return;
-    }
-
-    if (hasStartedLockedThreadRef.current === requestedApp) {
-      return;
-    }
-    hasStartedLockedThreadRef.current = requestedApp;
-    void createThread()
-      .then((threadId) => {
-        if (
-          !isDisposedRef.current &&
-          hasStartedLockedThreadRef.current === requestedApp
-        ) {
-          setLockedThreadId(threadId);
-        }
-      })
-      .catch((error) => {
-        console.error("[aomi][portal-frame] failed to create locked thread", {
-          app: requestedApp,
-          error,
-        });
-      });
-  }, [createThread, locked, onAppSelect, requestedApp, requestedApplicationId]);
 
   useEffect(() => {
     if (
       hasAppliedRequestedAppRef.current ||
-      !locked ||
       !requestedApp ||
-      !lockedThreadId ||
-      currentThreadId !== lockedThreadId
+      !enabledApps.includes(requestedApp)
     ) {
       return;
     }
-
-    onAppSelect(requestedApp, { applicationId: requestedApplicationId });
+    onAgentTargetSelect({
+      mode: "direct",
+      ...directTarget(requestedApp, requestedApplicationId),
+    });
     hasAppliedRequestedAppRef.current = true;
-  }, [
-    currentThreadId,
-    locked,
-    lockedThreadId,
-    onAppSelect,
-    requestedApp,
-    requestedApplicationId,
-  ]);
+  }, [enabledApps, onAgentTargetSelect, requestedApp, requestedApplicationId]);
 
   return null;
 }
@@ -130,12 +95,14 @@ function PortalFrameContents({
   requestedApp,
   requestedApplicationId,
   locked,
+  enabledApps,
   openSettings,
   onWalletAccountMenuChange,
 }: {
   requestedApp: string | null;
   requestedApplicationId: string | null;
   locked: boolean;
+  enabledApps: readonly string[];
   openSettings: (tab: SettingsTab) => void;
   onWalletAccountMenuChange: (
     menu: WalletAccountMenuOptions | undefined,
@@ -156,17 +123,20 @@ function PortalFrameContents({
   return (
     <>
       <ThreadUrlBootstrap />
-      <AppSelectUrlBootstrap
-        requestedApp={requestedApp}
-        requestedApplicationId={requestedApplicationId}
-        locked={locked}
-      />
+      {!locked && (
+        <RequestedAppBootstrap
+          requestedApp={requestedApp}
+          requestedApplicationId={requestedApplicationId}
+          enabledApps={enabledApps}
+        />
+      )}
     </>
   );
 }
 
 export function PortalAomiFrame() {
   const { accountStatus, accountUser } = useAomiWalletKit();
+  const accountOverview = useAccountOverview();
   const accountUserId = accountUser?.id;
   const [hasResolvedInitialAccount, setHasResolvedInitialAccount] = useState(
     accountStatus !== "loading",
@@ -178,6 +148,37 @@ export function PortalAomiFrame() {
   const requestedApp = useRequestedAppConfig();
   const lockedApp = requestedApp.locked ? requestedApp.app : null;
   const lockedApplicationId = lockedApp ? requestedApp.applicationId : null;
+  const enabledApps = accountOverview?.user.apps ?? DEFAULT_ENABLED_APPS;
+  const lockedTarget = useMemo(
+    () =>
+      lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
+    [lockedApp, lockedApplicationId],
+  );
+  const directApps = useMemo(
+    () =>
+      enabledApps
+        .filter((app) => app !== "orchestrator" && app !== "auto")
+        .map((app) => ({ app })),
+    [enabledApps],
+  );
+  const routing = useMemo<AomiRoutingConfig>(
+    () =>
+      lockedTarget
+        ? {
+            targets: [{ mode: "direct", apps: [lockedTarget] }],
+            defaultMode: "direct",
+          }
+        : {
+            targets: [
+              { mode: "auto" },
+              ...(directApps.length > 0
+                ? [{ mode: "direct" as const, apps: directApps }]
+                : []),
+            ],
+            defaultMode: "auto",
+          },
+    [directApps, lockedTarget],
+  );
   const clientOptions = usePortalClientOptions(lockedApp, lockedApplicationId);
   const backendUrl = getBackendUrl();
   // Settings and the packages catalog are siblings of the frame so their
@@ -231,12 +232,14 @@ export function PortalAomiFrame() {
         height="100%"
         backendUrl={backendUrl}
         applicationId={lockedApplicationId}
+        agentTarget={
+          lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
+        }
         accountSessionAvailable={Boolean(accountUser)}
-        // Do not restore a shared pre-auth thread: it may belong to a deleted
-        // anonymous identity. Once Better Auth resolves a canonical user id,
-        // persistence is isolated to that exact principal.
-        persistThread={Boolean(accountUserId)}
-        threadPersistenceScope={accountUserId}
+        // Always open on the new-chat starting screen. Thread history remains
+        // available in the sidebar, but the previously active thread is not
+        // restored after a reload.
+        persistThread={false}
         showSidebar={!lockedApp}
         walletPosition="footer"
         walletFamilies={["evm", "solana"]}
@@ -250,6 +253,7 @@ export function PortalAomiFrame() {
           requestedApp={requestedApp.app}
           requestedApplicationId={requestedApp.applicationId}
           locked={Boolean(lockedApp)}
+          enabledApps={enabledApps}
           openSettings={openSettings}
           onWalletAccountMenuChange={setWalletAccountMenu}
         />
@@ -264,8 +268,8 @@ export function PortalAomiFrame() {
           withControl
           controlBarProps={{
             hideApiKey: true,
-            hideApp: Boolean(lockedApp),
-            // The network picker lives in the header pill (HeaderControls).
+            routing,
+            enabledAppIds: enabledApps,
             hideNetwork: true,
           }}
         />

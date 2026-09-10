@@ -5,13 +5,14 @@
   "description": "Shadcn wrapper for Sonner toasts.",
   "files": [
     {
-      "type": "registry:component",
+      "type": "registry:ui",
+      "target": "@ui/sonner.tsx",
       "path": "components/ui/sonner.tsx",
       "content": "\"use client\";\n\nimport type { ComponentProps } from \"react\";\nimport { Toaster as Sonner } from \"sonner\";\n\nimport { cn } from \"@aomi-labs/react\";\n\ntype ToasterProps = ComponentProps<typeof Sonner>;\n\nexport function Toaster({ className, toastOptions, ...props }: ToasterProps) {\n  return (\n    <Sonner\n      className={cn(\"toaster group\", className)}\n      toastOptions={{\n        classNames: {\n          toast:\n            \"group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg\",\n          description: \"group-[.toast]:text-muted-foreground\",\n          actionButton:\n            \"group-[.toast]:bg-primary group-[.toast]:text-primary-foreground\",\n          cancelButton:\n            \"group-[.toast]:bg-muted group-[.toast]:text-muted-foreground\",\n        },\n        ...toastOptions,\n      }}\n      {...props}\n    />\n  );\n}\n"
     }
   ],
   "dependencies": [
-    "sonner"
+    "sonner@^1.7.4"
   ],
   "registryDependencies": []
 }

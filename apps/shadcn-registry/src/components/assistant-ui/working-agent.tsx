@@ -392,12 +392,12 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
             <XIcon className="text-aomi-danger size-3.5" />
           )}
         </span>
-        <span className="aui-working-agent-label text-aomi-fg shrink-0 font-mono text-[13px] font-medium">
+        <span className="aui-working-agent-label text-aomi-fg shrink-0 text-[13px] font-medium">
           {label}
         </span>
         <span
           className={cn(
-            "aui-working-agent-summary flex min-w-0 flex-1 items-center gap-1.5 font-mono text-[12.5px]",
+            "aui-working-agent-summary flex min-w-0 flex-1 items-center gap-1.5 text-[12px]",
             summaryShimmers
               ? "aui-working-shimmer font-medium"
               : "text-aomi-muted",
@@ -411,7 +411,7 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
           )}
           <span className="truncate">{summary}</span>
         </span>
-        <span className="aui-working-agent-count text-aomi-muted shrink-0 font-mono text-xs tabular-nums">
+        <span className="aui-working-agent-count text-aomi-muted shrink-0 text-[11px] tabular-nums">
           {formatCounter(stepCount, seconds)}
         </span>
         <ChevronRightIcon

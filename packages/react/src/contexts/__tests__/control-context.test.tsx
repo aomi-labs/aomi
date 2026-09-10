@@ -50,6 +50,7 @@ const renderControlContext = (
 
   const result = render(
     <ControlContextProvider
+      accountSessionAvailable
       aomiClient={aomiClient as never}
       sessionId="session-1"
       getThreadMetadata={(threadId) => threadMetadata.get(threadId)}
@@ -269,11 +270,14 @@ describe("ControlContextProvider", () => {
     });
 
     expect(setModel).not.toHaveBeenCalled();
-    expect(threadMetadata.get("session-1")?.control).toMatchObject({
+    const selectedControl = threadMetadata.get("session-1")?.control;
+    expect(selectedControl).toMatchObject({
       model: "gpt-5",
       modelMode: "manual",
+      app: null,
       controlDirty: true,
     });
+    expect(selectedControl?.agentMode).not.toBe("direct");
     expect(
       JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
     ).toMatchObject({ mode: "manual", model: "gpt-5" });
@@ -456,8 +460,37 @@ describe("ControlContextProvider", () => {
 
     expect(threadMetadata.get("session-1")?.control).toMatchObject({
       model: "gpt-5",
+      agentMode: "direct",
       app: "docs",
       controlDirty: true,
     });
+  });
+
+  it("defaults fresh threads to Auto and preserves an id-only Direct target", () => {
+    const threadMetadata = createThreadMetadata();
+    const { getControl } = renderControlContext({}, threadMetadata);
+
+    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
+
+    act(() => {
+      getControl().onAgentTargetSelect({
+        mode: "direct",
+        applicationId: 2936682,
+      });
+    });
+    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("direct");
+    expect(getControl().getCurrentThreadTarget()).toEqual({
+      mode: "direct",
+      applicationId: 2936682,
+    });
+
+    act(() => {
+      getControl().onAgentModeSelect("auto");
+    });
+    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("auto");
+    expect(getControl().getPreferredThreadControl()).toMatchObject({
+      agentMode: "auto",
+    });
+    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
   });
 });

@@ -23,19 +23,32 @@ export const registry: RegistryComponent[] = [
       "Shadcn-compatible theme variables (light + dark) for Aomi components.",
   },
   {
+    name: "agent-routing",
+    file: "components/assistant-ui/routing.ts",
+    dependencies: ["@aomi-labs/react"],
+    description: "Host-owned Auto and Direct routing contract for Aomi UI.",
+  },
+  {
     name: "aomi-widget",
     file: [
       "components/aomi-widget.tsx",
       "components/backend-aa-provisioner.tsx",
     ],
     dependencies: ["@aomi-labs/client", "@aomi-labs/react"],
-    registryDependencies: [aomi("aomi-frame"), aomi("aomi-wallet-kit")],
+    registryDependencies: [
+      aomi("agent-routing"),
+      aomi("aomi-frame"),
+      aomi("aomi-wallet-kit"),
+    ],
     description:
       "Embeddable Aomi widget with tenant-scoped provider or wallet authentication.",
   },
   {
     name: "aomi-frame",
-    file: "components/aomi-frame.tsx",
+    file: [
+      "components/aomi-frame.tsx",
+      "components/activity-sidebar/activity-panel-context.tsx",
+    ],
     dependencies: ["@aomi-labs/react"],
     registryDependencies: [
       // Theme (CSS variables required by all components)
@@ -45,7 +58,7 @@ export const registry: RegistryComponent[] = [
       aomi("assistant-threadlist-sidebar"),
       aomi("aomi-wallet-kit"),
       aomi("control-bar"),
-      aomi("runtime-tx-handler"),
+      aomi("activity-sidebar"),
       // shadcn primitives
       "separator",
       "breadcrumb",
@@ -126,6 +139,7 @@ export const registry: RegistryComponent[] = [
       "@solana/wallet-standard-wallet-adapter-react",
       "@solana/web3.js",
       "@tanstack/react-query",
+      "@x402/svm",
       "viem",
       "wagmi",
     ],
@@ -136,12 +150,14 @@ export const registry: RegistryComponent[] = [
     name: "control-bar",
     file: [
       "components/control-bar/index.tsx",
+      "components/control-bar/control-menu.tsx",
       "components/control-bar/model-select.tsx",
       "components/control-bar/model-metadata.ts",
       "components/control-bar/app-metadata.ts",
-      "components/control-bar/app-select.tsx",
+      "lib/apps/app-identity.ts",
       "components/control-bar/api-key-input.tsx",
       "components/control-bar/connect-button.tsx",
+      "components/control-bar/network-metadata.ts",
       "components/control-bar/network-select.tsx",
       "components/control-bar/secret-input.tsx",
       "components/control-bar/app-secrets-dialog.tsx",
@@ -158,10 +174,14 @@ export const registry: RegistryComponent[] = [
       "components/icons/index.ts",
       "components/icons/auto-mode.tsx",
       "components/icons/app-map.tsx",
+      "components/icons/app-identity-icon.tsx",
       "components/icons/vendor-map.tsx",
       "components/icons/chain-map.tsx",
       "components/icons/wallet-map.tsx",
       "components/icons/apps/index.tsx",
+      "components/icons/apps/sourced-marks.ts",
+      "components/icons/skills/index.tsx",
+      "components/icons/skills/sourced-marks.ts",
       "components/icons/vendors/index.tsx",
       "components/icons/chains/index.tsx",
       "components/icons/wallets/index.tsx",
@@ -178,6 +198,7 @@ export const registry: RegistryComponent[] = [
       "wagmi",
     ],
     registryDependencies: [
+      aomi("agent-routing"),
       aomi("aomi-wallet-kit"),
       "button",
       "popover",
@@ -194,6 +215,19 @@ export const registry: RegistryComponent[] = [
     file: [
       "components/assistant-ui/thread.tsx",
       "components/assistant-ui/thread-loading.ts",
+      "components/assistant-ui/capability-message-text.tsx",
+      "components/assistant-ui/capability-composer.tsx",
+      "components/assistant-ui/capability-composer/provider.tsx",
+      "components/assistant-ui/capability-composer/input.tsx",
+      "components/assistant-ui/capability-composer/picker.tsx",
+      "components/assistant-ui/capability-composer/use-picker-placement.ts",
+      "components/assistant-ui/capability-composer/catalog.tsx",
+      "components/assistant-ui/capability-composer/editor-dom.ts",
+      "components/assistant-ui/capability-composer/model.ts",
+      "components/assistant-ui/capability-hint-payload.ts",
+      "components/control-bar/app-select.tsx",
+      "components/control-bar/mode-select.tsx",
+      "lib/capabilities/skill-catalog.ts",
       "components/assistant-ui/working-trace.tsx",
       "components/assistant-ui/working-trace-rows.tsx",
       "components/assistant-ui/working-agent.tsx",
@@ -203,6 +237,7 @@ export const registry: RegistryComponent[] = [
       "components/assistant-ui/tool-interpreter/unwrap.ts",
       "components/assistant-ui/tool-interpreter/normalize.ts",
       "components/assistant-ui/tool-interpreter/pipeline.ts",
+      "components/assistant-ui/tool-interpreter/token-registry.ts",
       "components/assistant-ui/tool-interpreter/families/simple.ts",
       "components/assistant-ui/tool-interpreter/families/evm-call.ts",
       "components/assistant-ui/tool-interpreter/families/evm-tx.ts",
@@ -221,22 +256,27 @@ export const registry: RegistryComponent[] = [
     ],
     dependencies: [
       "@aomi-labs/react",
-      "@assistant-ui/react@~0.11.28",
-      "@assistant-ui/react-markdown@~0.11.1",
+      "@assistant-ui/react",
+      "@assistant-ui/react-markdown",
       "lucide-react",
       "motion",
       "remark-gfm",
     ],
     registryDependencies: [
+      aomi("agent-routing"),
+      aomi("activity-sidebar"),
+      aomi("control-bar"),
       // From assistant-ui (unchanged)
       assistantUI("markdown-text"),
       assistantUI("tooltip-icon-button"),
-      // Attachment: our own version compatible with @assistant-ui/react 0.11.x
+      // Attachment: our own version compatible with @assistant-ui/react 0.14.x
       aomi("attachment"),
       // Internal aomi components (customized)
       aomi("assistant-tool-fallback"),
       // shadcn primitives
       "button",
+      "command",
+      "popover",
       "skeleton",
     ],
     description: "Chat surface built on @assistant-ui primitives.",
@@ -244,7 +284,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "assistant-thread-list",
     file: "components/assistant-ui/thread-list.tsx",
-    dependencies: ["@assistant-ui/react@~0.11.28", "lucide-react"],
+    dependencies: ["@assistant-ui/react", "lucide-react"],
     registryDependencies: [
       aomi("aomi-wallet-kit"),
       assistantUI("tooltip-icon-button"),
@@ -269,7 +309,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "assistant-tool-fallback",
     file: "components/assistant-ui/tool-fallback.tsx",
-    dependencies: ["@assistant-ui/react@~0.11.28", "lucide-react"],
+    dependencies: ["@assistant-ui/react", "lucide-react"],
     registryDependencies: ["button"],
     description: "Fallback renderer for assistant tool calls.",
   },
@@ -277,7 +317,7 @@ export const registry: RegistryComponent[] = [
     name: "attachment",
     file: "components/assistant-ui/attachment.tsx",
     dependencies: [
-      "@assistant-ui/react@~0.11.28",
+      "@assistant-ui/react",
       "@aomi-labs/react",
       "lucide-react",
       "zustand",
@@ -289,7 +329,7 @@ export const registry: RegistryComponent[] = [
       "avatar",
     ],
     description:
-      "Attachment renderer compatible with @assistant-ui/react 0.11.x.",
+      "Attachment renderer compatible with @assistant-ui/react 0.14.x.",
   },
   {
     name: "notification",
@@ -309,12 +349,45 @@ export const registry: RegistryComponent[] = [
     description: "Shadcn wrapper for Sonner toasts.",
   },
   {
-    name: "runtime-tx-handler",
-    file: "components/runtime-tx-handler.tsx",
-    dependencies: ["@aomi-labs/react", "lucide-react"],
-    registryDependencies: [aomi("aomi-wallet-kit"), "button", "dialog"],
+    name: "activity-sidebar",
+    file: [
+      "components/activity-sidebar/activity-sidebar.tsx",
+      "components/activity-sidebar/subagent-row.tsx",
+      "components/activity-sidebar/transactions.tsx",
+      "components/activity-sidebar/activity-panel-context.tsx",
+      "components/activity-sidebar/model.ts",
+      "lib/capabilities/skill-catalog.ts",
+      "components/assistant-ui/tool-registry.ts",
+      "components/assistant-ui/tool-interpreter/unwrap.ts",
+      "components/assistant-ui/tool-interpreter/normalize.ts",
+      "components/assistant-ui/tool-interpreter/types.ts",
+      "components/icons/skills/index.tsx",
+      "components/icons/skills/sourced-marks.ts",
+      "components/icons/apps/index.tsx",
+      "components/icons/apps/sourced-marks.ts",
+      "components/activity-sidebar/wallet-review.tsx",
+      "components/activity-sidebar/transaction-review.tsx",
+      "components/activity-sidebar/wallet-impact.tsx",
+      "components/activity-sidebar/token-metadata.ts",
+      "components/activity-sidebar/presentation.tsx",
+      "components/icons/chain-map.tsx",
+      "components/icons/chains/index.tsx",
+    ],
+    dependencies: [
+      "@aomi-labs/client",
+      "@aomi-labs/react",
+      "@assistant-ui/react",
+      "lucide-react",
+      "viem",
+      "motion",
+    ],
+    registryDependencies: [
+      aomi("aomi-wallet-kit"),
+      assistantUI("markdown-text"),
+      "button",
+    ],
     description:
-      "Presents attended Actions and delegates execution to the runtime ActionHandler.",
+      "Activity rail and wallet impact review for durable attended Actions.",
   },
   {
     name: "aomi-para-provider",
@@ -400,7 +473,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "button",
     file: "components/ui/button.tsx",
-    dependencies: ["radix-ui", "class-variance-authority"],
+    dependencies: ["@radix-ui/react-slot", "class-variance-authority"],
     description: "Displays a button or a component that looks like a button.",
   },
   {
@@ -413,7 +486,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "label",
     file: "components/ui/label.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-label"],
     description: "Renders an accessible label associated with controls.",
   },
   {
@@ -431,7 +504,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "avatar",
     file: "components/ui/avatar.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-avatar"],
     description: "An image element with a fallback for representing the user.",
   },
   {
@@ -462,14 +535,27 @@ export const registry: RegistryComponent[] = [
   },
   {
     name: "sidebar",
-    file: "components/ui/sidebar.tsx",
-    dependencies: ["@radix-ui/react-slot", "class-variance-authority"],
+    file: ["components/ui/sidebar.tsx", "hooks/use-mobile.ts"],
+    dependencies: [
+      "@aomi-labs/react",
+      "@radix-ui/react-slot",
+      "class-variance-authority",
+      "lucide-react",
+    ],
+    registryDependencies: [
+      "button",
+      "input",
+      "separator",
+      "sheet",
+      "skeleton",
+      "tooltip",
+    ],
     description: "Displays a sidebar navigation component.",
   },
   {
     name: "dialog",
     file: "components/ui/dialog.tsx",
-    dependencies: ["radix-ui", "lucide-react"],
+    dependencies: ["@radix-ui/react-dialog", "lucide-react"],
     registryDependencies: ["button"],
     description:
       "A window overlaid on either the primary window or another dialog window.",
@@ -477,7 +563,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "sheet",
     file: "components/ui/sheet.tsx",
-    dependencies: ["radix-ui", "lucide-react"],
+    dependencies: ["@radix-ui/react-dialog", "lucide-react"],
     description:
       "Extends the Dialog component to display content that complements the main content of the screen.",
   },
@@ -497,7 +583,7 @@ export const registry: RegistryComponent[] = [
   {
     name: "popover",
     file: "components/ui/popover.tsx",
-    dependencies: ["radix-ui"],
+    dependencies: ["@radix-ui/react-popover"],
     description: "Displays rich content in a portal, triggered by a button.",
   },
   {

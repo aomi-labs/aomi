@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, type ComponentType } from "react";
-import { LineChart, Settings, Wallet, X } from "lucide-react";
+import {
+  ChartNoAxesCombined,
+  Settings2,
+  SlidersHorizontal,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
 import { ModalBackdrop } from "@/components/ui/modal-backdrop";
 import { GeneralSettings } from "@portal/features/general";
 import { AccountSettings } from "@portal/features/account";
 import { UsageSettings } from "@portal/features/usage";
+import { directoryModalType } from "@portal/components/shell/directory-modal-type";
 import {
   useAomiSession,
   type AomiSessionStatus,
@@ -17,12 +24,46 @@ export type SettingsTab = "general" | "account" | "usage";
 const NAV: {
   id: SettingsTab;
   label: string;
+  description: string;
   Icon: ComponentType<{ className?: string }>;
 }[] = [
-  { id: "general", label: "General", Icon: Settings },
-  { id: "account", label: "Account", Icon: Wallet },
-  { id: "usage", label: "Usage", Icon: LineChart },
+  {
+    id: "general",
+    label: "General",
+    description: "Appearance, defaults, and account overview",
+    Icon: SlidersHorizontal,
+  },
+  {
+    id: "account",
+    label: "Account",
+    description: "Wallets, sign-in methods, and signing",
+    Icon: UserRound,
+  },
+  {
+    id: "usage",
+    label: "Usage",
+    description: "Spend, allowance, and statements",
+    Icon: ChartNoAxesCombined,
+  },
 ];
+
+function GateAction({
+  children,
+  onClick,
+}: {
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-aomi-fg text-aomi-bg rounded-xl px-4 py-2 text-[12px] font-medium transition-opacity hover:opacity-90"
+    >
+      {children}
+    </button>
+  );
+}
 
 function GateNotice({
   status,
@@ -33,19 +74,18 @@ function GateNotice({
 }: {
   status: Exclude<AomiSessionStatus, "ready">;
   walletConnected?: boolean;
-  /** Provider-reported reason the session could not be created. */
   detail?: string;
   onRetry: () => void;
   onConnect?: () => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+    <div className="mx-auto flex h-full w-full max-w-[780px] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
       {status === "anonymous" && walletConnected && (
         <>
           <span className="text-aomi-fg text-sm font-medium">
             Finish signing in
           </span>
-          <span className="text-aomi-muted max-w-sm text-[13px]">
+          <span className="text-aomi-muted max-w-sm text-[12px] leading-relaxed">
             Your wallet is connected, but your account session isn’t set up yet.
             Sign in to view and manage your settings.
           </span>
@@ -54,13 +94,7 @@ function GateNotice({
               {detail}
             </span>
           )}
-          <button
-            type="button"
-            onClick={onRetry}
-            className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-90"
-          >
-            Sign in
-          </button>
+          <GateAction onClick={onRetry}>Sign in</GateAction>
         </>
       )}
       {status === "anonymous" && !walletConnected && (
@@ -68,49 +102,32 @@ function GateNotice({
           <span className="text-aomi-fg text-sm font-medium">
             Connect your account
           </span>
-          <span className="text-aomi-muted max-w-sm text-[13px]">
+          <span className="text-aomi-muted max-w-sm text-[12px] leading-relaxed">
             Settings are tied to your account. Connect to view and manage them.
           </span>
           {onConnect && (
-            <button
-              type="button"
-              onClick={onConnect}
-              className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-90"
-            >
-              Connect account
-            </button>
+            <GateAction onClick={onConnect}>Connect account</GateAction>
           )}
         </>
       )}
       {status === "establishing" && (
-        <span className="text-aomi-muted text-[13px]">
+        <span className="text-aomi-muted text-[12px]">
           Connecting your account…
         </span>
       )}
       {status === "error" && (
         <>
-          <span className="text-aomi-muted text-[13px]">
+          <span className="text-aomi-muted text-[12px]">
             Couldn’t connect your account. Please try again.
           </span>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 text-[13px] font-medium transition-opacity hover:opacity-90"
-          >
-            Retry
-          </button>
+          <GateAction onClick={onRetry}>Retry</GateAction>
         </>
       )}
     </div>
   );
 }
 
-/**
- * Settings as a popup over the chat — the aomi-chat-design modal, built
- * entirely on the `aomi-*` design tokens: overlay softens the full frame,
- * 900×600 panel, left nav, content header with the active tab title and a
- * close button.
- */
+/** Settings shares Library's persistent sidebar and quiet directory surfaces. */
 export function SettingsModal({
   onClose,
   initialTab = "general",
@@ -121,12 +138,9 @@ export function SettingsModal({
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
+  const activeNav = NAV.find((item) => item.id === tab) ?? NAV[0];
 
   const renderContent = () => {
-    // Anonymous / still-connecting sessions have nothing to show — gate fully.
-    // A probe *error* (backend unreachable) only blocks the account-backed
-    // General tab; Account and Usage render their clearly-marked fixtures so
-    // the surfaces stay reviewable, with a slim retry banner on top.
     if (status === "anonymous" || status === "establishing") {
       return (
         <GateNotice
@@ -140,8 +154,9 @@ export function SettingsModal({
         />
       );
     }
+
     const errorBanner = status === "error" && (
-      <div className="border-aomi-border bg-aomi-surface-2 text-aomi-muted mx-[22px] mt-4 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-[13px]">
+      <div className="border-aomi-border bg-aomi-surface-2 text-aomi-muted mx-auto mt-5 flex w-[calc(100%-48px)] max-w-[780px] items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-[12px]">
         <span>
           Couldn’t refresh your account — some live data may be unavailable.
         </span>
@@ -154,12 +169,13 @@ export function SettingsModal({
         </button>
       </div>
     );
+
     switch (tab) {
       case "general":
         return status === "error" ? (
           <GateNotice status={status} onRetry={retry} />
         ) : (
-          <div className="px-[22px] py-5">
+          <div className="mx-auto w-full max-w-[780px] px-6 py-6">
             <GeneralSettings
               onManageAccount={() => setTab("account")}
               onViewUsage={() => setTab("usage")}
@@ -189,59 +205,75 @@ export function SettingsModal({
       className="absolute inset-0 flex items-center justify-center"
       style={{ zIndex: 60 }}
     >
-      <ModalBackdrop aria-label="Dismiss" onClick={onClose} />
+      <ModalBackdrop aria-label="Dismiss settings" onClick={onClose} />
       <div
-        className="border-aomi-border bg-aomi-raised text-aomi-fg relative flex overflow-hidden rounded-2xl border"
-        // Inline geometry: immune to Tailwind arbitrary-class scanning misses.
-        style={{ width: 900, height: 600, maxWidth: "95%", maxHeight: "92%" }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg relative overflow-hidden rounded-[22px] border shadow-[0_24px_70px_rgba(0,0,0,0.08)]"
+        style={{ width: 1080, height: 620, maxWidth: "96%", maxHeight: "92%" }}
       >
-        <nav className="border-aomi-border bg-aomi-bg/40 flex w-[220px] flex-shrink-0 flex-col gap-0.5 border-r p-3 pt-[18px]">
-          <span className="px-2.5 pb-3 pt-1 text-[15px] font-semibold">
-            Settings
-          </span>
-          {NAV.map(({ id, label, Icon }) => {
-            const active = id === tab;
-            return (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-left transition-colors ${
-                  active ? "bg-aomi-accent-subtle" : "hover:bg-aomi-hover"
-                }`}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close settings"
+          className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg absolute right-4 top-4 z-20 flex size-7 items-center justify-center rounded-full transition-colors"
+        >
+          <X className="size-3.5" />
+        </button>
+        <div className="grid h-full min-h-0 md:grid-cols-[185px_minmax(0,1fr)]">
+          <aside className="border-aomi-border bg-aomi-bg/40 min-h-0 border-r p-3">
+            <div className="flex items-center gap-2 px-2.5 py-3">
+              <Settings2 className="text-aomi-accent size-4" />
+              <h1
+                id="settings-title"
+                className={`flex-1 ${directoryModalType.modalTitle}`}
               >
-                <Icon
-                  className={`size-4 ${
-                    active ? "text-aomi-accent-strong" : "text-aomi-muted"
-                  }`}
-                />
-                <span
-                  className={`text-sm ${
-                    active ? "text-aomi-fg font-medium" : "text-aomi-muted"
-                  }`}
-                >
-                  {label}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+                Settings
+              </h1>
+            </div>
+            <nav className="mt-3 space-y-0.5" aria-label="Settings sections">
+              {NAV.map(({ id, label, Icon }) => {
+                const active = id === tab;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setTab(id)}
+                    aria-pressed={active}
+                    className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 transition-colors ${directoryModalType.navigation} ${
+                      active
+                        ? "bg-aomi-surface-2 font-medium"
+                        : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg"
+                    }`}
+                  >
+                    <Icon className="size-4" />
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-aomi-border flex items-center justify-between border-b px-[22px] py-[18px]">
-            <span className="text-base font-semibold">
-              {NAV.find((n) => n.id === tab)?.label}
-            </span>
-            <button
-              onClick={onClose}
-              aria-label="Close settings"
-              className="bg-aomi-surface-2 text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex h-8 w-8 items-center justify-center rounded-full transition-colors"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {renderContent()}
-          </div>
+          <section className="flex min-h-0 min-w-0 flex-col">
+            <header className="border-aomi-border flex min-h-[74px] items-center border-b px-6 py-4">
+              <div className="min-w-0">
+                <h2 className={directoryModalType.pageTitle}>
+                  {activeNav.label}
+                </h2>
+                <p
+                  className={`text-aomi-muted mt-1 ${directoryModalType.pageDescription}`}
+                >
+                  {activeNav.description}
+                </p>
+              </div>
+            </header>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              {renderContent()}
+            </div>
+          </section>
         </div>
       </div>
     </div>

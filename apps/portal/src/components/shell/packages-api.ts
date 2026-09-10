@@ -1,19 +1,20 @@
 "use client";
 
-/**
- * Wire layer for the Packages catalog.
- *
- * `GET /api/account/apps` is the account-scoped catalog (`AppSpec[]` — every
- * app this account can use). `PUT /api/account/apps` replaces the account's
- * installed set (`users.applications`); it is a full replace, not a delta, so
- * install and remove are the same call and the response is the new truth.
- */
+/** Guests browse the public app catalog; signed-in users see their available
+ * apps. Installed-app writes always use the authenticated account endpoint. */
 
-import { normalizeAppDescriptor, type AomiAppDescriptor } from "@aomi-labs/client";
+import {
+  normalizeAppDescriptor,
+  type AomiAppDescriptor,
+} from "@aomi-labs/client";
 import { accountScopedFetch } from "@portal/lib/settings-api";
 
-export async function fetchAppCatalog(): Promise<AomiAppDescriptor[]> {
-  const rows = await accountScopedFetch<unknown[]>("/api/account/apps");
+export async function fetchAppCatalog(
+  accountUserId?: string,
+): Promise<AomiAppDescriptor[]> {
+  const rows = await accountScopedFetch<unknown[]>(
+    accountUserId ? "/api/account/apps" : "/api/thread/apps",
+  );
   return rows
     .map(normalizeAppDescriptor)
     .filter((app): app is AomiAppDescriptor => app !== null);

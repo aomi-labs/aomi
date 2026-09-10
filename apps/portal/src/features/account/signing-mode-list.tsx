@@ -25,7 +25,7 @@ export function SigningModeList({
 }: SigningModeListProps) {
   return (
     <div
-      className={`divide-aomi-border flex flex-col divide-y rounded-lg ${
+      className={`divide-aomi-border flex flex-col divide-y overflow-hidden rounded-xl ${
         inset ? "bg-aomi-surface-2/35" : "border-aomi-border border"
       }`}
     >
@@ -57,7 +57,7 @@ export function SigningModeList({
             </span>
             <span className="flex min-w-0 flex-col gap-0.5">
               <span
-                className={`text-sm font-medium leading-none ${isSelected ? "text-aomi-fg" : ""}`}
+                className={`text-[13px] font-medium leading-none ${isSelected ? "text-aomi-fg" : ""}`}
               >
                 {mode.label}
               </span>

@@ -35,10 +35,8 @@ function view(current: WalletPolicy, onCommit = vi.fn(async () => {})) {
     <AccountSigningView
       wallets={[current]}
       delegatedAccounts={[]}
-      unboundWallets={[]}
       onCommit={onCommit}
       onPrepare={vi.fn(async () => challenge)}
-      onBindWallet={vi.fn()}
       onRevokeDelegation={vi.fn()}
       onStopAllAuto={vi.fn()}
       canConnectPrivy={false}

@@ -11,6 +11,7 @@ import {
 import {
   AgentApiError,
   type ActionCapabilities,
+  type AgentTarget,
   type AomiClient,
 } from "@aomi-labs/client";
 import { useControl } from "../contexts/control-context";
@@ -28,6 +29,7 @@ import {
   writePersistedThreadId,
 } from "./thread-persistence";
 import { projectAssistantMessages, projectRuntimeMessages } from "./utils";
+import { appendCapabilityHints } from "./capability-hints";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -66,7 +68,7 @@ function appendMessageText(message: AppendMessage): string {
 export type AomiRuntimeCoreProps = {
   children: ReactNode;
   aomiClient: AomiClient;
-  applicationId?: number | string | null;
+  agentTarget?: AgentTarget;
   actions?: ActionCapabilities;
   accountSessionAvailable?: boolean;
   restoredThreadId?: string;
@@ -80,7 +82,7 @@ export type AomiRuntimeCoreProps = {
 export function AomiRuntimeCore({
   children,
   aomiClient,
-  applicationId,
+  agentTarget,
   actions: actionCapabilities,
   accountSessionAvailable = false,
   restoredThreadId,
@@ -92,8 +94,7 @@ export function AomiRuntimeCore({
   const {
     getControlState,
     getCurrentThreadControl,
-    getCurrentThreadApplicationId,
-    getCurrentThreadApp,
+    getCurrentThreadTarget,
     getPreferredThreadControl,
     markControlSynced,
   } = useControl();
@@ -116,12 +117,11 @@ export function AomiRuntimeCore({
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState,
     inferenceFunding,
-    getApp: getCurrentThreadApp,
+    getTarget: () => agentTarget ?? getCurrentThreadTarget(),
     getModel: () => {
       const control = getCurrentThreadControl();
       return control.modelMode === "manual" ? control.model : null;
     },
-    getApplicationId: () => getCurrentThreadApplicationId() ?? applicationId,
     getClientId: () => getControlState().clientId ?? undefined,
     getActions: () => actionCapabilities,
     onSendSuccess: (threadId) => {
@@ -332,7 +332,14 @@ export function AomiRuntimeCore({
       const text = appendMessageText(message);
       if (text) {
         try {
-          await orchestratorSendMessage(text, threadContext.currentThreadId);
+          const hintedText = appendCapabilityHints(
+            text,
+            message.runConfig?.custom?.aomiCapabilityHints,
+          );
+          await orchestratorSendMessage(
+            hintedText,
+            threadContext.currentThreadId,
+          );
         } catch (error) {
           console.error("Failed to send message:", error);
           restoreComposerTextRef.current(text);

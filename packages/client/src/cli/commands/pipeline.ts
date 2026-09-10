@@ -135,7 +135,7 @@ export async function pipelineLifecycleCommand(
       case "build":
         printJson(
           await evm.build(
-            value as PipelineOperationBuildInput | EvmDirectInput,
+            value as unknown as PipelineOperationBuildInput | EvmDirectInput,
           ),
         );
         return;
@@ -163,7 +163,9 @@ export async function pipelineLifecycleCommand(
   switch (lifecycle) {
     case "build":
       printJson(
-        await svm.build(value as PipelineOperationBuildInput | SvmDirectInput),
+        await svm.build(
+          value as unknown as PipelineOperationBuildInput | SvmDirectInput,
+        ),
       );
       return;
     case "stage":

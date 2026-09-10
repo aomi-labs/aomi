@@ -1,4 +1,5 @@
 import type { AomiAppDescriptor } from "@aomi-labs/client";
+import { resolveAppIdentity } from "@/lib/apps/app-identity";
 
 export type PackageVisibility = "public" | "personal";
 export type PackageCategory =
@@ -11,13 +12,15 @@ export type PackageCategory =
 export interface CatalogPackage {
   /** The wire `AppSpec.name` — what install/uninstall is keyed on. */
   id: string;
+  /** Canonical presentation key. Empty for private/custom apps. */
+  brandId: string;
+  /** Stable hosted-app identity, when supplied by the catalog. */
+  applicationId?: AomiAppDescriptor["applicationId"];
   name: string;
+  abbr: string;
   description: string;
-  iconDomain?: string;
-  iconUrl?: string;
-  glyph?: "wallet" | "chart" | "shield";
-  background: string;
-  foreground: string;
+  /** Non-visible backend names retained for Library search. */
+  searchTerms: string[];
   visibility: PackageVisibility;
   category: PackageCategory;
   /** Core apps the account depends on — always installed, not removable. */
@@ -39,153 +42,76 @@ export function isPackageAvailableOnChain(
 }
 
 /**
- * Brand decoration keyed by wire app name — colors, icons, category, and copy
- * the catalog endpoint doesn't carry (AppSpec has no display metadata yet; see
- * docs/SETTINGS-REDESIGN-GAPS.md). Apps outside this map render a neutral
- * monogram tile under "More" — real, just undecorated.
+ * Product grouping and descriptive copy that the catalog endpoint doesn't
+ * carry. Names and brand keys come from the shared app identity resolver so
+ * the Library, composer, and Direct selector cannot drift.
  */
 const DECOR: Record<
   string,
-  Partial<
-    Pick<
-      CatalogPackage,
-      | "name"
-      | "description"
-      | "iconDomain"
-      | "iconUrl"
-      | "glyph"
-      | "background"
-      | "foreground"
-      | "category"
-    >
-  >
+  Partial<Pick<CatalogPackage, "description" | "category">>
 > = {
   uniswap: {
-    name: "Uniswap",
     description: "Swap tokens and manage liquidity on Ethereum.",
-    iconDomain: "uniswap.org",
-    background: "#fff1f7",
-    foreground: "#ff007a",
     category: "Featured",
   },
   jupiter: {
-    name: "Jupiter",
     description: "Find and execute the best swap routes on Solana.",
-    iconDomain: "jup.ag",
-    background: "#effff8",
-    foreground: "#144d3b",
     category: "Featured",
   },
   dune: {
-    name: "Dune",
     description: "Query, chart, and explain onchain data.",
-    iconDomain: "dune.com",
-    background: "#fff5ee",
-    foreground: "#f26f45",
     category: "Featured",
   },
   aave: {
-    name: "Aave",
     description: "Lend, borrow, and monitor DeFi positions.",
-    iconDomain: "aave.com",
-    background: "#f3f0ff",
-    foreground: "#7868e6",
     category: "Featured",
   },
   github: {
-    name: "GitHub",
     description: "Triage PRs, issues, CI, and releases.",
-    iconDomain: "github.com",
-    background: "#f4f4f4",
-    foreground: "#161616",
     category: "Featured",
   },
   coingecko: {
-    name: "CoinGecko",
     description: "Track token prices, markets, and metadata.",
-    iconDomain: "coingecko.com",
-    background: "#f4ffe6",
-    foreground: "#173300",
     category: "Markets & onchain",
   },
   etherscan: {
-    name: "Etherscan",
     description: "Inspect Ethereum contracts and transactions.",
-    iconDomain: "etherscan.io",
-    background: "#eef8ff",
-    foreground: "#4d96c7",
     category: "Markets & onchain",
   },
   birdeye: {
-    name: "Birdeye",
     description: "Explore Solana tokens, markets, and wallets.",
-    iconDomain: "birdeye.so",
-    background: "#eef3ff",
-    foreground: "#2d63e2",
     category: "Markets & onchain",
   },
   defillama: {
-    name: "DefiLlama",
     description: "Compare protocols, yields, and TVL.",
-    iconDomain: "defillama.com",
-    background: "#e7f3fb",
-    foreground: "#2777a8",
     category: "Markets & onchain",
   },
   hyperliquid: {
-    name: "Hyperliquid",
     description: "Research markets and manage perp positions.",
-    iconDomain: "hyperliquid.xyz",
-    background: "#b8ffe2",
-    foreground: "#12362b",
     category: "Markets & onchain",
   },
   stablefx: {
-    name: "Circle StableFX",
     description: "Quote and settle institutional stablecoin FX on Arc.",
-    iconDomain: "circle.com",
-    background: "#eef7ff",
-    foreground: "#136fd8",
     category: "Markets & onchain",
   },
   solscan: {
-    name: "Solscan",
     description: "Inspect Solana accounts and transactions.",
-    iconDomain: "solscan.io",
-    background: "#f1edff",
-    foreground: "#7f5af0",
     category: "Markets & onchain",
   },
   notion: {
-    name: "Notion",
     description: "Search and organize your team knowledge.",
-    iconDomain: "notion.so",
-    background: "#f4f4f4",
-    foreground: "#151515",
     category: "Productivity",
   },
   slack: {
-    name: "Slack",
     description: "Turn team conversations into coordinated work.",
-    iconDomain: "slack.com",
-    background: "#fff3f8",
-    foreground: "#e34b86",
     category: "Productivity",
   },
   linear: {
-    name: "Linear",
     description: "Create and update product work.",
-    iconDomain: "linear.app",
-    background: "#f1f2ff",
-    foreground: "#5e6ad2",
     category: "Productivity",
   },
   default: {
-    name: "Aomi Core",
     description: "The built-in wallet, chain, and account tools.",
-    glyph: "wallet",
-    background: "#4e7af0",
-    foreground: "#ffffff",
   },
 };
 
@@ -230,25 +156,28 @@ export function explainPackageLoadError(cause: unknown): string {
 
 /** One wire row + its decoration → a renderable catalog entry. */
 export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
-  const decor = DECOR[app.name.toLowerCase()] ?? {};
+  const identity = resolveAppIdentity(app);
+  const decor = DECOR[identity.brandId] ?? {};
   const visibility: PackageVisibility =
     app.isPublic === false ? "personal" : "public";
 
   return {
     id: app.name,
-    name: decor.name ?? app.label ?? app.name,
+    brandId: identity.brandId,
+    applicationId: identity.applicationId,
+    name: identity.displayName,
+    abbr: identity.abbr,
     description:
       decor.description ??
       (app.platform ? `From the ${app.platform} platform.` : "Aomi app."),
-    iconDomain: decor.iconDomain,
-    iconUrl: decor.iconUrl,
-    glyph: decor.glyph,
-    background: decor.background ?? "#f4f4f5",
-    foreground: decor.foreground ?? "#3f3f46",
+    searchTerms: [app.name, app.label]
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean),
     visibility,
     category:
       visibility === "personal" ? "Your packages" : (decor.category ?? "More"),
-    pinned: PINNED_APPS.has(app.name),
+    pinned: PINNED_APPS.has(identity.brandId),
     chainIds: app.chainIds ?? [],
   };
 }

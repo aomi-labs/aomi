@@ -1,6 +1,6 @@
 "use client";
 
-import { type FC, useState } from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import { CheckIcon, ChevronRightIcon, XIcon } from "lucide-react";
 
@@ -41,8 +41,8 @@ export const DETAIL_BOX_CLASS =
 const MAX_VISIBLE_CHIPS = 4;
 
 /** Base + per-chip stagger for the left-to-right chip cascade (ms). */
-const CHIP_BASE_DELAY_MS = 100;
-const CHIP_STEP_DELAY_MS = 70;
+const CHIP_BASE_DELAY_MS = 15;
+const CHIP_STEP_DELAY_MS = 25;
 
 export const ToolChipView: FC<{
   chip: ToolChip;
@@ -53,9 +53,9 @@ export const ToolChipView: FC<{
   return (
     <span
       className={cn(
-        "bg-aomi-surface-2 text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-xs tabular-nums leading-4",
+        "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] tabular-nums leading-none",
         animate &&
-          "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300 motion-reduce:animate-none",
+          "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-[180ms] motion-reduce:animate-none",
       )}
       style={
         animate
@@ -79,7 +79,7 @@ export const ToolChipView: FC<{
           />
         )
       )}
-      {Glyph && <Glyph className="text-aomi-muted size-3 shrink-0" />}
+      {Glyph && <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />}
       <span className="truncate">{chip.label}</span>
     </span>
   );
@@ -99,6 +99,7 @@ export const ToolStepRow: FC<{
   done: boolean;
   active: boolean;
   animate: boolean;
+  animateUpdates?: boolean;
   className?: string;
 }> = ({
   interpretation,
@@ -107,6 +108,7 @@ export const ToolStepRow: FC<{
   done,
   active,
   animate,
+  animateUpdates = false,
   className,
 }) => {
   const [open, setOpen] = useState(false);
@@ -117,6 +119,14 @@ export const ToolStepRow: FC<{
       ? interpretation.chips.slice(0, MAX_VISIBLE_CHIPS)
       : interpretation.chips;
   const overflow = interpretation.chips.length - shownChips.length;
+  const chipKeys = interpretation.chips.map((chip) => chip.label.toLowerCase());
+  const seenChipKeys = useRef(new Set(animate ? [] : chipKeys));
+  const hasNewOverflowChip = chipKeys
+    .slice(shownChips.length)
+    .some((key) => !seenChipKeys.current.has(key));
+  useEffect(() => {
+    chipKeys.forEach((key) => seenChipKeys.current.add(key));
+  });
 
   return (
     <div
@@ -146,8 +156,8 @@ export const ToolStepRow: FC<{
         </span>
         <span
           className={cn(
-            "flex-1 truncate font-mono text-[13px]",
-            active ? "aui-working-shimmer font-medium" : "text-aomi-fg",
+            "flex-1 truncate text-[13px] font-medium",
+            active ? "aui-working-shimmer" : "text-aomi-fg",
           )}
         >
           {interpretation.title}
@@ -166,24 +176,27 @@ export const ToolStepRow: FC<{
       </button>
 
       {interpretation.chips.length > 0 && (
-        <div className="aui-working-step-chips mb-1 ml-[26px] mt-2 flex max-w-full flex-wrap items-center gap-1.5">
+        <div className="aui-working-step-chips mb-1 ml-[26px] mt-1.5 flex max-w-full flex-wrap items-center gap-1.5">
           {shownChips.map((chip, i) => (
             <ToolChipView
-              key={`${chip.label}-${i}`}
+              key={chipKeys[i]}
               chip={chip}
               index={i}
-              animate={animate}
+              animate={
+                animate ||
+                (animateUpdates && !seenChipKeys.current.has(chipKeys[i]))
+              }
             />
           ))}
           {overflow > 0 && (
             <span
               className={cn(
-                "bg-aomi-surface-2 text-aomi-muted inline-flex items-center rounded-full px-2.5 py-1 font-mono text-xs leading-4",
-                animate &&
-                  "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300 motion-reduce:animate-none",
+                "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex items-center rounded-full border px-2.5 py-1.5 text-[11px] leading-none",
+                (animate || (animateUpdates && hasNewOverflowChip)) &&
+                  "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-[180ms] motion-reduce:animate-none",
               )}
               style={
-                animate
+                animate || (animateUpdates && hasNewOverflowChip)
                   ? {
                       animationDelay: `${CHIP_BASE_DELAY_MS + shownChips.length * CHIP_STEP_DELAY_MS}ms`,
                     }
@@ -234,7 +247,7 @@ export const WorkingNote: FC<{
     </span>
     <div
       className={cn(
-        "min-w-0 flex-1 text-[13px] leading-relaxed [&_p+p]:mt-2 [&_p]:my-0",
+        "min-w-0 flex-1 text-[12px] leading-5 [&_p+p]:mt-2 [&_p]:my-0",
         active ? "aui-working-shimmer font-medium" : "text-aomi-muted",
       )}
     >

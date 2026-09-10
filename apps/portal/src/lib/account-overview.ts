@@ -46,6 +46,12 @@ export function seedAccountOverview(data: AccountOverview | null) {
   emit();
 }
 
+/** Apply an installed-app response only to the account that requested it. */
+export function updateAccountApps(userId: string, apps: string[]): void {
+  if (current?.user.user_id !== userId) return;
+  seedAccountOverview({ ...current, user: { ...current.user, apps } });
+}
+
 /** Drop a snapshot that belongs to a different authenticated account. */
 export function scopeAccountOverviewToUser(userId: string) {
   if (scopedUserId !== userId && inflight) {

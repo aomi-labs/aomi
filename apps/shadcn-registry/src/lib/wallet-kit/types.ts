@@ -369,7 +369,7 @@ export type AomiWalletKit = {
    * deserialization failure, mirroring what wallet adapters do.
    *
    * Optional like `signTypedData` — adapters that don't support Solana
-   * (e.g. base-account) leave it undefined; `RuntimeTxHandler` rejects
+   * (e.g. base-account) leave it undefined; the wallet Action handler rejects
    * the request with a "Solana wallet provider is not ready" error in
    * that case.
    */

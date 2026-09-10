@@ -53,6 +53,22 @@ describe("buildCliConfig", () => {
 
     expect(config.baseUrl).toBeUndefined();
     expect(config.app).toBeUndefined();
+    expect(config.agentMode).toBeUndefined();
+  });
+
+  it("treats app selectors as Direct while leaving the empty CLI on Auto", () => {
+    expect(buildCliConfig({ app: "zerox" })).toMatchObject({
+      agentMode: "direct",
+      app: "zerox",
+    });
+    expect(
+      buildCliConfig({ mode: "direct", "application-id": "42" }),
+    ).toMatchObject({ agentMode: "direct", applicationId: "42" });
+    expect(buildCliConfig({ mode: "auto" })).toMatchObject({
+      agentMode: "auto",
+      app: undefined,
+      applicationId: undefined,
+    });
   });
 
   it("reads backend/app overrides from environment", () => {

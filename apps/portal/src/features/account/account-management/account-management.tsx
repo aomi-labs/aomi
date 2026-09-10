@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@aomi-labs/widget-lib";
 import {
   Check,
-  ChevronDown,
   LogOut,
   Pencil,
   Plus,
@@ -13,28 +12,25 @@ import {
   X,
 } from "lucide-react";
 import { WalletProviderAvatar } from "../wallet-brands";
-import { Divider, SettingRow } from "../settings-rows";
+import {
+  Divider,
+  SettingRow,
+  SettingsSectionHeading,
+  settingsPanelClass,
+} from "../settings-rows";
 import {
   walletConnectionSummary,
   type UnifiedAccountWallet,
 } from "../wallet-management-model";
+
 import {
   IconButton,
   OptionGrid,
-  SectionHeading,
   StatusBadge,
   TextButton,
   titleCase,
   WalletRow,
 } from "./controls";
-
-export type AddWalletOption = {
-  id: string;
-  family: "evm" | "svm";
-  label: string;
-  markKey?: string;
-  ready: boolean;
-};
 
 export type AddSignInOption = {
   id: string;
@@ -46,12 +42,12 @@ type AccountManagementProps = {
   user?: AomiUserRef;
   wallets: UnifiedAccountWallet[];
   signInMethods: LinkedAuthAccount[];
-  addWalletOptions: AddWalletOption[];
+  canAddWallet: boolean;
   addSignInOptions: AddSignInOption[];
   pending: string | null;
   error?: string | null;
   onRenameAccount?: (displayName: string) => Promise<void>;
-  onAddWallet: (option: AddWalletOption) => Promise<void>;
+  onAddWallet: () => void;
   onAddSignIn: (option: AddSignInOption) => Promise<void>;
   onLinkWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
   onConnectWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
@@ -67,7 +63,7 @@ export function AccountManagement({
   user,
   wallets,
   signInMethods,
-  addWalletOptions,
+  canAddWallet,
   addSignInOptions,
   pending,
   error,
@@ -85,7 +81,6 @@ export function AccountManagement({
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [addWalletOpen, setAddWalletOpen] = useState(false);
   const [addSignInOpen, setAddSignInOpen] = useState(false);
   const visibleName = user?.displayName ?? user?.email ?? "Aomi account";
   const connectedWalletCount = wallets.filter(
@@ -109,7 +104,7 @@ export function AccountManagement({
   };
 
   return (
-    <div className="flex flex-col gap-6 px-[22px] py-5">
+    <div className="mx-auto flex w-full max-w-[780px] flex-col gap-5 px-6 py-6">
       {error ? (
         <div
           role="alert"
@@ -120,8 +115,8 @@ export function AccountManagement({
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <SectionHeading title="Account" />
-        <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
+        <SettingsSectionHeading title="Account" />
+        <div className={settingsPanelClass}>
           <SettingRow
             className="px-4"
             leading={
@@ -182,37 +177,24 @@ export function AccountManagement({
       </section>
 
       <section className="flex flex-col gap-2">
-        <SectionHeading
+        <SettingsSectionHeading
           title="Wallets"
           detail={`${wallets.length} total · ${connectedWalletCount} connected now`}
           action={
-            addWalletOptions.length ? (
+            canAddWallet ? (
               <button
                 type="button"
-                onClick={() => setAddWalletOpen((open) => !open)}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors"
+                onClick={onAddWallet}
+                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
               >
                 <Plus size={13} />
                 Add wallet
-                <ChevronDown
-                  size={13}
-                  className={`transition-transform ${addWalletOpen ? "rotate-180" : ""}`}
-                />
               </button>
             ) : undefined
           }
         />
 
-        {addWalletOpen ? (
-          <OptionGrid
-            options={addWalletOptions}
-            pending={pending}
-            prefix="add-wallet"
-            onSelect={(option) => void onAddWallet(option)}
-          />
-        ) : null}
-
-        <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
+        <div className={settingsPanelClass}>
           {wallets.length ? (
             wallets.map((wallet, index) => (
               <div key={wallet.key}>
@@ -237,7 +219,7 @@ export function AccountManagement({
       </section>
 
       <section className="flex flex-col gap-2">
-        <SectionHeading
+        <SettingsSectionHeading
           title="Sign-in methods"
           detail={
             signInMethods.length ? `${signInMethods.length} linked` : undefined
@@ -247,7 +229,7 @@ export function AccountManagement({
               <button
                 type="button"
                 onClick={() => setAddSignInOpen((open) => !open)}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors"
+                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
               >
                 <Plus size={13} />
                 Add method
@@ -265,7 +247,7 @@ export function AccountManagement({
           />
         ) : null}
 
-        <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
+        <div className={settingsPanelClass}>
           {signInMethods.length ? (
             signInMethods.map((account, index) => (
               <div key={account.id}>
@@ -308,8 +290,8 @@ export function AccountManagement({
       </section>
 
       <section className="flex flex-col gap-2 pb-1">
-        <SectionHeading title="Session" />
-        <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
+        <SettingsSectionHeading title="Session" />
+        <div className={settingsPanelClass}>
           {onSignOut ? (
             <SettingRow
               className="px-4"

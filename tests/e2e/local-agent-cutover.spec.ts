@@ -1,14 +1,18 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { expect, test, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Page,
+  type Response,
+  type Locator,
+} from "@playwright/test";
 
 const portalOrigin = process.env.LOCAL_PORTAL_URL ?? "http://127.0.0.1:3000";
 const anvilOrigin = process.env.LOCAL_ANVIL_URL ?? "http://127.0.0.1:8545";
 const walletToken = process.env.AOMI_E2E_WALLET_TOKEN;
-const walletAddress =
-  process.env.AOMI_E2E_WALLET_ADDRESS ??
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const walletAddress = process.env.AOMI_E2E_WALLET_ADDRESS;
 const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const artifactDir = join(
   process.cwd(),
@@ -34,12 +38,16 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
   request,
 }) => {
   test.skip(!walletToken, "AOMI_E2E_WALLET_TOKEN is required");
+  if (!walletAddress)
+    throw new Error(
+      "E2E wallet address must match the configured executor signer",
+    );
   await mkdir(artifactDir, { recursive: true });
 
   const requests: Array<{ method: string; url: string; status?: number }> = [];
   const pages: ObservedEvent[] = [];
   const responseTasks: Promise<void>[] = [];
-  let executionRequested = false;
+  let executionRequests = 0;
   page.on("request", (entry) => {
     requests.push({ method: entry.method(), url: redactUrl(entry.url()) });
   });
@@ -68,7 +76,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
     markExecutionIntercepted = resolve;
   });
   await page.route("**/api/bff/e2e/execute", async (route) => {
-    executionRequested = true;
+    executionRequests += 1;
     markExecutionIntercepted();
     await executionReleased;
     await route.continue();
@@ -76,7 +84,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
 
   const seed = new URL("/api/bff/e2e/wallet", portalOrigin);
   seed.searchParams.set("token", walletToken!);
-  seed.searchParams.set("address", walletAddress);
+  seed.searchParams.set("address", walletAddress!);
   seed.searchParams.set("chainId", "31337");
   seed.searchParams.set("redirect", "/");
   await page.goto(seed.toString(), { waitUntil: "domcontentloaded" });
@@ -84,6 +92,13 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
     timeout: 30_000,
   });
   await page.waitForLoadState("networkidle");
+  const declineCookies = page.getByRole("button", {
+    name: "Decline",
+    exact: true,
+  });
+  await expect(declineCookies).toBeVisible({ timeout: 30_000 });
+  await declineCookies.click();
+  await expect(declineCookies).toHaveCount(0);
 
   const firstPrompt =
     `CUTOVER A: send 0 ETH on chain 31337 to ${recipient}. ` +
@@ -92,14 +107,26 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
   const sessionsBeforeA = new Set(pages.map((entry) => entry.session_id));
   await send(page, firstPrompt);
 
+  const sidebar = page.getByRole("complementary", { name: "Chat activity" });
+  const review = sidebar.getByTestId("transaction-review");
+  await expect(review).toBeVisible({ timeout: 300_000 });
+  // The sidebar is the only approval surface.
+  await expect(page.getByTestId("transaction-review")).toHaveCount(1);
   await expect(
-    page.getByRole("heading", { name: "Review action" }),
-  ).toBeVisible({
-    timeout: 180_000,
+    page.getByRole("button", { name: "Send to wallet", exact: true }),
+  ).toHaveCount(1);
+  const transactionDetails = review.locator("details").filter({
+    has: page.locator("summary", { hasText: "Transaction details" }),
   });
-  await expect(page.getByTestId("action-simulation")).toBeVisible();
-  await expect(page.getByTestId("action-request-payload")).toContainText(
-    recipient,
+  await transactionDetails.locator("summary").click();
+  await expect(transactionDetails.locator("pre")).toContainText(recipient);
+  const simulationDetails = review.locator("details").filter({
+    has: page.locator("summary", { hasText: "Simulation details" }),
+  });
+  await simulationDetails.locator("summary").click();
+  await expect(simulationDetails.locator("pre")).toBeVisible();
+  await expect(simulationDetails.locator("pre")).toContainText(
+    '"status": "passed"',
   );
   await expect
     .poll(() => actionSessionId(pages, sessionsBeforeA), { timeout: 180_000 })
@@ -108,7 +135,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
   if (!sessionA) throw new Error("first Agent Action session was not observed");
   expect(lifecycle(pages, sessionA)).toContain("awaiting_action");
   await page.waitForTimeout(1_200);
-  expect(executionRequested).toBe(false);
+  expect(executionRequests).toBe(0);
   await page.screenshot({
     path: join(artifactDir, "awaiting-action.png"),
     fullPage: true,
@@ -120,7 +147,9 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
       response.request().method() === "POST",
     { timeout: 60_000 },
   );
-  await page.getByRole("button", { name: "Approve" }).click();
+  await review
+    .getByRole("button", { name: "Send to wallet", exact: true })
+    .click();
   await executionIntercepted;
   releaseExecution();
   const execution = await executeResponse;
@@ -133,7 +162,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
 
   await expect
     .poll(() => terminalState(pages, sessionA), { timeout: 180_000 })
-    .toMatch(/complete|failed|interrupted/);
+    .toBe("complete");
   await Promise.all(responseTasks);
   assertOrderedAndDeduplicated(pages, sessionA);
   expect(lifecycle(pages, sessionA)).toEqual(
@@ -153,7 +182,16 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
     ((await receipt.json()) as { result?: { status?: string } }).result?.status,
   ).toBe("0x1");
 
-  const threadA = await activeThreadTitle(page);
+  expect(executionRequests).toBe(1);
+  await expect(page.getByTestId("transaction-review")).toHaveCount(0);
+  await showTransactionHistory(page);
+  const signed = sidebar.locator('[aria-label$="signing: signed"]');
+  await expect(signed.first()).toBeVisible();
+  const transactionCount = await sidebar
+    .getByTestId("activity-transaction")
+    .count();
+
+  const threadA = await threadRow(page, sessionA);
   const sessionsBeforeB = new Set(pages.map((entry) => entry.session_id));
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await send(
@@ -168,18 +206,26 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
   if (!sessionB) throw new Error("second Agent session was not observed");
   await expect
     .poll(() => terminalState(pages, sessionB), { timeout: 180_000 })
-    .toMatch(/complete|failed|interrupted/);
-  const threadB = await activeThreadTitle(page);
+    .toBe("complete");
+  const threadB = await threadRow(page, sessionB);
 
   const cursorlessARequestsBefore = cursorlessPolls(requests, sessionA);
-  await switchToThread(page, threadA);
+  await switchToThread(threadA);
   await expect(page.getByText(/CUTOVER A:/)).toBeVisible({ timeout: 30_000 });
-  await switchToThread(page, threadB);
+  await switchToThread(threadB);
   await expect(page.getByText(/CUTOVER B:/)).toBeVisible({ timeout: 30_000 });
-  await switchToThread(page, threadA);
+  await switchToThread(threadA);
   await expect(page.getByText(/CUTOVER A:/)).toBeVisible({ timeout: 30_000 });
   expect(cursorlessPolls(requests, sessionA)).toBe(cursorlessARequestsBefore);
   assertOrderedAndDeduplicated(pages, sessionA);
+
+  await showTransactionHistory(page);
+  await expect(sidebar.getByTestId("activity-transaction")).toHaveCount(
+    transactionCount,
+  );
+  await expect(signed.first()).toBeVisible();
+  await expect(page.getByTestId("transaction-review")).toHaveCount(0);
+  expect(executionRequests).toBe(1);
 
   const retired = requests.filter(({ url }) =>
     /\/api\/thread\/(chat|state|interrupt)(?:[/?]|$)/.test(url),
@@ -220,10 +266,28 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
 async function send(page: Page, message: string) {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
+}
+
+async function showTransactionHistory(page: Page) {
+  const open = page.getByRole("button", {
+    name: "Show chat activity",
+    exact: true,
+  });
+  if (await open.isVisible()) await open.click();
+  const sidebar = page.getByRole("complementary", { name: "Chat activity" });
+  await expect(sidebar).toBeVisible();
+  const transactions = sidebar.getByRole("button", { name: /^Transactions/ });
+  if ((await transactions.getAttribute("aria-expanded")) === "false") {
+    await transactions.click();
+  }
+  await expect(
+    sidebar.getByTestId("activity-transaction").first(),
+  ).toBeVisible();
 }
 
 function isAgentEventResponse(response: Response): boolean {
@@ -270,20 +334,15 @@ function newSessionId(
   return pages.findLast((entry) => !previous.has(entry.session_id))?.session_id;
 }
 
-async function activeThreadTitle(page: Page): Promise<string> {
-  const active = page.locator(".aui-thread-list-item[data-active]");
-  const title = active.locator(".aui-thread-list-item-title");
-  await expect(title).not.toHaveText("New Chat", { timeout: 30_000 });
-  const value = (await title.textContent())?.trim();
-  if (!value) throw new Error("active thread title was not rendered");
-  return value;
+async function threadRow(page: Page, sessionId: string): Promise<Locator> {
+  const row = page.locator(
+    `.aui-thread-list-item[data-thread-id="${sessionId}"]`,
+  );
+  await expect(row).toHaveCount(1);
+  return row;
 }
 
-async function switchToThread(page: Page, title: string): Promise<void> {
-  const row = page
-    .locator(".aui-thread-list-item")
-    .filter({ has: page.getByText(title, { exact: true }) })
-    .first();
+async function switchToThread(row: Locator): Promise<void> {
   await row.locator(".aui-thread-list-item-trigger").click();
   await expect(row).toHaveAttribute("data-active", "true");
 }

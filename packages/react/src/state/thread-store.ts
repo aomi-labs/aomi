@@ -1,4 +1,5 @@
 import type { SetStateAction } from "react";
+import type { AgentMode } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { safeEnv } from "../utils/env";
@@ -12,6 +13,8 @@ export type ThreadStatus = "regular" | "archived";
 export type ModelSelectionMode = "auto" | "manual";
 
 export type ThreadControlState = {
+  /** Missing on persisted threads created before Auto became the default. */
+  agentMode?: AgentMode;
   model: string | null;
   modelMode?: ModelSelectionMode;
   app: string | null;

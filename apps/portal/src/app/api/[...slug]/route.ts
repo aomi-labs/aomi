@@ -2,7 +2,10 @@ import { createBackendProxy, type AllowedRoute } from "@aomi-labs/account";
 import { resolveCanonicalUserId } from "@portal/server/canonical-session";
 import { launchConfig } from "@portal/server/bff/launch/config";
 import { portalFailures } from "@portal/server/bff/failures";
-import { widgetPreflight, widgetRoute } from "@portal/server/widget-auth/response";
+import {
+  widgetPreflight,
+  widgetRoute,
+} from "@portal/server/widget-auth/response";
 
 const ALLOWED_ROUTES: AllowedRoute[] = [
   {
@@ -25,6 +28,11 @@ const ALLOWED_ROUTES: AllowedRoute[] = [
     pattern: /^\/api\/thread\/models$/,
     methods: new Set(["GET"]),
     auth: "none",
+  },
+  {
+    pattern: /^\/api\/resource\/skills(?:\/[^/]+)?$/,
+    methods: new Set(["GET"]),
+    auth: "optional",
   },
   {
     pattern: /^\/api\/thread\/model$/,

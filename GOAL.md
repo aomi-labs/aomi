@@ -1,5 +1,568 @@
+# Current work
+
+**MAIN FRESHNESS SYNC 2026-09-10** — integrated the latest `main` per-user app
+secrets client and control-bar UI into the merge-ready Portal branch. Preserved
+both the branch's routing configuration import and main's app-secrets dialog in
+the sole code conflict. Exact-head CI and preview checks will gate the merge.
+
+**REGISTRY DEPENDENCY CONTRACTS 2026-09-09** — fresh CLI verification also
+caught upstream primitive substitution and outdated/unbounded npm dependencies.
+Generated registry dependencies now point to Aomi-owned items; npm versions come
+from the widget package manifest, with candidate workspace package versions
+resolved explicitly. Primitive declarations match their actual Radix imports.
+Documented Radix initialization for fresh consumers. The real shadcn 4.21.0
+install and Next 16.1.0 production/type build pass using candidate client/react
+tarballs, without workspace links. Registry/widget builds and scoped lint pass.
+No widget CI job was added at the user's request. Final remote checks are tracked
+outside the checkout to keep the tested commit stable.
+
+**REGISTRY INSTALL DESTINATIONS 2026-09-09** — a real shadcn 4.21.0 fresh
+installation exposed flattened nested files despite complete source dependency
+closure. The generator now emits alias-relative targets and correctly classifies
+root lib/hooks paths and UI primitives. A fresh CLI install now preserves the
+nested paths; widget ESM/DTS/CSS build, scoped lint, and source/mirror checks pass.
+Widget version is 2.0.44. Final fresh-consumer compilation and same-head CI are
+being checked before merge; the default anonymous Terra budget failure is also
+present on main and billing policy is unchanged.
+
+**ASSISTANT THREAD REGISTRY PACKAGING FIX 2026-09-09** — added the capability
+message renderer and token metadata registry to the assistant-thread registry
+payload. Completed the sidebar item's hook and primitive dependency closure,
+made token formatting compatible with the Portal's ES2017 TypeScript target,
+regenerated committed registry artifacts, and bumped the widget to 2.0.43.
+Verified widget ESM/DTS/CSS builds, 479 widget tests, repository lint, root and
+Portal types, and an isolated extracted registry bundle (npm/external registry
+dependencies remain external). Full shadcn CLI installation and remote CI remain
+for the merge procedure. Restored the local Portal stack after a pnpm launcher
+dependency relink; its existing HTTPS URL returns 200.
+
+**TOKEN TRACE BADGE POLISH 2026-09-09** — ERC-20 balance traces now read “Get
+balance”, including active and failed raw tool calls. Amount badges use the
+neutral token glyph instead of the blue-dot marker. Base USDC approval amounts
+are normalized with verified chain, contract, and decimal metadata; unknown
+tokens remain raw units. Widget version: 2.0.42.
+
+**TRANSACTION TRACE LABEL AND BADGE POLISH 2026-09-09** — transaction lifecycle
+tools now keep stable Stage transaction, Simulate transaction, and Commit
+transactions titles while active, failed, awaiting approval, or completed.
+Badges use transaction-scoped chain context, a canonical chain-first/status-last
+order, and a short identity-aware cascade that animates newly arriving facts
+without delaying trace state, replaying stable badges, or replaying history.
+Account reads show chain context only when their result or arguments expose it.
+Failed terminal turns now end with a red Stopped trace and a concise fallback
+when no durable error notice follows; interrupted turns use a neutral Stopped
+state, while successful turns retain the green Worked treatment.
+Focused trace/interpreter tests, scoped ESLint, Portal TypeScript, widget ESM/DTS
+build, formatting, and diff checks pass. Widget version: 2.0.41.
+
+**PAIRED MERGE READINESS CLEANUP 2026-09-07** — consolidated wallet review in the
+Activity sidebar, split composer/catalog/picker and sidebar responsibilities,
+removed superseded UI prototypes, preserved complete signing and permission
+disclosures, and fixed invocation/terminal-state joins. Aligned generated Agent
+and Pipeline contracts with the paired backend, corrected SDK stage/commit wire
+shapes and untargeted Direct routing, and bumped published packages. Final SDK
+and React tarballs pass isolated ESM, CJS, and strict public-type consumer checks.
+Full frontend tests currently pass (1,391 tests; two documented existing skips),
+as do lint, root types, and package builds. Integrated current main in both
+branches. Live wallet/CLI/SDK/browser gates and final remote checks are still
+in progress; this is not yet a merge-ready sign-off. Evidence is in the local
+merge-readiness review directory. Main must not be merged without the user.
+
+**SKILL ARTWORK AND APP IDENTITY AUDIT 2026-09-07** — audited all 42 built-in
+skills against the current backend catalog. Replaced approximate marks with
+26 source-backed local SVG assets, added missing protocol identities and the
+Dummy testing glyph, normalized artwork bounds, corrected Kamino's wordmark
+crop, rendered Krexa's published raster through a monochrome alpha mask, and restored
+Zora's grayscale Zorb with per-instance gradient IDs. Enlarged Library marks
+and added `/dev/skill-icons` for light/dark review at 14/20/32px. Local SVGs
+are bundled through a deterministic generator and included in both registry
+entries; widget patch version is 2.0.38. Eight icon tests, twelve Library tests,
+Portal TypeScript, full-repository ESLint through the installed launcher,
+registry/widget/client/React builds, and the package dry run pass.
+App follow-up implements one shared resolver across Library, composer, Direct
+selector, and mentions: curated names, local theme-aware marks for all 51
+curated identities (covering all 39 observed live apps), exact wire IDs and
+application scopes preserved, private-name collisions kept custom, and old
+names/labels kept searchable. Removed Library runtime favicon requests and
+colored DECOR tiles. Added local app asset provenance/generator and a scrollable
+`/dev/app-identities` light/dark audit gallery. Root review caught and corrected
+search indexing, prototype-key lookups, raster mask handling, and wordmark
+crop artifacts. Final verification: 38 widget identity/icon/composer tests and
+16 Portal Library tests pass; full-repository ESLint, Portal TypeScript, both
+asset generator checks, registry/widget builds and package contents pass.
+Reviewed all gallery rows in light/dark and Circle StableFX in the live Library.
+Details: `specs/app-identity-investigation.md`.
+
+**ACTIVITY SUBAGENT SUMMARY POLISH 2026-09-07** — shortened “Skills invoked” to
+“Skills”. Replaced visible Working/Done labels with an accent spinner and green
+completion check. Subagent rows now open from the full row with the same mounted
+height/fade motion as other activity disclosures and no redundant chevron. The
+expanded panel renders only the canonical final message through the shared
+Markdown renderer; internal phase names, child tool labels, and repeated trace
+notes remain in Working trace instead. Verified 36 focused activity tests,
+Portal TypeScript, scoped ESLint, registry generation, formatting, live shell
+stability, and `git diff --check`.
+
+**LIBRARY AND SETTINGS TYPE HIERARCHY 2026-09-07** — introduced one shared
+full-frame modal scale for 15px modal/page titles, 13px navigation, 12px page
+descriptions, and 13px section headings. Raised Library search, catalog names,
+descriptions, actions, inspector copy, and Settings' primary row labels/supporting
+copy by one restrained step while leaving dense counts and kind badges compact.
+Verified the populated Library in the live Portal with no console errors, 15
+focused modal tests, Portal TypeScript, scoped ESLint, formatting, and
+`git diff --check`.
+
+**ACTIVITY GROUP COLLAPSE POLISH 2026-09-07** — replaced the native snapping
+Skills/Subagents disclosure with the same mounted height-and-opacity transition
+used by the working trace. The separator remains, but now travels smoothly as
+content folds and no longer inherits a stranded content gap in the collapsed
+state. Verified 21 focused activity/sidebar tests, scoped ESLint, formatting,
+registry generation, and `git diff --check`.
+
+**HEADER AND CHAT RHYTHM POLISH 2026-09-07** — carried over the unified
+worktree's clean white outlined New chat action and compact icon-only sun/moon
+control, retaining Activity immediately to its right. Tightened the
+collapsed Thinking/Working trace from 36px to 32px so it vertically centers with
+the assistant's Aomi mark while preserving the established typography and pill
+shape. Verified all three treatments in the live Portal, 14 focused tests,
+Portal TypeScript, scoped ESLint, registry generation, formatting, and
+`git diff --check`.
+
+**GLOBAL ACTIVITY RAIL CONTROL 2026-09-07** — replaced the compact-only floating
+Activity and Close activity pills with one permanent header control immediately
+after the theme switch. The shared frame now owns whether activity is worth
+showing and whether its rail is open: new activity opens once, explicit hide/show
+choices persist while activity updates, and an empty thread leaves the control
+visible but disabled. The rail uses the same width-and-opacity curve for entrance
+and exit at every viewport size, overlaying only when space is tight. Verified
+the live header position and disabled state, 25 focused interaction/sidebar tests,
+Portal TypeScript, scoped ESLint, registry generation, formatting, and
+`git diff --check`.
+
+**WORKING TRACE VISUAL UNIFICATION 2026-09-07** — aligned Working trace
+typography and metadata with the current activity rail: human-readable step and
+subagent labels use the Portal sans-serif hierarchy, counters are quiet inline
+metadata, and chain, amount, status, and skill facts use one compact outlined
+capsule. Skill activation now resolves the canonical LI.FI, Common ERC-20, and
+other supported skill marks instead of a generic puzzle, while unknown skills
+retain the neutral fallback. Live Portal review measured 28px capsules with
+11px Geist labels and 14px identity marks. Twenty-two focused trace/subagent
+tests, two skill-identity interpreter tests, Portal TypeScript, scoped ESLint,
+registry generation, formatting, and `git diff --check` pass.
+
+**TRANSACTION LIST EXPANSION AND PENDING STYLE 2026-09-05** — added Show all / Show fewer below the scroll fades with animated height and a three-row default. Pending transactions use a fine dashed border; the active wallet request has a subtle blue edge. Removed visible Review labels, retaining the request count and accessible context. Finalized rows remain solid. Verified 36 focused tests, Portal TypeScript, scoped lint, and registry/widget builds.
+
+**THREAD ACTIVITY PERSISTENCE AND ORDER 2026-09-05** — skills and subagents now project all events in the thread. Transaction staging identity includes the turn; action matching is turn-scoped and ordering retains initial stage/action sequence rather than completion revisions. New top rows reset the scroll to the top with anchoring disabled. Transactions collapse via height/opacity without scaling the outer card. Added persistence, repeated-transfer and late-revision regressions.
+
+**UNIFIED TRANSACTION HISTORY 2026-09-05** — current, queued, and historical transactions now share one newest-first list with an accurate total count. Three cards fit in a 272px viewport; additional rows scroll with conditional top/bottom fades. Mixed lists distinguish current wallet-request rows with a subtle blue dashed border; execution still targets only the head durable action.
+
+**CHAT SPACING NUDGE 2026-09-05** — widened the animated desktop chat-column region from 864px to 960px, shifting the centered trace and composer up to 48px left while retaining the rail’s 24px right gutter and single synchronized transition. Narrow layouts are unchanged.
+
+**LIVE RAIL MOTION AND SPACING VERIFIED 2026-09-05** — final rail expands to 352px with a 24px right gutter; synchronized chat width limits the push and keeps trace/input aligned. Removed embedded review ancestor scrolling that could cause snap-back. Browser checks verified smooth intermediate position, unchanged left sidebar, stable approval reveal, restored closing geometry and narrow-panel access. 31 tests, Portal typecheck, scoped lint and registry/widget builds pass; preview root responds 200.
+
+**UNIFIED LIVE TRANSACTION REVIEW 2026-09-05** — integrated review into the activity card with a two-transaction scroll viewport, content-sized animated shell, canonical labels/chain chips, current/queued/history separation, and forced-open signing. Preserved durable action execution/rejection locks, warnings, token metadata, permission/NFT effects, simulation data and signing payload inspection. Failed committed requests remain rejectable. The rail now expands/contracts smoothly in the desktop flex layout, resizing the whole message/trace/composer column together without changing the left sidebar. Narrow screens retain a toggleable panel.
+
+**TRANSACTION MOCK CONTENT SIZING 2026-09-05** — activity shell now sizes to content with animated layout changes; current list shows at most two rows before scrolling. Signing forces Transactions open and removes its collapse control; idle sections start expanded with matching arrows. Review uses an inset surface without a hard footer divider. Verified Portal typecheck/lint and browser collapse-to-commit transitions, 172px viewport for four 82px rows, phone action fit, and no page errors.
+
+**UNIFIED REVIEW MOCK REVISED 2026-09-05** — one shared skills/subagents/transactions shell, chain chips on each transaction, no repeated batch title. Wallet effects and signing appear only after commit in an animated separated bottom review area; gas and wallet metadata sit above buttons. Transactions scroll independently. Failed simulation only colors progress, with no review or warning block. Verified TypeScript, scoped lint and 63 responsive combinations plus commit gating.
+
+**UNIFIED TRANSACTION REVIEW MOCKS 2026-09-05** — added `/dev/transaction-layouts`, linked from the previous final mock. Three interactive directions combine transaction lifecycle, wallet changes, history, and signing in one collapsible section. Seven scenarios cover single/batch transactions, past signed/rejected activity, long labels, simulation failure, two networks, and missing decoding. Laptop, short-window, and phone presets keep actions reachable. Mock-only; no production chat/backend changes. See `specs/transaction-layout-studies.md`.
+
+**TRANSACTION PHASE MOTION 2026-09-05** — restored the moving gradient for the last reached phase of current active transactions, moves to Signed during wallet execution, and stops for signed/rejected/failed or historical work. Removed transaction-card inspectors. Skill chips use the Library catalog and label formatter. Verified 28 focused tests, TypeScript, scoped lint, registry/package builds and real browser animation/reduced-motion checks.
+
+**BALANCE IMPACT POLISH 2026-09-05** — removed the two-row minimum height, aligned compact token/amount rows, and added read-only ERC-20 symbol/decimals lookup on the configured transaction chain when simulation metadata is missing. Unknown decimals no longer render raw units as a token amount. Verified live Base USDC metadata and mobile browser rendering as −0.01 USDC in a content-sized 114px panel.
+
+**CHAT ACTIVITY RAIL INTEGRATED 2026-09-05** — ported the selected sidebar and wallet-impact review into real chat. Replaced the composer review and removed its legacy component/preview fixtures. Organized event projection, review binding, effect rendering and formatting in `components/activity-sidebar`. Preserved runtime execution/rejection and failed-simulation guards. Added the compact Stage / Simulate / Commit / Signed strip with neutral/blue/red signing state; kept the working trace unchanged. Verified 35 focused tests, Portal TypeScript, scoped ESLint, registry/package builds, and isolated browser signing/rejection/mobile checks. See `specs/chat-activity-sidebar.md`.
+
 # Canonical Landing
 
+Current session goal: **TRANSACTION MOCK READABILITY POLISHED 2026-09-05** —
+removed card hover effects, matched ETH/ERC-20 simulation icons, clarified
+transaction rows with action icons and separate destination subtitles, and moved
+gas into icon-labelled metadata above the footer in `/dev/activity-final`.
+Unified action glyphs between trace/cards/review, colored outgoing amounts red,
+and replaced the grey footer band with rounded secondary/primary actions.
+The primary wallet action uses ink, matching message send; blue stays an accent.
+The grey balance panel now has the same subtle outline as Transactions.
+
+Current session goal: **GENERIC WALLET IMPACT MOCK REFINED 2026-09-05** —
+updated `/dev/activity-final` against the shipping transaction-review component:
+uniform compact transaction cards, bars without checkmarks, smaller generic
+Wallet impact review with optional decoded rows and per-transaction details,
+Reject on the left, and no feedback form or swap-specific allowance assumptions.
+Verified TypeScript, scoped lint, review modes and mobile geometry.
+
+Current session goal: **FINAL ACTIVITY APPROVAL MOCK REFINED 2026-09-05** —
+`/dev/activity-final` combines the selected open timeline and grouped card with
+compact transaction preparation strips, review only after commit, and accept,
+reject, and expandable rejection feedback. Mock wallet signing and network
+submission are separate states. Verified Portal TypeScript, scoped lint,
+interaction transitions, and mobile long-label/comment layout.
+
+Current session goal: **ACTIVITY AND TRANSACTION REVIEW MOCK GALLERY
+2026-09-05** — built the development-only `/dev/activity-lab` gallery in
+`portal-ui-local`: eight design directions, independently selectable trace,
+activity, and simulation treatments, eight realistic scenarios, mock lifecycle
+controls, partial-batch retry, light/dark themes, and responsive layouts.
+Uses existing Portal tokens, fonts, chain/skill icons, and the Aomi mark.
+No production chat or backend execution changes; all financial data and
+actions are illustrative. See `specs/activity-review-mocks.md` for scope and
+verification.
+
+Current session goal: **SUBAGENT BATCH + TRACE RECONCILIATION VERIFIED
+2026-09-04** — consume the backend's canonical tool call identity and task
+result agent IDs so each delegated child renders exactly once, including
+legacy failures and 1–5 item concurrent batches. Preserve canonical tool
+identity across persistence and hydration. Verified with 18 focused React and
+widget tests, scoped ESLint and Prettier, client/React/widget builds, generated
+Agent contract alignment, and `git diff --check`; paired backend Luna evals
+passed for ordinary completion, two-child concurrency, and LI.FI staging.
+
+Current session goal: **COMPOSER MENU VIEWPORT FLIPPING VERIFIED 2026-09-04** — keep
+model, execution-mode, and Direct-app menus anchored below their triggers when
+space allows, but let them flip above the composer when its bottom placement
+would cross the viewport. Preserve the header network selector's established
+placement. Verified with 11 focused control-bar tests, focused ESLint, Portal
+TypeScript, Prettier, the registry build, a clean npm package dry run, live
+bottom-composer geometry for the model and execution menus (`top`), live
+centered-composer geometry (`bottom`), and `git diff --check`.
+
+Current session goal: **THREAD ARCHIVING RECOVERY VERIFIED 2026-09-04** —
+restore archive, unarchive, and delete mutations by aligning the backend's
+internal Agent session route authorization with the public API's `agent:write`
+delegation, while preserving `agent:read` for session reads. Verified with the
+method-specific delegated-scope regression, route-manifest test, rustfmt,
+Clippy with warnings denied, a managed standard-profile rebuild, and a live
+HTTPS Portal archive that removed the thread from Recent and produced a
+backend `PATCH` 200 without the prior error overlay.
+
+Current session goal: **UNIFIED WALLET SIGN-OUT + CONNECTION UI VERIFIED
+2026-09-04** — make Sign out consistently end both the Aomi account session
+and live wallet connection, while preserving the separate wallet-only
+disconnect action. Restyle fresh wallet selection and wallet-linked sign-in to
+match the compact Library and Settings hierarchy, restore restrained visual
+grouping after live review while leaving identity marks unbacked, and route
+Settings' Add wallet action into the same canonical chooser above its overlay.
+Library and Settings close controls now share the conventional top-right modal
+position. Verified with 61 focused widget/Portal
+tests, scoped ESLint and Prettier, Portal TypeScript, registry and package
+builds, a `@aomi-labs/widget-lib@2.0.33` package dry run, `git diff --check`,
+and live HTTPS visual review of the anonymous wallet chooser.
+
+Current session goal: **SETTINGS DIRECTORY LANGUAGE VERIFIED 2026-09-04** —
+port the selected Library aesthetic to the complete Settings experience: one
+matching 1080×620 directory shell, compact persistent sidebar navigation,
+consistent header hierarchy, quiet borders, shared row typography, restrained
+rounded controls, and aligned General, Account/signing, and Usage surfaces.
+Preserve all account, wallet, signing, theme, and usage behavior. Verified with
+40 focused Portal tests, scoped ESLint and Prettier, Portal TypeScript,
+`git diff --check`, and successful hot compilation in the active
+`portal-ui-local` workspace.
+
+Current session goal: **SIDEBAR LIBRARY INTEGRATED 2026-09-04** — replace the
+production Library's legacy tabbed lists with the selected design-lab directory:
+persistent section and category navigation, a searchable mixed catalog, and an
+always-visible inspector for the selected app or skill. Preserve real app
+install/remove state and chain restrictions; give skills a Try action that
+returns to chat with a real rich mention. Keep category names compact and route
+token, balance, transfer, and allowance capabilities to Tokens & wallets.
+Verified with 32 focused Portal/widget tests, scoped ESLint and Prettier, Portal
+TypeScript, registry and package builds, a package dry run, `git diff --check`,
+and live HTTPS interaction plus visual review of the category and Try flow.
+
+Current session goal: **LIBRARY DESIGN LAB VERIFIED 2026-09-04** — build a
+dev-only, fixture-backed comparison page with eight meaningfully different
+Library directions for apps and skills. Keep every direction inside the current
+Aomi visual language—real identity marks, compact type, quiet borders, rounded
+surfaces, chain context, and clear installed/add states—without changing the
+production Library until a direction is selected. Verified with Portal
+TypeScript, scoped ESLint and Prettier, `git diff --check`, complete accessibility
+tree inspection, and live HTTPS visual review of all eight anchored directions
+at desktop width with no browser errors.
+
+Current session goal: **FRESH PORTAL START VERIFIED 2026-09-04** — disable
+Portal last-thread persistence so normal visits stay on the new-chat starting
+screen instead of hydrating and visibly jumping to the previously active thread;
+preserve explicit thread deep links and account-bound thread history navigation.
+Verified with the Portal frame suite (8/8), ESLint, Portal TypeScript, Prettier,
+`git diff --check`, and a fresh HTTPS browser visit rendering the starting screen
+without selecting a previous thread or logging a browser error.
+
+Current session goal: **INLINE PLUS PICKER ANCHOR VERIFIED 2026-09-04** —
+normalize Chrome's residual empty-editor `<br>` before anchoring the plus-opened
+capability picker so opening it never moves the caret onto a new line or changes
+the composer's layout; match composer and sent capability mentions to the
+surrounding text baseline with balanced inline spacing. Verified with focused
+Vitest coverage (12/12), ESLint, portal TypeScript, Prettier, registry generation,
+widget build, `@aomi-labs/widget-lib@2.0.31` package dry-run, `git diff --check`,
+and a live browser reproduction of the empty `<br>` plus-open sequence (unchanged
+33.5px composer height, no line break), mention baseline measurement, and visual
+review with no browser errors.
+
+Current session goal: **CAPABILITY MENTION IDENTITY VERIFIED 2026-09-04** —
+keep selected capability mentions blue while rendering their real app, skill,
+or chain mark in the composer and sent user bubble; make Backspace remove an
+adjacent mention atomically; and retain bounded capability identity metadata
+through optimistic and durable message projection without exposing UI markup
+to the model. The picker request is consumed once and stale selections are
+cleared when the composer changes placement, so sending no longer reopens a
+filtered picker. Twelve focused registry tests, seven React projection tests,
+React and Portal typechecks, scoped lint and formatting, registry generation,
+both publishable package builds/tarball audits, and live composer, deletion,
+send, and durable-bubble checks pass. The broader assistant-ui run remains at
+74/76 due to two unrelated pre-existing wallet-approval title expectations.
+
+Current session goal: **CAPABILITY ENTRY CONTROL SPACING VERIFIED 2026-09-04** —
+normalize the plus, model, and execution controls around their own internal
+padding instead of applying a second desktop-only gap. Their visible icon gaps
+now differ by only four pixels, while the compact click targets remain intact.
+Fourteen focused tests, scoped formatting and lint, and live desktop geometry
+and screenshot checks pass.
+
+Current session goal: **CAPABILITY PICKER OUTSIDE DISMISSAL VERIFIED
+2026-09-04** — dismiss the open app, skill, and chain picker when the user
+clicks elsewhere, while preserving composer typing and interactions inside the
+picker itself. Nineteen focused registry tests, scoped formatting and lint,
+Portal typecheck, registry generation, the widget 2.0.30 bundle/tarball audit,
+and live plus/`@` outside-click checks pass without browser errors.
+
+Current session goal: **CAPABILITY PICKER PLUS ENTRY VERIFIED 2026-09-04** —
+open the existing full-width app, skill, and chain picker from a compact plus
+control before the model selector; keep the composer focused so ordinary text
+filters button-opened results, and retain multi-word filtering for both the
+plus and `@` entry paths through mouse and keyboard selection. Sixteen focused
+registry tests, eight Portal frame tests, Portal typecheck, scoped formatting
+and lint, the widget 2.0.30 bundle/tarball audit, live plus/`@` mouse
+interaction checks, and registry JSON regeneration pass. The control-bar
+registry item now includes the skill icon module required by the published
+icons barrel.
+
+Current session goal: **SKILL IDENTITY MARKS INTEGRATED 2026-09-04** — expose
+one normalized skill-icon lookup for the capability catalog, use official
+monochrome marks where the built-in catalog has a confidently attributable
+identity, and keep a neutral wand for unsupported or user-defined skills. The
+same mapping now drives the `@` picker and the Portal skills library list and
+detail views. Twelve focused registry tests, eight Portal frame tests, both
+registry/Portal TypeScript checks, registry JSON generation, the tsup/CSS
+package build, npm pack dry-run, Prettier, and `git diff --check` pass. The
+workspace package runner remains blocked by its unrelated ignored-build
+dependency-install guard.
+
+Current session goal: **CAPABILITY PICKER DENSITY VERIFIED 2026-09-04** —
+shorten verbose skill prose without losing the full hover description and show
+declared app/skill chain coverage as a restrained three-logo cluster with a
+compact overflow count beside the capability type. Absent chain metadata stays
+honestly blank. Fifteen focused registry tests, scoped formatting and lint,
+Portal typecheck plus eight frame tests, registry generation, the widget 2.0.30
+bundle/tarball audit, and a live anonymous-picker layout check pass.
+
+Current session goal: **COMPOSER MENU SYSTEM + MODE PREFERENCE VERIFIED
+2026-09-04** — unify model, execution, app, network, and capability menus around
+the compact account-menu language. Retain compact header-level network
+selection with useful `L1/L2 · token` metadata; make only the `@` panel span the
+complete input width above a deliberate gap; keep button-triggered menus below
+their controls; and expose clear app, skill, and chain identity without
+redundant headings. Model choice no longer mutates routing, while the user's
+Auto/Direct preference persists independently across reloads and fresh chats.
+Thirty-two focused React, registry, and Portal tests, scoped formatting and
+lint, React/Portal typechecks, registry generation, both publishable package
+builds and tarball audits, and live browser interaction/visual checks pass.
+
+Current session goal: **DISTINCT WELCOME SUGGESTION LANES VERIFIED 2026-09-04** —
+replace the rotated duplicate welcome prompts with two independently curated
+marquee lanes spanning trading, portfolio, deployment, transfers, lending,
+security, NFTs, and transaction lookup while retaining seamless per-lane
+animation. Scoped formatting and lint, Portal typecheck, registry generation,
+the widget 2.0.29 bundle/tarball audit, and live browser verification pass.
+
+Current session goal: **PRODUCTION WALLET IMPACT REVIEW VERIFIED 2026-09-04** —
+ship the selected side-by-side review into the live widget with invariant Send
+controls, two-row fixed transaction pages, approval/action pairing, safe
+protocol attribution, semantic Aomi-blue transaction marks, directional ETH
+and generic-token marks, and footer-level gas. Eleven focused handler tests,
+scoped formatting and lint, Portal typecheck, registry generation, the widget
+2.0.28 bundle/tarball audit, and live swap-preview verification all pass.
+
+Current session goal: **WALLET IMPACT SYSTEM LAB VERIFIED 2026-09-04** —
+expand the selected side-by-side wallet-impact direction across realistic
+transaction shapes. Keep Ethereum and generic ERC-20 asset marks directional,
+make transaction marks consistently Aomi blue, retain the full simulation
+verdict, and page complex requests by meaningful operation with prerequisite
+approvals attached to the action they enable. Nine live fixtures pass scoped
+formatting, lint, Portal typecheck, and browser verification of recipient-range
+and grouped-operation paging.
+
+Current session goal: **TRANSACTION REVIEW CONCEPT LAB VERIFIED 2026-09-04** —
+build an isolated dev-only gallery of distinct transaction-review structures at
+the real chat width before changing production UI. Every viable direction uses
+asset-specific ETH treatment, directional balance colors, footer-level gas,
+and a paper-plane send action across swap, transfer, NFT, and failure examples.
+The dev route passes scoped formatting, lint, Portal typecheck, and a live
+Tailscale browser render of all eight concepts with working shortlist controls.
+
+Current session goal: **LEGIBLE LIVE STATUS GLYPHS VERIFIED 2026-09-04** —
+replace the intricate neural mark and abstract execution path with immediately
+readable 15px symbols: a gently illuminating bulb for Thinking and a slowly
+turning gear for Working. Keep motion quiet and preserve the existing pill and
+text treatment. Focused trace tests, scoped lint, formatting, Portal typecheck,
+registry generation, and the widget 2.0.27 package/tarball audit pass.
+
+Current session goal: **SEMANTIC LIVE STATUS GLYPHS VERIFIED 2026-09-04** —
+replace the generic pulsing dot with a softly breathing neural mark while the
+model is thinking and a flowing three-node execution path once tool work has
+begun. Preserve the compact pill geometry, text shimmer, theme colors, and
+reduced-motion behavior. Focused trace tests, scoped lint, Portal typecheck,
+registry generation, and the widget 2.0.26 package/tarball audit pass.
+
+Current session goal: **WALLET MODAL LAYERING VERIFIED 2026-09-04** — render
+the wallet manager through a document-level portal so it remains above the
+entire widget regardless of host stacking contexts, and keep the custom empty
+composer placeholder in normal paint order so it cannot leak over modal UI.
+
+Current session goal: **AGENT SIMULATION METADATA + REVIEW VIEWPORT VERIFIED 2026-09-04** —
+ensure the normal Agent action path enriches every decoded EVM asset with its
+on-chain name, ticker, and decimals just like the public Pipeline route. Keep
+atomic-unit strings canonical in the API while presenting exact human decimal
+amounts, tickers, and quiet full-name context in transaction review, without
+auto-scrolling the conversation when the review panel appears.
+
+Current session goal: **TYPED EVM SIMULATION EFFECTS VERIFIED 2026-09-04** —
+consume the backend's wallet-focused native/ERC-20/ERC-721/ERC-1155 movement
+and permission evidence through the generated public API contract, expose it
+ergonomically from the client SDK, and render each effect class in a compact
+transaction review. Wallet-free Portal fixtures cover fungible swaps, native
+transfers, exact/unlimited/revoked permissions, ERC-721/ERC-1155 effects, and
+failed simulations. Backend checkpoint `51271c008` and client checkpoint
+`ff50872b` passed their focused tests; live Pipeline API smokes passed for a
+Base USDC transfer, exact allowance approval, and native transfer.
+
+Current session goal: **WORKING TRACE RECOVERY ORDER VERIFIED 2026-09-03** —
+remove the internal Orchestrator badge from the user-facing trace header and
+reconcile delegated task sidecar state into its matching transcript row. Failed
+subagents remain available as chronological history but no longer duplicate or
+stick to the bottom after later successful parent work. Focused tests, Portal
+typecheck, scoped lint, registry generation, and the widget 2.0.22 package build
+and 312-file tarball audit pass.
+
+Current session goal: **INLINE TRANSACTION REVIEW VERIFIED 2026-09-03** —
+replace the blocking raw-JSON action modal with a compact review panel anchored
+directly above the composer, show the canonical simulation verdict and readable
+wallet balance changes, page multi-transaction requests without an internal
+scroll area, and keep the Working trace live through action approval until the
+final answer begins streaming. Single balance changes fill the complete card,
+status copy has normal word spacing, assets use token marks while transaction
+steps retain chain marks, and repeated network/confirmation copy is removed.
+Protocol-generated LI.FI labels are reduced to readable approval and swap steps;
+when a successful simulation lacks token deltas, the review states that evidence
+is unavailable instead of claiming no balance change. Development-only
+`?aomi_preview=tx-review`, `tx-review-single`, and `tx-review-swap` fixtures
+render the real states in the Portal without opening a wallet. Wallet changes
+use a neutral asset mark, chain marks remain monochrome, gas metadata has a
+full-width separator, and welcome suggestions sit below the composer. Live desktop
+browser checks include a fixed tagging-menu footer that explains search and
+keyboard selection without reducing the scroll viewport; tagging icons stay
+aligned in a fixed column without boxed backgrounds. Fifteen focused tests,
+Portal typecheck, scoped lint, registry
+generation, the widget 2.0.21 build, and its 312-file dry-run tarball pass. The
+current simulator only derives native-value deltas and does not yet decode its
+preserved ERC-20 logs; that backend expansion is intentionally left for a
+separate change. The local backend was rebuilt with the stale failed-simulation
+warning fix and every workspace service is healthy.
+
+Current session goal: **AUTO/DIRECT COMPOSER AND COMPACT PICKER UI VERIFIED
+2026-09-03** — Auto is visually quiet with keyboard-only `@` hints, Direct is a
+borderless adjacent policy/app control, and model, network, execution, and
+Direct-app pickers share one compact menu and chevron system. Search and bounded
+scrolling remain functional. The automatic model choice is labeled Balanced so
+it stays distinct from the Auto execution mode. Logos are unboxed, and hover
+never merges with an adjacent selected row. Menus use a dense 248px app-scale
+width with compact rows and 24px icon slots, and open neutrally until pointer or
+keyboard navigation
+begins. Search is integrated as the header instead of floating in a second
+labeled box, and scroll tracks are inset and rounded within the menu.
+Scrollable menus use a shorter five-row viewport with a visible draggable thumb.
+Every option reserves a fixed right-side status column so checks never reflow text.
+The `@` capability picker uses the same compact shell at a slightly wider reading
+width, exposes the full catalog through an inset scroll viewport, and keeps every
+description to one ellipsized line. Its first filtered result is selected while
+typing, arrow navigation follows the active row, and Enter or Tab inserts it.
+The initial Thinking pill and collapsed Worked pill now share one 36px shell,
+including an identical text baseline and optically balanced trailing padding.
+Active labels use one broad, non-repeating highlight that moves slowly from left
+to right over otherwise stable muted text. The same treatment continues from
+Thinking into the Working trace header in both its expanded and collapsed states.
+The stale Agent API and backend binaries were rebuilt; a real Auto request
+completed over Tailscale; focused tests, Portal typecheck, the widget package
+build, and live Chrome verification pass for widget 2.0.20.
+
+Current session goal: **AUTO/DIRECT CLIENT-TO-PORTAL IMPLEMENTATION VERIFIED
+2026-09-03** — make omitted Agent routing Auto across the TypeScript client,
+SDK, CLI, headless examples, widget, and Portal; retain legacy app options as
+Direct compatibility; expose one Auto/Direct selector with the app picker only
+inside Direct; keep `@` apps, skills, and chains as non-authoritative Auto
+hints; and remove all tag-driven app or chain switching. Client, React, widget,
+consumer, headless, focused routing registry, and Portal checks pass, and live
+local browser verification confirms the Auto-first UI and mode-specific hint
+behavior. The full registry suite retains four unrelated pre-existing failures.
+
+Current session goal: **AUTO/DIRECT BACKEND-FIRST PLAN READY FOR REVIEW 2026-09-03** —
+replace the proposed user-facing Coordinate mode with default Auto plus explicit
+single-app Direct, converge mother and child staged work on canonical EVM/SVM
+commit paths, keep simulation optional, verify mother-only and child-assisted
+chain switching, then run GPT-5.6 Luna backend benchmarks and stop for product
+review before any TypeScript SDK, CLI, widget, or Portal implementation.
+
+Current session goal: **CAPABILITY LIBRARY AND COMPOSER ROUTING DESIGNED 2026-09-03** —
+replace the disconnected Packages and app-selector concepts with one Apps/Skills
+Library, structured per-turn `@` references for apps, skills, and chains, and a
+separate Auto/Direct/Coordinate execution policy grounded in the existing runtime.
+
+Current session goal: **THINKING TYPOGRAPHY AND SPACING MATCHED 2026-09-01** —
+add the final two pixels of trailing space and bind Thinking and Working to one
+shared status typography definition for identical size, weight, and line height.
+
+Current session goal: **THINKING PILL TRAILING SPACE POLISHED 2026-09-01** —
+retain the aligned icon and label geometry while adding a small amount of
+trailing breathing room after the Thinking label.
+
+Current session goal: **WORKING TRACE OPTICAL ALIGNMENT VERIFIED 2026-09-01** —
+align the compact Thinking pill to the Aomi mark, optically center its label,
+and show completed durations as whole seconds without decimal precision.
+
+Current session goal: **WORKING TRACE MOTION AND ALIGNMENT POLISHED 2026-09-01** —
+remove the decorative Thinking ellipsis, constrain the live signal to one
+smooth breathing indicator, normalize header and collapsed-pill heights, and
+use a soft fade/scale handoff as the trace gains real steps.
+
+Current session goal: **WORKING TRACE START STATE REDESIGNED 2026-09-01** —
+replace the empty full-width Working card with a compact Thinking status pill,
+then transition into a softer live trace with one pulse signal, a quiet count
+badge, and reduced border weight once real steps arrive.
+
+Current session goal: **IN-PLACE ACCOUNT NAME EDIT VERIFIED 2026-09-01** —
+editing the Account display name now transforms the name itself into the input,
+keeps wallet status anchored beneath it, and provides adjacent save/cancel
+actions plus Enter/Escape keyboard handling without relabeling or jumping rows.
+
+Current session goal: **GENERAL ACCOUNT IDENTITY SUMMARY VERIFIED 2026-09-01** —
+Settings General now leads with the live Aomi display name instead of a wallet
+address and summarizes durable wallet state, including how many linked wallets
+are not connected on the current device. Account uses the same summary language
+alongside the email so both settings surfaces describe one identity graph.
+
+Current session goal: **ACCOUNT MENU QUICK WALLET SWITCH VERIFIED 2026-09-01** —
+add a compact wallet-stack control to the grouped account summary so connected
+EVM wallets can be activated in place without opening Settings. The inline
+switcher preserves connector order, identifies the active wallet, retains
+provider branding, and offers a direct Add wallet path into the new picker.
+
+Current session goal: **ACCOUNT MENU SESSION SEMANTICS VERIFIED 2026-09-01** —
+replace the cramped account-summary separator with a softly grouped header and
+collapse exit actions behind one Session & wallet row. Sign out now ends only
+the Aomi account session while preserving live wallet connectors; Disconnect
+wallet tears down connectors while preserving the account session. Both paths
+carry explicit explanatory copy and confirmation instead of one ambiguous
+combined Disconnect action.
 Wallet-provider cleanup (2026-09-09): the existing wallet-kit provider owns its
 loading contexts; Portal supplies initialization state instead of duplicating
 the provider tree. Folded the repeated test-network wrapper. Kept the app-level
@@ -127,6 +690,45 @@ without duplicating future typed tool events. Device-only OAuth registration no
 longer declares an unused redirect flow. Client and React builds, typecheck,
 lint, formatting, 259 focused package tests, 44 Rust runtime tests, and repeated
 live staging CLI tool calls pass with message, tool, answer, and terminal order.
+
+Current session goal: **WALLET AUTH UI FOLLOW-UP VERIFIED 2026-09-01** —
+wallet and provider marks now render in their brand colors, including persisted
+labels such as “Rabby 1” and “MetaMask 1”; Settings distinguishes linked wallets
+from wallets connected on the current device and preserves that live state
+through the post-link account refresh. The initial picker and finish-sign-in
+step now use the Settings visual system, and every provider row fills the popup
+instead of leaving a clipped-looking blank column. Offline linked wallets show
+an explicit Connect action, while live wallets show Disconnect. Inactive
+connected rows activate from their wallet body instead of a separate Use
+button; only the active row receives the green rail and wash, while the
+connected state uses a cooler blue chip. Selection hover spans the complete
+row, and active-state changes preserve wallet order. Focused Portal/widget tests, scoped
+lint, Portal and package builds, package dry-run, and live anonymous UI
+measurements pass.
+
+Current session goal: **PORTAL ACCOUNT AND WALLET UI UNIFIED 2026-08-31** —
+anonymous Portal sessions now show a Sign in entry point without account
+settings chrome; the initial wallet/auth picker uses the current Aomi visual
+system and advances connected-but-unlinked wallets through an explicit finish
+sign-in step. Authenticated account management now lives in Settings → Account,
+where connected and linked wallets are deduplicated into one list alongside
+sign-in methods and account actions. External wallets remain controlled by
+their wallet apps and never receive Para/Privy signing-policy controls. Portal
+and widget typechecks, focused auth/wallet tests, scoped ESLint, the widget
+registry/package build and dry-run pack, and a live anonymous browser smoke
+pass.
+
+Current session goal: **PAYMENT-GATE ANONYMOUS AUTH SLICE PORTED 2026-08-31**
+— selectively moved the hidden guest-account transition and wallet-signing
+fixes from the payment-gate worktree onto current `origin/main` without its
+developer-key, payment, credit, or application-gate work. Better Auth guests
+remain valid chat principals but expose no public account user, identities, or
+wallets; SIWE, SIWS, Para, and Privy replace the disposable guest before durable
+sign-in; wallet auth is explicit and single-prompt; strict SIWE bodies and
+BigInt-safe EIP-712 test signing are restored; and chat persistence remounts
+across principal changes. Focused Portal/widget tests, both TypeScript checks,
+targeted ESLint, live guest/sign-out contracts, and anonymous browser chrome
+verification pass.
 
 Current session goal: **GUEST SELF-CUSTODY API AND SDK FIXES VERIFIED
 2026-08-30** — guest Agent sessions can resolve their own staged actions and

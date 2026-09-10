@@ -489,7 +489,7 @@ export function StatTile({
   primary?: boolean;
 }) {
   return (
-    <div className="border-aomi-border bg-aomi-bg/40 flex min-w-0 flex-col gap-1 rounded-xl border px-3 py-3 sm:px-4 sm:py-3.5">
+    <div className="border-aomi-border bg-aomi-raised flex min-w-0 flex-col gap-1 rounded-xl border px-3 py-3 sm:px-4 sm:py-3.5">
       <span className="text-aomi-muted truncate text-[11px]">{label}</span>
       <span
         className={`truncate font-mono font-semibold tabular-nums ${
@@ -517,7 +517,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2 px-0.5">
-      <span className="text-sm font-medium leading-none">{title}</span>
+      <span className="text-[12px] font-semibold leading-none">{title}</span>
       {hint && <span className="text-aomi-muted text-[11px]">{hint}</span>}
     </div>
   );
@@ -662,7 +662,7 @@ export function AllowanceSettlementSection({
   return (
     <section className="flex flex-col gap-2.5">
       <SectionHeading title="Allowance & settlement" />
-      <div className="border-aomi-border bg-aomi-bg/40 overflow-hidden rounded-xl border">
+      <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
         <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
           <span className="text-aomi-fg text-[13px] font-medium">
             Monthly credits

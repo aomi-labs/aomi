@@ -2,16 +2,13 @@
 
 import { useContext, useMemo, useState } from "react";
 import {
+  requestWalletPickerOpen,
   signOutAndDisconnect,
   useAomiWalletKit,
   WalletSignInOptionsContext,
 } from "@aomi-labs/widget-lib";
 import { AccountSigningView } from "./account-signing";
-import {
-  AccountManagement,
-  type AddSignInOption,
-  type AddWalletOption,
-} from "./account-management/index";
+import { AccountManagement, type AddSignInOption } from "./account-management";
 import { useAccountAcl } from "./use-account-acl";
 import {
   buildUnifiedAccountWallets,
@@ -112,25 +109,6 @@ export function AccountSettings() {
   const providerWallets = useMemo(
     () => acl.wallets.filter(isProviderSigningWallet),
     [acl.wallets],
-  );
-  const addWalletOptions = useMemo<AddWalletOption[]>(
-    () => [
-      ...(adapter.evmWallets ?? []).map((wallet) => ({
-        id: wallet.id,
-        family: "evm" as const,
-        label: wallet.label,
-        markKey: `${wallet.id} ${wallet.label}`,
-        ready: wallet.status !== "unavailable",
-      })),
-      ...(adapter.solanaWallets ?? []).map((wallet) => ({
-        id: wallet.name,
-        family: "svm" as const,
-        label: wallet.name,
-        markKey: wallet.name,
-        ready: wallet.ready,
-      })),
-    ],
-    [adapter.evmWallets, adapter.solanaWallets],
   );
   const addSignInOptions = useMemo<AddSignInOption[]>(
     () =>
@@ -264,7 +242,7 @@ export function AccountSettings() {
         user={adapter.accountUser}
         wallets={wallets}
         signInMethods={signInMethods}
-        addWalletOptions={addWalletOptions}
+        canAddWallet
         addSignInOptions={addSignInOptions}
         pending={pending}
         error={actionError ?? (acl.status === "error" ? acl.error : null)}
@@ -276,19 +254,7 @@ export function AccountSettings() {
                 )
             : undefined
         }
-        onAddWallet={async (option) =>
-          run(`add-wallet:${option.id}`, async () => {
-            if (option.family === "evm" && adapter.connectEvmWallet) {
-              await adapter.connectEvmWallet(option.id);
-              return;
-            }
-            if (option.family === "svm" && adapter.connectSolanaWallet) {
-              await adapter.connectSolanaWallet(option.id);
-              return;
-            }
-            await adapter.connect({ family: option.family });
-          })
-        }
+        onAddWallet={requestWalletPickerOpen}
         onAddSignIn={async (option) =>
           run(`add-sign-in:${option.id}`, async () => {
             const provider = providerOptions.find(
@@ -365,7 +331,7 @@ export function AccountSettings() {
       />
 
       {acl.status === "loading" ? (
-        <p className="text-aomi-muted px-[22px] pb-5 text-[13px]">
+        <p className="text-aomi-muted mx-auto w-full max-w-[780px] px-6 pb-6 text-[12px]">
           Loading provider signing settings…
         </p>
       ) : providerWallets.length ? (
@@ -373,11 +339,9 @@ export function AccountSettings() {
           <AccountSigningView
             wallets={providerWallets}
             delegatedAccounts={acl.delegatedAccounts}
-            unboundWallets={acl.unboundWallets}
             onCommit={acl.commitMode}
             onPrepare={acl.prepareMode}
             onSelectWallet={acl.selectWallet}
-            onBindWallet={acl.bindWallet}
             onRevokeDelegation={acl.revokeDelegation}
             onStopAllAuto={acl.stopAllAuto}
             canConnectPrivy={acl.canConnectPrivy}

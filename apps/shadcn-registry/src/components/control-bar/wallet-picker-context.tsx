@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -25,10 +26,24 @@ const WalletPickerContext = createContext<WalletPickerContextValue | null>(
   null,
 );
 
+const OPEN_WALLET_PICKER_EVENT = "aomi:open-wallet-picker";
+
+/** Open the canonical wallet chooser from host-owned overlays such as Settings. */
+export function requestWalletPickerOpen() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(OPEN_WALLET_PICKER_EVENT));
+}
+
 export function WalletPickerProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const openPicker = useCallback(() => setOpen(true), []);
   const closePicker = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    window.addEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
+    return () =>
+      window.removeEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
+  }, [openPicker]);
 
   const value = useMemo<WalletPickerContextValue>(
     () => ({

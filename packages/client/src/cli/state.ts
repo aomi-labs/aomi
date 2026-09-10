@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
+import type { CliAgentMode } from "./types";
 import type { AomiOAuthResource } from "../authorization";
 
 export type CliAuthSession = {
@@ -35,7 +36,9 @@ export type CliSessionState = {
   sessionId: string;
   clientId?: string;
   baseUrl: string;
+  agentMode?: CliAgentMode;
   app?: string;
+  applicationId?: string;
   model?: string;
   /** Whether the active model has been pushed to the backend session. */
   modelSynced?: boolean;
@@ -116,7 +119,9 @@ function toCliSessionState(stored: StoredSessionState): CliSessionState {
     sessionId: stored.sessionId,
     clientId: stored.clientId,
     baseUrl: stored.baseUrl,
+    agentMode: stored.agentMode,
     app: stored.app,
+    applicationId: stored.applicationId,
     model: stored.model,
     modelSynced: stored.modelSynced,
     apiKey: stored.apiKey,
@@ -151,7 +156,12 @@ function readStoredSession(path: string): StoredSessionState | null {
       sessionId: parsed.sessionId,
       clientId: parsed.clientId,
       baseUrl: parsed.baseUrl,
+      agentMode:
+        parsed.agentMode === "auto" || parsed.agentMode === "direct"
+          ? parsed.agentMode
+          : undefined,
       app: parsed.app,
+      applicationId: parsed.applicationId,
       model: parsed.model,
       modelSynced: parsed.modelSynced,
       apiKey: parsed.apiKey,

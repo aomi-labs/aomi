@@ -92,8 +92,8 @@ export function groupModelsByVendor(models: string[]): ModelGroup[] {
 }
 
 // =============================================================================
-// Auto mode
+// Automatic model selection
 // =============================================================================
 
-/** The display label shown in the trigger when auto mode is active. */
-export const AUTO_MODE_LABEL = "Auto";
+/** The display label shown when automatic model selection is active. */
+export const AUTO_MODEL_LABEL = "Balanced";

@@ -15,7 +15,12 @@
 
 import { useCallback, useEffect } from "react";
 import type { MutableRefObject } from "react";
-import type { AomiAppDescriptor, ApplicationId } from "@aomi-labs/client";
+import type {
+  AgentMode,
+  AgentTarget,
+  AomiAppDescriptor,
+  ApplicationId,
+} from "@aomi-labs/client";
 import {
   initThreadControl,
   type ThreadControlState,
@@ -25,6 +30,7 @@ import {
 import { resolveAutoModel } from "../utils/model-selection";
 
 const MODEL_SELECTION_STORAGE_KEY = "aomi_model_selection";
+const AGENT_MODE_STORAGE_KEY = "aomi_agent_mode";
 
 type StoredModelPreference = {
   mode: ModelSelectionMode;
@@ -34,6 +40,27 @@ type StoredModelPreference = {
 type AppSelectionOptions = {
   applicationId?: ApplicationId;
 };
+
+type DirectAgentTarget = Extract<AgentTarget, { mode: "direct" }>;
+type AgentModeSelectionOptions = { persist?: boolean };
+
+function readStoredAgentMode(): AgentMode {
+  try {
+    return globalThis.localStorage?.getItem(AGENT_MODE_STORAGE_KEY) === "direct"
+      ? "direct"
+      : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function writeStoredAgentMode(mode: AgentMode): void {
+  try {
+    globalThis.localStorage?.setItem(AGENT_MODE_STORAGE_KEY, mode);
+  } catch {
+    // localStorage not available
+  }
+}
 
 function readStoredModelPreference(): StoredModelPreference {
   try {
@@ -166,6 +193,8 @@ function resolveAuthorizedApp(
 
 export type PerThreadControlActions = {
   getCurrentThreadControl: () => ThreadControlState;
+  getCurrentThreadAgentMode: () => AgentMode;
+  getCurrentThreadTarget: () => AgentTarget;
   getCurrentThreadApp: () => string;
   getCurrentThreadApplicationId: () => ApplicationId;
   getPreferredThreadControl: () => ThreadControlState;
@@ -174,6 +203,14 @@ export type PerThreadControlActions = {
     options?: { mode?: ModelSelectionMode },
   ) => Promise<void>;
   onAppSelect: (app: string, options?: AppSelectionOptions) => void;
+  onAgentTargetSelect: (
+    target: DirectAgentTarget,
+    options?: AgentModeSelectionOptions,
+  ) => void;
+  onAgentModeSelect: (
+    mode: AgentMode,
+    options?: AgentModeSelectionOptions,
+  ) => void;
   markControlSynced: () => void;
 };
 
@@ -213,7 +250,6 @@ export function usePerThreadControlImpl({
   defaultAppRef,
   sessionId,
 }: UsePerThreadControlOptions): PerThreadControlActions {
-
   const getCurrentThreadControl = useCallback((): ThreadControlState => {
     const metadata = getThreadMetadataRef.current(sessionIdRef.current);
     return metadata?.control ?? initThreadControl();
@@ -228,6 +264,7 @@ export function usePerThreadControlImpl({
     );
     return {
       ...initThreadControl(),
+      agentMode: readStoredAgentMode(),
       model: selection.model,
       modelMode: selection.mode,
       controlDirty: selection.model !== null,
@@ -249,6 +286,14 @@ export function usePerThreadControlImpl({
     );
   }, []);
 
+  const getCurrentThreadAgentMode = useCallback((): AgentMode => {
+    const control = getCurrentThreadControl();
+    return (
+      control.agentMode ??
+      (control.app || control.applicationId !== null ? "direct" : "auto")
+    );
+  }, [getCurrentThreadControl]);
+
   const getCurrentThreadApplicationId = useCallback((): ApplicationId => {
     const currentControl =
       getThreadMetadataRef.current(sessionIdRef.current)?.control ??
@@ -264,27 +309,54 @@ export function usePerThreadControlImpl({
     );
   }, []);
 
+  const getCurrentThreadTarget = useCallback((): AgentTarget => {
+    if (getCurrentThreadAgentMode() === "auto") return { mode: "auto" };
+    const currentControl = getCurrentThreadControl();
+    const applicationId = normalizeApplicationId(currentControl.applicationId);
+    if (applicationId !== null) {
+      const parsed = Number(applicationId);
+      if (Number.isSafeInteger(parsed) && parsed > 0) {
+        return {
+          mode: "direct",
+          applicationId: parsed,
+          ...(currentControl.app ? { app: currentControl.app } : {}),
+        };
+      }
+    }
+    return { mode: "direct", app: getCurrentThreadApp() };
+  }, [getCurrentThreadAgentMode, getCurrentThreadControl, getCurrentThreadApp]);
+
+  const onAgentTargetSelect = useCallback(
+    (target: DirectAgentTarget, options?: AgentModeSelectionOptions) => {
+      const threadId = sessionIdRef.current;
+      const currentControl =
+        getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
+      updateThreadMetadataRef.current(threadId, {
+        control: {
+          ...currentControl,
+          agentMode: "direct",
+          app: target.app ?? null,
+          applicationId: normalizeApplicationId(target.applicationId),
+          controlDirty: true,
+        },
+      });
+      if (options?.persist !== false) writeStoredAgentMode("direct");
+    },
+    [],
+  );
+
   const onModelSelect = useCallback(
     async (model: string, options?: { mode?: ModelSelectionMode }) => {
       const threadId = sessionIdRef.current;
       const currentControl =
         getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
       const modelMode = options?.mode ?? "manual";
-      const selectedApp = resolveAuthorizedApp(
-        currentControl.app,
-        currentControl.applicationId,
-        authorizedAppsRef.current,
-        appDescriptorsRef.current,
-        defaultAppRef.current,
-      ) ?? { name: "default" };
 
       updateThreadMetadataRef.current(threadId, {
         control: {
           ...currentControl,
           model,
           modelMode,
-          app: selectedApp.name,
-          applicationId: normalizeApplicationId(selectedApp.applicationId),
           controlDirty: true,
         },
       });
@@ -324,6 +396,7 @@ export function usePerThreadControlImpl({
       updateThreadMetadataRef.current(threadId, {
         control: {
           ...currentControl,
+          agentMode: "direct",
           app: descriptor?.name ?? app,
           applicationId: normalizeApplicationId(
             options?.applicationId ?? descriptor?.applicationId ?? null,
@@ -331,6 +404,24 @@ export function usePerThreadControlImpl({
           controlDirty: true,
         },
       });
+      writeStoredAgentMode("direct");
+    },
+    [],
+  );
+
+  const onAgentModeSelect = useCallback(
+    (agentMode: AgentMode, options?: AgentModeSelectionOptions) => {
+      const threadId = sessionIdRef.current;
+      const currentControl =
+        getThreadMetadataRef.current(threadId)?.control ?? initThreadControl();
+      updateThreadMetadataRef.current(threadId, {
+        control: {
+          ...currentControl,
+          agentMode,
+          controlDirty: true,
+        },
+      });
+      if (options?.persist !== false) writeStoredAgentMode(agentMode);
     },
     [],
   );
@@ -355,17 +446,27 @@ export function usePerThreadControlImpl({
     if (!metadata) return;
 
     const currentControl = metadata.control;
-    let nextControl: ThreadControlState | null = null;
+    const storedAgentMode = readStoredAgentMode();
+    let nextControl: ThreadControlState | null =
+      !currentControl.agentMode && storedAgentMode === "direct"
+        ? {
+            ...currentControl,
+            agentMode: storedAgentMode,
+            controlDirty: true,
+          }
+        : null;
+    const baseControl = nextControl ?? currentControl;
 
     if (currentControl.model === null) {
       const preferred = getPreferredThreadControl();
-      if (!preferred.model) return;
-      nextControl = {
-        ...currentControl,
-        model: preferred.model,
-        modelMode: preferred.modelMode,
-        controlDirty: true,
-      };
+      if (preferred.model) {
+        nextControl = {
+          ...baseControl,
+          model: preferred.model,
+          modelMode: preferred.modelMode,
+          controlDirty: true,
+        };
+      }
     } else if (availableModels.length > 0) {
       const currentMode = currentControl.modelMode ?? "manual";
 
@@ -373,7 +474,7 @@ export function usePerThreadControlImpl({
         const autoModel = getFallbackModel(availableModels, defaultModel);
         if (autoModel && currentControl.model !== autoModel) {
           nextControl = {
-            ...currentControl,
+            ...baseControl,
             model: autoModel,
             modelMode: "auto",
             controlDirty: true,
@@ -383,7 +484,7 @@ export function usePerThreadControlImpl({
         const fallbackModel = getFallbackModel(availableModels, defaultModel);
         if (fallbackModel) {
           nextControl = {
-            ...currentControl,
+            ...baseControl,
             model: fallbackModel,
             modelMode: "auto",
             controlDirty: true,
@@ -398,11 +499,15 @@ export function usePerThreadControlImpl({
 
   return {
     getCurrentThreadControl,
+    getCurrentThreadAgentMode,
+    getCurrentThreadTarget,
     getCurrentThreadApp,
     getCurrentThreadApplicationId,
     getPreferredThreadControl,
     onModelSelect,
     onAppSelect,
+    onAgentTargetSelect,
+    onAgentModeSelect,
     markControlSynced,
   };
 }

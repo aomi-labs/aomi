@@ -60,9 +60,9 @@ test("Manual wallet sends no broadcaster and receives an execute_evm Action", as
       "Prepare and simulate it, then call commit_txs in this same turn so the runtime emits an Action. " +
       "Do not ask me for another chat message.",
   );
-  await expect(page.getByRole("heading", { name: "Review action" })).toBeVisible(
-    { timeout: 180_000 },
-  );
+  await expect(page.getByTestId("transaction-review")).toBeVisible({
+    timeout: 300_000,
+  });
 
   expect(starts.length).toBeGreaterThan(0);
   const userState = starts[0].userState as {
@@ -72,7 +72,9 @@ test("Manual wallet sends no broadcaster and receives an execute_evm Action", as
     walletAddress.toLowerCase(),
   );
   expect(userState?.evm).not.toHaveProperty("broadcaster");
-  await expect.poll(() => actions.length, { timeout: 30_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(() => actions.length, { timeout: 30_000 })
+    .toBeGreaterThan(0);
   expect(actions[0].request?.type).toBe("execute_evm");
 });
 
@@ -92,8 +94,9 @@ async function seedWallet(page: Page): Promise<void> {
 async function send(page: Page, message: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
 }

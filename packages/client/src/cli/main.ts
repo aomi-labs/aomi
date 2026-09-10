@@ -39,7 +39,11 @@ function printRootHelp(): void {
   console.log("REPL COMMANDS");
   console.log("");
   console.log("  /heap                        Show REPL help");
-  console.log("  /app <name>                  Switch the active app");
+  console.log("  /mode auto                   Use automatic routing");
+  console.log(
+    "  /mode direct [app]           Route directly (default app if omitted)",
+  );
+  console.log("  /app <name>                  Shorthand for Direct mode");
   console.log("  /model <rig>|list|show       Manage the active model");
   console.log("  /key <provider:key>|show|clear");
   console.log("                               Manage BYOK provider keys");
@@ -56,8 +60,11 @@ function printRootHelp(): void {
     "  --json                       Print machine-readable JSON where supported",
   );
   console.log("  --verbose                    Show extra diagnostics");
-  console.log("  --app <name>                 Active app");
-  console.log("  --application-id <id>        Hosted app discovery identity");
+  console.log(
+    "  --mode <auto|direct>         Agent routing mode (default: auto)",
+  );
+  console.log("  --app <name>                 Direct app");
+  console.log("  --application-id <id>        Direct hosted app identity");
   console.log("  --platform <name>            Hosted app discovery platform");
   console.log("  --model <rig>                Active model");
   console.log("  --new-session                Create a fresh active session");

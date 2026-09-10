@@ -2,7 +2,11 @@
 // API Client (re-exported from @aomi-labs/client)
 // =============================================================================
 export { AomiClient } from "@aomi-labs/client";
-export type { AomiClientOptions } from "@aomi-labs/client";
+export type {
+  AgentMode,
+  AgentTarget,
+  AomiClientOptions,
+} from "@aomi-labs/client";
 export type {
   Action,
   ActionRequest,

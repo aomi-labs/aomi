@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
 
 import { projectAssistantMessages, projectRuntimeMessages } from "../utils";
+import { appendCapabilityHints } from "../capability-hints";
 
 const meta = (
   sequence: number,
@@ -16,6 +17,50 @@ const meta = (
 });
 
 describe("projectAssistantMessages", () => {
+  it("keeps frontend capability hints out of optimistic and canonical user messages", () => {
+    const hinted = appendCapabilityHints("swap one eth", {
+      policy: "auto",
+      resolvedMode: "direct",
+      capabilities: [
+        { kind: "skill", id: "uniswap" },
+        { kind: "chain", id: "eip155:8453" },
+      ],
+    });
+
+    expect(projectRuntimeMessages([], hinted)[0]).toMatchObject({
+      content: [{ type: "text", text: "swap one eth" }],
+      metadata: {
+        custom: {
+          aomiCapabilityHints: [
+            { kind: "skill", id: "uniswap" },
+            { kind: "chain", id: "eip155:8453" },
+          ],
+        },
+      },
+    });
+    expect(
+      projectAssistantMessages([
+        {
+          ...meta(1, "message", "turn-1"),
+          type: "message",
+          sender: "user",
+          content: hinted,
+          message_key: "user-1",
+        },
+      ])[0],
+    ).toMatchObject({
+      content: [{ type: "text", text: "swap one eth" }],
+      metadata: {
+        custom: {
+          aomiCapabilityHints: [
+            { kind: "skill", id: "uniswap" },
+            { kind: "chain", id: "eip155:8453" },
+          ],
+        },
+      },
+    });
+  });
+
   it("reconciles the optimistic user echo with the canonical event by id", () => {
     const optimistic = projectRuntimeMessages([], "hello");
     const canonical = projectRuntimeMessages([
@@ -98,6 +143,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "tool-step-1",
+        tool_call_id: "call-balance-1",
         tool_name: "get_balance",
         tool_arguments: { owner: "vitalik.eth" },
         tool_result: ["Read vitalik.eth ETH balance", '{"balance_eth":"6.64"}'],
@@ -114,7 +160,7 @@ describe("projectAssistantMessages", () => {
     expect(projectAssistantMessages(events)[0]?.content).toMatchObject([
       {
         type: "tool-call",
-        toolCallId: "inline:tool-step-1",
+        toolCallId: "call-balance-1",
         toolName: "get_balance",
         args: { owner: "vitalik.eth" },
         result: { balance_eth: "6.64" },

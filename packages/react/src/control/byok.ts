@@ -2,7 +2,7 @@
 // useByok — account model-key API + generic secret vault API
 // =============================================================================
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import type {
   AomiByokKeyEntry,
@@ -42,6 +42,8 @@ export type ByokActions = SecretsActions & {
 
 type UseByokOptions = {
   aomiClientRef: MutableRefObject<AomiClient>;
+  /** Null until the host has a canonical account session. */
+  accountClient: AomiClient | null;
   clientIdRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
@@ -52,6 +54,7 @@ type UseByokOptions = {
  *  `useByok` slice reader exported from contexts/control-context.tsx. */
 export function useByokImpl({
   aomiClientRef,
+  accountClient,
   clientIdRef,
   getControlSessionId,
   initialInferenceFunding,
@@ -64,10 +67,14 @@ export function useByokImpl({
     AomiInferenceFundingSource | undefined
   >(initialInferenceFunding);
 
+  const accountClientRef = useRef(accountClient);
+  accountClientRef.current = accountClient;
+
   useEffect(() => {
-    if (!clientIdRef.current) return;
+    setByokKeys({});
+    if (!accountClient || !clientIdRef.current) return;
     let cancelled = false;
-    void aomiClientRef.current
+    void accountClient
       .listByokKeys(getControlSessionId())
       .then((entries) => {
         if (cancelled) return;
@@ -83,7 +90,7 @@ export function useByokImpl({
     return () => {
       cancelled = true;
     };
-  }, [aomiClientRef, clientIdRef, getControlSessionId]);
+  }, [accountClient, clientIdRef, getControlSessionId]);
 
   const ingestSecrets = useCallback(
     async (
@@ -130,31 +137,34 @@ export function useByokImpl({
 
   const setByok = useCallback(
     async (provider: string, apiKey: string, label?: string): Promise<void> => {
+      if (!accountClient)
+        throw new Error("Sign in to manage account model keys");
       const trimmed = apiKey.trim();
       if (!trimmed) return;
-      const entry = await aomiClientRef.current.saveByokKey(
+      const entry = await accountClient.saveByokKey(
         getControlSessionId(),
         provider,
         trimmed,
         label,
       );
+      if (accountClientRef.current !== accountClient) return;
       setByokKeys((prev) => ({ ...prev, [provider]: entry }));
     },
-    [aomiClientRef, getControlSessionId],
+    [accountClient, getControlSessionId],
   );
 
   const removeByok = useCallback(
     async (provider: string): Promise<void> => {
-      await aomiClientRef.current.deleteByokKey(
-        getControlSessionId(),
-        provider,
-      );
+      if (!accountClient)
+        throw new Error("Sign in to manage account model keys");
+      await accountClient.deleteByokKey(getControlSessionId(), provider);
+      if (accountClientRef.current !== accountClient) return;
       setByokKeys((prev) => {
         const { [provider]: _, ...rest } = prev;
         return rest;
       });
     },
-    [aomiClientRef, getControlSessionId],
+    [accountClient, getControlSessionId],
   );
 
   const getByokKeys = useCallback(() => byokKeys, [byokKeys]);

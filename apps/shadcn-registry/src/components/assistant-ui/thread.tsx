@@ -10,8 +10,14 @@ import {
   ChevronRightIcon,
   CoinsIcon,
   CopyIcon,
+  ImageIcon,
+  LandmarkIcon,
   PencilIcon,
+  PlusIcon,
   RefreshCwIcon,
+  SearchIcon,
+  SendIcon,
+  ShieldCheckIcon,
   Square,
   ArrowLeftRightIcon,
   TrendingUpIcon,
@@ -28,7 +34,7 @@ import {
 
 import type { FC } from "react";
 import { useEffect } from "react";
-import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
+import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
 
 import { Button } from "@/components/ui/button";
@@ -46,18 +52,30 @@ import {
 } from "@aomi-labs/react";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
+import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
+import { ModeSelect } from "@/components/control-bar/mode-select";
 import { AppSelect } from "@/components/control-bar/app-select";
 import { ApiKeyInput } from "@/components/control-bar/api-key-input";
 import { NetworkSelect } from "@/components/control-bar/network-select";
 import { ConnectButton } from "@/components/control-bar/connect-button";
 import { PaymentRequiredGate } from "@/components/control-bar/payment-required-gate";
 import { shouldShowThreadLoadingSkeleton } from "@/components/assistant-ui/thread-loading";
+import { CapabilityMessageText } from "@/components/assistant-ui/capability-message-text";
 import { useThread, useComposerRuntime, useMessage } from "@assistant-ui/react";
+import {
+  CapabilityComposerProvider,
+  CapabilityMentionInput,
+  useCapabilityComposer,
+} from "@/components/assistant-ui/capability-composer";
 
 export const Thread: FC = () => {
   const composerRuntime = useComposerRuntime();
   const { threadViewKey } = useThreadContext();
+  const composerControl = useComposerControl();
+  const aomiRuntime = useOptionalAomiRuntime();
+  const controlBarProps = composerControl.controlBarProps ?? {};
+  const isReviewingAction = Boolean(aomiRuntime?.pendingActions.length);
 
   useEffect(() => {
     try {
@@ -68,43 +86,56 @@ export const Thread: FC = () => {
   }, [composerRuntime, threadViewKey]);
 
   return (
-    <LazyMotion features={domAnimation}>
-      <MotionConfig reducedMotion="user">
-        <ThreadPrimitive.Root
-          className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
-          style={{
-            ["--thread-max-width" as string]: "45rem",
-          }}
-        >
-          <PaymentRequiredGate />
-          <ThreadPrimitive.Viewport className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6">
-            <ThreadPrimitive.If empty>
-              <ThreadWelcome />
-            </ThreadPrimitive.If>
+    <CapabilityComposerProvider
+      enabledAppIds={controlBarProps.enabledAppIds}
+      routing={controlBarProps.routing}
+    >
+      <LazyMotion features={domMax}>
+        <MotionConfig reducedMotion="user">
+          <ThreadPrimitive.Root
+            className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
+            style={{
+              ["--thread-max-width" as string]: "45rem",
+            }}
+          >
+            <PaymentRequiredGate />
+            <div className="@[1100px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="aui-chat-column @[1100px]:ml-auto @[1100px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
+                <ThreadPrimitive.Viewport
+                  autoScroll={!isReviewingAction}
+                  className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
+                >
+                  <ThreadPrimitive.If empty>
+                    <ThreadWelcome />
+                  </ThreadPrimitive.If>
 
-            <ThreadLoadingSkeleton />
+                  <ThreadLoadingSkeleton />
 
-            <ThreadPrimitive.Messages
-              components={{
-                UserMessage,
-                EditComposer,
-                AssistantMessage,
-              }}
-            />
+                  <ThreadPrimitive.Messages
+                    components={{
+                      UserMessage,
+                      EditComposer,
+                      AssistantMessage,
+                    }}
+                  />
 
-            <ThreadPrimitive.If empty={false}>
-              <div className="aui-thread-viewport-spacer min-h-36 grow" />
-            </ThreadPrimitive.If>
-          </ThreadPrimitive.Viewport>
+                  <ThreadPrimitive.If empty={false}>
+                    <div className="aui-thread-viewport-spacer min-h-36 grow" />
+                  </ThreadPrimitive.If>
+                </ThreadPrimitive.Viewport>
 
-          {/* The empty state carries its own hero composer (mock layout); the
+                {/* The empty state carries its own hero composer (mock layout); the
               docked composer appears once a conversation exists. */}
-          <ThreadPrimitive.If empty={false}>
-            <Composer />
-          </ThreadPrimitive.If>
-        </ThreadPrimitive.Root>
-      </MotionConfig>
-    </LazyMotion>
+                <ThreadPrimitive.If empty={false}>
+                  <Composer />
+                </ThreadPrimitive.If>
+              </div>
+              {aomiRuntime && <ActivitySidebar />}
+            </div>
+          </ThreadPrimitive.Root>
+        </MotionConfig>
+      </LazyMotion>
+    </CapabilityComposerProvider>
   );
 };
 
@@ -157,41 +188,66 @@ const ThreadWelcome: FC = () => {
 };
 
 const ThreadSuggestions: FC = () => {
-  const suggestedActions = [
-    {
-      label: "Swap 0.5 ETH to USDC",
-      action: "Swap 0.5 ETH to USDC at the best rate",
-      icon: ArrowLeftRightIcon,
-    },
-    {
-      label: "Bridge USDC to Base",
-      action: "Bridge 100 USDC from Ethereum to Base",
-      icon: CableIcon,
-    },
-    {
-      label: "Check my portfolio",
-      action: "Show my wallet balances and positions",
-      icon: CoinsIcon,
-    },
-    {
-      label: "Deploy an ERC-20 token",
-      action: "Deploy an ERC-20 token",
-      icon: BoxIcon,
-    },
-    {
-      label: "Find the best ETH yield",
-      action: "Find the highest available yield for staking ETH",
-      icon: TrendingUpIcon,
-    },
-  ];
   const suggestionRows = [
     {
       id: "primary",
-      actions: suggestedActions,
+      actions: [
+        {
+          label: "Swap 0.5 ETH to USDC",
+          action: "Swap 0.5 ETH to USDC at the best rate",
+          icon: ArrowLeftRightIcon,
+        },
+        {
+          label: "Bridge USDC to Base",
+          action: "Bridge 100 USDC from Ethereum to Base",
+          icon: CableIcon,
+        },
+        {
+          label: "Check my portfolio",
+          action: "Show my wallet balances and positions",
+          icon: CoinsIcon,
+        },
+        {
+          label: "Deploy an ERC-20 token",
+          action: "Deploy an ERC-20 token",
+          icon: BoxIcon,
+        },
+        {
+          label: "Find the best ETH yield",
+          action: "Find the highest available yield for staking ETH",
+          icon: TrendingUpIcon,
+        },
+      ],
     },
     {
       id: "secondary",
-      actions: [...suggestedActions.slice(2), ...suggestedActions.slice(0, 2)],
+      actions: [
+        {
+          label: "Send 0.01 ETH",
+          action: "Help me send 0.01 ETH to another wallet",
+          icon: SendIcon,
+        },
+        {
+          label: "Supply USDC to Aave",
+          action: "Supply 100 USDC to Aave on the best supported network",
+          icon: LandmarkIcon,
+        },
+        {
+          label: "Review token approvals",
+          action: "Show and review my active token approvals",
+          icon: ShieldCheckIcon,
+        },
+        {
+          label: "Create an NFT collection",
+          action: "Create and deploy an NFT collection",
+          icon: ImageIcon,
+        },
+        {
+          label: "Track a transaction",
+          action: "Help me look up an on-chain transaction by hash",
+          icon: SearchIcon,
+        },
+      ],
     },
   ];
 
@@ -259,14 +315,15 @@ const ThreadSuggestions: FC = () => {
  * placement and placeholder differ.
  */
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
+  const { prepareSubmit } = useCapabilityComposer();
   return (
-    <ComposerPrimitive.Root className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3">
-      <ComposerPrimitive.Input
+    <ComposerPrimitive.Root
+      onSubmit={prepareSubmit}
+      className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3"
+    >
+      <CapabilityMentionInput
         placeholder={placeholder}
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
-        rows={1}
-        autoFocus
-        aria-label="Message input"
       />
       <ComposerAction />
     </ComposerPrimitive.Root>
@@ -282,24 +339,69 @@ const Composer: FC = () => {
   );
 };
 
+/**
+ * Auto stays a single quiet policy control. Direct grows into two adjacent
+ * controls, keeping the target visibly attached to the routing policy without
+ * wrapping the pair in another visual container.
+ */
+const ExecutionControl: FC = () => {
+  const { policy, showModeSelect, showDirectAppSelect } =
+    useCapabilityComposer();
+  const joined = policy === "direct" && showModeSelect && showDirectAppSelect;
+
+  return (
+    <div className={cn("flex shrink-0 items-center", joined && "h-8 gap-0.5")}>
+      <ModeSelect
+        className={cn(
+          joined && "hover:bg-aomi-hover h-full rounded-lg pl-2.5 pr-2",
+        )}
+      />
+      <AppSelect
+        className={cn(
+          joined && "hover:bg-aomi-hover h-full rounded-lg pl-2 pr-2.5",
+        )}
+      />
+    </div>
+  );
+};
+
+const CapabilityPickerButton: FC = () => {
+  const { hintsEnabled, openCapabilityPicker } = useCapabilityComposer();
+  if (!hintsEnabled) return null;
+
+  return (
+    <button
+      type="button"
+      aria-label="Add app, skill, or chain"
+      title="Add app, skill, or chain"
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={openCapabilityPicker}
+      className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+    >
+      <PlusIcon className="size-4" />
+    </button>
+  );
+};
+
 const ComposerAction: FC = () => {
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
   const controlBarProps = composerControl.controlBarProps ?? {};
   const hideModel = controlBarProps.hideModel ?? false;
-  const hideApp = controlBarProps.hideApp ?? false;
   const hideApiKey = controlBarProps.hideApiKey ?? false;
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
+  const { hostError } = useCapabilityComposer();
 
   return (
     <div className="aui-composer-action-wrapper relative mx-1 mb-3 mt-2 flex min-h-[38px] items-center gap-1">
       {/* Inline controls — horizontally scrollable on mobile */}
       {composerControl.enabled && (
-        <div className="aui-composer-action-scroll ml-1 flex min-w-0 flex-1 items-center gap-0 overflow-x-auto md:ml-2 md:gap-2">
+        <div className="aui-composer-action-scroll ml-1 flex min-w-0 flex-1 items-center gap-0 overflow-x-auto md:ml-2">
           {!hideNetwork && <NetworkSelect />}
+          <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
-          {!hideApp && <AppSelect />}
+          <ExecutionControl />
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}
         </div>
@@ -317,6 +419,8 @@ const ComposerAction: FC = () => {
               size="icon"
               className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
+              disabled={Boolean(hostError)}
+              title={hostError ?? undefined}
             >
               <ArrowUpIcon className="aui-composer-send-icon size-4" />
             </Button>
@@ -565,7 +669,9 @@ const UserMessage: FC = () => {
             {isEmpty ? (
               <Skeleton className="aui-user-message-content-skeleton h-4 w-28 rounded-full" />
             ) : (
-              <MessagePrimitive.Parts />
+              <MessagePrimitive.Parts
+                components={{ Text: CapabilityMessageText }}
+              />
             )}
           </div>
           {!isEmpty && (

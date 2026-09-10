@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
   "name": "aomi",
-  "homepage": "https://r.aomi.dev",
+  "homepage": "https://aomi.dev",
   "items": [
     {
       "name": "aomi-theme",
@@ -17,24 +17,43 @@
       "registryDependencies": []
     },
     {
+      "name": "agent-routing",
+      "type": "registry:component",
+      "description": "Host-owned Auto and Direct routing contract for Aomi UI.",
+      "files": [
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/routing.ts",
+          "target": "@components/assistant-ui/routing.ts"
+        }
+      ],
+      "dependencies": [
+        "@aomi-labs/react@0.6.13"
+      ],
+      "registryDependencies": []
+    },
+    {
       "name": "aomi-widget",
       "type": "registry:component",
       "description": "Embeddable Aomi widget with tenant-scoped provider or wallet authentication.",
       "files": [
         {
           "type": "registry:component",
-          "path": "components/aomi-widget.tsx"
+          "path": "components/aomi-widget.tsx",
+          "target": "@components/aomi-widget.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/backend-aa-provisioner.tsx"
+          "path": "components/backend-aa-provisioner.tsx",
+          "target": "@components/backend-aa-provisioner.tsx"
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13"
       ],
       "registryDependencies": [
+        "https://aomi.dev/r/agent-routing.json",
         "https://aomi.dev/r/aomi-frame.json",
         "https://aomi.dev/r/aomi-wallet-kit.json"
       ]
@@ -46,11 +65,17 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/aomi-frame.tsx"
+          "path": "components/aomi-frame.tsx",
+          "target": "@components/aomi-frame.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/activity-panel-context.tsx",
+          "target": "@components/activity-sidebar/activity-panel-context.tsx"
         }
       ],
       "dependencies": [
-        "@aomi-labs/react"
+        "@aomi-labs/react@0.6.13"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-theme.json",
@@ -58,10 +83,10 @@
         "https://aomi.dev/r/assistant-threadlist-sidebar.json",
         "https://aomi.dev/r/aomi-wallet-kit.json",
         "https://aomi.dev/r/control-bar.json",
-        "https://aomi.dev/r/runtime-tx-handler.json",
-        "separator",
-        "breadcrumb",
-        "sidebar"
+        "https://aomi.dev/r/activity-sidebar.json",
+        "https://aomi.dev/r/separator.json",
+        "https://aomi.dev/r/breadcrumb.json",
+        "https://aomi.dev/r/sidebar.json"
       ]
     },
     {
@@ -70,263 +95,326 @@
       "description": "Generic Aomi wallet kit context. Identity → UserState sync is mounted automatically by AomiWalletKitContextProvider.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit.ts",
+          "target": "@lib/wallet-kit.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/index.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/index.ts",
+          "target": "@lib/wallet-kit/index.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/context.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/context.tsx",
+          "target": "@lib/wallet-kit/context.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/types.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/types.ts",
+          "target": "@lib/wallet-kit/types.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/env.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/env.ts",
+          "target": "@lib/wallet-kit/env.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/identity.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/identity.ts",
+          "target": "@lib/wallet-kit/identity.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/wallet-utils.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/wallet-utils.ts",
+          "target": "@lib/wallet-kit/wallet-utils.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/accounts.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/accounts.ts",
+          "target": "@lib/wallet-kit/accounts.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts",
+          "target": "@lib/wallet-kit/catalog/evm-connector-catalog.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/svm-wallet-catalog.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/svm-wallet-catalog.ts",
+          "target": "@lib/wallet-kit/catalog/svm-wallet-catalog.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/wallet-branding.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/wallet-branding.ts",
+          "target": "@lib/wallet-kit/catalog/wallet-branding.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/wallet-ids.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/wallet-ids.ts",
+          "target": "@lib/wallet-kit/catalog/wallet-ids.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/AomiWalletKitProvider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/AomiWalletKitProvider.tsx",
+          "target": "@lib/wallet-kit/config/AomiWalletKitProvider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/evm-connection-persistence.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/evm-connection-persistence.ts",
+          "target": "@lib/wallet-kit/config/evm-connection-persistence.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/execution.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/execution.ts",
+          "target": "@lib/wallet-kit/config/execution.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/index.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/index.ts",
+          "target": "@lib/wallet-kit/config/index.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/provider-auth.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/provider-auth.ts",
+          "target": "@lib/wallet-kit/config/provider-auth.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/config/types.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/config/types.ts",
+          "target": "@lib/wallet-kit/config/types.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/plugin-registry.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/plugin-registry.ts",
+          "target": "@lib/wallet-kit/providers/plugin-registry.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/execution/backend-aa-context.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/execution/backend-aa-context.tsx",
+          "target": "@lib/wallet-kit/execution/backend-aa-context.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/execution/execution-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/execution/execution-runtime.ts",
+          "target": "@lib/wallet-kit/execution/execution-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/execution/wallet-execution.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/execution/wallet-execution.ts",
+          "target": "@lib/wallet-kit/execution/wallet-execution.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/full-testnet-config.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/full-testnet-config.ts",
+          "target": "@lib/wallet-kit/full-testnet-config.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/full-testnet-wallet-routing.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/full-testnet-wallet-routing.tsx",
+          "target": "@lib/wallet-kit/full-testnet-wallet-routing.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/network-preferences.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/network-preferences.tsx",
+          "target": "@lib/wallet-kit/network-preferences.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/wallet-debug.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/wallet-debug.ts",
+          "target": "@lib/wallet-kit/wallet-debug.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/types.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/types.ts",
+          "target": "@lib/wallet-kit/account/types.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/disabled-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/disabled-runtime.ts",
+          "target": "@lib/wallet-kit/account/disabled-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/aomi-backend-client.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/aomi-backend-client.ts",
+          "target": "@lib/wallet-kit/account/aomi-backend-client.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/aomi-backend-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/aomi-backend-runtime.ts",
+          "target": "@lib/wallet-kit/account/aomi-backend-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/sign-out.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/sign-out.ts",
+          "target": "@lib/wallet-kit/account/sign-out.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/encoding.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/encoding.ts",
+          "target": "@lib/wallet-kit/account/encoding.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/use-widget-session-provider.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/use-widget-session-provider.ts",
+          "target": "@lib/wallet-kit/account/use-widget-session-provider.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/account/use-resolved-account-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/account/use-resolved-account-runtime.ts",
+          "target": "@lib/wallet-kit/account/use-resolved-account-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/composer/AomiWalletKitComposer.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/composer/AomiWalletKitComposer.tsx",
+          "target": "@lib/wallet-kit/composer/AomiWalletKitComposer.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/composer/build-identity.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/composer/build-identity.ts",
+          "target": "@lib/wallet-kit/composer/build-identity.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/composer/build-wallet-kit-actions.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/composer/build-wallet-kit-actions.ts",
+          "target": "@lib/wallet-kit/composer/build-wallet-kit-actions.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/composer/merge-wallet-rows.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/composer/merge-wallet-rows.ts",
+          "target": "@lib/wallet-kit/composer/merge-wallet-rows.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/composer/types.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/composer/types.ts",
+          "target": "@lib/wallet-kit/composer/types.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/brands.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/brands.ts",
+          "target": "@lib/wallet-kit/runtime/evm/brands.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/disabled-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/disabled-runtime.ts",
+          "target": "@lib/wallet-kit/runtime/evm/disabled-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/disconnect-plan.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/disconnect-plan.ts",
+          "target": "@lib/wallet-kit/runtime/evm/disconnect-plan.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/provider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/provider.tsx",
+          "target": "@lib/wallet-kit/runtime/evm/provider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/registry-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/registry-source.ts",
+          "target": "@lib/wallet-kit/runtime/evm/registry-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts",
+          "target": "@lib/wallet-kit/runtime/evm/safe-hooks.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/wallet-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/wallet-runtime.ts",
+          "target": "@lib/wallet-kit/runtime/evm/wallet-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/identity-grace.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/identity-grace.ts",
+          "target": "@lib/wallet-kit/registry/identity-grace.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/use-wallet-registry.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/use-wallet-registry.ts",
+          "target": "@lib/wallet-kit/registry/use-wallet-registry.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/svm-networks.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/svm-networks.ts",
+          "target": "@lib/wallet-kit/catalog/svm-networks.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/svm/transactions.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/svm/transactions.ts",
+          "target": "@lib/wallet-kit/runtime/svm/transactions.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/svm/registry-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/svm/registry-source.ts",
+          "target": "@lib/wallet-kit/runtime/svm/registry-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/svm/wallet-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/svm/wallet-runtime.ts",
+          "target": "@lib/wallet-kit/runtime/svm/wallet-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/types.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/types.ts",
+          "target": "@lib/wallet-kit/registry/types.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/reducer.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/reducer.ts",
+          "target": "@lib/wallet-kit/registry/reducer.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/policy.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/policy.ts",
+          "target": "@lib/wallet-kit/registry/policy.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/commands.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/commands.ts",
+          "target": "@lib/wallet-kit/registry/commands.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/persistence.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/persistence.ts",
+          "target": "@lib/wallet-kit/registry/persistence.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/store.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/store.ts",
+          "target": "@lib/wallet-kit/registry/store.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/selectors.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/selectors.ts",
+          "target": "@lib/wallet-kit/registry/selectors.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/use-wallet-activation-guard.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/use-wallet-activation-guard.ts",
+          "target": "@lib/wallet-kit/use-wallet-activation-guard.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/use-action-capabilities.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/use-action-capabilities.ts",
+          "target": "@lib/wallet-kit/use-action-capabilities.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-identity.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-identity.ts",
+          "target": "@lib/wallet-identity.ts"
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "@solana/wallet-adapter-react",
-        "@solana/wallet-standard-wallet-adapter-react",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@solana/wallet-adapter-react@^0.15.39",
+        "@solana/wallet-standard-wallet-adapter-react@1.1.4",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "@x402/svm@^2.21.0",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": []
     },
@@ -337,155 +425,220 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/control-bar/index.tsx"
+          "path": "components/control-bar/index.tsx",
+          "target": "@components/control-bar/index.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/model-select.tsx"
+          "path": "components/control-bar/control-menu.tsx",
+          "target": "@components/control-bar/control-menu.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/model-metadata.ts"
+          "path": "components/control-bar/model-select.tsx",
+          "target": "@components/control-bar/model-select.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/app-metadata.ts"
+          "path": "components/control-bar/model-metadata.ts",
+          "target": "@components/control-bar/model-metadata.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/app-select.tsx"
+          "path": "components/control-bar/app-metadata.ts",
+          "target": "@components/control-bar/app-metadata.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/apps/app-identity.ts",
+          "target": "@lib/apps/app-identity.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/api-key-input.tsx"
+          "path": "components/control-bar/api-key-input.tsx",
+          "target": "@components/control-bar/api-key-input.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/connect-button.tsx"
+          "path": "components/control-bar/connect-button.tsx",
+          "target": "@components/control-bar/connect-button.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/network-select.tsx"
+          "path": "components/control-bar/network-metadata.ts",
+          "target": "@components/control-bar/network-metadata.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/secret-input.tsx"
+          "path": "components/control-bar/network-select.tsx",
+          "target": "@components/control-bar/network-select.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/payment-required-gate.tsx"
+          "path": "components/control-bar/secret-input.tsx",
+          "target": "@components/control-bar/secret-input.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/dual-wallet-bar.tsx"
+          "path": "components/control-bar/payment-required-gate.tsx",
+          "target": "@components/control-bar/payment-required-gate.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/account-menu.tsx"
+          "path": "components/control-bar/dual-wallet-bar.tsx",
+          "target": "@components/control-bar/dual-wallet-bar.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/account-menu-types.ts"
+          "path": "components/control-bar/account-menu.tsx",
+          "target": "@components/control-bar/account-menu.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/disconnect-confirm-dialog.tsx"
+          "path": "components/control-bar/account-menu-types.ts",
+          "target": "@components/control-bar/account-menu-types.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/wallet-picker.tsx"
+          "path": "components/control-bar/disconnect-confirm-dialog.tsx",
+          "target": "@components/control-bar/disconnect-confirm-dialog.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/wallet-account-model.ts"
+          "path": "components/control-bar/wallet-picker.tsx",
+          "target": "@components/control-bar/wallet-picker.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/wallet-picker-context.tsx"
+          "path": "components/control-bar/wallet-account-model.ts",
+          "target": "@components/control-bar/wallet-account-model.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/control-bar/wallet-icon-slot.tsx"
+          "path": "components/control-bar/wallet-picker-context.tsx",
+          "target": "@components/control-bar/wallet-picker-context.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/ui/modal-backdrop.tsx"
+          "path": "components/control-bar/wallet-icon-slot.tsx",
+          "target": "@components/control-bar/wallet-icon-slot.tsx"
+        },
+        {
+          "type": "registry:ui",
+          "path": "components/ui/modal-backdrop.tsx",
+          "target": "@ui/modal-backdrop.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/index.ts"
+          "path": "components/icons/index.ts",
+          "target": "@components/icons/index.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/auto-mode.tsx"
+          "path": "components/icons/auto-mode.tsx",
+          "target": "@components/icons/auto-mode.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/app-map.tsx"
+          "path": "components/icons/app-map.tsx",
+          "target": "@components/icons/app-map.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/vendor-map.tsx"
+          "path": "components/icons/app-identity-icon.tsx",
+          "target": "@components/icons/app-identity-icon.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/chain-map.tsx"
+          "path": "components/icons/vendor-map.tsx",
+          "target": "@components/icons/vendor-map.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/wallet-map.tsx"
+          "path": "components/icons/chain-map.tsx",
+          "target": "@components/icons/chain-map.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/apps/index.tsx"
+          "path": "components/icons/wallet-map.tsx",
+          "target": "@components/icons/wallet-map.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/vendors/index.tsx"
+          "path": "components/icons/apps/index.tsx",
+          "target": "@components/icons/apps/index.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/chains/index.tsx"
+          "path": "components/icons/apps/sourced-marks.ts",
+          "target": "@components/icons/apps/sourced-marks.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/wallets/index.tsx"
+          "path": "components/icons/skills/index.tsx",
+          "target": "@components/icons/skills/index.tsx"
         },
         {
           "type": "registry:component",
-          "path": "lib/wallet-kit.ts"
+          "path": "components/icons/skills/sourced-marks.ts",
+          "target": "@components/icons/skills/sourced-marks.ts"
         },
         {
           "type": "registry:component",
-          "path": "lib/wallet-kit/accounts.ts"
+          "path": "components/icons/vendors/index.tsx",
+          "target": "@components/icons/vendors/index.tsx"
         },
         {
           "type": "registry:component",
-          "path": "lib/wallet-kit/network-preferences.tsx"
+          "path": "components/icons/chains/index.tsx",
+          "target": "@components/icons/chains/index.tsx"
         },
         {
           "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/svm-networks.ts"
+          "path": "components/icons/wallets/index.tsx",
+          "target": "@components/icons/wallets/index.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-identity.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit.ts",
+          "target": "@lib/wallet-kit.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/accounts.ts",
+          "target": "@lib/wallet-kit/accounts.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/network-preferences.tsx",
+          "target": "@lib/wallet-kit/network-preferences.tsx"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/svm-networks.ts",
+          "target": "@lib/wallet-kit/catalog/svm-networks.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-identity.ts",
+          "target": "@lib/wallet-identity.ts"
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "lucide-react",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "lucide-react@^0.545.0",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
+        "https://aomi.dev/r/agent-routing.json",
         "https://aomi.dev/r/aomi-wallet-kit.json",
-        "button",
-        "popover",
-        "command",
-        "dialog",
-        "input",
-        "label"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/popover.json",
+        "https://aomi.dev/r/command.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/input.json",
+        "https://aomi.dev/r/label.json"
       ]
     },
     {
@@ -495,124 +648,225 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/thread.tsx"
+          "path": "components/assistant-ui/thread.tsx",
+          "target": "@components/assistant-ui/thread.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/thread-loading.ts"
+          "path": "components/assistant-ui/thread-loading.ts",
+          "target": "@components/assistant-ui/thread-loading.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/working-trace.tsx"
+          "path": "components/assistant-ui/capability-message-text.tsx",
+          "target": "@components/assistant-ui/capability-message-text.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/working-trace-rows.tsx"
+          "path": "components/assistant-ui/capability-composer.tsx",
+          "target": "@components/assistant-ui/capability-composer.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/working-agent.tsx"
+          "path": "components/assistant-ui/capability-composer/provider.tsx",
+          "target": "@components/assistant-ui/capability-composer/provider.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter.ts"
+          "path": "components/assistant-ui/capability-composer/input.tsx",
+          "target": "@components/assistant-ui/capability-composer/input.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/index.ts"
+          "path": "components/assistant-ui/capability-composer/picker.tsx",
+          "target": "@components/assistant-ui/capability-composer/picker.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/types.ts"
+          "path": "components/assistant-ui/capability-composer/use-picker-placement.ts",
+          "target": "@components/assistant-ui/capability-composer/use-picker-placement.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/unwrap.ts"
+          "path": "components/assistant-ui/capability-composer/catalog.tsx",
+          "target": "@components/assistant-ui/capability-composer/catalog.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/normalize.ts"
+          "path": "components/assistant-ui/capability-composer/editor-dom.ts",
+          "target": "@components/assistant-ui/capability-composer/editor-dom.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/pipeline.ts"
+          "path": "components/assistant-ui/capability-composer/model.ts",
+          "target": "@components/assistant-ui/capability-composer/model.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/simple.ts"
+          "path": "components/assistant-ui/capability-hint-payload.ts",
+          "target": "@components/assistant-ui/capability-hint-payload.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/evm-call.ts"
+          "path": "components/control-bar/app-select.tsx",
+          "target": "@components/control-bar/app-select.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/evm-tx.ts"
+          "path": "components/control-bar/mode-select.tsx",
+          "target": "@components/control-bar/mode-select.tsx"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/capabilities/skill-catalog.ts",
+          "target": "@lib/capabilities/skill-catalog.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/svm.ts"
+          "path": "components/assistant-ui/working-trace.tsx",
+          "target": "@components/assistant-ui/working-trace.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/svm-tx.ts"
+          "path": "components/assistant-ui/working-trace-rows.tsx",
+          "target": "@components/assistant-ui/working-trace-rows.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/jupiter.ts"
+          "path": "components/assistant-ui/working-agent.tsx",
+          "target": "@components/assistant-ui/working-agent.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/lifi.ts"
+          "path": "components/assistant-ui/tool-interpreter.ts",
+          "target": "@components/assistant-ui/tool-interpreter.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/families/task.ts"
+          "path": "components/assistant-ui/tool-interpreter/index.ts",
+          "target": "@components/assistant-ui/tool-interpreter/index.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/present/index.ts"
+          "path": "components/assistant-ui/tool-interpreter/types.ts",
+          "target": "@components/assistant-ui/tool-interpreter/types.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/present/chips.ts"
+          "path": "components/assistant-ui/tool-interpreter/unwrap.ts",
+          "target": "@components/assistant-ui/tool-interpreter/unwrap.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/present/descriptors.ts"
+          "path": "components/assistant-ui/tool-interpreter/normalize.ts",
+          "target": "@components/assistant-ui/tool-interpreter/normalize.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-interpreter/present/fallback.ts"
+          "path": "components/assistant-ui/tool-interpreter/pipeline.ts",
+          "target": "@components/assistant-ui/tool-interpreter/pipeline.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-registry.ts"
+          "path": "components/assistant-ui/tool-interpreter/token-registry.ts",
+          "target": "@components/assistant-ui/tool-interpreter/token-registry.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/chain-map.tsx"
+          "path": "components/assistant-ui/tool-interpreter/families/simple.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/simple.ts"
         },
         {
           "type": "registry:component",
-          "path": "components/icons/chains/index.tsx"
+          "path": "components/assistant-ui/tool-interpreter/families/evm-call.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/evm-call.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/evm-tx.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/evm-tx.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/svm.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/svm.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/svm-tx.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/svm-tx.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/jupiter.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/jupiter.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/lifi.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/lifi.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/families/task.ts",
+          "target": "@components/assistant-ui/tool-interpreter/families/task.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/present/index.ts",
+          "target": "@components/assistant-ui/tool-interpreter/present/index.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/present/chips.ts",
+          "target": "@components/assistant-ui/tool-interpreter/present/chips.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/present/descriptors.ts",
+          "target": "@components/assistant-ui/tool-interpreter/present/descriptors.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/present/fallback.ts",
+          "target": "@components/assistant-ui/tool-interpreter/present/fallback.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-registry.ts",
+          "target": "@components/assistant-ui/tool-registry.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/chain-map.tsx",
+          "target": "@components/icons/chain-map.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/chains/index.tsx",
+          "target": "@components/icons/chains/index.tsx"
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "@assistant-ui/react@~0.11.28",
-        "@assistant-ui/react-markdown@~0.11.1",
-        "lucide-react",
-        "motion",
-        "remark-gfm"
+        "@aomi-labs/react@0.6.13",
+        "@assistant-ui/react@^0.14.0",
+        "@assistant-ui/react-markdown@^0.14.0",
+        "lucide-react@^0.545.0",
+        "motion@^12.23.22",
+        "remark-gfm@^4.0.1"
       ],
       "registryDependencies": [
+        "https://aomi.dev/r/agent-routing.json",
+        "https://aomi.dev/r/activity-sidebar.json",
+        "https://aomi.dev/r/control-bar.json",
         "https://r.assistant-ui.com/markdown-text.json",
         "https://r.assistant-ui.com/tooltip-icon-button.json",
         "https://aomi.dev/r/attachment.json",
         "https://aomi.dev/r/assistant-tool-fallback.json",
-        "button",
-        "skeleton"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/command.json",
+        "https://aomi.dev/r/popover.json",
+        "https://aomi.dev/r/skeleton.json"
       ]
     },
     {
@@ -622,19 +876,20 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/thread-list.tsx"
+          "path": "components/assistant-ui/thread-list.tsx",
+          "target": "@components/assistant-ui/thread-list.tsx"
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "lucide-react"
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json",
         "https://r.assistant-ui.com/tooltip-icon-button.json",
-        "button",
-        "dialog",
-        "skeleton"
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/skeleton.json"
       ]
     },
     {
@@ -644,23 +899,26 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/threadlist-sidebar.tsx"
+          "path": "components/assistant-ui/threadlist-sidebar.tsx",
+          "target": "@components/assistant-ui/threadlist-sidebar.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/aomi-logo.tsx"
+          "path": "components/aomi-logo.tsx",
+          "target": "@components/aomi-logo.tsx"
         },
         {
           "type": "registry:component",
-          "path": "components/aomi-mark.tsx"
+          "path": "components/aomi-mark.tsx",
+          "target": "@components/aomi-mark.tsx"
         }
       ],
       "dependencies": [
-        "lucide-react"
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/assistant-thread-list.json",
-        "sidebar"
+        "https://aomi.dev/r/sidebar.json"
       ]
     },
     {
@@ -670,38 +928,40 @@
       "files": [
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/tool-fallback.tsx"
+          "path": "components/assistant-ui/tool-fallback.tsx",
+          "target": "@components/assistant-ui/tool-fallback.tsx"
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "lucide-react"
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "button"
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
       "name": "attachment",
       "type": "registry:component",
-      "description": "Attachment renderer compatible with @assistant-ui/react 0.11.x.",
+      "description": "Attachment renderer compatible with @assistant-ui/react 0.14.x.",
       "files": [
         {
           "type": "registry:component",
-          "path": "components/assistant-ui/attachment.tsx"
+          "path": "components/assistant-ui/attachment.tsx",
+          "target": "@components/assistant-ui/attachment.tsx"
         }
       ],
       "dependencies": [
-        "@assistant-ui/react@~0.11.28",
-        "@aomi-labs/react",
-        "lucide-react",
-        "zustand"
+        "@assistant-ui/react@^0.14.0",
+        "@aomi-labs/react@0.6.13",
+        "lucide-react@^0.545.0",
+        "zustand@^5.0.8"
       ],
       "registryDependencies": [
         "https://r.assistant-ui.com/tooltip-icon-button.json",
-        "tooltip",
-        "dialog",
-        "avatar"
+        "https://aomi.dev/r/tooltip.json",
+        "https://aomi.dev/r/dialog.json",
+        "https://aomi.dev/r/avatar.json"
       ]
     },
     {
@@ -710,17 +970,19 @@
       "description": "Notification toaster wired to the runtime notification store.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/notification.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/notification.tsx",
+          "target": "@ui/notification.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "components/ui/notification-icon.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/notification-icon.tsx",
+          "target": "@ui/notification-icon.tsx"
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "sonner"
+        "@aomi-labs/react@0.6.13",
+        "sonner@^1.7.4"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/sonner.json"
@@ -732,33 +994,139 @@
       "description": "Shadcn wrapper for Sonner toasts.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/sonner.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/sonner.tsx",
+          "target": "@ui/sonner.tsx"
         }
       ],
       "dependencies": [
-        "sonner"
+        "sonner@^1.7.4"
       ],
       "registryDependencies": []
     },
     {
-      "name": "runtime-tx-handler",
+      "name": "activity-sidebar",
       "type": "registry:component",
-      "description": "Presents attended Actions and delegates execution to the runtime ActionHandler.",
+      "description": "Activity rail and wallet impact review for durable attended Actions.",
       "files": [
         {
           "type": "registry:component",
-          "path": "components/runtime-tx-handler.tsx"
+          "path": "components/activity-sidebar/activity-sidebar.tsx",
+          "target": "@components/activity-sidebar/activity-sidebar.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/subagent-row.tsx",
+          "target": "@components/activity-sidebar/subagent-row.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/transactions.tsx",
+          "target": "@components/activity-sidebar/transactions.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/activity-panel-context.tsx",
+          "target": "@components/activity-sidebar/activity-panel-context.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/model.ts",
+          "target": "@components/activity-sidebar/model.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/capabilities/skill-catalog.ts",
+          "target": "@lib/capabilities/skill-catalog.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-registry.ts",
+          "target": "@components/assistant-ui/tool-registry.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/unwrap.ts",
+          "target": "@components/assistant-ui/tool-interpreter/unwrap.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/normalize.ts",
+          "target": "@components/assistant-ui/tool-interpreter/normalize.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/assistant-ui/tool-interpreter/types.ts",
+          "target": "@components/assistant-ui/tool-interpreter/types.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/skills/index.tsx",
+          "target": "@components/icons/skills/index.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/skills/sourced-marks.ts",
+          "target": "@components/icons/skills/sourced-marks.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/apps/index.tsx",
+          "target": "@components/icons/apps/index.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/apps/sourced-marks.ts",
+          "target": "@components/icons/apps/sourced-marks.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/wallet-review.tsx",
+          "target": "@components/activity-sidebar/wallet-review.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/transaction-review.tsx",
+          "target": "@components/activity-sidebar/transaction-review.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/wallet-impact.tsx",
+          "target": "@components/activity-sidebar/wallet-impact.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/token-metadata.ts",
+          "target": "@components/activity-sidebar/token-metadata.ts"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/activity-sidebar/presentation.tsx",
+          "target": "@components/activity-sidebar/presentation.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/chain-map.tsx",
+          "target": "@components/icons/chain-map.tsx"
+        },
+        {
+          "type": "registry:component",
+          "path": "components/icons/chains/index.tsx",
+          "target": "@components/icons/chains/index.tsx"
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "lucide-react"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@assistant-ui/react@^0.14.0",
+        "lucide-react@^0.545.0",
+        "viem@^2.47.11",
+        "motion@^12.23.22"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json",
-        "button",
-        "dialog"
+        "https://r.assistant-ui.com/markdown-text.json",
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
@@ -767,124 +1135,156 @@
       "description": "Para-backed Aomi wallet kit provider with the existing Aomi AA path.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/index.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/index.ts",
+          "target": "@lib/wallet-kit/providers/para/index.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-brand.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-brand.ts",
+          "target": "@lib/wallet-kit/providers/para/para-brand.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-plugin.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-plugin.tsx",
+          "target": "@lib/wallet-kit/providers/para/para-plugin.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/ParaPluginProvider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/ParaPluginProvider.tsx",
+          "target": "@lib/wallet-kit/providers/para/ParaPluginProvider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-evm-runtime-provider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-evm-session.ts",
+          "target": "@lib/wallet-kit/providers/para/para-evm-session.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-message-signing.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-evm-runtime-provider.tsx",
+          "target": "@lib/wallet-kit/providers/para/para-evm-runtime-provider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-auth.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-message-signing.ts",
+          "target": "@lib/wallet-kit/providers/para/para-message-signing.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/para-embedded-wallet.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-auth.ts",
+          "target": "@lib/wallet-kit/providers/para/para-auth.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/widget-auth.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/para-embedded-wallet.ts",
+          "target": "@lib/wallet-kit/providers/para/para-embedded-wallet.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/use-wallet-registry.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/widget-auth.ts",
+          "target": "@lib/wallet-kit/providers/para/widget-auth.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/registry-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/use-wallet-registry.ts",
+          "target": "@lib/wallet-kit/registry/use-wallet-registry.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/provider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/registry-source.ts",
+          "target": "@lib/wallet-kit/runtime/evm/registry-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/wallet-runtime.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/provider.tsx",
+          "target": "@lib/wallet-kit/runtime/evm/provider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/sources/embedded-session-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/wallet-runtime.ts",
+          "target": "@lib/wallet-kit/runtime/evm/wallet-runtime.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/para/sources/para-session-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/sources/embedded-session-source.ts",
+          "target": "@lib/wallet-kit/providers/sources/embedded-session-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/svm/registry-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/para/sources/para-session-source.ts",
+          "target": "@lib/wallet-kit/providers/para/sources/para-session-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/disconnect-plan.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/svm/registry-source.ts",
+          "target": "@lib/wallet-kit/runtime/svm/registry-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/registry/identity-grace.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/disconnect-plan.ts",
+          "target": "@lib/wallet-kit/runtime/evm/disconnect-plan.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/full-testnet-config.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/registry/identity-grace.ts",
+          "target": "@lib/wallet-kit/registry/identity-grace.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/full-testnet-wallet-routing.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/full-testnet-config.ts",
+          "target": "@lib/wallet-kit/full-testnet-config.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/network-preferences.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/full-testnet-wallet-routing.tsx",
+          "target": "@lib/wallet-kit/full-testnet-wallet-routing.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/network-preferences.tsx",
+          "target": "@lib/wallet-kit/network-preferences.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/brands.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts",
+          "target": "@lib/wallet-kit/runtime/evm/safe-hooks.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/brands.ts",
+          "target": "@lib/wallet-kit/runtime/evm/brands.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/wallet-ids.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts",
+          "target": "@lib/wallet-kit/catalog/evm-connector-catalog.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/svm-networks.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/wallet-ids.ts",
+          "target": "@lib/wallet-kit/catalog/wallet-ids.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/execution/wallet-execution.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/svm-networks.ts",
+          "target": "@lib/wallet-kit/catalog/svm-networks.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/execution/wallet-execution.ts",
+          "target": "@lib/wallet-kit/execution/wallet-execution.ts"
         }
       ],
       "dependencies": [
-        "@aomi-labs/client",
-        "@aomi-labs/react",
-        "@getpara/react-sdk",
-        "@getpara/wagmi-v2-connector",
-        "@solana/wallet-adapter-react",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/client@0.7.1",
+        "@aomi-labs/react@0.6.13",
+        "@getpara/react-sdk@2.19.0",
+        "@getpara/wagmi-v2-connector@2.19.0",
+        "@solana/wallet-adapter-react@^0.15.39",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json"
@@ -896,74 +1296,94 @@
       "description": "Privy-backed Aomi wallet kit provider using Privy's hosted smart wallets (EVM 4337) and Privy's embedded Solana wallets. Bundler, paymaster, and AA implementation are configured in the integrator's Privy dashboard.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/index.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/index.ts",
+          "target": "@lib/wallet-kit/providers/privy/index.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/PrivyPluginProvider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/PrivyPluginProvider.tsx",
+          "target": "@lib/wallet-kit/providers/privy/PrivyPluginProvider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/PrivyProvider.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/PrivyProvider.tsx",
+          "target": "@lib/wallet-kit/providers/privy/PrivyProvider.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-auth.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-auth.ts",
+          "target": "@lib/wallet-kit/providers/privy/privy-auth.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-execution.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-embedded-execution.ts",
+          "target": "@lib/wallet-kit/providers/privy/privy-embedded-execution.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-delegation-context.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-execution.ts",
+          "target": "@lib/wallet-kit/providers/privy/privy-execution.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-delegation.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-delegation-context.ts",
+          "target": "@lib/wallet-kit/providers/privy/privy-delegation-context.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-plugin.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-delegation.tsx",
+          "target": "@lib/wallet-kit/providers/privy/privy-delegation.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy-svm.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-plugin.tsx",
+          "target": "@lib/wallet-kit/providers/privy/privy-plugin.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/privy.tsx"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy-svm.ts",
+          "target": "@lib/wallet-kit/providers/privy/privy-svm.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/privy/widget-auth.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/privy.tsx",
+          "target": "@lib/wallet-kit/providers/privy/privy.tsx"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/providers/sources/embedded-session-source.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/privy/widget-auth.ts",
+          "target": "@lib/wallet-kit/providers/privy/widget-auth.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/providers/sources/embedded-session-source.ts",
+          "target": "@lib/wallet-kit/providers/sources/embedded-session-source.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/catalog/wallet-ids.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/evm-connector-catalog.ts",
+          "target": "@lib/wallet-kit/catalog/evm-connector-catalog.ts"
         },
         {
-          "type": "registry:component",
-          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts"
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/catalog/wallet-ids.ts",
+          "target": "@lib/wallet-kit/catalog/wallet-ids.ts"
+        },
+        {
+          "type": "registry:lib",
+          "path": "lib/wallet-kit/runtime/evm/safe-hooks.ts",
+          "target": "@lib/wallet-kit/runtime/evm/safe-hooks.ts"
         }
       ],
       "dependencies": [
-        "@aomi-labs/react",
-        "@privy-io/react-auth",
-        "@privy-io/wagmi",
-        "@solana/web3.js",
-        "@tanstack/react-query",
-        "viem",
-        "wagmi"
+        "@aomi-labs/react@0.6.13",
+        "@privy-io/react-auth@^2.0.0",
+        "@privy-io/wagmi@^1.0.0",
+        "@solana/web3.js@^1.98.4",
+        "@tanstack/react-query@^5.90.10",
+        "viem@^2.47.11",
+        "wagmi@^2.19.5"
       ],
       "registryDependencies": [
         "https://aomi.dev/r/aomi-wallet-kit.json"
@@ -975,13 +1395,14 @@
       "description": "Displays a button or a component that looks like a button.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/button.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/button.tsx",
+          "target": "@ui/button.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "class-variance-authority"
+        "@radix-ui/react-slot@^1.2.3",
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -991,8 +1412,9 @@
       "description": "Displays a form input field or a component that looks like an input field.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/input.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/input.tsx",
+          "target": "@ui/input.tsx"
         }
       ],
       "dependencies": [],
@@ -1004,12 +1426,13 @@
       "description": "Renders an accessible label associated with controls.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/label.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/label.tsx",
+          "target": "@ui/label.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-label@^2.1.7"
       ],
       "registryDependencies": []
     },
@@ -1019,8 +1442,9 @@
       "description": "Displays a card with header, content, and footer.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/card.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/card.tsx",
+          "target": "@ui/card.tsx"
         }
       ],
       "dependencies": [],
@@ -1032,12 +1456,13 @@
       "description": "Displays a badge or a component that looks like a badge.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/badge.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/badge.tsx",
+          "target": "@ui/badge.tsx"
         }
       ],
       "dependencies": [
-        "class-variance-authority"
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -1047,12 +1472,13 @@
       "description": "An image element with a fallback for representing the user.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/avatar.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/avatar.tsx",
+          "target": "@ui/avatar.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-avatar@^1.1.10"
       ],
       "registryDependencies": []
     },
@@ -1062,8 +1488,9 @@
       "description": "Use to show a placeholder while content is loading.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/skeleton.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/skeleton.tsx",
+          "target": "@ui/skeleton.tsx"
         }
       ],
       "dependencies": [],
@@ -1075,12 +1502,13 @@
       "description": "A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/tooltip.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/tooltip.tsx",
+          "target": "@ui/tooltip.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-tooltip"
+        "@radix-ui/react-tooltip@^1.2.8"
       ],
       "registryDependencies": []
     },
@@ -1090,12 +1518,13 @@
       "description": "Visually or semantically separates content.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/separator.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/separator.tsx",
+          "target": "@ui/separator.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-separator"
+        "@radix-ui/react-separator@^1.1.7"
       ],
       "registryDependencies": []
     },
@@ -1105,12 +1534,13 @@
       "description": "Displays the path to the current resource using a hierarchy of links.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/breadcrumb.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/breadcrumb.tsx",
+          "target": "@ui/breadcrumb.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-slot"
+        "@radix-ui/react-slot@^1.2.3"
       ],
       "registryDependencies": []
     },
@@ -1120,15 +1550,30 @@
       "description": "Displays a sidebar navigation component.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/sidebar.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/sidebar.tsx",
+          "target": "@ui/sidebar.tsx"
+        },
+        {
+          "type": "registry:hook",
+          "path": "hooks/use-mobile.ts",
+          "target": "@hooks/use-mobile.ts"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-slot",
-        "class-variance-authority"
+        "@aomi-labs/react@0.6.13",
+        "@radix-ui/react-slot@^1.2.3",
+        "class-variance-authority@^0.7.1",
+        "lucide-react@^0.545.0"
       ],
-      "registryDependencies": []
+      "registryDependencies": [
+        "https://aomi.dev/r/button.json",
+        "https://aomi.dev/r/input.json",
+        "https://aomi.dev/r/separator.json",
+        "https://aomi.dev/r/sheet.json",
+        "https://aomi.dev/r/skeleton.json",
+        "https://aomi.dev/r/tooltip.json"
+      ]
     },
     {
       "name": "dialog",
@@ -1136,16 +1581,17 @@
       "description": "A window overlaid on either the primary window or another dialog window.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/dialog.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/dialog.tsx",
+          "target": "@ui/dialog.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "button"
+        "https://aomi.dev/r/button.json"
       ]
     },
     {
@@ -1154,13 +1600,14 @@
       "description": "Extends the Dialog component to display content that complements the main content of the screen.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/sheet.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/sheet.tsx",
+          "target": "@ui/sheet.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": []
     },
@@ -1170,12 +1617,13 @@
       "description": "An interactive component which expands/collapses a panel.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/collapsible.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/collapsible.tsx",
+          "target": "@ui/collapsible.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-collapsible"
+        "@radix-ui/react-collapsible@^1.1.12"
       ],
       "registryDependencies": []
     },
@@ -1185,17 +1633,18 @@
       "description": "Fast, composable, unstyled command menu for React.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/command.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/command.tsx",
+          "target": "@ui/command.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-dialog",
-        "cmdk",
-        "lucide-react"
+        "@radix-ui/react-dialog@^1.1.15",
+        "cmdk@^1.0.0",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": [
-        "dialog"
+        "https://aomi.dev/r/dialog.json"
       ]
     },
     {
@@ -1204,12 +1653,13 @@
       "description": "Displays rich content in a portal, triggered by a button.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/popover.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/popover.tsx",
+          "target": "@ui/popover.tsx"
         }
       ],
       "dependencies": [
-        "radix-ui"
+        "@radix-ui/react-popover@^1.1.4"
       ],
       "registryDependencies": []
     },
@@ -1219,12 +1669,13 @@
       "description": "Displays a callout for user attention.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/alert.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/alert.tsx",
+          "target": "@ui/alert.tsx"
         }
       ],
       "dependencies": [
-        "class-variance-authority"
+        "class-variance-authority@^0.7.1"
       ],
       "registryDependencies": []
     },
@@ -1234,13 +1685,14 @@
       "description": "A vertically stacked set of interactive headings that each reveal a section of content.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/accordion.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/accordion.tsx",
+          "target": "@ui/accordion.tsx"
         }
       ],
       "dependencies": [
-        "@radix-ui/react-accordion",
-        "lucide-react"
+        "@radix-ui/react-accordion@^1.2.3",
+        "lucide-react@^0.545.0"
       ],
       "registryDependencies": []
     },
@@ -1250,12 +1702,13 @@
       "description": "A drawer component for mobile navigation menus and similar interfaces.",
       "files": [
         {
-          "type": "registry:component",
-          "path": "components/ui/drawer.tsx"
+          "type": "registry:ui",
+          "path": "components/ui/drawer.tsx",
+          "target": "@ui/drawer.tsx"
         }
       ],
       "dependencies": [
-        "vaul"
+        "vaul@^1.1.2"
       ],
       "registryDependencies": []
     }

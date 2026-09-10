@@ -1,7 +1,10 @@
 import type {
+  ActionRequest,
   AomiClient,
+  EvmCommitResult,
   EvmStagedBuild,
   SvmBuild,
+  SvmCommitResult,
   SvmStageInput,
   SvmStagedBuild,
 } from "../src";
@@ -17,7 +20,7 @@ function svmActionsNarrowByLane() {
       const programId: string = action.instruction.program_id;
       void programId;
       const fee = action.instruction.fee_outcome;
-      if (fee.kind === "flow") {
+      if (fee?.kind === "flow") {
         const amount: string = fee.amount;
         void amount;
         if (fee.asset.kind === "token") {
@@ -56,21 +59,26 @@ const instructions: SvmStageInput = {
   kind: "instructions",
   instructions: [
     {
-      programId: "program",
-      accounts: [{ pubkey: "owner", isSigner: true, isWritable: false }],
-      data: "AA==",
+      description: "Transfer",
+      instructions: [
+        {
+          program_id: "program",
+          accounts: [{ pubkey: "owner", is_signer: true, is_writable: false }],
+          data_base64: "AA==",
+        },
+      ],
     },
   ],
 };
 
 const transaction: SvmStageInput = {
   kind: "transaction",
-  transaction: { transaction: "AQ==", encoding: "base64" },
+  transaction: { tx: "AQ==", preserve_blockhash: true },
 };
 
 const mixedSvmInput: SvmStageInput = {
   kind: "transaction",
-  transaction: { transaction: "AQ==" },
+  transaction: { tx: "AQ==" },
   // @ts-expect-error a transaction variant cannot also carry instructions
   instructions: [],
 };
@@ -79,3 +87,23 @@ void lifecycleTransitions;
 void instructions;
 void transaction;
 void mixedSvmInput;
+
+const walletIntents = (
+  result: EvmCommitResult | SvmCommitResult,
+): ActionRequest[] => result.requests;
+const invalidInstructions: SvmStageInput = {
+  kind: "instructions",
+  instructions: [
+    {
+      description: "Transfer",
+      instructions: [
+        {
+          // @ts-expect-error Wire instruction fields use the backend's snake_case names.
+          programId: "program",
+          data_base64: "AA==",
+        },
+      ],
+    },
+  ],
+};
+void [walletIntents, invalidInstructions];

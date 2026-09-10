@@ -3,6 +3,11 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/pipeline-sdk.typecheck.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/pipeline-sdk.typecheck.ts",
+    "test/agent-target.typecheck.ts",
+    "test/agent-events.typecheck.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

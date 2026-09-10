@@ -63,6 +63,72 @@ describe("CLI session lifecycle", () => {
     ]);
   });
 
+  it("defaults fresh sessions to Auto and persists explicit Direct routing", async () => {
+    const { AgentTransport } = await import("../../src/agent/transport");
+    const start = vi
+      .spyOn(AgentTransport.prototype, "start")
+      .mockImplementation(async (intent) => ({
+        session_id: intent.sessionId ?? "missing",
+        cursor: "cursor-0",
+        events: [],
+        has_more: false,
+      }));
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { readState } = await import("../../src/cli/state");
+
+    const auto = CliSession.create({
+      baseUrl: "https://api.aomi.dev",
+      secrets: {},
+    });
+    expect(auto.agentMode).toBe("auto");
+    const autoSession = auto.createClientSession();
+    await autoSession.sendAsync("hello");
+    expect(start.mock.calls[0]?.[0]).toMatchObject({ mode: "auto" });
+    expect(start.mock.calls[0]?.[0]).not.toHaveProperty("app");
+    autoSession.close();
+
+    auto.setAgentRouting("direct", { app: "zerox" });
+    expect(readState()).toMatchObject({ agentMode: "direct", app: "zerox" });
+    const directSession = auto.createClientSession();
+    await directSession.sendAsync("quote");
+    expect(start.mock.calls[1]?.[0]).toMatchObject({
+      mode: "direct",
+      app: "zerox",
+    });
+    directSession.close();
+
+    auto.setAgentRouting("auto");
+    expect(readState()).toMatchObject({ agentMode: "auto" });
+    expect(readState()?.app).toBeUndefined();
+
+    auto.setAgentRouting("direct");
+    const defaultDirectSession = auto.createClientSession();
+    await defaultDirectSession.sendAsync("hello default");
+    expect(start.mock.calls[2]?.[0]).toMatchObject({ mode: "direct" });
+    expect(start.mock.calls[2]?.[0]).not.toHaveProperty("app");
+    expect(start.mock.calls[2]?.[0]).not.toHaveProperty("applicationId");
+    defaultDirectSession.close();
+
+    auto.setAgentRouting("direct", { applicationId: "42" });
+    const hostedSession = auto.createClientSession();
+    await hostedSession.sendAsync("hello hosted");
+    expect(start.mock.calls[3]?.[0]).toMatchObject({
+      mode: "direct",
+      applicationId: 42,
+    });
+    expect(start.mock.calls[3]?.[0]).not.toHaveProperty("app");
+    hostedSession.close();
+
+    auto.setAgentRouting("direct");
+    expect(readState()?.applicationId).toBeUndefined();
+    const resetSession = CliSession.load()!.createClientSession();
+    await resetSession.sendAsync("hello default again");
+    expect(start.mock.calls[4]?.[0]).toMatchObject({ mode: "direct" });
+    expect(start.mock.calls[4]?.[0]).not.toHaveProperty("app");
+    expect(start.mock.calls[4]?.[0]).not.toHaveProperty("applicationId");
+    resetSession.close();
+  });
+
   it("supports newSessionCommand as an explicit fresh-session command", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const { CliSession } = await import("../../src/cli/cli-session");

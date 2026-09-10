@@ -12,8 +12,8 @@ import type { EventPage } from "../../packages/client/src";
 const portalOrigin = process.env.LOCAL_PORTAL_URL ?? "http://127.0.0.1:3000";
 const walletToken = process.env.AOMI_E2E_WALLET_TOKEN;
 const walletAddress =
-  process.env.AOMI_E2E_WALLET_ADDRESS ??
-  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  process.env.AOMI_E2E_LOCKED_WALLET_ADDRESS ??
+  "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
 const recipient = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 
 test.describe.configure({ mode: "serial", timeout: 10 * 60_000 });
@@ -93,8 +93,9 @@ async function seedWallet(page: Page): Promise<void> {
 async function send(page: Page, message: string): Promise<void> {
   const input = page.getByRole("textbox", { name: "Message input" });
   const submit = page.getByRole("button", { name: "Send message" });
-  await input.fill(message);
-  await expect(input).toHaveValue(message);
+  await expect(input).toHaveAttribute("contenteditable", "true");
+  await input.pressSequentially(message);
+  await expect(input).toHaveText(message);
   await expect(submit).toBeEnabled();
   await submit.click();
 }

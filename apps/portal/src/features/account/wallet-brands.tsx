@@ -170,7 +170,7 @@ export function WalletProviderAvatar({
 
   return (
     <span
-      className="bg-aomi-surface-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+      className="flex h-8 w-8 shrink-0 items-center justify-center"
       data-wallet-brand={brand ?? undefined}
       title={brand ? `${brand} wallet` : undefined}
     >

@@ -56,10 +56,12 @@ pnpm install @aomi-labs/client
 npm install -g @aomi-labs/client
 ```
 
-Or copy widget source into your repo via the shadcn registry:
+Or copy widget source into a Radix-based shadcn project via the registry.
+For a new project, initialize shadcn with the Radix base first:
 
 ```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npx shadcn@latest init --base radix
+npx shadcn@latest add https://aomi.dev/r/aomi-frame.json
 ```
 
 ---

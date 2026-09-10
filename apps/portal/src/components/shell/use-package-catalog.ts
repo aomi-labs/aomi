@@ -8,8 +8,11 @@ import {
   type CatalogPackage,
 } from "./packages-catalog";
 
-export function usePackageCatalog() {
-  const [catalog, setCatalog] = useState<CatalogPackage[] | null>(null);
+export function usePackageCatalog(accountUserId?: string) {
+  const [catalog, setCatalog] = useState<{
+    accountUserId?: string;
+    entries: CatalogPackage[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [request, setRequest] = useState(0);
 
@@ -18,9 +21,10 @@ export function usePackageCatalog() {
     setCatalog(null);
     setError(null);
 
-    fetchAppCatalog()
+    fetchAppCatalog(accountUserId)
       .then((apps) => {
-        if (!cancelled) setCatalog(apps.map(toCatalogPackage));
+        if (!cancelled)
+          setCatalog({ accountUserId, entries: apps.map(toCatalogPackage) });
       })
       .catch((cause: unknown) => {
         if (!cancelled) setError(explainPackageLoadError(cause));
@@ -29,11 +33,18 @@ export function usePackageCatalog() {
     return () => {
       cancelled = true;
     };
-  }, [request]);
+  }, [request, accountUserId]);
 
   const retry = useCallback(() => {
     setRequest((current) => current + 1);
   }, []);
 
-  return { catalog, error, retry };
+  return {
+    catalog:
+      catalog && catalog.accountUserId === accountUserId
+        ? catalog.entries
+        : null,
+    error,
+    retry,
+  };
 }

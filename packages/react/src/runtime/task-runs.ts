@@ -90,10 +90,40 @@ const insertStep = (
   return [...steps, step].sort((left, right) => left.childSeq - right.childSeq);
 };
 
-export function selectTaskRuns(events: readonly Event[]): ThreadTaskRuns {
-  return events.filter(isTaskEvent).reduce<Record<string, TaskRunState>>(
-    (runs, event) => {
-      const current = runs[event.agent_id] ?? emptyRun(event);
+export function selectTaskRuns(
+  events: readonly Event[],
+  scope: "thread" | "turn" = "thread",
+): ThreadTaskRuns {
+  let scopedEvents = events;
+  if (scope === "turn") {
+    const start = events.findLastIndex(
+      (event) => event.type === "message" && event.sender === "user",
+    );
+    const turnId =
+      start >= 0
+        ? events[start]?.turn_id
+        : events.findLast((event) => event.turn_id)?.turn_id;
+    scopedEvents = events
+      .slice(Math.max(0, start))
+      .filter((event) => !turnId || event.turn_id === turnId);
+  }
+  const seenInvocations = new Set<string>();
+  return scopedEvents
+    .filter(isTaskEvent)
+    .reduce<Record<string, TaskRunState>>((runs, event) => {
+      const previous = runs[event.agent_id];
+      const invocation = JSON.stringify([event.agent_id, event.call_id]);
+      // Late activity from a previous invocation cannot overwrite the current
+      // continuation. Its transcript remains the source for historical rows.
+      if (
+        previous?.callId !== event.call_id &&
+        seenInvocations.has(invocation)
+      ) {
+        return runs;
+      }
+      seenInvocations.add(invocation);
+      const current =
+        previous?.callId === event.call_id ? previous : emptyRun(event);
       switch (event.type) {
         case "task_started":
           runs[event.agent_id] = {
@@ -130,17 +160,19 @@ export function selectTaskRuns(events: readonly Event[]): ThreadTaskRuns {
           break;
       }
       return runs;
-    },
-    {},
-  );
+    }, {});
 }
 
-export function useThreadTaskRuns(): ThreadTaskRuns {
+export function useThreadTaskRuns(
+  scope: "thread" | "turn" = "thread",
+): ThreadTaskRuns {
   const { events } = useAomiRuntime();
-  return useMemo(() => selectTaskRuns(events), [events]);
+  return useMemo(() => selectTaskRuns(events, scope), [events, scope]);
 }
 
-export function useTaskRun(agentId: string | undefined): TaskRunState | undefined {
+export function useTaskRun(
+  agentId: string | undefined,
+): TaskRunState | undefined {
   const runs = useThreadTaskRuns();
   return agentId ? runs[agentId] : undefined;
 }

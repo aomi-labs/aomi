@@ -10,6 +10,7 @@ import {
   type FC,
   type SVGProps,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckIcon,
   CheckCircle2Icon,
@@ -829,13 +830,13 @@ export function WalletPicker() {
           onClick={() => setAddOpen((value) => !value)}
           aria-expanded={addOpen}
           aria-label="Add another wallet"
-          className="border-aomi-border bg-aomi-bg/40 hover:bg-aomi-hover flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+          className="border-aomi-border bg-aomi-bg/20 hover:bg-aomi-hover flex items-center gap-3 rounded-[14px] border px-3 py-2.5 text-left transition-colors"
         >
-          <span className="bg-aomi-surface-2 text-aomi-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+          <span className="text-aomi-muted flex size-9 shrink-0 items-center justify-center">
             <PlusIcon className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">
+            <span className="block truncate text-[13px] font-medium">
               Add another wallet
             </span>
             <span className="text-aomi-muted block truncate text-[11px]">
@@ -859,7 +860,7 @@ export function WalletPicker() {
           )}
         >
           <div className="overflow-hidden">
-            <div className="border-aomi-border divide-aomi-border mt-0.5 divide-y overflow-hidden rounded-xl border">
+            <div className="border-aomi-border divide-aomi-border mt-0.5 divide-y overflow-hidden rounded-[14px] border">
               {renderGroupedActions(addableWalletActions)}
             </div>
           </div>
@@ -868,7 +869,7 @@ export function WalletPicker() {
     ) : (
       <section className="flex flex-col gap-2">
         <SectionLabel>Choose a wallet</SectionLabel>
-        <div className="border-aomi-border divide-aomi-border divide-y overflow-hidden rounded-xl border">
+        <div className="border-aomi-border divide-aomi-border divide-y overflow-hidden rounded-[14px] border">
           {renderGroupedActions(addableWalletActions)}
         </div>
       </section>
@@ -877,35 +878,38 @@ export function WalletPicker() {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="aomi-wallet-picker-title"
-      className="animate-in fade-in-0 fixed inset-0 z-50 flex items-center justify-center px-4 py-4 duration-150"
+      className="animate-in fade-in-0 fixed inset-0 z-[80] flex items-center justify-center px-4 py-4 duration-150"
     >
       <ModalBackdrop aria-label="Close" onClick={closePicker} />
       <div
         className={cn(
-          "relative z-10 flex max-h-[min(760px,92vh)] w-full max-w-[460px] flex-col overflow-hidden",
-          "border-aomi-border bg-aomi-raised text-aomi-fg rounded-2xl border text-left shadow-2xl",
+          "relative z-10 flex max-h-[min(720px,92vh)] w-full max-w-[460px] flex-col overflow-hidden",
+          "border-aomi-border bg-aomi-raised text-aomi-fg rounded-[22px] border text-left shadow-[0_24px_70px_rgba(20,24,32,0.18)]",
           "animate-in zoom-in-95 fade-in-0 duration-200",
         )}
       >
         {!accountView ? (
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex items-start gap-4 px-5 pb-3 pt-5">
+            <div className="border-aomi-border flex items-center gap-3 border-b px-4 py-4">
+              <span className="text-aomi-accent flex size-9 shrink-0 items-center justify-center">
+                <ShieldCheckIcon className="size-5" strokeWidth={1.8} />
+              </span>
               <div className="min-w-0 flex-1">
                 <span className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.14em]">
                   Aomi account
                 </span>
                 <h2
                   id="aomi-wallet-picker-title"
-                  className="text-aomi-fg mt-1 text-lg font-semibold tracking-tight"
+                  className="text-aomi-fg text-[15px] font-semibold tracking-[-0.01em]"
                 >
                   {pickerTitle}
                 </h2>
-                <p className="text-aomi-muted mt-1 text-[13px] leading-snug">
+                <p className="text-aomi-muted mt-0.5 truncate text-[11px] leading-snug">
                   {pickerDescription}
                 </p>
               </div>
@@ -913,13 +917,13 @@ export function WalletPicker() {
                 type="button"
                 onClick={closePicker}
                 aria-label="Close"
-                className="bg-aomi-surface-2 text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-9 shrink-0 items-center justify-center rounded-full transition-colors"
+                className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
               >
                 <XIcon className="size-4" />
               </button>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-5 pt-2">
+            <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
               {actionError || adapter.accountError ? (
                 <div
                   role="alert"
@@ -1065,13 +1069,14 @@ export function WalletPicker() {
           />
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <span className="text-aomi-muted px-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+    <span className="text-aomi-muted px-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]">
       {children}
     </span>
   );
@@ -1387,7 +1392,11 @@ function AccountManagerPanel({
         <div className="border-border/70 bg-card flex items-center gap-3 rounded-xl border px-3 py-2.5">
           <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl">
             {headerBrandLabel ? (
-              <WalletIconSlot id={headerBrandLabel} label={headerBrandLabel} />
+              <WalletIconSlot
+                id={headerBrandLabel}
+                label={headerBrandLabel}
+                className="!bg-transparent"
+              />
             ) : (
               <UserRoundIcon className="size-4" />
             )}
@@ -1757,6 +1766,7 @@ function ProviderAccountAccessRow({
         id={group.provider}
         label={providerLabel}
         provider={group.provider}
+        className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
         {editing ? (
@@ -1866,6 +1876,7 @@ function LinkedAuthAccountRow({
         id={account.provider}
         label={providerLabel}
         provider={account.provider}
+        className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
         {editing ? (
@@ -1989,6 +2000,7 @@ function ConnectedWalletSummaryRow({
         id={entry.iconId}
         label={entry.iconLabel}
         provider={entry.iconProvider}
+        className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
@@ -2055,6 +2067,7 @@ function LinkedWalletManagementRow({
       <WalletIconSlot
         id={wallet.providerWalletId ?? wallet.provider ?? wallet.id}
         label={wallet.provider ?? title}
+        className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
         {editing ? (
@@ -2156,21 +2169,24 @@ function FinishSignInPanel({
   const busy = actionKey != null && pending === actionKey;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-2">
       <SectionLabel>Connected wallet</SectionLabel>
-      <div className="border-aomi-border overflow-hidden rounded-xl border">
-        <div className="flex items-center gap-3 bg-emerald-500/[0.045] px-4 py-3.5">
+      <div className="border-aomi-border bg-aomi-bg/20 overflow-hidden rounded-[14px] border">
+        <div className="flex items-center gap-3 px-3 py-3">
           <WalletIconSlot
             id={provider ?? account.id}
             label={title}
             provider={provider ?? account.provider}
+            className="!bg-transparent"
           />
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm font-semibold">{title}</span>
+              <span className="truncate text-[13px] font-semibold">
+                {title}
+              </span>
               <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                Connected now
+                Connected
               </span>
             </span>
             <span className="text-aomi-muted mt-0.5 block truncate text-xs">
@@ -2189,14 +2205,14 @@ function FinishSignInPanel({
             />
           ) : null}
         </div>
-        <div className="border-aomi-border bg-aomi-bg/35 border-t p-3">
+        <div className="border-aomi-border border-t p-2.5">
           <button
             type="button"
             disabled={!linkAction || pending !== null}
             onClick={() =>
               linkAction && onLink({ action: linkAction, account })
             }
-            className="bg-aomi-fg text-aomi-bg flex h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-aomi-fg text-aomi-bg flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[12px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2Icon className="size-4 animate-spin" />
@@ -2205,7 +2221,7 @@ function FinishSignInPanel({
             )}
             {linkAction ? "Link wallet and sign in" : "Preparing sign-in…"}
           </button>
-          <p className="text-aomi-muted mt-2 text-center text-[11px] leading-snug">
+          <p className="text-aomi-muted mt-2 px-1 text-[10px] leading-snug">
             You’ll sign a message to prove this wallet is yours. No transaction
             is sent.
           </p>
@@ -2251,7 +2267,12 @@ function ConnectedWalletRow({
 
   const inner = (
     <>
-      <WalletIconSlot id={iconId} label={iconLabel} provider={iconProvider} />
+      <WalletIconSlot
+        id={iconId}
+        label={iconLabel}
+        provider={iconProvider}
+        className="!bg-transparent"
+      />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm font-medium">{title}</span>
@@ -2367,7 +2388,7 @@ function WalletActionRow({
       onClick={onClick}
       aria-label={`${actionVerb} ${wallet.label}`}
       className={cn(
-        "bg-aomi-bg/25 hover:bg-aomi-hover flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+        "bg-aomi-bg/20 hover:bg-aomi-hover flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
         "disabled:pointer-events-none disabled:opacity-50",
       )}
     >
@@ -2375,9 +2396,10 @@ function WalletActionRow({
         iconUrl={wallet.iconUrl}
         id={wallet.id}
         label={wallet.label}
+        className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">
+        <span className="block truncate text-[13px] font-medium">
           {wallet.label}
         </span>
         <span className="text-aomi-muted block truncate text-[11px]">
@@ -2392,7 +2414,7 @@ function WalletActionRow({
       {pending === wallet.actionKey ? (
         <Loader2Icon className="size-4 shrink-0 animate-spin" />
       ) : (
-        <ChevronRightIcon className="text-aomi-muted size-4 shrink-0" />
+        <ChevronRightIcon className="text-aomi-muted size-3.5 shrink-0" />
       )}
     </button>
   );
@@ -2424,19 +2446,23 @@ function SocialLoginRow({
       onClick={onClick}
       aria-label={option.label}
       className={cn(
-        "bg-aomi-bg/25 hover:bg-aomi-hover flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+        "bg-aomi-bg/20 hover:bg-aomi-hover flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
         "disabled:pointer-events-none disabled:opacity-50",
       )}
     >
       {brandLabel ? (
-        <WalletIconSlot id={brandLabel} label={brandLabel} />
+        <WalletIconSlot
+          id={brandLabel}
+          label={brandLabel}
+          className="!bg-transparent"
+        />
       ) : (
-        <span className="bg-aomi-surface-2 text-aomi-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+        <span className="text-aomi-muted flex size-9 shrink-0 items-center justify-center">
           <MailIcon className="size-4" />
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{title}</span>
+        <span className="block truncate text-[13px] font-medium">{title}</span>
         <span className="text-aomi-muted block truncate text-[11px]">
           {subtitle}
         </span>
@@ -2444,7 +2470,7 @@ function SocialLoginRow({
       {pending === `social:${option.id}` ? (
         <Loader2Icon className="size-4 shrink-0 animate-spin" />
       ) : (
-        <ChevronRightIcon className="text-aomi-muted size-4 shrink-0" />
+        <ChevronRightIcon className="text-aomi-muted size-3.5 shrink-0" />
       )}
     </button>
   );

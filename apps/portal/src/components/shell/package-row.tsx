@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  Check,
-  LineChart as Chart,
-  Loader2,
-  Shield,
-  Wallet as WalletIcon,
-} from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+import { AppIdentityIcon } from "@/components/icons/app-identity-icon";
 import type { CatalogPackage } from "./packages-catalog";
 import {
   ARC_TESTNET_CHAIN_ID,
@@ -106,46 +101,16 @@ export function PackageRow({
 
 interface PackageIconProps {
   app: CatalogPackage;
-  size?: "small" | "large";
+  size?: "small" | "large" | "detail";
 }
 
 export function PackageIcon({ app, size = "large" }: PackageIconProps) {
-  const sizeClass =
-    size === "small" ? "h-9 w-9 text-[11px]" : "h-10 w-10 text-xs";
-  const glyphSize = size === "small" ? 18 : 20;
-  const Glyph =
-    app.glyph === "chart"
-      ? Chart
-      : app.glyph === "shield"
-        ? Shield
-        : app.glyph === "wallet"
-          ? WalletIcon
-          : null;
-
   return (
-    <div
-      title={app.name}
-      aria-label={app.name}
-      className={`border-aomi-overlay-border flex flex-shrink-0 items-center justify-center rounded-xl border font-bold tracking-[-0.04em] ${sizeClass}`}
-      style={{ backgroundColor: app.background, color: app.foreground }}
-    >
-      {app.iconDomain || app.iconUrl ? (
-        <span
-          aria-hidden="true"
-          className="h-[68%] w-[68%] bg-contain bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url("${
-              app.iconUrl ??
-              `https://www.google.com/s2/favicons?domain=${app.iconDomain}&sz=128`
-            }")`,
-          }}
-        />
-      ) : Glyph ? (
-        <Glyph aria-hidden="true" size={glyphSize} />
-      ) : (
-        // No decoration on record — a monogram beats a wrong brand icon.
-        <span aria-hidden="true">{app.name.slice(0, 1).toUpperCase()}</span>
-      )}
-    </div>
+    <AppIdentityIcon
+      brandId={app.brandId}
+      name={app.name}
+      abbr={app.abbr}
+      size={size === "detail" ? "detail" : "row"}
+    />
   );
 }

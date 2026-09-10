@@ -362,6 +362,7 @@ describe("WorkingAgent", () => {
   it("degrades to the transcript part when there is no sidecar", () => {
     const tool = {
       type: "tool-call",
+      argsText: "{}",
       toolCallId: "tool_1",
       toolName: "task",
       args: { label: "approvals-auditor", app: "default", prompt: "audit" },
@@ -370,7 +371,7 @@ describe("WorkingAgent", () => {
         status: "completed",
         staged_count: 2,
       },
-    } as unknown as ToolCallMessagePart;
+    } satisfies ToolCallMessagePart;
 
     const { container } = render(
       <WorkingAgent

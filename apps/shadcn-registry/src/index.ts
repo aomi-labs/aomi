@@ -4,6 +4,7 @@ export { WalletSignInOptionsContext } from "./components/control-bar/wallet-pick
 export { AomiFrame } from "./components/aomi-frame";
 export { AomiLogo, type AomiLogoProps } from "./components/aomi-logo";
 export { AomiMark } from "./components/aomi-mark";
+export { useActivityPanel } from "./components/activity-sidebar/activity-panel-context";
 export {
   DEFAULT_SIDEBAR_PRODUCTS,
   type SidebarProduct,
@@ -14,6 +15,11 @@ export {
   type CrossOriginWidgetAuth,
   type WalletPresentationConfig,
 } from "./components/aomi-widget";
+export type {
+  AomiRoutingConfig,
+  AomiRoutingTarget,
+  DirectRoutingApp,
+} from "./components/assistant-ui/routing";
 
 // Dual-wallet UI
 export {
@@ -82,6 +88,7 @@ export {
   signOutAndDisconnect,
   useAomiWalletKit,
 } from "./lib/wallet-kit";
+export { requestWalletPickerOpen } from "./components/control-bar/wallet-picker-context";
 export {
   usePrivyDelegation,
   type PrivyDelegationContextValue,

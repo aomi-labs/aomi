@@ -187,7 +187,11 @@
   /* Alpha tints — the accent/10 + accent/45 pair and the overlay hairline
      recurred across chips, tinted buttons and menus as ad-hoc opacities. */
   --aomi-accent-tint: color-mix(in srgb, var(--aomi-accent) 10%, transparent);
-  --aomi-accent-outline: color-mix(in srgb, var(--aomi-accent) 45%, transparent);
+  --aomi-accent-outline: color-mix(
+    in srgb,
+    var(--aomi-accent) 45%,
+    transparent
+  );
   --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
 
   --aomi-danger: #d2495b; /* text + outline */
@@ -272,7 +276,11 @@
      Repeating them re-derives against the dark palette in either case. */
   --aomi-ring: var(--aomi-accent);
   --aomi-accent-tint: color-mix(in srgb, var(--aomi-accent) 10%, transparent);
-  --aomi-accent-outline: color-mix(in srgb, var(--aomi-accent) 45%, transparent);
+  --aomi-accent-outline: color-mix(
+    in srgb,
+    var(--aomi-accent) 45%,
+    transparent
+  );
   --aomi-overlay-border: color-mix(in srgb, var(--aomi-muted) 30%, transparent);
 }
 
@@ -288,7 +296,16 @@
   /* One focus ring for every interactive element. Wrapped in :where() so it
      contributes no specificity — any component that wants its own focus
      treatment still wins, but nothing falls through to the browser default. */
-  :where(a, button, input, select, textarea, summary, [role="switch"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  :where(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    summary,
+    [role="switch"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
     outline: 2px solid var(--aomi-ring);
     outline-offset: 2px;
   }
@@ -361,10 +378,14 @@
   background-color: hsl(var(--muted-foreground) / 0.38);
 }
 
-/* Thin, subtle scrollbar for command list dropdowns */
-.aui-command-list {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border) / 0.5) transparent;
+/* Thin, visible scrollbar for command list dropdowns. Keep Firefox's standard
+   properties out of Chromium so they do not replace the inset WebKit track. */
+@supports (-moz-appearance: none) {
+  .aui-command-list {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--aomi-muted) 45%, transparent)
+      transparent;
+  }
 }
 
 .aui-command-list::-webkit-scrollbar {
@@ -373,15 +394,16 @@
 
 .aui-command-list::-webkit-scrollbar-track {
   background: transparent;
+  margin-block: 6px;
 }
 
 .aui-command-list::-webkit-scrollbar-thumb {
-  background: hsl(var(--border) / 0.5);
+  background: color-mix(in srgb, var(--aomi-muted) 45%, transparent);
   border-radius: 9999px;
 }
 
 .aui-command-list::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--border));
+  background: color-mix(in srgb, var(--aomi-muted) 68%, transparent);
 }
 
 /* Match Aomi's editorial page titles. Hosts that load PT Serif through
@@ -432,8 +454,7 @@
   will-change: transform;
 }
 
-.aui-suggestions-marquee
-  .aui-thread-welcome-suggestions-track-secondary {
+.aui-suggestions-marquee .aui-thread-welcome-suggestions-track-secondary {
   display: flex;
   animation-duration: 72s;
   animation-delay: -17s;
@@ -466,20 +487,13 @@
   height: 0.875rem;
 }
 
-.aui-suggestions-marquee
-  .aui-thread-welcome-root
-  > div:has(> .aui-composer-root) {
-  order: 2;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .aui-suggestions-marquee .aui-thread-welcome-suggestions-track {
     width: 100%;
     animation: none;
   }
 
-  .aui-suggestions-marquee
-    .aui-thread-welcome-suggestions-track-secondary {
+  .aui-suggestions-marquee .aui-thread-welcome-suggestions-track-secondary {
     display: flex;
   }
 
@@ -506,30 +520,43 @@
 
 @keyframes aui-working-sweep {
   from {
-    background-position: 0% 0;
+    background-position: 100% 50%;
   }
   to {
-    /* Shift by exactly one tile width so the tiled gradient loops with no
-       visible seam or snap. background-size is 50%, so 100% of the
-       positionable range equals one full tile. */
-    background-position: 100% 0;
+    background-position: 0% 50%;
   }
 }
 
-@keyframes aui-working-breathe {
+@keyframes aui-thinking-illuminate {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scale(0.72);
+    filter: drop-shadow(0 0 0 transparent);
+    opacity: 0.68;
+    transform: rotate(-2deg) scale(0.96);
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1);
+    filter: drop-shadow(
+      0 0 2px color-mix(in oklch, currentColor 45%, transparent)
+    );
+    opacity: 1;
+    transform: rotate(2deg) scale(1.05);
   }
 }
 
-.aui-working-live-halo {
-  animation: aui-working-breathe 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+@keyframes aui-working-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.aui-thinking-bulb {
+  animation: aui-thinking-illuminate 2.2s cubic-bezier(0.45, 0, 0.55, 1)
+    infinite;
+  transform-origin: center;
+}
+
+.aui-working-cog {
+  animation: aui-working-turn 3s linear infinite;
   transform-origin: center;
 }
 
@@ -537,39 +564,50 @@
    the agent is still working. Uses the theme's own foreground/muted tokens so
    it inherits each app's palette (and dark mode) automatically.
 
-   The gradient is a single soft bump (muted → foreground peak → muted) that is
-   *tiled* twice across the text (background-size: 50%, repeat). Because the
-   image repeats, a new highlight enters from the right exactly as the previous
-   one leaves — there is never a fully-muted "dead" stretch, and the foreground
-   peak is only ever a hairline so the text never goes solid. Translating by one
-   whole tile per cycle makes the loop seamless (no snap on restart). */
+   One broad highlight enters from the left, crosses the label, and exits to the
+   right. The oversized, non-repeating gradient leaves the rest of the label at
+   the normal muted color, preserving its apparent weight between slow passes. */
 .aui-working-shimmer {
   background-image: linear-gradient(
-    100deg,
+    90deg,
     var(--aomi-muted, var(--muted-foreground)) 0%,
-    var(--aomi-muted, var(--muted-foreground)) 20%,
+    var(--aomi-muted, var(--muted-foreground)) 38%,
+    color-mix(
+        in oklch,
+        var(--aomi-muted, var(--muted-foreground)) 50%,
+        var(--aomi-fg, var(--foreground))
+      )
+      46%,
     var(--aomi-fg, var(--foreground)) 50%,
-    var(--aomi-muted, var(--muted-foreground)) 80%,
+    color-mix(
+        in oklch,
+        var(--aomi-muted, var(--muted-foreground)) 50%,
+        var(--aomi-fg, var(--foreground))
+      )
+      54%,
+    var(--aomi-muted, var(--muted-foreground)) 62%,
     var(--aomi-muted, var(--muted-foreground)) 100%
   );
-  background-size: 50% 100%;
-  background-repeat: repeat;
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: aui-working-sweep 2s linear infinite;
+  animation: aui-working-sweep 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .aui-working-shimmer {
     animation: none;
+    background-image: none;
     color: var(--muted-foreground);
     -webkit-text-fill-color: var(--muted-foreground);
   }
 
-  .aui-working-live-halo {
+  .aui-thinking-bulb,
+  .aui-working-cog {
     animation: none;
-    opacity: 0.55;
+    opacity: 0.85;
     transform: none;
   }
 }

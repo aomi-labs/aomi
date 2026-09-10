@@ -35,6 +35,26 @@ const inactiveWallet: UnifiedAccountWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
+  it("opens the canonical wallet chooser from Add wallet", () => {
+    const onAddWallet = vi.fn();
+    render(
+      <AccountManagement
+        user={{ id: "user-1", displayName: "Aron" }}
+        wallets={[]}
+        signInMethods={[]}
+        canAddWallet
+        addSignInOptions={[]}
+        pending={null}
+        onAddWallet={onAddWallet}
+        onAddSignIn={async () => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add wallet" }));
+
+    expect(onAddWallet).toHaveBeenCalledTimes(1);
+  });
+
   it("edits the account name in place without relabeling the row", async () => {
     const onRenameAccount = vi.fn(async () => undefined);
     render(
@@ -42,11 +62,11 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
-        addWalletOptions={[]}
+        canAddWallet={false}
         addSignInOptions={[]}
         pending={null}
         onRenameAccount={onRenameAccount}
-        onAddWallet={async () => undefined}
+        onAddWallet={() => undefined}
         onAddSignIn={async () => undefined}
       />,
     );
@@ -76,11 +96,11 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[]}
         signInMethods={[]}
-        addWalletOptions={[]}
+        canAddWallet={false}
         addSignInOptions={[]}
         pending={null}
         onRenameAccount={async () => undefined}
-        onAddWallet={async () => undefined}
+        onAddWallet={() => undefined}
         onAddSignIn={async () => undefined}
       />,
     );
@@ -108,10 +128,10 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
-        addWalletOptions={[]}
+        canAddWallet={false}
         addSignInOptions={[]}
         pending={null}
-        onAddWallet={async () => undefined}
+        onAddWallet={() => undefined}
         onAddSignIn={async () => undefined}
         onConnectWallet={onConnectWallet}
         onDisconnectWallet={onDisconnectWallet}

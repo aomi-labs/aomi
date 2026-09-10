@@ -1,5 +1,9 @@
 import { createRoot } from "react-dom/client";
-import { AomiWidget, type CrossOriginWidgetAuth } from "@aomi-labs/widget-lib";
+import {
+  AomiWidget,
+  type AomiRoutingConfig,
+  type CrossOriginWidgetAuth,
+} from "@aomi-labs/widget-lib";
 import "@aomi-labs/widget-lib/providers/para";
 import "@aomi-labs/widget-lib/providers/privy";
 import "@aomi-labs/widget-lib/styles.css";
@@ -14,6 +18,19 @@ const configuredApplicationId =
   import.meta.env.VITE_AOMI_APPLICATION_ID?.trim();
 const applicationId =
   params.get("application_id")?.trim() || configuredApplicationId;
+const numericApplicationId = Number(applicationId);
+const routing: AomiRoutingConfig =
+  Number.isSafeInteger(numericApplicationId) && numericApplicationId > 0
+    ? {
+        targets: [
+          { mode: "auto" },
+          {
+            mode: "direct",
+            apps: [{ applicationId: numericApplicationId }],
+          },
+        ],
+      }
+    : { targets: [{ mode: "auto" }] };
 const providerParam = params.get("provider");
 const provider =
   providerParam === "para" || providerParam === "privy"
@@ -32,7 +49,12 @@ const paraApiKey =
 const privyAppId = import.meta.env.VITE_PRIVY_APP_ID?.trim() || undefined;
 const auth: CrossOriginWidgetAuth =
   provider === "para"
-    ? { kind: "embedded_wallet", provider: "para", environment, apiKey: paraApiKey }
+    ? {
+        kind: "embedded_wallet",
+        provider: "para",
+        environment,
+        apiKey: paraApiKey,
+      }
     : provider === "privy"
       ? { kind: "embedded_wallet", provider: "privy", appId: privyAppId }
       : { kind: "browser_wallet" };
@@ -84,8 +106,8 @@ function App() {
           </a>
         </nav>
         <p className="fixture-note">
-          Provider selection is a host concern. Execution remains
-          backend-resolved for application {applicationId}.
+          Provider selection and allowed routing are host concerns. This fixture
+          offers Auto plus its hosted application as Direct.
         </p>
       </header>
       <AomiWidget
@@ -93,6 +115,7 @@ function App() {
         initialThreadId={initialThreadId}
         apiUrl={apiUrl}
         auth={auth}
+        routing={routing}
         wallets={{
           evm: {
             preset: "popular",

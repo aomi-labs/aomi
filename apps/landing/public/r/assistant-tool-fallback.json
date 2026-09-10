@@ -6,15 +6,16 @@
   "files": [
     {
       "type": "registry:component",
+      "target": "@components/assistant-ui/tool-fallback.tsx",
       "path": "components/assistant-ui/tool-fallback.tsx",
       "content": "\"use client\";\n\nimport type { ToolCallMessagePartComponent } from \"@assistant-ui/react\";\nimport { CheckIcon, ChevronDownIcon, ChevronUpIcon } from \"lucide-react\";\nimport { useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\n\nexport const ToolFallback: ToolCallMessagePartComponent = ({\n  toolName,\n  argsText,\n  result,\n}) => {\n  const [isCollapsed, setIsCollapsed] = useState(true);\n  return (\n    <div className=\"aui-tool-fallback-root mb-4 flex w-full flex-col gap-3 overflow-hidden rounded-2xl border py-3\">\n      <div className=\"aui-tool-fallback-header flex items-center gap-2 px-4\">\n        <CheckIcon className=\"aui-tool-fallback-icon size-4\" />\n        <p className=\"aui-tool-fallback-title flex-grow\">\n          Used tool: <b>{toolName}</b>\n        </p>\n        <Button\n          className=\"rounded-xl\"\n          onClick={() => setIsCollapsed(!isCollapsed)}\n        >\n          {isCollapsed ? <ChevronUpIcon /> : <ChevronDownIcon />}\n        </Button>\n      </div>\n      {!isCollapsed && (\n        <div className=\"aui-tool-fallback-content bg-muted flex flex-col gap-2 border-t pt-2\">\n          <div className=\"aui-tool-fallback-args-root px-4\">\n            <pre className=\"aui-tool-fallback-args-value whitespace-pre-wrap\">\n              {argsText}\n            </pre>\n          </div>\n          {result !== undefined && (\n            <div className=\"aui-tool-fallback-result-root border-t border-dashed px-4 pt-2\">\n              <p className=\"aui-tool-fallback-result-header font-semibold\">\n                Result:\n              </p>\n              <pre className=\"aui-tool-fallback-result-content whitespace-pre-wrap text-[012px]\">\n                {typeof result === \"string\"\n                  ? result\n                  : JSON.stringify(result, null, 2)}\n              </pre>\n            </div>\n          )}\n        </div>\n      )}\n    </div>\n  );\n};\n"
     }
   ],
   "dependencies": [
-    "@assistant-ui/react@~0.11.28",
-    "lucide-react"
+    "@assistant-ui/react@^0.14.0",
+    "lucide-react@^0.545.0"
   ],
   "registryDependencies": [
-    "button"
+    "https://aomi.dev/r/button.json"
   ]
 }

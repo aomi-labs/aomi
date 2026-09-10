@@ -2473,6 +2473,11 @@
           "app": {
             "type": ["string", "null"]
           },
+          "mode": {
+            "type": ["string", "null"],
+            "enum": ["auto", "direct", null],
+            "description": "Execution policy. Omit for Auto unless app or applicationId selects a Direct target."
+          },
           "model": {
             "type": ["string", "null"]
           },
@@ -2725,6 +2730,27 @@
               "content": {
                 "type": "string"
               },
+              "tool_call_id": {
+                "type": ["string", "null"]
+              },
+              "tool_result": {
+                "type": ["array", "null"],
+                "prefixItems": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "tool_name": {
+                "type": ["string", "null"]
+              },
+              "tool_arguments": {},
               "is_streaming": {
                 "type": "boolean"
               }
@@ -3223,6 +3249,24 @@
           },
           "protocol": {
             "type": "string"
+          },
+          "expires_at": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "pending_tx_id": {
+            "type": "integer"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "fee_outcome": {
+            "$ref": "#/components/schemas/FeeOutcome"
           }
         }
       },
@@ -3249,7 +3293,7 @@
           "instructions": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/AssembledSvmInstruction"
             }
           },
           "address_lookup_tables": {
@@ -3275,6 +3319,201 @@
           },
           "kind": {
             "type": "string"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "signed_transaction_base64": {
+            "type": "string"
+          },
+          "broadcast_commitment": {
+            "type": "string"
+          },
+          "pending_tx_id": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          }
+        }
+      },
+      "SigningCall": {
+        "type": "object",
+        "required": ["to", "value"],
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "data": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "SigningFeeAsset": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "native"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "address"],
+            "properties": {
+              "kind": {
+                "const": "token"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "SigningFee": {
+        "type": "object",
+        "required": ["asset", "amount", "recipient"],
+        "properties": {
+          "policy_version": {
+            "type": "integer"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/SigningFeeAsset"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          }
+        }
+      },
+      "FeeOutcome": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "flat"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "asset", "amount"],
+            "properties": {
+              "kind": {
+                "const": "flow"
+              },
+              "asset": {
+                "$ref": "#/components/schemas/SigningFeeAsset"
+              },
+              "amount": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "SvmAssemblyConfig": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "address_lookup_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compute_units": {
+            "type": "integer"
+          },
+          "priority_microlamports": {
+            "type": "integer"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "commitment": {
+            "type": "string"
+          }
+        }
+      },
+      "AssembledSvmInstruction": {
+        "type": "object",
+        "required": [
+          "payer",
+          "cluster",
+          "program_id",
+          "accounts",
+          "data_base64",
+          "description",
+          "kind"
+        ],
+        "properties": {
+          "payer": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "program_id": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pubkey", "is_signer", "is_writable"],
+              "properties": {
+                "pubkey": {
+                  "type": "string"
+                },
+                "is_signer": {
+                  "type": "boolean"
+                },
+                "is_writable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "data_base64": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "assembly": {
+            "$ref": "#/components/schemas/SvmAssemblyConfig"
+          },
+          "pending_ix_id": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          },
+          "fee_outcome": {
+            "$ref": "#/components/schemas/FeeOutcome"
           }
         }
       },
@@ -3335,13 +3574,13 @@
           "calls": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/SigningCall"
             }
           },
           "fees": {
             "type": "array",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/SigningFee"
             }
           },
           "sponsorship": {
@@ -3352,6 +3591,13 @@
             "type": "string",
             "pattern": "^[0-9]+$",
             "description": "Maximum network cost in native base units, separate from application fees and principal."
+          },
+          "domain": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "requestKind": {
+            "type": "string"
           }
         }
       },
@@ -3377,7 +3623,8 @@
                 "const": "evm_typed_data"
               },
               "typed_data": {
-                "type": "object"
+                "type": "object",
+                "additionalProperties": true
               }
             }
           },
@@ -4303,6 +4550,7 @@
         "required": [
           "status",
           "balanceChanges",
+          "approvals",
           "fees",
           "warnings",
           "guards",
@@ -4318,6 +4566,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PipelineBalanceChange"
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineApprovalChange"
             }
           },
           "fees": {
@@ -4384,6 +4638,85 @@
           },
           "cluster": {
             "type": ["string", "null"]
+          },
+          "standard": {
+            "enum": [
+              "native",
+              "erc20",
+              "erc721",
+              "erc1155",
+              "erc721_or_erc1155",
+              null
+            ]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "tokenId": {
+            "type": ["string", "null"]
+          },
+          "counterparty": {
+            "type": ["string", "null"]
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      },
+      "PipelineApprovalChange": {
+        "type": "object",
+        "required": ["account", "spender", "asset", "kind", "standard"],
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "spender": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": ["allowance", "token", "operator"]
+          },
+          "amount": {
+            "type": ["string", "null"]
+          },
+          "approved": {
+            "type": ["boolean", "null"]
+          },
+          "unlimited": {
+            "type": ["boolean", "null"]
+          },
+          "tokenId": {
+            "type": ["string", "null"]
+          },
+          "standard": {
+            "enum": [
+              "native",
+              "erc20",
+              "erc721",
+              "erc1155",
+              "erc721_or_erc1155"
+            ]
+          },
+          "symbol": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "decimals": {
+            "type": ["integer", "null"]
+          },
+          "chainId": {
+            "type": ["integer", "null"]
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
           }
         }
       },
@@ -4471,6 +4804,10 @@
           },
           "data": {
             "type": "string"
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
           }
         }
       }

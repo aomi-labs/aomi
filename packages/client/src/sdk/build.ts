@@ -4,13 +4,18 @@ import type {
 } from "../pipeline/transport";
 import type {
   EvmCommitResult,
+  EvmPresentedAction,
   EvmSimulatedBuild,
   EvmStagedBuild,
   PipelineActionSummary,
+  PipelineApprovalChange,
+  PipelineBalanceChange,
+  PipelineBuildOrigin,
   PipelineCommitOptions,
+  PipelineMutationOptions,
   PipelineSimulation,
-  SvmBuildAction,
   SvmCommitResult,
+  SvmPresentedAction,
   SvmSimulatedBuild,
   SvmStagedBuild,
 } from "../pipeline/types";
@@ -29,17 +34,32 @@ export class EvmStaged {
     return this.raw.status;
   }
 
-  get actions(): EvmStagedBuild["actions"] {
-    return this.raw.actions;
+  get actions(): EvmPresentedAction[] {
+    return this.raw.actions.map((action) => ({
+      ...action,
+      chainFamily: "evm",
+    }));
   }
 
   get digest(): string {
     return this.raw.digest;
   }
 
-  async simulate(): Promise<EvmBuild> {
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
+  }
+
+  async simulate(options?: PipelineMutationOptions): Promise<EvmBuild> {
     return new EvmBuild(
-      await this.transport.simulate(this.raw),
+      await this.transport.simulate(this.raw, options),
       this.transport,
     );
   }
@@ -63,8 +83,11 @@ export class EvmBuild {
     return this.raw.status;
   }
 
-  get actions(): EvmSimulatedBuild["actions"] {
-    return this.raw.actions;
+  get actions(): EvmPresentedAction[] {
+    return this.raw.actions.map((action) => ({
+      ...action,
+      chainFamily: "evm",
+    }));
   }
 
   get summary(): PipelineActionSummary | undefined {
@@ -75,8 +98,30 @@ export class EvmBuild {
     return this.raw.simulation;
   }
 
+  /** Wallet asset movements decoded from successful simulation steps. */
+  get balanceChanges(): PipelineBalanceChange[] {
+    return this.raw.simulation.balanceChanges;
+  }
+
+  /** Allowance, token, and operator permissions changed by the build. */
+  get approvals(): PipelineApprovalChange[] {
+    return this.raw.simulation.approvals;
+  }
+
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async commit(options?: PipelineCommitOptions): Promise<EvmCommitResult> {
@@ -102,17 +147,32 @@ export class SvmStaged {
     return this.raw.status;
   }
 
-  get actions(): SvmBuildAction[] {
-    return this.raw.actions;
+  get actions(): SvmPresentedAction[] {
+    return this.raw.actions.map((action) => ({
+      ...action,
+      chainFamily: "svm",
+    }));
   }
 
   get digest(): string {
     return this.raw.digest;
   }
 
-  async simulate(): Promise<SvmBuild> {
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
+  }
+
+  async simulate(options?: PipelineMutationOptions): Promise<SvmBuild> {
     return new SvmBuild(
-      await this.transport.simulate(this.raw),
+      await this.transport.simulate(this.raw, options),
       this.transport,
     );
   }
@@ -136,8 +196,11 @@ export class SvmBuild {
     return this.raw.status;
   }
 
-  get actions(): SvmBuildAction[] {
-    return this.raw.actions;
+  get actions(): SvmPresentedAction[] {
+    return this.raw.actions.map((action) => ({
+      ...action,
+      chainFamily: "svm",
+    }));
   }
 
   get summary(): PipelineActionSummary | undefined {
@@ -150,6 +213,18 @@ export class SvmBuild {
 
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async commit(options?: PipelineCommitOptions): Promise<SvmCommitResult> {

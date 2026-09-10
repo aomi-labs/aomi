@@ -315,7 +315,7 @@ describe("NetworkSelect", () => {
     ).toBeTruthy();
     expect(selectNetwork).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch Network" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch network" }));
 
     await waitFor(() => {
       expect(selectNetwork).toHaveBeenCalledWith({
@@ -347,6 +347,11 @@ describe("NetworkSelect", () => {
     expect(screen.getByRole("option", { name: /Base/i })).toBeTruthy();
     expect(screen.getByRole("option", { name: /Ethereum/i })).toBeTruthy();
     expect(screen.getByRole("option", { name: /^Solana$/i })).toBeTruthy();
+    expect(screen.queryByText("Networks")).toBeNull();
+    expect(screen.queryByText(/EVM network/i)).toBeNull();
+    expect(screen.getByText("L1 · ETH")).toBeTruthy();
+    expect(screen.getByText("L2 · ETH")).toBeTruthy();
+    expect(screen.getByText("Devnet · SOL")).toBeTruthy();
   });
 
   it("folds testnets behind a toggle and reveals them on demand", async () => {

@@ -2,7 +2,7 @@ import type { ArgsDef } from "citty";
 import { privateKeyToAccount } from "viem/accounts";
 import { PublicKey } from "@solana/web3.js";
 import { parseSolanaKeypairSecret } from "../../solana-signer";
-import type { CliConfig, CliExecutionMode } from "../../types";
+import type { CliAgentMode, CliConfig, CliExecutionMode } from "../../types";
 import { fatal } from "../../errors";
 import {
   parseChainId,
@@ -67,14 +67,17 @@ export const globalArgs = {
     type: "string",
     description: "Aomi account bearer for authenticated REST/SSE requests",
   },
+  mode: {
+    type: "string",
+    description: 'Agent routing mode: "auto" (default) or "direct"',
+  },
   app: {
     type: "string",
-    description: 'App (default: "default")',
+    description: "Direct-mode app (also selects Direct when --mode is omitted)",
   },
   "application-id": {
     type: "string",
-    description:
-      "Hosted app identity for discovery; execution returns 501 until Phase 10",
+    description: "Direct-mode hosted application identity",
   },
   platform: {
     type: "string",
@@ -140,6 +143,15 @@ function str(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
+export function parseAgentMode(
+  raw: string | undefined,
+): CliAgentMode | undefined {
+  if (!raw) return undefined;
+  const mode = raw.trim().toLowerCase();
+  if (mode === "auto" || mode === "direct") return mode;
+  fatal(`Unknown --mode value "${raw}". Use "auto" or "direct".`);
+}
+
 function derivePublicKeyFromPrivateKey(
   privateKey: string | undefined,
 ): string | undefined {
@@ -185,6 +197,17 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   const derivedPublicKey = derivePublicKeyFromPrivateKey(privateKey);
   const accountBearer =
     str(args["account-bearer"]) ?? process.env.AOMI_ACCOUNT_BEARER;
+  const requestedMode = parseAgentMode(
+    str(args.mode) ?? process.env.AOMI_AGENT_MODE,
+  );
+  const app = str(args.app) ?? process.env.AOMI_APP;
+  const applicationId =
+    str(args["application-id"]) ?? process.env.AOMI_APPLICATION_ID;
+  if (requestedMode === "auto" && (app || applicationId)) {
+    fatal(
+      "`--mode auto` cannot be combined with `--app` or `--application-id`.",
+    );
+  }
 
   // `--public-key` is an EVM identity. A base58 Solana address here used to be
   // silently rerouted by app-name sniffing; now it is a loud error.
@@ -246,10 +269,10 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     json: args.json === true,
     verbose: args.verbose === true,
     accountBearer,
+    agentMode: requestedMode ?? (app || applicationId ? "direct" : undefined),
+    app,
+    applicationId,
     svmPublicKey,
-    app: str(args.app) ?? process.env.AOMI_APP,
-    applicationId:
-      str(args["application-id"]) ?? process.env.AOMI_APPLICATION_ID,
     appPlatform: str(args.platform) ?? process.env.AOMI_APP_PLATFORM,
     model: str(args.model) ?? process.env.AOMI_MODEL,
     freshSession: args["new-session"] === true,

@@ -91,10 +91,13 @@ const directory = {
 };
 
 const evmStaged = {
-  version: 1 as const,
+  version: 2 as const,
   status: "staged" as const,
   actions: [],
+  origin: { app: "portfolio", operations: [] },
+  expiresAt: 2_000_000_000,
   digest: "evm-digest",
+  attestation: "evm-attestation",
 };
 
 const evmSimulated = {
@@ -104,10 +107,13 @@ const evmSimulated = {
 };
 
 const svmStaged = {
-  version: 1 as const,
+  version: 2 as const,
   status: "staged" as const,
   actions: [],
+  origin: { app: "portfolio", operations: [] },
+  expiresAt: 2_000_000_000,
   digest: "svm-digest",
+  attestation: "svm-attestation",
 };
 
 const svmSimulated = {
@@ -277,7 +283,7 @@ describe("Pipeline CLI", () => {
       { secrets: {} },
       "svm",
       "build",
-      '{"kind":"transaction","transaction":{"transaction":"AQ=="}}',
+      '{"kind":"transaction","transaction":{"tx":"AQ=="}}',
     );
     await pipelineLifecycleCommand(
       { secrets: {} },
