@@ -1,0 +1,9 @@
+{
+  "wallet": "0xf39Fd6…b92266",
+  "chainId": 31337,
+  "sessions": [
+    "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "02ca6505-bd6f-4811-9a54-412c4649ffc0"
+  ],
+  "transaction": "0xabfc85c0f42b412ad8cc0e6aabcbb72653ab6cdb8167fc3a9fc9e7e7f5a91691"
+}

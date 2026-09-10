@@ -1,0 +1,872 @@
+[
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/bff/e2e/wallet?token=REDACTED&address=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266&chainId=31337&redirect=%2F",
+    "status": 307
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/media/26eadd648e5c6f5a-s.p.846ebce3.woff2",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/media/797e433ab948586e-s.p.29207c2f.woff2",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/media/80bb744e92754df7-s.p.1eaf03ad.woff2",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/media/bec5c09c262b1b7f-s.p.aaa2cd55.woff2",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/media/caa3a2e1cccd8315-s.p.3b6cae6d.woff2",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/%5Broot-of-the-server%5D__bda4efa8._.css",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_11ccfaad._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_compiled_react-dom_7ffaa7ae._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_compiled_react-server-dom-turbopack_ebfaf7eb._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_compiled_next-devtools_index_ba0ab293.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_compiled_869d77e7._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_client_5c8e1362._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_291cbc9f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/69652_%40swc_helpers_cjs_679851cc._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_a0ff3932._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/turbopack-apps_portal_f9d2d36b._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_dist_37d072f8._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_src_app_favicon_ico_mjs_dec17d59._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/_dc8f1e9d._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_src_app_global-error_tsx_6798d97a._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/_24842d05._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/packages_295c60ab._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_components_ui_51dcda07._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_components_assistant-ui_8fa3e530._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_components_icons_cb6f3ff1._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_components_control-bar_6b924925._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_components_0e3dfa47._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_lib_2f33b85c._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_shadcn-registry_src_cd13f63e._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_f81a71d2._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/86c19_next_11fbc010._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_4f8936ac._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/518ff_zod_v3_a8163802._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a607f_viem__esm_errors_dfdda0f4._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a607f_viem__esm_utils_e0b76265._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a607f_viem__esm_actions_d6cc657f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a607f_viem__esm_15c2e459._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_utils_c50387d7._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_errors_7a24fd9d._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_chains_definitions_dfdb0141._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_chains_index_56477bad.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_chains_index_bc623109.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_actions_dbafdf1e._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_tempo_5b3557db._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_account-abstraction_6b156068._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba97d_viem__esm_3fe9f14f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_1365caba._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_33321589._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_5b5b74e6._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_fce97bad._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a3ebc_%40assistant-ui_react_dist_edd81fd7._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/fa6da_%40assistant-ui_tap_dist_d77834da._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/70585_%40assistant-ui_core_dist_e3749c10._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/075f5_assistant-stream_dist_91debb15._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a94f9_tailwind-merge_dist_bundle-mjs_mjs_f110c13e._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_94bc3ea4._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ba8e1_framer-motion_dist_es_bc30a9b6._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/fa0ae_framer-motion_dist_es_f733c8bb._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_23642184._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/f545a_micromark_dev_lib_2a08bc19._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/b5ecd_micromark-core-commonmark_dev_lib_bc76a96f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_93642c8c._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_f9b5b743._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/46483_%40solana_web3_js_lib_index_browser_esm_957df400.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_4b6abb96._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_fc97b846._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_provider_d7bd5077._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_modal_components_flows_6be765c9._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_modal_components_shared_fe624a5f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_modal_components_986246fc._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_modal_f8b787d5._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/75df1_%40getpara_react-sdk-lite_dist_chunk-MMUBH76A_2e8b3c31.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/d953f_%40getpara_react-common_dist_c45e9448._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_e034398e._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a4707_%40getpara_react-core_dist_provider_2e4841f0._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/3e00c_%40getpara_web-sdk_dist_00b00ec8._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/4879e_elliptic_bdafc9be._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_16b1aaa5._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/03337_%40getpara_user-management-client_dist_esm_c197b88f._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ded39_libphonenumber-js_deb6f279._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/170f9_%40ethereumjs_util_dist_esm_d49d224a._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/35389_%40getpara_core-components_dist_esm_ad4fd2a0._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/6953f_axios_lib_e1ccdfd3._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/76c4a_node-forge_lib_94a1976d._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/65d1f_xstate_f8155adf._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ace88_cbor-web_dist_cbor_846e869a.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/f7684_%40privy-io_js-sdk-core_dist_esm_467762fb._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/fb3ff_%40ethersproject_providers_lib_esm_16719c0d._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/34b7f_%40ethersproject_abi_lib_esm_f49c5e48._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/38897_%40privy-io_react-auth_dist_esm_privy-provider-BG8GtKO6_mjs_8ef4fc2b._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/38897_%40privy-io_react-auth_dist_esm_index_mjs_b26fa7d4._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/38897_%40privy-io_react-auth_dist_esm_187a78f4._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/65f64_%40coinbase_wallet-sdk_dist_84ca76e7._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/ddc28_%40heroicons_react_1becec7e._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/c48e5_%40headlessui_react_dist_ebcdf7ae._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/8ac71_react-aria_dist_private_0ff4bc09._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/50723_%40floating-ui_react_dist_752c3fd8._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/b6911_%40walletconnect_utils_dist_index_es_ab17f25a.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/10ecc_%40walletconnect_core_dist_index_es_757d6d03.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/e42a8_%40walletconnect_sign-client_dist_index_es_35c63f41.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/504cd_secure-password-utilities_esm_e80033b7._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/2afd2_permissionless__esm_a7e82a7c._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_5223fa42._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_src_app_layout_tsx_6798d97a._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/_62a6b5cc._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/8e625_mppx_dist_e1e0f3fc._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_0447cb64._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/9f8f1_zod_v4_651c3d26._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/a607f_viem__esm_2b6b8657._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/4ab81_%40x402_evm_dist_esm_addc7ce3._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/node_modules__pnpm_acc8e21d._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/apps_portal_src_app_page_tsx_5cdcd29b._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_c8c997ce._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_790cfeb0._.js",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/auth/get-session",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/account",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/sessions?limit=100",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/669f02af-5e87-4c62-b70d-1dfef73e3281?wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/d273e1e1-d5dc-4b0e-841e-fde95f4282a4?wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/cutover-e2e-1788074881898?wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/cutover-e2e-1788074094045?wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/5e53dcd4-d876-4695-8c26-117ccf6628bc?wait=0",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "url": "http://127.0.0.1:3000/v1/agent/chat",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjF9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjJ9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjV9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjd9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjl9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "url": "http://127.0.0.1:3000/api/bff/e2e/execute",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082/actions/act_40d37c05d7f24f07b61c418dcb799711/result",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjEzfQ&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE2fQ&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE4fQ&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "POST",
+    "url": "http://127.0.0.1:3000/v1/agent/chat",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/02ca6505-bd6f-4811-9a54-412c4649ffc0?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjF9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/02ca6505-bd6f-4811-9a54-412c4649ffc0?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjJ9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/02ca6505-bd6f-4811-9a54-412c4649ffc0?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjR9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/02ca6505-bd6f-4811-9a54-412c4649ffc0?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjR9&wait=25000",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/ed80a23b-fae3-4e50-b81f-0c08ad2ff082?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE5fQ&wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/v1/agent/chat/02ca6505-bd6f-4811-9a54-412c4649ffc0?cursor=event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjV9&wait=0",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/models",
+    "status": 200
+  },
+  {
+    "method": "GET",
+    "url": "http://127.0.0.1:3000/api/thread/apps",
+    "status": 200
+  }
+]

@@ -1,0 +1,1734 @@
+[
+  {
+    "session_id": "5e53dcd4-d876-4695-8c26-117ccf6628bc",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiNWU1M2RjZDQtZDg3Ni00Njk1LThjMjYtMTE3Y2NmNjYyOGJjIiwic3RyZWFtX2Vwb2NoIjoiYTEzMTczYTEtNTVkMi00NjNiLTgxNzYtYzY5NTU5OTEyN2UwIiwiZXZlbnRfc2VxdWVuY2UiOjZ9",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_1",
+        "sequence": 1,
+        "occurred_at": 1788073882
+      },
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "CUTOVER B: reply with exactly B_READY and do nothing else.",
+        "timestamp": "15:11:22 +08:00",
+        "message_key": "ce65453a-c33c-4b9e-b584-141c779eb4ab",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_2",
+        "sequence": 2,
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "occurred_at": 1788073882
+      },
+      {
+        "type": "system_notice",
+        "message": "App connected",
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_3",
+        "sequence": 3,
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "occurred_at": 1788073882
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_4",
+        "sequence": 4,
+        "occurred_at": 1788073884
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "B_READY",
+        "timestamp": "15:11:22 +08:00",
+        "message_key": "90c103a7-3262-428f-acd4-bb42f78c0881",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_5",
+        "sequence": 5,
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "occurred_at": 1788073884
+      },
+      {
+        "type": "title_changed",
+        "title": "Blockchain Cutover B",
+        "event_id": "evt_a13173a1-55d2-463b-8176-c695599127e0_6",
+        "sequence": 6,
+        "turn_id": "turn_8082aa05df29db9ff802c3ecca1eee39",
+        "occurred_at": 1788073912
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "669f02af-5e87-4c62-b70d-1dfef73e3281",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiNjY5ZjAyYWYtNWU4Ny00YzYyLWI3MGQtMWRmZWY3M2UzMjgxIiwic3RyZWFtX2Vwb2NoIjoiODVmOWNiOWQtYTBiMS00ZTQ0LTk3MDEtZWM2ZmI5Yzk2MmE2IiwiZXZlbnRfc2VxdWVuY2UiOjV9",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_888c46822ba7f85096abd5c89e15102c",
+        "event_id": "evt_85f9cb9d-a0b1-4e44-9701-ec6fb9c962a6_1",
+        "sequence": 1,
+        "occurred_at": 1788074966
+      },
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "CUTOVER B: reply with exactly B_READY and do nothing else.",
+        "timestamp": "15:29:26 +08:00",
+        "message_key": "a0c3b4e5-0398-4c79-b0cc-0ca704bb1d15",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_85f9cb9d-a0b1-4e44-9701-ec6fb9c962a6_2",
+        "sequence": 2,
+        "turn_id": "turn_888c46822ba7f85096abd5c89e15102c",
+        "occurred_at": 1788074966
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_888c46822ba7f85096abd5c89e15102c",
+        "event_id": "evt_85f9cb9d-a0b1-4e44-9701-ec6fb9c962a6_3",
+        "sequence": 3,
+        "occurred_at": 1788074967
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "B_READY",
+        "timestamp": "15:29:26 +08:00",
+        "message_key": "e210733c-22f3-48af-a126-252959d89cf2",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_85f9cb9d-a0b1-4e44-9701-ec6fb9c962a6_4",
+        "sequence": 4,
+        "turn_id": "turn_888c46822ba7f85096abd5c89e15102c",
+        "occurred_at": 1788074967
+      },
+      {
+        "type": "title_changed",
+        "title": "Blockchain Cutover B",
+        "event_id": "evt_85f9cb9d-a0b1-4e44-9701-ec6fb9c962a6_5",
+        "sequence": 5,
+        "turn_id": "turn_888c46822ba7f85096abd5c89e15102c",
+        "occurred_at": 1788074994
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "cutover-e2e-1788074881898",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiY3V0b3Zlci1lMmUtMTc4ODA3NDg4MTg5OCIsInN0cmVhbV9lcG9jaCI6IjcyMmJkYmZhLTBmODUtNGNkZS1hYjkyLTc4YTI0OGQ3ZjdhNSIsImV2ZW50X3NlcXVlbmNlIjoxN30",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_1",
+        "sequence": 1,
+        "occurred_at": 1788074881
+      },
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "Send 0 ETH on chain 31337 from my connected wallet to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8. Prepare and simulate the transaction, then call commit_txs in this same turn so the runtime emits an Action. Do not ask me for another chat message.",
+        "timestamp": "15:28:01 +08:00",
+        "message_key": "843e1e8d-be59-4219-8c46-562261223be0",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_2",
+        "sequence": 2,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074881
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’m checking the active chain, then I’ll prepare and simulate the zero-value transfer before sending it to your wallet for approval.",
+        "timestamp": "15:28:01 +08:00",
+        "message_key": "2be2def1-2626-47fe-8f7a-d45f4f8eb1f6",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_3",
+        "sequence": 3,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074886
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:06 +08:00",
+        "tool_name": "get_time_and_onchain_context",
+        "message_key": "e56a1daa-42a5-4f93-ab75-86eba4c6b9b8",
+        "tool_result": [
+          "Verify active EVM network for zero-value ETH transfer",
+          "{\n  \"chain_name\": \"mock-ethereum-sim\",\n  \"chain_id\": 31337,\n  \"rpc_endpoint\": \"http://127.0.0.1:8545\",\n  \"current_time_unix\": 1788074886,\n  \"current_time_iso\": \"2026-08-30T07:28:06.125946+00:00\",\n  \"block_number\": 0,\n  \"gas_price_wei\": \"2000000000\",\n  \"native_currency\": {\n    \"symbol\": \"ETH\",\n    \"internal_decimals\": 18,\n    \"display_decimals\": 18\n  },\n  \"simulation_warning\": null,\n  \"supported_chains\": [\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    },\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    }\n  ]\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Verify active EVM network for zero-value ETH transfer"
+        },
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_4",
+        "sequence": 4,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074886
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’m preparing a zero-value native ETH transfer on chain 31337 and will simulate it before sending the wallet approval request.",
+        "timestamp": "15:28:07 +08:00",
+        "message_key": "f8a56c90-0e51-482d-b0e4-24a7bc7123c5",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_5",
+        "sequence": 5,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074888
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:08 +08:00",
+        "tool_name": "evm_stage_tx",
+        "message_key": "015939a6-7643-4308-b73a-e612bdd5fc6e",
+        "tool_result": [
+          "Stage zero-value ETH transfer",
+          "{\n  \"chain_id\": 31337,\n  \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"value\": \"0\",\n  \"data\": \"0x\",\n  \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"kind\": \"native_transfer\",\n  \"last_batch_status\": \"Batch [1] pending\",\n  \"pending_tx_id\": 1,\n  \"current_lifecycle\": \"queued\",\n  \"fee_outcome\": {\n    \"kind\": \"flat\"\n  }\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "data": {
+            "raw": "",
+            "args": [],
+            "signature": ""
+          },
+          "kind": "native_transfer",
+          "topic": "Stage zero-value ETH transfer",
+          "value": "0",
+          "chain_id": 31337,
+          "protocol": "",
+          "gas_limit": "",
+          "description": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        },
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_6",
+        "sequence": 6,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074888
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’ve prepared the zero-value transfer as tx-1. I’m simulating it now, then I’ll send it to your wallet for approval.",
+        "timestamp": "15:28:09 +08:00",
+        "message_key": "cd942f44-952e-4452-b63a-4c6b7bffbbab",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_7",
+        "sequence": 7,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074891
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:11 +08:00",
+        "tool_name": "simulate_batch",
+        "message_key": "464336c3-5704-4454-a781-1f303a6a3764",
+        "tool_result": [
+          "Simulate zero-value ETH transfer",
+          "{\n  \"simulation\": {\n    \"batch_success\": true,\n    \"stateful\": true,\n    \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n    \"network\": \"mock-ethereum-sim\",\n    \"total_gas\": 21000,\n    \"steps\": [\n      {\n        \"step\": 1,\n        \"chain_id\": 31337,\n        \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n        \"success\": true,\n        \"result\": \"0xe2fe02be61db671fb1d0e86b7a1f202e5a680c6f85340d133bbc2525b3c9d81e\",\n        \"gas_used\": 21000,\n        \"tx\": {\n          \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n          \"value_wei\": \"0\",\n          \"value_eth\": \"0\",\n          \"data\": \"0x\"\n        }\n      }\n    ]\n  },\n  \"simulation_from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"owner_address\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"execution_kind\": \"transaction\",\n  \"resolved_ids\": [\n    1\n  ],\n  \"warnings\": [],\n  \"last_batch_status\": \"Batch [1] passed\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Simulate zero-value ETH transfer",
+          "transactions": [
+            {
+              "id": 1,
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            }
+          ]
+        },
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_8",
+        "sequence": 8,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074891
+      },
+      {
+        "id": "act_4ef05010607d4b01baac5653029a38d5",
+        "type": "action",
+        "state": "pending",
+        "result": null,
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "revision": 0,
+        "created_at": 1788074892,
+        "expires_at": 1788075792,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_9",
+        "sequence": 9,
+        "occurred_at": 1788074892
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "awaiting_action",
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_10",
+        "sequence": 10,
+        "occurred_at": 1788074892
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:12 +08:00",
+        "tool_name": "evm_commit_txs",
+        "message_key": "ca43b074-e20b-44da-8202-571a59531dac",
+        "tool_result": [
+          "Commit simulated zero-value ETH transfer",
+          "{\n  \"status\": \"pending_approval\",\n  \"tx_ids\": [\n    1\n  ],\n  \"timestamp\": \"2026-08-30T07:28:12.837230+00:00\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Commit simulated zero-value ETH transfer",
+          "tx_ids": [
+            1
+          ]
+        },
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_11",
+        "sequence": 11,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074892
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Prepared and simulated **tx-1** on chain 31337 successfully: it sends **0 ETH** to `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` (recipient delta: **0 ETH**).\n\nThe transaction is now **waiting for wallet approval**. Please approve it in your wallet.",
+        "timestamp": "15:28:15 +08:00",
+        "message_key": "67e67ad5-4d10-4ecf-ba7f-01ce854c973c",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_12",
+        "sequence": 12,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074895
+      },
+      {
+        "id": "act_4ef05010607d4b01baac5653029a38d5",
+        "type": "action",
+        "state": "rejected",
+        "result": {
+          "reason": "cutover_e2e_rejection",
+          "status": "rejected"
+        },
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "revision": 1,
+        "created_at": 1788074892,
+        "expires_at": 1788075792,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_13",
+        "sequence": 13,
+        "occurred_at": 1788074895
+      },
+      {
+        "id": "fc_0a23e0806397fe52006a93db8ca46c87d0972abb936875fd16",
+        "type": "tool_complete",
+        "result": {
+          "error": "cutover_e2e_rejection",
+          "tx_id": "leg_1",
+          "status": "rejected",
+          "pending_tx_ids": [
+            1
+          ]
+        },
+        "call_id": "call_cZvg9acrmE4BM0ivAHMIutqI",
+        "tool_name": "evm_commit_txs",
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_14",
+        "sequence": 14,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074895
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_15",
+        "sequence": 15,
+        "occurred_at": 1788074897
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The wallet rejected the zero-value transfer (`cutover_e2e_rejection`). Nothing was submitted or changed on-chain. The transaction remains available to retry without rebuilding if you want to approve it.",
+        "timestamp": "15:28:15 +08:00",
+        "message_key": "agent-action:act_4ef05010607d4b01baac5653029a38d5:response",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_16",
+        "sequence": 16,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074897
+      },
+      {
+        "type": "title_changed",
+        "title": "Rejected Zero-Value ETH Transfer",
+        "event_id": "evt_722bdbfa-0f85-4cde-ab92-78a248d7f7a5_17",
+        "sequence": 17,
+        "turn_id": "turn_2b8a3f7048a57ec0647a11d1f6476723",
+        "occurred_at": 1788074904
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "d273e1e1-d5dc-4b0e-841e-fde95f4282a4",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZDI3M2UxZTEtZDVkYy00YjBlLTg0MWUtZmRlOTVmNDI4MmE0Iiwic3RyZWFtX2Vwb2NoIjoiYWI5MTNjNGEtMGJkMS00ZDI3LWFjMzUtODNhZjhlN2NiMGU5IiwiZXZlbnRfc2VxdWVuY2UiOjE4fQ",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_1",
+        "sequence": 1,
+        "occurred_at": 1788074921
+      },
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "CUTOVER A: send 0 ETH on chain 31337 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8. Prepare and simulate it, then call commit_txs in this same turn so the runtime emits an Action. Do not ask me for another chat message.",
+        "timestamp": "15:28:41 +08:00",
+        "message_key": "1edd24f7-0232-40ee-8a3b-bbbd4fe17ac8",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_2",
+        "sequence": 2,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074921
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’m checking the local-chain context and sender account, then I’ll prepare and verify the zero-value transfer.",
+        "timestamp": "15:28:41 +08:00",
+        "message_key": "6d9002d7-1d23-4469-8539-192c8deac725",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_3",
+        "sequence": 3,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074925
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:45 +08:00",
+        "tool_name": "get_time_and_onchain_context",
+        "message_key": "c48f4cd6-fb0e-49d1-9754-61cc6aff664d",
+        "tool_result": [
+          "Confirm local chain for zero-value ETH transfer",
+          "{\n  \"chain_name\": \"mock-ethereum-sim\",\n  \"chain_id\": 31337,\n  \"rpc_endpoint\": \"http://127.0.0.1:8545\",\n  \"current_time_unix\": 1788074925,\n  \"current_time_iso\": \"2026-08-30T07:28:45.555410+00:00\",\n  \"block_number\": 0,\n  \"gas_price_wei\": \"2000000000\",\n  \"native_currency\": {\n    \"symbol\": \"ETH\",\n    \"internal_decimals\": 18,\n    \"display_decimals\": 18\n  },\n  \"simulation_warning\": null,\n  \"supported_chains\": [\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    },\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    }\n  ]\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Confirm local chain for zero-value ETH transfer"
+        },
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_4",
+        "sequence": 4,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074925
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:45 +08:00",
+        "tool_name": "get_account_info",
+        "message_key": "4f5cbc95-5db3-4f13-8902-4c8160cd3a33",
+        "tool_result": [
+          "Check sender account before zero-value ETH transfer",
+          "{\n  \"address\": \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\",\n  \"balance_wei\": \"10000000000000000000000\",\n  \"balance_native\": \"10000\",\n  \"native_currency\": \"ETH\",\n  \"nonce\": 0,\n  \"balance_eth\": \"10000\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Check sender account before zero-value ETH transfer",
+          "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "chain_id": 31337,
+          "history_limit": 0,
+          "history_offset": 0,
+          "include_tx_history": false
+        },
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_5",
+        "sequence": 5,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074925
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The local chain and sender account are ready. I’m preparing a zero-value native transfer; it changes no recipient ETH balance, though normal transaction gas may still apply.",
+        "timestamp": "15:28:47 +08:00",
+        "message_key": "e9105733-450f-4934-8e35-91e32cfe2b3e",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_6",
+        "sequence": 6,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074928
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:48 +08:00",
+        "tool_name": "evm_stage_tx",
+        "message_key": "775ad3be-785e-4b1a-b70c-165fd0d9fc7d",
+        "tool_result": [
+          "Prepare zero-value ETH transfer",
+          "{\n  \"chain_id\": 31337,\n  \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"value\": \"0\",\n  \"data\": \"0x\",\n  \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337\",\n  \"kind\": \"native_transfer\",\n  \"last_batch_status\": \"Batch [1] pending\",\n  \"pending_tx_id\": 1,\n  \"current_lifecycle\": \"queued\",\n  \"fee_outcome\": {\n    \"kind\": \"flat\"\n  }\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "data": {
+            "raw": "",
+            "args": [],
+            "signature": ""
+          },
+          "kind": "native_transfer",
+          "topic": "Prepare zero-value ETH transfer",
+          "value": "0",
+          "chain_id": 31337,
+          "protocol": "",
+          "gas_limit": "",
+          "description": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337"
+        },
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_7",
+        "sequence": 7,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074928
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The zero-value transfer is staged as tx-1. I’m simulating that exact call now, then I’ll send it to your wallet for approval.",
+        "timestamp": "15:28:50 +08:00",
+        "message_key": "bbad4be4-177f-4aac-a676-9cdc139c3830",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_8",
+        "sequence": 8,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074931
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:51 +08:00",
+        "tool_name": "simulate_batch",
+        "message_key": "91db4e18-3696-4e62-8360-73ffd2cb4417",
+        "tool_result": [
+          "Simulate zero-value ETH transfer",
+          "{\n  \"simulation\": {\n    \"batch_success\": true,\n    \"stateful\": true,\n    \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n    \"network\": \"mock-ethereum-sim\",\n    \"total_gas\": 21000,\n    \"steps\": [\n      {\n        \"step\": 1,\n        \"chain_id\": 31337,\n        \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337\",\n        \"success\": true,\n        \"result\": \"0xe2fe02be61db671fb1d0e86b7a1f202e5a680c6f85340d133bbc2525b3c9d81e\",\n        \"gas_used\": 21000,\n        \"tx\": {\n          \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n          \"value_wei\": \"0\",\n          \"value_eth\": \"0\",\n          \"data\": \"0x\"\n        }\n      }\n    ]\n  },\n  \"simulation_from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"owner_address\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"execution_kind\": \"transaction\",\n  \"resolved_ids\": [\n    1\n  ],\n  \"warnings\": [],\n  \"last_batch_status\": \"Batch [1] passed\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Simulate zero-value ETH transfer",
+          "transactions": [
+            {
+              "id": 1,
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337"
+            }
+          ]
+        },
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_9",
+        "sequence": 9,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074931
+      },
+      {
+        "id": "act_f1babc7913754d97abe25419d74ede4d",
+        "type": "action",
+        "state": "pending",
+        "result": null,
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "revision": 0,
+        "created_at": 1788074934,
+        "expires_at": 1788075834,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_10",
+        "sequence": 10,
+        "occurred_at": 1788074934
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "awaiting_action",
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_11",
+        "sequence": 11,
+        "occurred_at": 1788074934
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:28:54 +08:00",
+        "tool_name": "evm_commit_txs",
+        "message_key": "b0534537-4f9b-462d-bd4a-0a90d3b86a83",
+        "tool_result": [
+          "Submit verified zero-value ETH transfer",
+          "{\n  \"status\": \"pending_approval\",\n  \"tx_ids\": [\n    1\n  ],\n  \"timestamp\": \"2026-08-30T07:28:54.290914+00:00\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Submit verified zero-value ETH transfer",
+          "tx_ids": [
+            1
+          ]
+        },
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_12",
+        "sequence": 12,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074934
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Prepared and simulated tx-1 successfully on chain 31337: 0 ETH to `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` (recipient delta: 0 ETH; estimated gas: 21,000).\n\nWallet approval is now pending.",
+        "timestamp": "15:28:55 +08:00",
+        "message_key": "824e0b78-b179-435b-9a01-5ab2e58a7117",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_13",
+        "sequence": 13,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074936
+      },
+      {
+        "id": "act_f1babc7913754d97abe25419d74ede4d",
+        "type": "action",
+        "state": "submitted",
+        "result": {
+          "legs": [
+            {
+              "id": "leg_1",
+              "reason": null,
+              "status": "submitted",
+              "transactionId": "0x372f6ef112c9a910e15f5956f867cf7734b88dd73054859f5490968206f242c3",
+              "signedTransactionBase64": null
+            }
+          ],
+          "status": "submitted"
+        },
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 on chain 31337",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "revision": 1,
+        "created_at": 1788074934,
+        "expires_at": 1788075834,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_14",
+        "sequence": 14,
+        "occurred_at": 1788074936
+      },
+      {
+        "id": "fc_00efed846bb6317f006a93dbb534f487d0ba1baec89403fbbc",
+        "type": "tool_complete",
+        "result": {
+          "error": null,
+          "tx_id": "leg_1",
+          "status": "success",
+          "identifier": {
+            "kind": "hash",
+            "value": "0x372f6ef112c9a910e15f5956f867cf7734b88dd73054859f5490968206f242c3"
+          },
+          "pending_tx_ids": [
+            1
+          ]
+        },
+        "call_id": "call_1Zv0dKDCmHuD4xAgzdzaIDaw",
+        "tool_name": "evm_commit_txs",
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_15",
+        "sequence": 15,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074936
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_16",
+        "sequence": 16,
+        "occurred_at": 1788074938
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Completed on chain 31337.\n\n- Sent: 0 ETH\n- Recipient: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`\n- Recipient ETH delta: 0 ETH\n- Transaction: `0x372f6ef112c9a910e15f5956f867cf7734b88dd73054859f5490968206f242c3`\n\nWhat would you like to do next?",
+        "timestamp": "15:28:56 +08:00",
+        "message_key": "agent-action:act_f1babc7913754d97abe25419d74ede4d:response",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_17",
+        "sequence": 17,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074938
+      },
+      {
+        "type": "title_changed",
+        "title": "Zero-Value ETH Transfer on Local Chain",
+        "event_id": "evt_ab913c4a-0bd1-4d27-ac35-83af8e7cb0e9_18",
+        "sequence": 18,
+        "turn_id": "turn_c7d5e1f9bcbff90e643536d051b10aab",
+        "occurred_at": 1788074964
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "cutover-e2e-1788074094045",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiY3V0b3Zlci1lMmUtMTc4ODA3NDA5NDA0NSIsInN0cmVhbV9lcG9jaCI6IjkzNTc1ODQyLTQxYzYtNGU5NS05ZjJjLThhZGI4MDYxNjYyZCIsImV2ZW50X3NlcXVlbmNlIjoxOX0",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_1",
+        "sequence": 1,
+        "occurred_at": 1788074094
+      },
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "Send 0 ETH on chain 31337 from my connected wallet to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8. Prepare and simulate the transaction, then call commit_txs in this same turn so the runtime emits an Action. Do not ask me for another chat message.",
+        "timestamp": "15:14:54 +08:00",
+        "message_key": "4dc650e4-853b-4637-a694-2795d1484cea",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_2",
+        "sequence": 2,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074094
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’ll prepare a zero-value native transfer to the specified address on chain 31337, simulate it, then send it for wallet approval.",
+        "timestamp": "15:14:54 +08:00",
+        "message_key": "c10e5a2f-3858-4d56-9f7a-c9e62368f945",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_3",
+        "sequence": 3,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074097
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:14:57 +08:00",
+        "tool_name": "get_time_and_onchain_context",
+        "message_key": "bc889bf3-99a3-49bc-b811-facb4aa840ef",
+        "tool_result": [
+          "Confirm connected EVM network for zero-value transfer",
+          "{\n  \"chain_name\": \"ethereum\",\n  \"chain_id\": 31337,\n  \"rpc_endpoint\": \"http://127.0.0.1:8545\",\n  \"current_time_unix\": 1788074097,\n  \"current_time_iso\": \"2026-08-30T07:14:57.753401+00:00\",\n  \"block_number\": 1,\n  \"gas_price_wei\": \"1875175000\",\n  \"native_currency\": {\n    \"symbol\": \"ETH\",\n    \"internal_decimals\": 18,\n    \"display_decimals\": 18\n  },\n  \"simulation_warning\": null,\n  \"supported_chains\": [\n    {\n      \"name\": \"ethereum\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    },\n    {\n      \"name\": \"ethereum\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    }\n  ]\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Confirm connected EVM network for zero-value transfer"
+        },
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_4",
+        "sequence": 4,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074097
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:14:57 +08:00",
+        "tool_name": "get_account_info",
+        "message_key": "5e8bda44-4c7f-4ecc-9bbe-8b89e516ef16",
+        "tool_result": [
+          "Confirm sender account for zero-value transfer",
+          "{\n  \"address\": \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\",\n  \"balance_wei\": \"9999999958000000000000\",\n  \"balance_native\": \"9999.999958\",\n  \"native_currency\": \"ETH\",\n  \"nonce\": 1,\n  \"balance_eth\": \"9999.999958\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Confirm sender account for zero-value transfer",
+          "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "chain_id": 31337,
+          "history_limit": 0,
+          "history_offset": 0,
+          "include_tx_history": false
+        },
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_5",
+        "sequence": 5,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074097
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’m preparing a zero-ETH native transfer on the connected local chain. The recipient will receive **0 ETH**; only network gas applies.",
+        "timestamp": "15:14:59 +08:00",
+        "message_key": "096ff9f9-1f4d-423d-8dc5-6d3e9ab9edbd",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_6",
+        "sequence": 6,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074101
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:15:01 +08:00",
+        "tool_name": "encode_and_call",
+        "message_key": "efd9b074-f597-4184-a792-793597ceac0f",
+        "tool_result": [
+          "Validate zero-ETH native transfer",
+          "{\n  \"error\": {\n    \"code\": \"tool_call_failed\",\n    \"message\": \"Toolset error: ToolCallError: ToolCallError: Invalid function signature: missing '('\"\n  }\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": null,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_7",
+        "sequence": 7,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074101
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I confirmed your connected local chain and sender account. The preflight call encoder rejected a native-transfer call with: `Invalid function signature: missing '('`; I’ll use the native-transfer form instead, then simulate it before requesting wallet approval.",
+        "timestamp": "15:15:05 +08:00",
+        "message_key": "138a4766-4df1-4f9d-af4a-4b01d42376f2",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_8",
+        "sequence": 8,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074106
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:15:06 +08:00",
+        "tool_name": "evm_stage_tx",
+        "message_key": "71f7d853-203b-4544-ae4d-a4fc05cd2b60",
+        "tool_result": [
+          "Prepare zero-ETH native transfer",
+          "{\n  \"chain_id\": 31337,\n  \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"value\": \"0\",\n  \"data\": \"0x\",\n  \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"kind\": \"native_transfer\",\n  \"last_batch_status\": \"Batch [1] pending\",\n  \"pending_tx_id\": 1,\n  \"current_lifecycle\": \"queued\",\n  \"fee_outcome\": {\n    \"kind\": \"flat\"\n  }\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "data": {
+            "raw": "",
+            "args": [],
+            "signature": ""
+          },
+          "kind": "native_transfer",
+          "topic": "Prepare zero-ETH native transfer",
+          "value": "0",
+          "chain_id": 31337,
+          "protocol": "",
+          "gas_limit": "",
+          "description": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        },
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_9",
+        "sequence": 9,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074106
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:15:09 +08:00",
+        "tool_name": "simulate_batch",
+        "message_key": "05ccc6c2-ff47-4e8c-882d-36c2f91d545e",
+        "tool_result": [
+          "Simulate zero-ETH native transfer",
+          "{\n  \"simulation\": {\n    \"batch_success\": true,\n    \"stateful\": true,\n    \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n    \"network\": \"mock-ethereum-sim\",\n    \"total_gas\": 21000,\n    \"steps\": [\n      {\n        \"step\": 1,\n        \"chain_id\": 31337,\n        \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n        \"success\": true,\n        \"result\": \"0xe2fe02be61db671fb1d0e86b7a1f202e5a680c6f85340d133bbc2525b3c9d81e\",\n        \"gas_used\": 21000,\n        \"tx\": {\n          \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n          \"value_wei\": \"0\",\n          \"value_eth\": \"0\",\n          \"data\": \"0x\"\n        }\n      }\n    ]\n  },\n  \"simulation_from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"owner_address\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"execution_kind\": \"transaction\",\n  \"resolved_ids\": [\n    1\n  ],\n  \"warnings\": [],\n  \"last_batch_status\": \"Batch [1] passed\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Simulate zero-ETH native transfer",
+          "transactions": [
+            {
+              "id": 1,
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            }
+          ]
+        },
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_10",
+        "sequence": 10,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074109
+      },
+      {
+        "id": "act_317d03052f59468e8a8317e4912cb1b3",
+        "type": "action",
+        "state": "pending",
+        "result": null,
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "revision": 0,
+        "created_at": 1788074111,
+        "expires_at": 1788075011,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_11",
+        "sequence": 11,
+        "occurred_at": 1788074111
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "awaiting_action",
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_12",
+        "sequence": 12,
+        "occurred_at": 1788074111
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:15:11 +08:00",
+        "tool_name": "evm_commit_txs",
+        "message_key": "129d9ffb-07dd-48d5-ac9c-db894f2dc07a",
+        "tool_result": [
+          "Commit simulated zero-ETH native transfer",
+          "{\n  \"status\": \"pending_approval\",\n  \"tx_ids\": [\n    1\n  ],\n  \"timestamp\": \"2026-08-30T07:15:11.803046+00:00\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Commit simulated zero-ETH native transfer",
+          "tx_ids": [
+            1
+          ]
+        },
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_13",
+        "sequence": 13,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074111
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Prepared and simulated tx-1 successfully on chain 31337: 0 ETH to `0x7099…79C8` (recipient delta: 0 ETH; estimated gas: 21,000).\n\nWallet approval is now pending.",
+        "timestamp": "15:15:13 +08:00",
+        "message_key": "f036cedf-fbbb-4b40-ab57-10615454dd42",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_14",
+        "sequence": 14,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074113
+      },
+      {
+        "id": "act_317d03052f59468e8a8317e4912cb1b3",
+        "type": "action",
+        "state": "rejected",
+        "result": {
+          "reason": "cutover_e2e_rejection",
+          "status": "rejected"
+        },
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "revision": 1,
+        "created_at": 1788074111,
+        "expires_at": 1788075011,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_15",
+        "sequence": 15,
+        "occurred_at": 1788074113
+      },
+      {
+        "id": "fc_0da9ba40a231f572006a93d87f86d087d08d4c998a333da2f0",
+        "type": "tool_complete",
+        "result": {
+          "error": "cutover_e2e_rejection",
+          "tx_id": "leg_1",
+          "status": "rejected",
+          "pending_tx_ids": [
+            1
+          ]
+        },
+        "call_id": "call_oQve8Lp1or5Or6gzRQ9FUIhs",
+        "tool_name": "evm_commit_txs",
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_16",
+        "sequence": 16,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074113
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_17",
+        "sequence": 17,
+        "occurred_at": 1788074117
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The wallet request was rejected: `cutover_e2e_rejection`. No transaction was submitted, and no ETH moved.\n\nThe prior transfer is not available to re-submit in the staged queue, so I would need to prepare it again if you want another attempt.",
+        "timestamp": "15:15:13 +08:00",
+        "message_key": "agent-action:act_317d03052f59468e8a8317e4912cb1b3:response",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_18",
+        "sequence": 18,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074117
+      },
+      {
+        "type": "title_changed",
+        "title": "Rejected Zero-ETH Transfer on Local Chain",
+        "event_id": "evt_93575842-41c6-4e95-9f2c-8adb8061662d_19",
+        "sequence": 19,
+        "turn_id": "turn_00e1bdfbb640928bbe71bd75ebb3b25d",
+        "occurred_at": 1788074121
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjF9",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_1",
+        "sequence": 1,
+        "occurred_at": 1788075835
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjJ9",
+    "events": [
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "CUTOVER A: send 0 ETH on chain 31337 to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8. Prepare and simulate it, then call commit_txs in this same turn so the runtime emits an Action. Do not ask me for another chat message.",
+        "timestamp": "15:43:55 +08:00",
+        "message_key": "7a672934-229c-4880-a8e7-1526e124b6f9",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_2",
+        "sequence": 2,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075835
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjV9",
+    "events": [
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’ll prepare a zero-value native transfer to the specified address on chain 31337, verify it, and send it to your wallet for approval.",
+        "timestamp": "15:43:55 +08:00",
+        "message_key": "3700d973-cd4d-406f-afdc-f6926bffe1c0",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_3",
+        "sequence": 3,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075839
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:43:59 +08:00",
+        "tool_name": "get_time_and_onchain_context",
+        "message_key": "64e7d951-b2d7-4bb5-8fc9-4b8087ca13a5",
+        "tool_result": [
+          "Verify connected network for zero-value transfer",
+          "{\n  \"chain_name\": \"mock-ethereum-sim\",\n  \"chain_id\": 31337,\n  \"rpc_endpoint\": \"http://127.0.0.1:8545\",\n  \"current_time_unix\": 1788075839,\n  \"current_time_iso\": \"2026-08-30T07:43:59.871333+00:00\",\n  \"block_number\": 1,\n  \"gas_price_wei\": \"1875175000\",\n  \"native_currency\": {\n    \"symbol\": \"ETH\",\n    \"internal_decimals\": 18,\n    \"display_decimals\": 18\n  },\n  \"simulation_warning\": null,\n  \"supported_chains\": [\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    },\n    {\n      \"name\": \"mock-ethereum-sim\",\n      \"chain_id\": 31337,\n      \"native_currency\": null\n    }\n  ]\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Verify connected network for zero-value transfer"
+        },
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_4",
+        "sequence": 4,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075839
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:43:59 +08:00",
+        "tool_name": "get_account_info",
+        "message_key": "e2ca26fc-4fc8-46f4-bce8-4bd0e8576c62",
+        "tool_result": [
+          "Check sender account before zero-value transfer",
+          "{\n  \"address\": \"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\",\n  \"balance_wei\": \"10000000000000000000000\",\n  \"balance_native\": \"10000\",\n  \"native_currency\": \"ETH\",\n  \"nonce\": 1,\n  \"balance_eth\": \"10000\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Check sender account before zero-value transfer",
+          "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "chain_id": 31337,
+          "history_limit": 0,
+          "history_offset": 0,
+          "include_tx_history": false
+        },
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_5",
+        "sequence": 5,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075839
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjd9",
+    "events": [
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The connected wallet is on chain 31337 with sufficient ETH. I’m preparing a zero-value native transfer to the specified address and will simulate it before submission.",
+        "timestamp": "15:44:01 +08:00",
+        "message_key": "7e7cbfdd-7ff8-49e8-bcee-64d2c44ccede",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_6",
+        "sequence": 6,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075843
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:44:03 +08:00",
+        "tool_name": "evm_stage_tx",
+        "message_key": "7df5209c-a14b-42f2-ae77-43b8650c2c80",
+        "tool_result": [
+          "Prepare zero-value ETH transfer",
+          "{\n  \"chain_id\": 31337,\n  \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"value\": \"0\",\n  \"data\": \"0x\",\n  \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"kind\": \"native_transfer\",\n  \"last_batch_status\": \"Batch [1] pending\",\n  \"pending_tx_id\": 1,\n  \"current_lifecycle\": \"queued\",\n  \"fee_outcome\": {\n    \"kind\": \"flat\"\n  }\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+          "data": {
+            "raw": "",
+            "args": [],
+            "signature": ""
+          },
+          "kind": "native_transfer",
+          "topic": "Prepare zero-value ETH transfer",
+          "value": "0",
+          "chain_id": 31337,
+          "protocol": "",
+          "gas_limit": "",
+          "description": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+        },
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_7",
+        "sequence": 7,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075843
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjl9",
+    "events": [
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "I’ve prepared tx-1: a 0 ETH transfer on chain 31337. I’m simulating the exact transaction now.",
+        "timestamp": "15:44:04 +08:00",
+        "message_key": "17845936-e447-4e6e-895c-40ce28b1918c",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_8",
+        "sequence": 8,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075845
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:44:05 +08:00",
+        "tool_name": "simulate_batch",
+        "message_key": "d43046c3-3e79-436d-8146-41c8ed8b85d4",
+        "tool_result": [
+          "Simulate zero-value ETH transfer",
+          "{\n  \"simulation\": {\n    \"batch_success\": true,\n    \"stateful\": true,\n    \"from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n    \"network\": \"mock-ethereum-sim\",\n    \"total_gas\": 21000,\n    \"steps\": [\n      {\n        \"step\": 1,\n        \"chain_id\": 31337,\n        \"label\": \"Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n        \"success\": true,\n        \"result\": \"0xe2fe02be61db671fb1d0e86b7a1f202e5a680c6f85340d133bbc2525b3c9d81e\",\n        \"gas_used\": 21000,\n        \"tx\": {\n          \"to\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n          \"value_wei\": \"0\",\n          \"value_eth\": \"0\",\n          \"data\": \"0x\"\n        }\n      }\n    ]\n  },\n  \"simulation_from\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"owner_address\": \"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\",\n  \"execution_kind\": \"transaction\",\n  \"resolved_ids\": [\n    1\n  ],\n  \"warnings\": [],\n  \"last_batch_status\": \"Batch [1] passed\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Simulate zero-value ETH transfer",
+          "transactions": [
+            {
+              "id": 1,
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+            }
+          ]
+        },
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_9",
+        "sequence": 9,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075845
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjEzfQ",
+    "events": [
+      {
+        "id": "act_40d37c05d7f24f07b61c418dcb799711",
+        "type": "action",
+        "state": "pending",
+        "result": null,
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "revision": 0,
+        "created_at": 1788075848,
+        "expires_at": 1788076748,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_10",
+        "sequence": 10,
+        "occurred_at": 1788075848
+      },
+      {
+        "type": "turn_state_changed",
+        "state": "awaiting_action",
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_11",
+        "sequence": 11,
+        "occurred_at": 1788075848
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "The 0 ETH transfer to `0x7099…79C8` simulated successfully on chain 31337 (21,000 gas; recipient value delta: 0 ETH). I’m sending it to your wallet for approval now.",
+        "timestamp": "15:44:07 +08:00",
+        "message_key": "106ac617-edaa-43ed-a5b3-4bd6c9033e12",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_12",
+        "sequence": 12,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075848
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "",
+        "timestamp": "15:44:08 +08:00",
+        "tool_name": "evm_commit_txs",
+        "message_key": "4efc63cd-d2b4-4e41-b01b-07cfe64349b7",
+        "tool_result": [
+          "Commit verified zero-value ETH transfer",
+          "{\n  \"status\": \"pending_approval\",\n  \"tx_ids\": [\n    1\n  ],\n  \"timestamp\": \"2026-08-30T07:44:08.204544+00:00\"\n}"
+        ],
+        "is_streaming": false,
+        "tool_arguments": {
+          "topic": "Commit verified zero-value ETH transfer",
+          "tx_ids": [
+            1
+          ]
+        },
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_13",
+        "sequence": 13,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075848
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE2fQ",
+    "events": [
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Prepared and simulated tx-1 successfully: 0 ETH to `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` on chain 31337. It is now waiting for wallet approval.",
+        "timestamp": "15:44:09 +08:00",
+        "message_key": "0f4c2073-28cb-4029-9d28-1f14eeed4b83",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_14",
+        "sequence": 14,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075850
+      },
+      {
+        "id": "act_40d37c05d7f24f07b61c418dcb799711",
+        "type": "action",
+        "state": "submitted",
+        "result": {
+          "legs": [
+            {
+              "id": "leg_1",
+              "reason": null,
+              "status": "submitted",
+              "transactionId": "0xabfc85c0f42b412ad8cc0e6aabcbb72653ab6cdb8167fc3a9fc9e7e7f5a91691",
+              "signedTransactionBase64": null
+            }
+          ],
+          "status": "submitted"
+        },
+        "request": {
+          "type": "execute_evm",
+          "simulation": {
+            "gas": {
+              "units": "21000",
+              "priceWei": null,
+              "nativeCost": null
+            },
+            "fees": [],
+            "logs": [],
+            "guards": [
+              {
+                "name": "batch_execution",
+                "status": "passed",
+                "message": null
+              }
+            ],
+            "status": "passed",
+            "warnings": [],
+            "balanceChanges": []
+          },
+          "transactions": [
+            {
+              "to": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "data": "0x",
+              "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+              "kind": "native_transfer",
+              "label": "Send 0 ETH to 0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+              "value": "0",
+              "chain_id": 31337
+            }
+          ]
+        },
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "revision": 1,
+        "created_at": 1788075848,
+        "expires_at": 1788076748,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_15",
+        "sequence": 15,
+        "occurred_at": 1788075850
+      },
+      {
+        "id": "fc_0c49296aadf04f71006a93df481a0087d0aa54744e59539a55",
+        "type": "tool_complete",
+        "result": {
+          "error": null,
+          "tx_id": "leg_1",
+          "status": "success",
+          "identifier": {
+            "kind": "hash",
+            "value": "0xabfc85c0f42b412ad8cc0e6aabcbb72653ab6cdb8167fc3a9fc9e7e7f5a91691"
+          },
+          "pending_tx_ids": [
+            1
+          ]
+        },
+        "call_id": "call_zqNzb79fn6dUDj5WN5MsrMdA",
+        "tool_name": "evm_commit_txs",
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_16",
+        "sequence": 16,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075850
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE4fQ",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_17",
+        "sequence": 17,
+        "occurred_at": 1788075853
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "Completed the zero-value ETH transfer on chain 31337.\n\n- Recipient: `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`\n- Value: `0 ETH`\n- Transaction: `0xabfc85c0f42b412ad8cc0e6aabcbb72653ab6cdb8167fc3a9fc9e7e7f5a91691`\n\nWhat would you like to do next?",
+        "timestamp": "15:44:10 +08:00",
+        "message_key": "agent-action:act_40d37c05d7f24f07b61c418dcb799711:response",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_18",
+        "sequence": 18,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075853
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE5fQ",
+    "events": [
+      {
+        "type": "title_changed",
+        "title": "Zero-Value ETH Transfer on Chain 31337",
+        "event_id": "evt_c310a1b0-80fb-4903-992b-e1570b8f3906_19",
+        "sequence": 19,
+        "turn_id": "turn_1e0b171ba914eafd7119f4ad45711298",
+        "occurred_at": 1788075864
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjF9",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "processing",
+        "turn_id": "turn_ca2addbed91902efb47fe541a617788a",
+        "event_id": "evt_aec2a9c4-f2d3-4040-af58-c67e094f47c9_1",
+        "sequence": 1,
+        "occurred_at": 1788075865
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjJ9",
+    "events": [
+      {
+        "type": "message",
+        "sender": "user",
+        "content": "CUTOVER B: reply with exactly B_READY and do nothing else.",
+        "timestamp": "15:44:25 +08:00",
+        "message_key": "0a559bba-07c7-4f7d-881f-907063238ac1",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_aec2a9c4-f2d3-4040-af58-c67e094f47c9_2",
+        "sequence": 2,
+        "turn_id": "turn_ca2addbed91902efb47fe541a617788a",
+        "occurred_at": 1788075865
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjR9",
+    "events": [
+      {
+        "type": "turn_state_changed",
+        "state": "complete",
+        "turn_id": "turn_ca2addbed91902efb47fe541a617788a",
+        "event_id": "evt_aec2a9c4-f2d3-4040-af58-c67e094f47c9_3",
+        "sequence": 3,
+        "occurred_at": 1788075867
+      },
+      {
+        "type": "message",
+        "sender": "agent",
+        "content": "B_READY",
+        "timestamp": "15:44:25 +08:00",
+        "message_key": "ec9f1e20-2236-412c-a643-c4af8b1b53f8",
+        "tool_result": null,
+        "is_streaming": false,
+        "event_id": "evt_aec2a9c4-f2d3-4040-af58-c67e094f47c9_4",
+        "sequence": 4,
+        "turn_id": "turn_ca2addbed91902efb47fe541a617788a",
+        "occurred_at": 1788075867
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjR9",
+    "events": [],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjV9",
+    "events": [
+      {
+        "type": "title_changed",
+        "title": "Blockchain Cutover B Readiness",
+        "event_id": "evt_aec2a9c4-f2d3-4040-af58-c67e094f47c9_5",
+        "sequence": 5,
+        "turn_id": "turn_ca2addbed91902efb47fe541a617788a",
+        "occurred_at": 1788075894
+      }
+    ],
+    "has_more": false
+  },
+  {
+    "session_id": "ed80a23b-fae3-4e50-b81f-0c08ad2ff082",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiZWQ4MGEyM2ItZmFlMy00ZTUwLWI4MWYtMGMwOGFkMmZmMDgyIiwic3RyZWFtX2Vwb2NoIjoiYzMxMGExYjAtODBmYi00OTAzLTk5MmItZTE1NzBiOGYzOTA2IiwiZXZlbnRfc2VxdWVuY2UiOjE5fQ",
+    "events": [],
+    "has_more": false
+  },
+  {
+    "session_id": "02ca6505-bd6f-4811-9a54-412c4649ffc0",
+    "cursor": "event-v1.eyJ2ZXJzaW9uIjoxLCJzZXNzaW9uX2lkIjoiMDJjYTY1MDUtYmQ2Zi00ODExLTlhNTQtNDEyYzQ2NDlmZmMwIiwic3RyZWFtX2Vwb2NoIjoiYWVjMmE5YzQtZjJkMy00MDQwLWFmNTgtYzY3ZTA5NGY0N2M5IiwiZXZlbnRfc2VxdWVuY2UiOjV9",
+    "events": [],
+    "has_more": false
+  }
+]
