@@ -2,6 +2,56 @@
 
 ## Last Updated
 
+2026-09-10 — TELEGRAM MINI APP MOVED FROM PARA TO PRIVY (branch
+  `feat/telegram-privy`; stacks on `fix/para-token-wallet-attestation` / PR #592).
+  The decision is driven by one asymmetry the Para debugging surfaced: Privy's
+  server wallet API is keyed by the verified token subject
+  (`GET /v1/wallets?user_id=did:privy:…`, `listPrivyWalletsForUser`), so the
+  server-side hosted-wallet attestation that Para structurally cannot support
+  works for Privy without any token-claim fallback. Same provider as the portal
+  means one Privy app id, one identity per human across chat.aomi.dev and
+  Telegram, one set of secrets, one already-tested code path.
+  Client (`apps/telegram`): `@getpara/*` dropped for `@privy-io/react-auth`
+  3.27.1 (the version the portal already runs). `providers.tsx` uses
+  `PrivyProvider` with `loginMethods: ["telegram"]` and
+  `embeddedWallets.ethereum.createOnLogin`, so the wallet exists before the
+  exchange instead of being provisioned as a separate step. `page.tsx` logs in
+  headlessly through `useLoginWithTelegram` — Telegram already proved the
+  identity via `initData`, so there is no provider modal. `use-canonical-account`
+  posts a `privy` credential built from `getIdentityToken()` (fetched per
+  exchange, not captured — identity tokens are short lived).
+  `use-permission-control` signs the permit through the embedded wallet's own
+  EIP-1193 provider (`getEmbeddedConnectedWallet` + viem `custom()`), so the
+  typed data is byte-identical to the browser path.
+  Server: the Telegram exchange route accepted only `para`; it now accepts
+  `privy` too (`TELEGRAM_PROVIDERS`) and stamps `authMethod` as
+  `telegram_<provider>`. Para stays accepted so a Mini App build still in the
+  wild keeps working, and portal surfaces still offer it.
+  `config.ts` now treats a blank env var as unset — the `??` trap that made an
+  empty `NEXT_PUBLIC_AOMI_BFF_URL` silently win over the default. `Providers`
+  renders a readable "not configured" state instead of letting `PrivyProvider`
+  throw on an empty app id, which also unblocks the prerender.
+  Verified: telegram typecheck, 6 contract tests, portal 573, root 1463, eslint,
+  and `build:telegram` both with and without `NEXT_PUBLIC_PRIVY_APP_ID`.
+  BEFORE THIS CAN BE TESTED:
+  - `tg-mini-app-staging` needs `NEXT_PUBLIC_PRIVY_APP_ID` =
+    `cmq0ye6b800v20cjieham3z4r` (the portal's app id — same app is the whole
+    point; the value currently on `tg-mini-app` is sensitive and unreadable, so
+    assume it is NOT the portal's until re-set with `--no-sensitive`).
+  - The Privy dashboard for that app needs Telegram login enabled and the
+    `@hoodittest_bot` token registered, otherwise `useLoginWithTelegram` has
+    nothing to verify against.
+  - Privy's Telegram Mini App login reads `window.Telegram.WebApp.initData`
+    itself; that path is documented but has NOT been exercised here.
+  Para is untouched server-side and in the portal — this only moves the Mini App.
+  Fallout worth knowing: dropping `@getpara/*` from `apps/telegram` broke the
+  LANDING build, because the Para 2.19.0 line imports `@getpara/shared` and
+  `eventemitter3` without listing them in its published manifests and had been
+  resolving them only through the newer Para tree the Mini App pulled in. Fixed
+  with `packageExtensions` in `pnpm-workspace.yaml` (same mechanism already used
+  for `@getpara/react-sdk@2.24.0`), pinning `@getpara/shared` to the 1.14.0 that
+  `@getpara/user-management-client@2.19.0` itself depends on.
+
 2026-09-10 — PARA'S REST WALLET LIST CANNOT ATTEST AN SDK-CREATED WALLET
   (branch `fix/para-token-wallet-attestation`). Follow-up to the two entries
   below: with the server-side attestation wired in (#590) and the Mini App

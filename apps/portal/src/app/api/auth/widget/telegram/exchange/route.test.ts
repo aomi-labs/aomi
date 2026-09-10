@@ -186,6 +186,53 @@ describe("Telegram Para exchange", () => {
     });
   });
 
+  it("accepts Privy and stamps the session with the provider that logged in", async () => {
+    // Privy is what the portal runs on, and unlike Para its wallet API is
+    // keyed by the verified token subject, so the hosted wallet can be
+    // attested server-side without leaning on the token's own claim.
+    mocks.verifyCredential.mockResolvedValue({
+      descriptor: {
+        id: "privy",
+        policy: { subjectIsEnvironmentGlobal: false },
+      },
+      identity: {
+        provider: "privy",
+        issuerEnvironment: "privy:prod",
+        tenantId: "privy-app",
+        subject: "did:privy:alice",
+        walletAttestations: [],
+      },
+    });
+
+    const response = await POST(exchange());
+
+    expect(response.status).toBe(200);
+    expect(mocks.issueSession).toHaveBeenCalledWith(
+      expect.objectContaining({ authMethod: "telegram_privy" }),
+    );
+  });
+
+  it("refuses a provider the Telegram flow does not support", async () => {
+    mocks.verifyCredential.mockResolvedValue({
+      descriptor: { id: "base", policy: { subjectIsEnvironmentGlobal: false } },
+      identity: {
+        provider: "base",
+        issuerEnvironment: "base",
+        tenantId: "base",
+        subject: "base-user",
+        walletAttestations: [],
+      },
+    });
+
+    const response = await POST(exchange());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "provider_not_enabled",
+    });
+    expect(mocks.linkIdentity).not.toHaveBeenCalled();
+  });
+
   it("rejects a session already owned by another account", async () => {
     mocks.claimOwner.mockResolvedValue(null);
 

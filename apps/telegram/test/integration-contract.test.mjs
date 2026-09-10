@@ -6,17 +6,19 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const readWorkspace = (path) =>
   readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
 
-test("Para login resolves the canonical Aomi account", async () => {
+test("Privy login resolves the canonical Aomi account", async () => {
   const [providers, canonicalAccount] = await Promise.all([
     read("src/app/providers.tsx"),
     read("src/hooks/use-canonical-account.ts"),
   ]);
 
-  assert.match(providers, /oAuthMethods: \["GOOGLE", "TELEGRAM"\]/);
-  assert.match(canonicalAccount, /createProviderCredentialAdapter/);
-  assert.match(canonicalAccount, /createWalletPerType\(\{ types: \["EVM"\] \}\)/);
-  assert.match(canonicalAccount, /evmWalletProvisioning/);
-  assert.match(canonicalAccount, /paraClient\.issueJwt/);
+  // Telegram is the only identity Telegram can vouch for, and the embedded
+  // wallet has to exist before the exchange asks the portal to attest it.
+  assert.match(providers, /loginMethods: \["telegram"\]/);
+  assert.match(providers, /createOnLogin: "users-without-wallets"/);
+  assert.match(canonicalAccount, /getIdentityToken/);
+  assert.match(canonicalAccount, /provider: "privy"/);
+  assert.match(canonicalAccount, /getEmbeddedConnectedWallet/);
   assert.match(canonicalAccount, /createAccountSessionProvider/);
   assert.match(canonicalAccount, /\/api\/auth\/widget\/telegram\/exchange/);
   assert.match(canonicalAccount, /\/v1\/account/);
@@ -38,7 +40,7 @@ test("Telegram launches are verified before a production wallet flow", async () 
   assert.doesNotMatch(verifier, /BOT_TOKEN|bot token/i);
 });
 
-test("the Mini App only links Para and signs permission permits", async () => {
+test("the Mini App only links a wallet and signs permission permits", async () => {
   const [page, permission] = await Promise.all([
     read("src/app/page.tsx"),
     read("src/hooks/use-permission-control.ts"),
@@ -50,6 +52,7 @@ test("the Mini App only links Para and signs permission permits", async () => {
   assert.match(permission, /authorizationChallenge/);
   assert.match(permission, /authorizationCommit/);
   assert.match(permission, /signTypedData/);
+  assert.match(permission, /getEthereumProvider/);
   assert.doesNotMatch(
     page,
     /ActionHandler|sendTransaction|Sign All|transaction bundle/i,
@@ -57,7 +60,7 @@ test("the Mini App only links Para and signs permission permits", async () => {
   assert.doesNotMatch(permission, /waitForTransactionReceipt|sendTransaction/);
 });
 
-test("Para and the app share one React Query context", async () => {
+test("the provider SDK and the app share one React Query context", async () => {
   const nextConfig = await read("next.config.ts");
 
   assert.match(nextConfig, /"@tanstack\/react-query"/);
@@ -70,7 +73,8 @@ test("the legacy relay and multi-page wallet are absent", async () => {
     read("src/app/page.tsx"),
   ]);
 
-  assert.doesNotMatch(packageJson, /walletconnect|wagmi|privy/i);
+  // Privy is the wallet provider now; the relay-era stack must stay out.
+  assert.doesNotMatch(packageJson, /walletconnect|wagmi|getpara/i);
   assert.doesNotMatch(page, /\/api\/operation|Swap assets|Review & sign/i);
 });
 

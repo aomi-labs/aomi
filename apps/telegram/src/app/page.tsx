@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAccount, useModal } from "@getpara/react-sdk-lite";
+import { useLoginWithTelegram, usePrivy } from "@privy-io/react-auth";
 
 import { useCanonicalAccount } from "@/hooks/use-canonical-account";
 import { usePermissionControl } from "@/hooks/use-permission-control";
 import { useTelegramLaunch } from "@/hooks/use-telegram-launch";
 
 export default function Home() {
-  const { openModal } = useModal();
-  const para = useAccount();
+  const { authenticated, ready } = usePrivy();
+  const { login } = useLoginWithTelegram();
   const opened = useRef(false);
   const launch = useTelegramLaunch();
   const account = useCanonicalAccount(launch.context);
@@ -19,13 +19,22 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (launch.status !== "ready" || opened.current) return;
+    if (
+      launch.status !== "ready" ||
+      !ready ||
+      authenticated ||
+      opened.current
+    ) {
+      return;
+    }
+    // Telegram already proved who this is via `initData`, so the login is
+    // headless — there is no provider modal for the user to work through.
     opened.current = true;
-    openModal();
-  }, [launch.status, openModal]);
+    void login();
+  }, [authenticated, launch.status, login, ready]);
 
-  let message = "Sign in with Para";
-  if (launch.status === "loading") message = "Opening Para…";
+  let message = "Signing you in…";
+  if (launch.status === "loading") message = "Opening your wallet…";
   if (launch.status === "error") message = "Open this page from Telegram.";
   if (account.status === "loading") message = "Linking your Aomi account…";
   if (account.status === "error") {
@@ -34,7 +43,7 @@ export default function Home() {
       : "Could not link your account.";
   }
   if (account.status === "ready" && !permission.target) {
-    message = "Para is linked.";
+    message = "Your wallet is linked.";
   }
   if (permission.status === "signing") message = "Waiting for your signature…";
   if (permission.status === "done")
@@ -56,9 +65,10 @@ export default function Home() {
           <button
             className="para-button"
             type="button"
-            onClick={() => openModal()}
+            disabled={!ready}
+            onClick={() => void login()}
           >
-            {para.embedded.isConnected ? "Open Para" : "Continue with Para"}
+            {authenticated ? "Retry" : "Continue"}
           </button>
         )}
         {permission.status === "ready" && (

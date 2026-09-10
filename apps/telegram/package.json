@@ -22,11 +22,7 @@
   "dependencies": {
     "@aomi-labs/account": "workspace:*",
     "@aomi-labs/client": "workspace:*",
-    "@getpara/core-sdk": "3.12.0",
-    "@getpara/react-core": "3.12.0",
-    "@getpara/react-sdk-lite": "3.12.0",
-    "@getpara/user-management-client": "3.12.0",
-    "@getpara/viem-v2-integration": "3.12.0",
+    "@privy-io/react-auth": "^3.27.1",
     "@tanstack/react-query": "^5.90.10",
     "next": "16.3.0",
     "ox": "0.11.3",
