@@ -27,7 +27,7 @@ import {
   type ThreadMetadata,
   type ModelSelectionMode,
 } from "../state/thread-store";
-import { resolveAutoModel } from "../utils/model-selection";
+import { resolveAutoModel } from "./model-selection";
 
 const MODEL_SELECTION_STORAGE_KEY = "aomi_model_selection";
 const AGENT_MODE_STORAGE_KEY = "aomi_agent_mode";

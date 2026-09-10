@@ -54,6 +54,7 @@ export const CapabilityMentionInput: FC<{
   const {
     mentions,
     addMention,
+    removeApp,
     retainMentions,
     hintsEnabled,
     capabilityPickerRequest,
@@ -279,6 +280,13 @@ export const CapabilityMentionInput: FC<{
       const editor = editorRef.current;
       if (!editor) return;
       range.deleteContents();
+      if (item.kind === "app") {
+        addMention(item);
+        closePicker();
+        syncEditor();
+        editor.focus();
+        return;
+      }
 
       const mention = document.createElement("span");
       mention.contentEditable = "false";
@@ -286,8 +294,7 @@ export const CapabilityMentionInput: FC<{
       mention.dataset.capabilityKind = item.kind;
       mention.className =
         "text-aomi-accent relative top-px mx-0.5 inline-flex items-center gap-1 whitespace-nowrap align-baseline font-medium";
-      const glyph =
-        item.kind === "skill" ? "✦" : item.kind === "app" ? "▦" : "◇";
+      const glyph = item.kind === "skill" ? "✦" : "◇";
       mention.dataset.capabilityToken = `${glyph} ${item.label}`;
       const iconTarget = document.createElement("span");
       iconTarget.setAttribute("aria-hidden", "true");
@@ -397,6 +404,18 @@ export const CapabilityMentionInput: FC<{
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing) return;
     if (
+      hintsEnabled &&
+      !value.trim() &&
+      (event.key === "Backspace" || event.key === "Delete")
+    ) {
+      const app = mentions.filter((item) => item.kind === "app").at(-1);
+      if (app) {
+        event.preventDefault();
+        removeApp(app.key);
+        return;
+      }
+    }
+    if (
       event.key === "Backspace" &&
       editorRef.current &&
       removeCapabilityMentionBeforeCaret(editorRef.current)
@@ -442,6 +461,33 @@ export const CapabilityMentionInput: FC<{
 
   return (
     <>
+      {hintsEnabled && mentions.some((item) => item.kind === "app") && (
+        <div
+          className="flex flex-wrap gap-1 px-4 pb-1"
+          aria-label="Selected apps"
+        >
+          {mentions
+            .filter((item) => item.kind === "app")
+            .map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                aria-label={`Remove ${item.label}`}
+                className="text-aomi-accent bg-aomi-accent/10 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs"
+                onClick={() => removeApp(item.key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Backspace" || event.key === "Delete") {
+                    event.preventDefault();
+                    removeApp(item.key);
+                  }
+                }}
+              >
+                {item.label}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+        </div>
+      )}
       <div className="relative">
         {!hasText ? (
           <span className="text-aomi-muted pointer-events-none absolute left-4 top-1.5 text-[13px]">

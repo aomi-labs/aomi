@@ -1,9 +1,8 @@
 import type { SetStateAction } from "react";
-import type { AgentMode } from "@aomi-labs/client";
+import { safeEnv, type AgentMode } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
-import { safeEnv } from "../utils/env";
-import { generateUUID } from "../utils/uuid";
+import { generateUUID } from "../utils/client-session";
 
 const threadLogEnv = safeEnv(() => process.env.NODE_ENV);
 const shouldLogThreadUpdates =
@@ -80,6 +79,12 @@ const logThreadMetadataChange = (
 };
 
 export class ThreadStore {
+  /** Old server titles may contain a flattened, truncated model-only envelope. */
+  private static cleanTitle(title: string): string {
+    const start = title.indexOf("<AOMI_UI_CAPABILITY_HINTS>");
+    return start < 0 ? title : title.slice(0, start).trimEnd() || "New Chat";
+  }
+
   private state: ThreadStoreState;
   private readonly listeners = new Set<() => void>();
   private snapshot: ThreadContext;
@@ -153,7 +158,12 @@ export class ThreadStore {
     const previous = this.state.threadMetadata;
     const resolved =
       typeof updater === "function" ? updater(previous) : updater;
-    const threadMetadata = new Map(resolved);
+    const threadMetadata = new Map(
+      [...resolved].map(([id, metadata]) => [
+        id,
+        { ...metadata, title: ThreadStore.cleanTitle(metadata.title) },
+      ]),
+    );
     for (const [threadId, next] of threadMetadata) {
       logThreadMetadataChange(
         "setThreadMetadata",
@@ -185,6 +195,7 @@ export class ThreadStore {
     const previous = this.state.threadMetadata.get(threadId);
     if (!previous) return;
     const next = { ...previous, ...updates };
+    next.title = ThreadStore.cleanTitle(next.title);
     const threadMetadata = new Map(this.state.threadMetadata);
     threadMetadata.set(threadId, next);
     logThreadMetadataChange("updateThreadMetadata", threadId, previous, next);
