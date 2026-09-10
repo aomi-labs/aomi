@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PowerOff, Rocket } from "lucide-react";
+import { PowerOff } from "lucide-react";
 import { EmptyState } from "@build/components/control-plane/empty-state";
 import { useToast } from "@build/components/control-plane/toast";
 import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
@@ -13,7 +13,7 @@ import { DeploymentDetail } from "../ui/deployment-detail";
 import { RequiredSecretsPanel } from "@build/features/launch/components/required-secrets-panel";
 import { UpgradeConfirmDialog, UpgradeRail } from "../ui/upgrade-rail";
 import { LoadingPanel, EmptyPanel } from "../ui/state-panels";
-import { DeployProgressBar } from "../ui/deploy-progress-bar";
+import { AttemptControls, DeploymentAttempts } from "../ui/deployment-attempts";
 import {
   buildActivityList,
   buildDeploymentList,
@@ -144,10 +144,7 @@ export function DeploymentsTab({
     detail.history !== null &&
     deployments.length > 0 &&
     currentDeployment == null;
-  const deploying =
-    detail.deployFlow.phase !== "idle" &&
-    detail.deployFlow.phase !== "done" &&
-    detail.deployFlow.phase !== "error";
+  const deploying = detail.attempts.busy;
   // Redeploy is pointless mid-upgrade: it would ship the old SDK again.
   const upgradeGate =
     upgrade.state.phase === "pr-open" || upgrade.state.phase === "opening";
@@ -229,9 +226,6 @@ export function DeploymentsTab({
   }
   // The canonical record timeline establishes the UI's current state. History
   // enriches it independently, so render records while that request is pending.
-  if (detail.recordsByApp === null) {
-    return <LoadingPanel label="Loading deployments…" />;
-  }
 
   const runPromote = async (deploymentId: string) => {
     setPending(null);
@@ -309,22 +303,27 @@ export function DeploymentsTab({
     deployments.length === 1
       ? "1 deployment in history"
       : `${deployments.length} deployments in history`;
-  const summaryLabel = status?.isLive
-    ? currentDeployment
-      ? `Live · ${currentDeployment.apps.join(", ") || "app"} · ${historyCountLabel}`
-      : `Live · ${historyCountLabel}`
-    : deactivated
-      ? `Deactivated · ${historyCountLabel}`
-      : deployments.length > 0
-        ? historyCountLabel
-        : (status?.label ?? "No deployment");
+  const summaryLabel = detail.attempts.busy
+    ? "Deployment in progress"
+    : detail.runtime?.isError
+      ? "Runtime status unavailable"
+      : status?.isLive
+        ? currentDeployment
+          ? `Live · ${currentDeployment.apps.join(", ") || "app"} · ${historyCountLabel}`
+          : `Live · ${historyCountLabel}`
+        : deactivated
+          ? `Deactivated · ${historyCountLabel}`
+          : deployments.length > 0
+            ? historyCountLabel
+            : (status?.label ?? "No deployment");
 
   return (
     <div>
       <div className="border-border text-dim border-b px-4 py-2 text-xs">
         <span className="text-foreground font-medium">{summaryLabel}</span>
         <span className="text-dim"> · </span>
-        Newest and current first. Promote an older release to make it live.
+        Newest attempt first. Existing releases remain available below for
+        rollback.
       </div>
       <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
         <div
@@ -377,30 +376,10 @@ export function DeploymentsTab({
               Deactivate
             </button>
           )}
-          <div className="flex flex-col items-end gap-0.5">
-            <button
-              type="button"
-              disabled={deploying || secretsGateBlocked || upgradeGate}
-              onClick={() => {
-                setOp(null);
-                void detail.redeploySource();
-              }}
-              className="bg-primary text-primary-foreground inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-medium hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              title={
-                upgradeGate
-                  ? "Unlocks when the SDK upgrade PR merges"
-                  : "Deploy the source repo's latest commit and activate it"
-              }
-            >
-              <Rocket className="size-3.5" aria-hidden />
-              {deploying ? "Deploying…" : "Redeploy from Linked Repository"}
-            </button>
-            {upgradeGate && (
-              <span className="text-dim text-[10px]">
-                unlocks when the upgrade PR merges
-              </span>
-            )}
-          </div>
+          <AttemptControls
+            detail={detail}
+            blocked={secretsGateBlocked || upgradeGate}
+          />
         </div>
       </div>
 
@@ -414,10 +393,7 @@ export function DeploymentsTab({
         onDismiss={upgrade.dismiss}
       />
 
-      <DeployProgressBar
-        deployFlow={detail.deployFlow}
-        startedAt={detail.deployStartedAt ?? null}
-      />
+      {view === "deployments" && <DeploymentAttempts detail={detail} />}
 
       {deactivated && (
         <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-center gap-2 border-b px-4 py-2 text-xs">
@@ -429,6 +405,15 @@ export function DeploymentsTab({
             new version.
           </span>
         </div>
+      )}
+
+      {detail.historyError && (
+        <p role="alert" className="text-destructive px-4 py-3 text-sm">
+          {detail.historyError}
+          <button className="ml-2 underline" onClick={detail.reload}>
+            Retry history
+          </button>
+        </p>
       )}
 
       {detail.recordsError && (
@@ -469,6 +454,9 @@ export function DeploymentsTab({
 
       {view === "deployments" &&
       deployments.length === 0 &&
+      detail.attempts.isSuccess &&
+      !detail.attempts.attempts.length &&
+      !detail.attempts.local.length &&
       !detail.recordsError ? (
         <EmptyState
           title={

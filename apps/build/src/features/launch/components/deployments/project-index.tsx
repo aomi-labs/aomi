@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { FolderKanban } from "lucide-react";
 import { EmptyState } from "@build/components/control-plane/empty-state";
 import { useProjects } from "@build/features/launch/hooks/use-projects";
@@ -21,6 +23,24 @@ export function ProjectIndex({
   connectionResult?: RepositoryConnectionResult;
 }) {
   const { state, reload } = useProjects(platform);
+  const router = useRouter();
+  useEffect(() => {
+    if (
+      connectionResult?.status !== "success" ||
+      !connectionResult.repo ||
+      state.status !== "ready"
+    )
+      return;
+    const project = state.projects.find(
+      (project) =>
+        project.repositoryLink.toLowerCase() ===
+        connectionResult.repo!.toLowerCase(),
+    );
+    if (project)
+      router.replace(
+        `/projects/${project.id}?tab=deployments&platform=${encodeURIComponent(project.platformName ?? platform ?? "community")}`,
+      );
+  }, [connectionResult, state, platform, router]);
   const requiredSdk =
     state.status === "ready" || state.status === "signed_out"
       ? state.sdk?.sdkStatus.requiredVersion

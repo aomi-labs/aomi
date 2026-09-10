@@ -61,6 +61,7 @@ vi.mock("@build/features/launch/hooks/use-project-detail", () => ({
       hasMissingSecrets: () => false,
       recordsByApp: {},
       recordsError: null,
+      attempts: { attempts: [], local: [], busy: false, isSuccess: true },
       deployFlow: { phase: "idle" },
       loadHistory: vi.fn(),
       loadSecrets: vi.fn(),

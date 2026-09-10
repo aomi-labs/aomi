@@ -1858,3 +1858,27 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
   clears it; an ordinary non-persisted pageshow does not). The spec was
   mutation-tested: neutering the handler fails the restore case and passes the
   control case. Verified with the full launch suite, 32 files / 191 tests.
+- 2026-09-08 deployment recovery: template and import now converge on shared
+  configuration with an explicit Deploy action. GitHub-owned attempts show
+  per-app progress, sanitized failures and retained history; retry follows the
+  latest selected branch commit. Actual expected-release readiness controls
+  Live. No new database persistence was added. Versioned the deploy package at
+  0.7.2. Verified 399 frontend/client tests, Build TypeScript, focused lint, the
+  deploy package build/pack dry run, and desktop/mobile component previews with
+  fixture data. Changes remain local; real staging verification follows the
+  coordinated private workflow, platform detector and template rollout.
+- 2026-09-09 deployment readiness: project details and Home show Activated until
+  the first successful runtime probe. Temporary probe errors preserve the last
+  verified result and keep retries/polling; a 404 remains an app-not-loaded
+  result. Reviewed frontend attempt cleanup is retained. Verified 396 focused
+  tests, Build TypeScript, scoped lint, deploy package build and pack dry run.
+  Backend workflows and cross-environment candidate behavior are unchanged in
+  this frontend follow-up. No database or hosted runtime changes were made.
+- 2026-09-09 deployment recovery PR sync: merged current main after the required
+  up-to-date check changed. The merge was conflict-free and all 324 focused
+  launch and deployment-route tests pass. Companion Manager, community, Krexa,
+  and template PR CI is green. No hosted rollout or database changes were made.
+- 2026-09-09 approved deployment-recovery merge: synced current main again
+  after the wallet-routing PR landed. The merge is conflict-free and all 324
+  focused launch/deployment-route tests pass. Template and both platform PRs
+  are merged; Manager precedes Build after refreshed CI.

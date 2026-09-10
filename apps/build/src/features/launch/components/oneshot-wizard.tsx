@@ -1,124 +1,24 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import { ExternalLink, Loader2, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@aomi-labs/widget-lib";
 import {
-  deploymentSetSecrets,
-  deploymentRequiredSecrets,
   installationStatusLabel,
   launchCreateRepo,
   oneshotStep,
   TEMPLATE_REPO,
   type LaunchProgress,
 } from "@build/features/launch";
-import {
-  MissingRequiredSecretsError,
-  missingRequiredSecrets,
-  type RequiredSecretsByApp,
-} from "@build/features/launch/required-secrets";
 import { chatAppUrl } from "@build/lib/chat-url";
 import { Stepper } from "./stepper";
-import { DeployStep } from "./deploy-step";
+import Link from "next/link";
 import { LivePanel } from "./live-panel";
-
-/**
- * Minimal required-secrets gate for `DeployStep` during onboarding. The
- * wizard has no persisted project row to hang a full `useProjectDetail` off
- * of — it only ever has `progress.projectId`, which the "create repo" step
- * mints alongside `progress.repo` (the wizard's sole setter of both). So this
- * mirrors just the read-only slice `DeployStep` needs, keyed on that id,
- * instead of fabricating a project-detail hook the wizard doesn't otherwise
- * use. If `projectId` is ever absent, there is no target app to gate yet.
- * Once a source exists, failures are surfaced and block deployment/activation
- * until the required-secret state can be verified.
- */
-function useWizardSecretsGate(projectId?: number) {
-  const [requiredSecrets, setRequiredSecrets] =
-    useState<RequiredSecretsByApp | null>(null);
-  const [requiredSecretsError, setRequiredSecretsError] = useState<
-    string | null
-  >(null);
-  const requestedFor = useRef<number | null>(null);
-
-  const refreshRequiredSecrets = useCallback(async () => {
-    if (!projectId) return;
-    requestedFor.current = projectId;
-    setRequiredSecretsError(null);
-    try {
-      const result = await deploymentRequiredSecrets({ projectId });
-      setRequiredSecrets(result.byApp);
-      return result.byApp;
-    } catch (err) {
-      setRequiredSecretsError(
-        err instanceof Error ? err.message : "Failed to load required secrets",
-      );
-      requestedFor.current = null;
-      throw err;
-    }
-  }, [projectId]);
-
-  const loadRequiredSecrets = useCallback(() => {
-    if (!projectId || requestedFor.current === projectId) return;
-    void refreshRequiredSecrets().catch(() => undefined);
-  }, [projectId, refreshRequiredSecrets]);
-
-  const ensureRequiredSecrets = useCallback(
-    async (apps: string[], projectIdOverride?: number) => {
-      const targetProjectId = projectIdOverride ?? projectId;
-      if (!targetProjectId) return;
-      const byApp =
-        targetProjectId === projectId
-          ? await refreshRequiredSecrets()
-          : (
-              await deploymentRequiredSecrets({
-                projectId: targetProjectId,
-              })
-            ).byApp;
-      if (!byApp) return;
-      setRequiredSecrets(byApp);
-      setRequiredSecretsError(null);
-      requestedFor.current = targetProjectId;
-      const missing = missingRequiredSecrets(byApp, apps);
-      if (Object.keys(missing).length > 0) {
-        throw new MissingRequiredSecretsError(missing);
-      }
-    },
-    [projectId, refreshRequiredSecrets],
-  );
-
-  const setEnvVars = useCallback(
-    async (applicationId: number, secrets: Record<string, string>) => {
-      if (!projectId) throw new Error("Project is missing.");
-      await deploymentSetSecrets({ applicationId, secrets });
-      const result = await deploymentRequiredSecrets({ projectId });
-      setRequiredSecrets(result.byApp);
-      setRequiredSecretsError(null);
-      requestedFor.current = projectId;
-    },
-    [projectId],
-  );
-
-  const hasMissingSecrets = useCallback(
-    (app: string) => (requiredSecrets?.[app]?.missing.length ?? 0) > 0,
-    [requiredSecrets],
-  );
-
-  return {
-    requiredSecrets,
-    requiredSecretsError,
-    loadRequiredSecrets,
-    refreshRequiredSecrets,
-    ensureRequiredSecrets,
-    setEnvVars,
-    hasMissingSecrets,
-  };
-}
 
 const STEPS = [
   { key: "install", label: "Install" },
   { key: "create", label: "Create" },
-  { key: "build", label: "Build" },
+  { key: "build", label: "Configure" },
   { key: "live", label: "Live" },
 ];
 
@@ -143,18 +43,15 @@ function repoNameError(value: string): string | null {
 export function OneshotWizard({
   progress,
   platform,
-  actor,
   onRestart,
   beginInstall,
   installing,
   installError,
   patch,
-  onReset,
   onInstallRejected,
 }: {
   progress: LaunchProgress;
   platform?: string;
-  actor?: string;
   onRestart?: () => void;
   /**
    * Send the browser to GitHub. `authorize` skips the install ceremony for an
@@ -164,12 +61,13 @@ export function OneshotWizard({
   installing?: boolean;
   installError?: string | null;
   patch: (patch: Partial<LaunchProgress>) => void;
-  onReset?: () => void;
   onInstallRejected?: (installationId?: string) => void;
 }) {
-  const step = oneshotStep(progress);
+  const step =
+    progress.projectId && progress.repo && !progress.live
+      ? "build"
+      : oneshotStep(progress);
   const installStatus = installationStatusLabel(progress.installationStatus);
-  const secretsGate = useWizardSecretsGate(progress.projectId);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [repoName, setRepoName] = useState(DEFAULT_REPO_NAME);
@@ -334,18 +232,25 @@ export function OneshotWizard({
       {step === "build" && progress.installationId && progress.repo && (
         <div className="border-input bg-surface-1 space-y-3 rounded-md border p-4">
           <div className="text-foreground text-sm font-medium">
-            Step 3: Build and activate
+            Step 3: Configure deployment
           </div>
-          <DeployStep
-            installationId={progress.installationId}
-            repo={progress.repo}
-            platform={platform}
-            actor={actor}
-            progress={progress}
-            onProgress={patch}
-            onReset={onReset}
-            detail={secretsGate}
-          />
+          <p className="text-dim text-sm">
+            Review the repository, branch, and required configuration, then
+            choose Deploy. Progress and retries stay on your project.
+          </p>
+          {progress.projectId ? (
+            <Link
+              className="bg-primary text-primary-foreground inline-flex rounded-md px-3 py-2 text-sm"
+              href={`/projects/${progress.projectId}?tab=deployments&platform=${encodeURIComponent(platform ?? "community")}`}
+            >
+              Configure deployment
+            </Link>
+          ) : (
+            <p role="alert">
+              Project details are unavailable. Refresh Projects to reconnect
+              this repository.
+            </p>
+          )}
         </div>
       )}
 

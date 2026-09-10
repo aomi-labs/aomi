@@ -465,7 +465,8 @@ export interface PlatformApp {
   projectId: number | null;
   appReleaseTag: string | null;
   targetTags: string[];
-  loaded: boolean;
+  /** Runtime probe result; `undefined` when no probe ran (list reads). */
+  loaded?: boolean;
   artifactReady?: boolean | null;
   /** Exact runtime-validated pricing sidecar for the loaded release. */
   pricing?: AppPricingSnapshot | null;
@@ -1405,4 +1406,28 @@ export interface RerunDeploymentResult {
   commitHash: string | null;
   runId: number | null;
   ciUrl: string | null;
+}
+export interface ProjectDeploymentAttempt {
+  id: number;
+  previousRunId?: number | null;
+  number?: number;
+  attempt: number;
+  commit: string;
+  branch: string;
+  status: string;
+  conclusion: string | null;
+  url: string;
+  createdAt: string;
+  updatedAt?: string;
+  diagnostics?: string[];
+  jobs?: Array<{
+    id: number;
+    name: string;
+    status: string;
+    conclusion: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    url: string;
+    steps: Array<{ name: string; status: string; conclusion: string | null }>;
+  }>;
 }
