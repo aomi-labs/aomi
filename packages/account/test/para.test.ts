@@ -12,6 +12,9 @@ import {
 } from "../src/providers/para";
 import { getWidgetProvider } from "../src/providers";
 
+const EVM = "0x1111111111111111111111111111111111111111";
+const SOL = "53GfEkka7UYR9KsM6ePWSNfbW678grShT41uZMjXAvoL";
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -246,5 +249,91 @@ describe("Para login identifiers", () => {
     // and no identifier type that would name it.
     expect(paraUserIdentifierType("externalWallet")).toBeNull();
     expect(paraUserIdentifierType(undefined)).toBeNull();
+  });
+});
+
+describe("Para token wallet attestations", () => {
+  let jwksSeq = 0;
+
+  async function verifyToken(data: Record<string, unknown>) {
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const jwk = await exportJWK(publicKey);
+    // A fresh JWKS URL per token: the verifier caches remote key sets by URL,
+    // so reusing one would verify the second token against the first key.
+    const jwksUrl = `https://para.example/.well-known/wallet-jwks-${jwksSeq++}.json`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ keys: [{ ...jwk, kid: "w-kid", alg: "RS256" }] }),
+      ),
+    );
+    const now = 1_900_000_000;
+    const token = await new SignJWT({ data })
+      .setProtectedHeader({ alg: "RS256", kid: "w-kid" })
+      .setSubject("para-user-wallets")
+      .setAudience("para-project")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 300)
+      .sign(privateKey);
+    return verifyParaWidgetCredential({
+      environment: "BETA",
+      providerToken: token,
+      jwksUrls: { BETA: jwksUrl, PROD: jwksUrl },
+      now: new Date(now * 1000),
+    });
+  }
+
+  it("attests the embedded wallets Para signed into the token", async () => {
+    // Para's REST wallet list is indexed by pregen login handle and cannot see
+    // an SDK-created wallet, so this signed array is the only proof available
+    // for a Mini App user. It carries the same signature as the `sub` the
+    // canonical account is bound to.
+    const identity = await verifyToken({
+      wallets: [
+        { id: "w-evm", type: "EVM", address: EVM },
+        { id: "w-svm", type: "SOLANA", address: SOL },
+      ],
+    });
+
+    expect(identity.walletAttestations).toEqual([
+      {
+        provider: "para",
+        providerWalletId: "w-evm",
+        family: "evm",
+        address: EVM,
+        chainScope: null,
+      },
+      {
+        provider: "para",
+        providerWalletId: "w-svm",
+        family: "svm",
+        address: SOL,
+        chainScope: null,
+      },
+    ]);
+  });
+
+  it("never attests a connected external wallet", async () => {
+    // `connectedWallets` are wallets attached to the session, not custodied by
+    // Para. They can never back hosted signing, so they stay out of the graph
+    // even though they ride in the same signed token.
+    const identity = await verifyToken({
+      connectedWallets: [{ id: "w-external", type: "EVM", address: EVM }],
+    });
+
+    expect(identity.walletAttestations).toEqual([]);
+  });
+
+  it("drops malformed entries instead of trusting the shape", async () => {
+    const identity = await verifyToken({
+      wallets: [
+        { id: "w-no-address", type: "EVM" },
+        { id: "w-bad-address", type: "EVM", address: "0xnothex" },
+        { id: "w-unsupported", type: "COSMOS", address: EVM },
+        { type: "EVM", address: EVM },
+      ],
+    });
+
+    expect(identity.walletAttestations).toEqual([]);
   });
 });

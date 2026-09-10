@@ -14,6 +14,20 @@ vi.mock("@aomi-labs/account/account", () => ({
   claimTelegramSessionOwner: mocks.claimOwner,
   linkVerifiedProviderIdentityForUser: mocks.linkIdentity,
   resolveAttestedProviderWallets: mocks.resolveWallets,
+  // Same dedupe-by-address rule as the real helper; the module is mocked
+  // wholesale to keep the Postgres pool out of this suite.
+  mergeProviderWalletAttestations: (
+    primary: { family: string; address: string }[],
+    fallback: { family: string; address: string }[],
+  ) => {
+    const seen = new Set<string>();
+    return [...primary, ...fallback].filter((wallet) => {
+      const key = `${wallet.family}:${wallet.address.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  },
   IdentityConflictError: class IdentityConflictError extends Error {},
 }));
 
@@ -80,6 +94,13 @@ const EVM_WALLET = {
   providerWalletId: "para-evm",
   family: "evm",
   address: "0x1111111111111111111111111111111111111111",
+  chainScope: null,
+};
+const TOKEN_WALLET = {
+  provider: "para",
+  providerWalletId: "para-token-evm",
+  family: "evm",
+  address: "0x3333333333333333333333333333333333333333",
   chainScope: null,
 };
 const SVM_WALLET = {
@@ -203,10 +224,7 @@ describe("Telegram Para exchange", () => {
     expect(mocks.claimOwner).not.toHaveBeenCalled();
     expect(mocks.issueSession).not.toHaveBeenCalled();
   });
-  it("links the wallets Para's server API attests, not the ones the JWT claims", async () => {
-    // The Para session JWT is a client-held token: a forged `wallets` claim
-    // must never reach the canonical link. Only the server-side API answer,
-    // fetched with `PARA_API_SECRET_KEY`, may become a `public_keys` row.
+  it("merges the provider API answer with the token's signed attestation", async () => {
     mocks.verifyCredential.mockResolvedValue({
       descriptor: { id: "para", policy: { subjectIsEnvironmentGlobal: true } },
       identity: {
@@ -216,15 +234,7 @@ describe("Telegram Para exchange", () => {
         subject: "para-user",
         email: { value: "user@example.com", verified: true },
         loginIdentifier: { type: "telegram", value: "1234567890" },
-        walletAttestations: [
-          {
-            provider: "para",
-            providerWalletId: "forged",
-            family: "evm",
-            address: "0x9999999999999999999999999999999999999999",
-            chainScope: null,
-          },
-        ],
+        walletAttestations: [TOKEN_WALLET],
       },
     });
 
@@ -240,12 +250,13 @@ describe("Telegram Para exchange", () => {
     expect(mocks.linkIdentity).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "canonical-user",
-        wallets: [EVM_WALLET, SVM_WALLET],
+        wallets: [EVM_WALLET, SVM_WALLET, TOKEN_WALLET],
       }),
     );
   });
 
-  it("refuses the exchange when Para attests no embedded wallet", async () => {
+  it("refuses the exchange when neither source knows of an embedded wallet", async () => {
+    // The default credential mock carries no token attestation either.
     mocks.resolveWallets.mockResolvedValue({ status: "attested", wallets: [] });
 
     const response = await POST(exchange());
@@ -258,33 +269,36 @@ describe("Telegram Para exchange", () => {
     expect(mocks.issueSession).not.toHaveBeenCalled();
   });
 
-  it("refuses the exchange when the Para API is unavailable", async () => {
-    mocks.resolveWallets.mockResolvedValue({
-      status: "unavailable",
-      error: new Error("para down"),
+  it("links on the token attestation alone when the Para API cannot answer", async () => {
+    // Para's wallet list is indexed by pregen login handle and returns nothing
+    // for an SDK-created wallet, so neither an empty answer nor an outage may
+    // veto the token's own signed attestation.
+    mocks.verifyCredential.mockResolvedValue({
+      descriptor: { id: "para", policy: { subjectIsEnvironmentGlobal: true } },
+      identity: {
+        provider: "para",
+        issuerEnvironment: "beta",
+        tenantId: "para",
+        subject: "para-user",
+        walletAttestations: [TOKEN_WALLET],
+      },
     });
 
-    const response = await POST(exchange());
+    for (const resolution of [
+      { status: "unavailable", error: new Error("para down") },
+      { status: "unconfigured" },
+      { status: "attested", wallets: [] },
+    ]) {
+      mocks.linkIdentity.mockClear();
+      mocks.resolveWallets.mockResolvedValue(resolution);
 
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
-      error: "provider_wallets_unavailable",
-    });
-    expect(mocks.linkIdentity).not.toHaveBeenCalled();
-    expect(mocks.issueSession).not.toHaveBeenCalled();
-  });
+      const response = await POST(exchange());
 
-  it("refuses the exchange when no Para server secret is configured", async () => {
-    mocks.resolveWallets.mockResolvedValue({ status: "unconfigured" });
-
-    const response = await POST(exchange());
-
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
-      error: "provider_wallets_unconfigured",
-    });
-    expect(mocks.linkIdentity).not.toHaveBeenCalled();
-    expect(mocks.issueSession).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(mocks.linkIdentity).toHaveBeenCalledWith(
+        expect.objectContaining({ wallets: [TOKEN_WALLET] }),
+      );
+    }
   });
 
   it("fails closed when a wallet already belongs to another canonical user", async () => {

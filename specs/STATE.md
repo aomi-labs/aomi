@@ -2,6 +2,52 @@
 
 ## Last Updated
 
+2026-09-10 — PARA'S REST WALLET LIST CANNOT ATTEST AN SDK-CREATED WALLET
+  (branch `fix/para-token-wallet-attestation`). Follow-up to the two entries
+  below: with the server-side attestation wired in (#590) and the Mini App
+  provisioning an EVM wallet before the exchange (#591), staging still returned
+  422 `provider_hosted_wallet_missing`. An unfiltered
+  `GET /v1/wallets?limit=20` against the staging Para partner scope settled it:
+  15 rows, `hasMore: false`, newest created 2026-05-19 — the wallet the Mini App
+  had created minutes earlier was NOT there, and every row was a pregen/REST
+  test wallet (`a@b.com`, `user@example.com`, `+4912333333`). The public REST
+  list is indexed by pregen login handle; wallets a user creates through the
+  client SDK live in the user-management API the SDK itself calls
+  (`client.getWallets(userId)`), which a partner API key cannot reach. So no
+  `userIdentifierType` mapping and no row filter could ever have fixed this —
+  the data is not in that endpoint. (Also: zero SOLANA wallets exist in the
+  partner scope at all.)
+  The proof therefore comes from Para's signed token, and this is a deliberate
+  reversal of the premise the work started from:
+  - `verifyParaWidgetCredential` now converts `data.wallets` into
+    `AttestedWallet[]` instead of returning `[]`. That array carries exactly
+    the trust of the `sub` the canonical account is bound to — same RS256
+    signature, same JWKS, same `aud` pinned to our API key id. Treating `sub`
+    as authoritative while calling the sibling field unverifiable was
+    incoherent. `connectedWallets` stays discarded: those are session-attached
+    external wallets, not Para-custodied, and can never back hosted signing.
+    That is the boundary that actually matters.
+  - `requireAttestedProviderWallets` now MERGES the REST answer with the token
+    attestation (REST first) and only 422s when both are empty. Consequence:
+    `provider_wallets_unconfigured` / `provider_wallets_unavailable` no longer
+    fail the exchange — an endpoint that structurally cannot see the wallet
+    proves nothing by being empty or down. This mirrors the native path's
+    long-standing `prepareVerifiedCredential` merge; the widget path was the
+    outlier.
+  Unchanged: cross-account wallet conflict still fails closed (409), wallets
+  still land in `public_keys` through the same single transaction, and the
+  scheme/status/type filters still gate the REST source.
+  Deployment topology learned the hard way, now correct and verified by
+  grepping the live bundles:
+  - `tg-mini-app` → mini-app.aomi.dev → `NEXT_PUBLIC_AOMI_BFF_URL=https://chat.aomi.dev`
+  - `tg-mini-app-staging` → mini-app-staging.aomi.dev → `=https://chat-staging.aomi.dev`
+    (root dir `.`, build `pnpm --filter telegram build`, CLI-deployed)
+  The Vercel CLI marks env vars SENSITIVE by default when added
+  non-interactively, and a sensitive `NEXT_PUBLIC_*` never reaches the client
+  bundle — it reads back as `""`. Always pass `--no-sensitive` for public vars.
+  STILL NOT VERIFIED: the live `Auto × Telegram × AA × Hosted` cell. This change
+  has to reach chat-staging (portal main) before the next run.
+
 2026-09-10 — TELEGRAM × PARA HOSTED WALLETS NEVER REACHED `public_keys`
   (working tree, uncommitted). The Mini App said "Para is linked" while the bot
   still reported `Authority: not linked`: `/api/auth/widget/telegram/exchange`

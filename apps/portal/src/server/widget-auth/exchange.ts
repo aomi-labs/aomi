@@ -1,4 +1,7 @@
-import { resolveAttestedProviderWallets } from "@aomi-labs/account/account";
+import {
+  mergeProviderWalletAttestations,
+  resolveAttestedProviderWallets,
+} from "@aomi-labs/account/account";
 import {
   getWidgetProvider,
   widgetCredentialWireSchema,
@@ -40,25 +43,29 @@ export async function verifyWidgetProviderCredential(body: unknown): Promise<{
 }
 
 /**
- * Resolve the wallets a provider's own server-side API attests for a verified
+ * Resolve every wallet this provider attests it custodies for a verified
  * subject, for flows that cannot function without a hosted wallet.
  *
- * A widget credential proves who the human is, nothing more: every widget
- * descriptor deliberately returns `walletAttestations: []` because the wallet
- * arrays inside a provider session token are client-supplied claims. So the
- * only way a provider-custodied wallet may become a canonical `public_keys`
- * row is this call, made with the server's own provider API secret.
+ * Two sources, merged, neither of them a client claim:
  *
- * Each failure keeps its own code so a caller (and the Mini App reading the
- * response) can tell them apart, and none of them fall back to the token's
- * wallet claims:
- * - `provider_wallets_unconfigured` (503) — no server API secret for this
- *   provider in this environment; nothing was asked and nothing is known.
- * - `provider_wallets_unavailable` (503) — the provider API call failed;
- *   transient, and retrying the exchange is the fix.
- * - `provider_hosted_wallet_missing` (422) — the provider answered, and this
- *   user owns no embedded/MPC wallet. External/imported wallets are filtered
- *   out upstream, so they never satisfy this.
+ * 1. The provider's own server-side wallet API, queried with our API secret.
+ *    Authoritative where it has the data — but Para's `GET /v1/wallets` is
+ *    indexed by pregen login handle and simply does not return wallets a user
+ *    created through the client SDK, which is every Telegram Mini App user. So
+ *    an empty or unavailable answer here proves nothing and must not fail the
+ *    exchange on its own.
+ * 2. The provider token's own signed wallet attestation. For Para that is
+ *    `data.wallets`, signed by the same key, under the same audience, as the
+ *    `sub` we bind the canonical account to. External/connected wallets are
+ *    stripped upstream and never appear here.
+ *
+ * This mirrors what the native credential path has always done
+ * (`prepareVerifiedCredential` merges the same two sources); the widget path
+ * was the outlier in discarding the token attestation.
+ *
+ * Only an empty merged set is a failure: `provider_hosted_wallet_missing`
+ * (422) means neither source knows of an embedded wallet for this user, so
+ * there is nothing that could sign.
  */
 export async function requireAttestedProviderWallets(
   identity: VerifiedProviderIdentity,
@@ -69,14 +76,12 @@ export async function requireAttestedProviderWallets(
     email: identity.email?.value,
     loginIdentifier: identity.loginIdentifier,
   });
-  if (resolution.status === "unconfigured") {
-    throw new WidgetAuthError("provider_wallets_unconfigured", 503);
-  }
-  if (resolution.status === "unavailable") {
-    throw new WidgetAuthError("provider_wallets_unavailable", 503);
-  }
-  if (!resolution.wallets.length) {
+  const wallets = mergeProviderWalletAttestations(
+    resolution.status === "attested" ? resolution.wallets : [],
+    identity.walletAttestations,
+  );
+  if (!wallets.length) {
     throw new WidgetAuthError("provider_hosted_wallet_missing", 422);
   }
-  return resolution.wallets;
+  return wallets;
 }
