@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -38,6 +39,7 @@ type CapabilityComposerContextValue = {
   openCapabilityPicker: () => void;
   consumeCapabilityPickerRequest: () => void;
   addMention: (mention: CapabilityMention) => void;
+  removeApp: (key: string) => void;
   retainMentions: (keys: ReadonlySet<string>) => void;
   prepareSubmit: (event: FormEvent<HTMLFormElement>) => void;
   enabledAppIds?: readonly string[];
@@ -107,7 +109,88 @@ export function CapabilityComposerProvider({
       : undefined) ??
     normalizedRouting.directApps[0] ??
     null;
-  const [mentions, setMentions] = useState<CapabilityMention[]>([]);
+  const [draftMentions, setMentions] = useState<CapabilityMention[]>([]);
+  const threadId = threadContext.currentThreadId;
+  const [appState, setAppState] = useState<{
+    threadId: string;
+    selected: CapabilityMention[];
+    removed: CapabilityMention[];
+  }>({ threadId: "", selected: [], removed: [] });
+  const currentApps = appState.threadId === threadId ? appState : null;
+  const mentions = useMemo(
+    () => [...(currentApps?.selected ?? []), ...draftMentions],
+    [currentApps, draftMentions],
+  );
+  const appStateRef = useRef(appState);
+  appStateRef.current = appState;
+
+  useEffect(() => {
+    let saved: {
+      selected?: CapabilityMention[];
+      removed?: CapabilityMention[];
+    } = {};
+    try {
+      saved = JSON.parse(
+        localStorage.getItem(`aomi:app-selection:${threadId}`) ?? "{}",
+      );
+    } catch {
+      /* Storage may be unavailable. Keep this session usable. */
+    }
+    const apps = (value: unknown): CapabilityMention[] =>
+      Array.isArray(value)
+        ? value
+            .filter(
+              (item): item is CapabilityMention =>
+                !!item &&
+                item.kind === "app" &&
+                typeof item.id === "string" &&
+                typeof item.key === "string" &&
+                typeof item.label === "string",
+            )
+            .slice(0, 16)
+        : [];
+    setAppState({
+      threadId,
+      selected: apps(saved?.selected),
+      removed: apps(saved?.removed),
+    });
+  }, [threadId]);
+
+  useEffect(() => {
+    if (appState.threadId !== threadId) return;
+    try {
+      localStorage.setItem(
+        `aomi:app-selection:${threadId}`,
+        JSON.stringify({
+          selected: appState.selected,
+          removed: appState.removed,
+        }),
+      );
+    } catch {
+      /* In-memory selections still work without browser storage. */
+    }
+  }, [appState, threadId]);
+
+  useEffect(
+    () =>
+      composerRuntime.unstable_on("send", () => {
+        // The runtime has already captured this turn's runConfig.
+        if (policy !== "auto") return;
+        const sent = appStateRef.current;
+        if (sent.threadId !== threadId || !sent.removed.length) return;
+        setAppState((current) =>
+          current.threadId === threadId
+            ? {
+                ...current,
+                removed: current.removed.filter(
+                  (item) => !sent.removed.includes(item),
+                ),
+              }
+            : current,
+        );
+      }),
+    [composerRuntime, policy, threadId],
+  );
   const [capabilityPickerRequest, setCapabilityPickerRequest] = useState(0);
 
   useEffect(() => {
@@ -194,13 +277,54 @@ export function CapabilityComposerProvider({
   const addMention = useCallback(
     (mention: CapabilityMention) => {
       if (!hintsEnabled) return;
+      if (mention.kind === "app") {
+        const app: CapabilityMention = {
+          kind: "app",
+          key: mention.key,
+          id: mention.id,
+          label: mention.label,
+        };
+        setAppState((current) => ({
+          threadId,
+          selected: [
+            ...(current.threadId === threadId ? current.selected : []).filter(
+              (item) => item.key !== mention.key,
+            ),
+            app,
+          ],
+          removed: (current.threadId === threadId
+            ? current.removed
+            : []
+          ).filter((item) => item.key !== mention.key),
+        }));
+        return;
+      }
       setMentions((current) =>
         current.some((item) => item.key === mention.key)
           ? current
           : [...current, mention],
       );
     },
-    [hintsEnabled],
+    [hintsEnabled, threadId],
+  );
+
+  const removeApp = useCallback(
+    (key: string) => {
+      setAppState((current) => {
+        if (current.threadId !== threadId) return current;
+        const removed = current.selected.find((item) => item.key === key);
+        if (!removed) return current;
+        return {
+          ...current,
+          selected: current.selected.filter((item) => item.key !== key),
+          removed: [
+            ...current.removed.filter((item) => item.key !== key),
+            removed,
+          ],
+        };
+      });
+    },
+    [threadId],
   );
 
   const retainMentions = useCallback((keys: ReadonlySet<string>) => {
@@ -210,11 +334,15 @@ export function CapabilityComposerProvider({
   useEffect(() => {
     const current = composerRuntime.getState().runConfig;
     const custom = { ...(current.custom ?? {}) };
-    const payload = buildCapabilityHintPayload(policy, mentions);
+    const payload = buildCapabilityHintPayload(
+      policy,
+      mentions,
+      currentApps?.removed,
+    );
     if (payload) custom.aomiCapabilityHints = payload;
     else delete custom.aomiCapabilityHints;
     composerRuntime.setRunConfig({ ...current, custom });
-  }, [composerRuntime, policy, mentions]);
+  }, [composerRuntime, policy, mentions, currentApps]);
 
   const prepareSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -240,12 +368,14 @@ export function CapabilityComposerProvider({
       consumeCapabilityPickerRequest,
       addMention,
       retainMentions,
+      removeApp,
       prepareSubmit,
       enabledAppIds,
       allowAppMentions: hintsEnabled,
     }),
     [
       addMention,
+      removeApp,
       capabilityPickerRequest,
       consumeCapabilityPickerRequest,
       enabledAppIds,

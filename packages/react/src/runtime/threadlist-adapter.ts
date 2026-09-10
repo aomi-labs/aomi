@@ -1,4 +1,4 @@
-import { generateUUID } from "../utils/uuid";
+import { generateUUID } from "../utils/client-session";
 import type { MutableRefObject } from "react";
 import type { ExternalStoreThreadData } from "@assistant-ui/react";
 
