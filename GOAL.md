@@ -1,5 +1,7 @@
 # Current work
 
+**INLINE APP CHIPS 2026-09-10** — apps match skill icon/text styling in the composer and are visible in submitted messages. Apps persist; skill mentions remain draft-scoped. App deletion retains one-turn guidance. Isolated follow-up; no deployment.
+
 **PERSISTENT APP CHIPS 2026-09-10** — selected app chips remain in the composer
 after sends and restore per conversation from browser storage. New conversations
 start empty. Deleting a chip queues one-turn removal guidance; reselection
