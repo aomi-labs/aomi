@@ -26,6 +26,42 @@ type TelegramExchangeResponse = {
   expires_at?: unknown;
 };
 
+type ParaWalletClient = {
+  createWalletPerType: (input: { types: ["EVM"] }) => Promise<unknown>;
+  getWalletsByType: (type: "EVM") => unknown[];
+};
+
+type WalletProvisionState =
+  | { status: "disconnected" | "provisioning" | "ready" }
+  | { error: string; status: "error" };
+
+// React can restart an effect while a connected Para client is still creating
+// its first wallet. Share that work so the account never gets two EVM wallets.
+const evmWalletProvisioning = new WeakMap<
+  ParaWalletClient,
+  Promise<void>
+>();
+
+async function ensureEvmWallet(client: ParaWalletClient): Promise<void> {
+  if (client.getWalletsByType("EVM").length > 0) return;
+
+  let provisioning = evmWalletProvisioning.get(client);
+  if (!provisioning) {
+    provisioning = client
+      .createWalletPerType({ types: ["EVM"] })
+      .then(() => {
+        if (client.getWalletsByType("EVM").length === 0) {
+          throw new Error("para_embedded_wallet_unavailable");
+        }
+      })
+      .finally(() => {
+        evmWalletProvisioning.delete(client);
+      });
+    evmWalletProvisioning.set(client, provisioning);
+  }
+  await provisioning;
+}
+
 function telegramParaAdapter(input: {
   getCredential: () => Promise<{
     keyId?: string;
@@ -95,14 +131,54 @@ export function useCanonicalAccount(
   const account = useAccount();
   const paraClient = useClient();
   const paraSubject = account.embedded.userId ?? paraClient?.userId ?? null;
+  const [walletProvision, setWalletProvision] = useState<WalletProvisionState>({
+    status: "disconnected",
+  });
   const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
     error: null,
     status: "disconnected",
     userId: null,
   });
 
+  useEffect(() => {
+    if (!account.embedded.isConnected || !paraClient) {
+      queueMicrotask(() => setWalletProvision({ status: "disconnected" }));
+      return;
+    }
+
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setWalletProvision({ status: "provisioning" });
+    });
+    void ensureEvmWallet(paraClient)
+      .then(() => {
+        if (active) setWalletProvision({ status: "ready" });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setWalletProvision({
+          error:
+            error instanceof Error
+              ? error.message
+              : "para_embedded_wallet_provision_failed",
+          status: "error",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [account.embedded.isConnected, paraClient]);
+
   const provider = useMemo(() => {
-    if (!account.embedded.isConnected || !paraClient || !launch) return null;
+    if (
+      !account.embedded.isConnected ||
+      !paraClient ||
+      !launch ||
+      walletProvision.status !== "ready"
+    ) {
+      return null;
+    }
     const getCredential = async () => {
       const credential = await paraClient.issueJwt({});
       const providerToken = credential.token.trim();
@@ -127,7 +203,13 @@ export function useCanonicalAccount(
             getSubject: () => paraSubject,
           });
     return createAccountSessionProvider({ baseUrl: aomiBffUrl, adapter });
-  }, [account.embedded.isConnected, launch, paraClient, paraSubject]);
+  }, [
+    account.embedded.isConnected,
+    launch,
+    paraClient,
+    paraSubject,
+    walletProvision.status,
+  ]);
 
   useEffect(() => {
     if (!provider) return;
@@ -174,6 +256,21 @@ export function useCanonicalAccount(
     };
   }, [provider]);
 
+  if (walletProvision.status === "error") {
+    return {
+      error: walletProvision.error,
+      provider: null,
+      status: "error",
+      userId: null,
+    };
+  }
+  if (
+    account.embedded.isConnected &&
+    paraClient &&
+    walletProvision.status === "provisioning"
+  ) {
+    return { error: null, provider: null, status: "loading", userId: null };
+  }
   return provider
     ? { ...state, provider }
     : { error: null, provider: null, status: "disconnected", userId: null };
