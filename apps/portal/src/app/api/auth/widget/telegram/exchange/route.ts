@@ -34,6 +34,8 @@ type TelegramParaExchange = {
   session_id?: unknown;
 };
 
+const TELEGRAM_PROVIDERS = new Set(["privy", "para"]);
+
 const DM_THREAD_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -90,7 +92,14 @@ export const POST = widgetRoute(async (request: Request) => {
   const { descriptor, identity } = await verifyWidgetProviderCredential(
     body.credential,
   );
-  if (descriptor.id !== "para" || identity.provider !== "para") {
+  // Privy is the provider the portal already runs on, and its wallet API is
+  // keyed by the verified token subject, so a hosted wallet can be attested
+  // server-side. Para stays accepted so a Mini App build still in the wild
+  // keeps working, and because portal surfaces still offer it.
+  if (
+    !TELEGRAM_PROVIDERS.has(descriptor.id) ||
+    descriptor.id !== identity.provider
+  ) {
     throw new WidgetAuthError("provider_not_enabled", 400);
   }
   // A Para session JWT proves the human, never a wallet. Ask Para's own API,
@@ -117,7 +126,7 @@ export const POST = widgetRoute(async (request: Request) => {
     await issueWidgetSession({
       userId,
       origin,
-      authMethod: "telegram_para",
+      authMethod: `telegram_${descriptor.id}`,
       providerIdentityId: resolution.identity.id,
     }),
   );
