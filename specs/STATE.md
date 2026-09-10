@@ -44,6 +44,13 @@
   - Privy's Telegram Mini App login reads `window.Telegram.WebApp.initData`
     itself; that path is documented but has NOT been exercised here.
   Para is untouched server-side and in the portal — this only moves the Mini App.
+  Fallout worth knowing: dropping `@getpara/*` from `apps/telegram` broke the
+  LANDING build, because the Para 2.19.0 line imports `@getpara/shared` and
+  `eventemitter3` without listing them in its published manifests and had been
+  resolving them only through the newer Para tree the Mini App pulled in. Fixed
+  with `packageExtensions` in `pnpm-workspace.yaml` (same mechanism already used
+  for `@getpara/react-sdk@2.24.0`), pinning `@getpara/shared` to the 1.14.0 that
+  `@getpara/user-management-client@2.19.0` itself depends on.
 
 2026-09-10 — PARA'S REST WALLET LIST CANNOT ATTEST AN SDK-CREATED WALLET
   (branch `fix/para-token-wallet-attestation`). Follow-up to the two entries
