@@ -28,3 +28,38 @@ describe("splitCapabilityText", () => {
     ]);
   });
 });
+
+it("shows selected apps alongside inline skills without duplicating existing app mentions", () => {
+  const app = {
+    kind: "app" as const,
+    id: "application:2937773",
+    label: "Cambrian",
+    token: "▦ Cambrian",
+    Icon: AppWindowIcon,
+  };
+  const skill = {
+    kind: "skill" as const,
+    id: "across",
+    label: "Across",
+    token: "✦ Across",
+    Icon: AppWindowIcon,
+  };
+  const segments = splitCapabilityText(
+    "✦ Across now what can you do?",
+    [app, skill],
+    [app, skill],
+  );
+  expect(
+    segments
+      .filter((s) => s.type === "capability")
+      .map((s) => s.type === "capability" && s.capability.label),
+  ).toEqual(["Cambrian", "Across"]);
+  expect(
+    splitCapabilityText("▦ Cambrian hello", [app], [app]).filter(
+      (s) => s.type === "capability",
+    ),
+  ).toHaveLength(1);
+  expect(splitCapabilityText("hello", [app], [])).toEqual([
+    { type: "text", text: "hello" },
+  ]);
+});

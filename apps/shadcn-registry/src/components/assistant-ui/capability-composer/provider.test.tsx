@@ -88,6 +88,18 @@ function Composer() {
       >
         Choose Cambrian
       </button>
+      <button
+        onClick={() =>
+          composer.addMention({
+            kind: "skill",
+            id: "across",
+            key: "skill:across",
+            label: "Across",
+          })
+        }
+      >
+        Choose Across
+      </button>
       <button onClick={() => composer.removeApp("app:cambrian")}>
         Remove app
       </button>
@@ -262,6 +274,10 @@ it.each(["chip", "input"])(
     });
     const chip = screen.getByRole("button", { name: "Remove Cambrian" });
     expect(chip).toBeVisible();
+    expect(chip.textContent).toBe("Cambrian");
+    expect(chip.querySelector("svg")).not.toBeNull();
+    expect(chip.className).not.toMatch(/rounded|bg-/);
+
     await act(async () => {
       fireEvent.keyDown(
         target === "chip"
@@ -278,3 +294,24 @@ it.each(["chip", "input"])(
     );
   },
 );
+
+it("clears submitted skill mentions while retaining apps without skill avoidance guidance", async () => {
+  fixture.text = "✦ Across hello";
+  const view = render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Choose Cambrian"));
+    fireEvent.click(screen.getByText("Choose Across"));
+  });
+  expect(screen.getByTestId("selections").textContent).toBe("Cambrian,Across");
+  await act(async () => {
+    fireEvent.click(screen.getByText("Send button"));
+  });
+  fixture.text = "";
+  await act(async () => {
+    view.rerender(<Harness />);
+  });
+  expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+  expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
+    "removedApps",
+  );
+});

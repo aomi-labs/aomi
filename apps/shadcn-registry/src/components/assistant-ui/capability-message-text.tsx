@@ -54,7 +54,17 @@ function escapeRegExp(value: string): string {
 export function splitCapabilityText(
   text: string,
   capabilities: readonly RenderedCapability[],
+  selected: readonly CapabilityHint[] = [],
 ): CapabilityTextSegment[] {
+  const missingApps = capabilities.filter(
+    (capability) =>
+      capability.kind === "app" &&
+      selected.some(
+        (hint) => hint.kind === "app" && hint.id === capability.id,
+      ) &&
+      !text.includes(capability.token),
+  );
+  text = [...missingApps.map((app) => app.token), text].join(" ");
   const byToken = new Map(
     capabilities.map((capability) => [capability.token, capability]),
   );
@@ -180,8 +190,8 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
     });
   }, [hints, networkPreferences, skills, state.appDescriptors]);
   const segments = useMemo(
-    () => splitCapabilityText(text, capabilities),
-    [capabilities, text],
+    () => splitCapabilityText(text, capabilities, hints),
+    [capabilities, hints, text],
   );
 
   return (
