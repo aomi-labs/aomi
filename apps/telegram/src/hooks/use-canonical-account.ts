@@ -133,6 +133,19 @@ function useEmbeddedWallet(authenticated: boolean) {
     });
   }, [authenticated, createWallet, creating, error, ready, wallet]);
 
+  // `useWallets` normally becomes ready before this hook needs to create a
+  // wallet. If Privy's list never hydrates, however, the create effect above
+  // cannot start. Surface that distinct upstream failure instead of leaving
+  // the account layer to call it an in-progress link forever.
+  useEffect(() => {
+    if (!authenticated || ready || wallet || error) return;
+    const timeout = setTimeout(
+      () => setError("privy_embedded_wallet_list_timeout"),
+      15_000,
+    );
+    return () => clearTimeout(timeout);
+  }, [authenticated, error, ready, wallet]);
+
   return { error: wallet ? null : error, wallet };
 }
 
@@ -261,14 +274,10 @@ export function useCanonicalAccount(
     };
   }
   if (authenticated && !provider) {
-    // Only claim to be linking when the prerequisites are actually met and the
-    // provider is a render away. Reporting `loading` for every provider-less
-    // authenticated state made this the terminal message for *any* upstream
-    // failure — the custom-auth error, the one the person needs to read, was
-    // painted over with "Linking your Aomi account…" and never came back.
-    return customAuth.readyForExchange
-      ? { error: null, provider: null, status: "loading", userId: null }
-      : { error: null, provider: null, status: "disconnected", userId: null };
+    // `useMemo` has already evaluated every provider prerequisite this render.
+    // Without a provider there is no exchange underway, so this must not claim
+    // to be linking. The wallet hook above bounds the only expected wait.
+    return { error: null, provider: null, status: "disconnected", userId: null };
   }
   return provider
     ? { ...state, provider }
