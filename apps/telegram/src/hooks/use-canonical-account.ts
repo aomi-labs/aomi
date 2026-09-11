@@ -145,6 +145,10 @@ export function useCanonicalAccount(
   const { error: walletError, wallet } = useEmbeddedWallet(
     authenticated && customAuth.readyForExchange,
   );
+  // Privy can return a fresh wallet object when local SDK state changes. The
+  // session provider only needs a wallet to exist; key it by the stable address
+  // so a harmless object refresh cannot dispose an in-flight request.
+  const embeddedWalletAddress = wallet?.address ?? null;
   const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
     error: null,
     status: "disconnected",
@@ -158,7 +162,7 @@ export function useCanonicalAccount(
       !customAuth.readyForExchange ||
       !customAuth.subject ||
       !privySubject ||
-      !wallet ||
+      !embeddedWalletAddress ||
       !launch?.inTelegram ||
       !launch.proof ||
       !launch.sessionId
@@ -173,7 +177,15 @@ export function useCanonicalAccount(
         customUserId: customAuth.subject,
       }),
     });
-  }, [authenticated, customAuth.readyForExchange, customAuth.subject, launch, privyReady, privySubject, wallet]);
+  }, [
+    authenticated,
+    customAuth.readyForExchange,
+    customAuth.subject,
+    embeddedWalletAddress,
+    launch,
+    privyReady,
+    privySubject,
+  ]);
 
   const resolve = useCallback(
     async (accessToken: string | null | undefined) => {

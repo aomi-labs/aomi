@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getEmbeddedConnectedWallet,
   useLinkJwtAccount,
-  useLoginWithEmail,
+  useLogin,
+  usePrivy,
   useSubscribeToJwtAuthWithFlag,
   useWallets,
 } from "@privy-io/react-auth";
@@ -21,13 +22,12 @@ type BootstrapResponse = {
 };
 
 export type TelegramCustomAuthState = {
-  code: string;
   customSubject: string | null;
-  email: string;
   error: string | null;
   phase:
     | "validating"
     | "choose"
+    /** Privy's own login modal is open. */
     | "email"
     | "confirm"
     | "authenticating"
@@ -38,10 +38,6 @@ export type TelegramCustomAuthState = {
   confirmExistingWallet: () => void;
   selectExistingWallet: () => void;
   selectNewWallet: () => void;
-  setCode: (code: string) => void;
-  setEmail: (email: string) => void;
-  submitEmailCode: () => void;
-  submitEmail: () => void;
 };
 
 function errorCode(error: unknown): string {
@@ -62,16 +58,36 @@ function isBootstrapResponse(value: BootstrapResponse | null): value is {
 export function useTelegramCustomAuth(
   launch: LaunchContext | null,
 ): TelegramCustomAuthState {
-  const [code, setCode] = useState("");
-  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<TelegramCustomAuthState["phase"]>(
     "validating",
   );
   const [customSubject, setCustomSubject] = useState<string | null>(null);
   const [customJwt, setCustomJwt] = useState<string | null>(null);
-  const { sendCode, loginWithCode, state: emailState } = useLoginWithEmail();
   const { linkWithCustomJwt, state: linkState } = useLinkJwtAccount();
+  // Only the existing-wallet path opens the modal, but Privy fires these
+  // callbacks for any login it completes — including one that was already in
+  // progress. The flag keeps this hook from reacting to someone else's flow.
+  const awaitingModalLogin = useRef(false);
+  const { login } = useLogin({
+    onComplete: () => {
+      if (!awaitingModalLogin.current) return;
+      awaitingModalLogin.current = false;
+      setPhase("confirm");
+    },
+    onError: (cause) => {
+      if (!awaitingModalLogin.current) return;
+      awaitingModalLogin.current = false;
+      // `exited_auth_flow` is the user closing the modal, not a failure.
+      if (cause === "exited_auth_flow") {
+        setPhase("choose");
+        return;
+      }
+      setError(`telegram_existing_wallet_${cause}`);
+      setPhase("error");
+    },
+  });
+  const { authenticated, ready: privyReady, user } = usePrivy();
   const { ready: walletsReady, wallets } = useWallets();
   const existingWalletAddress = useMemo(
     () =>
@@ -80,7 +96,38 @@ export function useTelegramCustomAuth(
         : null,
     [wallets, walletsReady],
   );
+  /** The Custom JWT identity Privy currently holds, if any. */
+  const privyCustomSubject = useMemo(() => {
+    const account = user?.linkedAccounts.find(
+      (entry) => entry.type === "custom_auth",
+    );
+    return account && "customUserId" in account ? account.customUserId : null;
+  }, [user]);
+  // Readiness is a string comparison, not an SDK status. Privy re-runs its JWT
+  // sync whenever its own state churns, so a level signal taken from that flow
+  // flaps `done` -> `loading` -> `done` and tears down the account session
+  // provider built on top of it. A Privy session whose Custom JWT subject is
+  // this Telegram user is proof enough, and it survives those re-renders.
+  const sessionMatchesTelegram =
+    authenticated &&
+    customSubject !== null &&
+    privyCustomSubject === customSubject;
+  const sessionRef = useRef<{
+    authenticated: boolean;
+    privyCustomSubject: string | null;
+  }>({ authenticated: false, privyCustomSubject: null });
+  // Declared before the bootstrap effect so that effect always reads the state
+  // of the commit it is running in.
+  useEffect(() => {
+    sessionRef.current = { authenticated, privyCustomSubject };
+  }, [authenticated, privyCustomSubject]);
+  // Privy's sync logs the user out whenever `getExternalJwt` resolves
+  // `undefined`, and it runs as soon as Privy is ready — before the bootstrap
+  // that mints our JWT can answer. Left enabled, it therefore destroyed the
+  // session Privy had just restored, on every single launch, which is what
+  // forced a fresh login and its wait each time the Mini App opened.
   const jwtState = useSubscribeToJwtAuthWithFlag({
+    enabled: customJwt !== null,
     isAuthenticated: Boolean(customJwt),
     isLoading: phase === "validating" || phase === "authenticating",
     getExternalJwt: async () => customJwt ?? undefined,
@@ -132,23 +179,36 @@ export function useTelegramCustomAuth(
   );
 
   useEffect(() => {
-    if (!launch?.proof) return;
+    // Privy has to finish restoring before "is this session already ours?" can
+    // be answered; asking earlier always answers no and costs a full re-login.
+    if (!launch?.proof || !privyReady) return;
     let active = true;
     queueMicrotask(() => {
       void (async () => {
         const status = await bootstrap("status");
         if (!active) return;
-        if (status.status === "bound") {
-          const authentication = await bootstrap("authenticate");
-          if (!active) return;
-          if (!authentication.custom_auth_jwt) {
-            throw new Error("telegram_custom_auth_authenticate_not_issued");
-          }
-          setCustomJwt(authentication.custom_auth_jwt);
-          setPhase("authenticating");
+        if (status.status !== "bound") {
+          setPhase("choose");
           return;
         }
-        setPhase("choose");
+        if (
+          sessionRef.current.authenticated &&
+          sessionRef.current.privyCustomSubject === status.custom_subject
+        ) {
+          // The restored session already is this Telegram identity. Minting a
+          // Custom JWT here would only make Privy re-authenticate the user it
+          // is already holding, which is the wait the Mini App paid on every
+          // open.
+          setPhase("ready");
+          return;
+        }
+        const authentication = await bootstrap("authenticate");
+        if (!active) return;
+        if (!authentication.custom_auth_jwt) {
+          throw new Error("telegram_custom_auth_authenticate_not_issued");
+        }
+        setCustomJwt(authentication.custom_auth_jwt);
+        setPhase("authenticating");
       })().catch((cause: unknown) => {
           if (!active) return;
           setError(errorCode(cause));
@@ -158,13 +218,17 @@ export function useTelegramCustomAuth(
     return () => {
       active = false;
     };
-  }, [bootstrap, launch?.proof]);
+  }, [bootstrap, launch?.proof, privyReady]);
 
   const selectExistingWallet = useCallback(() => {
     setError(null);
-    setCode("");
+    awaitingModalLogin.current = true;
     setPhase("email");
-  }, []);
+    // Privy's own modal owns email entry and the OTP. `disableSignup` keeps the
+    // property the hand-rolled form had: this path may only reach a wallet that
+    // already exists, never mint a second Privy user for the same person.
+    login({ loginMethods: ["email"], disableSignup: true });
+  }, [login]);
 
   const selectNewWallet = useCallback(() => {
     setError(null);
@@ -181,26 +245,6 @@ export function useTelegramCustomAuth(
         setPhase("error");
       });
   }, [bootstrap]);
-
-  const submitEmail = useCallback(() => {
-    setError(null);
-    void sendCode({ email: email.trim(), disableSignup: true }).catch(
-      (cause: unknown) => setError(errorCode(cause)),
-    );
-  }, [email, sendCode]);
-
-  const submitEmailCode = useCallback(() => {
-    setError(null);
-    setPhase("authenticating");
-    void loginWithCode({ code: code.trim() })
-      .then(() => {
-        setPhase("confirm");
-      })
-      .catch((cause: unknown) => {
-        setError(errorCode(cause));
-        setPhase("error");
-      });
-  }, [code, loginWithCode]);
 
   const confirmExistingWallet = useCallback(() => {
     setError(null);
@@ -219,27 +263,33 @@ export function useTelegramCustomAuth(
       });
   }, [bootstrap, linkWithCustomJwt]);
 
+  // A settled session has to cancel this timer. Nothing else moves `phase` off
+  // `authenticating` on success, so a timer keyed on `phase` alone kept ticking
+  // through a completed login and fired 15s later — flipping a working session
+  // into `error`, which drops `readyForExchange` and disposes the account
+  // session provider underneath an authorization that is already half
+  // committed.
   useEffect(() => {
-    if (phase !== "authenticating") return;
+    if (phase !== "authenticating" || sessionMatchesTelegram) return;
     const timeout = setTimeout(() => {
       setError("telegram_custom_auth_timeout");
       setPhase("error");
     }, 15_000);
     return () => clearTimeout(timeout);
-  }, [phase]);
+  }, [phase, sessionMatchesTelegram]);
 
-  const readyForExchange =
-    phase !== "error" &&
-    customSubject !== null &&
-    customJwt !== null &&
-    (jwtState.state.status === "done" || linkState.status === "done");
+  const readyForExchange = phase !== "error" && sessionMatchesTelegram;
+  // `not-enabled` is the resting state of a sync we deliberately keep disabled
+  // until a Custom JWT exists, so it only means "JWT auth is off for this Privy
+  // app" once we have actually handed one over.
   const customFailure =
     jwtState.state.status === "error"
       ? errorCode(jwtState.state.error)
       : linkState.status === "error"
         ? errorCode(linkState.error)
-        : jwtState.state.status === "not-enabled" ||
-            linkState.status === "not-enabled"
+        : customJwt !== null &&
+            (jwtState.state.status === "not-enabled" ||
+              linkState.status === "not-enabled")
           ? "telegram_custom_auth_not_enabled"
           : null;
   const effectivePhase = customFailure
@@ -251,22 +301,13 @@ export function useTelegramCustomAuth(
       : phase;
 
   return {
-    code,
     confirmExistingWallet,
     customSubject,
-    email,
-    error:
-      customFailure ??
-      error ??
-      (emailState.status === "error" ? errorCode(emailState.error) : null),
+    error: customFailure ?? error,
     phase: effectivePhase,
     readyForExchange,
     existingWalletAddress,
     selectExistingWallet,
     selectNewWallet,
-    setCode,
-    setEmail,
-    submitEmail,
-    submitEmailCode,
   };
 }

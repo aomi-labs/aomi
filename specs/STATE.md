@@ -2,6 +2,66 @@
 
 ## Last Updated
 
+2026-09-11 — THE MINI APP'S 15s AUTH TIMEOUT WAS DISPOSING LIVE SESSIONS, AND
+  PRIVY WAS LOGGING THE USER OUT ON EVERY LAUNCH (branch
+  `feat/telegram-permission-provider-stability`, on top of PR #598's
+  address-keyed provider memo). Three findings, all in `apps/telegram`:
+  - `use-telegram-custom-auth` never moved `phase` off `authenticating` on
+    success — no code path set it to `ready`. The 15s watchdog therefore fired
+    through a perfectly good session, set `phase = "error"`, which dropped
+    `readyForExchange`, which nulled the provider memo in
+    `use-canonical-account`, whose effect cleanup calls `provider.dispose()`.
+    Any later call throws "Widget session provider has been disposed". That is
+    the whole of the `Enable server auto` symptom: the challenge posts inside
+    15s and returns 200, the wallet signature holds the flow past the deadline,
+    and the commit hits a disposed provider — so staging logs
+    `authorization/challenge 200` with no `authorization/commit`. PR #598's
+    stable wallet key does not touch this; the timer fires regardless of how
+    the memo is keyed.
+  - Readiness is now `sessionMatchesTelegram`: Privy is authenticated AND the
+    `custom_auth` linked account's `customUserId` equals the server's
+    `custom_subject`. A string comparison cannot flap, whereas
+    `jwtState.state.status` goes `done -> loading -> done` every time Privy
+    re-runs its sync (its effect depends on Privy's own `authenticated`/
+    `logout`), and every flap disposed the provider.
+  - `useSubscribeToJwtAuthWithFlag` was enabled unconditionally. Reading the
+    3.27.1 bundle: `useSyncJwtBasedAuthState` runs its sync as soon as Privy is
+    `ready`, and when `getExternalJwt()` resolves `undefined` it calls
+    `logout()`. `customJwt` is null at launch, so every single open destroyed
+    the session Privy had just restored — the "re-login on every open" complaint. Now
+    `enabled: customJwt !== null`, and a bound user whose restored session
+    already carries this Telegram identity skips the `authenticate` mint and
+    Privy's re-authentication entirely (one BFF round trip instead of two plus
+    a full Privy login). `not-enabled` only counts as a failure once a Custom
+    JWT has actually been handed over.
+  - `use-permission-control` resolves the session provider from a ref per call
+    instead of capturing it, so a provider rebuilt while the wallet prompt is
+    on screen cannot strand the commit.
+  Same pass, the Mini App UI moved onto Privy's own components: the hand-rolled
+  email + OTP form is gone in favour of `useLogin()`'s native modal (opened with
+  `{ loginMethods: ["email"], disableSignup: true }`, so the property that
+  mattered — this path may only reach a wallet that already exists — survives
+  the swap), `UserPill` from `@privy-io/react-auth/ui` now owns account and
+  wallet management, and the modal is themed from
+  `window.Telegram.WebApp.colorScheme` / `themeParams.button_color` so it stops
+  arriving as a white sheet over a dark Mini App. `useLoginWithEmail`, the
+  `email`/`code` state and the `submitEmail*` callbacks are deleted with it.
+  Aomi keeps what Privy must not own: bot allowlist, Telegram Custom JWT
+  auto-login, and the explicit "Confirm and link Telegram" binding step. The
+  page itself is now one card with a status tone, a spinner, and a facts table
+  for the permission being signed.
+  Verified: telegram typecheck, eslint, 10 contract tests (3 new), `build`, and
+  a local mobile-viewport render of the card.
+  NOT a frontend problem, and still open: `send 1 wei` never reaches a
+  broadcast because (a) `telegram_user_state` in product-mono hardcodes
+  `telegram.requires_action_approval = true`, so `commit_gate` rejects
+  delegated execution with `signing_action_approval_required` even under
+  `server_auto` unless a handover mandate is settled — the intended path is
+  `/transactions` then `/sign <action_id>`; and (b) staging is logging
+  `application-scoped app source application-2937805 is not installed` plus
+  `DB pool saturated: max_size=2`, which fails the turn before any Action
+  exists.
+
 2026-09-10 — TELEGRAM MINI APP MOVED FROM PARA TO PRIVY (branch
   `feat/telegram-privy`; stacks on `fix/para-token-wallet-attestation` / PR #592).
   The decision is driven by one asymmetry the Para debugging surfaced: Privy's
