@@ -31,6 +31,16 @@ type TelegramExchangeResponse = {
   expires_at?: unknown;
 };
 
+function withTimeout<T>(operation: Promise<T>, errorCode: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(errorCode)), 15_000);
+  });
+  return Promise.race([operation, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 function telegramPrivyAdapter(input: {
   launch: LaunchContext;
   privySubject: string;
@@ -105,10 +115,10 @@ function useEmbeddedWallet(authenticated: boolean) {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!authenticated || !ready || wallet || creating) return;
+    if (!authenticated || !ready || wallet || creating || error) return;
     queueMicrotask(() => {
       setCreating(true);
-      void createWallet()
+      void withTimeout(createWallet(), "privy_embedded_wallet_timeout")
         .catch((cause: unknown) => {
           // A concurrent create (or one Privy already ran on login) rejects with
           // "already has an embedded wallet"; `wallets` will carry it shortly, so
@@ -121,7 +131,7 @@ function useEmbeddedWallet(authenticated: boolean) {
         })
         .finally(() => setCreating(false));
     });
-  }, [authenticated, createWallet, creating, ready, wallet]);
+  }, [authenticated, createWallet, creating, error, ready, wallet]);
 
   return { error: wallet ? null : error, wallet };
 }
@@ -196,7 +206,7 @@ export function useCanonicalAccount(
     queueMicrotask(() => {
       if (active) setState({ error: null, status: "loading", userId: null });
     });
-    void provider()
+    void withTimeout(provider(), "telegram_privy_exchange_timeout")
       .then(resolve)
       .then((userId) => {
         if (active) setState({ error: null, status: "ready", userId });
