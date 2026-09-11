@@ -6,6 +6,8 @@ declare global {
       WebApp?: {
         initData: string;
         initDataUnsafe?: { start_param?: string };
+        colorScheme?: "light" | "dark";
+        themeParams?: { button_color?: string };
         ready(): void;
         expand(): void;
         close(): void;

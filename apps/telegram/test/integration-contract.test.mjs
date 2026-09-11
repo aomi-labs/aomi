@@ -109,3 +109,64 @@ test("permission signing targets one exact wallet and mode", async () => {
   assert.match(permission, /wallet: target\.wallet/);
   assert.match(permission, /mode: target\.mode/);
 });
+
+test("a restored Privy session survives the launch and settles the phase", async () => {
+  const customAuth = await read("src/hooks/use-telegram-custom-auth.ts");
+
+  // Privy's JWT sync logs the user out whenever `getExternalJwt` resolves
+  // undefined, and it runs before the bootstrap can mint one. Keeping it
+  // disabled until a Custom JWT exists is what lets a restored session live
+  // through a launch instead of paying for a fresh login every time.
+  assert.match(customAuth, /enabled: customJwt !== null/);
+  // Readiness is a string comparison against the session's own Custom JWT
+  // subject, never a Privy flow status: a status level flaps under the SDK's
+  // re-renders and would tear down the account session provider with it.
+  assert.match(
+    customAuth,
+    /readyForExchange = phase !== "error" && sessionMatchesTelegram/,
+  );
+  assert.match(customAuth, /privyCustomSubject === customSubject/);
+  // A bound Telegram user whose Privy session already carries that identity
+  // must skip the mint-and-re-authenticate round trip entirely.
+  assert.match(customAuth, /sessionRef\.current\.privyCustomSubject ===/);
+  // The `authenticating` timeout has to see a settled session, or it fires
+  // 15s into a working session and turns it into an error.
+  assert.match(
+    customAuth,
+    /phase !== "authenticating" \|\| sessionMatchesTelegram/,
+  );
+});
+
+test("an authorization commit cannot reach a disposed session", async () => {
+  const permission = await read("src/hooks/use-permission-control.ts");
+
+  // The wallet signature sits between challenge and commit. Resolving the
+  // provider per call, rather than capturing it, keeps the commit on whatever
+  // session is current when it runs.
+  assert.match(permission, /providerRef\.current/);
+  assert.doesNotMatch(permission, /await input\.provider!\(\)/);
+});
+
+test("Privy's own components own login and account management", async () => {
+  const [customAuth, page, providers] = await Promise.all([
+    read("src/hooks/use-telegram-custom-auth.ts"),
+    read("src/app/page.tsx"),
+    read("src/app/providers.tsx"),
+  ]);
+
+  // Email entry and the OTP belong to Privy's modal, not to a hand-rolled
+  // form. The signup block is the property that has to survive the swap:
+  // this path may only reach a wallet that already exists.
+  assert.match(customAuth, /useLogin/);
+  assert.match(customAuth, /disableSignup: true/);
+  assert.doesNotMatch(customAuth, /useLoginWithEmail|sendCode|loginWithCode/);
+  assert.doesNotMatch(page, /type="email"|one-time-code|Verification code/);
+  // Account and wallet management is Privy's `UserPill`.
+  assert.match(page, /UserPill/);
+  assert.match(page, /@privy-io\/react-auth\/ui/);
+  // Aomi still owns the Telegram binding confirmation itself.
+  assert.match(page, /Confirm and link Telegram/);
+  // The modal follows Telegram's palette instead of arriving as a white sheet.
+  assert.match(providers, /appearance/);
+  assert.match(providers, /colorScheme === "light"/);
+});

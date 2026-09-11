@@ -6,10 +6,29 @@ import { PrivyProvider } from "@privy-io/react-auth";
 
 import { privyAppId } from "./config";
 
+/** Telegram's own palette, so Privy's native modal does not arrive as a white
+ *  sheet on top of a dark Mini App. Read once: the values only feed Privy's
+ *  config object, never our markup, so the prerender cannot mismatch. */
+function telegramAppearance(): {
+  theme: "light" | "dark";
+  accentColor: `#${string}`;
+} {
+  const webApp =
+    typeof window === "undefined" ? undefined : window.Telegram?.WebApp;
+  const accent = webApp?.themeParams?.button_color;
+  return {
+    theme: webApp?.colorScheme === "light" ? "light" : "dark",
+    accentColor: /^#[0-9a-f]{6}$/i.test(accent ?? "")
+      ? (accent as `#${string}`)
+      : "#2aabee",
+  };
+}
+
 export function Providers({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [queryClient] = useState(() => new QueryClient());
+  const [appearance] = useState(telegramAppearance);
 
   // `PrivyProvider` throws on an empty app id, which would take down the
   // prerender as well as any deployment missing the variable. Failing to a
@@ -38,6 +57,11 @@ export function Providers({
           // Privy provisions one during login rather than as a separate step.
           embeddedWallets: {
             ethereum: { createOnLogin: "users-without-wallets" },
+          },
+          appearance: {
+            ...appearance,
+            logo: "/favicon.svg",
+            walletList: [],
           },
         }}
       >

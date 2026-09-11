@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEmbeddedConnectedWallet, useWallets } from "@privy-io/react-auth";
 import {
   authorizationChallenge,
@@ -23,6 +23,15 @@ export function usePermissionControl(input: {
     "idle" | "ready" | "signing" | "done" | "error"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  // Signing a permit puts a wallet prompt between the challenge and the commit.
+  // Holding the provider in a ref means the commit uses whatever session is
+  // current when it runs, instead of an instance that was disposed while the
+  // prompt was on screen — the failure mode where the backend logs a
+  // `authorization/challenge` 200 that no `authorization/commit` ever follows.
+  const providerRef = useRef(input.provider);
+  useEffect(() => {
+    providerRef.current = input.provider;
+  }, [input.provider]);
   const { ready: walletsReady, wallets } = useWallets();
   const wallet = useMemo(
     () => (walletsReady ? getEmbeddedConnectedWallet(wallets) : null),
@@ -50,7 +59,9 @@ export function usePermissionControl(input: {
     setError(null);
     try {
       const post: AuthorizationPoster = async (path, body) => {
-        const token = await input.provider!();
+        const provider = providerRef.current;
+        if (!provider) throw new Error("permission_session_unavailable");
+        const token = await provider();
         const response = await fetch(new URL(path, aomiBffUrl), {
           method: "POST",
           credentials: "omit",
