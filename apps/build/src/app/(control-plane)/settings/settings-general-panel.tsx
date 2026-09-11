@@ -10,8 +10,9 @@ export function SettingsGeneralPanel() {
           Deployment platform
         </h2>
         <p className="text-subtle max-w-2xl text-sm leading-6">
-          Enter the platform name provided by your partner. Build checks for an
-          exact match without exposing a directory of supported platforms.
+          Build deploys to one platform at a time. These are the platforms your
+          projects are on. If a partner gave you a platform you have not
+          connected a project to yet, enter its exact name below.
         </p>
       </div>
       <div className="max-w-2xl">

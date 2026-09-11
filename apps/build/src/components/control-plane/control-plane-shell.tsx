@@ -31,6 +31,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AomiLogo } from "@build/components/brand/aomi-logo";
 import { ColorThemeToggle } from "@build/components/control-plane/color-theme-toggle";
 import { ControlPlaneLink } from "@build/components/control-plane/control-plane-link";
+import { PlatformBadge } from "@build/components/control-plane/platform-badge";
 import { platformHref } from "@build/features/launch/platform";
 import { usePlatform } from "@build/features/launch/use-platform";
 import {
@@ -664,14 +665,19 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-h-0 min-w-0 flex-col">
         <header className="border-border flex h-11 shrink-0 items-center justify-between border-b px-4">
-          <IconButton
-            label="Open menu"
-            onClick={() => setMobileOpen(true)}
-            className="lg:hidden"
-          >
-            <Menu className="size-4" />
-          </IconButton>
-          <div className="hidden lg:block" />
+          {/* The left slot was an empty spacer on desktop. It now carries the
+              one piece of state every scoped page depends on and none of them
+              displayed: which platform you are pointed at. */}
+          <div className="flex min-w-0 items-center gap-2">
+            <IconButton
+              label="Open menu"
+              onClick={() => setMobileOpen(true)}
+              className="lg:hidden"
+            >
+              <Menu className="size-4" />
+            </IconButton>
+            <PlatformBadge />
+          </div>
           <div className="flex items-center gap-2">
             {/* Desktop-first: full Search · ⌘K on sm+. Phone: icon only (usable, not designed for). */}
             <button
