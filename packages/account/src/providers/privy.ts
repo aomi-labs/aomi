@@ -19,6 +19,8 @@ type PrivyClaims = {
 };
 
 const PRIVY_WALLETS_URL = "https://api.privy.io/v1/wallets";
+const PRIVY_USER_BY_CUSTOM_AUTH_URL =
+  "https://api.privy.io/v1/users/custom_auth/id";
 
 export const privyWidgetDescriptor: WidgetProviderDescriptor = {
   id: "privy",
@@ -209,6 +211,38 @@ export async function listPrivyWalletsForUser(input: {
     if (!cursor) break;
   }
   return out;
+}
+
+/**
+ * Resolve the Privy user holding a Custom JWT identity. The authoritative
+ * lookup prevents a browser from presenting an email-authenticated identity
+ * that never actually linked the Telegram Custom JWT account.
+ */
+export async function findPrivyUserByCustomAuthId(input: {
+  appId: string;
+  appSecret: string;
+  customUserId: string;
+}): Promise<string | null> {
+  const auth = Buffer.from(`${input.appId}:${input.appSecret}`).toString(
+    "base64",
+  );
+  const response = await fetch(PRIVY_USER_BY_CUSTOM_AUTH_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+      "privy-app-id": input.appId,
+    },
+    body: JSON.stringify({ custom_user_id: input.customUserId }),
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(
+      `privy custom auth lookup failed (${response.status} ${response.statusText})`,
+    );
+  }
+  const body = (await response.json()) as { id?: unknown };
+  return typeof body.id === "string" ? body.id : null;
 }
 
 interface PrivyWalletRow {

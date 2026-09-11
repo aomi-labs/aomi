@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   issueSession: vi.fn(),
   linkIdentity: vi.fn(),
   resolveWallets: vi.fn(),
+  signInWithTelegram: vi.fn(),
+  verifyCustomAuthOwner: vi.fn(),
   verifyCredential: vi.fn(),
   verifyTelegram: vi.fn(),
 }));
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@aomi-labs/account/account", () => ({
   claimTelegramSessionOwner: mocks.claimOwner,
   linkVerifiedProviderIdentityForUser: mocks.linkIdentity,
+  signInWithTelegramProviderIdentity: mocks.signInWithTelegram,
   resolveAttestedProviderWallets: mocks.resolveWallets,
   // Same dedupe-by-address rule as the real helper; the module is mocked
   // wholesale to keep the Postgres pool out of this suite.
@@ -58,6 +61,13 @@ vi.mock("@portal/server/widget-auth/exchange", async (importOriginal) => {
 
 vi.mock("@portal/server/widget-auth/rate-limit", () => ({
   widgetAuthRateLimit: () => null,
+}));
+
+vi.mock("@portal/server/widget-auth/telegram-custom-auth", () => ({
+  customAuthEnvironment: () => "staging",
+  requirePrivyCustomAuthOwner: mocks.verifyCustomAuthOwner,
+  telegramCustomAuthSubject: ({ telegramUserId }: { telegramUserId: string }) =>
+    `aomi:telegram:staging:${telegramUserId}`,
 }));
 
 vi.mock("@portal/server/bff/failures", () => ({
@@ -151,6 +161,11 @@ describe("Telegram Para exchange", () => {
       identity: { id: "provider-identity" },
       user: { id: "canonical-user" },
     });
+    mocks.signInWithTelegram.mockResolvedValue({
+      status: "linked",
+      identity: { id: "provider-identity" },
+      user: { id: "canonical-user" },
+    });
     mocks.issueSession.mockResolvedValue({
       token: "widget-token",
       tokenType: "Bearer",
@@ -209,6 +224,42 @@ describe("Telegram Para exchange", () => {
     expect(response.status).toBe(200);
     expect(mocks.issueSession).toHaveBeenCalledWith(
       expect.objectContaining({ authMethod: "telegram_privy" }),
+    );
+  });
+
+  it("requires Privy to confirm the Custom JWT link before binding Telegram", async () => {
+    mocks.verifyCredential.mockResolvedValue({
+      descriptor: {
+        id: "privy",
+        policy: { subjectIsEnvironmentGlobal: false },
+      },
+      identity: {
+        provider: "privy",
+        issuerEnvironment: "privy:prod",
+        tenantId: "privy-app",
+        subject: "did:privy:alice",
+        walletAttestations: [],
+      },
+    });
+
+    const response = await POST(
+      exchange({ custom_user_id: "aomi:telegram:staging:456" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.verifyCustomAuthOwner).toHaveBeenCalledWith({
+      customSubject: "aomi:telegram:staging:456",
+      privyUserId: "did:privy:alice",
+    });
+    expect(mocks.signInWithTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: DM_THREAD_ID,
+        telegramUserId: "456",
+      }),
+    );
+    expect(mocks.claimOwner).not.toHaveBeenCalled();
+    expect(mocks.issueSession).toHaveBeenCalledWith(
+      expect.objectContaining({ authMethod: "telegram_privy_custom_auth" }),
     );
   });
 

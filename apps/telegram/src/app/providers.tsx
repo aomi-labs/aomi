@@ -30,11 +30,10 @@ export function Providers({
       <PrivyProvider
         appId={privyAppId}
         config={{
-          // Inside a Mini App the only identity Telegram can vouch for is the
-          // Telegram account itself, and the bot has already proven it through
-          // `initData`. Offering other methods would let the two identities
-          // diverge for no gain.
-          loginMethods: ["telegram"],
+          // Telegram is proven by Aomi's server and synchronized through
+          // Custom JWT. Email OTP is only the explicit recovery/link path for
+          // an existing Privy wallet, never an implicit replacement identity.
+          loginMethods: ["email"],
           // Hosted signing needs a wallet to exist before the exchange runs;
           // Privy provisions one during login rather than as a separate step.
           embeddedWallets: {

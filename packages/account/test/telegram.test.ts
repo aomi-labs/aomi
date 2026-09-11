@@ -124,6 +124,16 @@ describe("Telegram Mini App launch verification", () => {
     });
   });
 
+  it("allows a privileged caller to require a fresher launch proof", () => {
+    expect(
+      verifyTelegramInitData(signedInitData({ authDate: AUTH_DATE - 301 }), BOT_ID, {
+        now: NOW,
+        maxAgeMs: 5 * 60 * 1000,
+        publicKeyHex,
+      }),
+    ).toEqual({ ok: false, reason: "expired" });
+  });
+
   it("rejects launch data dated beyond the allowed clock skew", () => {
     expect(verify(signedInitData({ authDate: AUTH_DATE + 3600 }))).toEqual({
       ok: false,

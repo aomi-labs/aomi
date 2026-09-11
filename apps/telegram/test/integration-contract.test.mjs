@@ -6,17 +6,23 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const readWorkspace = (path) =>
   readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
 
-test("Privy login resolves the canonical Aomi account", async () => {
-  const [providers, canonicalAccount] = await Promise.all([
+test("Custom Telegram auth resolves the canonical Aomi account", async () => {
+  const [providers, canonicalAccount, customAuth] = await Promise.all([
     read("src/app/providers.tsx"),
     read("src/hooks/use-canonical-account.ts"),
+    read("src/hooks/use-telegram-custom-auth.ts"),
   ]);
 
-  // Telegram is the only identity Telegram can vouch for, and the embedded
-  // wallet has to exist before the exchange asks the portal to attest it.
-  assert.match(providers, /loginMethods: \["telegram"\]/);
+  // Aomi verifies Telegram itself; Privy receives only the resulting Custom
+  // JWT. Email is the explicit existing-wallet recovery/link method.
+  assert.match(providers, /loginMethods: \["email"\]/);
   assert.match(providers, /createOnLogin: "users-without-wallets"/);
+  assert.match(customAuth, /useSubscribeToJwtAuthWithFlag/);
+  assert.match(customAuth, /useLinkJwtAccount/);
+  assert.match(customAuth, /disableSignup: true/);
+  assert.match(customAuth, /\/api\/auth\/widget\/telegram\/custom-auth/);
   assert.match(canonicalAccount, /getIdentityToken/);
+  assert.match(canonicalAccount, /custom_user_id/);
   assert.match(canonicalAccount, /provider: "privy"/);
   assert.match(canonicalAccount, /getEmbeddedConnectedWallet/);
   assert.match(canonicalAccount, /createAccountSessionProvider/);
