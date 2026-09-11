@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getIdentityToken,
   useCreateWallet,
+  useIdentityToken,
   usePrivy,
   type User,
 } from "@privy-io/react-auth";
@@ -40,6 +41,23 @@ function withTimeout<T>(operation: Promise<T>, errorCode: string): Promise<T> {
   });
 }
 
+/** Privy keeps the identity token in memory *and* in `localStorage`, but only
+ *  exposes the in-memory copy through a hook — while `getIdentityToken()`, the
+ *  callable one, reads `localStorage`. Mirroring the hook's value here lets the
+ *  exchange reach the in-memory copy at call time without the session provider
+ *  having to list the token as a dependency: the token rotates, and rebuilding
+ *  the provider on each rotation disposes an exchange that is already in
+ *  flight. Module scope is safe because Privy permits exactly one provider per
+ *  app — it throws on a second one. */
+let inMemoryIdentityToken: string | null = null;
+
+function useMirroredIdentityToken(): void {
+  const { identityToken } = useIdentityToken();
+  useEffect(() => {
+    inMemoryIdentityToken = identityToken;
+  }, [identityToken]);
+}
+
 function telegramPrivyAdapter(input: {
   launch: LaunchContext;
   privySubject: string;
@@ -49,11 +67,42 @@ function telegramPrivyAdapter(input: {
     getFingerprint: () =>
       `telegram:${input.launch.proof?.telegramUserId}:privy:${input.privySubject}:session:${input.launch.sessionId}`,
     exchange: async ({ baseUrl, fetch: fetchImpl }) => {
-      // Fetched per exchange rather than captured: identity tokens are short
-      // lived, and a session provider can outlive the render that built it.
-      const identityToken = (await getIdentityToken())?.trim();
-      if (!identityToken || !input.launch.proof || !input.launch.sessionId) {
-        throw new Error("telegram_privy_credential_unavailable");
+      // Both sources are read per exchange rather than captured: identity
+      // tokens are short lived, and a session provider can outlive the render
+      // that built it.
+      //
+      // Two sources, because neither alone survives a Telegram webview.
+      // `getIdentityToken()` refreshes the token against Privy's API, but then
+      // reads it back out of `localStorage`, which Telegram's in-app webview
+      // can partition or drop — and on Telegram Web the Mini App is an iframe,
+      // so that storage is third-party. `useIdentityToken()` reads the
+      // in-memory store Privy writes on every `storeIdentityToken`, with no
+      // storage involved. Refresh first, so the in-memory value is the fresh
+      // one by the time it is read.
+      const refreshed = await getIdentityToken().then(
+        (token) => ({ failure: null, token }),
+        (cause: unknown) => ({
+          failure: cause instanceof Error ? cause.message : "unknown",
+          token: null,
+        }),
+      );
+      const identityToken = (refreshed.token ?? inMemoryIdentityToken)?.trim();
+      if (!input.launch.proof) {
+        throw new Error("telegram_privy_launch_proof_unavailable");
+      }
+      if (!input.launch.sessionId) {
+        throw new Error("telegram_privy_session_unavailable");
+      }
+      if (!identityToken) {
+        // Split from the launch-context failures above so staging says which
+        // one it hit. Both sources empty after a *successful* refresh means
+        // Privy's API returned no `identity_token` at all — it clears the token
+        // in that case — which is an app-level setting, not a webview problem.
+        throw new Error(
+          refreshed.failure
+            ? `telegram_privy_identity_token_refresh_failed_${refreshed.failure}`
+            : "telegram_privy_identity_token_unavailable",
+        );
       }
       const response = await fetchImpl(
         new URL("/api/auth/widget/telegram/exchange", baseUrl),
@@ -169,6 +218,10 @@ export function useCanonicalAccount(
   // of Privy's local state cannot dispose an in-flight request.
   const { address: embeddedWalletAddress, error: walletError } =
     useEmbeddedWallet(authenticated && customAuth.readyForExchange);
+  // Held in a ref, not a dependency: the token rotates, and rebuilding the
+  // provider on each rotation would dispose an exchange that is already in
+  // flight. The adapter reads the current value when it actually runs.
+  useMirroredIdentityToken();
   const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
     error: null,
     status: "disconnected",
