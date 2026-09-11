@@ -61,9 +61,19 @@ describe("Telegram Custom JWT bootstrap", () => {
     expect(mocks.issue).not.toHaveBeenCalled();
   });
 
-  it("issues one for a known binding without exposing the canonical account id", async () => {
+  it("does not issue a credential while only checking a known binding", async () => {
     mocks.findUser.mockResolvedValue("canonical-user");
     const response = await POST(request());
+    await expect(response.json()).resolves.toEqual({
+      status: "bound",
+      custom_subject: "aomi:telegram:staging:123",
+    });
+    expect(mocks.issue).not.toHaveBeenCalled();
+  });
+
+  it("issues one for an explicit authentication of a known binding", async () => {
+    mocks.findUser.mockResolvedValue("canonical-user");
+    const response = await POST(request("authenticate"));
     await expect(response.json()).resolves.toEqual({
       status: "bound",
       custom_subject: "aomi:telegram:staging:123",

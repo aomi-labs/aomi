@@ -64,6 +64,13 @@ export function allowedTelegramWidgetBotIds(
   );
 }
 
+/** Keep every Telegram-auth route on the same policy failure semantics. */
+export function statusForTrustedTelegramFailure(reason: string): number {
+  if (reason === "bot_not_allowed") return 403;
+  if (reason === "bad_signature" || reason === "expired") return 401;
+  return 400;
+}
+
 /** Verify both Telegram's signature and Aomi's allowed-bot policy. */
 export function verifyTrustedTelegramLaunch(input: {
   initData: string;

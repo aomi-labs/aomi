@@ -3,7 +3,6 @@ import {
   linkVerifiedProviderIdentityForUser,
   signInWithTelegramProviderIdentity,
 } from "@aomi-labs/account/account";
-import { verifyTelegramInitData } from "@aomi-labs/account/telegram";
 import {
   issueWidgetSession,
   requireWidgetOrigin,
@@ -17,21 +16,15 @@ import { widgetAuthRateLimit } from "@portal/server/widget-auth/rate-limit";
 import {
   customAuthEnvironment,
   requirePrivyCustomAuthOwner,
+  statusForTrustedTelegramFailure,
   telegramCustomAuthSubject,
+  verifyTrustedTelegramLaunch,
 } from "@portal/server/widget-auth/telegram-custom-auth";
 import {
   widgetPreflight,
   widgetRoute,
   widgetSessionResponse,
 } from "@portal/server/widget-auth/response";
-
-const TELEGRAM_FAILURE_STATUS = {
-  malformed: 400,
-  missing_signature: 400,
-  missing_user: 400,
-  bad_signature: 401,
-  expired: 401,
-} as const;
 
 type TelegramParaExchange = {
   bot_id?: unknown;
@@ -81,11 +74,11 @@ export const POST = widgetRoute(async (request: Request) => {
     throw new WidgetAuthError("unsupported_session", 400);
   }
 
-  const telegram = verifyTelegramInitData(initData, botId);
-  if (!telegram.ok) {
+  const trusted = verifyTrustedTelegramLaunch({ initData, botId });
+  if (!trusted.ok) {
     throw new WidgetAuthError(
-      telegram.reason,
-      TELEGRAM_FAILURE_STATUS[telegram.reason],
+      trusted.reason,
+      statusForTrustedTelegramFailure(trusted.reason),
     );
   }
 
@@ -115,7 +108,7 @@ export const POST = widgetRoute(async (request: Request) => {
     }
     const expectedCustomUserId = telegramCustomAuthSubject({
       environment: customAuthEnvironment(),
-      telegramUserId: telegram.launch.telegramUserId,
+      telegramUserId: trusted.launch.telegramUserId,
     });
     if (customUserId !== expectedCustomUserId) {
       throw new WidgetAuthError("invalid_custom_auth_subject", 403);
@@ -128,7 +121,7 @@ export const POST = widgetRoute(async (request: Request) => {
       identity,
       policy: descriptor.policy,
       wallets,
-      telegramUserId: telegram.launch.telegramUserId,
+      telegramUserId: trusted.launch.telegramUserId,
       sessionId,
     });
     if (resolution.status === "session_mismatch") {
@@ -152,7 +145,7 @@ export const POST = widgetRoute(async (request: Request) => {
 
   const userId = await claimTelegramSessionOwner({
     sessionId,
-    telegramUserId: telegram.launch.telegramUserId,
+    telegramUserId: trusted.launch.telegramUserId,
   });
   if (!userId) {
     throw new WidgetAuthError("telegram_session_mismatch", 403);

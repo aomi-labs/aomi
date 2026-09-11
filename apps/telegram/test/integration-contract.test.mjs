@@ -20,6 +20,8 @@ test("Custom Telegram auth resolves the canonical Aomi account", async () => {
   assert.match(customAuth, /useSubscribeToJwtAuthWithFlag/);
   assert.match(customAuth, /useLinkJwtAccount/);
   assert.match(customAuth, /disableSignup: true/);
+  assert.match(customAuth, /confirmExistingWallet/);
+  assert.match(customAuth, /telegram_custom_auth_timeout/);
   assert.match(customAuth, /\/api\/auth\/widget\/telegram\/custom-auth/);
   assert.match(canonicalAccount, /getIdentityToken/);
   assert.match(canonicalAccount, /custom_user_id/);

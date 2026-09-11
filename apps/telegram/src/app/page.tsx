@@ -26,6 +26,9 @@ export default function Home() {
   if (telegramAuth.phase === "email") {
     message = "Use the email linked to your existing wallet.";
   }
+  if (telegramAuth.phase === "confirm") {
+    message = "Confirm that this Telegram account can access your existing wallet.";
+  }
   if (telegramAuth.phase === "authenticating") {
     message = "Signing you in…";
   }
@@ -106,6 +109,26 @@ export default function Home() {
               onClick={telegramAuth.submitEmailCode}
             >
               Verify and link Telegram
+            </button>
+          </>
+        )}
+        {launch.status === "ready" && telegramAuth.phase === "confirm" && (
+          <>
+            <p>
+              {telegramAuth.existingWalletAddress
+                ? `Wallet ${telegramAuth.existingWalletAddress}`
+                : "Your existing Privy wallet"}
+            </p>
+            <p>
+              Linking lets this Telegram account access the wallet from any
+              approved Aomi bot.
+            </p>
+            <button
+              className="para-button"
+              type="button"
+              onClick={telegramAuth.confirmExistingWallet}
+            >
+              Confirm and link Telegram
             </button>
           </>
         )}

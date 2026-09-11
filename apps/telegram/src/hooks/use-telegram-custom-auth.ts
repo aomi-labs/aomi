@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  getEmbeddedConnectedWallet,
   useLinkJwtAccount,
   useLoginWithEmail,
   useSubscribeToJwtAuthWithFlag,
+  useWallets,
 } from "@privy-io/react-auth";
 
 import { aomiBffUrl } from "@/app/config";
 import type { LaunchContext } from "@/lib/telegram";
 
-type BootstrapIntent = "status" | "link" | "new";
+type BootstrapIntent = "status" | "authenticate" | "link" | "new";
 type BootstrapResponse = {
   status?: unknown;
   custom_subject?: unknown;
@@ -27,10 +29,13 @@ export type TelegramCustomAuthState = {
     | "validating"
     | "choose"
     | "email"
+    | "confirm"
     | "authenticating"
     | "ready"
     | "error";
   readyForExchange: boolean;
+  existingWalletAddress: string | null;
+  confirmExistingWallet: () => void;
   selectExistingWallet: () => void;
   selectNewWallet: () => void;
   setCode: (code: string) => void;
@@ -67,6 +72,14 @@ export function useTelegramCustomAuth(
   const [customJwt, setCustomJwt] = useState<string | null>(null);
   const { sendCode, loginWithCode, state: emailState } = useLoginWithEmail();
   const { linkWithCustomJwt, state: linkState } = useLinkJwtAccount();
+  const { ready: walletsReady, wallets } = useWallets();
+  const existingWalletAddress = useMemo(
+    () =>
+      walletsReady
+        ? (getEmbeddedConnectedWallet(wallets)?.address ?? null)
+        : null,
+    [wallets, walletsReady],
+  );
   const jwtState = useSubscribeToJwtAuthWithFlag({
     isAuthenticated: Boolean(customJwt),
     isLoading: phase === "validating" || phase === "authenticating",
@@ -76,9 +89,13 @@ export function useTelegramCustomAuth(
   const bootstrap = useCallback(
     async (intent: BootstrapIntent) => {
       if (!launch?.proof) throw new Error("telegram_launch_unavailable");
-      const response = await fetch(
-        `${aomiBffUrl}/api/auth/widget/telegram/custom-auth`,
-        {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      let response: Response;
+      try {
+        response = await fetch(
+          `${aomiBffUrl}/api/auth/widget/telegram/custom-auth`,
+          {
           method: "POST",
           credentials: "omit",
           headers: { "Content-Type": "application/json" },
@@ -87,8 +104,17 @@ export function useTelegramCustomAuth(
             init_data: launch.proof.initData,
             intent,
           }),
-        },
-      );
+            signal: controller.signal,
+          },
+        );
+      } catch (cause) {
+        if (controller.signal.aborted) {
+          throw new Error("telegram_custom_auth_timeout");
+        }
+        throw cause;
+      } finally {
+        clearTimeout(timeout);
+      }
       const body = (await response
         .json()
         .catch(() => null)) as BootstrapResponse | null;
@@ -109,21 +135,25 @@ export function useTelegramCustomAuth(
     if (!launch?.proof) return;
     let active = true;
     queueMicrotask(() => {
-      void bootstrap("status")
-        .then((result) => {
+      void (async () => {
+        const status = await bootstrap("status");
+        if (!active) return;
+        if (status.status === "bound") {
+          const authentication = await bootstrap("authenticate");
           if (!active) return;
-          if (result.status === "bound" && result.custom_auth_jwt) {
-            setCustomJwt(result.custom_auth_jwt);
-            setPhase("authenticating");
-            return;
+          if (!authentication.custom_auth_jwt) {
+            throw new Error("telegram_custom_auth_authenticate_not_issued");
           }
-          setPhase("choose");
-        })
-        .catch((cause: unknown) => {
+          setCustomJwt(authentication.custom_auth_jwt);
+          setPhase("authenticating");
+          return;
+        }
+        setPhase("choose");
+      })().catch((cause: unknown) => {
           if (!active) return;
           setError(errorCode(cause));
           setPhase("error");
-        });
+      });
     });
     return () => {
       active = false;
@@ -163,8 +193,20 @@ export function useTelegramCustomAuth(
     setError(null);
     setPhase("authenticating");
     void loginWithCode({ code: code.trim() })
-      .then(async () => {
-        const result = await bootstrap("link");
+      .then(() => {
+        setPhase("confirm");
+      })
+      .catch((cause: unknown) => {
+        setError(errorCode(cause));
+        setPhase("error");
+      });
+  }, [code, loginWithCode]);
+
+  const confirmExistingWallet = useCallback(() => {
+    setError(null);
+    setPhase("authenticating");
+    void bootstrap("link")
+      .then(async (result) => {
         if (!result.custom_auth_jwt) {
           throw new Error("telegram_custom_auth_link_not_issued");
         }
@@ -175,9 +217,19 @@ export function useTelegramCustomAuth(
         setError(errorCode(cause));
         setPhase("error");
       });
-  }, [bootstrap, code, linkWithCustomJwt, loginWithCode]);
+  }, [bootstrap, linkWithCustomJwt]);
+
+  useEffect(() => {
+    if (phase !== "authenticating") return;
+    const timeout = setTimeout(() => {
+      setError("telegram_custom_auth_timeout");
+      setPhase("error");
+    }, 15_000);
+    return () => clearTimeout(timeout);
+  }, [phase]);
 
   const readyForExchange =
+    phase !== "error" &&
     customSubject !== null &&
     customJwt !== null &&
     (jwtState.state.status === "done" || linkState.status === "done");
@@ -192,12 +244,15 @@ export function useTelegramCustomAuth(
           : null;
   const effectivePhase = customFailure
     ? "error"
-    : readyForExchange
+    : phase === "error"
+      ? "error"
+      : readyForExchange
       ? "ready"
       : phase;
 
   return {
     code,
+    confirmExistingWallet,
     customSubject,
     email,
     error:
@@ -206,6 +261,7 @@ export function useTelegramCustomAuth(
       (emailState.status === "error" ? errorCode(emailState.error) : null),
     phase: effectivePhase,
     readyForExchange,
+    existingWalletAddress,
     selectExistingWallet,
     selectNewWallet,
     setCode,

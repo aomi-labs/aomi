@@ -235,7 +235,15 @@ export async function findPrivyUserByCustomAuthId(input: {
     },
     body: JSON.stringify({ custom_user_id: input.customUserId }),
   });
-  if (response.status === 404) return null;
+  if (response.status === 404) {
+    // Privy's public API also uses 404 for an unknown custom identity. Do not
+    // silently collapse that into "not linked": a typo or API change at this
+    // endpoint must be diagnosable instead of looking like an ordinary user
+    // choice in the Mini App.
+    throw new Error(
+      `privy custom auth lookup returned 404 at ${PRIVY_USER_BY_CUSTOM_AUTH_URL}`,
+    );
+  }
   if (!response.ok) {
     throw new Error(
       `privy custom auth lookup failed (${response.status} ${response.statusText})`,

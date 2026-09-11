@@ -7,9 +7,9 @@ const mocks = vi.hoisted(() => ({
   linkIdentity: vi.fn(),
   resolveWallets: vi.fn(),
   signInWithTelegram: vi.fn(),
+  verifyTrustedTelegram: vi.fn(),
   verifyCustomAuthOwner: vi.fn(),
   verifyCredential: vi.fn(),
-  verifyTelegram: vi.fn(),
 }));
 
 vi.mock("@aomi-labs/account/account", () => ({
@@ -32,10 +32,6 @@ vi.mock("@aomi-labs/account/account", () => ({
     });
   },
   IdentityConflictError: class IdentityConflictError extends Error {},
-}));
-
-vi.mock("@aomi-labs/account/telegram", () => ({
-  verifyTelegramInitData: mocks.verifyTelegram,
 }));
 
 vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => {
@@ -66,8 +62,11 @@ vi.mock("@portal/server/widget-auth/rate-limit", () => ({
 vi.mock("@portal/server/widget-auth/telegram-custom-auth", () => ({
   customAuthEnvironment: () => "staging",
   requirePrivyCustomAuthOwner: mocks.verifyCustomAuthOwner,
+  statusForTrustedTelegramFailure: (reason: string) =>
+    reason === "bot_not_allowed" ? 403 : 401,
   telegramCustomAuthSubject: ({ telegramUserId }: { telegramUserId: string }) =>
     `aomi:telegram:staging:${telegramUserId}`,
+  verifyTrustedTelegramLaunch: mocks.verifyTrustedTelegram,
 }));
 
 vi.mock("@portal/server/bff/failures", () => ({
@@ -134,9 +133,13 @@ function exchange(overrides: Record<string, unknown> = {}): Request {
 describe("Telegram Para exchange", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
-    mocks.verifyTelegram.mockReturnValue({
+    mocks.verifyTrustedTelegram.mockReturnValue({
       ok: true,
-      launch: { botId: "123", telegramUserId: "456" },
+      launch: {
+        botId: "123",
+        telegramUserId: "456",
+        customSubject: "aomi:telegram:staging:456",
+      },
     });
     mocks.claimOwner.mockResolvedValue("canonical-user");
     mocks.verifyCredential.mockResolvedValue({
@@ -282,6 +285,21 @@ describe("Telegram Para exchange", () => {
       error: "provider_not_enabled",
     });
     expect(mocks.linkIdentity).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unapproved bot before accepting its provider credential", async () => {
+    mocks.verifyTrustedTelegram.mockReturnValue({
+      ok: false,
+      reason: "bot_not_allowed",
+    });
+
+    const response = await POST(exchange());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "bot_not_allowed",
+    });
+    expect(mocks.verifyCredential).not.toHaveBeenCalled();
   });
 
   it("rejects a session already owned by another account", async () => {

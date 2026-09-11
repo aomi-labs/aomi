@@ -6,6 +6,7 @@ import {
 import { widgetAuthRateLimit } from "@portal/server/widget-auth/rate-limit";
 import {
   issueTelegramCustomAuthJwt,
+  statusForTrustedTelegramFailure,
   verifyTrustedTelegramLaunch,
 } from "@portal/server/widget-auth/telegram-custom-auth";
 import {
@@ -26,12 +27,6 @@ function requiredString(value: unknown, maxLength: number): string | null {
   return trimmed && trimmed.length <= maxLength ? trimmed : null;
 }
 
-function statusForTelegramFailure(reason: string): number {
-  if (reason === "bot_not_allowed") return 403;
-  if (reason === "bad_signature" || reason === "expired") return 401;
-  return 400;
-}
-
 export const POST = widgetRoute(async (request: Request) => {
   const limited = widgetAuthRateLimit(request);
   if (limited) return limited;
@@ -48,7 +43,7 @@ export const POST = widgetRoute(async (request: Request) => {
   if (!trusted.ok) {
     throw new WidgetAuthError(
       trusted.reason,
-      statusForTelegramFailure(trusted.reason),
+      statusForTrustedTelegramFailure(trusted.reason),
     );
   }
 
@@ -57,9 +52,10 @@ export const POST = widgetRoute(async (request: Request) => {
   );
   const bound = Boolean(userId);
   // A first launch must not accidentally create a second Privy user. Only an
-  // explicit new-wallet or existing-wallet-link action mints the Custom JWT.
+  // explicit authentication, new-wallet, or existing-wallet-link action mints
+  // the Custom JWT. `status` deliberately remains credential-free.
   const shouldIssue = bound
-    ? intent === "status" || intent === "authenticate"
+    ? intent === "authenticate"
     : intent === "link" || intent === "new";
 
   return Response.json(
