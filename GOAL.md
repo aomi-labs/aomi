@@ -1,5 +1,10 @@
 # Current work
 
+**CAPABILITY PICKER VISIBILITY FIX 2026-09-11** — restore the capability
+picker outside the composer's overflow-controlled input row so both `@` and
+the plus button open a visible menu while preserving inline app chips. Widget
+patch version: 2.0.47. Follow-up only; no deployment.
+
 **INLINE APP CHIPS 2026-09-10** — apps match skill icon/text styling in the composer and are visible in submitted messages. Apps persist; skill mentions remain draft-scoped. App deletion retains one-turn guidance. Isolated follow-up; no deployment.
 
 **PERSISTENT APP CHIPS 2026-09-10** — selected app chips remain in the composer

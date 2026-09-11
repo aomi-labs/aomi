@@ -103,6 +103,7 @@ function Composer() {
       <button onClick={() => composer.removeApp("app:cambrian")}>
         Remove app
       </button>
+      <button onClick={composer.openCapabilityPicker}>Open picker</button>
       <span data-testid="selections">
         {composer.mentions.map((item) => item.label).join(",")}
       </span>
@@ -136,7 +137,10 @@ function Harness() {
       }}
     >
       <Composer />
-      <CapabilityMentionInput placeholder="Message" className="" />
+      <CapabilityMentionInput
+        placeholder="Message"
+        className="aui-composer-input overflow-x-hidden"
+      />
     </CapabilityComposerProvider>
   );
 }
@@ -314,4 +318,16 @@ it("clears submitted skill mentions while retaining apps without skill avoidance
   expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
     "removedApps",
   );
+});
+
+it("mounts the picker outside the composer overflow boundary", async () => {
+  render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Open picker"));
+  });
+
+  const listbox = screen.getByRole("listbox", {
+    name: "Apps, skills, and chains",
+  });
+  expect(listbox.closest(".overflow-x-hidden")).toBeNull();
 });
