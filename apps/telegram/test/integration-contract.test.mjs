@@ -219,6 +219,33 @@ test("the account exchange does not wait on Privy's connected-wallet list", asyn
   assert.match(permission, /useWallets/);
 });
 
+test("the identity token is read from memory as well as storage", async () => {
+  const canonicalAccount = await read("src/hooks/use-canonical-account.ts");
+
+  // `getIdentityToken()` refreshes against Privy's API but reads the result
+  // back out of localStorage, which a Telegram webview can partition or drop —
+  // on Telegram Web the Mini App is an iframe, so that storage is third-party.
+  // Privy also keeps the token in memory, reachable only through the hook, so
+  // both sources are consulted before the exchange is declared impossible.
+  assert.match(canonicalAccount, /useIdentityToken/);
+  assert.match(canonicalAccount, /refreshed\.token \?\? inMemoryIdentityToken/);
+
+  // The three causes that once shared `telegram_privy_credential_unavailable`
+  // must stay distinguishable, or staging cannot say which one it hit.
+  assert.match(canonicalAccount, /telegram_privy_launch_proof_unavailable/);
+  assert.match(canonicalAccount, /telegram_privy_session_unavailable/);
+  assert.match(canonicalAccount, /telegram_privy_identity_token_unavailable/);
+  assert.match(
+    canonicalAccount,
+    /telegram_privy_identity_token_refresh_failed_/,
+  );
+  assert.doesNotMatch(
+    canonicalAccount,
+    /telegram_privy_credential_unavailable/,
+    "the single collapsed credential error must not come back",
+  );
+});
+
 test("Linking is not shown while the embedded-wallet prerequisite is unresolved", async () => {
   const canonicalAccount = await read("src/hooks/use-canonical-account.ts");
 
