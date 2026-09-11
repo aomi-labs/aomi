@@ -24,6 +24,15 @@ test("Privy login resolves the canonical Aomi account", async () => {
   assert.match(canonicalAccount, /\/v1\/account/);
 });
 
+test("Telegram Mini Apps rely on Privy's seamless OAuth login", async () => {
+  const page = await read("src/app/page.tsx");
+
+  // Privy completes Telegram Mini App login as the provider initializes.
+  // Calling the experimental headless hook in parallel can leave the page in
+  // its initial signing state when that second auth flow rejects.
+  assert.doesNotMatch(page, /useLoginWithTelegram|void login\(\)/);
+});
+
 test("Telegram launches are verified before a production wallet flow", async () => {
   const [client, route, verifier] = await Promise.all([
     read("src/lib/telegram.ts"),
