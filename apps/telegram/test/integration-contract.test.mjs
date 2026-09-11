@@ -186,10 +186,28 @@ test("a failure is never painted over by a progress message", async () => {
     errorBranch < loadingBranch,
     "the auth error branch must precede the account loading branch",
   );
-  // "Authenticated but no provider" is a wait on prerequisites, not a link in
-  // progress; claiming otherwise made this the terminal state for every
-  // upstream failure.
-  assert.match(canonicalAccount, /customAuth\.readyForExchange\s*\?/);
+  // "Authenticated but no provider" means the exchange has not begun, so it
+  // cannot be presented as linking. A stuck Privy wallet list gets its own
+  // bounded, user-visible failure instead.
+  assert.match(canonicalAccount, /privy_embedded_wallet_list_timeout/);
   // The canonical-account lookup is bounded like the exchange above it.
   assert.match(canonicalAccount, /canonical_account_timeout/);
+});
+
+test("Linking is not shown while the embedded-wallet prerequisite is unresolved", async () => {
+  const canonicalAccount = await read("src/hooks/use-canonical-account.ts");
+
+  // A successful Custom-JWT link can precede Privy's wallet-list hydration.
+  // That is a prerequisite wait, not an account exchange in progress. If this
+  // guard only checks readyForExchange, a stuck SDK list leaves the Mini App on
+  // “Linking your Aomi account…” forever with no timeout or error path.
+  const noProviderFallback = canonicalAccount.slice(
+    canonicalAccount.indexOf("if (authenticated && !provider)"),
+    canonicalAccount.indexOf("return provider", canonicalAccount.indexOf("if (authenticated && !provider)")),
+  );
+  assert.doesNotMatch(
+    noProviderFallback,
+    /status: "loading"/,
+    "only a constructed provider may enter the Linking state",
+  );
 });
