@@ -27,61 +27,54 @@ export default function Home() {
     provider: account.provider,
   });
 
-  // One waterfall, latest stage wins: each layer only speaks once the one
-  // below it has something to say.
-  let message = "Checking your Telegram account…";
+  // Errors first, and the deepest stage that failed wins: an error is the one
+  // thing the person can act on, so no later progress message may paint over
+  // it. Progress messages then run in stage order.
+  let message: string;
   let tone: Tone = "pending";
-  if (launch.status === "loading") message = "Opening your wallet…";
-  if (launch.status === "error") {
-    message = "Open this page from Telegram.";
+  if (permission.status === "error") {
+    message = permission.error ?? "Permission was not updated.";
     tone = "error";
-  }
-  if (telegramAuth.phase === "choose") {
-    message = "Choose how to access your wallet.";
-    tone = "ready";
-  }
-  if (telegramAuth.phase === "email") {
-    message = "Use the email linked to your existing wallet.";
-  }
-  if (telegramAuth.phase === "confirm") {
-    message = "Confirm that this Telegram account can access your existing wallet.";
-    tone = "ready";
-  }
-  if (telegramAuth.phase === "authenticating") {
-    message = "Signing you in…";
-  }
-  if (telegramAuth.phase === "error") {
-    message = telegramAuth.error
-      ? `Could not verify your wallet (${telegramAuth.error}).`
-      : "Could not verify your wallet.";
-    tone = "error";
-  }
-  if (account.status === "loading") message = "Linking your Aomi account…";
-  if (account.status === "error") {
+  } else if (account.status === "error") {
     message = account.error
       ? `Could not link your account (${account.error}).`
       : "Could not link your account.";
     tone = "error";
-  }
-  if (account.status === "ready" && !permission.target) {
-    message = "Your wallet is linked.";
-    tone = "ready";
-  }
-  if (permission.status === "ready") {
-    message = "Review the permission below, then sign it.";
-    tone = "ready";
-  }
-  if (permission.status === "signing") {
-    message = "Waiting for your signature…";
-    tone = "pending";
-  }
-  if (permission.status === "done") {
+  } else if (telegramAuth.phase === "error") {
+    message = telegramAuth.error
+      ? `Could not verify your wallet (${telegramAuth.error}).`
+      : "Could not verify your wallet.";
+    tone = "error";
+  } else if (launch.status === "error") {
+    message = "Open this page from Telegram.";
+    tone = "error";
+  } else if (permission.status === "done") {
     message = "Permission updated. Return to Telegram.";
     tone = "ready";
-  }
-  if (permission.status === "error") {
-    message = permission.error ?? "Permission was not updated.";
-    tone = "error";
+  } else if (permission.status === "signing") {
+    message = "Waiting for your signature…";
+  } else if (permission.status === "ready") {
+    message = "Review the permission below, then sign it.";
+    tone = "ready";
+  } else if (account.status === "ready") {
+    message = "Your wallet is linked.";
+    tone = "ready";
+  } else if (account.status === "loading") {
+    message = "Linking your Aomi account…";
+  } else if (telegramAuth.phase === "choose") {
+    message = "Choose how to access your wallet.";
+    tone = "ready";
+  } else if (telegramAuth.phase === "email") {
+    message = "Use the email linked to your existing wallet.";
+  } else if (telegramAuth.phase === "confirm") {
+    message = "Confirm that this Telegram account can access your existing wallet.";
+    tone = "ready";
+  } else if (telegramAuth.phase === "authenticating") {
+    message = "Signing you in…";
+  } else if (launch.status === "loading") {
+    message = "Opening your wallet…";
+  } else {
+    message = "Checking your Telegram account…";
   }
 
   return (
