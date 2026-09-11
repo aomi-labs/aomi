@@ -53,3 +53,87 @@ export function validWalletAddress(
       : SVM_ADDRESS_RE.test(address))
   );
 }
+
+/**
+ * Embedded wallets a *verified* Privy token attests, read from its
+ * `linked_accounts` claim.
+ *
+ * Privy's `GET /v1/wallets` is the authoritative source where it has the data,
+ * but it does not return every wallet a user created through the client SDK —
+ * which is every Telegram Mini App user. So this is the same supplementary
+ * source Para's descriptor already contributes, and the reason
+ * `requireAttestedProviderWallets` merges two sources rather than trusting one.
+ *
+ * It is not a client claim: the rows come out of a JWT signed by Privy, under
+ * the same audience as the `sub` the canonical account is bound to. The
+ * boundary that matters is {@link isPrivyEmbeddedWallet} — only Privy-custodied
+ * embedded wallets pass. An external wallet merely connected to the session is
+ * not Privy-custodied and can never back hosted signing, so it is dropped.
+ *
+ * Lives here rather than beside its callers because both `privy.ts` (widget
+ * exchange) and `account-credentials.ts` (native credential) need it, and
+ * `account-credentials.ts` already imports from `privy.ts`.
+ */
+export function privyTokenWalletAttestations(
+  rows: readonly unknown[] | undefined,
+): AttestedWallet[] {
+  const wallets: AttestedWallet[] = [];
+  const seen = new Set<string>();
+  for (const row of rows ?? []) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    if (record.type !== "wallet" || !isPrivyEmbeddedWallet(record)) continue;
+    const family = privyTokenWalletFamily(
+      record.chain_type ?? record.chainType,
+    );
+    const address = stringValue(record.address);
+    if (!family || !address || !validWalletAddress(family, address)) continue;
+    const providerWalletId =
+      stringValue(record.id) ?? stringValue(record.wallet_id) ?? address;
+    const key = `${family}:${family === "evm" ? address.toLowerCase() : address}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    wallets.push({
+      provider: "privy",
+      providerWalletId,
+      family,
+      address,
+      chainScope: null,
+    });
+  }
+  return wallets;
+}
+
+function privyTokenWalletFamily(value: unknown): WalletFamily | null {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "ethereum" || normalized === "evm") return "evm";
+  if (normalized === "solana" || normalized === "svm") return "svm";
+  return null;
+}
+
+function isPrivyEmbeddedWallet(row: Record<string, unknown>): boolean {
+  const markers = [
+    row.wallet_client_type,
+    row.walletClientType,
+    row.wallet_client,
+    row.walletClient,
+    row.connector_type,
+    row.connectorType,
+  ]
+    .map((value) => String(value ?? "").toLowerCase())
+    .filter(Boolean);
+  return markers.some(
+    (marker) =>
+      marker === "privy" ||
+      marker === "privy-v2" ||
+      marker === "embedded" ||
+      marker === "smart_wallet" ||
+      marker === "smart-wallet",
+  );
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}

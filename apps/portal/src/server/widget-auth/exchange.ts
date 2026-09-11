@@ -81,6 +81,17 @@ export async function requireAttestedProviderWallets(
     identity.walletAttestations,
   );
   if (!wallets.length) {
+    // Three different failures used to arrive as one 422, which is exactly the
+    // distinction `resolveAttestedProviderWallets` exists to preserve: a
+    // provider whose REST credentials are missing, a provider API that failed,
+    // and a provider that genuinely attests no wallet are not the same
+    // incident. Only the last is the user's problem.
+    if (resolution.status === "unconfigured") {
+      throw new WidgetAuthError("provider_wallet_api_unconfigured", 500);
+    }
+    if (resolution.status === "unavailable") {
+      throw new WidgetAuthError("provider_wallet_api_unavailable", 503);
+    }
     throw new WidgetAuthError("provider_hosted_wallet_missing", 422);
   }
   return wallets;

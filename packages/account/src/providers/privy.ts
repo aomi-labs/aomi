@@ -2,7 +2,11 @@ import { importSPKI, jwtVerify } from "jose";
 import { z } from "zod";
 import type { VerifiedPrivyToken, WalletFamily } from "../types";
 import type { WidgetProviderDescriptor } from "./descriptor";
-import { validWalletAddress, type AttestedWallet } from "./wallet-attestation";
+import {
+  privyTokenWalletAttestations,
+  validWalletAddress,
+  type AttestedWallet,
+} from "./wallet-attestation";
 import { readAccountAuthEnv } from "../better-auth/env";
 
 type PrivyClaims = {
@@ -60,9 +64,20 @@ export const privyWidgetDescriptor: WidgetProviderDescriptor = {
       email: token.email
         ? { value: token.email, verified: Boolean(token.emailVerified) }
         : undefined,
-      // Provider login authenticates the human only. The common EIP-712
-      // binding flow is the sole ownership proof for browser/Para/Privy.
-      walletAttestations: [],
+      // Privy's `GET /v1/wallets` is authoritative where it has the data, but
+      // it does not return every wallet created through the client SDK — which
+      // is every Telegram Mini App user. Discarding the token's own attestation
+      // therefore left the widget exchange with a single source that can answer
+      // "no wallets" for a user who plainly has one, and a
+      // `provider_hosted_wallet_missing` 422 was the only thing anyone saw.
+      //
+      // These rows are not a client claim: they come from a JWT signed by
+      // Privy, under the same audience as the `sub` bound here, and only
+      // Privy-custodied embedded wallets survive the filter — a merely
+      // connected external wallet cannot back hosted signing and is dropped.
+      // This is what the native credential path has always done, and what
+      // Para's widget descriptor already contributes.
+      walletAttestations: privyTokenWalletAttestations(token.linkedAccounts),
       metadata: {
         sessionId: token.sessionId,
         displayLabel: token.displayLabel,

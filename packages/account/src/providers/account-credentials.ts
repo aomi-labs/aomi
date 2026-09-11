@@ -6,6 +6,7 @@ import type {
 import { paraIssuerEnvironmentForJwksUrl, verifyParaJwt } from "./para";
 import { verifyPrivyToken } from "./privy";
 import {
+  privyTokenWalletAttestations,
   validWalletAddress,
   type AttestedWallet,
   type AttestedWalletProvider,
@@ -226,36 +227,6 @@ export function paraTokenWalletAttestations(
   return wallets;
 }
 
-export function privyTokenWalletAttestations(
-  rows: readonly unknown[] | undefined,
-): AttestedWallet[] {
-  const wallets: AttestedWallet[] = [];
-  const seen = new Set<string>();
-  for (const row of rows ?? []) {
-    if (!row || typeof row !== "object") continue;
-    const record = row as Record<string, unknown>;
-    if (record.type !== "wallet" || !isPrivyEmbeddedWallet(record)) continue;
-    const family = privyTokenWalletFamily(
-      record.chain_type ?? record.chainType,
-    );
-    const address = stringValue(record.address);
-    if (!family || !address || !validWalletAddress(family, address)) continue;
-    const providerWalletId =
-      stringValue(record.id) ?? stringValue(record.wallet_id) ?? address;
-    const key = `${family}:${family === "evm" ? address.toLowerCase() : address}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    wallets.push({
-      provider: "privy",
-      providerWalletId,
-      family,
-      address,
-      chainScope: null,
-    });
-  }
-  return wallets;
-}
-
 function paraTokenWalletFamily(
   value: unknown,
 ): AttestedWallet["family"] | null {
@@ -271,34 +242,7 @@ function paraTokenWalletFamily(
   }
 }
 
-function privyTokenWalletFamily(
-  value: unknown,
-): AttestedWallet["family"] | null {
-  const normalized = String(value ?? "").toLowerCase();
-  if (normalized === "ethereum" || normalized === "evm") return "evm";
-  if (normalized === "solana" || normalized === "svm") return "svm";
-  return null;
-}
 
-function isPrivyEmbeddedWallet(row: Record<string, unknown>): boolean {
-  const markers = [
-    row.wallet_client_type,
-    row.walletClientType,
-    row.wallet_client,
-    row.walletClient,
-    row.connector_type,
-    row.connectorType,
-  ]
-    .map((value) => String(value ?? "").toLowerCase())
-    .filter(Boolean);
-  return markers.some(
-    (marker) =>
-      marker === "privy" ||
-      marker === "embedded" ||
-      marker === "smart_wallet" ||
-      marker === "smart-wallet",
-  );
-}
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
