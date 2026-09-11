@@ -13,6 +13,7 @@ const privateKeyPem = privateKey.export({ format: "pem", type: "pkcs8" }).toStri
 
 describe("Telegram Custom JWT issuer", () => {
   it("uses a stable bot-independent subject and a short-lived ES256 token", async () => {
+    const issuedAt = new Date("2026-09-11T12:00:00Z");
     const subject = telegramCustomAuthSubject({
       environment: "staging",
       telegramUserId: "12345",
@@ -22,13 +23,13 @@ describe("Telegram Custom JWT issuer", () => {
     const token = await issueTelegramCustomAuthJwt({
       customSubject: subject,
       privateKeyPem,
-      now: new Date("2026-09-11T12:00:00Z"),
+      now: issuedAt,
     });
     const jwk = await telegramCustomAuthJwk({ privateKeyPem });
     const { payload, protectedHeader } = await jwtVerify(
       token,
       await importJWK(jwk, "ES256"),
-      { algorithms: ["ES256"] },
+      { algorithms: ["ES256"], currentDate: issuedAt },
     );
 
     expect(payload).toMatchObject({ sub: subject, iat: 1_789_128_000, exp: 1_789_128_300 });
