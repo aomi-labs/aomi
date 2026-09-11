@@ -182,22 +182,22 @@ export function AomiPrivyPluginProvider({
       },
       logout: privy.logout,
       getCredential:
-        (privy.getIdentityToken ?? privy.getAccessToken)
+        (privy.getAccessToken ?? privy.getIdentityToken)
           ? async (): Promise<AomiAccountCredential | null> => {
-              const identityToken = (await privy.getIdentityToken?.())?.trim();
-              if (identityToken) {
+              const accessToken = (await privy.getAccessToken?.())?.trim();
+              if (accessToken) {
                 return {
                   provider: "privy",
-                  tokenKind: "identity_token",
-                  providerToken: identityToken,
+                  tokenKind: "access_token",
+                  providerToken: accessToken,
                 };
               }
-              const accessToken = (await privy.getAccessToken?.())?.trim();
-              return accessToken
+              const identityToken = (await privy.getIdentityToken?.())?.trim();
+              return identityToken
                 ? {
                     provider: "privy",
-                    tokenKind: "access_token",
-                    providerToken: accessToken,
+                    tokenKind: "identity_token",
+                    providerToken: identityToken,
                   }
                 : null;
             }
