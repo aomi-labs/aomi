@@ -108,10 +108,14 @@ export function useTelegramCustomAuth(
   // flaps `done` -> `loading` -> `done` and tears down the account session
   // provider built on top of it. A Privy session whose Custom JWT subject is
   // this Telegram user is proof enough, and it survives those re-renders.
+  // `linkState.status === "done"` counts too: Privy has confirmed the link for
+  // the Custom JWT this hook just handed it, and `user.linkedAccounts` can lag
+  // that confirmation by a render or two. Without it the watchdog below can
+  // expire inside that window and fail a link that actually succeeded.
   const sessionMatchesTelegram =
     authenticated &&
     customSubject !== null &&
-    privyCustomSubject === customSubject;
+    (privyCustomSubject === customSubject || linkState.status === "done");
   const sessionRef = useRef<{
     authenticated: boolean;
     privyCustomSubject: string | null;

@@ -2,6 +2,51 @@
 
 ## Last Updated
 
+2026-09-11 (later) — "LINKING YOUR AOMI ACCOUNT…" WAS THE TERMINAL STATE FOR
+  EVERY UPSTREAM FAILURE (branch `fix/telegram-stuck-linking`, on top of
+  merged #598). Reported again after #598 shipped, and the live bundle on
+  mini-app-staging.aomi.dev was confirmed to carry the new code, so this is a
+  second, independent defect:
+  - `useCanonicalAccount` returned `status: "loading"` for *any*
+    `authenticated && !provider` state. `provider` is null whenever the
+    prerequisites are unmet — including right after the custom-auth flow
+    errors — so the page's message waterfall overwrote the real error with
+    "Linking your Aomi account…" and nothing ever cleared it. Every failure in
+    the link flow looked like the same hang, which is why the underlying cause
+    was never visible. It now reports `loading` only when
+    `customAuth.readyForExchange` is true (provider genuinely a render away)
+    and `disconnected` otherwise, so the auth layer keeps its own message.
+  - `page.tsx` evaluated messages as an override chain where later stages won.
+    Rewritten as explicit precedence: errors first, deepest failing stage wins,
+    then progress messages in stage order. An error can no longer be painted
+    over.
+  - `resolve`'s `GET /v1/account` was unbounded while the exchange around it
+    had a 15s timeout. The backend's DB pool is deliberately 2 connections per
+    host (`infra/database-pool-budgets.json`) and staging logs ~20 saturation
+    events a day, so that call now aborts at 15s as `canonical_account_timeout`.
+  - `sessionMatchesTelegram` also accepts `linkState.status === "done"`:
+    `user.linkedAccounts` lags Privy's own link confirmation by a render or
+    two, and the 15s watchdog could expire inside that window and fail a link
+    that had succeeded.
+  Verified: telegram typecheck, eslint, 11 contract tests (1 new), `build`.
+
+2026-09-11 — `send 1 wei` HAS A NAMED CAUSE, READ OFF STAGING: the app is
+  broken, not the wallet flow. Application 2937805 is `hoodit` from
+  `aomi-labs/community-apps`, release tag
+  `apps-142751037-rbd47b5191b-hoodit-705e3bd9946e`. The tarball downloads
+  fine and then fails manifest validation: built with aomi-sdk 4.0.0 while the
+  backend requires 5.0.0. After 3 consecutive failures the fetcher parks it for
+  a 21600s cooldown, so the source is never installed and `find_app_path`
+  raises "application-scoped app source `application-2937805` is not
+  installed" — the thread has no app, hence no reply. Fix is the one the error
+  states: rebuild hoodit against `aomi-sdk = "=5.0.0"`, redeploy, activate
+  again. `requires_action_approval` is the NEXT wall, not this one: it only
+  applies once an Action exists. Also seen on staging-1: dozens of
+  `aomi-oneshot-staging GitHub App is not installed for
+  aomi-labs/partner-*.finance` reconcile failures, and `DB pool saturated`
+  ~20x/24h with `waiting` 1-5 — the pool size is by design
+  (`backend_max_connections_per_host: 2`), not a misconfiguration.
+
 2026-09-11 — THE MINI APP'S 15s AUTH TIMEOUT WAS DISPOSING LIVE SESSIONS, AND
   PRIVY WAS LOGGING THE USER OUT ON EVERY LAUNCH (branch
   `feat/telegram-permission-provider-stability`, on top of PR #598's

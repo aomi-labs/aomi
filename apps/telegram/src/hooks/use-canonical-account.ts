@@ -190,13 +190,26 @@ export function useCanonicalAccount(
   const resolve = useCallback(
     async (accessToken: string | null | undefined) => {
       if (!accessToken) throw new Error("widget_session_unavailable");
+      // Bounded like the exchange above it. This call reaches the backend
+      // through the BFF, and the backend's DB pool is deliberately tiny
+      // (2 connections per host), so a saturated pool must surface as a named
+      // failure rather than a spinner nobody can interpret.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
       const response = await fetch(`${aomiBffUrl}/v1/account`, {
         credentials: "omit",
+        signal: controller.signal,
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      });
+      })
+        .catch((cause: unknown) => {
+          throw controller.signal.aborted
+            ? new Error("canonical_account_timeout")
+            : cause;
+        })
+        .finally(() => clearTimeout(timer));
       if (!response.ok) {
         throw new Error(`canonical_account_failed_${response.status}`);
       }
@@ -248,7 +261,14 @@ export function useCanonicalAccount(
     };
   }
   if (authenticated && !provider) {
-    return { error: null, provider: null, status: "loading", userId: null };
+    // Only claim to be linking when the prerequisites are actually met and the
+    // provider is a render away. Reporting `loading` for every provider-less
+    // authenticated state made this the terminal message for *any* upstream
+    // failure — the custom-auth error, the one the person needs to read, was
+    // painted over with "Linking your Aomi account…" and never came back.
+    return customAuth.readyForExchange
+      ? { error: null, provider: null, status: "loading", userId: null }
+      : { error: null, provider: null, status: "disconnected", userId: null };
   }
   return provider
     ? { ...state, provider }

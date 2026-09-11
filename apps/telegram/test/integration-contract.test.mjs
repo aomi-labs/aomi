@@ -170,3 +170,26 @@ test("Privy's own components own login and account management", async () => {
   assert.match(providers, /appearance/);
   assert.match(providers, /colorScheme === "light"/);
 });
+
+test("a failure is never painted over by a progress message", async () => {
+  const [page, canonicalAccount] = await Promise.all([
+    read("src/app/page.tsx"),
+    read("src/hooks/use-canonical-account.ts"),
+  ]);
+
+  // Errors are evaluated before any progress message, so the code the person
+  // needs to read survives to the screen.
+  const errorBranch = page.indexOf('telegramAuth.phase === "error"');
+  const loadingBranch = page.indexOf('account.status === "loading"');
+  assert.ok(errorBranch > 0 && loadingBranch > 0);
+  assert.ok(
+    errorBranch < loadingBranch,
+    "the auth error branch must precede the account loading branch",
+  );
+  // "Authenticated but no provider" is a wait on prerequisites, not a link in
+  // progress; claiming otherwise made this the terminal state for every
+  // upstream failure.
+  assert.match(canonicalAccount, /customAuth\.readyForExchange\s*\?/);
+  // The canonical-account lookup is bounded like the exchange above it.
+  assert.match(canonicalAccount, /canonical_account_timeout/);
+});
