@@ -6,6 +6,7 @@ export {
   ensureAccountSchema,
   deactivateAomiAccount,
   fetchAttestedProviderWallets,
+  findAomiUserForTelegram,
   claimTelegramSessionOwner,
   getAccountResponseForBetterAuthSession,
   getAccountResponseForWidgetSession,
@@ -41,8 +42,10 @@ export {
   providerSessionUserSeed,
   signInWithVerifiedProviderCredential,
   signInWithVerifiedProviderIdentity,
+  signInWithTelegramProviderIdentity,
   verifyProviderCredential,
   type ProviderExchangeResult,
+  type TelegramProviderSignInResult,
 } from "./service/provider-exchange";
 export {
   attachVerifiedProviderIdentityToUser,

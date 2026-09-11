@@ -44,6 +44,7 @@ export { createDefaultWalletAttesters } from "./default-wallet-attesters";
 
 export {
   createPrivyAccessTokenVerifier,
+  findPrivyUserByCustomAuthId,
   listPrivyWalletsForUser,
   verifyPrivyToken,
   type PrivyAccessTokenVerifierConfig,

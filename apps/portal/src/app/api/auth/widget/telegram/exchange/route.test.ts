@@ -6,13 +6,16 @@ const mocks = vi.hoisted(() => ({
   issueSession: vi.fn(),
   linkIdentity: vi.fn(),
   resolveWallets: vi.fn(),
+  signInWithTelegram: vi.fn(),
+  verifyTrustedTelegram: vi.fn(),
+  verifyCustomAuthOwner: vi.fn(),
   verifyCredential: vi.fn(),
-  verifyTelegram: vi.fn(),
 }));
 
 vi.mock("@aomi-labs/account/account", () => ({
   claimTelegramSessionOwner: mocks.claimOwner,
   linkVerifiedProviderIdentityForUser: mocks.linkIdentity,
+  signInWithTelegramProviderIdentity: mocks.signInWithTelegram,
   resolveAttestedProviderWallets: mocks.resolveWallets,
   // Same dedupe-by-address rule as the real helper; the module is mocked
   // wholesale to keep the Postgres pool out of this suite.
@@ -29,10 +32,6 @@ vi.mock("@aomi-labs/account/account", () => ({
     });
   },
   IdentityConflictError: class IdentityConflictError extends Error {},
-}));
-
-vi.mock("@aomi-labs/account/telegram", () => ({
-  verifyTelegramInitData: mocks.verifyTelegram,
 }));
 
 vi.mock("@aomi-labs/account/widget-auth", async (importOriginal) => {
@@ -58,6 +57,16 @@ vi.mock("@portal/server/widget-auth/exchange", async (importOriginal) => {
 
 vi.mock("@portal/server/widget-auth/rate-limit", () => ({
   widgetAuthRateLimit: () => null,
+}));
+
+vi.mock("@portal/server/widget-auth/telegram-custom-auth", () => ({
+  customAuthEnvironment: () => "staging",
+  requirePrivyCustomAuthOwner: mocks.verifyCustomAuthOwner,
+  statusForTrustedTelegramFailure: (reason: string) =>
+    reason === "bot_not_allowed" ? 403 : 401,
+  telegramCustomAuthSubject: ({ telegramUserId }: { telegramUserId: string }) =>
+    `aomi:telegram:staging:${telegramUserId}`,
+  verifyTrustedTelegramLaunch: mocks.verifyTrustedTelegram,
 }));
 
 vi.mock("@portal/server/bff/failures", () => ({
@@ -124,9 +133,13 @@ function exchange(overrides: Record<string, unknown> = {}): Request {
 describe("Telegram Para exchange", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
-    mocks.verifyTelegram.mockReturnValue({
+    mocks.verifyTrustedTelegram.mockReturnValue({
       ok: true,
-      launch: { botId: "123", telegramUserId: "456" },
+      launch: {
+        botId: "123",
+        telegramUserId: "456",
+        customSubject: "aomi:telegram:staging:456",
+      },
     });
     mocks.claimOwner.mockResolvedValue("canonical-user");
     mocks.verifyCredential.mockResolvedValue({
@@ -147,6 +160,11 @@ describe("Telegram Para exchange", () => {
       wallets: [EVM_WALLET, SVM_WALLET],
     });
     mocks.linkIdentity.mockResolvedValue({
+      status: "linked",
+      identity: { id: "provider-identity" },
+      user: { id: "canonical-user" },
+    });
+    mocks.signInWithTelegram.mockResolvedValue({
       status: "linked",
       identity: { id: "provider-identity" },
       user: { id: "canonical-user" },
@@ -212,6 +230,42 @@ describe("Telegram Para exchange", () => {
     );
   });
 
+  it("requires Privy to confirm the Custom JWT link before binding Telegram", async () => {
+    mocks.verifyCredential.mockResolvedValue({
+      descriptor: {
+        id: "privy",
+        policy: { subjectIsEnvironmentGlobal: false },
+      },
+      identity: {
+        provider: "privy",
+        issuerEnvironment: "privy:prod",
+        tenantId: "privy-app",
+        subject: "did:privy:alice",
+        walletAttestations: [],
+      },
+    });
+
+    const response = await POST(
+      exchange({ custom_user_id: "aomi:telegram:staging:456" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.verifyCustomAuthOwner).toHaveBeenCalledWith({
+      customSubject: "aomi:telegram:staging:456",
+      privyUserId: "did:privy:alice",
+    });
+    expect(mocks.signInWithTelegram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: DM_THREAD_ID,
+        telegramUserId: "456",
+      }),
+    );
+    expect(mocks.claimOwner).not.toHaveBeenCalled();
+    expect(mocks.issueSession).toHaveBeenCalledWith(
+      expect.objectContaining({ authMethod: "telegram_privy_custom_auth" }),
+    );
+  });
+
   it("refuses a provider the Telegram flow does not support", async () => {
     mocks.verifyCredential.mockResolvedValue({
       descriptor: { id: "base", policy: { subjectIsEnvironmentGlobal: false } },
@@ -231,6 +285,21 @@ describe("Telegram Para exchange", () => {
       error: "provider_not_enabled",
     });
     expect(mocks.linkIdentity).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unapproved bot before accepting its provider credential", async () => {
+    mocks.verifyTrustedTelegram.mockReturnValue({
+      ok: false,
+      reason: "bot_not_allowed",
+    });
+
+    const response = await POST(exchange());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "bot_not_allowed",
+    });
+    expect(mocks.verifyCredential).not.toHaveBeenCalled();
   });
 
   it("rejects a session already owned by another account", async () => {

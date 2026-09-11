@@ -6,22 +6,39 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const readWorkspace = (path) =>
   readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
 
-test("Privy login resolves the canonical Aomi account", async () => {
-  const [providers, canonicalAccount] = await Promise.all([
+test("Custom Telegram auth resolves the canonical Aomi account", async () => {
+  const [providers, canonicalAccount, customAuth] = await Promise.all([
     read("src/app/providers.tsx"),
     read("src/hooks/use-canonical-account.ts"),
+    read("src/hooks/use-telegram-custom-auth.ts"),
   ]);
 
-  // Telegram is the only identity Telegram can vouch for, and the embedded
-  // wallet has to exist before the exchange asks the portal to attest it.
-  assert.match(providers, /loginMethods: \["telegram"\]/);
+  // Aomi verifies Telegram itself; Privy receives only the resulting Custom
+  // JWT. Email is the explicit existing-wallet recovery/link method.
+  assert.match(providers, /loginMethods: \["email"\]/);
   assert.match(providers, /createOnLogin: "users-without-wallets"/);
+  assert.match(customAuth, /useSubscribeToJwtAuthWithFlag/);
+  assert.match(customAuth, /useLinkJwtAccount/);
+  assert.match(customAuth, /disableSignup: true/);
+  assert.match(customAuth, /confirmExistingWallet/);
+  assert.match(customAuth, /telegram_custom_auth_timeout/);
+  assert.match(customAuth, /\/api\/auth\/widget\/telegram\/custom-auth/);
   assert.match(canonicalAccount, /getIdentityToken/);
+  assert.match(canonicalAccount, /custom_user_id/);
   assert.match(canonicalAccount, /provider: "privy"/);
   assert.match(canonicalAccount, /getEmbeddedConnectedWallet/);
   assert.match(canonicalAccount, /createAccountSessionProvider/);
   assert.match(canonicalAccount, /\/api\/auth\/widget\/telegram\/exchange/);
   assert.match(canonicalAccount, /\/v1\/account/);
+});
+
+test("Telegram Mini Apps rely on Privy's seamless OAuth login", async () => {
+  const page = await read("src/app/page.tsx");
+
+  // Privy completes Telegram Mini App login as the provider initializes.
+  // Calling the experimental headless hook in parallel can leave the page in
+  // its initial signing state when that second auth flow rejects.
+  assert.doesNotMatch(page, /useLoginWithTelegram|void login\(\)/);
 });
 
 test("Telegram launches are verified before a production wallet flow", async () => {

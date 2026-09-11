@@ -34,6 +34,7 @@ type TelegramExchangeResponse = {
 function telegramPrivyAdapter(input: {
   launch: LaunchContext;
   privySubject: string;
+  customUserId: string;
 }): AccountAuthAdapter {
   return {
     getFingerprint: () =>
@@ -55,6 +56,7 @@ function telegramPrivyAdapter(input: {
             bot_id: input.launch.proof.botId,
             init_data: input.launch.proof.initData,
             session_id: input.launch.sessionId,
+            custom_user_id: input.customUserId,
             credential: {
               provider: "privy",
               environment: "PROD",
@@ -104,19 +106,21 @@ function useEmbeddedWallet(authenticated: boolean) {
 
   useEffect(() => {
     if (!authenticated || !ready || wallet || creating) return;
-    setCreating(true);
-    void createWallet()
-      .catch((cause: unknown) => {
-        // A concurrent create (or one Privy already ran on login) rejects with
-        // "already has an embedded wallet"; `wallets` will carry it shortly, so
-        // only a genuine failure should surface.
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "privy_embedded_wallet_unavailable",
-        );
-      })
-      .finally(() => setCreating(false));
+    queueMicrotask(() => {
+      setCreating(true);
+      void createWallet()
+        .catch((cause: unknown) => {
+          // A concurrent create (or one Privy already ran on login) rejects with
+          // "already has an embedded wallet"; `wallets` will carry it shortly, so
+          // only a genuine failure should surface.
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "privy_embedded_wallet_unavailable",
+          );
+        })
+        .finally(() => setCreating(false));
+    });
   }, [authenticated, createWallet, creating, ready, wallet]);
 
   return { error: wallet ? null : error, wallet };
@@ -124,10 +128,13 @@ function useEmbeddedWallet(authenticated: boolean) {
 
 export function useCanonicalAccount(
   launch: LaunchContext | null,
+  customAuth: { readyForExchange: boolean; subject: string | null },
 ): CanonicalAccountState {
   const { authenticated, ready: privyReady, user } = usePrivy();
   const privySubject = user?.id ?? null;
-  const { error: walletError, wallet } = useEmbeddedWallet(authenticated);
+  const { error: walletError, wallet } = useEmbeddedWallet(
+    authenticated && customAuth.readyForExchange,
+  );
   const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
     error: null,
     status: "disconnected",
@@ -138,6 +145,8 @@ export function useCanonicalAccount(
     if (
       !privyReady ||
       !authenticated ||
+      !customAuth.readyForExchange ||
+      !customAuth.subject ||
       !privySubject ||
       !wallet ||
       !launch?.inTelegram ||
@@ -148,9 +157,13 @@ export function useCanonicalAccount(
     }
     return createAccountSessionProvider({
       baseUrl: aomiBffUrl,
-      adapter: telegramPrivyAdapter({ launch, privySubject }),
+      adapter: telegramPrivyAdapter({
+        launch,
+        privySubject,
+        customUserId: customAuth.subject,
+      }),
     });
-  }, [authenticated, launch, privyReady, privySubject, wallet]);
+  }, [authenticated, customAuth.readyForExchange, customAuth.subject, launch, privyReady, privySubject, wallet]);
 
   const resolve = useCallback(
     async (accessToken: string | null | undefined) => {

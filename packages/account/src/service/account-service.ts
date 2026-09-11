@@ -84,9 +84,23 @@ export async function ensureAccountSchema(): Promise<void> {
 export async function claimTelegramSessionOwner(input: {
   sessionId: string;
   telegramUserId: string;
+  db?: import("pg").Pool | PoolClient;
 }): Promise<AomiUserId | null> {
-  await ensureAccountSchema();
+  if (!input.db) await ensureAccountSchema();
   return claimTelegramSessionOwnerQuery(input);
+}
+
+/** Finds the canonical account that has explicitly linked this Telegram ID. */
+export async function findAomiUserForTelegram(
+  telegramUserId: string,
+): Promise<AomiUserId | null> {
+  await ensureAccountSchema();
+  return findSignalOwner({
+    type: "identity",
+    provider: "telegram",
+    ...IDENTITY_SCOPES.telegram,
+    subject: telegramUserId,
+  });
 }
 
 export async function getOrCreateAomiUserForBetterAuthSession(input: {
