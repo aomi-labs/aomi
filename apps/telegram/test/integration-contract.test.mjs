@@ -26,7 +26,7 @@ test("Custom Telegram auth resolves the canonical Aomi account", async () => {
   assert.match(canonicalAccount, /getIdentityToken/);
   assert.match(canonicalAccount, /custom_user_id/);
   assert.match(canonicalAccount, /provider: "privy"/);
-  assert.match(canonicalAccount, /getEmbeddedConnectedWallet/);
+  assert.match(canonicalAccount, /linkedEmbeddedWalletAddress/);
   assert.match(canonicalAccount, /privy_embedded_wallet_timeout/);
   assert.match(canonicalAccount, /telegram_privy_exchange_timeout/);
   assert.match(canonicalAccount, /createAccountSessionProvider/);
@@ -186,21 +186,47 @@ test("a failure is never painted over by a progress message", async () => {
     errorBranch < loadingBranch,
     "the auth error branch must precede the account loading branch",
   );
-  // "Authenticated but no provider" means the exchange has not begun, so it
-  // cannot be presented as linking. A stuck Privy wallet list gets its own
-  // bounded, user-visible failure instead.
-  assert.match(canonicalAccount, /privy_embedded_wallet_list_timeout/);
   // The canonical-account lookup is bounded like the exchange above it.
   assert.match(canonicalAccount, /canonical_account_timeout/);
+});
+
+test("the account exchange does not wait on Privy's connected-wallet list", async () => {
+  const canonicalAccount = await read("src/hooks/use-canonical-account.ts");
+
+  // `useWallets().ready` waits on the wallet-proxy iframe, the external
+  // connectors, and — once the account owns an embedded wallet — on that wallet
+  // being actively connected. Telegram's webview restricts third-party iframe
+  // storage, so that connection routinely never lands and `ready` stays false
+  // forever on an account whose wallet exists and works. The exchange only ever
+  // needs the wallet to EXIST: it sends an identity token, and the portal
+  // attests the hosted wallet through Privy's server API. Reading
+  // `linkedAccounts` answers existence with none of that machinery.
+  // Asserted against the import list rather than the file, so the explanation
+  // above may keep naming the hook it is warning about.
+  const privyImport = canonicalAccount.slice(
+    canonicalAccount.indexOf("import {"),
+    canonicalAccount.indexOf('} from "@privy-io/react-auth"'),
+  );
+  assert.doesNotMatch(
+    privyImport,
+    /useWallets/,
+    "the account exchange must not gate on Privy's connected-wallet list",
+  );
+  assert.match(canonicalAccount, /linkedAccounts/);
+  // Signing a permit is the one flow that genuinely needs a *connected* wallet,
+  // so that hook keeps using useWallets.
+  const permission = await read("src/hooks/use-permission-control.ts");
+  assert.match(permission, /useWallets/);
 });
 
 test("Linking is not shown while the embedded-wallet prerequisite is unresolved", async () => {
   const canonicalAccount = await read("src/hooks/use-canonical-account.ts");
 
-  // A successful Custom-JWT link can precede Privy's wallet-list hydration.
-  // That is a prerequisite wait, not an account exchange in progress. If this
-  // guard only checks readyForExchange, a stuck SDK list leaves the Mini App on
-  // “Linking your Aomi account…” forever with no timeout or error path.
+  // A successful Custom-JWT link can precede the embedded wallet appearing on
+  // the Privy user. That is a prerequisite wait, not an account exchange in
+  // progress. If this guard only checks readyForExchange, an unresolved
+  // prerequisite leaves the Mini App on “Linking your Aomi account…” forever
+  // with no timeout or error path.
   const noProviderFallback = canonicalAccount.slice(
     canonicalAccount.indexOf("if (authenticated && !provider)"),
     canonicalAccount.indexOf("return provider", canonicalAccount.indexOf("if (authenticated && !provider)")),
