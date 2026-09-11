@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  getEmbeddedConnectedWallet,
   getIdentityToken,
   useCreateWallet,
   usePrivy,
-  useWallets,
+  type User,
 } from "@privy-io/react-auth";
 import {
   createAccountSessionProvider,
@@ -100,53 +99,64 @@ function telegramPrivyAdapter(input: {
   };
 }
 
+/** The embedded EVM wallet recorded on the Privy *user*.
+ *
+ *  This is deliberately not `useWallets()`. That hook answers "is a wallet
+ *  connected in this browser", and its `ready` additionally waits on Privy's
+ *  wallet-proxy iframe, on the external connectors, and — once the account
+ *  already owns an embedded wallet — on that wallet being actively connected.
+ *  Inside Telegram's in-app webview, third-party iframe storage is restricted
+ *  and that connection routinely never lands, so `ready` stays false forever
+ *  on an account whose wallet exists and works.
+ *
+ *  The exchange never touches the wallet object: it sends an identity token,
+ *  and the portal attests the hosted wallet through Privy's server API
+ *  (`requireAttestedProviderWallets`). So existence on the user is the real
+ *  prerequisite, and `linkedAccounts` reports it without any of that
+ *  iframe machinery. */
+function linkedEmbeddedWalletAddress(user: User | null): string | null {
+  const account = user?.linkedAccounts.find(
+    (entry) =>
+      entry.type === "wallet" &&
+      entry.chainType === "ethereum" &&
+      (entry.walletClientType === "privy" ||
+        entry.walletClientType === "privy-v2"),
+  );
+  return account && "address" in account ? account.address : null;
+}
+
 /** Ensure the signed-in user has an embedded EVM wallet before the exchange.
  *  `createOnLogin` covers the normal path; this closes the gap for accounts
  *  that predate that config, and answers "wallet exists" as state the exchange
  *  can wait on rather than a race. */
 function useEmbeddedWallet(authenticated: boolean) {
-  const { wallets, ready } = useWallets();
+  const { user } = usePrivy();
   const { createWallet } = useCreateWallet();
   const [error, setError] = useState<string | null>(null);
-  const wallet = useMemo(
-    () => (ready ? getEmbeddedConnectedWallet(wallets) : null),
-    [ready, wallets],
-  );
-  const [creating, setCreating] = useState(false);
+  const address = useMemo(() => linkedEmbeddedWalletAddress(user), [user]);
+  // One attempt per mount. `createWallet` resolving without a linked wallet
+  // appearing must not re-enter, or each pass races Privy's own "already has an
+  // embedded wallet" rejection and the hook spins instead of settling.
+  const attempted = useRef(false);
 
   useEffect(() => {
-    if (!authenticated || !ready || wallet || creating || error) return;
-    queueMicrotask(() => {
-      setCreating(true);
-      void withTimeout(createWallet(), "privy_embedded_wallet_timeout")
-        .catch((cause: unknown) => {
-          // A concurrent create (or one Privy already ran on login) rejects with
-          // "already has an embedded wallet"; `wallets` will carry it shortly, so
-          // only a genuine failure should surface.
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "privy_embedded_wallet_unavailable",
-          );
-        })
-        .finally(() => setCreating(false));
-    });
-  }, [authenticated, createWallet, creating, error, ready, wallet]);
-
-  // `useWallets` normally becomes ready before this hook needs to create a
-  // wallet. If Privy's list never hydrates, however, the create effect above
-  // cannot start. Surface that distinct upstream failure instead of leaving
-  // the account layer to call it an in-progress link forever.
-  useEffect(() => {
-    if (!authenticated || ready || wallet || error) return;
-    const timeout = setTimeout(
-      () => setError("privy_embedded_wallet_list_timeout"),
-      15_000,
+    if (!authenticated || address || attempted.current) return;
+    attempted.current = true;
+    void withTimeout(createWallet(), "privy_embedded_wallet_timeout").catch(
+      (cause: unknown) => {
+        // A concurrent create (or one Privy already ran on login) rejects with
+        // "already has an embedded wallet"; `user` will carry it shortly, so
+        // only a genuine failure should survive — see the return below.
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "privy_embedded_wallet_unavailable",
+        );
+      },
     );
-    return () => clearTimeout(timeout);
-  }, [authenticated, error, ready, wallet]);
+  }, [address, authenticated, createWallet]);
 
-  return { error: wallet ? null : error, wallet };
+  return { address, error: address ? null : error };
 }
 
 export function useCanonicalAccount(
@@ -155,13 +165,10 @@ export function useCanonicalAccount(
 ): CanonicalAccountState {
   const { authenticated, ready: privyReady, user } = usePrivy();
   const privySubject = user?.id ?? null;
-  const { error: walletError, wallet } = useEmbeddedWallet(
-    authenticated && customAuth.readyForExchange,
-  );
-  // Privy can return a fresh wallet object when local SDK state changes. The
-  // session provider only needs a wallet to exist; key it by the stable address
-  // so a harmless object refresh cannot dispose an in-flight request.
-  const embeddedWalletAddress = wallet?.address ?? null;
+  // Already a stable address rather than an SDK object, so a harmless refresh
+  // of Privy's local state cannot dispose an in-flight request.
+  const { address: embeddedWalletAddress, error: walletError } =
+    useEmbeddedWallet(authenticated && customAuth.readyForExchange);
   const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
     error: null,
     status: "disconnected",
@@ -276,7 +283,8 @@ export function useCanonicalAccount(
   if (authenticated && !provider) {
     // `useMemo` has already evaluated every provider prerequisite this render.
     // Without a provider there is no exchange underway, so this must not claim
-    // to be linking. The wallet hook above bounds the only expected wait.
+    // to be linking. The only prerequisite that can still be pending here is
+    // wallet creation, which is bounded and reports its own error above.
     return { error: null, provider: null, status: "disconnected", userId: null };
   }
   return provider
