@@ -100,7 +100,7 @@ jobs:
         run: pnpm run build:packages
 
       - name: Typecheck and test every app
-        run: pnpm run typecheck:apps && pnpm run test:portal && pnpm run test:telegram
+        run: pnpm run typecheck:apps && pnpm run lint:telegram && pnpm run test:portal && pnpm run test:telegram
 
       - name: Build every deployed app
         env:

@@ -23,4 +23,22 @@ describe("widgetCorsPreflight", () => {
       "Last-Event-ID",
     );
   });
+
+  it("lets the browser read an origin rejection", () => {
+    // With no CORS header at all, a refused origin reaches the page as an
+    // opaque network failure and is indistinguishable from the server being
+    // down. The wildcard is safe here: this surface never sets
+    // `Access-Control-Allow-Credentials`, and the body is only the error code.
+    const response = widgetCorsPreflight(
+      new Request("http://localhost:3002/api/thread/updates", {
+        method: "OPTIONS",
+        headers: { "Access-Control-Request-Method": "GET" },
+      }),
+      ["GET", "OPTIONS"],
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBeNull();
+  });
 });
