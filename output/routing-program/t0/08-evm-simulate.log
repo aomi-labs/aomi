@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.61s
+     Running unittests src/lib.rs (target/debug/deps/aomi_evm-b72c43c5631613ea)
+
+running 3 tests
+test simulate::tests::simulate_surfaces_revert_reason ... ok
+test simulate::tests::simulate_single_chain_happy_path ... ok
+test simulate::tests::simulate_dispatches_across_two_chains ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 85 filtered out; finished in 0.42s
+
+EXIT=0

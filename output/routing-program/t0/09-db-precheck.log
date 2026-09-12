@@ -1,0 +1,7 @@
+# step 9 DB pre-check (recorded after bounded retry)
+psql (no timeout): hung >10min, killed
+psql connect_timeout=5: connection to server at 127.0.0.1:54322 failed: timeout expired (exit=2)
+port 54322: TCP accept OK (com.docker.backend listening) but no Postgres handshake
+supabase status: hung >10min under 60s alarm, killed; docker ps also hangs -> Docker Desktop wedged
+conclusion: local Supabase NOT reachable; not started per instructions; DB-backed authorization tests NOT run
+env note: SUPABASE_DB_URL is set in shell env (hosted) -- crates/database refuses tests against it

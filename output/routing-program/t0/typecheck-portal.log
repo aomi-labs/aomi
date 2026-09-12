@@ -1,0 +1,6 @@
+
+> aomi-widget@2.0.0 typecheck:portal /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+> pnpm --filter portal exec tsc --noEmit --project tsconfig.json
+
+EXIT=
+EXIT=0 (derived: ELIFECYCLE marker absent/present; zsh pipestatus note)

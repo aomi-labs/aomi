@@ -1,0 +1,32 @@
+
+> @aomi-labs/client@0.7.0 build /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/packages/client
+> tsup
+
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/packages/client/tsup.config.ts
+CLI Building entry: src/cli.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/packages/client/tsup.config.ts
+CLI Target: es2017
+CLI Target: es2017
+ESM Build start
+CLI Cleaning output folder
+ESM Build start
+CJS Build start
+CJS dist/index.cjs     182.58 KB
+CJS dist/index.cjs.map 367.17 KB
+CJS ⚡️ Build success in 23ms
+ESM dist/index.js     176.86 KB
+ESM dist/index.js.map 356.98 KB
+ESM ⚡️ Build success in 24ms
+ESM dist/cli.js 324.22 KB
+ESM ⚡️ Build success in 33ms
+DTS Build start
+DTS ⚡️ Build success in 1701ms
+DTS dist/index.d.ts  108.55 KB
+DTS dist/index.d.cts 108.55 KB
+EXIT=0
+-rwxr-xr-x@ 1 cecilia  staff  332008 Sep  9 02:47 packages/client/dist/cli.js

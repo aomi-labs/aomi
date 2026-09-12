@@ -1,0 +1,211 @@
+
+> aomi-widget@2.0.0 test:portal /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+> pnpm --filter portal test
+
+
+> portal@0.1.0 test /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal
+> vitest run
+
+
+ RUN  v3.2.4 /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal
+
+ ✓ src/components/providers/aomi-session-bridge.test.tsx (5 tests) 65ms
+ ✓ src/features/launch/components/live-panel.test.tsx (12 tests) 59ms
+ ✓ src/features/launch/components/deploy-step.test.tsx (7 tests) 144ms
+stderr | src/app/device-auth/device-auth-client.test.tsx > DeviceAuthClient provider ownership > outlasts a provider credential cooldown of 30 seconds
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at navigateFetch (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+    at exports.navigate (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+    at LocationImpl._locationObjectNavigate (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/Location-impl.js:30:5)
+    at LocationImpl.assign (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/Location-impl.js:206:10)
+    at Location.assign (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/generated/Location.js:72:36)
+    at redirectToCli (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal/src/app/device-auth/device-auth-client.tsx:346:19)
+    at run (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal/src/app/device-auth/device-auth-client.tsx:274:9) [90mundefined[39m
+
+ ✓ src/features/usage/usage-settings.test.tsx (3 tests) 124ms
+stderr | src/app/device-auth/device-auth-client.test.tsx > DeviceAuthClient provider ownership > lets the user cancel a dismissed provider modal and try again
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at navigateFetch (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/navigation.js:77:3)
+    at exports.navigate (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/navigation.js:55:3)
+    at LocationImpl._locationObjectNavigate (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/Location-impl.js:30:5)
+    at LocationImpl.assign (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/window/Location-impl.js:206:10)
+    at Location.assign (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/node_modules/.pnpm/jsdom@26.1.0_bufferutil@4.1.0_utf-8-validate@5.0.10/node_modules/jsdom/lib/jsdom/living/generated/Location.js:72:36)
+    at redirectToCli (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal/src/app/device-auth/device-auth-client.tsx:346:19)
+    at run (/Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal/src/app/device-auth/device-auth-client.tsx:274:9) [90mundefined[39m
+
+ ✓ src/app/device-auth/device-auth-client.test.tsx (7 tests) 220ms
+ ✓ src/features/launch/components/deployments/tabs/deployments-tab.test.tsx (7 tests) 170ms
+ ✓ src/components/providers/wallet-providers.test.tsx (11 tests) 777ms
+   ✓ WalletProviders Privy configuration > restores the selected provider after remount without opening login again  625ms
+ ✓ src/features/launch/hooks/use-project-detail.test.ts (5 tests) 677ms
+ ✓ src/features/launch/components/deployments/project-index.test.tsx (1 test) 84ms
+ ✓ src/features/general/svm-wallet-binding-gate.test.tsx (2 tests) 54ms
+ ✓ src/features/general/svm-wallet-binding.test.tsx (2 tests) 77ms
+stderr | src/components/shell/portal-aomi-frame.test.tsx > PortalAomiFrame account bootstrap > isolates a locked project chat to its application
+An update to AppSelectUrlBootstrap inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/components/shell/portal-aomi-frame.test.tsx (7 tests) 76ms
+ ✓ src/components/providers/settings-initializer.test.tsx (1 test) 23ms
+ ✓ src/features/launch/components/deployments/tabs/environment-tab.test.tsx (5 tests) 132ms
+ ✓ src/features/settings-route-callers.test.tsx (2 tests) 168ms
+ ✓ src/features/account/account-management.test.tsx (3 tests) 149ms
+ ✓ src/features/launch/components/oneshot-wizard.test.tsx (9 tests) 162ms
+ ✓ src/lib/account-overview.test.tsx (3 tests) 71ms
+ ✓ src/features/usage/credit-bank.test.tsx (5 tests) 481ms
+ ✓ src/features/account/account-signing.test.tsx (7 tests) 601ms
+ ✓ src/features/launch/components/stepper.test.tsx (8 tests) 84ms
+ ✓ src/lib/__tests__/security.pbt.test.ts (14 tests) 193ms
+ ✓ src/features/launch/hooks/use-projects.test.ts (1 test) 89ms
+ ✓ src/features/launch/components/deployments/ui/confirm-dialog.test.tsx (2 tests) 241ms
+ ✓ src/app/oauth/device/oauth-device-client.test.tsx (3 tests) 136ms
+ ✓ src/components/shell/header-controls.test.tsx (2 tests) 164ms
+ ✓ src/app/oauth/consent/oauth-consent-client.test.tsx (1 test) 62ms
+ ✓ src/features/launch/components/deployments/project-page.test.tsx (1 test) 119ms
+ ✓ src/features/launch/components/deploy-dashboard.test.tsx (1 test) 139ms
+ ✓ src/features/launch/components/deployments/project-row.test.tsx (2 tests) 38ms
+ ✓ src/features/launch/components/deployments/ui/sdk-badge.test.tsx (3 tests) 40ms
+ ✓ src/app/mcp/connect/provider-credential.test.ts (3 tests) 76ms
+stdout | src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > logs only safe diagnostics after Better Auth rejects a redirect
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m302[39m
+}
+
+stdout | src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > does not query or log redirect diagnostics for successful authorization
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m302[39m
+}
+
+ ✓ src/lib/settings-api.test.ts (1 test) 9ms
+stdout | src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > observes Better Auth JSON redirects returned by hosted requests
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m200[39m
+}
+
+ ✓ src/app/api/auth/[...all]/route.test.ts (5 tests) 22ms
+stderr | src/server/oauth/principal.test.ts > public OAuth and session principal resolution > rejects canonical identity disagreement and elevated guest scopes
+oauth canonical identity disagreement { clientId: [32m'client-1'[39m }
+
+ ✓ src/server/oauth/principal.test.ts (13 tests) 10ms
+ ✓ src/server/agent-api-proxy.test.ts (7 tests) 18ms
+ ✓ src/app/api/auth/widget/oauth-bootstrap/route.test.ts (2 tests) 7ms
+ ✓ src/app/v1/pipeline/mcp/route.test.ts (5 tests) 19ms
+ ✓ src/server/device-auth/grants.test.ts (12 tests) 10ms
+ ✓ src/server/account-api-proxy.test.ts (5 tests) 60ms
+ ✓ src/lib/payment-fetch.test.ts (2 tests) 9ms
+stderr | src/components/shell/use-portal-wallet-account-menu.test.tsx > usePortalWalletAccountMenu account wiring > keeps exchange failure copy off the truncated chip line
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/shell/use-portal-wallet-account-menu.test.tsx > usePortalWalletAccountMenu account wiring > shows the account name and routes account management to Settings
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/lib/rate-limit.test.ts (12 tests) 25ms
+ ✓ src/server/oauth/mcp-principal.test.ts (7 tests) 24ms
+stderr | src/components/shell/use-portal-wallet-account-menu.test.tsx > usePortalWalletAccountMenu account wiring > leaves session and wallet teardown to widget-lib
+An update to Probe inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/components/shell/use-portal-wallet-account-menu.test.tsx (5 tests) 142ms
+ ✓ src/lib/csrf.test.ts (9 tests) 5ms
+ ✓ src/server/oauth/request-policy.test.ts (21 tests) 30ms
+ ✓ src/app/v1/agent/[...slug]/route.test.ts (5 tests) 5ms
+ ✓ src/features/account/account-acl.test.tsx (25 tests) 3512ms
+   ✓ account ACL wiring > reviews the unsigned evm payload before requesting a signature  320ms
+   ✓ account ACL wiring > allows a user-controlled Para wallet to accept transactions  310ms
+ ✓ src/app/.well-known/oauth-authorization-server/api/auth/route.test.ts (1 test) 18ms
+ ✓ src/app/v1/pipeline/[...slug]/route.test.ts (3 tests) 5ms
+ ✓ src/server/oauth/cors.test.ts (3 tests) 6ms
+ ✓ src/features/usage/statement-api.test.ts (5 tests) 4ms
+ ✓ src/app/api/auth/widget/guest/route.test.ts (1 test) 8ms
+ ✓ src/app/api/bff/internal/sentry-smoke/route.test.ts (3 tests) 7ms
+ ✓ src/app/v1/agent/mcp/route.test.ts (2 tests) 10ms
+ ✓ src/server/widget-auth/response.test.ts (7 tests) 21ms
+ ✓ src/features/launch/state.test.ts (9 tests) 5ms
+ ✓ src/lib/device-auth-handoff.test.ts (7 tests) 5ms
+ ✓ src/features/launch/dashboard-lifecycle.test.ts (9 tests) 5ms
+ ✓ src/server/widget-auth/rate-limit.test.ts (3 tests) 140ms
+ ✓ src/app/api/auth/[...all]/next-url-loopback.test.ts (5 tests) 3ms
+ ✓ src/features/account/wallet-management-model.test.ts (6 tests) 3ms
+ ✓ src/lib/chat-url.test.ts (21 tests) 3ms
+ ✓ src/app/client-error-recovery.test.ts (7 tests) 10ms
+ ✓ src/features/launch/components/deployments/deployment-timeline.test.ts (4 tests) 2ms
+ ✓ src/lib/validate-input.test.ts (19 tests) 9ms
+ ✓ src/server/oauth/client-resource-binding.test.ts (3 tests) 4ms
+ ✓ src/lib/device-auth-provider.test.ts (5 tests) 3ms
+ ✓ src/server/bff/launch/config.test.ts (7 tests) 8ms
+ ✓ src/features/account/wallet-bind.test.ts (2 tests) 4ms
+ ✓ src/app/oauth/consent/consent-response.test.ts (2 tests) 2ms
+ ✓ src/features/account/wallet-brands.test.ts (2 tests) 2ms
+ ✓ src/components/shell/packages-modal.test.tsx (9 tests) 577ms
+ ✓ src/app/api/bff/auth/github/dev-session/route.test.ts (3 tests) 6ms
+ ✓ src/server/e2e-wallet.test.ts (15 tests) 323ms
+ ✓ src/app/api/bff/auth/github/callback/route.test.ts (5 tests) 18ms
+ ✓ src/server/mcp/wallet-selection.test.ts (19 tests) 8ms
+ ✓ src/app/api/bff/auth/github/login/route.test.ts (2 tests) 32ms
+ ✓ src/server/widget-auth/cors.test.ts (1 test) 3ms
+ ↓ src/app/api/auth/oauth-device-flow.postgres.test.ts (2 tests | 2 skipped)
+ ↓ src/server/oauth/client-resource-binding.postgres.test.ts (1 test | 1 skipped)
+ ✓ src/features/account/account-reconcile.test.ts (5 tests) 2ms
+ ↓ src/server/device-auth/grants.postgres.test.ts (3 tests | 3 skipped)
+ ↓ src/app/api/auth/oauth-mcp-refresh.postgres.test.ts (2 tests | 2 skipped)
+ ✓ src/server/bff/launch/routes.test.ts (37 tests) 84ms
+ ✓ src/server/bff/launch/user-projects.test.ts (4 tests) 6ms
+ ↓ src/app/api/auth/[...all]/loopback/route.test.ts (15 tests | 15 skipped)
+ ✓ src/app/v1/account/device-auth/routes.test.ts (7 tests) 10ms
+ ✓ src/app/api/[...slug]/route.test.ts (8 tests) 14ms
+ ✓ src/app/api/auth/widget/telegram/exchange/route.test.ts (3 tests) 10ms
+ ✓ src/components/providers/e2e-wallet-provider.test.ts (1 test) 2ms
+ ✓ src/lib/portal-client-options.test.ts (7 tests) 6ms
+
+ Test Files  87 passed | 5 skipped (92)
+      Tests  543 passed | 23 skipped (566)
+   Start at  02:47:15
+   Duration  14.42s (transform 10.97s, setup 27.15s, collect 68.25s, tests 10.99s, environment 43.80s, prepare 8.39s)
+
+EXIT=
+EXIT=0 (derived: ELIFECYCLE marker absent/present; zsh pipestatus note)

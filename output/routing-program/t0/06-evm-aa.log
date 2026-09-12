@@ -1,0 +1,31 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.55s
+     Running unittests src/lib.rs (target/debug/deps/aomi_evm-b72c43c5631613ea)
+
+running 23 tests
+test aa::alchemy::tests::extracts_receipt_hashes_and_tolerates_none ... ok
+test aa::alchemy::tests::send_ids_accept_current_and_legacy_wallet_api_shapes ... ok
+test aa::alchemy::tests::sign_prepared_swaps_signature_for_request_and_keeps_the_blob ... ok
+test aa::alchemy::tests::real_alchemy_prepared_blob_round_trips ... ok
+test aa::alchemy::tests::projects_signature_requests_from_prepared_blob ... ok
+test aa::alchemy::tests::detects_a_reverted_receipt_but_never_invents_one ... ok
+test aa::alchemy::tests::sign_prepared_requires_type_and_data ... ok
+test aa::alchemy::tests::missing_signature_request_is_an_error ... ok
+test aa::alchemy::tests::first_use_7702_array_extracts_and_splices_both_signatures ... ok
+test aa::alchemy::tests::signature_count_must_match_prepared_items ... ok
+test aa::alchemy::tests::user_funded_send_never_injects_a_paymaster ... ok
+test aa::alchemy::tests::parse_gas_policy_ids_rejects_non_object_json ... ok
+test aa::executor::tests::non_evm_addresses_fail_loudly ... ok
+test aa::alchemy::tests::parse_gas_policy_ids_keeps_valid_entries ... ok
+test aa::alchemy::tests::sponsored_send_replays_server_policy_without_exposing_it_in_prepare_blob ... ok
+test aa::alchemy::tests::supports_sponsorship_is_per_chain ... ok
+test aa::alchemy::tests::parse_gas_policy_ids_drops_malformed_entries ... ok
+test aa::alchemy::tests::funding_bound_includes_every_v07_gas_component ... ok
+test aa::executor::tests::native_leg_is_a_value_send ... ok
+test aa::executor::tests::token_leg_is_an_erc20_transfer ... ok
+test aa::alchemy::tests::real_preparation_has_a_verifiable_digest_and_cost_ceiling ... ok
+test aa::provider::signature_tests::personal_sign_digest_is_validated_without_double_prefixing ... ok
+test aa::provider::signature_tests::receipt_accounting_matches_the_operation_and_entrypoint ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.01s
+
+EXIT=0

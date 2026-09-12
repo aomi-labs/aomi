@@ -1,0 +1,5 @@
+COMMAND     PID    USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+backend   42475 cecilia   13u  IPv4 0x1750bfc840335cc0      0t0  TCP 127.0.0.1:8080 (LISTEN)
+api-serve 42512 cecilia    9u  IPv4 0x2d0f69fb1ae2664e      0t0  TCP 127.0.0.1:8082 (LISTEN)
+com.docke 61736 cecilia  531u  IPv6 0x172db70483b4ad16      0t0  TCP *:54322 (LISTEN)
+EXIT=1

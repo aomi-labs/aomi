@@ -1,0 +1,247 @@
+   Compiling aws-lc-rs v1.16.3
+   Compiling rustls v0.23.37
+   Compiling rustls-webpki v0.103.13
+   Compiling untrusted v0.7.1
+   Compiling tokio-rustls v0.26.4
+   Compiling serde_with v3.21.0
+   Compiling hyper-rustls v0.27.7
+   Compiling tower v0.5.3
+   Compiling alloy-eip7928 v0.3.2
+   Compiling tower-http v0.6.8
+   Compiling rustls-platform-verifier v0.6.2
+   Compiling reqwest v0.12.28
+   Compiling reqwest v0.13.2
+   Compiling svm-rs v0.5.24
+   Compiling alloy-eips v1.8.3
+   Compiling svm-rs-builds v0.5.24
+   Compiling alloy-consensus v1.8.3
+   Compiling primeorder v0.13.6
+   Compiling p256 v0.13.2
+   Compiling alloy-consensus-any v1.8.3
+   Compiling alloy-network-primitives v1.8.3
+   Compiling alloy-rpc-types-eth v1.8.3
+   Compiling uuid v1.21.0
+   Compiling alloy-rpc-types-any v1.8.3
+   Compiling alloy-network v1.8.3
+   Compiling revm-precompile v31.0.0
+   Compiling alloy-transport v1.7.3
+   Compiling revm-handler v14.1.0
+   Compiling alloy-rpc-types-trace v1.8.3
+   Compiling revm-inspector v14.1.0
+   Compiling alloy-pubsub v1.7.3
+   Compiling tungstenite v0.26.2
+   Compiling tokio-tungstenite v0.26.2
+   Compiling revm v33.1.0
+   Compiling solar-interface v0.1.8 (https://github.com/paradigmxyz/solar.git?rev=1f28069#1f280695)
+   Compiling alloy-transport-ws v1.7.3
+   Compiling alloy-transport-ipc v1.7.3
+   Compiling alloy-transport-http v1.7.3
+   Compiling alloy-rpc-client v1.7.3
+   Compiling foundry-compilers-core v0.19.14
+   Compiling solar-ast v0.1.8 (https://github.com/paradigmxyz/solar.git?rev=1f28069#1f280695)
+   Compiling alloy-rpc-types-txpool v1.8.3
+   Compiling alloy-provider v1.7.3
+   Compiling foundry-compilers-artifacts-solc v0.19.14
+   Compiling solar-parse v0.1.8 (https://github.com/paradigmxyz/solar.git?rev=1f28069#1f280695)
+   Compiling alloy-rpc-types-engine v1.8.3
+   Compiling solar-sema v0.1.8 (https://github.com/paradigmxyz/solar.git?rev=1f28069#1f280695)
+   Compiling foundry-compilers-artifacts-vyper v0.19.14
+   Compiling solana-packet v3.0.0
+   Compiling solar-compiler v0.1.8 (https://github.com/paradigmxyz/solar.git?rev=1f28069#1f280695)
+   Compiling foundry-compilers-artifacts v0.19.14
+   Compiling alloy-rpc-types v1.7.3
+   Compiling op-alloy-consensus v0.22.4
+   Compiling schemars v0.8.22
+   Compiling op-alloy v0.22.4
+   Compiling foundry-compilers v0.19.14
+   Compiling op-revm v14.1.0
+   Compiling alloy-evm v0.24.2
+   Compiling typify-impl v0.4.3
+   Compiling foundry-block-explorers v0.22.0
+   Compiling typify-macro v0.4.3
+   Compiling foundry-common-fmt v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling soldeer-core v0.9.0
+   Compiling typify v0.4.3
+   Compiling foundry-evm-networks v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling ureq v2.12.1
+   Compiling tungstenite v0.28.0
+   Compiling progenitor-impl v0.11.2
+   Compiling foundry-config v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling tokio-tungstenite v0.28.0
+   Compiling foundry-common v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling progenitor-client v0.11.2
+   Compiling progenitor-macro v0.11.2
+   Compiling revm-inspectors v0.33.2
+   Compiling progenitor v0.11.2
+   Compiling solana-vote-interface v4.0.4
+   Compiling privy-rs v0.1.0-alpha.5
+   Compiling foundry-evm-abi v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling alloy-op-evm v0.24.2
+   Compiling foundry-fork-db v0.21.0
+   Compiling alloy-genesis v1.8.3
+   Compiling foundry-evm-core v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling alloy-signer-local v1.8.3
+   Compiling alloy-contract v1.7.3
+   Compiling solana-metrics v3.1.2
+   Compiling foundry-linking v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling axum v0.8.8
+   Compiling foundry-evm-traces v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling reqwest-middleware v0.4.2
+   Compiling secp256k1-sys v0.10.1
+   Compiling solana-rpc-client-api v3.1.2
+   Compiling solana-bpf-loader-program v3.1.2
+   Compiling alloy-signer-ledger v1.7.3
+   Compiling solana-net-utils v3.1.2
+   Compiling solana-perf v3.1.2
+   Compiling foundry-evm-coverage v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling quinn-proto v0.11.14
+   Compiling alloy-signer-trezor v1.7.3
+   Compiling solana-account-decoder v3.1.2
+   Compiling foundry-wallets v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling quinn v0.11.9
+   Compiling solana-system-program v3.1.2
+   Compiling foundry-evm-fuzz v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling solana-transaction-metrics-tracker v3.1.2
+   Compiling solana-tls-utils v3.1.2
+   Compiling solana-loader-v4-program v3.1.2
+   Compiling ort-sys v2.0.0-rc.9
+   Compiling alloy-ens v1.7.3
+   Compiling governor v0.6.3
+   Compiling solana-connection-cache v3.1.2
+   Compiling solana-vote-program v3.1.2
+   Compiling forge-script-sequence v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling alloy-serde v2.0.0
+   Compiling foundry-cheatcodes v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling alloy-eips v2.0.0
+   Compiling solana-streamer v3.1.2
+   Compiling secp256k1 v0.30.0
+   Compiling solana-rpc-client v3.1.2
+   Compiling baml-sys v0.217.0
+   Compiling diesel v2.3.10
+   Compiling solana-offchain-message v3.0.0
+   Compiling alloy-core v1.5.7
+   Compiling alloy-tx-macros v2.0.0
+   Compiling alloy-consensus v2.0.0
+   Compiling solana-sdk v3.0.0
+   Compiling baml v0.217.0
+   Compiling solana-pubsub-client v3.1.2
+   Compiling foundry-evm v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling diesel-async v0.7.4
+   Compiling solana-builtins-default-costs v3.1.2
+   Compiling tokio-postgres-rustls v0.13.0
+   Compiling p384 v0.13.1
+   Compiling aomi-database v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/database)
+   Compiling hpke v0.12.0
+   Compiling solana-compute-budget-instruction v3.1.2
+   Compiling jsonwebtoken v10.4.0
+   Compiling solana-tpu-client v3.1.2
+   Compiling solana-builtins v3.1.2
+   Compiling ort v2.0.0-rc.9
+   Compiling solana-rpc-client-nonce-utils v3.1.2
+   Compiling solana-udp-client v3.1.2
+   Compiling solana-quic-client v3.1.2
+   Compiling privy-openapi v0.1.0-alpha.2
+   Compiling alloy v1.7.3
+   Compiling litesvm v0.11.0
+   Compiling solana-client v3.1.2
+   Compiling aomi-account v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/account)
+   Compiling aomi-service v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/service)
+   Compiling alloy-consensus-any v2.0.0
+   Compiling alloy-network-primitives v2.0.0
+   Compiling rig-core v0.42.0 (https://github.com/aomi-labs/rig.git?rev=23b1dd6d4a51f37345fbdf592e94050814adffb2#23b1dd6d)
+   Compiling alloy-json-rpc v2.0.0
+   Compiling rig-agent v0.42.0
+   Compiling aomi-anvil v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/anvil)
+   Compiling alloy-rpc-types-eth v2.0.0
+   Compiling aomi-sign v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/sign)
+   Compiling foundry-cli v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling forge-fmt v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling foundry-debugger v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling alloy-rpc-types-beacon v1.7.3
+   Compiling revm-primitives v22.1.0
+   Compiling cast v1.5.1 (https://github.com/foundry-rs/foundry.git?tag=v1.5.1#b0a9dd9c)
+   Compiling swig-interface v3.0.0 (https://github.com/anagrambuild/swig-wallet?rev=5e86ce94bbbe22fab418f06a92b184b65bb70c61#5e86ce94)
+   Compiling tokenizers v0.21.4
+   Compiling hf-hub v0.4.3
+   Compiling fastembed v4.9.1
+   Compiling aomi-svm v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/svm)
+   Compiling aomi-evm v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/evm)
+   Compiling revm-bytecode v9.0.0
+   Compiling alloy-transport v2.0.0
+   Compiling aomi-baml v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/baml)
+   Compiling aomi-pipeline v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/pipeline)
+   Compiling revm-state v10.0.0
+   Compiling aomi-rag v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/rag)
+   Compiling aomi-tools v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/tools)
+   Compiling revm-database-interface v10.0.0
+   Compiling alloy-pubsub v2.0.0
+   Compiling sqlx-core v0.8.6
+   Compiling aomi-skills v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/skills)
+   Compiling alloy-rpc-types-any v2.0.0
+   Compiling debugid v0.8.0
+   Compiling alloy-signer v2.0.0
+   Compiling alloy-network v2.0.0
+   Compiling sentry-types v0.47.0
+warning: aomi-skills@0.1.0: skill `dummy_svm` is disabled in its manifest (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/skills/manifests/svm/dummy_svm/dummy_svm.json) — skipping codegen + runtime registration
+   Compiling sqlx-sqlite v0.8.6
+   Compiling sqlx-postgres v0.8.6
+   Compiling alloy-transport-ipc v2.0.0
+   Compiling alloy-transport-ws v2.0.0
+   Compiling revm-context-interface v16.0.0
+   Compiling alloy-transport-http v2.0.0
+   Compiling alloy-rpc-types-trace v2.0.0
+   Compiling alloy-rpc-types-txpool v2.0.0
+   Compiling alloy-rpc-types-anvil v2.0.0
+   Compiling alloy-rpc-types-debug v2.0.0
+   Compiling alloy-rpc-client v2.0.0
+   Compiling sqlx-macros-core v0.8.6
+   Compiling sentry-core v0.47.0
+   Compiling aomi-core v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/core)
+   Compiling sqlx-macros v0.8.6
+   Compiling alloy-provider v2.0.0
+   Compiling revm-interpreter v34.0.0
+   Compiling revm-context v15.0.0
+   Compiling revm-precompile v32.1.0
+   Compiling revm-handler v17.0.0
+   Compiling sqlx v0.8.6
+   Compiling alloy-contract v2.0.0
+   Compiling aomi-scripts v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/scripts)
+   Compiling aomi-artifact-store v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/artifact-store)
+   Compiling aomi-runtime v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/runtime)
+   Compiling x402-types v1.4.6
+   Compiling revm-inspector v17.0.0
+   Compiling revm-database v12.0.0
+   Compiling teloxide-core v0.10.1
+   Compiling axum v0.7.9
+   Compiling revm v36.0.0
+   Compiling tempo-contracts v1.6.0
+   Compiling sentry-backtrace v0.47.0
+   Compiling alloy-signer-local v2.0.0
+   Compiling teloxide v0.13.0
+   Compiling tempo-primitives v1.6.0
+   Compiling x402-chain-eip155 v1.4.6
+   Compiling alloy-rpc-types v2.0.0
+   Compiling sentry-contexts v0.47.0
+   Compiling alloy v2.0.0
+   Compiling tempo-alloy v1.6.0
+   Compiling sentry-debug-images v0.47.0
+   Compiling aomi-bot-core v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/bot-core)
+   Compiling sentry-tracing v0.47.0
+   Compiling sentry-panic v0.47.0
+   Compiling sentry-tower v0.47.0
+   Compiling tower-http v0.5.2
+   Compiling octocrab v0.53.0
+   Compiling sentry v0.47.0
+   Compiling mpp v0.9.3 (https://github.com/tempoxyz/mpp-rs#310c9a1f)
+   Compiling metrics-exporter-prometheus v0.18.3
+   Compiling aomi-route v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/route)
+   Compiling x402-axum v1.4.6
+   Compiling aomi-actors v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/actors)
+   Compiling aomi-cli v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/cli)
+   Compiling aomi-payment v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/payment)
+   Compiling manager v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/manager)
+   Compiling aomi-telegram v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/telegram)
+   Compiling api-server v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/api-server)
+   Compiling backend v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/backend)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7m 18s
+EXIT=

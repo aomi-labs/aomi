@@ -1,0 +1,150 @@
+### 02-tools: cargo test -p aomi-tools -- commit_gate solana::ctx solana::tx
+   Compiling aomi-tools v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/tools)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.33s
+     Running unittests src/lib.rs (target/debug/deps/aomi_tools-9d66f24aee5f69d2)
+
+running 80 tests
+test commit_gate::tests::authorization_never_changes_the_submitter ... ok
+test commit_gate::tests::evm_execution_matrix_checks_all_twelve_cells ... ok
+test solana::ctx::tests::broadcast_policy_absent_resolves_none ... ok
+test solana::ctx::tests::explicit_pin_without_policy_passes_through ... ok
+test commit_gate::tests::delegated_scope_clamps_only_server_side_signing ... ok
+test solana::ctx::tests::cluster_from_ctx_errors_when_absent ... ok
+test solana::ctx::tests::read_cluster_defaults_to_mainnet_when_no_wallet_is_connected ... ok
+test solana::ctx::tests::cluster_from_ctx_errors_when_empty_string ... ok
+test solana::ctx::tests::read_cluster_treats_empty_cluster_as_unconnected ... ok
+test solana::ctx::tests::svm_address_returns_address ... ok
+test solana::ctx::tests::svm_address_errors_when_absent ... ok
+test solana::ctx::tests::svm_operating_address_falls_back_to_address ... ok
+test solana::ctx::tests::svm_operating_address_prefers_envelope_value ... ok
+test commit_gate::tests::read_only_thread_is_denied_before_any_policy_lookup ... ok
+test commit_gate::tests::expired_handover_mandate_is_denied_before_any_policy_lookup ... ok
+test commit_gate::tests::full_authority_thread_passes_the_credential_check ... ok
+test commit_gate::tests::invalid_evm_cells_fail_before_provider_or_database_access ... ok
+test solana::ctx::tests::read_cluster_honors_the_connected_cluster_over_the_default ... ok
+test solana::ctx::tests::cluster_from_ctx_parses_canonical ... ok
+test solana::ctx::tests::cluster_from_ctx_strips_solana_prefix ... ok
+test solana::ctx::tests::explicit_pin_inside_allowed_wins_over_default ... ok
+test solana::ctx::tests::broadcast_policy_default_fills_unpinned_stage ... ok
+test solana::tx::ix::tests::stage_ix_rejects_empty_list ... ok
+test solana::ctx::tests::read_cluster_still_rejects_an_unparseable_cluster ... ok
+test solana::ctx::tests::cluster_from_ctx_errors_on_unknown ... ok
+test solana::ctx::tests::malformed_policy_errors_loud ... ok
+test solana::tx::simulate::result_tests::simulation_requires_an_explicit_null_error ... ok
+test solana::tx::simulate::tests::only_loader_incompatibilities_fall_back_to_rpc ... ok
+test solana::tx::ix::tests::stage_ix_rejects_unknown_cluster_in_ctx ... ok
+test solana::tx::ix::tests::stage_ix_rejects_neither_data_nor_encode ... ok
+test solana::tx::ix::tests::additional_signers_returns_ordered_deduped_non_payer_set ... ok
+test solana::tx::ix::tests::stage_ix_rejects_invalid_instruction_data ... ok
+test solana::ctx::tests::explicit_pin_outside_allowed_rejects_typed ... ok
+test solana::ctx::tests::client_submitter_is_chain_scoped_and_cannot_rewrite_a_staged_pin ... ok
+test solana::tx::stage_tx::tests::decode_rejects_invalid_base64 ... ok
+test solana::tx::stage_tx::tests::decode_rejects_empty_payload ... ok
+test solana::tx::ix::tests::stage_ix_accepts_solana_cluster_prefix_from_ctx ... ok
+test solana::tx::ix::tests::stage_ix_single_instruction_records_one_pending ... ok
+test solana::tx::ix::tests::stage_ix_list_records_n_pendings ... ok
+test solana::tx::ix::tests::stage_ix_rejects_noncanonical_system_transfer_data ... ok
+test solana::tx::ix::tests::stage_ix_accepts_non_payer_signer ... ok
+test solana::tx::stage_tx::tests::decode_rejects_oversized_payload ... ok
+test solana::tx::stage_tx::tests::decode_rejects_garbage_bytes ... ok
+test solana::tx::ix::tests::stage_ix_openai_schema_keeps_exclusive_inputs_nullable ... ok
+test solana::tx::ix::tests::stage_ix_semantically_encodes_native_system_transfer ... ok
+test solana::tx::tests::auto_venue_rejects_undecodable_bytes ... ok
+test solana::tx::tests::broadcaster_parses_known_values_and_rejects_unknown ... ok
+test solana::tx::tests::assemble_bundle_rejects_zero_compute_units ... ok
+test solana::tx::tests::assemble_bundle_legacy_rejects_alts ... ok
+test solana::tx::tests::assemble_bundle_v0_accepts_alts ... ok
+test solana::tx::tests::assemble_bundle_rejects_above_protocol_max_compute_units ... ok
+test solana::tx::tests::auto_venue_rejects_multi_signer_tx ... ok
+test solana::tx::stage_tx::tests::decode_rejects_payer_mismatch ... ok
+test solana::tx::tests::assemble_bundle_rejects_priority_fee_above_policy_max ... ok
+test solana::tx::tests::commit_tx_args_require_tx_id ... ok
+test solana::tx::tests::assemble_bundle_compute_budget_prepends_when_args_set ... ok
+test solana::tx::tests::commit_ix_args_require_ix_ids ... ok
+test solana::tx::tests::simulate_ix_args_require_ix_ids ... ok
+test solana::tx::tests::assemble_bundle_uniformity_check_across_ixs ... ok
+test solana::tx::tests::simulate_tx_args_parse ... ok
+test solana::tx::tests::simulate_tx_args_require_tx_id ... ok
+test solana::tx::tests::validate_ix_ids_preserves_order ... ok
+test solana::tx::tests::validate_ix_ids_rejects_duplicates ... ok
+test solana::tx::tests::assemble_bundle_compute_budget_skips_when_staged_ixs_already_include ... ok
+test solana::tx::tests::validate_ix_ids_rejects_empty ... ok
+test solana::tx::tests::validate_ix_ids_rejects_zero ... ok
+test solana::tx::ix::tests::pending_svm_instruction_serde_round_trip ... ok
+test solana::tx::stage_tx::tests::decode_rejects_invalid_nonzero_signature ... ok
+test solana::tx::tests::simulate_ix_args_parse ... ok
+test solana::tx::tests::commit_args_tolerate_legacy_mode_field ... ok
+test solana::tx::stage_tx::tests::decode_can_stage_without_preserving_blockhash ... ok
+test solana::tx::stage_tx::tests::decode_accepts_legacy_self_transfer ... ok
+test solana::tx::tests::commit_ix_broadcaster_aomi_wallet_key_requires_application ... ok
+test solana::tx::tests::commit_tx_broadcaster_aomi_wallet_key_requires_application ... ok
+test solana::tx::tests::commit_tx_venue_rejects_when_preserve_false_at_stage ... ok
+test solana::tx::tests::commit_tx_venue_rejects_when_preserve_true_but_hash_missing ... ok
+test solana::tx::tests::commit_tx_venue_short_circuits_presigned_blob_to_sign_envelope ... ok
+test solana::tx::tests::simulate_tx_args_reject_lane_1_fields ... ok
+test solana::tx::tests::commit_tx_wallet_broadcaster_keeps_send_transaction_envelope ... ok
+test solana::tx::ix::tests::create_account_with_seed_derives_the_account_without_an_extra_signer ... ok
+
+test result: ok. 80 passed; 0 failed; 0 ignored; 0 measured; 236 filtered out; finished in 46.81s
+
+     Running tests/get_account_info_base_smoke.rs (target/debug/deps/get_account_info_base_smoke-965c5c562f775b1e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/lido_claim_e2e.rs (target/debug/deps/lido_claim_e2e-a49972ba08b2e537)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/pending_cli_alias.rs (target/debug/deps/pending_cli_alias-2960b2d019aa07bf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/robinhood_lifi_swap_e2e.rs (target/debug/deps/robinhood_lifi_swap_e2e-31354e595823396b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/scheduled_threads_e2e.rs (target/debug/deps/scheduled_threads_e2e-f232cda106e5ff56)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/signing_gate_e2e.rs (target/debug/deps/signing_gate_e2e-eb22e5ceda3337f5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/svm_live_surfpool.rs (target/debug/deps/svm_live_surfpool-f9e8e27fed139c1d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/svm_live_write_e2e.rs (target/debug/deps/svm_live_write_e2e-a49882aa807c3228)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/wallet_auth_e2e.rs (target/debug/deps/wallet_auth_e2e-66476a98e9a5839f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+   Doc-tests aomi_tools
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+EXIT=0

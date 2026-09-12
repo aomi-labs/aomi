@@ -1,0 +1,67 @@
+### --help | head -20
+CLI client for Aomi on-chain agent (aomi v0.7.0)
+
+USAGE
+
+  aomi
+  aomi --prompt <prompt> [OPTIONS]
+  aomi [OPTIONS] <command>
+
+ROOT MODES
+
+  aomi                         Start the interactive REPL
+  aomi --prompt "hello"        Send one prompt and exit
+
+REPL COMMANDS
+
+  /heap                        Show REPL help
+  /app <name>                  Switch the active app
+  /model <rig>|list|show       Manage the active model
+  /key <provider:key>|show|clear
+                               Manage BYOK provider keys
+EXIT(help)=0
+
+### tx sign --help
+[90mExecute pending Actions (tx sign)[39m
+
+[4m[1mUSAGE[22m[24m [36mtx sign [OPTIONS] [TXIDS][39m
+
+[4m[1mARGUMENTS[22m[24m
+
+  [36mTXIDS[39m    Action IDs to execute
+
+[4m[1mOPTIONS[22m[24m
+
+                [36m--backend-url=<backend_url>[39m    Aomi API/BFF URL (default: https://chat.aomi.dev)                                                                                                         
+                        [36m--api-key=<api_key>[39m    API key for non-default apps                                                                                                                              
+                                     [36m--json[39m    Print machine-readable JSON where supported                                                                                                               
+                                  [36m--verbose[39m    Show extra diagnostics such as local state file paths                                                                                                     
+          [36m--account-bearer=<account_bearer>[39m    Aomi account bearer for authenticated REST/SSE requests                                                                                                   
+                                [36m--app=<app>[39m    App (default: "default")                                                                                                                                  
+          [36m--application-id=<application_id>[39m    Hosted app identity for discovery; execution returns 501 until Phase 10                                                                                   
+                      [36m--platform=<platform>[39m    Hosted app platform for discovery; execution returns 501 until Phase 10                                                                                   
+                            [36m--model=<model>[39m    Set the active model for this session                                                                                                                     
+                              [36m--new-session[39m    Create a fresh active session for this command                                                                                                            
+                            [36m--chain=<chain>[39m    Active chain for chat/session context                                                                                                                     
+                  [36m--public-key=<public_key>[39m    Wallet address (so the agent knows your wallet)                                                                                                           
+    [36m--solana-public-key=<solana_public_key>[39m    Exact Solana account address; Auto uses its server delegation, not a local private key                                                                    
+                [36m--private-key=<private_key>[39m    Hex private key for signing                                                                                                                               
+  [36m--solana-private-key=<solana_private_key>[39m    Solana keypair secret (base58 secret key, or JSON byte array) for signing solana_sign requests                                                            
+                        [36m--cluster=<cluster>[39m    Solana cluster override: "mainnet-beta" (default), "devnet", or "testnet". Also accepts CAIP-2 form "solana:mainnet" / "solana:devnet" / "solana:testnet".
+                        [36m--rpc-url=<rpc_url>[39m    RPC URL for transaction submission                                                                                                                        
+          [36m--payment-method=<payment_method>[39m    Payment method for paid Agent/Pipeline calls, e.g. "coinbase"                                                                                             
+    [36m--inference-funding=<inference_funding>[39m    Use the account's saved BYOK key for inference: user_byok                                                                                                 
+                                      [36m--eoa[39m    Require an ordinary EVM Action; never rewrite a prepared AA operation                                                                                     
+                                       [36m--aa[39m    Require a backend-prepared AA owner authorization; backend submits                                                                                        
+                [36m--aa-provider=<aa_provider>[39m    Unsupported: provider selection belongs to backend application policy                                                                                     
+                        [36m--aa-mode=<aa_mode>[39m    Unsupported: account implementation belongs to backend application policy                                                                                 
+
+
+EXIT(tx sign --help)=0
+
+### grep aa-provider/aa-mode in tx sign --help:
+32:                [36m--aa-provider=<aa_provider>[39m    Unsupported: provider selection belongs to backend application policy                                                                                     
+33:                        [36m--aa-mode=<aa_mode>[39m    Unsupported: account implementation belongs to backend application policy                                                                                 
+### grep in dist/cli.js:
+   2 aa-mode
+   2 aa-provider

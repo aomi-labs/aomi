@@ -1,0 +1,53 @@
+### 03a-pipeline-lib: cargo test -p aomi-pipeline --lib -- agent::tests build:: user_state
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.96s
+     Running unittests src/lib.rs (target/debug/deps/aomi_pipeline-4745ebf087f900ca)
+
+running 44 tests
+test user_state::pending::tests::pending_svm_transaction_sig_serializes_without_message_placeholders ... ok
+test agent::tests::event_page_only_changes_cursor_representation ... ok
+test user_state::orchestration::validation_tests::validation_warns_on_metadata_drift_and_uses_authoritative_record ... ok
+test user_state::orchestration::validation_tests::validation_rejects_empty_unknown_and_wrong_wallet_batches ... ok
+test user_state::pending::tests::pod_tx_evm_sig_and_svm_have_independent_id_spaces ... ok
+test user_state::pending::tests::pod_tx_and_evm_sig_lifecycle ... ok
+test user_state::orchestration::tests::commit_refuses_pending_or_failed_simulation_evidence ... ok
+test user_state::pending::tests::pending_svm_message_sig_deserializes_from_pruned_client_echo ... ok
+test user_state::pending::tests::pending_svm_transaction_sig_deserializes_from_pruned_client_echo ... ok
+test user_state::tests::dual_family_accessors_are_independent ... ok
+test user_state::pending::tests::pending_svm_transaction_sig_deserializes_from_camel_case_client_echo ... ok
+test user_state::tests::svm_only_thread_reads_svm_pubkey ... ok
+test user_state::tests::pod_serialize_nested_frontend_shape ... ok
+test user_state::pending::tests::svm_pending_untagged_enum_loads_lane_1_ix_shape_unchanged ... ok
+test user_state::pending::tests::svm_pending_untagged_enum_routes_lane_2_tx_shape_to_tx_variant ... ok
+test build::tests::svm_digest_preserves_lane_and_rejects_instruction_tampering ... ok
+test user_state::tests::task_child_prefers_exact_chain_wallet_over_portable_eoa ... ok
+test user_state::tests::task_child_wallet_state_clears_parent_transients ... ok
+test build::tests::origin_rebuild_preserves_the_original_execution_window ... ok
+test user_state::tests::task_child_treats_chain_pinned_owner_as_portable_eoa ... ok
+test user_state::tests::task_child_retargets_web_shaped_eoa_to_destination_chain ... ok
+test user_state::preference_tests::preferences_are_typed_compact_and_forward_compatible ... ok
+test user_state::tests::apply_wallet_snapshot_copies_provider_and_wallet_fields ... ok
+test user_state::updates::tests::handle_apply_wallet_snapshot_preserves_pending ... ok
+test user_state::updates::tests::handle_channel_updates ... ok
+test user_state::updates::tests::ui_context_is_bounded_deduplicated_and_draining ... ok
+test user_state::updates::tests::ui_interactions_excluded_from_persisted_snapshot ... ok
+test user_state::updates::tests::ui_interactions_survive_wallet_snapshot_and_restore ... ok
+test agent::tests::public_turn_request_keeps_camel_case_contract ... ok
+test user_state::updates::tests::absorb_updates_applies_and_strips_the_reserved_envelope ... ok
+test user_state::wire::tests::wire_value_omits_empty_families ... ok
+test user_state::wire::snapshot_tests::snapshot_version_is_stamped_and_enforced ... ok
+test user_state::wire::snapshot_tests::snapshot_keeps_high_water_mark_after_completion ... ok
+test user_state::tests::pod_deserialize_nested_frontend_shape ... ok
+test build::tests::expired_build_is_not_committable ... ok
+test user_state::tests::apply_wallet_snapshot_keeps_swig_binding_server_owned ... ok
+test user_state::wire::tests::wire_value_emits_all_connected_families ... ok
+test build::tests::digest_seals_actions_and_origin_but_not_preview_evidence ... ok
+test build::tests::svm_commit_uses_the_simulated_output_when_a_builder_changes_per_call ... ok
+test user_state::wire::snapshot_tests::snapshot_round_trips_full_state_and_reseats_counters ... ok
+test build::tests::evm_commit_uses_the_simulated_output_when_a_builder_changes_per_call ... ok
+test user_state::wire::format_tests::full_format_renders_wallet_and_pending ... ok
+test user_state::wire::format_tests::format_handles_disconnected_extensions_and_discarded_ids ... ok
+test user_state::orchestration::tests::adoption_rekeys_and_is_idempotent_across_snapshot_restore ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.02s
+
+EXIT=0

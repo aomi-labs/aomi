@@ -1,0 +1,11 @@
+### head -c 200:
+[2m2026-09-08T18:54:32.531026Z[0m [32m INFO[0m [2mapi_server::telemetry[0m[2m:[0m Prometheus metrics recorder installed
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aomi Event and Pipelin
+### jq -e .openapi:
+jq: parse error: Invalid numeric literal at line 1, column 2
+exit=5
+### stderr-vs-stdout split (stdout only, head -c 120):
+[2m2026-09-08T18:54:32.961662Z[0m [32m INFO[0m [2mapi_server::telemetry[0m[2m:[0m Prometheus metrics recorder in

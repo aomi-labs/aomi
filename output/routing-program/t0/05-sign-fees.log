@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.85s
+     Running unittests src/lib.rs (target/debug/deps/aomi_sign-0dd280d2838287be)
+
+running 10 tests
+test fees::tests::invalid_calculator_and_empty_outcomes_fail_loudly ... ok
+test fees::tests::creates_one_nonzero_operation_for_each_asset ... ok
+test fees::tests::aggregates_one_asset_before_rounding ... ok
+test fees::tests::fixed_and_dust_batches_use_exactly_one_fallback ... ok
+test fees::tests::fee_operations_read_canonical_and_legacy_quotes ... ok
+test fees::tests::fee_outcome_round_trips_and_reads_historical_shapes ... ok
+test fees::tests::sponsorship_policy_management_is_explicit_and_errors_do_not_echo_input ... ok
+test fees::tests::sponsorship_inherits_fields_but_replaces_coverage ... ok
+test fees::tests::sponsorship_rejects_invalid_or_ambiguous_configuration ... ok
+test fees::tests::sponsorship_freezes_coverage_cost_and_policy_without_payer_fallback ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 146 filtered out; finished in 0.01s
+
+EXIT=0

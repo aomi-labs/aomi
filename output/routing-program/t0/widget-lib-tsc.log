@@ -1,0 +1,2 @@
+EXIT=
+EXIT=0 (derived: ELIFECYCLE marker absent/present; zsh pipestatus note)

@@ -1,0 +1,97 @@
+   Compiling api-server v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/api-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.88s
+     Running unittests src/main.rs (target/debug/deps/api_server-593b8bf67bbe2dc9)
+
+running 46 tests
+test agent::mcp::tests::tool_registry_matches_the_frozen_typescript_fixture ... ok
+test agent::mcp::tests::transport_and_tool_scopes_are_mapped_before_backend_delegation ... ok
+test backend::tests::idempotency_conflict_remains_distinct_from_session_busy ... ok
+test backend::tests::missing_delegation_never_implies_broad_scope ... ok
+test backend::tests::payment_required_remains_a_typed_client_error ... ok
+test agent::cursor::tests::malformed_and_cross_session_cursors_are_typed_cursor_errors ... ok
+test auth::tests::hosted_verifier_configs_are_valid ... ok
+test mcp::tests::parsed_operation_identity_ignores_whitespace_and_object_key_order ... ok
+test agent::mcp::tests::chain_context_preserves_evm_and_svm_wallets ... ok
+test agent::mcp::tests::mutation_operation_key_is_stable_and_argument_bound ... ok
+test payment::gate::tests::execution_outcome_preserves_unknown_transport_and_in_flight ... ok
+test mcp::tests::golden_initialize_list_call_and_errors_match_streamable_http ... ok
+test payment::policy::tests::release_policy_is_pinned ... ok
+test payment::statement::tests::cursor_round_trips_the_full_sort_key ... ok
+test payment::gate::tests::finish_execution_releases_only_its_accounted_terminal_operation ... FAILED
+test payment::x402::tests::lost_settlement_outcome_recovers_once_after_service_restart ... FAILED
+test auth::tests::verifies_public_audience_then_mints_backend_audience ... ok
+test payment::gate::tests::account_admission_accounts_usage_before_checking_funds ... FAILED
+test payment::x402::tests::rejected_proofs_never_create_recoverable_attempts_or_credit ... FAILED
+test payment::x402::tests::recovery_submits_stored_proof_after_failure_before_settlement ... FAILED
+test pipeline::http::tests::root_entries_are_resolvable_canonical_directories ... ok
+test pipeline::http::tests::chain_directories_never_expose_internal_tool_vocabulary ... ok
+test pipeline::mcp::tests::deterministic_thread_matches_typescript_uuid_v5_contract ... ok
+test pipeline::http::tests::catalog_continuation_is_opaque_and_resource_bound ... ok
+test pipeline::mcp::tests::operation_identity_is_stable_for_mcp_retries ... ok
+test openapi::tests::route_manifest_matches_document ... ok
+test pipeline::mcp::tests::settled_non_payment_errors_preserve_transport_receipts ... ok
+test pipeline::mcp::tests::production_tool_registry_matches_its_reviewed_snapshot ... ok
+test pipeline::mcp::tests::stringified_argument_objects_keep_typescript_tolerance ... ok
+test pipeline::mcp::tests::transport_catalog_and_execution_scopes_are_mapped_before_delegation ... ok
+test pipeline::service::tests::gate_f_requires_caller_owned_idempotency_for_every_public_app ... ok
+test pipeline::service::tests::session_ids_are_safe_backend_header_values ... ok
+test app::tests::health_is_public_and_request_id_is_returned ... ok
+test app::tests::agent_routes_require_a_trusted_public_credential ... ok
+test app::tests::agent_mcp_shares_the_fail_closed_auth_boundary ... ok
+test app::tests::pipeline_mcp_shares_the_fail_closed_auth_boundary ... ok
+test pipeline::mcp::tests::gate_f_write_call_is_forwarded_to_backend_authority ... ok
+test app::tests::pipeline_routes_share_auth_and_gate_write_capable_execution ... ok
+test openapi::tests::event_contract_has_no_legacy_projection ... ok
+test agent::mcp::tests::paid_agent_calls_propagate_receipts_challenges_and_retry_metadata ... ok
+test auth::tests::exact_resource_scope_payment_and_guest_elevation_fail_closed ... ok
+test backend::tests::pipeline_client_preserves_exact_resource_and_exec_contracts ... ok
+test backend::tests::agent_client_uses_only_canonical_internal_routes ... ok
+test pipeline::mcp::tests::every_typescript_tool_call_matches_frozen_outcomes ... ok
+[2m2026-09-08T18:54:27.903441Z[0m [31mERROR[0m [2mtower_http::trace::on_failure[0m[2m:[0m response failed [3mclassification[0m[2m=[0mStatus code: 503 Service Unavailable [3mlatency[0m[2m=[0m0 ms
+test payment::x402::tests::recovery_requires_successful_matching_transfer_and_authorization ... ok
+test app::tests::openapi_route_manifest_is_backed_by_the_real_router ... ok
+
+failures:
+
+---- payment::gate::tests::finish_execution_releases_only_its_accounted_terminal_operation stdout ----
+
+thread 'payment::gate::tests::finish_execution_releases_only_its_accounted_terminal_operation' (8391097) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- payment::x402::tests::lost_settlement_outcome_recovers_once_after_service_restart stdout ----
+
+thread 'payment::x402::tests::lost_settlement_outcome_recovers_once_after_service_restart' (8391100) panicked at bin/api-server/src/payment/x402.rs:606:49:
+use the workspace-local DATABASE_URL: NotPresent
+
+---- payment::gate::tests::account_admission_accounts_usage_before_checking_funds stdout ----
+
+thread 'payment::gate::tests::account_admission_accounts_usage_before_checking_funds' (8391095) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- payment::x402::tests::rejected_proofs_never_create_recoverable_attempts_or_credit stdout ----
+
+thread 'payment::x402::tests::rejected_proofs_never_create_recoverable_attempts_or_credit' (8391103) panicked at bin/api-server/src/payment/x402.rs:606:49:
+use the workspace-local DATABASE_URL: NotPresent
+
+---- payment::x402::tests::recovery_submits_stored_proof_after_failure_before_settlement stdout ----
+
+thread 'payment::x402::tests::recovery_submits_stored_proof_after_failure_before_settlement' (8391102) panicked at bin/api-server/src/payment/x402.rs:606:49:
+use the workspace-local DATABASE_URL: NotPresent
+
+
+failures:
+    payment::gate::tests::account_admission_accounts_usage_before_checking_funds
+    payment::gate::tests::finish_execution_releases_only_its_accounted_terminal_operation
+    payment::x402::tests::lost_settlement_outcome_recovers_once_after_service_restart
+    payment::x402::tests::recovery_submits_stored_proof_after_failure_before_settlement
+    payment::x402::tests::rejected_proofs_never_create_recoverable_attempts_or_credit
+
+test result: FAILED. 41 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+error: test failed, to rerun pass `-p api-server --bin api-server`
+EXIT=101

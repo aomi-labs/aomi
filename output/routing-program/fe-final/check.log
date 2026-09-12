@@ -1,0 +1,595 @@
+
+> aomi-widget@2.0.0 check /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+> pnpm run lint && pnpm run typecheck && pnpm exec vitest run
+
+
+> aomi-widget@2.0.0 lint /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+> eslint .
+
+
+> aomi-widget@2.0.0 typecheck /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+> tsc --noEmit --project tsconfig.lib.json
+
+
+ RUN  v3.2.4 /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget
+
+ ✓ apps/build/src/features/operate/bots-view.test.tsx (7 tests) 293ms
+ ✓ packages/client/test/cli/cli-repl.unit.test.ts (5 tests) 591ms
+   ✓ CLI REPL command routing > routes plain text to chatCommand  590ms
+ ✓ apps/build/src/features/operate/operate-view.test.tsx (18 tests) 319ms
+ ✓ apps/build/src/features/launch/components/deployments/tabs/deployments-tab.test.tsx (20 tests) 468ms
+ ✓ packages/client/test/cli/cli-auth.unit.test.ts (5 tests) 691ms
+   ✓ CLI BetterAuth SIWE auth > logs out and clears the stored CLI auth session and signing keys  600ms
+ ✓ packages/client/test/cli/cli-account-whoami.unit.test.ts (2 tests) 891ms
+   ✓ aomi account whoami > prints the bound account identity when authenticated  850ms
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action
+⏳ ordinary-1  1 EVM transaction  (pending, revision 1)
+
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action
+✅ ordinary-1 resolved
+⏳ permit-1  EVM signature  (pending, revision 1)
+
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action
+✅ permit-1 resolved
+⏳ svm-1  SVM signature  (pending, revision 1)
+
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action
+✅ svm-1 resolved
+
+stderr | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action
+[31m❌ The requested execution mode does not match the prepared Action; prepare a new operation instead.[0m
+
+stderr | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > rejects obsolete --aa-provider/--aa-mode in both --flag=value and --flag value forms
+[31m❌ AA provider and account implementation are backend application policy, not CLI overrides.[0m
+[31m❌ AA provider and account implementation are backend application policy, not CLI overrides.[0m
+[31m❌ AA provider and account implementation are backend application policy, not CLI overrides.[0m
+
+stderr | packages/react/src/contexts/__tests__/control-context.test.tsx > ControlContextProvider > initializes client id synchronously on first render
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ControlContextProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --aa authorizes the existing Hosted AA Action and rejects an ordinary Action
+⏳ aa-1  EVM signature  (pending, revision 1)
+
+stdout | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --aa authorizes the existing Hosted AA Action and rejects an ordinary Action
+✅ aa-1 resolved
+
+stderr | packages/client/test/cli/cli-wallet.unit.test.ts > CLI Action capabilities > --aa authorizes the existing Hosted AA Action and rejects an ordinary Action
+[31m❌ The requested execution mode does not match the prepared Action; prepare a new operation instead.[0m
+
+ ✓ packages/client/test/cli/cli-wallet.unit.test.ts (6 tests) 1005ms
+   ✓ CLI Action capabilities > installs an EVM capability on the session ActionHandler  818ms
+stdout | packages/client/test/cli/cli-session.unit.test.ts > CLI session lifecycle > persists explicit wallet, chain, and backend settings on the active session
+EVM wallet set to 0xFCAd0B19bB29D4674531d6f115237E16AfCE377c
+Chain set to 1
+Backend set to http://127.0.0.1:18765
+
+ ✓ packages/client/test/cli/cli-wallet-current.unit.test.ts (7 tests) 967ms
+   ✓ wallet current / wallet set contracts > emits {active:false, wallets:[]} with no session  715ms
+ ✓ packages/client/test/cli/cli-account-login.unit.test.ts (6 tests) 1013ms
+   ✓ aomi account login > uses least-privilege OAuth device grants by default  722ms
+ ✓ packages/client/test/cli/cli-account-credits.unit.test.ts (5 tests) 1084ms
+   ✓ aomi account credits > prints the account credit position and activity  843ms
+ ✓ apps/build/src/features/launch/hooks/use-project-detail.test.ts (11 tests) 968ms
+ ✓ packages/client/test/cli/cli-account-links.unit.test.ts (8 tests) 1125ms
+   ✓ aomi account link management > prints account graph links and child wallets  725ms
+ ✓ packages/react/src/contexts/__tests__/control-context.test.tsx (10 tests) 372ms
+ ✓ apps/build/src/features/launch/components/oneshot-wizard.test.tsx (14 tests) 162ms
+ ✓ packages/account/src/better-auth/auth.test.ts (1 test) 1395ms
+   ✓ Better Auth protocol topology > registers the production OAuth plugins in tests  1394ms
+ ✓ apps/build/src/features/launch/components/deployments/use-global-deployment-records.test.tsx (3 tests) 265ms
+ ✓ packages/client/test/cli/cli-session.unit.test.ts (14 tests) 1358ms
+   ✓ CLI session lifecycle > creates a fresh active session instead of reusing the current one  694ms
+ ✓ packages/client/test/widget-session.unit.test.ts (12 tests) 257ms
+ ✓ apps/build/src/features/launch/components/deployments/new-project.test.tsx (10 tests) 223ms
+ ✓ apps/build/src/app/(control-plane)/settings/settings-nav.test.tsx (3 tests) 163ms
+ ✓ apps/build/src/features/launch/components/deploy-step.test.tsx (13 tests) 202ms
+ ✓ apps/build/src/features/integrations/thread-mode-control.test.tsx (1 test) 55ms
+ ✓ apps/build/src/features/launch/hooks/use-projects.test.ts (2 tests) 130ms
+stderr | apps/build/src/components/control-plane/command-palette.test.tsx > CommandPalette > opens from the header Search event
+An update to CommandPalette inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | apps/build/src/components/control-plane/command-palette.test.tsx > CommandPalette > deep-links last project Home, Environment, and Usage
+An update to CommandPalette inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ apps/build/src/features/operate/app-detail-page.test.tsx (3 tests) 147ms
+stderr | apps/build/src/components/control-plane/command-palette.test.tsx > CommandPalette > deep-links last project Home, Environment, and Usage
+An update to CommandPalette inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | apps/build/src/components/control-plane/command-palette.test.tsx > CommandPalette > deep-links last project Home, Environment, and Usage
+An update to CommandPalette inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ apps/build/src/features/launch/components/deployments/tabs/environment-tab.test.tsx (12 tests) 175ms
+ ✓ apps/build/src/components/control-plane/command-palette.test.tsx (3 tests) 191ms
+ ✓ apps/build/src/components/control-plane/platform-switcher.test.tsx (4 tests) 105ms
+ ✓ apps/build/src/components/help-badge.test.tsx (1 test) 54ms
+ ✓ packages/smither/src/__tests__/artifacts.test.ts (4 tests) 67ms
+ ✓ apps/build/src/features/launch/components/live-panel.test.tsx (12 tests) 103ms
+ ✓ apps/build/src/features/launch/components/deployments/repository-connector.test.tsx (7 tests) 130ms
+ ✓ apps/build/src/features/launch/components/deployments/tabs/home-tab.test.tsx (5 tests) 176ms
+ ✓ apps/build/src/app/(control-plane)/settings/settings-billing-panel.test.tsx (2 tests) 68ms
+ ✓ packages/account/src/topology.test.ts (3 tests) 108ms
+ ✓ apps/build/src/features/launch/components/deploy-dashboard.test.tsx (3 tests) 112ms
+ ✓ apps/build/src/features/launch/components/deployments/project-index.test.tsx (1 test) 82ms
+ ✓ apps/build/src/features/launch/components/deployments/global-deployments-list.test.tsx (1 test) 59ms
+ ✓ apps/build/src/features/launch/components/deployments/project-row.test.tsx (5 tests) 92ms
+ ✓ packages/smither/src/__tests__/state.test.ts (5 tests) 47ms
+ ✓ apps/build/src/features/launch/components/deployments/ui/deployment-detail.test.tsx (4 tests) 108ms
+ ✓ apps/portal/src/app/oauth/consent/oauth-consent-client.test.tsx (1 test) 51ms
+stderr | apps/build/src/features/launch/components/onboarding.bfcache.test.tsx > Onboarding bfcache restore > re-enables the recovery button after a restore from bfcache
+An update to Onboarding inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ ✓ apps/build/src/features/launch/components/deployments/ui/deploy-progress-bar.test.tsx (4 tests) 43ms
+ ✓ apps/build/src/features/launch/components/onboarding.bfcache.test.tsx (2 tests) 102ms
+ ✓ packages/smither/src/__tests__/intake.test.ts (3 tests) 67ms
+ ✓ apps/build/src/features/launch/components/stepper.test.tsx (8 tests) 73ms
+ ✓ packages/client/test/cli/cli-deploy.unit.test.ts (2 tests) 81ms
+ ✓ apps/build/src/features/launch/components/deployments/project-page.test.tsx (3 tests) 75ms
+ ✓ apps/build/src/app/(control-plane)/settings/settings-secrets-panel.test.tsx (4 tests) 70ms
+ ✓ apps/build/src/server/bff/build/tar.test.ts (2 tests) 31ms
+ ✓ packages/client/test/oauth-manager.unit.test.ts (2 tests) 5ms
+ ✓ packages/client/test/cli/cli-byok.unit.test.ts (4 tests) 50ms
+ ✓ apps/build/src/features/launch/components/deployments/ui/confirm-dialog.test.tsx (2 tests) 81ms
+stderr | packages/client/test/aa/aa-eoa-capabilities.unit.test.ts > executeWalletCalls EOA capability handling > uses required paymasterService sendCalls for a single wallet-native call
+[aomi][aa] Ignoring ERC20 paymaster payment context on a sponsorship request
+
+stderr | packages/client/test/aa/aa-eoa-capabilities.unit.test.ts > executeWalletCalls EOA capability handling > does not forward ERC20 payment context for wallet-native sponsorship
+[aomi][aa] Ignoring ERC20 paymaster payment context on a sponsorship request
+
+ ✓ packages/client/test/aa/aa-eoa-capabilities.unit.test.ts (14 tests) 7ms
+ ✓ apps/build/src/features/launch/components/deployments/tabs/chat-tab.test.tsx (1 test) 40ms
+ ✓ apps/build/src/features/launch/components/deployments/ui/sdk-badge.test.tsx (3 tests) 34ms
+stdout | packages/client/test/cli/cli-device-auth.unit.test.ts > CLI device provider auth > canonicalizes the raw staging API before provider login
+Opening browser for Aomi account login: https://chat-staging.aomi.dev/device-auth?state=FJeQbBCYz7hU26k3b1MZKGCrVlkMgMUDkhfHhLKRp-4&code_challenge=AH6GfWtCN0ZinpSaMXdB6ybuvURsyeEdc1mj8ewkrcU&redirect_uri=http%3A%2F%2F127.0.0.1%3A62632%2Fcallback&provider=para
+
+stdout | packages/client/test/cli/cli-device-auth.unit.test.ts > CLI device provider auth > canonicalizes the raw staging API before provider login
+Waiting for browser authentication...
+
+stdout | packages/client/test/cli/cli-device-auth.unit.test.ts > CLI device provider auth > links provider credentials through a portal PKCE code exchange
+Opening browser to link privy: https://chat.aomi.dev/device-auth?state=Hhb0JMmUzaltwsfgp-nssbIsKGNNORID3mY3Cs7n2HM&code_challenge=BtL-Pf4uF2QPWGYFfr81Cb-7-4teh8MyQWrJoMWqdSU&redirect_uri=http%3A%2F%2F127.0.0.1%3A62634%2Fcallback&provider=privy&mode=link&link_intent=link-intent-123
+
+stdout | packages/client/test/cli/cli-device-auth.unit.test.ts > CLI device provider auth > links provider credentials through a portal PKCE code exchange
+Waiting for browser authentication...
+
+ ✓ packages/client/test/cli/cli-device-auth.unit.test.ts (4 tests) 31ms
+ ✓ packages/deploy/test/release-manifest.test.ts (13 tests) 51ms
+ ✓ apps/build/src/features/operate/live-app-detail.test.ts (3 tests) 3ms
+ ✓ packages/client/test/account-session.unit.test.ts (17 tests) 9ms
+ ✓ packages/client/test/cli/cli-evm-signer.unit.test.ts (3 tests) 26ms
+ ✓ packages/account/src/widget-auth/oauth-bootstrap.test.ts (2 tests) 5ms
+stdout | packages/client/test/publish-package-if-needed.test.mjs > publishPackageIfNeeded > skips an exact version that is already published
+@aomi-labs/client@0.7.0 is already published; skipping.
+
+stdout | packages/client/test/publish-package-if-needed.test.mjs > publishPackageIfNeeded > publishes when the exact version is absent
+@aomi-labs/client@0.7.0 is not published; publishing now.
+
+stdout | packages/client/test/publish-package-if-needed.test.mjs > publishPackageIfNeeded > accepts a concurrent publish after its own publish attempt fails
+@aomi-labs/client@0.7.0 is not published; publishing now.
+
+stdout | packages/client/test/publish-package-if-needed.test.mjs > publishPackageIfNeeded > accepts a concurrent publish after its own publish attempt fails
+@aomi-labs/client@0.7.0 is now published; continuing.
+
+ ✓ packages/client/test/publish-package-if-needed.test.mjs (5 tests) 21ms
+ ✓ packages/smither/src/__tests__/plan.test.ts (23 tests) 9ms
+ ✓ apps/portal/src/server/agent-api-proxy.test.ts (7 tests) 10ms
+ ✓ packages/client/test/agent-transport.unit.test.ts (4 tests) 8ms
+ ✓ packages/client/test/cli/cli-context.unit.test.ts (1 test) 22ms
+ ✓ packages/client/test/challenge-binding.unit.test.ts (10 tests) 12ms
+ ✓ packages/client/test/aomi-agent.unit.test.ts (2 tests) 10ms
+ ✓ packages/client/src/cli/commands/defs/shared.test.ts (5 tests) 22ms
+ ✓ packages/client/test/payment.unit.test.ts (8 tests) 16ms
+stderr | apps/portal/src/server/oauth/principal.test.ts > public OAuth and session principal resolution > rejects canonical identity disagreement and elevated guest scopes
+oauth canonical identity disagreement { clientId: [32m'client-1'[39m }
+
+ ✓ apps/portal/src/server/oauth/principal.test.ts (13 tests) 11ms
+ ✓ apps/portal/src/server/oauth/request-policy.test.ts (21 tests) 29ms
+stdout | apps/portal/src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > logs only safe diagnostics after Better Auth rejects a redirect
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m302[39m
+}
+
+stdout | apps/portal/src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > does not query or log redirect diagnostics for successful authorization
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m302[39m
+}
+
+stdout | apps/portal/src/app/api/auth/[...all]/route.test.ts > OAuth redirect rejection diagnostics > observes Better Auth JSON redirects returned by hosted requests
+better_auth_oauth_endpoint {
+  endpoint: [32m'/oauth2/authorize'[39m,
+  method: [32m'GET'[39m,
+  resultClass: [32m'success'[39m,
+  status: [33m200[39m
+}
+
+ ✓ apps/portal/src/app/api/auth/[...all]/route.test.ts (5 tests) 23ms
+ ✓ packages/client/test/account-credits.unit.test.ts (7 tests) 18ms
+ ✓ packages/client/test/oauth-auth.unit.test.ts (13 tests) 12ms
+ ✓ packages/react/src/runtime/__tests__/auth-runtime-user-sync.test.tsx (4 tests) 51ms
+ ✓ packages/client/test/agent-session.unit.test.ts (8 tests) 17ms
+ ✓ apps/build/src/app/api/bff/internal/sentry-smoke/route.test.ts (3 tests) 4ms
+stdout | packages/client/test/cli/cli-oauth-device.unit.test.ts > CLI OAuth device authorization > registers a public client and preserves exact resource and scopes
+Open https://chat.aomi.dev/device and enter code AOMI-1234
+
+stdout | packages/client/test/cli/cli-oauth-device.unit.test.ts > CLI OAuth device authorization > reuses a registered client for step-up and honors slow_down
+Open https://chat.aomi.dev/device and enter code AOMI-5678
+
+stdout | packages/client/test/cli/cli-oauth-device.unit.test.ts > CLI OAuth device authorization > fails when the device code expires without authorization
+Open https://chat.aomi.dev/device and enter code AOMI-9999
+
+ ✓ packages/client/test/cli/cli-oauth-device.unit.test.ts (3 tests) 10ms
+ ✓ apps/build/src/features/build/smither-run-mapper.test.ts (11 tests) 8ms
+stderr | packages/client/test/cli/deploy-errors.pbt.test.ts > fatal — property-based > throws a CliExit with code 1
+[31m❌ ,[0m
+[31m❌ ,[0m
+[31m❌ apply[0m
+[31m❌ apply[0m
+[31m❌ &C__[0m
+[31m❌ &C__[0m
+[31m❌ t[0m
+[31m❌ t[0m
+[31m❌ ref[0m
+[31m❌ ref[0m
+[31m❌ u$[0m
+[31m❌ u$[0m
+[31m❌ @[0m
+[31m❌ @[0m
+[31m❌ !(<[0m
+[31m❌ !(<[0m
+[31m❌ pG[0m
+[31m❌ pG[0m
+[31m❌ i9N`</[0m
+[31m❌ i9N`</[0m
+[31m❌ MtgVY2r&E [0m
+[31m❌ MtgVY2r&E [0m
+[31m❌  &[0m
+[31m❌  &[0m
+[31m❌ kAZG`I@GBB|[0m
+[31m❌ kAZG`I@GBB|[0m
+[31m❌ W[0m
+[31m❌ W[0m
+[31m❌ lh[0m
+[31m❌ lh[0m
+[31m❌ V4OzYt"u{[0m
+[31m❌ V4OzYt"u{[0m
+[31m❌ {ew[0m
+[31m❌ {ew[0m
+[31m❌ [Ju[0m
+[31m❌ [Ju[0m
+[31m❌ $VEY$s[0m
+[31m❌ $VEY$s[0m
+[31m❌ Vzy~$uetyx+[0m
+[31m❌ Vzy~$uetyx+[0m
+
+ ✓ packages/client/test/cli/deploy-errors.pbt.test.ts (6 tests) 26ms
+ ✓ packages/smither/src/__tests__/rollback.test.ts (3 tests) 4ms
+ ✓ apps/build/src/features/launch/platform.test.ts (7 tests) 2ms
+ ✓ packages/bff-observability/test/pipeline.test.ts (27 tests) 11ms
+ ✓ packages/react/src/contexts/__tests__/user-context.test.tsx (5 tests) 14ms
+ ✓ apps/portal/src/app/v1/pipeline/mcp/route.test.ts (5 tests) 8ms
+ ✓ apps/build/src/lib/deep-links.test.ts (3 tests) 2ms
+ ✓ packages/client/test/pipeline-sdk.unit.test.ts (8 tests) 14ms
+ ✓ packages/account/src/better-auth/oauth-policy.test.ts (11 tests) 11ms
+ ✓ apps/build/src/features/launch/components/deployments/usage-peek.test.ts (3 tests) 9ms
+ ✓ packages/client/test/sdk-auth.unit.test.ts (2 tests) 8ms
+ ✓ packages/client/test/registry-chain-artifacts.unit.test.ts (1 test) 13ms
+ ✓ packages/smither/src/__tests__/binaries.test.ts (10 tests) 26ms
+ ✓ apps/portal/src/app/v1/pipeline/[...slug]/route.test.ts (3 tests) 12ms
+ ✓ packages/smither/src/__tests__/commands.test.ts (6 tests) 32ms
+ ✓ apps/build/src/server/bff/build/sidecar-auth.test.ts (6 tests) 8ms
+ ✓ apps/portal/src/server/oauth/cors.test.ts (3 tests) 6ms
+ ✓ packages/deploy/test/launch-url-context.test.ts (6 tests) 5ms
+ ✓ apps/portal/src/app/api/auth/widget/oauth-bootstrap/route.test.ts (2 tests) 9ms
+ ✓ apps/build/src/features/launch/state.test.ts (9 tests) 5ms
+ ✓ packages/client/test/pipeline-transport.unit.test.ts (5 tests) 9ms
+stderr | packages/bff-observability/test/smoke.test.ts > BFF Sentry smoke helper > emits one fixed Issue and one fixed log, then performs a bounded flush
+bff.exception {
+  service: [32m'portal-bff'[39m,
+  route_family: [32m'/api/bff/internal/sentry-smoke'[39m,
+  operation: [32m'sentry_smoke'[39m,
+  [32m'http.status_code'[39m: [33m500[39m,
+  handled: [33mtrue[39m,
+  runtime: [32m'nodejs'[39m,
+  environment: [32m'staging'[39m,
+  release: [32m'portal-bff@abcdef0123456789'[39m,
+  method: [32m'POST'[39m,
+  smoke_test: [33mtrue[39m
+}
+
+stderr | packages/bff-observability/test/smoke.test.ts > BFF Sentry smoke helper > reports failure when the bounded flush cannot deliver telemetry
+bff.exception {
+  service: [32m'build-bff'[39m,
+  route_family: [32m'/api/bff/internal/sentry-smoke'[39m,
+  operation: [32m'sentry_smoke'[39m,
+  [32m'http.status_code'[39m: [33m500[39m,
+  handled: [33mtrue[39m,
+  runtime: [32m'nodejs'[39m,
+  environment: [32m'staging'[39m,
+  release: [32m'build-bff@abcdef0123456789'[39m,
+  method: [32m'POST'[39m,
+  smoke_test: [33mtrue[39m
+}
+
+stderr | packages/bff-observability/test/smoke.test.ts > BFF Sentry smoke helper > reports failure instead of throwing when Sentry delivery fails
+bff.exception {
+  service: [32m'portal-bff'[39m,
+  route_family: [32m'/api/bff/internal/sentry-smoke'[39m,
+  operation: [32m'sentry_smoke'[39m,
+  [32m'http.status_code'[39m: [33m500[39m,
+  handled: [33mtrue[39m,
+  runtime: [32m'nodejs'[39m,
+  environment: [32m'staging'[39m,
+  release: [32m'portal-bff@abcdef0123456789'[39m,
+  method: [32m'POST'[39m,
+  smoke_test: [33mtrue[39m
+}
+
+ ✓ packages/bff-observability/test/smoke.test.ts (5 tests) 7ms
+ ✓ packages/client/test/client.fetch-wrapper.unit.test.ts (5 tests) 8ms
+ ✓ apps/portal/src/app/v1/agent/[...slug]/route.test.ts (5 tests) 6ms
+ ✓ apps/portal/src/app/v1/agent/mcp/route.test.ts (2 tests) 5ms
+ ✓ apps/portal/src/server/oauth/mcp-principal.test.ts (7 tests) 7ms
+ ✓ packages/client/test/cli/cli-user-state.unit.test.ts (7 tests) 3ms
+ ✓ packages/client/test/backend-openapi.contract.test.ts (3 tests | 1 skipped) 6ms
+ ✓ apps/build/src/features/launch/components/deployments/deployment-timeline.test.ts (14 tests) 6ms
+ ✓ apps/build/src/lib/humanize-error.test.ts (2 tests) 2ms
+ ✓ packages/account/src/better-auth/oauth-redirect-diagnostics.test.ts (7 tests) 6ms
+ ✓ packages/account/src/better-auth/failure-observer.test.ts (3 tests) 3ms
+ ✓ packages/client/test/cli/cli-context-auth.unit.test.ts (2 tests) 13ms
+ ✓ packages/client/test/authorization.unit.test.ts (3 tests) 13ms
+ ✓ apps/portal/src/app/api/auth/widget/guest/route.test.ts (1 test) 6ms
+ ✓ apps/build/src/features/launch/client.test.ts (1 test) 5ms
+ ✓ apps/build/src/features/operate/client.test.ts (4 tests) 6ms
+ ✓ apps/build/src/features/operate/fixtures/wire.test.ts (8 tests) 4ms
+ ✓ packages/client/test/action-handler.unit.test.ts (3 tests) 5ms
+ ✓ packages/account/src/token.test.ts (4 tests) 5ms
+ ✓ packages/deploy/test/bff-errors.test.ts (5 tests) 8ms
+ ✓ packages/deploy/test/launch-state.test.ts (12 tests) 4ms
+ ✓ apps/portal/src/server/oauth/client-resource-binding.test.ts (3 tests) 5ms
+ ✓ apps/build/src/features/launch/dashboard-lifecycle.test.ts (9 tests) 4ms
+stderr | packages/client/test/user-state-routing.unit.test.ts > preparation route selection > lets CLI Auto select a Solana account without its private key
+[31m❌ `--solana-public-key` must be a valid base58 Solana address.[0m
+
+ ✓ packages/client/test/user-state-routing.unit.test.ts (12 tests) 7ms
+ ✓ packages/smither/src/__tests__/intent.test.ts (5 tests) 5ms
+ ✓ packages/smither/src/__tests__/agents.test.ts (6 tests) 5ms
+ ✓ packages/client/test/sdk-auth-strategy.unit.test.ts (2 tests) 4ms
+ ✓ packages/bff-observability/test/privacy.test.ts (8 tests) 4ms
+ ✓ packages/client/test/client.simulate.unit.test.ts (1 test) 6ms
+ ✓ apps/portal/src/app/api/bff/internal/sentry-smoke/route.test.ts (3 tests) 5ms
+ ✓ packages/account/src/widget-auth/store.test.ts (1 test) 3ms
+ ✓ packages/deploy/test/launch-connection-result.test.ts (6 tests) 4ms
+ ✓ apps/build/src/server/bff/launch/config.test.ts (8 tests) 3ms
+ ✓ packages/deploy/test/activation-request.test.ts (8 tests) 3ms
+ ✓ packages/client/test/cli/cli-pipeline.unit.test.ts (4 tests) 5ms
+ ✓ packages/deploy/test/launch-contracts.test.ts (2 tests) 3ms
+ ✓ apps/build/src/server/bff/build/sandbox-runner.test.ts (4 tests) 4ms
+ ✓ packages/client/test/cli/cli-eip5792.unit.test.ts (8 tests) 5ms
+ ✓ packages/client/test/cli/cli-e2e-user-state.unit.test.ts (1 test) 4ms
+ ✓ packages/client/test/cli/cli-chat.unit.test.ts (4 tests) 3ms
+ ✓ packages/client/test/public-api-openapi.contract.test.ts (4 tests) 4ms
+ ✓ packages/account/src/observability.test.ts (4 tests) 5ms
+ ✓ apps/build/src/lib/chat-url.test.ts (21 tests) 3ms
+ ✓ packages/client/test/wallet-utils.unit.test.ts (5 tests) 5ms
+ ✓ packages/smither/src/__tests__/evals.test.ts (5 tests) 3ms
+ ✓ packages/smither/src/__tests__/console-model.test.ts (13 tests) 3ms
+ ✓ packages/account/test/pool.test.ts (6 tests) 3ms
+ ✓ packages/deploy/test/launch-config.test.ts (8 tests) 2ms
+ ✓ packages/bff-observability/test/classify.test.ts (14 tests) 3ms
+ ✓ packages/client/test/aa/aa-fee.unit.test.ts (3 tests) 3ms
+ ✓ apps/build/src/server/bff/build/run-view.test.ts (8 tests) 3ms
+ ✓ packages/react/src/runtime/__tests__/event-projection.test.ts (9 tests) 4ms
+ ✓ packages/client/test/wallet-capabilities.unit.test.ts (3 tests) 3ms
+ ✓ apps/build/src/features/launch/components/deployments/tabs/environment-card.test.ts (10 tests) 3ms
+ ✓ packages/deploy/test/secrets.test.ts (5 tests) 3ms
+ ✓ apps/portal/src/app/oauth/consent/consent-response.test.ts (2 tests) 1ms
+ ✓ apps/build/src/lib/request-retry.test.ts (4 tests) 2ms
+ ✓ apps/build/src/features/launch/components/deployments/project-deployment-status.test.ts (3 tests) 2ms
+ ✓ apps/build/src/features/launch/components/deployments/deploy-flow-progress.test.ts (5 tests) 2ms
+ ✓ packages/client/test/cli/cli-payment.unit.test.ts (3 tests) 1ms
+ ✓ apps/build/src/lib/last-project.test.ts (2 tests) 3ms
+ ✓ packages/client/test/chains.unit.test.ts (6 tests) 3ms
+ ✓ packages/client/test/cli/cli-output.unit.test.ts (2 tests) 2ms
+ ✓ apps/build/src/lib/color-theme.test.ts (2 tests) 1ms
+ ✓ packages/react/src/utils/model-selection.test.ts (1 test) 1ms
+ ✓ apps/build/src/features/launch/components/deployments/format-relative-time.test.ts (1 test) 2ms
+ ✓ apps/build/src/lib/glossary.test.ts (1 test) 3ms
+ ✓ apps/build/src/features/launch/components/deployments/sdk-compatibility.test.ts (3 tests) 1ms
+ ✓ packages/client/test/secret-names.unit.test.ts (4 tests) 2ms
+ ✓ packages/deploy/test/runtime-watch.test.ts (9 tests) 8ms
+ ✓ packages/react/src/runtime/__tests__/task-runs.test.ts (2 tests) 7ms
+ ✓ packages/service/src/__tests__/topology.test.ts (8 tests) 30ms
+ ✓ packages/account/test/account-service-adoption.test.ts (3 tests) 328ms
+ ✓ packages/deploy/test/watch-deployment.pbt.test.ts (6 tests) 21ms
+ ✓ packages/account/test/account-service-review-fixes.test.ts (9 tests) 576ms
+ ✓ packages/client/test/cli/cli-root.unit.test.ts (5 tests) 5ms
+ ✓ apps/build/src/server/cookies/github.test.ts (5 tests) 14ms
+ ✓ packages/deploy/src/__tests__/watch-deployment.property.test.ts (7 tests) 10ms
+ ✓ packages/account/test/provider-wallets.test.ts (9 tests) 7ms
+ ✓ packages/account/test/para.test.ts (4 tests) 202ms
+ ✓ packages/account/src/proxy.test.ts (11 tests) 12ms
+ ✓ packages/deploy/test/client.test.ts (26 tests) 16ms
+ ✓ packages/account/test/privy.test.ts (2 tests) 12ms
+ ✓ packages/deploy/test/launch-routes.test.ts (28 tests) 32ms
+ ✓ packages/account/test/siws.test.ts (2 tests) 30ms
+ ✓ packages/account/test/telegram.test.ts (9 tests) 11ms
+ ✓ packages/deploy/test/github-auth.test.ts (10 tests) 14ms
+ ✓ apps/build/src/app/api/bff/cli/login/route.test.ts (3 tests) 20ms
+ ✓ packages/deploy/test/launch-client-platform.test.ts (8 tests) 9ms
+ ✓ apps/build/src/server/bff/build/routes.test.ts (8 tests) 8ms
+ ✓ apps/build/src/server/bff/build/engine-observability.test.ts (5 tests) 5ms
+ ✓ packages/account/test/provider-plugin.test.ts (1 test) 12ms
+ ✓ apps/build/src/app/api/bff/auth/github/dev-session/route.test.ts (3 tests) 7ms
+ ✓ apps/portal/src/app/api/bff/auth/github/dev-session/route.test.ts (3 tests) 8ms
+ ✓ apps/build/src/app/api/bff/auth/github/login/route.test.ts (2 tests) 9ms
+ ✓ apps/build/src/app/api/[...slug]/route.test.ts (4 tests) 9ms
+ ✓ apps/build/src/app/api/bff/auth/github/callback/route.test.ts (4 tests) 6ms
+ ✓ apps/build/src/server/bff/operate/routes.test.ts (43 tests | 1 skipped) 54ms
+ ✓ packages/account/test/widget-session.test.ts (2 tests) 8ms
+ ✓ apps/portal/src/app/api/bff/auth/github/login/route.test.ts (2 tests) 9ms
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > returns the session user's projects, scoped to the cookie's github_user_id
+launch bff: list_user_projects took 1ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > looks up an exact partner platform without a frontend list
+launch bff: list_user_projects took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > preserves the manager's not-found status for an unknown platform
+launch bff: list_user_projects took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > reads the exact owned Project without leaking the shell platform
+launch bff: get_user_project took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > caches list and detail reads independently and refetches once cleared
+launch bff: list_user_projects took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > caches list and detail reads independently and refetches once cleared
+launch bff: get_user_project took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > caches list and detail reads independently and refetches once cleared
+launch bff: list_user_projects took 0ms
+
+stdout | apps/build/src/server/bff/launch/user-projects.test.ts > userProjectsRoute > caches list and detail reads independently and refetches once cleared
+launch bff: get_user_project took 0ms
+
+ ✓ apps/build/src/server/bff/launch/user-projects.test.ts (7 tests) 11ms
+stdout | apps/build/src/server/bff/launch/routes.test.ts > launchSdkStatusRoute > prints the configured backend URL in the local SDK repair command
+launch bff: server_tags took 0ms
+
+ ✓ packages/deploy/test/bootstrap.test.ts (10 tests) 7ms
+ ✓ apps/build/src/server/bff/launch/routes.test.ts (50 tests) 27ms
+ ✓ apps/build/src/app/api/bff/build/supervise/route.test.ts (1 test) 4ms
+ ✓ packages/account/test/identity-resolution.test.ts (9 tests) 9ms
+ ✓ apps/portal/src/app/api/bff/auth/github/callback/route.test.ts (5 tests) 5ms
+ ✓ packages/account/test/widget-session-revoke.test.ts (2 tests) 6ms
+ ✓ packages/deploy/test/bots.test.ts (2 tests) 3ms
+ ✓ packages/account/test/provider-exchange.test.ts (7 tests) 8ms
+ ✓ packages/deploy/test/list-secrets.test.ts (4 tests) 4ms
+ ✓ packages/deploy/src/__tests__/user-deployments.test.ts (1 test) 4ms
+ ✓ packages/account/test/wallet-attestation.test.ts (6 tests) 5ms
+ ✓ packages/account/test/account-credentials.test.ts (8 tests) 3ms
+ ✓ packages/deploy/src/__tests__/deployment-records.test.ts (1 test) 3ms
+ ✓ packages/account/test/canonical-queries.test.ts (5 tests) 4ms
+ ✓ packages/account/test/create-aomi-user-username.test.ts (3 tests) 3ms
+ ↓ apps/portal/src/server/oauth/client-resource-binding.postgres.test.ts (1 test | 1 skipped)
+ ✓ packages/account/test/env.test.ts (9 tests) 17ms
+ ✓ packages/account/src/better-auth/siwe.test.ts (1 test) 5ms
+ ✓ apps/build/src/app/api/bff/auth/github/status/route.test.ts (2 tests) 4ms
+ ↓ apps/portal/src/app/api/auth/[...all]/loopback/route.test.ts (15 tests | 15 skipped)
+ ✓ packages/account/test/wallet-linking.test.ts (4 tests) 2ms
+ ✓ apps/portal/src/app/api/[...slug]/route.test.ts (8 tests) 9ms
+ ✓ apps/portal/src/app/api/auth/widget/telegram/exchange/route.test.ts (3 tests) 5ms
+
+ Test Files  223 passed | 2 skipped (225)
+      Tests  1383 passed | 18 skipped (1401)
+   Start at  03:06:30
+   Duration  12.87s (transform 6.45s, setup 33.55s, collect 44.41s, tests 19.24s, environment 48.46s, prepare 9.94s)
+
+check exit=0

@@ -1,0 +1,114 @@
+
+> portal@0.1.0 build /Users/cecilia/Code/.worktrees/wallet-routing-surfaces/aomi-widget/apps/portal
+> next build
+
+▲ Next.js 16.1.0 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · clientTraceMetadata
+  ✓ externalDir
+  ✓ webpackMemoryOptimizations
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.5s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 212ms
+  Skipping validation of types
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/36) ...
+  Generating static pages using 15 workers (9/36) 
+  Generating static pages using 15 workers (18/36) 
+  Generating static pages using 15 workers (27/36) 
+✓ Generating static pages using 15 workers (36/36) in 195.4ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /.well-known/api-catalog
+├ ƒ /.well-known/oauth-authorization-server
+├ ƒ /.well-known/oauth-authorization-server/api/auth
+├ ƒ /.well-known/oauth-protected-resource
+├ ƒ /.well-known/oauth-protected-resource/[...path]
+├ ƒ /api/[...slug]
+├ ƒ /api/auth/[...all]
+├ ƒ /api/auth/widget/exchange
+├ ƒ /api/auth/widget/guest
+├ ƒ /api/auth/widget/oauth-bootstrap
+├ ƒ /api/auth/widget/session
+├ ƒ /api/auth/widget/siwe/nonce
+├ ƒ /api/auth/widget/siwe/verify
+├ ƒ /api/auth/widget/siws/nonce
+├ ƒ /api/auth/widget/siws/verify
+├ ƒ /api/auth/widget/telegram/exchange
+├ ƒ /api/bff/auth/github/callback
+├ ƒ /api/bff/auth/github/dev-session
+├ ƒ /api/bff/auth/github/login
+├ ƒ /api/bff/auth/github/signout
+├ ƒ /api/bff/auth/github/status
+├ ƒ /api/bff/deployments/deactivate
+├ ƒ /api/bff/deployments/deploy
+├ ƒ /api/bff/deployments/history
+├ ƒ /api/bff/deployments/preflight
+├ ƒ /api/bff/deployments/projects
+├ ƒ /api/bff/deployments/promote
+├ ƒ /api/bff/deployments/records
+├ ƒ /api/bff/deployments/redeploy
+├ ƒ /api/bff/deployments/sdk-status
+├ ƒ /api/bff/deployments/secrets
+├ ƒ /api/bff/deployments/status
+├ ƒ /api/bff/e2e/execute
+├ ƒ /api/bff/e2e/solana
+├ ƒ /api/bff/e2e/wallet
+├ ƒ /api/bff/internal/sentry-smoke
+├ ƒ /api/bff/launch/activate
+├ ƒ /api/bff/launch/apps
+├ ƒ /api/bff/launch/create
+├ ƒ /api/bff/launch/deploy
+├ ƒ /api/bff/launch/preflight
+├ ƒ /api/bff/launch/projects
+├ ƒ /api/bff/launch/redeploy
+├ ƒ /api/bff/launch/sdk-status
+├ ƒ /api/bff/launch/status
+├ ƒ /api/delegation/para/begin
+├ ƒ /api/delegation/para/callback
+├ ƒ /api/delegation/privy/begin
+├ ƒ /api/delegation/privy/callback
+├ ƒ /deployments
+├ ƒ /deployments/[projectId]
+├ ƒ /deployments/new
+├ ƒ /dev/theme-audit
+├ ƒ /dev/widget-auth-e2e
+├ ƒ /device-auth
+├ ƒ /mcp/connect
+├ ƒ /oauth/authorize
+├ ƒ /oauth/bootstrap
+├ ƒ /oauth/consent
+├ ƒ /oauth/device
+├ ƒ /openapi.json
+├ ƒ /privacy
+├ ƒ /settings
+├ ƒ /statement
+├ ƒ /v1/account
+├ ƒ /v1/account/bearer
+├ ƒ /v1/account/credits
+├ ƒ /v1/account/credits/top-up
+├ ƒ /v1/account/device-auth/exchange
+├ ƒ /v1/account/device-auth/grant
+├ ƒ /v1/account/device-auth/link-grant
+├ ƒ /v1/account/device-auth/link-intent
+├ ƒ /v1/account/identities/[id]
+├ ƒ /v1/account/provider/exchange
+├ ƒ /v1/account/statement
+├ ƒ /v1/account/wallets/[id]
+├ ƒ /v1/account/wallets/link
+├ ƒ /v1/agent/[...slug]
+├ ƒ /v1/agent/mcp
+├ ƒ /v1/pipeline
+├ ƒ /v1/pipeline/[...slug]
+└ ƒ /v1/pipeline/mcp
+
+
+ƒ  (Dynamic)  server-rendered on demand
+
+portal build exit=0

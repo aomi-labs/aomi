@@ -1,0 +1,80 @@
+### 03b-pipeline-thread-actions: cargo test -p aomi-pipeline --test thread_actions
+   Compiling aomi-pipeline v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/pipeline)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.60s
+     Running tests/thread_actions.rs (target/debug/deps/thread_actions-ca5361829634779b)
+
+running 9 tests
+test interrupt_cancels_pending_action_and_fences_late_result ... FAILED
+test expiry_poll_only_resolves_actions_for_its_thread ... FAILED
+test action_revisions_share_one_strictly_ordered_event_stream ... FAILED
+test action_result_compare_and_swap_is_idempotent ... FAILED
+test explicit_turn_lifecycle_is_idempotent_and_scoped_by_turn ... FAILED
+test epoch_rotation_returns_a_typed_cursor_conflict ... FAILED
+test legacy_messages_are_backfilled_into_empty_agent_streams ... FAILED
+test expiration_and_resume_delivery_survive_process_restart ... FAILED
+test failed_resume_delivery_can_be_reclaimed_immediately ... FAILED
+
+failures:
+
+---- interrupt_cancels_pending_action_and_fences_late_result stdout ----
+
+thread 'interrupt_cancels_pending_action_and_fences_late_result' (8398629) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- expiry_poll_only_resolves_actions_for_its_thread stdout ----
+
+thread 'expiry_poll_only_resolves_actions_for_its_thread' (8398626) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- action_revisions_share_one_strictly_ordered_event_stream stdout ----
+
+thread 'action_revisions_share_one_strictly_ordered_event_stream' (8398623) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- action_result_compare_and_swap_is_idempotent stdout ----
+
+thread 'action_result_compare_and_swap_is_idempotent' (8398622) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- explicit_turn_lifecycle_is_idempotent_and_scoped_by_turn stdout ----
+
+thread 'explicit_turn_lifecycle_is_idempotent_and_scoped_by_turn' (8398627) panicked at crates/pipeline/tests/thread_actions.rs:323:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- epoch_rotation_returns_a_typed_cursor_conflict stdout ----
+
+thread 'epoch_rotation_returns_a_typed_cursor_conflict' (8398624) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- legacy_messages_are_backfilled_into_empty_agent_streams stdout ----
+
+thread 'legacy_messages_are_backfilled_into_empty_agent_streams' (8398630) panicked at crates/pipeline/tests/thread_actions.rs:59:44:
+called `Result::unwrap()` on an `Err` value: Timeout(Create)
+
+---- expiration_and_resume_delivery_survive_process_restart stdout ----
+
+thread 'expiration_and_resume_delivery_survive_process_restart' (8398625) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+---- failed_resume_delivery_can_be_reclaimed_immediately stdout ----
+
+thread 'failed_resume_delivery_can_be_reclaimed_immediately' (8398628) panicked at crates/pipeline/tests/thread_actions.rs:251:10:
+called `Result::unwrap()` on an `Err` value: Database(Timeout occurred while creating a new object)
+
+
+failures:
+    action_result_compare_and_swap_is_idempotent
+    action_revisions_share_one_strictly_ordered_event_stream
+    epoch_rotation_returns_a_typed_cursor_conflict
+    expiration_and_resume_delivery_survive_process_restart
+    expiry_poll_only_resolves_actions_for_its_thread
+    explicit_turn_lifecycle_is_idempotent_and_scoped_by_turn
+    failed_resume_delivery_can_be_reclaimed_immediately
+    interrupt_cancels_pending_action_and_fences_late_result
+    legacy_messages_are_backfilled_into_empty_agent_streams
+
+test result: FAILED. 0 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `-p aomi-pipeline --test thread_actions`
+EXIT=101

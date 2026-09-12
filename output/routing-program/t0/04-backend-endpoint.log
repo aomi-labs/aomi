@@ -1,0 +1,107 @@
+### 04-backend-endpoint: cargo test -p backend -- endpoint::pipeline endpoint::tests::routes
+   Compiling aomi-svm v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/svm)
+   Compiling aomi-evm v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/evm)
+   Compiling aomi-pipeline v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/pipeline)
+   Compiling aomi-tools v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/tools)
+   Compiling aomi-skills v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/skills)
+warning: aomi-skills@0.1.0: skill `dummy_svm` is disabled in its manifest (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/skills/manifests/svm/dummy_svm/dummy_svm.json) — skipping codegen + runtime registration
+   Compiling aomi-core v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/core)
+   Compiling aomi-scripts v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/scripts)
+   Compiling aomi-runtime v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/runtime)
+   Compiling aomi-bot-core v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/crates/bot-core)
+   Compiling aomi-telegram v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/telegram)
+   Compiling manager v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/manager)
+   Compiling backend v0.1.0 (/Users/cecilia/Code/product-mono-worktrees/para-evm-envelope/aomi/bin/backend)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 09s
+     Running unittests src/main.rs (target/debug/deps/backend-01fff0958f0d9605)
+
+running 14 tests
+test endpoint::tests::routes::export_openapi_fixture ... ignored, writes the backend OpenAPI JSON for downstream client contract tests
+test endpoint::pipeline::tests::commit_requires_bounded_idempotency_key ... ok
+test endpoint::pipeline::tests::commit_claim_is_canonical_for_each_build ... ok
+test endpoint::pipeline::tests::operation_paths_bind_app_and_skill_context ... ok
+test endpoint::pipeline::tests::build_attestation_rejects_recomputed_evm_and_svm_digests ... ok
+test endpoint::tests::routes::endpoint_modules_do_not_bypass_auth_router ... ok
+test endpoint::tests::routes::route_manifest_projects_to_openapi ... FAILED
+test endpoint::tests::routes::health_stays_liveness_only_and_ignores_application_id ... FAILED
+test endpoint::tests::routes::thread_create_allows_thread_only_caller ... FAILED
+test endpoint::tests::routes::route_manifest_matches_expected_contract ... FAILED
+test endpoint::tests::routes::generated_auth_routes_reject_missing_credentials ... FAILED
+test endpoint::tests::routes::legacy_app_routes_are_removed ... FAILED
+test endpoint::tests::routes::current_routes_are_mapped ... FAILED
+test endpoint::tests::routes::availability_probe_rejects_missing_or_invalid_application_ids_as_not_found ... FAILED
+
+failures:
+
+---- endpoint::tests::routes::route_manifest_projects_to_openapi stdout ----
+
+thread 'endpoint::tests::routes::route_manifest_projects_to_openapi' (8406513) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- endpoint::tests::routes::health_stays_liveness_only_and_ignores_application_id stdout ----
+
+thread 'endpoint::tests::routes::health_stays_liveness_only_and_ignores_application_id' (8406510) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::thread_create_allows_thread_only_caller stdout ----
+
+thread 'endpoint::tests::routes::thread_create_allows_thread_only_caller' (8406514) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::route_manifest_matches_expected_contract stdout ----
+
+thread 'endpoint::tests::routes::route_manifest_matches_expected_contract' (8406512) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::generated_auth_routes_reject_missing_credentials stdout ----
+
+thread 'endpoint::tests::routes::generated_auth_routes_reject_missing_credentials' (8406509) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::legacy_app_routes_are_removed stdout ----
+
+thread 'endpoint::tests::routes::legacy_app_routes_are_removed' (8406511) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::current_routes_are_mapped stdout ----
+
+thread 'endpoint::tests::routes::current_routes_are_mapped' (8406507) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+---- endpoint::tests::routes::availability_probe_rejects_missing_or_invalid_application_ids_as_not_found stdout ----
+
+thread 'endpoint::tests::routes::availability_probe_rejects_missing_or_invalid_application_ids_as_not_found' (8406506) panicked at crates/database/src/lib.rs:114:5:
+refusing to run tests against a hosted Supabase database.
+DATABASE_URL/SUPABASE_DB_URL points at a hosted project, and staging and production share one project — test fixtures would be written to production.
+Unset DATABASE_URL to use a local database, or set AOMI_ALLOW_HOSTED_TEST_DB=1 if you genuinely mean it.
+
+
+failures:
+    endpoint::tests::routes::availability_probe_rejects_missing_or_invalid_application_ids_as_not_found
+    endpoint::tests::routes::current_routes_are_mapped
+    endpoint::tests::routes::generated_auth_routes_reject_missing_credentials
+    endpoint::tests::routes::health_stays_liveness_only_and_ignores_application_id
+    endpoint::tests::routes::legacy_app_routes_are_removed
+    endpoint::tests::routes::route_manifest_matches_expected_contract
+    endpoint::tests::routes::route_manifest_projects_to_openapi
+    endpoint::tests::routes::thread_create_allows_thread_only_caller
+
+test result: FAILED. 5 passed; 8 failed; 1 ignored; 0 measured; 166 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p backend --bin backend`
+EXIT=101
