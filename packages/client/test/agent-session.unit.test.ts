@@ -60,10 +60,23 @@ function action(
 }
 
 function client() {
-  return new AomiClient({
+  const api = new AomiClient({
     baseUrl: "https://portal.example",
     fetch: vi.fn(),
   });
+  // Existing lifecycle scenarios deliver one page per transport connection.
+  vi.spyOn(api.agent, "stream").mockImplementation(
+    async (sessionId, options, onFrame) => {
+      onFrame(
+        "page",
+        await api.agent.poll(sessionId, {
+          cursor: options.cursor,
+          waitMs: 25_000,
+        }),
+      );
+    },
+  );
+  return api;
 }
 
 describe("ClientSession Agent transport", () => {
@@ -282,7 +295,6 @@ describe("ClientSession Agent transport", () => {
       .mockResolvedValueOnce(page([turn(4, "processing", "turn-2")]));
     const session = new Session(api, {
       sessionId: "session-agent",
-      pollIntervalMs: 10,
     });
     await session.send("first");
 
@@ -320,7 +332,7 @@ describe("ClientSession Agent transport", () => {
       message_key: "message-final",
       content: "FINAL ANSWER",
     });
-    expect(session.getSnapshot().isPolling).toBe(false);
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 
@@ -358,7 +370,6 @@ describe("ClientSession Agent transport", () => {
     );
     const session = new Session(api, {
       sessionId: "session-agent",
-      pollIntervalMs: 10,
     });
 
     await session.sendAsync("Check ETH price");
@@ -392,7 +403,6 @@ describe("ClientSession Agent transport", () => {
 
     expect(poll).toHaveBeenNthCalledWith(1, "session-agent", {
       cursor: undefined,
-      waitMs: 0,
     });
     expect(poll).toHaveBeenNthCalledWith(2, "session-agent");
     expect(session.getSnapshot().cursor).toBe("cursor-recovered");
@@ -502,7 +512,6 @@ describe("ClientSession Agent transport", () => {
       );
     const session = new Session(api, {
       sessionId: "session-agent",
-      pollIntervalMs: 10,
     });
 
     await session.sendAsync("execute");
@@ -511,19 +520,13 @@ describe("ClientSession Agent transport", () => {
 
     expect(poll).toHaveBeenCalledTimes(1);
     expect(session.getSnapshot().turnState).toBe("awaiting_action");
-    expect(session.getSnapshot().isPolling).toBe(true);
-
-    await vi.advanceTimersByTimeAsync(10);
-
-    expect(poll).toHaveBeenCalledTimes(2);
-    expect(session.getSnapshot().turnState).toBe("complete");
-    expect(session.getSnapshot().isPolling).toBe(true);
+    expect(session.getSnapshot().isStreaming).toBe(true);
 
     await vi.advanceTimersByTimeAsync(10);
 
     expect(poll).toHaveBeenCalledTimes(3);
     expect(session.getSnapshot().title).toBeUndefined();
-    expect(session.getSnapshot().isPolling).toBe(false);
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 
@@ -548,7 +551,7 @@ describe("ClientSession Agent transport", () => {
 
     expect(session.actions.pending()).toEqual([pending]);
     expect(session.getSnapshot().turnState).toBe("awaiting_action");
-    expect(session.getSnapshot().isPolling).toBe(false);
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 });

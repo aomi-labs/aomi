@@ -1,5 +1,24 @@
 # Current work
 
+**TTFT LIVE DELIVERY 2026-09-10** — candidate on `codex/ttft-live-delivery`.
+Authenticated SSE carries provisional prose independently of the durable event
+cursor. Reconnect retains received text and reconciles final messages without
+resubmitting actions. Text and tool runs render chronologically; synthetic
+typing is removed. Client 0.7.2, React 0.6.14, widget 2.0.45. Client/React/BFF
+tests, renderer tests, types and package builds pass. A local deterministic
+browser smoke verified prose before completion and final reconciliation.
+Legacy JSON polling fallback and polling lifecycle/options are removed; stream
+errors now surface and reject pending sends. Real browser testing caught a
+backend turn-ID propagation bug, now fixed and covered by runtime regression.
+Real model partial delivery, active reconnect, final reconciliation, completed
+refresh and text/tool/text ordering pass on the local stack. Client/React/BFF:
+422 passed, 1 skipped; Portal: 562 passed, 23 skipped; renderer: 25 passed.
+Project-specific types, package builds and scoped lint pass. Guest sidebar
+recovery and intermittent provider/usage errors remain documented limitations;
+see the backend worktree's `docs/topics/runtime/facts/ttft-validation.md`.
+Not deployed; the one-second p95 application-overhead target still requires
+matched staging measurements. No model, context, or infrastructure changes.
+
 **MAIN FRESHNESS SYNC 2026-09-10** — integrated the latest `main` per-user app
 secrets client and control-bar UI into the merge-ready Portal branch. Preserved
 both the branch's routing configuration import and main's app-secrets dialog in

@@ -752,7 +752,7 @@
                               ]
                             },
                             {
-                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
+                              "description": "Anonymous device \u2014 no DB record, metered in memory by client_id.",
                               "type": "string",
                               "enum": [
                                 "anon"
@@ -2042,40 +2042,6 @@
         ],
         "x-aomi-auth": [
           "account"
-        ]
-      }
-    },
-    "/api/thread/updates": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/thread/events": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
         ]
       }
     },

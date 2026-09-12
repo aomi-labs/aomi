@@ -86,6 +86,8 @@ export type ApplicationId = number | string | null;
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface AomiRequestOptions {
+  /** Cancels the response body as well as the request. */
+  signal?: AbortSignal;
   /** Thread id for thread-scoped routes. Kept as sessionId for SDK compatibility. */
   sessionId?: string;
   /** App key for app-key checked routes; defaults to the client's apiKey. */

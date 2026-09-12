@@ -351,8 +351,24 @@ export function projectAssistantMessages(
 export function projectRuntimeMessages(
   events: readonly Event[],
   pendingUserMessage?: string,
+  liveMessages: readonly MessageEvent[] = [],
 ): ThreadMessageLike[] {
-  const projected = projectAssistantMessages(events);
+  const visible = [...events];
+  for (const message of liveMessages) {
+    let index = visible.findIndex((event) => {
+      const runtimeSequence = event.runtime_sequence;
+      if (
+        event.turn_id === message.turn_id &&
+        runtimeSequence !== undefined &&
+        message.runtime_sequence !== undefined
+      )
+        return runtimeSequence > message.runtime_sequence;
+      return event.sequence > message.sequence;
+    });
+    if (index < 0) index = visible.length;
+    visible.splice(index, 0, message);
+  }
+  const projected = projectAssistantMessages(visible);
   if (pendingUserMessage === undefined) return projected;
 
   const userMessageOrdinal = projected.reduce(

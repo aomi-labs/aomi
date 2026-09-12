@@ -20,7 +20,7 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
 import {
   buildTraceItems,
   MinimalWorkingTrace,
-  ProgressiveRenderedText,
+  RenderedText,
   WorkingTrace,
 } from "./working-trace";
 import { ToolStepRow } from "./working-trace-rows";
@@ -212,28 +212,15 @@ describe("WorkingTrace", () => {
     }
   });
 
-  it("progressively reveals a buffered final answer", async () => {
-    vi.useFakeTimers();
-    try {
-      const answer = "A buffered final answer should arrive progressively.";
-      const { getByTestId } = render(
-        <ProgressiveRenderedText text={answer} animate />,
-      );
-      const rendered = getByTestId("rendered-text");
-
-      expect(rendered).toHaveTextContent("");
-
-      act(() => vi.advanceTimersByTime(20));
-      expect(rendered.textContent?.length).toBeGreaterThan(0);
-      expect(rendered.textContent?.length).toBeLessThan(answer.length);
-
-      for (let tick = 0; tick < 75; tick += 1) {
-        await act(() => vi.advanceTimersByTimeAsync(20));
-      }
-      expect(rendered).toHaveTextContent(answer);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("renders received text immediately without synthetic typing", () => {
+    const { getByTestId, rerender } = render(
+      <RenderedText text="First text" />,
+    );
+    expect(getByTestId("rendered-text")).toHaveTextContent("First text");
+    rerender(<RenderedText text="First text, now extended" />);
+    expect(getByTestId("rendered-text")).toHaveTextContent(
+      "First text, now extended",
+    );
   });
 
   it("uses Working without exposing the internal execution mode", () => {

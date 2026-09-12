@@ -22,18 +22,26 @@ export type SessionSnapshot = Readonly<{
   turnState?: TurnState;
   events: readonly Event[];
   messages: readonly MessageEvent[];
+  /** Provisional display only; never advances the durable cursor. */
+  liveMessages?: readonly MessageEvent[];
   actions: readonly Action[];
   title?: string;
-  isPolling: boolean;
+  isStreaming: boolean;
   isSubmitting: boolean;
   /**
    * Optimistic echo of the outbound message for the in-flight turn. Set the
    * moment `send`/`sendAsync` is called and cleared when the server's own
    * user message event arrives (which can trail the start response by a
-   * poll or two). Render this so the just-sent message never disappears.
+   * page or two). Render this so the just-sent message never disappears.
    */
   pendingUserMessage?: string;
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
+  /** Per-turn browser-clock durations; receipt is distinct from rendering. */
+  timing?: Readonly<{
+    startedAt: number;
+    acknowledgedMs?: number;
+    firstTextReceivedMs?: number;
+  }>;
   error?: unknown;
 }>;
 
@@ -50,7 +58,6 @@ export type SessionOptions = {
   /** Explicit account funding lane for inference execution. */
   inferenceFunding?: AomiInferenceFundingSource;
   clientId?: string;
-  pollIntervalMs?: number;
   logger?: { debug: (...args: unknown[]) => void };
   actions?: ActionCapabilities;
 };

@@ -4,7 +4,7 @@ import { widgetCorsPreflight } from "./cors";
 describe("widgetCorsPreflight", () => {
   it("allows the SSE resume header used by cross-origin thread updates", () => {
     const response = widgetCorsPreflight(
-      new Request("http://localhost:3002/api/thread/updates", {
+      new Request("http://localhost:3002/v1/agent/chat/test-session/stream", {
         method: "OPTIONS",
         headers: {
           Origin: "http://localhost:3000",
