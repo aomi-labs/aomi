@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function handle(request: Request): Promise<Response> {
+  const started = performance.now();
   const resource = aomiOAuthResources().agentRest;
   try {
     const requiredScopes = agentRouteScopes(request);
@@ -29,10 +30,16 @@ async function handle(request: Request): Promise<Response> {
     ) {
       delegatedScopes.push("custody:delegate");
     }
-    return await proxyAgentApi(request, {
+    const authMs = performance.now() - started;
+    const response = await proxyAgentApi(request, {
       ...principal,
       scopes: delegatedScopes,
     });
+    response.headers.append(
+      "server-timing",
+      `bff_auth;dur=${authMs.toFixed(1)}`,
+    );
+    return response;
   } catch (error) {
     if (
       error instanceof Error &&

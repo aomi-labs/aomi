@@ -14,6 +14,7 @@
     "GET /v1/account/credits",
     "GET /v1/account/statement",
     "GET /v1/agent/chat/{sessionId}",
+    "GET /v1/agent/chat/{sessionId}/stream",
     "GET /v1/agent/sessions",
     "GET /v1/agent/sessions/{sessionId}",
     "GET /v1/pipeline",
@@ -347,6 +348,52 @@
             "description": "Cursor expired; retry without a cursor"
           },
           "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}/stream": {
+      "get": {
+        "operationId": "streamAgentChat",
+        "summary": "Live text and durable event pages; reconnect with the last page cursor",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE page (EventPage), message (transient turn_id/revision/message snapshot), resync (replay required)",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
             "$ref": "#/components/responses/Error"
           }
         },
@@ -2650,6 +2697,11 @@
           },
           "occurred_at": {
             "type": "integer"
+          },
+          "runtime_sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional runtime ordering hint for reconciling live text; never a durable cursor"
           },
           "type": {
             "type": "string"

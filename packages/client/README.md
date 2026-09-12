@@ -170,10 +170,12 @@ const committed = await client.pipeline.evm.commit(simulated);
 
 const svmStaged = await client.pipeline.svm.stage({
   kind: "instructions",
-  instructions: [{
-    description: "Transfer",
-    instructions: [{ program_id: "...", accounts: [], data_base64: "..." }],
-  }],
+  instructions: [
+    {
+      description: "Transfer",
+      instructions: [{ program_id: "...", accounts: [], data_base64: "..." }],
+    },
+  ],
 });
 ```
 
@@ -205,7 +207,7 @@ operations; Catalog-specific generation remains a separate later capability.
 
 ### Session (high-level)
 
-Owns polling, ordered Event reduction, lifecycle, and Action execution.
+Owns authenticated streaming, ordered Event reduction, lifecycle, and Action execution.
 
 ```ts
 import { Session } from "@aomi-labs/client";
@@ -215,7 +217,7 @@ const session = new Session(
   { actions: walletCapabilities }, // Auto routing
 );
 
-// Blocking send — polls until the agent finishes responding
+// Blocking send — receives streamed updates until the agent finishes responding
 const result = await session.send("Swap 1 ETH for USDC on Uniswap");
 console.log(result.messages);
 
@@ -247,15 +249,14 @@ new Session(clientOptions: AomiClientOptions, sessionOptions?: SessionOptions)
 new Session(client: AomiClient, sessionOptions?: SessionOptions)
 ```
 
-| Option           | Default               | Description                                             |
-| ---------------- | --------------------- | ------------------------------------------------------- |
-| `sessionId`      | `crypto.randomUUID()` | Agent session ID                                        |
-| `target`         | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
-| `model`          | —                     | Optional model preference                               |
-| `getUserState`   | —                     | Reads canonical UserState when a turn starts            |
-| `pollIntervalMs` | `500`                 | Event polling interval                                  |
-| `actions`        | `{}`                  | Canonical wallet/action capabilities                    |
-| `logger`         | —                     | Pass `console` for debug output                         |
+| Option         | Default               | Description                                             |
+| -------------- | --------------------- | ------------------------------------------------------- |
+| `sessionId`    | `crypto.randomUUID()` | Agent session ID                                        |
+| `target`       | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
+| `model`        | —                     | Optional model preference                               |
+| `getUserState` | —                     | Reads canonical UserState when a turn starts            |
+| `actions`      | `{}`                  | Canonical wallet/action capabilities                    |
+| `logger`       | —                     | Pass `console` for debug output                         |
 
 Legacy `app` and `applicationId` options still imply Direct for compatibility;
 new integrations should use `target` so routing intent is unambiguous.
@@ -265,13 +266,15 @@ new integrations should use `target` so routing intent is unambiguous.
 | Method                | Description                                                       |
 | --------------------- | ----------------------------------------------------------------- |
 | `send(message)`       | Send a message, wait for completion, return `{ messages, title }` |
-| `sendAsync(message)`  | Send without waiting — poll in background, listen via events      |
+| `sendAsync(message)`  | Send without waiting — stream in background, listen via events    |
 | `interrupt()`         | Cancel current processing                                         |
 | `sync()`              | Fetch the next ordered EventPage                                  |
 | `fetchCurrentState()` | Hydrate from the session Event ledger                             |
 | `getSnapshot()`       | Immutable SessionSnapshot                                         |
 | `subscribe(listener)` | Subscribe for `useSyncExternalStore`                              |
-| `close()`             | Stop polling and release listeners                                |
+| `startStreaming()`    | Start or resume live delivery                                     |
+| `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
+| `close()`             | Stop streaming and release listeners                              |
 
 #### Snapshot
 

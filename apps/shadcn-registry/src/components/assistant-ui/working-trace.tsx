@@ -35,21 +35,7 @@ import {
   WorkingNote,
 } from "@/components/assistant-ui/working-trace-rows";
 
-/**
- * Working trace — the chain-of-thought UI.
- *
- * A merged assistant turn (see `mergeAssistantTurns` in @aomi-labs/react) is one
- * message with ordered parts `[tool-call, …, text]`. We split it:
- *   • tool-call parts → a collapsible "Working" trace, one line per step
- *   • the trailing text → the final answer, streamed on its own
- *
- * "Still working" is carried entirely by the shimmer on the *last* step: it keeps
- * sweeping whenever the turn is running, including the common case where a tool
- * call has finished and we're just waiting on the model to say what's next. When
- * the turn completes the trace collapses to "Worked for Ns" and the answer is
- * revealed. Plain replies with no tool calls remain buffered while running,
- * then render immediately once the turn settles.
- */
+/** Tool progress stays separate from public prose, in transcript order. */
 
 const formatDuration = (seconds: number): string => {
   const totalSeconds = Math.max(1, Math.round(seconds));
@@ -573,88 +559,22 @@ export const MinimalWorkingTrace: FC = () => (
   </div>
 );
 
-const collectText = (parts: TextMessagePart[]): string =>
-  parts
-    .map((part) => part.text)
-    .join("\n\n")
-    .trim();
-
-/**
- * The final answer is deliberately buffered while tools are running because a
- * text part is provisional until the last tool call lands. Once the turn has
- * settled, reveal that buffered answer with a lightweight synthetic stream so
- * it hands off naturally from the trace instead of appearing in one paint.
- *
- * The cadence scales with answer length and tops out at a few seconds: short
- * answers still feel typed, while long reports do not make the reader wait.
- */
-const ANSWER_STREAM_TICK_MS = 20;
-const ANSWER_STREAM_MS_PER_CHARACTER = 5.5;
-const ANSWER_STREAM_MIN_MS = 180;
-const ANSWER_STREAM_MAX_MS = 1400;
-
-const answerStreamChunkSize = (length: number): number => {
-  const duration = Math.min(
-    ANSWER_STREAM_MAX_MS,
-    Math.max(ANSWER_STREAM_MIN_MS, length * ANSWER_STREAM_MS_PER_CHARACTER),
-  );
-  return Math.max(1, Math.ceil(length / (duration / ANSWER_STREAM_TICK_MS)));
-};
-
-const useProgressiveAnswer = (
-  text: string,
-  animate: boolean,
-): { text: string; streaming: boolean } => {
-  const reduced = prefersReducedMotion();
-  const shouldAnimate = animate && !reduced;
-  const [visibleLength, setVisibleLength] = useState(() =>
-    shouldAnimate ? 0 : text.length,
-  );
-
-  useEffect(() => {
-    if (!shouldAnimate) {
-      setVisibleLength(text.length);
-      return;
+export const RenderedText: FC<{ text: string }> = ({ text }) => {
+  const runtime = useOptionalAomiRuntime();
+  const recorded = useRef(false);
+  useLayoutEffect(() => {
+    if (!recorded.current && text.trim()) {
+      recorded.current = true;
+      // DOM commit marker, not a claim about compositor paint or answer quality.
+      performance.mark?.("aomi:answer-committed", {
+        detail: { sessionId: runtime?.currentThreadId },
+      });
     }
-    // Content is append-only in normal operation. The clamp also handles a
-    // reconciliation replacing it with a shorter canonical answer.
-    setVisibleLength((current) => Math.min(current, text.length));
-  }, [shouldAnimate, text.length]);
-
-  useEffect(() => {
-    if (!shouldAnimate || visibleLength >= text.length) return;
-    const chunk = answerStreamChunkSize(text.length);
-    const timer = setTimeout(
-      () =>
-        setVisibleLength((current) => Math.min(text.length, current + chunk)),
-      ANSWER_STREAM_TICK_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [shouldAnimate, text.length, visibleLength]);
-
-  return {
-    text: text.slice(0, visibleLength),
-    streaming: shouldAnimate && visibleLength < text.length,
-  };
-};
-
-const RenderedText: FC<{ text: string }> = ({ text }) => {
+  }, [text, runtime?.currentThreadId]);
   return (
     <TextMessagePartProvider text={text}>
       <MarkdownText />
     </TextMessagePartProvider>
-  );
-};
-
-export const ProgressiveRenderedText: FC<{
-  text: string;
-  animate: boolean;
-}> = ({ text, animate }) => {
-  const progressive = useProgressiveAnswer(text, animate);
-  return (
-    <div aria-busy={progressive.streaming || undefined}>
-      <RenderedText text={progressive.text} />
-    </div>
   );
 };
 
@@ -758,167 +678,97 @@ export const buildTraceItems = (
   return items;
 };
 
-/**
- * Drop-in replacement for `<MessagePrimitive.Parts>` in an assistant message.
- *
- * A merged turn is one ordered `content` array: interstitial talk (`text`) and
- * tool calls, then the final answer (`text`). We split at the LAST tool call —
- * everything up to and including it is the Working trace (tool steps + muted
- * interstitial notes, in order); the trailing `text` run is the final answer,
- * buffered out of view until the turn finishes so only it streams out below.
- * A plain reply with no tool calls remains buffered while running, then renders
- * directly once it is known to be the final answer.
- *
- * Delegations are the one row that does not come from the transcript alone: a
- * running child has no `task` part yet, so its row is rendered synthetically
- * from the `taskRuns` sidecar and hands over to the transcript part (same key,
- * same row) once that lands. See `WorkingAgent`.
- */
+/** Render each text/tool run in place; later tools never absorb visible prose. */
 export const AssistantTurnParts: FC = () => {
   const content = useMessage((s) => s.content);
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
   const taskRuns = useThreadTaskRuns("turn");
-  // Only animate a turn observed live in this component. Completed messages
-  // restored from history render immediately instead of replaying the effect.
-  const witnessedRunning = useRef(running);
-  if (running) witnessedRunning.current = true;
-
-  const lastToolIndex = content.reduce(
-    (last, part, i) => (part.type === "tool-call" ? i : last),
-    -1,
+  const terminal = ["complete", "failed", "interrupted"].includes(
+    runtime?.turnState ?? "",
   );
-
-  // The activity rail projects the whole thread, while a message trace only
-  // consumes the current turn's sidecar. History renders from its transcript.
-  const liveDelegations = isLast
-    ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
-    : [];
-
-  // Where the trace ends and the final answer begins. Normally the last tool
-  // call — but a delegation that has not landed in the transcript yet has no
-  // tool part at all, so a turn that is *only* a live delegation still gets a
-  // trace (its talk becomes notes; the answer is buffered while running).
-  const traceEnd =
-    lastToolIndex >= 0
-      ? lastToolIndex + 1
-      : liveDelegations.length > 0
-        ? content.length
-        : 0;
-
-  const answerText = collectText(
-    content
-      .slice(traceEnd)
-      .filter((part): part is TextMessagePart => part.type === "text"),
-  );
-
-  const traceContent = content
-    .slice(0, traceEnd)
-    .filter(
-      (part): part is TextMessagePart | ToolCallMessagePart =>
-        part.type === "text" || part.type === "tool-call",
-    );
-  const items = buildTraceItems(traceContent, liveDelegations);
-
-  // Awaiting an approval is a pause in the same turn, not completion. Keep the
-  // trace visibly live until a real final answer exists and can begin its
-  // synthetic stream. This also covers the short resume gap after approve or
-  // reject, when polling has restarted but the next model event has not landed.
-  const terminal =
-    runtime?.turnState === "complete" ||
-    runtime?.turnState === "interrupted" ||
-    runtime?.turnState === "failed";
-  const awaitingContinuation =
+  const live =
     !terminal &&
-    isLast &&
-    items.length > 0 &&
-    (runtime?.turnState === "awaiting_action" ||
-      runtime?.turnState === "processing" ||
-      (witnessedRunning.current && answerText.length === 0));
-  const traceLive = !terminal && (running || awaitingContinuation);
-  const outcome: WorkingTraceOutcome = traceLive
+    (running ||
+      (isLast &&
+        ["processing", "awaiting_action"].includes(runtime?.turnState ?? "")));
+  const outcome: WorkingTraceOutcome = live
     ? "running"
     : isLast && runtime?.turnState === "failed"
       ? "failed"
       : isLast && runtime?.turnState === "interrupted"
         ? "interrupted"
         : "complete";
-  // A durable backend notice is projected as the following assistant message,
-  // making this turn no longer last. While none exists, keep a failed turn from
-  // ending in partial prose (or a tool trace) with no explanation.
-  const showFailureFallback = outcome === "failed";
-
-  // Transcript state is never delayed behind presentation. Rows enter the DOM
-  // immediately; their bounded CSS entrance and chip cascade provide motion
-  // without falling behind the activity rail during a batch.
-  const revealed = items.length;
-
-  // When the work actually began, for the header's "Orchestrated for Ns".
-  // Anchored to the earliest signal we have: the moment this turn was first
-  // seen running, or the earliest delegation's client-clock start — whichever
-  // is older. Mount time alone lies when the trace mounts late (a delegating
-  // turn's transcript part only lands at the very end).
-  const turnStartRef = useRef<number | null>(running ? Date.now() : null);
-  if (running && turnStartRef.current === null) {
-    turnStartRef.current = Date.now();
-  }
-  const earliestRunStart = items.reduce<number | null>(
-    (earliest, item) =>
-      item.kind === "agent" && item.run
-        ? Math.min(earliest ?? item.run.startedAt, item.run.startedAt)
-        : earliest,
-    null,
-  );
-  const startedAtMs =
-    turnStartRef.current !== null && earliestRunStart !== null
-      ? Math.min(turnStartRef.current, earliestRunStart)
-      : (turnStartRef.current ?? earliestRunStart ?? undefined);
-
-  if (items.length === 0) {
-    // Before the first tool call, text is provisional: a later tool can move it
-    // into the Working trace. Keep it buffered until the turn settles.
-    if (running) {
-      return runtime?.turnState === "processing" ? (
-        <MinimalWorkingTrace />
-      ) : null;
+  const startedAt = useRef<number | undefined>(live ? Date.now() : undefined);
+  if (live && startedAt.current === undefined) startedAt.current = Date.now();
+  const delegations = isLast
+    ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
+    : [];
+  const groups: Array<{
+    key: string;
+    text?: string;
+    tools?: ToolCallMessagePart[];
+  }> = [];
+  for (const [index, part] of content.entries()) {
+    if (part.type === "text") {
+      groups.push({ key: `text:${index}`, text: part.text });
+    } else if (part.type === "tool-call") {
+      const previous = groups.at(-1);
+      if (previous?.tools) previous.tools.push(part);
+      else groups.push({ key: `tool:${part.toolCallId}`, tools: [part] });
     }
-
-    return answerText.length > 0 || showFailureFallback ? (
-      <>
-        {answerText.length > 0 && (
-          <ProgressiveRenderedText
-            text={answerText}
-            animate={witnessedRunning.current}
-          />
-        )}
-        {showFailureFallback && <TurnFailureFallback />}
-      </>
-    ) : null;
   }
-
-  // Every trace item is already mounted, so presentation never gates the answer.
-  const answerReady = !traceLive && revealed >= items.length;
-
+  // Unmaterialized delegations stay at the end until their tool part arrives.
+  const represented = new Set(
+    content
+      .filter((part) => part.type === "tool-call")
+      .map((part) => part.toolCallId),
+  );
+  const pending = delegations.filter(
+    (run) => !run.callId || !represented.has(run.callId),
+  );
+  const hasText = groups.some((group) => group.text?.trim());
   return (
     <>
-      <WorkingTrace
-        running={traceLive}
-        outcome={outcome}
-        items={items}
-        revealed={revealed}
-        collapseReady={answerText.length > 0}
-        startedAtMs={startedAtMs}
-      />
-      {answerReady && answerText.length > 0 && (
-        <div className="aui-working-answer">
-          <ProgressiveRenderedText
-            text={answerText}
-            animate={witnessedRunning.current}
+      {groups.map((group, index) =>
+        group.tools ? (
+          <WorkingTrace
+            key={group.key}
+            running={live && index === groups.length - 1}
+            outcome={index === groups.length - 1 ? outcome : "complete"}
+            items={buildTraceItems(
+              group.tools,
+              delegations.filter((run) =>
+                Boolean(
+                  run.callId &&
+                  group.tools!.some((tool) => tool.toolCallId === run.callId),
+                ),
+              ),
+            )}
+            revealed={group.tools.length}
+            collapseReady={index < groups.length - 1}
+            startedAtMs={startedAt.current}
           />
-        </div>
+        ) : group.text ? (
+          <div className="aui-working-answer" key={group.key}>
+            <RenderedText text={group.text} />
+          </div>
+        ) : null,
       )}
-      {answerReady && showFailureFallback && <TurnFailureFallback />}
+      {pending.length > 0 && (
+        <WorkingTrace
+          running={live}
+          outcome={outcome}
+          items={buildTraceItems([], pending)}
+          revealed={pending.length}
+          startedAtMs={startedAt.current}
+        />
+      )}
+      {live && !hasText && groups.length === 0 && pending.length === 0 && (
+        <MinimalWorkingTrace />
+      )}
+      {outcome === "failed" && <TurnFailureFallback />}
     </>
   );
 };

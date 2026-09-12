@@ -280,8 +280,13 @@ export function AomiRuntimeCore({
   // use, keeping the previous assistant reply complete without creating a
   // phantom user-message branch when the server event arrives.
   const currentMessages = useMemo(
-    () => projectRuntimeMessages(snapshot.events, snapshot.pendingUserMessage),
-    [snapshot.events, snapshot.pendingUserMessage],
+    () =>
+      projectRuntimeMessages(
+        snapshot.events,
+        snapshot.pendingUserMessage,
+        snapshot.liveMessages,
+      ),
+    [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
   );
 
   useEffect(() => {

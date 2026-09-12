@@ -1,5 +1,35 @@
 # Current work
 
+**TTFT MERGE VALIDATION 2026-09-12** — `codex/ttft-live-delivery` merged with
+`main` (widget 2.0.48 over main's 2.0.47; client 0.7.2, React 0.6.14). Paired
+backend branch merged `main` and product-mono #1075. Local browser validation
+against the paired backend: first visible text p50 1.8 s with application
+overhead p50 113 ms / p95 202 ms over 12 Haiku turns; stop, active reconnect,
+refresh recovery and a tool turn pass; anonymous session only. Workspace tests
+(1484), Portal (580), telegram, lint, type checks and package builds pass.
+Backend review fixed a provider-error masking bug that reported
+`execution_usage_unavailable`. Guest sidebar discoverability after refresh and
+the staging p95 gate remain open. Not deployed.
+
+**TTFT LIVE DELIVERY 2026-09-10** — candidate on `codex/ttft-live-delivery`.
+Authenticated SSE carries provisional prose independently of the durable event
+cursor. Reconnect retains received text and reconciles final messages without
+resubmitting actions. Text and tool runs render chronologically; synthetic
+typing is removed. Client 0.7.2, React 0.6.14, widget 2.0.48. Client/React/BFF
+tests, renderer tests, types and package builds pass. A local deterministic
+browser smoke verified prose before completion and final reconciliation.
+Legacy JSON polling fallback and polling lifecycle/options are removed; stream
+errors now surface and reject pending sends. Real browser testing caught a
+backend turn-ID propagation bug, now fixed and covered by runtime regression.
+Real model partial delivery, active reconnect, final reconciliation, completed
+refresh and text/tool/text ordering pass on the local stack. Client/React/BFF:
+422 passed, 1 skipped; Portal: 562 passed, 23 skipped; renderer: 25 passed.
+Project-specific types, package builds and scoped lint pass. Guest sidebar
+recovery and intermittent provider/usage errors remain documented limitations;
+see the backend worktree's `docs/topics/runtime/facts/ttft-validation.md`.
+Not deployed; the one-second p95 application-overhead target still requires
+matched staging measurements. No model, context, or infrastructure changes.
+
 **CAPABILITY PICKER VISIBILITY FIX 2026-09-11** — restore the capability
 picker outside the composer's overflow-controlled input row so both `@` and
 the plus button open a visible menu while preserving inline app chips. Widget

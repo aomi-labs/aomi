@@ -213,14 +213,14 @@ describe("preparation route selection", () => {
     });
     try {
       await session.sendAsync("prepare");
-      session.stopPolling();
+      session.stopStreaming();
       expect(start.mock.calls[0][0].userState?.evm?.broadcaster).toBe("hosted");
       const revoked = profile("evm", "auto");
       revoked.delegated_accounts = [];
       lookup.mockResolvedValue(revoked);
       // Chat still goes out; the backend gate blocks execution, not the client.
       await session.sendAsync("prepare again");
-      session.stopPolling();
+      session.stopStreaming();
       expect(lookup).toHaveBeenCalledTimes(2);
       expect(start).toHaveBeenCalledTimes(2);
       expect(start.mock.calls[1][0].userState?.evm).not.toHaveProperty(
@@ -255,7 +255,7 @@ describe("preparation route selection", () => {
     });
     try {
       await session.sendAsync("hello");
-      session.stopPolling();
+      session.stopStreaming();
       expect(start).toHaveBeenCalledTimes(1);
       expect(start.mock.calls[0][0].userState?.evm).toEqual({
         address: "0xAlice",

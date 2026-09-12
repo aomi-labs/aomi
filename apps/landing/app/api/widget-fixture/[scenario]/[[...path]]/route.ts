@@ -68,21 +68,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   if (path === "api/thread/state") return json(state);
   if (path === "api/thread/apps") return json([]);
   if (path === "api/thread/models") return json(["gpt-5"]);
-  if (path === "api/thread/events") return json([]);
   if (path === "api/widget/v1/signing-requests") return json([]);
   if (path === "api/threads") return json([thread]);
   if (path.startsWith("api/threads/")) return json(thread);
   if (path === "api/account")
     return json({ error: "fixture_anonymous" }, { status: 400 });
 
-  if (path === "api/thread/updates") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    });
-  }
 
   return json({ ok: true, scenario: fixture.scenario, fixture: key, path });
 }

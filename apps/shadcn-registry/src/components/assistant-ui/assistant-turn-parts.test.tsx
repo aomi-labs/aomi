@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   turnState: "processing",
   includeTool: true,
   answerText: "",
+  prefixText: "",
   isLast: true,
 }));
 
@@ -15,6 +16,9 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
   useMessage: (selector: (message: unknown) => unknown) =>
     selector({
       content: [
+        ...(state.prefixText
+          ? [{ type: "text" as const, text: state.prefixText }]
+          : []),
         ...(state.includeTool
           ? [
               {
@@ -42,9 +46,12 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useThreadTaskRuns: () => ({}),
 }));
 
-vi.mock("@/components/assistant-ui/markdown-text", () => ({
-  MarkdownText: () => null,
-}));
+vi.mock("@/components/assistant-ui/markdown-text", async () => {
+  const { useMessagePartText } = await vi.importActual<
+    typeof import("@assistant-ui/react")
+  >("@assistant-ui/react");
+  return { MarkdownText: () => <span>{useMessagePartText().text}</span> };
+});
 
 vi.mock(
   "@/components/assistant-ui/working-trace-rows",
@@ -64,10 +71,28 @@ beforeEach(() => {
   state.turnState = "processing";
   state.includeTool = true;
   state.answerText = "";
+  state.prefixText = "";
   state.isLast = true;
 });
 
 describe("AssistantTurnParts lifecycle", () => {
+  it("shows text while running and keeps it before later tools", () => {
+    state.includeTool = false;
+    state.prefixText = "Your balance is 10 ETH.";
+    const view = render(<AssistantTurnParts />);
+    const original = view.getByText(state.prefixText);
+    expect(original).toBeVisible();
+    state.includeTool = true;
+    state.answerText = "The transfer needs your approval.";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByText(state.prefixText)).toBe(original);
+    expect(view.getByText(state.answerText)).toBeVisible();
+    expect(
+      original.compareDocumentPosition(view.getByText(state.answerText)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("keeps completed tool work green", () => {
     const view = render(<AssistantTurnParts />);
 
