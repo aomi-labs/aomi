@@ -2,6 +2,109 @@
 
 ## Last Updated
 
+2026-09-12 — TELEGRAM MINI APP: DELEGATION ADDED, PORTAL UI ADOPTED, AND THE
+  PARA PINS PULLED OUT OF THE BOT (branches `feat/telegram-delegation-prod-ready`
+  in aomi-widget, `feat/telegram-privy-execution-key` in product-mono).
+  The Mini App implemented Privy login and the permit ceremony and had NO
+  delegation step at all — which also made the permit unreachable:
+  `check_auto_preconditions` (product-mono
+  `aomi/bin/backend/src/endpoint/account/authorization.rs:184`) requires an
+  active `signing_delegations` row covering the exact key and runs at
+  *challenge* time (it is deliberately fail-fast so nobody signs a doomed
+  permit), so every `server_auto` challenge answered 409
+  `missing_delegated_account`. New `use-privy-delegation` runs the ceremony the
+  portal already runs. `/api/delegation/privy/begin` needed NO portal change: it
+  is already `widgetRoute`-wrapped and `resolvePortalCanonicalUserId` accepts an
+  `aomi_wst_` bearer, so the Mini App's own session works cross-origin.
+  Second, independent blocker: `usePermissionControl` gated the sign button on
+  `useWallets().ready` — the exact hook `use-canonical-account` documents as
+  one whose `ready` can stay false forever in Telegram's webview (it waits on a
+  wallet-proxy iframe that webview blocks). One hook had been fixed in #601/#602;
+  the other still had the bug, so the button often never rendered. `useWallets`
+  is now absent from the app: wallets come off `user.linkedAccounts` (shared
+  `lib/privy-wallet.ts`, which also carries `delegated` and the server wallet
+  id), and the permit is signed with Privy's `useSignTypedData`, which takes an
+  address. viem/ox are gone from the app — the permit domain is name+version
+  only, so there was never a chain to select.
+  The permit target now falls back to the user's own embedded wallet when the
+  bot named no key, so the ceremony is reachable from `/wallet`, not only
+  `/permission` — and that is the one configuration where every backend
+  precondition is satisfiable today.
+  PRODUCT-MONO: four separate surfaces resolved wallets by asking for provider
+  `"para"` by name, each failing differently for a Privy account —
+  `/permission` (via `application_agent_key`, whose `provision_partner_agent` is
+  only ever called from the World handover path, so ordinary users have no agent
+  key at all), `/wallet`'s authority line (the long-reported
+  "Authority: not linked"), `bound_wallet`'s DB fallback, and a dead
+  `UserWalletState::evm` hardcoding the Para label. All now share one
+  `provider_signs_server_side` rule that asks the provider backend for the
+  capability — which still honours Para's real dependence on a configured
+  project secret. This also removes the `wrong_signer` trap: with no
+  provider-managed key involved, `require_managed_authority`'s same-provider
+  requirement never applies.
+  UI is rebuilt on the Aomi design system exactly as the portal is
+  (`@aomi-labs/widget-lib` `themes/default.css` + `components/ui/*`, mirroring
+  `apps/portal/src/app/device-auth/device-auth-client.tsx`): a four-stage
+  checklist, recoverable errors everywhere (`retry` added to the auth and
+  account hooks), explained failure codes with the raw code behind a disclosure,
+  and Telegram's own chrome (back button, swipe-collapse guard, haptics, close
+  on success, live `themeChanged`).
+  BOUNDARY THAT MUST HOLD: widget-lib pins Privy v2 while the Mini App runs
+  v3. Only its Privy-free subpaths may be imported. `test/invariants.test.ts`
+  enforces it and the built bundle was checked to contain 3.27.1 only, 2.25.0
+  zero times.
+  Also fixed: a malformed `NEXT_PUBLIC_PRIVY_APP_ID` threw inside
+  `PrivyProvider` during render and failed the BUILD — it is now shape-checked
+  and falls back to the "not configured" card, which itself had no CSS rule
+  (`.wallet-control` was never styled); `requirePrivyCustomAuthOwner` threw bare
+  `Error`s so a not-linked wallet and a DB fault both arrived as 500
+  `widget_auth_failed`; an origin rejection carried no CORS header so it reached
+  the browser as an opaque network failure; `bound` + `link`/`new` issues no JWT
+  and that race is now read as "already linked"; dead `@getpara/*` aliases,
+  `output: "standalone"`, and the unreachable `start_param` fallback removed.
+  TESTS: the 14 source-grep assertions are replaced by 58 real tests (vitest,
+  wired through a new `apps/telegram/vitest.config.ts`) — the launch route's
+  reason→status map, the delegation ceremony against a stubbed Privy and fetch,
+  the permit ceremony including the provider-swapped-mid-signature regression,
+  and the error-precedence rules that have regressed twice (now a pure
+  `lib/ceremony.ts`). `lint:telegram` now runs in CI, which it never did.
+  Verified: telegram typecheck/lint/58 tests/build (valid, malformed and absent
+  app id); portal typecheck + 579 tests; product-mono `cargo check`, `clippy`,
+  `fmt --check`, 61 crate tests; both themes rendered at a mobile viewport.
+
+  RECOMMENDATION ON `requires_action_approval` (the open question from the
+  plan's Phase 0) — KEEP IT. Read off the code rather than a live run, which
+  needs a Telegram account:
+  `commit_gate.rs:94-105` blocks `Auto` for Telegram unless a handover mandate
+  is settled, and its comment states the intent plainly: "Telegram is the
+  approval surface for direct bots. `server_auto` authorizes the backend key,
+  but does not authorize an individual trade." The bot's own `/permission` copy
+  already promises the same thing. Lifting the flag would mean a compromised
+  Telegram account can spend unattended, and it would silently change the
+  authorizer for every existing direct bot. The designed path for unattended
+  execution already exists — the settled handover mandate that World uses — so
+  the milestone should read "server signing works" as: the BACKEND key signs
+  (not the user's device), with the user approving each Action via
+  `/transactions` → `/sign`. That is now reachable end to end for the first
+  time. Revisit only as its own reviewed change, with a mandate mechanism, never
+  by flipping the hardcoded flag.
+
+  STILL NEEDS A HUMAN — the live staging cell has never passed and cannot be
+  driven from here (Telegram account + Privy login). Preflight first, because
+  each of these silently breaks everything:
+  - `TELEGRAM_WIDGET_BOT_IDS` on the portal: it is the FIRST check in both
+    widget routes and an unset value rejects every request with 403
+    `bot_not_allowed`.
+  - `NEXT_PUBLIC_PRIVY_APP_ID` on `tg-mini-app*` must be non-sensitive
+    (`--no-sensitive`); a sensitive `NEXT_PUBLIC_*` ships as `""`.
+  - backend needs `PRIVY_SIGNER_ID`, `PRIVY_APP_SECRET`,
+    `PRIVY_JWT_VERIFICATION_KEY`, ideally `PRIVY_AUTHORIZATION_PRIVATE_KEY`.
+  Then: DM `@hoodittest_bot` → `/wallet` → link → Enable server signing →
+  Sign permission → send an action → `/transactions` → `/sign <id>`.
+  Known unrelated wall still open: application 2937805 (`hoodit`) fails manifest
+  validation (built against aomi-sdk 4.0.0, backend requires 5.0.0), so a turn
+  can fail before any Action exists.
+
 2026-09-11 (later) — "LINKING YOUR AOMI ACCOUNT…" WAS THE TERMINAL STATE FOR
   EVERY UPSTREAM FAILURE (branch `fix/telegram-stuck-linking`, on top of
   merged #598). Reported again after #598 shipped, and the live bundle on

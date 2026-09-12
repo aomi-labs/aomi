@@ -6,6 +6,14 @@ export type TelegramLaunch = {
   startParam?: string;
 };
 
+/** Every launch this app receives is an inline `web_app` button built by the
+ *  bot, and that URL always carries `session_id`
+ *  (product-mono `aomi/bin/telegram/src/mini_app.rs`). Telegram only populates
+ *  `start_param` for direct-link launches (`t.me/<bot>/<app>?startapp=…`),
+ *  which nothing generates — so the old fallback to it was unreachable code
+ *  that read as a supported path. If direct links are ever added, restore it
+ *  deliberately, with the bot emitting the parameter. */
+
 export type LaunchContext = {
   inTelegram: boolean;
   proof: {
@@ -78,7 +86,7 @@ export async function establishTelegramLaunch(): Promise<LaunchContext> {
       initData: webApp.initData,
       telegramUserId: launch.telegramUserId,
     },
-    sessionId: querySessionId ?? launch.startParam ?? null,
+    sessionId: querySessionId,
     permissionChain,
     permissionWallet,
     permissionMode,
