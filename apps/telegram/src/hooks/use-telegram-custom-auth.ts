@@ -40,6 +40,9 @@ export type TelegramCustomAuthState = {
   /** Re-run the bootstrap from the top. Without this an error phase is
    *  terminal and the only way out is closing the Mini App. */
   retry: () => void;
+  /** Return to the wallet choice. `null` when there is nowhere to go back to,
+   *  which is also what decides whether Telegram's back button is shown. */
+  back: (() => void) | null;
 };
 
 function errorCode(error: unknown): string {
@@ -232,6 +235,12 @@ export function useTelegramCustomAuth(
     setAttempt((value) => value + 1);
   }, []);
 
+  const back = useCallback(() => {
+    setError(null);
+    awaitingModalLogin.current = false;
+    setPhase("choose");
+  }, []);
+
   const selectExistingWallet = useCallback(() => {
     setError(null);
     awaitingModalLogin.current = true;
@@ -335,6 +344,10 @@ export function useTelegramCustomAuth(
     readyForExchange,
     existingWalletAddress,
     retry,
+    // Only the two steps reached *from* the choice can go back to it. Offering
+    // it anywhere else would let someone reopen a decision already committed.
+    back:
+      effectivePhase === "email" || effectivePhase === "confirm" ? back : null,
     selectExistingWallet,
     selectNewWallet,
   };

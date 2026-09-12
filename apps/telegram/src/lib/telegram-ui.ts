@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export function webApp(): TelegramWebApp | undefined {
   return typeof window === "undefined" ? undefined : window.Telegram?.WebApp;
@@ -79,4 +79,60 @@ export function useTelegramBackButton(onBack: (() => void) | null): void {
       button.hide();
     };
   }, [onBack]);
+}
+
+/** Drive Telegram's native bottom button, and say whether it took the job.
+ *
+ *  The MainButton is the thumb-reachable, platform-native place for the one
+ *  action a screen offers, which is exactly the shape of this page. It is not
+ *  unconditionally better, though: outside Telegram — a browser preview, or any
+ *  client too old to have it — there is no button at all, and a page whose only
+ *  action lives there would be a dead end. So this reports ownership, and the
+ *  caller keeps rendering its own button whenever the answer is false.
+ *
+ *  `null` means "no action right now" and hides the button.
+ */
+export function useTelegramMainButton(
+  action: { label: string; busy?: boolean; onClick: () => void } | null,
+): boolean {
+  const button = webApp()?.MainButton;
+  // The handler identity changes every render; registering it directly would
+  // leak a listener per render. Register once, read the current one through a
+  // ref.
+  const onClick = useRef(action?.onClick);
+  useEffect(() => {
+    onClick.current = action?.onClick;
+  });
+
+  const label = action?.label ?? null;
+  const busy = action?.busy ?? false;
+
+  useEffect(() => {
+    if (!button) return;
+    const handler = () => onClick.current?.();
+    button.onClick(handler);
+    return () => {
+      button.offClick(handler);
+      button.hide();
+    };
+  }, [button]);
+
+  useEffect(() => {
+    if (!button) return;
+    if (!label) {
+      button.hide();
+      return;
+    }
+    button.setText(label);
+    if (busy) {
+      button.disable();
+      button.showProgress(false);
+    } else {
+      button.hideProgress();
+      button.enable();
+    }
+    button.show();
+  }, [busy, button, label]);
+
+  return Boolean(button);
 }

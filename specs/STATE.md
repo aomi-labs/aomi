@@ -72,6 +72,19 @@
   app id); portal typecheck + 579 tests; product-mono `cargo check`, `clippy`,
   `fmt --check`, 61 crate tests; both themes rendered at a mobile viewport.
 
+  SECOND PASS (same day) closed the gaps the first pass left: Telegram's
+  MainButton now owns the primary action with the in-page button as the
+  fallback for any client that has none (`useTelegramMainButton` reports
+  ownership), the BackButton is actually wired to a new `back()` on the auth
+  hook — it was written and never called, which is worse than absent — and the
+  launch proof's age is now visible to the client. `verifyTelegramInitData`
+  returns `authDate`, so `launchProofIsFresh` can say "reopen this from
+  Telegram" BEFORE a ceremony fails with `expired`: this app accepts a proof for
+  24 hours while the widget routes force five minutes, and nothing could see
+  that gap. product-mono gained three tests pinning `require_managed_authority`
+  (same-provider authority accepted, cross-provider and foreign wallet
+  rejected) — the boundary the Para-pin removal must not erode.
+
   RECOMMENDATION ON `requires_action_approval` (the open question from the
   plan's Phase 0) — KEEP IT. Read off the code rather than a live run, which
   needs a Telegram account:
@@ -89,18 +102,33 @@
   time. Revisit only as its own reviewed change, with a mandate mechanism, never
   by flipping the hardcoded flag.
 
-  STILL NEEDS A HUMAN — the live staging cell has never passed and cannot be
-  driven from here (Telegram account + Privy login). Preflight first, because
-  each of these silently breaks everything:
-  - `TELEGRAM_WIDGET_BOT_IDS` on the portal: it is the FIRST check in both
-    widget routes and an unset value rejects every request with 403
-    `bot_not_allowed`.
-  - `NEXT_PUBLIC_PRIVY_APP_ID` on `tg-mini-app*` must be non-sensitive
-    (`--no-sensitive`); a sensitive `NEXT_PUBLIC_*` ships as `""`.
-  - backend needs `PRIVY_SIGNER_ID`, `PRIVY_APP_SECRET`,
-    `PRIVY_JWT_VERIFICATION_KEY`, ideally `PRIVY_AUTHORIZATION_PRIVATE_KEY`.
-  Then: DM `@hoodittest_bot` → `/wallet` → link → Enable server signing →
+  PREFLIGHT RUN 2026-09-12 (`vercel env pull`, values never printed — only
+  lengths). STAGING IS READY; PRODUCTION IS BROKEN THREE WAYS AND CANNOT WORK
+  AT ALL TODAY:
+  - `tg-mini-app` (production, mini-app.aomi.dev): `NEXT_PUBLIC_PRIVY_APP_ID`
+    pulls back EMPTY. It is marked sensitive, and a sensitive `NEXT_PUBLIC_*`
+    never reaches the client bundle — so the production Mini App renders
+    "Wallet provider is not configured." Re-add with `--no-sensitive`. This is
+    the trap recorded on 2026-09-10; it is still live, now measured rather than
+    suspected.
+  - `chat-portal` PRODUCTION has NO `TELEGRAM_WIDGET_BOT_IDS` and no
+    `PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY` — not stale values, absent. The
+    bot allowlist is the FIRST check in both widget routes, so every production
+    request 403s `bot_not_allowed`, and the Custom JWT cannot be minted at all.
+  - `tg-mini-app-staging` is correct (app id 25 chars, cuid2-shaped) and
+    `chat-portal` PREVIEW (branch `main` → chat-staging.aomi.dev) carries both
+    `TELEGRAM_WIDGET_BOT_IDS` and `PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY`, set
+    2026-09-11. So the staging cell is fully configured and testable NOW.
+  Not fixed here on purpose: setting production secrets — especially moving a
+  signing key — is a deployment decision, not a code change.
+  STILL NEEDS A HUMAN — the live cell has never passed and cannot be driven from
+  here (Telegram account + Privy login). On STAGING:
+  DM `@hoodittest_bot` → `/wallet` → link → Enable server signing →
   Sign permission → send an action → `/transactions` → `/sign <id>`.
+  Also still unverified on the backend side: `PRIVY_SIGNER_ID`,
+  `PRIVY_APP_SECRET`, `PRIVY_JWT_VERIFICATION_KEY` and ideally
+  `PRIVY_AUTHORIZATION_PRIVATE_KEY` live on the Rust hosts, not in Vercel, and
+  were not inspected.
   Known unrelated wall still open: application 2937805 (`hoodit`) fails manifest
   validation (built against aomi-sdk 4.0.0, backend requires 5.0.0), so a turn
   can fail before any Action exists.

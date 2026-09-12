@@ -27,7 +27,14 @@ import {
 } from "@/lib/ceremony";
 import { explainError } from "@/lib/explain-error";
 import { embeddedWallet } from "@/lib/privy-wallet";
-import { closeApp, haptic, useTelegramChrome } from "@/lib/telegram-ui";
+import { launchProofIsFresh } from "@/lib/telegram";
+import {
+  closeApp,
+  haptic,
+  useTelegramBackButton,
+  useTelegramChrome,
+  useTelegramMainButton,
+} from "@/lib/telegram-ui";
 
 type Stage = {
   key: string;
@@ -101,6 +108,18 @@ export function WalletClient() {
   });
   const [showDetail, setShowDetail] = useState(false);
 
+  // The launch proof this app accepts for 24 hours is only good for five
+  // minutes at the BFF. Watch the deadline so a Mini App left open says
+  // "reopen this" instead of failing mid-ceremony with `expired`.
+  const [stale, setStale] = useState(false);
+  useEffect(() => {
+    if (!launch.context?.proof) return;
+    const check = () => setStale(!launchProofIsFresh(launch.context));
+    check();
+    const timer = setInterval(check, 15_000);
+    return () => clearInterval(timer);
+  }, [launch.context]);
+
   const linked = account.status === "ready";
   const signed = permission.status === "done";
 
@@ -120,7 +139,11 @@ export function WalletClient() {
     },
   };
 
-  const resolved = resolveFailure(ceremony);
+  const resolved =
+    resolveFailure(ceremony) ??
+    // Not an error the ceremony produced, but the same kind of thing: the only
+    // way forward is an action, and no progress message should hide it.
+    (stale && !signed ? { source: "launch" as const, code: "expired" } : null);
   const retryFor: Record<string, (() => void) | null> = {
     permission: permission.sign,
     delegation: delegation.delegate,
@@ -140,7 +163,7 @@ export function WalletClient() {
   );
 
   const stageStates = resolveStageStates(ceremony);
-  const action = resolveAction(ceremony);
+  const action = stale ? null : resolveAction(ceremony);
   const headline = failure ? explainError(failure.code) : resolveHeadline(ceremony);
 
   const stages: Stage[] = [
@@ -181,6 +204,21 @@ export function WalletClient() {
       (account.status !== "ready" &&
         telegramAuth.phase !== "choose" &&
         telegramAuth.phase !== "confirm"));
+
+  const primary =
+    action === "delegate"
+      ? { label: "Enable server signing", onClick: () => void delegation.delegate() }
+      : action === "sign"
+        ? { label: "Sign permission", onClick: () => void permission.sign() }
+        : failure?.retry
+          ? { label: "Try again", onClick: () => void failure.retry?.() }
+          : null;
+  // Telegram's own bottom button owns the primary action when it exists; the
+  // in-page button below is the fallback for a client that has none.
+  const nativeButton = useTelegramMainButton(
+    primary && { ...primary, busy },
+  );
+  useTelegramBackButton(telegramAuth.back);
 
   // Finish the ceremony inside Telegram rather than leaving the user to dismiss
   // a sheet that says it is done.
@@ -249,20 +287,13 @@ export function WalletClient() {
             </div>
           )}
 
-          {action === "delegate" && (
-            <Button onClick={() => void delegation.delegate()}>
-              Enable server signing
-            </Button>
-          )}
-          {action === "sign" && (
-            <Button onClick={() => void permission.sign()}>
-              Sign permission
-            </Button>
-          )}
-
-          {failure?.retry && (
-            <Button variant="outline" onClick={() => void failure.retry?.()}>
-              Try again
+          {primary && !nativeButton && (
+            <Button
+              disabled={busy}
+              variant={action ? "default" : "outline"}
+              onClick={primary.onClick}
+            >
+              {primary.label}
             </Button>
           )}
 

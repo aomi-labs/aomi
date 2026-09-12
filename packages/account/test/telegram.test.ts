@@ -60,7 +60,12 @@ describe("Telegram Mini App launch verification", () => {
   it("accepts a launch signed for the claimed bot", () => {
     expect(verify(signedInitData())).toEqual({
       ok: true,
-      launch: { botId: BOT_ID, telegramUserId: "456", startParam: undefined },
+      launch: {
+        authDate: AUTH_DATE,
+        botId: BOT_ID,
+        telegramUserId: "456",
+        startParam: undefined,
+      },
     });
   });
 
@@ -140,4 +145,17 @@ describe("Telegram Mini App launch verification", () => {
       reason: "expired",
     });
   });
+
+  it("returns the verified auth_date so callers can see the proof's age", () => {
+    // The widget-auth routes accept a proof for five minutes while this
+    // verifier accepts 24 hours. A client that cannot see the age can only
+    // discover that gap as an `expired` failure mid-ceremony.
+    const fresh = verify(signedInitData({ authDate: AUTH_DATE }));
+    expect(fresh.ok && fresh.launch.authDate).toBe(AUTH_DATE);
+
+    const older = AUTH_DATE - 60 * 60;
+    const result = verify(signedInitData({ authDate: older }));
+    expect(result.ok && result.launch.authDate).toBe(older);
+  });
+
 });
