@@ -91,7 +91,7 @@ export function ClientExample({
             TypeScript
           </button>
         </div>
-        <span>{mode === "curl" ? "api.aomi.dev" : "@aomi-labs/client"}</span>
+        <span>{mode === "curl" ? "chat.aomi.dev" : "@aomi-labs/client"}</span>
       </div>
       <div className={styles.codeBody}>
         <button

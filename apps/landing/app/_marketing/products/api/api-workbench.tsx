@@ -11,81 +11,77 @@ const examples = {
     label: "Agent API",
     version: "v1",
     endpoint: "POST /v1/agent/chat",
-    request: `curl https://api.aomi.dev/v1/agent/chat \\
+    request: `curl https://chat.aomi.dev/v1/agent/chat \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: 7c1e…" \\
   -H "Content-Type: application/json" \\
   -d '{
     "message": "Swap 0.5 ETH to USDC on Base",
     "app": "aomi",
-    "wallets": {
+    "userState": {
+      "connection": { "is_connected": true },
       "evm": {
         "address": "0xAb5…",
-        "chainId": 8453
+        "chain_id": 8453
       }
     }
   }'`,
     response: `{
-  "session": "sess_…",
-  "status": "awaiting_action",
-  "actions": [{
-    "id": "act_…",
-    "type": "external_transaction",
-    "summary": {
-      "title": "Swap 0.5 ETH for ~1,240 USDC"
-    },
-    "chainId": 8453,
-    "transactions": [{
-      "to": "0x…",
-      "data": "0x…",
-      "value": "0x0",
-      "simulation": { "success": true }
-    }]
+  "session_id": "sess_…",
+  "cursor": "cur_…",
+  "events": [{
+    "type": "message",
+    "event_id": "evt_…",
+    "sequence": 1,
+    "turn_id": "turn_…",
+    "occurred_at": 1788174000,
+    "sender": "user",
+    "content": "Swap 0.5 ETH to USDC on Base"
   }],
-  "cursor": "cur_…"
+  "has_more": false
 }`,
-    status: "awaiting_action",
-    title: "Swap 0.5 ETH for ~1,240 USDC",
-    detail: "Uniswap v3 · Base · simulated",
+    status: "event page",
+    title: "Ordered events with a durable cursor",
+    detail: "Messages, activity, turn state, and Actions share one event log",
   },
   pipeline: {
     label: "Pipeline API",
-    version: "preview",
-    endpoint: "POST /v1/pipeline/evm/build",
-    request: `curl https://api.aomi.dev/v1/pipeline/evm/build \\
+    version: "v1",
+    endpoint: "POST /v1/pipeline/evm/stage",
+    request: `curl https://chat.aomi.dev/v1/pipeline/evm/stage \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: 9a40…" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "action": "aave.supply",
-    "args": {
-      "token": "USDC",
-      "amount": "1000"
-    },
-    "wallet": "0xAb5…",
-    "chainId": 8453
+    "actions": [{
+      "chainId": 8453,
+      "description": "Supply USDC",
+      "calls": [{
+        "to": "0x…",
+        "data": "0x…",
+        "value": "0"
+      }]
+    }]
   }'`,
     response: `{
-  "status": "guards_passed",
-  "plan": {
-    "action": "aave.supply",
+  "version": 1,
+  "status": "staged",
+  "actions": [{
+    "id": "action_0",
+    "chainFamily": "evm",
+    "kind": "calls",
     "chainId": 8453,
-    "guardChecks": [
-      "wallet_bound",
-      "policy_allowed",
-      "simulation_passed"
-    ],
-    "transactions": [{
+    "calls": [{
       "to": "0x…",
       "data": "0x…",
       "value": "0x0"
     }]
-  },
-  "signable": { "ready": true }
+  }],
+  "digest": "sha256:…"
 }`,
-    status: "guards_passed",
-    title: "Supply 1,000 USDC to Aave v3",
-    detail: "3 checks passed · signable ready",
+    status: "staged",
+    title: "Portable staged EVM Build",
+    detail: "Exact ordered calls and a stable digest",
   },
 } as const;
 
@@ -149,10 +145,12 @@ export function ApiWorkbench() {
               <span>
                 <Check aria-hidden /> {example.status}
               </span>
-              <span>One durable Action · HTTP 200</span>
+              <span>Typed v1 response · HTTP 200</span>
             </div>
             <div className={styles.actionCardTop}>
-              <span>ACTION SUMMARY</span>
+              <span>
+                {surface === "agent" ? "EVENT PAGE" : "PIPELINE BUILD"}
+              </span>
               <ShieldCheck aria-hidden />
             </div>
             <h3>{example.title}</h3>
@@ -160,18 +158,29 @@ export function ApiWorkbench() {
             <div className={styles.actionStep}>
               <span>01</span>
               <div>
-                <strong>Review signable payload</strong>
+                <strong>
+                  {surface === "agent"
+                    ? "Continue from the returned cursor"
+                    : "Simulate the staged Build"}
+                </strong>
                 <small>
-                  The sealed transaction goes to the wallet already in your
-                  product. Aomi receives the verified result, never the key.
+                  {surface === "agent"
+                    ? "Poll the same session for later events and pending Actions."
+                    : "POST /simulate with { build }; commit accepts the returned simulated Build."}
                 </small>
               </div>
               <ChevronRight aria-hidden />
             </div>
             <div className={styles.responseFacts}>
-              <span>fork simulated</span>
-              <span>policy checked</span>
-              <span>unsigned out</span>
+              <span>
+                {surface === "agent" ? "ordered events" : "portable build"}
+              </span>
+              <span>
+                {surface === "agent" ? "durable cursor" : "exact calls"}
+              </span>
+              <span>
+                {surface === "agent" ? "actions recoverable" : "digest bound"}
+              </span>
             </div>
           </div>
         </div>
@@ -180,12 +189,12 @@ export function ApiWorkbench() {
           <li>
             <span>01</span>
             <strong>Request</strong>
-            <small>Intent or exact action enters the kernel</small>
+            <small>Intent or exact operation enters the API</small>
           </li>
           <li>
             <span>02</span>
-            <strong>Seal</strong>
-            <small>Simulation and policy attach to the Action</small>
+            <strong>Build</strong>
+            <small>Transactions and simulation form a portable Build</small>
           </li>
           <li>
             <span>03</span>

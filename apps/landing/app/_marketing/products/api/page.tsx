@@ -131,31 +131,31 @@ const guarantees = [
   },
 ] as const;
 
-const sdkExample = `import { createAomiClient } from "@aomi-labs/client";
-import { wagmi } from "@aomi-labs/client/wagmi";
+const sdkExample = `import { Aomi } from "@aomi-labs/client";
 
-const aomi = createAomiClient({
-  app: "aomi",
-  wallet: wagmi(config),
+const aomi = new Aomi({
+  baseUrl: "https://chat.aomi.dev",
 });
 
-for await (const event of aomi.chat(
+const run = aomi.agent.run(
   "Move my USDC into the best yield on Base",
-)) {
-  if (event.type === "message") render(event.text);
-  if (event.type === "action") await event.action.approve();
-}`;
+  { app: "aomi" },
+);
 
-const curlExample = `curl https://api.aomi.dev/v1/agent/chat \\
+run.on("action", (action) => renderApproval(action));
+const result = await run.result();
+console.log(result.sessionId, result.actions);`;
+
+const curlExample = `curl https://chat.aomi.dev/v1/agent/chat \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
   -H "Idempotency-Key: $(uuidgen)" \\
+  -H "Content-Type: application/json" \\
   -d '{ "message": "Move idle USDC into the best yield on Base",
-        "wallets": { "evm": { "address": "0xAb5…", "chainId": 8453 } } }'
+        "app": "aomi",
+        "userState": { "evm": { "address": "0xAb5…", "chain_id": 8453 } } }'
 
-# → 200 { "status": "awaiting_action", "actions": [ { "id": "act_…",
-#         "summary": { "title": "Supply 2,000 USDC to Morpho Blue", … },
-#         "transactions": [ { "to": "0x…", "data": "0x…", "simulation": { "success": true } } ] } ],
-#       "cursor": "cur_…" }`;
+# → 200 { "session_id": "sess_…", "cursor": "cur_…",
+#         "events": […], "has_more": false }`;
 
 const integrationLedger = [
   {
@@ -323,21 +323,16 @@ export default function RestApiProductPage({
                 <span className={`${styles.apiIcon} ${styles.pipelineIcon}`}>
                   <Waypoints aria-hidden />
                 </span>
-                <span
-                  className={styles.previewBadge}
-                  title="Available to design partners today. The contract is stable; public self-serve access is rolling out."
-                >
-                  PREVIEW
-                </span>
+                <span className={styles.contractBadge}>V1 CONTRACT</span>
               </div>
               <p className={styles.apiIndex}>
                 02 · YOUR SYSTEM SELECTS THE ACTION
               </p>
               <h3>Pipeline API</h3>
               <p className={styles.apiCardBody}>
-                Select a catalog action or assemble a batch directly. Receive a
-                Plan containing the simulation verdict, typed guard checks, and
-                unsigned signable—with no Aomi inference or chat session.
+                Select a catalog operation or assemble a batch directly. Receive
+                a portable Build with ordered actions, simulation evidence, and
+                a stable digest—with no chat session.
               </p>
               <div className={styles.endpointList}>
                 <span>
@@ -370,21 +365,21 @@ export default function RestApiProductPage({
         <div className={styles.shell}>
           <div className={styles.contractCopy}>
             <p className={styles.eyebrow}>THE SHARED CONTRACT</p>
-            <h2>Both APIs resolve to the same Action.</h2>
+            <h2>Both APIs can reach the same Action boundary.</h2>
             <p>
-              Agent chat and pipeline builds resolve into the same durable,
-              sealed approval object. One confirmation UI, one wallet binding,
-              both APIs—move between them without rebuilding either.
+              Agent chat emits Actions in its event log. Pipeline commit returns
+              an Action when wallet approval is required. One confirmation UI
+              can render the same request union from either path.
             </p>
             <ul>
               <li>
-                <Check aria-hidden /> Kernel-authored summary
+                <Check aria-hidden /> Typed Action request union
               </li>
               <li>
                 <Check aria-hidden /> EVM and SVM execution envelopes
               </li>
               <li>
-                <Check aria-hidden /> Deferred and multisig-aware lifecycle
+                <Check aria-hidden /> Revisioned, recoverable lifecycle
               </li>
             </ul>
           </div>
@@ -398,7 +393,7 @@ export default function RestApiProductPage({
                   <Bot aria-hidden /> Agent event
                 </span>
                 <span>
-                  <Braces aria-hidden /> Pipeline Plan
+                  <Braces aria-hidden /> Pipeline commit
                 </span>
               </div>
               <div className={styles.contractLines} aria-hidden>
@@ -456,10 +451,10 @@ export default function RestApiProductPage({
               </div>
               <p>
                 The Agent API accepts customer intent and lets Aomi plan. The
-                Pipeline API accepts the exact action or batch your own agent,
-                strategy, or product selected. Both resolve to the same Action
-                contract and cross the same simulation, policy, signer, and
-                verification boundary.
+                Pipeline API accepts the exact operation or batch your own
+                agent, strategy, or product selected. Its portable Build crosses
+                simulation before commit; commit returns an Action when a wallet
+                must finish the work.
               </p>
             </div>
 
@@ -486,12 +481,14 @@ export default function RestApiProductPage({
                   Keep your own model, strategy, and routing logic. Submit one
                   catalog action or an ordered batch directly.
                 </p>
-                <code>ActionSpec | ActionSpec[]</code>
+                <code>PipelineOperationBuildInput</code>
               </article>
             </div>
 
             <div className={styles.sharedActionBand}>
-              <span>Both surfaces resolve to the same sealed Action</span>
+              <span>
+                Both surfaces can hand the same Action union to a signer
+              </span>
               <strong>
                 One confirmation UI · one wallet binding · one evidence trail
               </strong>
@@ -593,9 +590,8 @@ export default function RestApiProductPage({
               <p>
                 The API is plain JSON over HTTPS—call it from the backend
                 language already in production. Teams shipping in TypeScript can
-                use the client, which hides sessions, cursors, retries,
-                idempotency keys, and signature routing behind one wallet
-                binding.
+                use the client, which manages sessions, cursors, retries, and
+                idempotency while keeping Action approval explicit.
               </p>
               <div className={styles.adapterRow}>
                 <span>
@@ -675,8 +671,8 @@ export default function RestApiProductPage({
               Integrating into an existing product? Start here. Want Aomi to
               host the agent and the customer-facing surface too? See the{" "}
               <Link href={humanInterfaceHref}>Human Interface</Link> and{" "}
-              <Link href={pluginSdkHref}>Plugin SDK</Link>—same Action, same
-              signer, no rebuild when you move between them.
+              <Link href={pluginSdkHref}>Plugin SDK</Link>—the same signer can
+              remain in control across every surface.
             </p>
           </div>
           <div className={styles.finalActions}>

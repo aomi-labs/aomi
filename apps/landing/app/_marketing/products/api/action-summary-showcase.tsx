@@ -7,7 +7,7 @@ import styles from "./rest-api.module.css";
 
 type SourceKey = "agent" | "pipeline" | "safe";
 
-type FieldKey = "title" | "steps" | "cost" | "warnings" | "expiresAt";
+type FieldKey = "id" | "revision" | "state" | "request" | "result";
 
 type SheetStep = {
   label: string;
@@ -35,8 +35,8 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
   agent: {
     tabLabel: "Agent API",
     tabTag: "v1",
-    sourceExpr: "event.action.summary",
-    sourceNote: "from a chat turn",
+    sourceExpr: "event.request",
+    sourceNote: "Action event from a chat turn",
     title: "Swap 0.5 ETH for ~1,240 USDC",
     steps: [
       { label: "Wrap 0.5 ETH", amount: "−0.5 ETH", direction: "out" },
@@ -49,7 +49,7 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
     ],
     cost: "Gas: you pay ~$1.20",
     warning: "Price impact 2.3%",
-    usedFields: ["title", "steps", "cost", "warnings"],
+    usedFields: ["id", "revision", "state", "request"],
     requestLabel: "one call · chat",
     request: [
       "POST /v1/agent/chat",
@@ -58,14 +58,14 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
       "",
       '{ "message": "Swap 0.5 ETH to USDC on Base",',
       '  "app": "aomi",',
-      '  "wallets": { "evm": { "address": "0xAb5…", "chainId": 8453 } } }',
+      '  "userState": { "evm": { "address": "0xAb5…", "chain_id": 8453 } } }',
     ],
   },
   pipeline: {
     tabLabel: "Pipeline API",
-    tabTag: "preview",
-    sourceExpr: "plan.action.summary",
-    sourceNote: "from /v1/pipeline/evm/build",
+    tabTag: "v1",
+    sourceExpr: "commit.action?.request",
+    sourceNote: "when commit returns awaiting_wallet",
     title: "Rotate 2,000 USDC into Morpho",
     steps: [
       {
@@ -82,26 +82,26 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
       },
     ],
     cost: "Gas: sponsored · 1 signature",
-    usedFields: ["title", "steps", "cost"],
-    requestLabel: "three calls · stage, stage, commit",
+    usedFields: ["id", "revision", "state", "request"],
+    requestLabel: "portable build · stage, simulate, commit",
     request: [
       "POST /v1/pipeline/evm/stage",
-      '{ "action": "aave.withdraw", "args": { "amount": "ALL" },',
-      '  "wallet": "0xAb5…", "chainId": 8453 }',
-      '→ { "state": "pst_…", "staged": [{ "id": 1 }] }',
+      '{ "actions": [{ "chainId": 8453, "calls": [',
+      '  { "to": "0x…", "data": "0x…", "value": "0" }',
+      "] }] }",
       "",
-      "POST /v1/pipeline/evm/stage",
-      '{ "state": "pst_…", "action": "morpho.deposit", "args": { "amount": "ALL" } }',
+      "POST /v1/pipeline/evm/simulate",
+      '{ "build": { "version": 1, "status": "staged", … } }',
       "",
       "POST /v1/pipeline/evm/commit",
-      '{ "state": "pst_…", "ids": [1, 2] }        // one batch, one signature',
+      '{ "build": { "version": 1, "status": "simulated", … } }',
     ],
   },
   safe: {
     tabLabel: "Safe signer",
-    tabTag: "deferred",
-    sourceExpr: 'aomi.actions.get("act_…").summary',
-    sourceNote: "same object, any device",
+    tabTag: "recovery",
+    sourceExpr: "pendingAction.request",
+    sourceNote: "same Action revision, any device",
     title: "Transfer 50,000 USDC to treasury ops",
     steps: [
       {
@@ -113,14 +113,12 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
     ],
     cost: "Gas: paid by the Safe",
     deferredHint: "Awaiting 2 of 3 signatures. The Action waits.",
-    usedFields: ["title", "steps", "cost", "expiresAt"],
-    requestLabel: "recover, then report deferred",
+    usedFields: ["id", "revision", "state", "request"],
+    requestLabel: "recover a pending Action",
     request: [
       "GET /v1/agent/chat/{session}?cursor=cur_…",
       "// unresolved actions come back in every delta, from any device",
-      "",
-      "POST /v1/agent/chat/{session}/actions/{action}/result",
-      '{ "status": "deferred", "reference": "safe:tx:0x…" }   // quorum still open',
+      '// report only a supported result: "submitted", "signed", or "rejected"',
     ],
   },
 };
@@ -131,140 +129,71 @@ function interfaceLines(): CodeLine[] {
   const kw = styles.showcaseKw;
   const ty = styles.showcaseTy;
   const cm = styles.showcaseCm;
-  const str = styles.showcaseStr;
-
   return [
     {
       content: (
         <>
           <span className={kw}>interface</span>{" "}
-          <span className={ty}>ActionSummary</span> {"{"}
+          <span className={ty}>Action</span> {"{"}
         </>
       ),
     },
+    { content: '  type: "action"' },
+    { content: "  event_id: string" },
+    { content: "  sequence: number" },
+    { content: "  turn_id: string | null" },
+    { content: "  occurred_at: number" },
     {
-      field: "title",
+      field: "id",
       content: (
         <>
-          {"  title: "}
+          {"  id: "}
           <span className={ty}>string</span>
         </>
       ),
     },
     {
-      field: "steps",
+      field: "revision",
       content: (
         <>
-          {"  steps: "}
-          <span className={ty}>Step</span>
-          {"[]        "}
-          <span className={cm}>{"// what happens, in order"}</span>
+          {"  revision: "}
+          <span className={ty}>number</span>
         </>
       ),
     },
     {
-      field: "cost",
+      field: "state",
       content: (
         <>
-          {"  cost: "}
-          <span className={ty}>Cost</span>
-          {"           "}
-          <span className={cm}>{"// gas payer, fees, all-in"}</span>
+          {"  state: "}
+          <span className={ty}>Action</span>[
+          <span className={cm}>{'"state"'}</span>]
         </>
       ),
     },
     {
-      field: "warnings",
+      field: "request",
       content: (
         <>
-          {"  warnings: "}
-          <span className={ty}>Warning</span>
-          {"[]  "}
-          <span className={cm}>{"// empty = clean"}</span>
+          {"  request: "}
+          <span className={ty}>ActionRequest</span>
+          {"  "}
+          <span className={cm}>{"// execute_evm | execute_svm | sign"}</span>
         </>
       ),
     },
     {
-      field: "expiresAt",
+      field: "result",
       content: (
         <>
-          {"  expiresAt: "}
-          <span className={ty}>string</span> <span className={kw}>|</span>{" "}
+          {"  result?: "}
+          <span className={ty}>ActionResult</span> <span className={kw}>|</span>{" "}
           <span className={kw}>null</span>
         </>
       ),
     },
-    { content: "}" },
-    { content: " " },
-    {
-      content: (
-        <>
-          <span className={kw}>interface</span> <span className={ty}>Step</span>{" "}
-          {"{"}
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"  label: "}
-          <span className={ty}>string</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"  detail?: "}
-          <span className={ty}>string</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"  asset?: {            "}
-          <span className={cm}>{"// present when value moves"}</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"    direction: "}
-          <span className={str}>&apos;out&apos;</span>{" "}
-          <span className={kw}>|</span>{" "}
-          <span className={str}>&apos;in&apos;</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"    amount: "}
-          <span className={ty}>string</span>
-          {"    "}
-          <span className={cm}>{"// human units, always"}</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"    symbol: "}
-          <span className={ty}>string</span>
-        </>
-      ),
-    },
-    {
-      content: (
-        <>
-          {"    usd?: "}
-          <span className={ty}>string</span>
-        </>
-      ),
-    },
-    { content: "  }" },
+    { content: "  created_at: number" },
+    { content: "  expires_at: number | null" },
     { content: "}" },
   ];
 }
@@ -362,14 +291,14 @@ export function ActionSummaryShowcase() {
           ))}
         </div>
         <span className={styles.showcaseChip}>
-          <ShieldCheck aria-hidden /> one ConfirmSheet · every source
+          <ShieldCheck aria-hidden /> one Action renderer · every source
         </span>
       </div>
 
       <div className={styles.showcaseRequest} key={`${source}-req`}>
         <div className={styles.showcaseTypeLabel}>
           <span>{example.requestLabel}</span>
-          <span>raw http · the call that produced the Action</span>
+          <span>raw http · contract-accurate request flow</span>
         </div>
         <RequestCode lines={example.request} />
       </div>
@@ -377,13 +306,13 @@ export function ActionSummaryShowcase() {
       <div className={styles.showcaseBody}>
         <div className={styles.showcaseType}>
           <div className={styles.showcaseTypeLabel}>
-            <span>action.summary</span>
-            <span>typed · sealed by the kernel</span>
+            <span>Action</span>
+            <span>exported by @aomi-labs/client</span>
           </div>
           <InterfaceCode used={example.usedFields} />
           <p className={styles.showcaseTypeFoot}>
             <span>filled by this example</span>
-            {(["title", "steps", "cost", "warnings", "expiresAt"] as const).map(
+            {(["id", "revision", "state", "request", "result"] as const).map(
               (field) => (
                 <em
                   key={field}
@@ -452,15 +381,15 @@ export function ActionSummaryShowcase() {
           </article>
 
           <p className={styles.showcaseFoot}>
-            rendered entirely from the type · the renderer maps over steps
+            approval view derived from Action.request and its simulation
           </p>
         </div>
       </div>
 
       <p className={styles.showcaseCaption}>
-        A single swap, an ordered batch, a transfer waiting on a Safe quorum:
-        the renderer never branches. Ship one confirm sheet and it covers
-        everything either API will ever produce.
+        The host branches on Action.request.type, then renders its exact
+        transactions or signing payload and attached simulation. Pending Actions
+        remain revisioned and recoverable until a supported result is reported.
       </p>
     </div>
   );
