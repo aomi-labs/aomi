@@ -85,6 +85,20 @@
   (same-provider authority accepted, cross-provider and foreign wallet
   rejected) — the boundary the Para-pin removal must not erode.
 
+  REVIEW ROUND 1 (Codex, P1 accepted): `/permission` offered the Mini App button
+  for any key `account_execution_key` resolved, including a Para-provisioned
+  agent key the Privy Mini App can authorize in NEITHER direction —
+  `provider_managed` + Loosen is forced to Tighten, and Tighten runs
+  `require_managed_authority`, which demands an authority wallet from the
+  managed key's own provider, so both enable and disable end in 403
+  `wrong_signer`. `mini_app_can_authorize` now gates the button and both command
+  paths explain the mismatch instead. Two details of the report were wrong and
+  were checked before acting: it is NOT `missing_delegated_account` (agent
+  provisioning writes a `signing_delegations` row with no expiry at
+  `para/agent.rs:327`, so the precondition passes and the failure is at the
+  signature), and World handover is NOT affected (that branch already returns
+  `keyboard: None`).
+
   RECOMMENDATION ON `requires_action_approval` (the open question from the
   plan's Phase 0) — KEEP IT. Read off the code rather than a live run, which
   needs a Telegram account:
