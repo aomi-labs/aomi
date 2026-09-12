@@ -6,12 +6,18 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CapabilityMentionInput } from "./input";
 import { CapabilityComposerProvider, useCapabilityComposer } from "./provider";
 
 const fixture = vi.hoisted(() => ({
+  text: "",
+  setText: vi.fn(),
+  items: [],
   runConfig: { custom: { preserved: "host setting" } } as {
     custom: Record<string, unknown>;
   },
+  threadId: "thread-a",
+  onSend: () => {},
   mode: "auto" as "auto" | "direct",
   sent: [] as unknown[],
   getAuthorizedApps: vi.fn(async () => []),
@@ -20,18 +26,28 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock("@assistant-ui/react", () => ({
   useComposerRuntime: () => runtime,
+  unstable_useComposerInput: () => ({
+    value: fixture.text,
+    setText: fixture.setText,
+    isDisabled: false,
+  }),
 }));
 vi.mock("@aomi-labs/react", () => ({
   useControl: () => fixture,
   useThreadContext: () => ({
-    currentThreadId: "thread-a",
-    threadViewKey: "thread-a",
+    currentThreadId: fixture.threadId,
+    threadViewKey: fixture.threadId,
     getThreadMetadata: () => ({
       control: { agentMode: fixture.mode, app: "default" },
     }),
   }),
 }));
+vi.mock("./catalog", () => ({ useCapabilityCatalog: () => fixture.items }));
 const runtime = {
+  unstable_on: (_event: string, callback: () => void) => {
+    fixture.onSend = callback;
+    return () => {};
+  },
   getState: () => ({ runConfig: fixture.runConfig }),
   // Model React-backed configuration: a setter cannot update the send
   // handler's configuration snapshot within the same event.
@@ -52,7 +68,6 @@ function Composer() {
             id: "eip155:8453",
             key: "chain:eip155:8453",
             label: "Base",
-            token: "◇ Base",
           })
         }
       >
@@ -61,7 +76,43 @@ function Composer() {
       <button onClick={() => composer.retainMentions(new Set())}>
         Remove Base
       </button>
-      <button onClick={() => fixture.sent.push(fixture.runConfig)}>
+      <button
+        onClick={() =>
+          composer.addMention({
+            kind: "app",
+            id: "application:2937773",
+            key: "app:cambrian",
+            label: "Cambrian",
+          })
+        }
+      >
+        Choose Cambrian
+      </button>
+      <button
+        onClick={() =>
+          composer.addMention({
+            kind: "skill",
+            id: "across",
+            key: "skill:across",
+            label: "Across",
+          })
+        }
+      >
+        Choose Across
+      </button>
+      <button onClick={() => composer.removeApp("app:cambrian")}>
+        Remove app
+      </button>
+      <button onClick={composer.openCapabilityPicker}>Open picker</button>
+      <span data-testid="selections">
+        {composer.mentions.map((item) => item.label).join(",")}
+      </span>
+      <button
+        onClick={() => {
+          fixture.sent.push(fixture.runConfig);
+          fixture.onSend();
+        }}
+      >
         Send button
       </button>
       <form
@@ -86,12 +137,19 @@ function Harness() {
       }}
     >
       <Composer />
+      <CapabilityMentionInput
+        placeholder="Message"
+        className="aui-composer-input overflow-x-hidden"
+      />
     </CapabilityComposerProvider>
   );
 }
 
 beforeEach(() => {
   fixture.runConfig = { custom: { preserved: "host setting" } };
+  fixture.text = "";
+  localStorage.clear();
+  fixture.threadId = "thread-a";
   fixture.mode = "auto";
   fixture.sent = [];
 });
@@ -142,4 +200,134 @@ describe("capability configuration before send", () => {
       custom: { preserved: "host setting" },
     });
   });
+});
+
+describe("persistent app selections", () => {
+  it("keeps apps after send and sends removal exactly once", async () => {
+    render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Choose Cambrian"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Send button"));
+    });
+    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Remove app"));
+    });
+    expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
+      removedApps: [{ id: "application:2937773" }],
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Send button"));
+    });
+    expect(fixture.sent[1]).toMatchObject({
+      custom: {
+        aomiCapabilityHints: { removedApps: [{ id: "application:2937773" }] },
+      },
+    });
+    expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
+  });
+  it("restores each conversation and clears pending removal on reselection", async () => {
+    const view = render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Choose Cambrian"));
+    });
+    fixture.threadId = "thread-b";
+    await act(async () => {
+      view.rerender(<Harness />);
+    });
+    expect(screen.getByTestId("selections").textContent).toBe("");
+    fixture.threadId = "thread-a";
+    await act(async () => {
+      view.rerender(<Harness />);
+    });
+    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+    await act(async () => {
+      fireEvent.click(screen.getByText("Remove app"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Choose Cambrian"));
+    });
+    expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
+      "removedApps",
+    );
+    view.unmount();
+    render(<Harness />);
+    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+  });
+});
+
+it.each(["chip", "input"])(
+  "keeps the app after text clears and supports Delete from %s",
+  async (target) => {
+    const view = render(<Harness />);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Choose Cambrian"));
+    });
+    expect(
+      screen.getByRole("button", { name: "Remove Cambrian" }),
+    ).toBeVisible();
+    fixture.text = "search USDC";
+    await act(async () => {
+      view.rerender(<Harness />);
+    });
+    fixture.text = "";
+    await act(async () => {
+      view.rerender(<Harness />);
+    });
+    const chip = screen.getByRole("button", { name: "Remove Cambrian" });
+    expect(chip).toBeVisible();
+    expect(chip.textContent).toBe("Cambrian");
+    expect(chip.querySelector("svg")).not.toBeNull();
+    expect(chip.className).not.toMatch(/rounded|bg-/);
+
+    await act(async () => {
+      fireEvent.keyDown(
+        target === "chip"
+          ? chip
+          : screen.getByRole("textbox", { name: "Message input" }),
+        { key: "Delete" },
+      );
+    });
+    expect(
+      screen.queryByRole("button", { name: "Remove Cambrian" }),
+    ).toBeNull();
+    expect(fixture.runConfig.custom.aomiCapabilityHints).toHaveProperty(
+      "removedApps",
+    );
+  },
+);
+
+it("clears submitted skill mentions while retaining apps without skill avoidance guidance", async () => {
+  fixture.text = "✦ Across hello";
+  const view = render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Choose Cambrian"));
+    fireEvent.click(screen.getByText("Choose Across"));
+  });
+  expect(screen.getByTestId("selections").textContent).toBe("Cambrian,Across");
+  await act(async () => {
+    fireEvent.click(screen.getByText("Send button"));
+  });
+  fixture.text = "";
+  await act(async () => {
+    view.rerender(<Harness />);
+  });
+  expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+  expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
+    "removedApps",
+  );
+});
+
+it("mounts the picker outside the composer overflow boundary", async () => {
+  render(<Harness />);
+  await act(async () => {
+    fireEvent.click(screen.getByText("Open picker"));
+  });
+
+  const listbox = screen.getByRole("listbox", {
+    name: "Apps, skills, and chains",
+  });
+  expect(listbox.closest(".overflow-x-hidden")).toBeNull();
 });

@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { AppWindowIcon } from "lucide-react";
 import { useCapabilityComposer } from "./provider";
 import { useCapabilityCatalog } from "./catalog";
 import { CapabilityPicker } from "./picker";
@@ -54,6 +55,7 @@ export const CapabilityMentionInput: FC<{
   const {
     mentions,
     addMention,
+    removeApp,
     retainMentions,
     hintsEnabled,
     capabilityPickerRequest,
@@ -279,6 +281,13 @@ export const CapabilityMentionInput: FC<{
       const editor = editorRef.current;
       if (!editor) return;
       range.deleteContents();
+      if (item.kind === "app") {
+        addMention(item);
+        closePicker();
+        syncEditor();
+        editor.focus();
+        return;
+      }
 
       const mention = document.createElement("span");
       mention.contentEditable = "false";
@@ -286,8 +295,7 @@ export const CapabilityMentionInput: FC<{
       mention.dataset.capabilityKind = item.kind;
       mention.className =
         "text-aomi-accent relative top-px mx-0.5 inline-flex items-center gap-1 whitespace-nowrap align-baseline font-medium";
-      const glyph =
-        item.kind === "skill" ? "✦" : item.kind === "app" ? "▦" : "◇";
+      const glyph = item.kind === "skill" ? "✦" : "◇";
       mention.dataset.capabilityToken = `${glyph} ${item.label}`;
       const iconTarget = document.createElement("span");
       iconTarget.setAttribute("aria-hidden", "true");
@@ -397,6 +405,18 @@ export const CapabilityMentionInput: FC<{
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.nativeEvent.isComposing) return;
     if (
+      hintsEnabled &&
+      !value.trim() &&
+      (event.key === "Backspace" || event.key === "Delete")
+    ) {
+      const app = mentions.filter((item) => item.kind === "app").at(-1);
+      if (app) {
+        event.preventDefault();
+        removeApp(app.key);
+        return;
+      }
+    }
+    if (
       event.key === "Backspace" &&
       editorRef.current &&
       removeCapabilityMentionBeforeCaret(editorRef.current)
@@ -443,30 +463,66 @@ export const CapabilityMentionInput: FC<{
   return (
     <>
       <div className="relative">
-        {!hasText ? (
-          <span className="text-aomi-muted pointer-events-none absolute left-4 top-1.5 text-[13px]">
-            {placeholder}
-          </span>
-        ) : null}
-        <div
-          ref={editorRef}
-          role="textbox"
-          aria-label="Message input"
-          aria-multiline="true"
-          aria-autocomplete="list"
-          aria-expanded={query !== null}
-          aria-controls={query !== null ? pickerId : undefined}
-          aria-activedescendant={
-            query !== null && highlighted >= 0
-              ? `${pickerId}-option-${highlighted}`
-              : undefined
-          }
-          contentEditable={!isDisabled}
-          suppressContentEditableWarning
-          onInput={syncEditor}
-          onKeyDown={handleKeyDown}
-          className={`${className} min-h-[30px]`}
-        />
+        <div className={`${className} flex flex-wrap items-baseline gap-x-1`}>
+          {hintsEnabled && mentions.some((item) => item.kind === "app") && (
+            <span className="contents" aria-label="Selected apps">
+              {mentions
+                .filter((item) => item.kind === "app")
+                .map((item) => {
+                  const Icon =
+                    items.find((candidate) => candidate.key === item.key)
+                      ?.Icon ?? AppWindowIcon;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-label={`Remove ${item.label}`}
+                      className="text-aomi-accent relative top-px mx-0.5 inline-flex items-center gap-1 whitespace-nowrap align-baseline font-medium"
+                      onClick={() => removeApp(item.key)}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Backspace" ||
+                          event.key === "Delete"
+                        ) {
+                          event.preventDefault();
+                          removeApp(item.key);
+                        }
+                      }}
+                    >
+                      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+            </span>
+          )}
+          <div className="relative min-w-[80px] flex-1">
+            {!hasText ? (
+              <span className="text-aomi-muted pointer-events-none absolute left-0 top-0">
+                {placeholder}
+              </span>
+            ) : null}
+            <div
+              ref={editorRef}
+              role="textbox"
+              aria-label="Message input"
+              aria-multiline="true"
+              aria-autocomplete="list"
+              aria-expanded={query !== null}
+              aria-controls={query !== null ? pickerId : undefined}
+              aria-activedescendant={
+                query !== null && highlighted >= 0
+                  ? `${pickerId}-option-${highlighted}`
+                  : undefined
+              }
+              contentEditable={!isDisabled}
+              suppressContentEditableWarning
+              onInput={syncEditor}
+              onKeyDown={handleKeyDown}
+              className="min-h-[30px] w-full outline-none"
+            />
+          </div>
+        </div>
         {hintsEnabled && query !== null ? (
           <CapabilityPicker
             pickerId={pickerId}

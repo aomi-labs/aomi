@@ -1,6 +1,11 @@
 import {
+  mergeProviderWalletAttestations,
+  resolveAttestedProviderWallets,
+} from "@aomi-labs/account/account";
+import {
   getWidgetProvider,
   widgetCredentialWireSchema,
+  type AttestedWallet,
   type VerifiedProviderIdentity,
   type WidgetProviderDescriptor,
 } from "@aomi-labs/account/providers";
@@ -35,4 +40,59 @@ export async function verifyWidgetProviderCredential(body: unknown): Promise<{
     keyId: credential.data.key_id,
   });
   return { descriptor, identity };
+}
+
+/**
+ * Resolve every wallet this provider attests it custodies for a verified
+ * subject, for flows that cannot function without a hosted wallet.
+ *
+ * Two sources, merged, neither of them a client claim:
+ *
+ * 1. The provider's own server-side wallet API, queried with our API secret.
+ *    Authoritative where it has the data — but Para's `GET /v1/wallets` is
+ *    indexed by pregen login handle and simply does not return wallets a user
+ *    created through the client SDK, which is every Telegram Mini App user. So
+ *    an empty or unavailable answer here proves nothing and must not fail the
+ *    exchange on its own.
+ * 2. The provider token's own signed wallet attestation. For Para that is
+ *    `data.wallets`, signed by the same key, under the same audience, as the
+ *    `sub` we bind the canonical account to. External/connected wallets are
+ *    stripped upstream and never appear here.
+ *
+ * This mirrors what the native credential path has always done
+ * (`prepareVerifiedCredential` merges the same two sources); the widget path
+ * was the outlier in discarding the token attestation.
+ *
+ * Only an empty merged set is a failure: `provider_hosted_wallet_missing`
+ * (422) means neither source knows of an embedded wallet for this user, so
+ * there is nothing that could sign.
+ */
+export async function requireAttestedProviderWallets(
+  identity: VerifiedProviderIdentity,
+): Promise<AttestedWallet[]> {
+  const resolution = await resolveAttestedProviderWallets({
+    provider: identity.provider,
+    subject: identity.subject,
+    email: identity.email?.value,
+    loginIdentifier: identity.loginIdentifier,
+  });
+  const wallets = mergeProviderWalletAttestations(
+    resolution.status === "attested" ? resolution.wallets : [],
+    identity.walletAttestations,
+  );
+  if (!wallets.length) {
+    // Three different failures used to arrive as one 422, which is exactly the
+    // distinction `resolveAttestedProviderWallets` exists to preserve: a
+    // provider whose REST credentials are missing, a provider API that failed,
+    // and a provider that genuinely attests no wallet are not the same
+    // incident. Only the last is the user's problem.
+    if (resolution.status === "unconfigured") {
+      throw new WidgetAuthError("provider_wallet_api_unconfigured", 500);
+    }
+    if (resolution.status === "unavailable") {
+      throw new WidgetAuthError("provider_wallet_api_unavailable", 503);
+    }
+    throw new WidgetAuthError("provider_hosted_wallet_missing", 422);
+  }
+  return wallets;
 }

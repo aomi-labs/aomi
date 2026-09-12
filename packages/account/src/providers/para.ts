@@ -5,7 +5,11 @@ import type {
   VerifiedProviderIdentity,
   WidgetProviderDescriptor,
 } from "./descriptor";
-import { validWalletAddress, type AttestedWallet } from "./wallet-attestation";
+import {
+  validWalletAddress,
+  type AttestedWallet,
+  type ProviderLoginIdentifier,
+} from "./wallet-attestation";
 
 type ParaClaims = {
   sub?: string;
@@ -187,13 +191,24 @@ export async function verifyParaWidgetCredential(input: {
   const nestedVerified = nested?.emailVerified ?? nested?.email_verified;
   const emailVerified =
     payload.email_verified === true || nestedVerified === true;
-  // Validate the wallet-claim shape (reject malformed tokens) but do NOT
-  // surface these as trusted attestations: the wallet arrays embedded in the
-  // Para session JWT are self-asserted claims whose trust level is "none".
-  // Only wallets fetched from Para's authenticated API
-  // (`listParaWalletsForUser`) are trusted for linking, so the widget path
-  // returns no attestations here.
-  walletClaims(nested?.wallets ?? payload.wallets, "wallets");
+  // `data.wallets` is Para's own signed statement of the embedded wallets it
+  // custodies for this subject. It carries exactly the trust of the `sub` we
+  // bind the canonical account to: same RS256 signature, same JWKS, same
+  // audience pinned to our API key — a client can choose which token to
+  // present but cannot alter a field in it. Treating `sub` as authoritative
+  // while calling this array unverifiable would be incoherent.
+  //
+  // Para's REST wallet list cannot replace it: `GET /v1/wallets` is indexed by
+  // pregen login handle and does not return wallets a user created through the
+  // client SDK, so it is a supplementary source (see
+  // `requireAttestedProviderWallets`), not the proof.
+  //
+  // `connectedWallets` stays discarded, and that is the boundary that matters:
+  // those are external wallets attached to the session, not Para-custodied, so
+  // they can never back hosted signing.
+  const walletAttestations = paraTokenWalletAttestations(
+    walletClaims(nested?.wallets ?? payload.wallets, "wallets"),
+  );
   walletClaims(
     nested?.connectedWallets ??
       nested?.connected_wallets ??
@@ -209,7 +224,8 @@ export async function verifyParaWidgetCredential(input: {
     subject,
     expiresAt,
     email: email ? { value: email, verified: emailVerified } : undefined,
-    walletAttestations: [],
+    loginIdentifier: paraLoginIdentifier(nested),
+    walletAttestations,
     metadata: {
       audience,
       expiresAt,
@@ -218,13 +234,88 @@ export async function verifyParaWidgetCredential(input: {
   };
 }
 
+/** The login handle Para verified for this session (`data.authType` +
+ *  `data.identifier`). Para's wallet API is partner-scoped and keyed by this
+ *  pair — the JWT `sub` is a Para user id and no `userIdentifierType` names
+ *  it — so this is what makes a server-side wallet attestation possible. */
+function paraLoginIdentifier(
+  nested: Record<string, unknown> | undefined,
+): ProviderLoginIdentifier | undefined {
+  const type = stringClaim(nested?.authType);
+  const value = stringClaim(nested?.identifier);
+  return type && value ? { type, value } : undefined;
+}
+
+/** Convert Para's signed `data.wallets` entries into attested wallets. Only
+ *  wallets on a family we can key a `public_keys` row for, with a wallet id and
+ *  a well-formed address, survive; the entries carry no `scheme` because
+ *  membership in this array is itself the custody signal. */
+function paraTokenWalletAttestations(
+  claims: readonly unknown[],
+): AttestedWallet[] {
+  const wallets: AttestedWallet[] = [];
+  for (const claim of claims) {
+    const row = claim as { id?: unknown; type?: unknown; address?: unknown };
+    const family = paraWalletFamily(stringClaim(row.type));
+    const providerWalletId = stringClaim(row.id);
+    if (!family || !providerWalletId) continue;
+    if (!validWalletAddress(family, row.address)) continue;
+    wallets.push({
+      provider: "para",
+      providerWalletId,
+      family,
+      address: row.address,
+      chainScope: null,
+    });
+  }
+  return wallets;
+}
+
+export type ParaUserIdentifierType =
+  | "EMAIL"
+  | "PHONE"
+  | "CUSTOM_ID"
+  | "GUEST_ID"
+  | "DISCORD"
+  | "TWITTER"
+  | "TELEGRAM"
+  | "FARCASTER";
+
+/** Map a Para `authType` onto the `userIdentifierType` its REST wallet API
+ *  accepts. Unmapped types — `externalWallet` above all — have no REST
+ *  equivalent: an external wallet is not Para-custodied, so there is nothing
+ *  to attest and callers must fail closed rather than guess an identifier. */
+export function paraUserIdentifierType(
+  authType: string | undefined | null,
+): ParaUserIdentifierType | null {
+  switch (authType?.trim().toLowerCase()) {
+    case "email":
+      return "EMAIL";
+    case "phone":
+      return "PHONE";
+    case "telegram":
+      return "TELEGRAM";
+    case "farcaster":
+      return "FARCASTER";
+    case "discord":
+      return "DISCORD";
+    case "twitter":
+    case "x":
+      return "TWITTER";
+    case "guest":
+      return "GUEST_ID";
+    default:
+      return null;
+  }
+}
+
 /** Fetch every wallet Para attests is owned by the user identified by
  * `userIdentifier` / `userIdentifierType`. Filters to embedded/MPC wallets
  * Para custody-shares; external imports must still go through SIWE/SIWS. */
 export async function listParaWalletsForUser(input: {
   apiKey: string;
   userIdentifier: string;
-  userIdentifierType?: "CUSTOM_ID" | "EMAIL" | "PHONE";
+  userIdentifierType?: ParaUserIdentifierType;
 }): Promise<AttestedWallet[]> {
   const headers: Record<string, string> = {
     "X-API-Key": input.apiKey,
@@ -273,6 +364,7 @@ interface ParaWalletRow {
   address?: string;
   type?: string;
   scheme?: string;
+  status?: string;
 }
 
 function normalizeParaWalletRow(row: ParaWalletRow): AttestedWallet | null {
@@ -281,6 +373,10 @@ function normalizeParaWalletRow(row: ParaWalletRow): AttestedWallet | null {
   if (!row.id || typeof row.id !== "string") return null;
   if (!validWalletAddress(family, row.address)) return null;
   if (!isEmbeddedScheme(row.scheme)) return null;
+  // Para returns an address before key generation finishes and says to read
+  // `status`, not the presence of `address`. Linking a `creating` wallet would
+  // put a not-yet-signable key in `public_keys`.
+  if (row.status && row.status.toLowerCase() !== "ready") return null;
 
   return {
     provider: "para",
@@ -304,11 +400,21 @@ function paraWalletFamily(type: string | undefined): WalletFamily | null {
 }
 
 /** MPC / embedded custody schemes Para uses for non-extractable embedded
- * wallets. Anything else (or missing) is treated as non-custodied. */
+ * wallets. `DKLS` and `CGGMP` cover EVM and Cosmos, `ED25519` covers Solana and
+ * Stellar — Para's documented `scheme` enum is exactly these three, and every
+ * one of them is a Para-held key share. `FROST` and any other `*MPC*` name stay
+ * accepted for forward compatibility. Anything else — or a missing scheme — is
+ * treated as non-custodied and never becomes a `public_keys` row. */
 function isEmbeddedScheme(scheme: string | undefined): boolean {
   if (!scheme) return false;
   const upper = scheme.toUpperCase();
-  return upper === "DKLS" || upper === "FROST" || upper.includes("MPC");
+  return (
+    upper === "DKLS" ||
+    upper === "CGGMP" ||
+    upper === "ED25519" ||
+    upper === "FROST" ||
+    upper.includes("MPC")
+  );
 }
 
 function getJwks(url: string): ReturnType<typeof createRemoteJWKSet> {

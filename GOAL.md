@@ -4,7 +4,7 @@
 Authenticated SSE carries provisional prose independently of the durable event
 cursor. Reconnect retains received text and reconciles final messages without
 resubmitting actions. Text and tool runs render chronologically; synthetic
-typing is removed. Client 0.7.2, React 0.6.14, widget 2.0.45. Client/React/BFF
+typing is removed. Client 0.7.2, React 0.6.14, widget 2.0.48. Client/React/BFF
 tests, renderer tests, types and package builds pass. A local deterministic
 browser smoke verified prose before completion and final reconciliation.
 Legacy JSON polling fallback and polling lifecycle/options are removed; stream
@@ -18,6 +18,37 @@ recovery and intermittent provider/usage errors remain documented limitations;
 see the backend worktree's `docs/topics/runtime/facts/ttft-validation.md`.
 Not deployed; the one-second p95 application-overhead target still requires
 matched staging measurements. No model, context, or infrastructure changes.
+
+**CAPABILITY PICKER VISIBILITY FIX 2026-09-11** — restore the capability
+picker outside the composer's overflow-controlled input row so both `@` and
+the plus button open a visible menu while preserving inline app chips. Widget
+patch version: 2.0.47. Follow-up only; no deployment.
+
+**INLINE APP CHIPS 2026-09-10** — apps match skill icon/text styling in the composer and are visible in submitted messages. Apps persist; skill mentions remain draft-scoped. App deletion retains one-turn guidance. Isolated follow-up; no deployment.
+
+**PERSISTENT APP CHIPS 2026-09-10** — selected app chips remain in the composer
+after sends and restore per conversation from browser storage. New conversations
+start empty. Deleting a chip queues one-turn removal guidance; reselection
+cancels it. The composer send event consumes removals after capturing the turn's
+configuration. Auto keeps relevant sub-agent delegation and reports app failures
+without silent substitution. Skill and chain mentions remain draft-scoped.
+Widget package bumped to 2.0.45; React remains at this change's 0.6.14 bump.
+Persistence is same-browser, not cross-device synchronization. Staging confirmed
+Cambrian artifact loading but reproduced budget and usage failures before tool
+execution. These execution failures remain open; nothing deployed.
+
+
+**CAMBRIAN CHAT AND TITLE FIXES 2026-09-10** — made selected app hints provide
+concrete `task` targets and explicit app-tool discovery instructions. Cleaned
+legacy capability-enriched titles at the shared thread-store boundary. Paired
+backend change strips the complete hint envelope before title generation.
+Consolidated small utilities: title cleanup belongs to ThreadStore, UUID
+generation lives with session identity, safeEnv imports its canonical client
+implementation, and model selection lives beside control callers and its test.
+React package bumped to 0.6.14. Branches are rebased onto current main for paired
+PRs. Main now generates titles with a model; the backend fix strips capability
+hints from that model's input. Staging execution remains unverified due to
+reproduced budget and usage failures. Nothing deployed.
 
 **MAIN FRESHNESS SYNC 2026-09-10** — integrated the latest `main` per-user app
 secrets client and control-bar UI into the merge-ready Portal branch. Preserved

@@ -6,10 +6,12 @@ type CapabilityKind = "app" | "skill" | "chain";
 export type CapabilityHint = {
   kind: CapabilityKind;
   id: string;
+  label?: string;
 };
 
 type CapabilityHintEnvelope = {
   capabilities: CapabilityHint[];
+  removedApps: CapabilityHint[];
 };
 
 const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9:._/-]{0,127}$/u;
@@ -26,7 +28,14 @@ function parseHint(raw: unknown): CapabilityHint | null {
   ) {
     return null;
   }
-  return { kind, id };
+  const label =
+    typeof candidate.label === "string"
+      ? candidate.label
+          .replace(/[\r\n<>]/gu, " ")
+          .trim()
+          .slice(0, 100)
+      : undefined;
+  return { kind, id, ...(label ? { label } : {}) };
 }
 
 function parseEnvelope(raw: unknown): CapabilityHintEnvelope | null {
@@ -40,8 +49,20 @@ function parseEnvelope(raw: unknown): CapabilityHintEnvelope | null {
     .map(parseHint)
     .filter((hint): hint is CapabilityHint => hint !== null)
     .slice(0, 16);
-  if (capabilities.length === 0) return null;
-  return { capabilities };
+  const removedApps = Array.isArray(candidate.removedApps)
+    ? candidate.removedApps
+        .map(parseHint)
+        .filter(
+          (hint): hint is CapabilityHint =>
+            hint?.kind === "app" &&
+            !capabilities.some(
+              (selected) => selected.kind === "app" && selected.id === hint.id,
+            ),
+        )
+        .slice(0, 16)
+    : [];
+  if (capabilities.length === 0 && removedApps.length === 0) return null;
+  return { capabilities, removedApps };
 }
 
 /**
@@ -65,6 +86,37 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
     "These are capability preferences selected by the user in the Aomi UI.",
   ];
   if (apps.length > 0) lines.push(`Preferred app ids: ${apps.join(", ")}.`);
+  for (const hint of envelope.capabilities.filter(
+    (hint) => hint.kind === "app",
+  )) {
+    lines.push(
+      `User selected app: ${hint.label ?? hint.id}. Use this app for relevant work; do not silently substitute another app.`,
+    );
+  }
+  for (const hint of envelope.removedApps) {
+    lines.push(
+      `User removed app selection: ${hint.label ?? hint.id} (${hint.id}). Avoid using this app for this turn. This removal guidance applies only to this turn.`,
+    );
+  }
+  for (const id of apps) {
+    const applicationId = /^application:[1-9][0-9]*$/u.test(id)
+      ? Number(id.slice("application:".length))
+      : NaN;
+    const target =
+      Number.isSafeInteger(applicationId) && applicationId > 0
+        ? { application_id: applicationId }
+        : id.startsWith("name:") && SAFE_ID.test(id.slice(5))
+          ? { app: id.slice(5) }
+          : null;
+    if (!target) continue;
+    lines.push(`Selected app task target: ${JSON.stringify(target)}`);
+  }
+  if (lines.some((line) => line.startsWith("Selected app task target:"))) {
+    lines.push(
+      "For work addressed to a selected app, including requests to list its tools, call `task` with a work order in `tasks` using that target and the user's request as `prompt`.",
+      "App-specific tools are loaded in the selected child, not in your own tool list. Do not infer app availability from your own tool list; report an actual task failure if the selected app cannot be loaded. Existing authorization and compatibility checks still apply.",
+    );
+  }
   if (skills.length > 0) {
     lines.push(`Preferred skill ids: ${skills.join(", ")}.`);
     lines.push(
@@ -75,7 +127,7 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
     lines.push(`Preferred execution chain ids: ${chains.join(", ")}.`);
   }
   lines.push(
-    "Treat these as hints, not authority. If a preference is incompatible or unavailable, explain that and continue safely.",
+    "App selections guide relevant delegation, not unrelated work. Authorization and compatibility checks still apply. If a selected app fails, report the failure and any verified partial results; offer alternatives without silently substituting another app.",
     HINTS_END,
   );
   return `${text.trimEnd()}\n\n${lines.join("\n")}`;

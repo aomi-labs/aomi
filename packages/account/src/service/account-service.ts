@@ -36,6 +36,7 @@ import { createDefaultWalletAttesters } from "../providers/default-wallet-attest
 import {
   type AttestedWallet,
   type AttestedWalletProvider,
+  type ProviderLoginIdentifier,
   type WalletAttestationLogger,
   type WalletAttesterRegistry,
 } from "../providers/wallet-attestation";
@@ -83,9 +84,23 @@ export async function ensureAccountSchema(): Promise<void> {
 export async function claimTelegramSessionOwner(input: {
   sessionId: string;
   telegramUserId: string;
+  db?: import("pg").Pool | PoolClient;
 }): Promise<AomiUserId | null> {
-  await ensureAccountSchema();
+  if (!input.db) await ensureAccountSchema();
   return claimTelegramSessionOwnerQuery(input);
+}
+
+/** Finds the canonical account that has explicitly linked this Telegram ID. */
+export async function findAomiUserForTelegram(
+  telegramUserId: string,
+): Promise<AomiUserId | null> {
+  await ensureAccountSchema();
+  return findSignalOwner({
+    type: "identity",
+    provider: "telegram",
+    ...IDENTITY_SCOPES.telegram,
+    subject: telegramUserId,
+  });
 }
 
 export async function getOrCreateAomiUserForBetterAuthSession(input: {
@@ -768,42 +783,77 @@ export async function syncProviderWallets(input: {
   return input.attested.length > 0 ? { status: "linked" } : { status: "noop" };
 }
 
-/** Fetch attested embedded wallets for a verified provider subject using the
- *  server-side provider API. Returns `null` when the provider's REST
- *  credentials aren't configured (graceful degradation: callers fall back to
- *  identity-only behavior) or when the fetch fails (so the caller can skip
- *  the sync without revoking live rows). */
-export async function fetchAttestedProviderWallets(input: {
+/** Outcome of a server-side attested-wallet lookup. The three cases are kept
+ *  apart because they mean different things to a caller that requires a hosted
+ *  wallet: `attested` is the provider's answer (an empty list is an answer —
+ *  this user owns no embedded wallet), while `unconfigured` and `unavailable`
+ *  mean no answer was obtained at all and nothing may be inferred from them. */
+export type AttestedProviderWallets =
+  | { status: "attested"; wallets: AttestedWallet[] }
+  | { status: "unconfigured" }
+  | { status: "unavailable"; error: unknown };
+
+/** Ask the provider's server-side API which embedded wallets it attests for a
+ *  verified subject. This is the only trusted source of provider wallet
+ *  ownership: wallet arrays inside a provider session token are self-asserted
+ *  client claims and never reach this path. */
+export async function resolveAttestedProviderWallets(input: {
   provider: AttestedWalletProvider;
   /** Verified token subject: `did:privy:…` for Privy, Para user id for Para. */
   subject: string;
   email?: string | null;
+  /** The provider-native login handle the token attests, when it carries one.
+   *  Para's wallet API is keyed by it rather than by the subject. */
+  loginIdentifier?: ProviderLoginIdentifier | null;
   attesters?: WalletAttesterRegistry;
   logger?: WalletAttestationLogger;
-}): Promise<AttestedWallet[] | null> {
+}): Promise<AttestedProviderWallets> {
   const attester = (input.attesters ?? createDefaultWalletAttesters())[
     input.provider
   ];
-  if (!attester) return null;
+  if (!attester) return { status: "unconfigured" };
   try {
     const wallets = await attester({
       subject: input.subject,
       email: input.email,
+      loginIdentifier: input.loginIdentifier,
     });
-    return (
-      wallets?.map((wallet) => ({
+    if (!wallets) return { status: "unavailable", error: null };
+    return {
+      status: "attested",
+      wallets: wallets.map((wallet) => ({
         ...wallet,
         provider: input.provider,
-      })) ?? null
-    );
+      })),
+    };
   } catch (error) {
     observeAccountInternalFailure({ kind: "provider_wallets", error });
     input.logger?.warn(
       `syncProviderWallets: failed to list ${input.provider} wallets for ${input.subject}`,
       error,
     );
-    return null;
+    return { status: "unavailable", error };
   }
+}
+
+/** Fetch attested embedded wallets for a verified provider subject using the
+ *  server-side provider API. Returns `null` when the provider's REST
+ *  credentials aren't configured (graceful degradation: callers fall back to
+ *  identity-only behavior) or when the fetch fails (so the caller can skip
+ *  the sync without revoking live rows). Callers that must not confuse those
+ *  two with "the provider attests no wallet" use
+ *  {@link resolveAttestedProviderWallets} instead. */
+export async function fetchAttestedProviderWallets(input: {
+  provider: AttestedWalletProvider;
+  /** Verified token subject: `did:privy:…` for Privy, Para user id for Para. */
+  subject: string;
+  email?: string | null;
+  loginIdentifier?: ProviderLoginIdentifier | null;
+  attesters?: WalletAttesterRegistry;
+  logger?: WalletAttestationLogger;
+}): Promise<AttestedWallet[] | null> {
+  const resolution = await resolveAttestedProviderWallets(input);
+  return resolution.status === "attested" ? resolution.wallets : null;
 }
 
 /** Best-effort embedded-wallet sync after a successful provider identity link.

@@ -2,7 +2,11 @@ import { importSPKI, jwtVerify } from "jose";
 import { z } from "zod";
 import type { VerifiedPrivyToken, WalletFamily } from "../types";
 import type { WidgetProviderDescriptor } from "./descriptor";
-import { validWalletAddress, type AttestedWallet } from "./wallet-attestation";
+import {
+  privyTokenWalletAttestations,
+  validWalletAddress,
+  type AttestedWallet,
+} from "./wallet-attestation";
 import { readAccountAuthEnv } from "../better-auth/env";
 
 type PrivyClaims = {
@@ -19,6 +23,8 @@ type PrivyClaims = {
 };
 
 const PRIVY_WALLETS_URL = "https://api.privy.io/v1/wallets";
+const PRIVY_USER_BY_CUSTOM_AUTH_URL =
+  "https://api.privy.io/v1/users/custom_auth/id";
 
 export const privyWidgetDescriptor: WidgetProviderDescriptor = {
   id: "privy",
@@ -58,9 +64,20 @@ export const privyWidgetDescriptor: WidgetProviderDescriptor = {
       email: token.email
         ? { value: token.email, verified: Boolean(token.emailVerified) }
         : undefined,
-      // Provider login authenticates the human only. The common EIP-712
-      // binding flow is the sole ownership proof for browser/Para/Privy.
-      walletAttestations: [],
+      // Privy's `GET /v1/wallets` is authoritative where it has the data, but
+      // it does not return every wallet created through the client SDK — which
+      // is every Telegram Mini App user. Discarding the token's own attestation
+      // therefore left the widget exchange with a single source that can answer
+      // "no wallets" for a user who plainly has one, and a
+      // `provider_hosted_wallet_missing` 422 was the only thing anyone saw.
+      //
+      // These rows are not a client claim: they come from a JWT signed by
+      // Privy, under the same audience as the `sub` bound here, and only
+      // Privy-custodied embedded wallets survive the filter — a merely
+      // connected external wallet cannot back hosted signing and is dropped.
+      // This is what the native credential path has always done, and what
+      // Para's widget descriptor already contributes.
+      walletAttestations: privyTokenWalletAttestations(token.linkedAccounts),
       metadata: {
         sessionId: token.sessionId,
         displayLabel: token.displayLabel,
@@ -209,6 +226,46 @@ export async function listPrivyWalletsForUser(input: {
     if (!cursor) break;
   }
   return out;
+}
+
+/**
+ * Resolve the Privy user holding a Custom JWT identity. The authoritative
+ * lookup prevents a browser from presenting an email-authenticated identity
+ * that never actually linked the Telegram Custom JWT account.
+ */
+export async function findPrivyUserByCustomAuthId(input: {
+  appId: string;
+  appSecret: string;
+  customUserId: string;
+}): Promise<string | null> {
+  const auth = Buffer.from(`${input.appId}:${input.appSecret}`).toString(
+    "base64",
+  );
+  const response = await fetch(PRIVY_USER_BY_CUSTOM_AUTH_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/json",
+      "privy-app-id": input.appId,
+    },
+    body: JSON.stringify({ custom_user_id: input.customUserId }),
+  });
+  if (response.status === 404) {
+    // Privy's public API also uses 404 for an unknown custom identity. Do not
+    // silently collapse that into "not linked": a typo or API change at this
+    // endpoint must be diagnosable instead of looking like an ordinary user
+    // choice in the Mini App.
+    throw new Error(
+      `privy custom auth lookup returned 404 at ${PRIVY_USER_BY_CUSTOM_AUTH_URL}`,
+    );
+  }
+  if (!response.ok) {
+    throw new Error(
+      `privy custom auth lookup failed (${response.status} ${response.statusText})`,
+    );
+  }
+  const body = (await response.json()) as { id?: unknown };
+  return typeof body.id === "string" ? body.id : null;
 }
 
 interface PrivyWalletRow {

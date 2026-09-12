@@ -60,6 +60,11 @@ export function verifyTelegramInitData(
   botId: string,
   options: {
     now?: number;
+    /**
+     * A caller may require a fresher proof for an action that links a new
+     * login factor. It may only tighten the default, never extend it.
+     */
+    maxAgeMs?: number;
     /** Test-only override. Production always verifies against Telegram's key. */
     publicKeyHex?: string;
   } = {},
@@ -82,7 +87,11 @@ export function verifyTelegramInitData(
   }
 
   const age = now - authDate * 1000;
-  if (age > MAX_AGE_MS || age < -MAX_CLOCK_SKEW_MS) {
+  const maxAgeMs = Math.min(options.maxAgeMs ?? MAX_AGE_MS, MAX_AGE_MS);
+  if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) {
+    return { ok: false, reason: "malformed" };
+  }
+  if (age > maxAgeMs || age < -MAX_CLOCK_SKEW_MS) {
     return { ok: false, reason: "expired" };
   }
 

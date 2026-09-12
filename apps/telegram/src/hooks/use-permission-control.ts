@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { createParaViemClientHook } from "@getpara/react-core/evm/viem";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getEmbeddedConnectedWallet, useWallets } from "@privy-io/react-auth";
 import {
   authorizationChallenge,
   authorizationCommit,
@@ -9,13 +9,11 @@ import {
   type AccountSessionProvider,
   type AuthorizationPoster,
 } from "@aomi-labs/client";
-import { http } from "viem";
+import { createWalletClient, custom } from "viem";
 import { mainnet } from "viem/chains";
 
 import { aomiBffUrl } from "@/app/config";
 import type { LaunchContext } from "@/lib/telegram";
-
-const useEmbeddedParaViemClient = createParaViemClientHook();
 
 export function usePermissionControl(input: {
   launch: LaunchContext | null;
@@ -25,12 +23,20 @@ export function usePermissionControl(input: {
     "idle" | "ready" | "signing" | "done" | "error"
   >("idle");
   const [error, setError] = useState<string | null>(null);
-  const { viemClient } = useEmbeddedParaViemClient({
-    walletClientConfig: {
-      chain: mainnet,
-      transport: http(mainnet.rpcUrls.default.http[0]),
-    },
-  });
+  // Signing a permit puts a wallet prompt between the challenge and the commit.
+  // Holding the provider in a ref means the commit uses whatever session is
+  // current when it runs, instead of an instance that was disposed while the
+  // prompt was on screen — the failure mode where the backend logs a
+  // `authorization/challenge` 200 that no `authorization/commit` ever follows.
+  const providerRef = useRef(input.provider);
+  useEffect(() => {
+    providerRef.current = input.provider;
+  }, [input.provider]);
+  const { ready: walletsReady, wallets } = useWallets();
+  const wallet = useMemo(
+    () => (walletsReady ? getEmbeddedConnectedWallet(wallets) : null),
+    [walletsReady, wallets],
+  );
   const target = useMemo(() => {
     const launch = input.launch;
     if (
@@ -48,12 +54,14 @@ export function usePermissionControl(input: {
   }, [input.launch]);
 
   const sign = useCallback(async () => {
-    if (!target || !input.provider || !viemClient?.account) return;
+    if (!target || !input.provider || !wallet) return;
     setStatus("signing");
     setError(null);
     try {
       const post: AuthorizationPoster = async (path, body) => {
-        const token = await input.provider!();
+        const provider = providerRef.current;
+        if (!provider) throw new Error("permission_session_unavailable");
+        const token = await provider();
         const response = await fetch(new URL(path, aomiBffUrl), {
           method: "POST",
           credentials: "omit",
@@ -88,8 +96,18 @@ export function usePermissionControl(input: {
         throw new Error("permission_challenge_invalid_typed_data");
       }
       const { message, ...rest } = request;
-      const signature = await viemClient.signTypedData({
-        account: viemClient.account,
+      if (!wallet) throw new Error("permission_wallet_unavailable");
+      // The permit is signed by the embedded wallet itself over its EIP-1193
+      // provider, so the typed data viem builds here is byte-identical to the
+      // browser path's.
+      const account = wallet.address as `0x${string}`;
+      const client = createWalletClient({
+        account,
+        chain: mainnet,
+        transport: custom(await wallet.getEthereumProvider()),
+      });
+      const signature = await client.signTypedData({
+        account,
         ...rest,
         message,
       });
@@ -99,13 +117,13 @@ export function usePermissionControl(input: {
       setError(cause instanceof Error ? cause.message : "permission_failed");
       setStatus("error");
     }
-  }, [input.provider, target, viemClient]);
+  }, [input.provider, target, wallet]);
 
   return {
     error,
     sign,
     status:
-      status === "idle" && target && input.provider && viemClient?.account
+      status === "idle" && target && input.provider && wallet
         ? "ready"
         : status,
     target,

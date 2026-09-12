@@ -1,11 +1,30 @@
 // @vitest-environment node
 
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createPrivyAccessTokenVerifier,
+  findPrivyUserByCustomAuthId,
   verifyPrivyToken,
 } from "../src/providers/privy";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("findPrivyUserByCustomAuthId", () => {
+  it("keeps a 404 diagnostic distinct from an ordinary unlinked identity", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 404 })));
+
+    await expect(
+      findPrivyUserByCustomAuthId({
+        appId: "privy-app",
+        appSecret: "secret",
+        customUserId: "aomi:telegram:staging:123",
+      }),
+    ).rejects.toThrow("/v1/users/custom_auth/id");
+  });
+});
 
 describe("createPrivyAccessTokenVerifier", () => {
   it("verifies issuer, audience, signature, subject, session, and expiration", async () => {

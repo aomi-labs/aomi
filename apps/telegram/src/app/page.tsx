@@ -1,70 +1,164 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useAccount, useModal } from "@getpara/react-sdk-lite";
+import { UserPill } from "@privy-io/react-auth/ui";
 
 import { useCanonicalAccount } from "@/hooks/use-canonical-account";
 import { usePermissionControl } from "@/hooks/use-permission-control";
+import { useTelegramCustomAuth } from "@/hooks/use-telegram-custom-auth";
 import { useTelegramLaunch } from "@/hooks/use-telegram-launch";
 
+type Tone = "pending" | "ready" | "error";
+
+function shortAddress(address: string): string {
+  return address.length > 12
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : address;
+}
+
 export default function Home() {
-  const { openModal } = useModal();
-  const para = useAccount();
-  const opened = useRef(false);
   const launch = useTelegramLaunch();
-  const account = useCanonicalAccount(launch.context);
+  const telegramAuth = useTelegramCustomAuth(launch.context);
+  const account = useCanonicalAccount(launch.context, {
+    readyForExchange: telegramAuth.readyForExchange,
+    subject: telegramAuth.customSubject,
+  });
   const permission = usePermissionControl({
     launch: launch.context,
     provider: account.provider,
   });
 
-  useEffect(() => {
-    if (launch.status !== "ready" || opened.current) return;
-    opened.current = true;
-    openModal();
-  }, [launch.status, openModal]);
-
-  let message = "Sign in with Para";
-  if (launch.status === "loading") message = "Opening Para…";
-  if (launch.status === "error") message = "Open this page from Telegram.";
-  if (account.status === "loading") message = "Linking your Aomi account…";
-  if (account.status === "error") message = "Could not link your account.";
-  if (account.status === "ready" && !permission.target) {
-    message = "Para is linked.";
-  }
-  if (permission.status === "signing") message = "Waiting for your signature…";
-  if (permission.status === "done")
-    message = "Permission updated. Return to Telegram.";
+  // Errors first, and the deepest stage that failed wins: an error is the one
+  // thing the person can act on, so no later progress message may paint over
+  // it. Progress messages then run in stage order.
+  let message: string;
+  let tone: Tone = "pending";
   if (permission.status === "error") {
     message = permission.error ?? "Permission was not updated.";
+    tone = "error";
+  } else if (account.status === "error") {
+    message = account.error
+      ? `Could not link your account (${account.error}).`
+      : "Could not link your account.";
+    tone = "error";
+  } else if (telegramAuth.phase === "error") {
+    message = telegramAuth.error
+      ? `Could not verify your wallet (${telegramAuth.error}).`
+      : "Could not verify your wallet.";
+    tone = "error";
+  } else if (launch.status === "error") {
+    message = "Open this page from Telegram.";
+    tone = "error";
+  } else if (permission.status === "done") {
+    message = "Permission updated. Return to Telegram.";
+    tone = "ready";
+  } else if (permission.status === "signing") {
+    message = "Waiting for your signature…";
+  } else if (permission.status === "ready") {
+    message = "Review the permission below, then sign it.";
+    tone = "ready";
+  } else if (account.status === "ready") {
+    message = "Your wallet is linked.";
+    tone = "ready";
+  } else if (account.status === "loading") {
+    message = "Linking your Aomi account…";
+  } else if (telegramAuth.phase === "choose") {
+    message = "Choose how to access your wallet.";
+    tone = "ready";
+  } else if (telegramAuth.phase === "email") {
+    message = "Use the email linked to your existing wallet.";
+  } else if (telegramAuth.phase === "confirm") {
+    message = "Confirm that this Telegram account can access your existing wallet.";
+    tone = "ready";
+  } else if (telegramAuth.phase === "authenticating") {
+    message = "Signing you in…";
+  } else if (launch.status === "loading") {
+    message = "Opening your wallet…";
+  } else {
+    message = "Checking your Telegram account…";
   }
 
   return (
     <main className="wallet-page">
-      <section className="wallet-control" aria-live="polite">
-        <p>{message}</p>
+      <section className="wallet-card">
+        <h1 className="wallet-title">Aomi Wallet</h1>
+        <p className="wallet-status" data-tone={tone} aria-live="polite">
+          {tone === "pending" && <span className="wallet-spinner" />}
+          {message}
+        </p>
+
+        {launch.status === "ready" && telegramAuth.phase === "choose" && (
+          <div className="wallet-actions">
+            <button
+              className="wallet-button"
+              type="button"
+              onClick={telegramAuth.selectNewWallet}
+            >
+              Create new wallet
+            </button>
+            <button
+              className="wallet-button wallet-button--quiet"
+              type="button"
+              onClick={telegramAuth.selectExistingWallet}
+            >
+              Use existing wallet
+            </button>
+          </div>
+        )}
+
+        {launch.status === "ready" && telegramAuth.phase === "confirm" && (
+          <div className="wallet-actions">
+            <dl className="wallet-facts">
+              <dt>Wallet</dt>
+              <dd className="wallet-mono">
+                {telegramAuth.existingWalletAddress
+                  ? shortAddress(telegramAuth.existingWalletAddress)
+                  : "Your existing Privy wallet"}
+              </dd>
+            </dl>
+            <p className="wallet-note">
+              Linking lets this Telegram account access the wallet from any
+              approved Aomi bot.
+            </p>
+            <button
+              className="wallet-button"
+              type="button"
+              onClick={telegramAuth.confirmExistingWallet}
+            >
+              Confirm and link Telegram
+            </button>
+          </div>
+        )}
+
         {permission.target && account.status === "ready" && (
-          <p>
-            {permission.target.mode} for {permission.target.wallet}
-          </p>
+          <div className="wallet-actions">
+            <dl className="wallet-facts">
+              <dt>Permission</dt>
+              <dd>{permission.target.mode}</dd>
+              <dt>Wallet</dt>
+              <dd className="wallet-mono">
+                {shortAddress(permission.target.wallet)}
+              </dd>
+              <dt>Chain</dt>
+              <dd>{permission.target.chain}</dd>
+            </dl>
+            {permission.status === "ready" && (
+              <button
+                className="wallet-button"
+                type="button"
+                onClick={permission.sign}
+              >
+                Sign permission
+              </button>
+            )}
+          </div>
         )}
-        {launch.status !== "error" && account.status !== "ready" && (
-          <button
-            className="para-button"
-            type="button"
-            onClick={() => openModal()}
-          >
-            {para.embedded.isConnected ? "Open Para" : "Continue with Para"}
-          </button>
-        )}
-        {permission.status === "ready" && (
-          <button
-            className="para-button"
-            type="button"
-            onClick={permission.sign}
-          >
-            Sign permission
-          </button>
+
+        {account.status === "ready" && (
+          // Privy's own account control: wallet address, export, and the
+          // linked-account list, none of which we should be rebuilding.
+          <div className="wallet-pill">
+            <UserPill expanded={false} ui={{ minimal: true }} />
+          </div>
         )}
       </section>
     </main>
