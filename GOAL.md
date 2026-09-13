@@ -263,6 +263,8 @@ registry generation, formatting, and `git diff --check` pass.
 
 # Canonical Landing
 
+Current session goal: **GUEST CHAT BROWSER RECOVERY 2026-09-13** — add a required, isolated Chromium regression for one settled guest Agent response, refresh recovery of the same server thread and messages, and second-guest isolation. The Portal now recognizes a live same-origin Better Auth guest session for remote thread listing without persisting credentials or active thread state. The suite also exercises the real Portal OAuth origin route against disposable Postgres. Final PR and CI verification remain in progress.
+
 Current session goal: **TRANSACTION MOCK READABILITY POLISHED 2026-09-05** —
 removed card hover effects, matched ETH/ERC-20 simulation icons, clarified
 transaction rows with action icons and separate destination subtitles, and moved

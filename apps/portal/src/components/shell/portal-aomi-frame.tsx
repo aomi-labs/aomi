@@ -138,11 +138,55 @@ export function PortalAomiFrame() {
   const { accountStatus, accountUser } = useAomiWalletKit();
   const accountOverview = useAccountOverview();
   const accountUserId = accountUser?.id;
+  const [guestSession, setGuestSession] = useState<{
+    checked: boolean;
+    userId: string | null;
+  }>({ checked: false, userId: null });
+  useEffect(() => {
+    if (accountStatus === "loading") return;
+    if (accountUserId) {
+      setGuestSession({ checked: true, userId: null });
+      return;
+    }
+    // The widget kit deliberately hides temporary guests from account chrome.
+    // Ask Better Auth whether this browser still owns a guest cookie before
+    // enabling the remote thread list. No bearer or thread id is persisted.
+    const backend = new URL(getBackendUrl(), window.location.href);
+    if (backend.origin !== window.location.origin) {
+      setGuestSession({ checked: true, userId: null });
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/auth/get-session", {
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const session = (await response.json()) as {
+          user?: { id?: unknown; isAnonymous?: unknown };
+        } | null;
+        return session?.user?.isAnonymous === true &&
+          typeof session.user.id === "string"
+          ? session.user.id
+          : null;
+      })
+      .catch(() => null)
+      .then((userId) => {
+        if (!cancelled) setGuestSession({ checked: true, userId });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountStatus, accountUserId]);
+  const principalId =
+    accountUserId ??
+    (guestSession.userId ? `guest:${guestSession.userId}` : null);
   const [hasResolvedInitialAccount, setHasResolvedInitialAccount] = useState(
     accountStatus !== "loading",
   );
   const [accountFrameScope, setAccountFrameScope] = useState(() => ({
-    accountUserId,
+    accountUserId: principalId,
     revision: 0,
   }));
   const requestedApp = useRequestedAppConfig();
@@ -201,10 +245,10 @@ export function PortalAomiFrame() {
 
   if (
     accountStatus !== "loading" &&
-    accountFrameScope.accountUserId !== accountUserId
+    accountFrameScope.accountUserId !== principalId
   ) {
     setAccountFrameScope({
-      accountUserId,
+      accountUserId: principalId,
       // A backend thread is owned by the principal that created it. Always
       // remount across an identity transition so an anonymous or previous
       // account's in-flight session cannot be submitted by the new principal.
@@ -212,7 +256,7 @@ export function PortalAomiFrame() {
     });
   }
 
-  if (!hasResolvedInitialAccount) {
+  if (!hasResolvedInitialAccount || !guestSession.checked) {
     return (
       <main
         aria-busy="true"
@@ -235,7 +279,7 @@ export function PortalAomiFrame() {
         agentTarget={
           lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
         }
-        accountSessionAvailable={Boolean(accountUser)}
+        accountSessionAvailable={Boolean(accountUser || guestSession.userId)}
         // Always open on the new-chat starting screen. Thread history remains
         // available in the sidebar, but the previously active thread is not
         // restored after a reload.
