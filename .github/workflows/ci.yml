@@ -147,6 +147,44 @@ jobs:
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: pnpm run build:apps
 
+  guest-browser:
+    name: Guest Chat · deterministic Chromium regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run isolated guest send and recovery regression
+        run: pnpm run test:browser:guest
+
+      - name: Upload sanitized server log and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: guest-browser-${{ github.sha }}
+          path: |
+            output/playwright/guest-regression/
+            output/playwright/test-results/
+            output/playwright/report/
+          if-no-files-found: warn
+          retention-days: 14
+
   promotion-policy:
     name: Production Promotion Policy
     if: github.event_name == 'pull_request' && github.base_ref == 'prod'
@@ -289,6 +327,7 @@ jobs:
       [
         packages,
         apps,
+        guest-browser,
         consumer-compat,
         promotion-policy,
         hotfix-divergence,
@@ -301,6 +340,7 @@ jobs:
           set -euo pipefail
           test '${{ needs.packages.result }}' = success
           test '${{ needs.apps.result }}' = success
+          test '${{ needs.guest-browser.result }}' = success
           test '${{ needs.consumer-compat.result }}' = success
           case '${{ needs.promotion-policy.result }}' in success|skipped) ;; *) exit 1 ;; esac
           case '${{ needs.hotfix-divergence.result }}' in success|skipped) ;; *) exit 1 ;; esac

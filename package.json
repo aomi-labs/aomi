@@ -102,7 +102,8 @@
     "repowiki:doctor": "./scripts/repowiki doctor",
     "prepublishOnly": "pnpm run build:lib",
     "deploy:registry": "./scripts/deploy-registry.sh",
-    "test:contracts": "node scripts/check-consumer-compatibility.mjs"
+    "test:contracts": "node scripts/check-consumer-compatibility.mjs",
+    "test:browser:guest": "node scripts/test-portal-guest-browser.mjs"
   },
   "prettier": {
     "plugins": [

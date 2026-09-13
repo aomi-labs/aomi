@@ -14,6 +14,11 @@ export default defineConfig({
   projects: [
     { name: "preview", testMatch: /preview-smoke\.spec\.ts/ },
     {
+      name: "guest-regression",
+      testMatch: /guest-regression\.spec\.ts/,
+      use: { baseURL: process.env.GUEST_BROWSER_BASE_URL },
+    },
+    {
       name: "local-agent",
       testMatch:
         /(?:local-(?:agent-cutover|auth-session|guest-hello|capabilities)|lean-payment-boundary|routing-ui-(?:manual|locked|sign-action|solana))\.spec\.ts/,
