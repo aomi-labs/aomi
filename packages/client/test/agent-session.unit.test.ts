@@ -85,6 +85,28 @@ describe("ClientSession Agent transport", () => {
     vi.useRealTimers();
   });
 
+  it("sends its current cursor on a later send so the start page skips seen history", async () => {
+    const api = client();
+    const start = vi
+      .spyOn(api.agent, "start")
+      .mockImplementation(async (intent) =>
+        page([], { session_id: intent.sessionId ?? "session-agent", cursor: "cursor-2" }),
+      );
+    vi.spyOn(api.agent, "poll").mockResolvedValue(
+      page([], { session_id: "session-agent", cursor: "cursor-2" }),
+    );
+    const session = new Session(api, { sessionId: "session-agent" });
+
+    // First send: nothing seen yet, so no cursor is claimed.
+    await session.sendAsync("first");
+    expect(start.mock.calls[0][0].cursor).toBeUndefined();
+
+    // The page advanced the cursor; the next send carries it.
+    await session.sendAsync("second");
+    expect(start.mock.calls[1][0].cursor).toBe("cursor-2");
+    session.close();
+  });
+
   it("serializes Auto and Direct targets without rewriting legacy app callers", async () => {
     const api = client();
     const start = vi
