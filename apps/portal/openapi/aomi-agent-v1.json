@@ -2540,6 +2540,10 @@
           },
           "clientId": {
             "type": ["string", "null"]
+          },
+          "cursor": {
+            "type": ["string", "null"],
+            "description": "The caller's current event cursor. When supplied, the start page carries only events after it instead of the whole history; an expired cursor falls back to the full page rather than failing the accepted turn."
           }
         }
       },

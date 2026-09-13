@@ -298,10 +298,20 @@ export class ClientSession {
             : {}),
         };
       }
-      const page = await this.client.agent.start(operation.intent, {
-        idempotencyKey: operation.idempotencyKey,
-        inferenceFunding: this.inferenceFunding,
-      });
+      // The cursor rides alongside the stored intent rather than inside it:
+      // it is a read position, not part of what was requested, and the stored
+      // intent must replay byte-for-byte on an uncertain start. The server
+      // strips it before hashing, so sending it never changes idempotency.
+      const page = await this.client.agent.start(
+        {
+          ...operation.intent,
+          ...(this.cursor ? { cursor: this.cursor } : {}),
+        },
+        {
+          idempotencyKey: operation.idempotencyKey,
+          inferenceFunding: this.inferenceFunding,
+        },
+      );
       if (this.timing && this.sentAt !== undefined)
         this.timing.acknowledgedMs = performance.now() - this.sentAt;
       this.startOperation = undefined;
