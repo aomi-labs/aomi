@@ -6,7 +6,6 @@ import {
   useCreateWallet,
   useIdentityToken,
   usePrivy,
-  type User,
 } from "@privy-io/react-auth";
 import {
   createAccountSessionProvider,
@@ -16,11 +15,14 @@ import {
 } from "@aomi-labs/client";
 
 import { aomiBffUrl } from "@/app/config";
+import { embeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 
 type CanonicalAccountState = {
   error: string | null;
   provider: AccountSessionProvider | null;
+  /** Re-run the exchange. An error must never be a terminal state. */
+  retry: () => void;
   status: "disconnected" | "loading" | "ready" | "error";
   userId: string | null;
 };
@@ -148,32 +150,6 @@ function telegramPrivyAdapter(input: {
   };
 }
 
-/** The embedded EVM wallet recorded on the Privy *user*.
- *
- *  This is deliberately not `useWallets()`. That hook answers "is a wallet
- *  connected in this browser", and its `ready` additionally waits on Privy's
- *  wallet-proxy iframe, on the external connectors, and — once the account
- *  already owns an embedded wallet — on that wallet being actively connected.
- *  Inside Telegram's in-app webview, third-party iframe storage is restricted
- *  and that connection routinely never lands, so `ready` stays false forever
- *  on an account whose wallet exists and works.
- *
- *  The exchange never touches the wallet object: it sends an identity token,
- *  and the portal attests the hosted wallet through Privy's server API
- *  (`requireAttestedProviderWallets`). So existence on the user is the real
- *  prerequisite, and `linkedAccounts` reports it without any of that
- *  iframe machinery. */
-function linkedEmbeddedWalletAddress(user: User | null): string | null {
-  const account = user?.linkedAccounts.find(
-    (entry) =>
-      entry.type === "wallet" &&
-      entry.chainType === "ethereum" &&
-      (entry.walletClientType === "privy" ||
-        entry.walletClientType === "privy-v2"),
-  );
-  return account && "address" in account ? account.address : null;
-}
-
 /** Ensure the signed-in user has an embedded EVM wallet before the exchange.
  *  `createOnLogin` covers the normal path; this closes the gap for accounts
  *  that predate that config, and answers "wallet exists" as state the exchange
@@ -182,7 +158,7 @@ function useEmbeddedWallet(authenticated: boolean) {
   const { user } = usePrivy();
   const { createWallet } = useCreateWallet();
   const [error, setError] = useState<string | null>(null);
-  const address = useMemo(() => linkedEmbeddedWalletAddress(user), [user]);
+  const address = useMemo(() => embeddedWallet(user)?.address ?? null, [user]);
   // One attempt per mount. `createWallet` resolving without a linked wallet
   // appearing must not re-enter, or each pass races Privy's own "already has an
   // embedded wallet" rejection and the hook spins instead of settling.
@@ -222,13 +198,20 @@ export function useCanonicalAccount(
   // provider on each rotation would dispose an exchange that is already in
   // flight. The adapter reads the current value when it actually runs.
   useMirroredIdentityToken();
-  const [state, setState] = useState<Omit<CanonicalAccountState, "provider">>({
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<
+    Omit<CanonicalAccountState, "provider" | "retry">
+  >({
     error: null,
     status: "disconnected",
     userId: null,
   });
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   const provider = useMemo(() => {
+    // `attempt` is a dependency rather than an input: bumping it is how
+    // `retry` discards a failed provider and forces a fresh exchange.
+    void attempt;
     if (
       !privyReady ||
       !authenticated ||
@@ -254,6 +237,7 @@ export function useCanonicalAccount(
     authenticated,
     customAuth.readyForExchange,
     customAuth.subject,
+    attempt,
     embeddedWalletAddress,
     launch,
     privyReady,
@@ -329,6 +313,7 @@ export function useCanonicalAccount(
     return {
       error: walletError,
       provider: null,
+      retry,
       status: "error",
       userId: null,
     };
@@ -338,9 +323,21 @@ export function useCanonicalAccount(
     // Without a provider there is no exchange underway, so this must not claim
     // to be linking. The only prerequisite that can still be pending here is
     // wallet creation, which is bounded and reports its own error above.
-    return { error: null, provider: null, status: "disconnected", userId: null };
+    return {
+      error: null,
+      provider: null,
+      retry,
+      status: "disconnected",
+      userId: null,
+    };
   }
   return provider
-    ? { ...state, provider }
-    : { error: null, provider: null, status: "disconnected", userId: null };
+    ? { ...state, provider, retry }
+    : {
+        error: null,
+        provider: null,
+        retry,
+        status: "disconnected",
+        userId: null,
+      };
 }

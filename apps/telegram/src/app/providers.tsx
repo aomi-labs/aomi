@@ -1,23 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PrivyProvider } from "@privy-io/react-auth";
+import { Card, CardContent } from "@aomi-labs/widget-lib/components/ui/card";
 
 import { privyAppId } from "./config";
+import { webApp } from "@/lib/telegram-ui";
+
+type Appearance = { theme: "light" | "dark"; accentColor: `#${string}` };
 
 /** Telegram's own palette, so Privy's native modal does not arrive as a white
- *  sheet on top of a dark Mini App. Read once: the values only feed Privy's
- *  config object, never our markup, so the prerender cannot mismatch. */
-function telegramAppearance(): {
-  theme: "light" | "dark";
-  accentColor: `#${string}`;
-} {
-  const webApp =
-    typeof window === "undefined" ? undefined : window.Telegram?.WebApp;
-  const accent = webApp?.themeParams?.button_color;
+ *  sheet on top of a dark Mini App. Our own surfaces are styled from the Aomi
+ *  design system instead — only the third-party modal needs this. */
+function telegramAppearance(): Appearance {
+  const app = webApp();
+  const accent = app?.themeParams?.button_color;
   return {
-    theme: webApp?.colorScheme === "light" ? "light" : "dark",
+    theme: app?.colorScheme === "light" ? "light" : "dark",
     accentColor: /^#[0-9a-f]{6}$/i.test(accent ?? "")
       ? (accent as `#${string}`)
       : "#2aabee",
@@ -28,7 +28,18 @@ export function Providers({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [queryClient] = useState(() => new QueryClient());
-  const [appearance] = useState(telegramAppearance);
+  const [appearance, setAppearance] = useState<Appearance>(telegramAppearance);
+
+  // Previously read once and never again, so a user who switched theme mid
+  // session kept the palette the app booted with. A modal already on screen
+  // may not restyle, but the next one opens correct.
+  useEffect(() => {
+    const app = webApp();
+    if (!app?.onEvent) return;
+    const sync = () => setAppearance(telegramAppearance());
+    app.onEvent("themeChanged", sync);
+    return () => app.offEvent?.("themeChanged", sync);
+  }, []);
 
   // `PrivyProvider` throws on an empty app id, which would take down the
   // prerender as well as any deployment missing the variable. Failing to a
@@ -36,10 +47,18 @@ export function Providers({
   // an env that is inlined at build time.
   if (!privyAppId) {
     return (
-      <main className="wallet-page">
-        <section className="wallet-control">
-          <p>Wallet provider is not configured.</p>
-        </section>
+      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
+        <Card className="w-full max-w-sm">
+          <CardContent className="pt-6">
+            <h1 className="text-lg font-semibold tracking-tight">
+              Aomi Wallet
+            </h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              This deployment is missing its wallet provider configuration.
+              Contact the team that set up this bot.
+            </p>
+          </CardContent>
+        </Card>
       </main>
     );
   }

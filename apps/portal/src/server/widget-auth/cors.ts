@@ -14,12 +14,26 @@ export function widgetCorsPreflight(
   allowedMethods: readonly string[],
 ): Response {
   if (!observedWidgetOrigin(request)) {
-    return Response.json({ error: "invalid_widget_origin" }, { status: 403 });
+    return withReadableRejection(
+      Response.json({ error: "invalid_widget_origin" }, { status: 403 }),
+    );
   }
   return applyWidgetCors(request, new Response(null, { status: 204 }), {
     allowedMethods,
     preflight: true,
   });
+}
+
+/** Let the browser read a rejection whose origin we refused to echo.
+ *
+ *  Without this, an origin rejection reaches the page as an opaque CORS/network
+ *  failure rather than its own 403 body — the caller cannot tell "your origin is
+ *  not usable" from "the server is down". A wildcard is safe here and only here:
+ *  these responses carry no credentials (`Access-Control-Allow-Credentials` is
+ *  never set on this surface) and no data beyond the error code itself. */
+function withReadableRejection(response: Response): Response {
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  return response;
 }
 
 export function applyWidgetCors(
@@ -28,7 +42,9 @@ export function applyWidgetCors(
   options?: { allowedMethods?: readonly string[]; preflight?: boolean },
 ): Response {
   const origin = observedWidgetOrigin(request);
-  if (!origin) return response;
+  // No usable origin: there is nothing safe to echo, but the caller still has
+  // to be able to read why it was refused.
+  if (!origin) return withReadableRejection(response);
   response.headers.set("Access-Control-Allow-Origin", origin);
   appendVary(response.headers, "Origin");
   if (options?.preflight) {
