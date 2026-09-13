@@ -8,11 +8,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CapabilityMentionInput } from "./input";
 import { CapabilityComposerProvider, useCapabilityComposer } from "./provider";
+import type { PickerItem } from "./model";
 
 const fixture = vi.hoisted(() => ({
   text: "",
   setText: vi.fn(),
-  items: [],
+  items: [] as PickerItem[],
   runConfig: { custom: { preserved: "host setting" } } as {
     custom: Record<string, unknown>;
   },
@@ -100,9 +101,6 @@ function Composer() {
       >
         Choose Across
       </button>
-      <button onClick={() => composer.removeApp("app:cambrian")}>
-        Remove app
-      </button>
       <button onClick={composer.openCapabilityPicker}>Open picker</button>
       <span data-testid="selections">
         {composer.mentions.map((item) => item.label).join(",")}
@@ -148,6 +146,7 @@ function Harness() {
 beforeEach(() => {
   fixture.runConfig = { custom: { preserved: "host setting" } };
   fixture.text = "";
+  fixture.items = [];
   localStorage.clear();
   fixture.threadId = "thread-a";
   fixture.mode = "auto";
@@ -202,33 +201,30 @@ describe("capability configuration before send", () => {
   });
 });
 
-describe("persistent app selections", () => {
-  it("keeps apps after send and sends removal exactly once", async () => {
+describe("turn-scoped app mentions", () => {
+  it("sends an app hint and clears it with the submitted message", async () => {
     render(<Harness />);
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Cambrian"));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByText("Send button"));
-    });
-    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
-    await act(async () => {
-      fireEvent.click(screen.getByText("Remove app"));
-    });
     expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
-      removedApps: [{ id: "application:2937773" }],
+      capabilities: [{ kind: "app", id: "application:2937773" }],
     });
     await act(async () => {
       fireEvent.click(screen.getByText("Send button"));
     });
-    expect(fixture.sent[1]).toMatchObject({
+    expect(fixture.sent[0]).toMatchObject({
       custom: {
-        aomiCapabilityHints: { removedApps: [{ id: "application:2937773" }] },
+        aomiCapabilityHints: {
+          capabilities: [{ kind: "app", id: "application:2937773" }],
+        },
       },
     });
+    expect(screen.getByTestId("selections")).toBeEmptyDOMElement();
     expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
+    expect(localStorage.length).toBe(0);
   });
-  it("restores each conversation and clears pending removal on reselection", async () => {
+  it("does not restore an app in another conversation or on remount", async () => {
     const view = render(<Harness />);
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Cambrian"));
@@ -242,64 +238,84 @@ describe("persistent app selections", () => {
     await act(async () => {
       view.rerender(<Harness />);
     });
-    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
-    await act(async () => {
-      fireEvent.click(screen.getByText("Remove app"));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText("Choose Cambrian"));
-    });
-    expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
-      "removedApps",
-    );
+    expect(screen.getByTestId("selections")).toBeEmptyDOMElement();
     view.unmount();
     render(<Harness />);
-    expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
+    expect(screen.getByTestId("selections")).toBeEmptyDOMElement();
   });
 });
 
-it.each(["chip", "input"])(
-  "keeps the app after text clears and supports Delete from %s",
-  async (target) => {
-    const view = render(<Harness />);
-    await act(async () => {
-      fireEvent.click(screen.getByText("Choose Cambrian"));
-    });
-    expect(
-      screen.getByRole("button", { name: "Remove Cambrian" }),
-    ).toBeVisible();
-    fixture.text = "search USDC";
-    await act(async () => {
-      view.rerender(<Harness />);
-    });
-    fixture.text = "";
-    await act(async () => {
-      view.rerender(<Harness />);
-    });
-    const chip = screen.getByRole("button", { name: "Remove Cambrian" });
-    expect(chip).toBeVisible();
-    expect(chip.textContent).toBe("Cambrian");
-    expect(chip.querySelector("svg")).not.toBeNull();
-    expect(chip.className).not.toMatch(/rounded|bg-/);
+it("inserts an app inline at the caret and removes it with Backspace", async () => {
+  fixture.items = [
+    {
+      kind: "app",
+      id: "application:2937773",
+      key: "app:cambrian",
+      label: "Cambrian",
+      searchText: "Cambrian",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  render(<Harness />);
+  const editor = screen.getByRole("textbox", { name: "Message input" });
+  editor.textContent = "Ask @cam to swap";
+  const text = editor.firstChild as Text;
+  const range = document.createRange();
+  range.setStart(text, 8);
+  range.collapse(true);
+  window.getSelection()?.removeAllRanges();
+  window.getSelection()?.addRange(range);
+  await act(async () => fireEvent.input(editor));
+  fireEvent.click(screen.getByRole("option", { name: /Cambrian/ }));
 
-    await act(async () => {
-      fireEvent.keyDown(
-        target === "chip"
-          ? chip
-          : screen.getByRole("textbox", { name: "Message input" }),
-        { key: "Delete" },
-      );
-    });
-    expect(
-      screen.queryByRole("button", { name: "Remove Cambrian" }),
-    ).toBeNull();
-    expect(fixture.runConfig.custom.aomiCapabilityHints).toHaveProperty(
-      "removedApps",
-    );
-  },
-);
+  const mention = editor.querySelector<HTMLElement>("[data-capability-key]");
+  expect(mention?.dataset.capabilityKind).toBe("app");
+  expect(editor.textContent).toContain("Ask Cambrian to swap");
+  expect(editor.firstChild?.textContent).toBe("Ask ");
+  expect(fixture.setText).toHaveBeenLastCalledWith("Ask ▦ Cambrian to swap");
+  expect(screen.queryByRole("button", { name: "Remove Cambrian" })).toBeNull();
 
-it("clears submitted skill mentions while retaining apps without skill avoidance guidance", async () => {
+  const trailing = mention?.nextSibling as Text;
+  const afterMention = document.createRange();
+  afterMention.setStart(trailing, 1);
+  afterMention.collapse(true);
+  window.getSelection()?.removeAllRanges();
+  window.getSelection()?.addRange(afterMention);
+  await act(async () => fireEvent.keyDown(editor, { key: "Backspace" }));
+  expect(editor.querySelector("[data-capability-key]")).toBeNull();
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
+});
+
+it("inserts a toolbar-picked app at the current caret, not ahead of the draft", async () => {
+  fixture.items = [
+    {
+      kind: "app",
+      id: "application:2937773",
+      key: "app:cambrian",
+      label: "Cambrian",
+      searchText: "Cambrian",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  render(<Harness />);
+  const editor = screen.getByRole("textbox", { name: "Message input" });
+  editor.textContent = "Ask to swap";
+  const range = document.createRange();
+  range.setStart(editor.firstChild!, 4);
+  range.collapse(true);
+  window.getSelection()?.removeAllRanges();
+  window.getSelection()?.addRange(range);
+  await act(async () => fireEvent.input(editor));
+  fireEvent.click(screen.getByText("Open picker"));
+  fireEvent.click(screen.getByRole("option", { name: /Cambrian/ }));
+
+  expect(editor.firstChild?.textContent).toBe("Ask ");
+  expect(editor.textContent).toBe("Ask Cambrian to swap");
+  expect(fixture.setText).toHaveBeenLastCalledWith("Ask ▦ Cambrian to swap");
+  expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
+});
+
+it("clears app and skill mentions together after send", async () => {
   fixture.text = "✦ Across hello";
   const view = render(<Harness />);
   await act(async () => {
@@ -314,10 +330,8 @@ it("clears submitted skill mentions while retaining apps without skill avoidance
   await act(async () => {
     view.rerender(<Harness />);
   });
-  expect(screen.getByTestId("selections").textContent).toBe("Cambrian");
-  expect(fixture.runConfig.custom.aomiCapabilityHints).not.toHaveProperty(
-    "removedApps",
-  );
+  expect(screen.getByTestId("selections")).toBeEmptyDOMElement();
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toBeUndefined();
 });
 
 it("mounts the picker outside the composer overflow boundary", async () => {

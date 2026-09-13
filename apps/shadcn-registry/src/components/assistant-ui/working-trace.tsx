@@ -35,7 +35,7 @@ import {
   WorkingNote,
 } from "@/components/assistant-ui/working-trace-rows";
 
-/** Tool progress stays separate from public prose, in transcript order. */
+/** Interstitial prose and tool progress share one chronological trace. */
 
 const formatDuration = (seconds: number): string => {
   const totalSeconds = Math.max(1, Math.round(seconds));
@@ -678,7 +678,7 @@ export const buildTraceItems = (
   return items;
 };
 
-/** Render each text/tool run in place; later tools never absorb visible prose. */
+/** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
   const content = useMessage((s) => s.content);
   const running = useMessage((s) => s.status?.type === "running");
@@ -705,67 +705,52 @@ export const AssistantTurnParts: FC = () => {
   const delegations = isLast
     ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
     : [];
-  const groups: Array<{
-    key: string;
-    text?: string;
-    tools?: ToolCallMessagePart[];
-  }> = [];
-  for (const [index, part] of content.entries()) {
-    if (part.type === "text") {
-      groups.push({ key: `text:${index}`, text: part.text });
-    } else if (part.type === "tool-call") {
-      const previous = groups.at(-1);
-      if (previous?.tools) previous.tools.push(part);
-      else groups.push({ key: `tool:${part.toolCallId}`, tools: [part] });
-    }
-  }
-  // Unmaterialized delegations stay at the end until their tool part arrives.
+  const parts = content.filter(
+    (part): part is TextMessagePart | ToolCallMessagePart =>
+      part.type === "text" || part.type === "tool-call",
+  );
+  const lastToolIndex = parts.findLastIndex(
+    (part) => part.type === "tool-call",
+  );
   const represented = new Set(
-    content
+    parts
       .filter((part) => part.type === "tool-call")
       .map((part) => part.toolCallId),
   );
   const pending = delegations.filter(
     (run) => !run.callId || !represented.has(run.callId),
   );
-  const hasText = groups.some((group) => group.text?.trim());
+  // A live trailing text part may still be followed by another tool. Once the
+  // turn completes, only text after its final tool is the public answer.
+  const traceEnd =
+    live && (lastToolIndex >= 0 || pending.length > 0)
+      ? parts.length
+      : lastToolIndex + 1;
+  const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
+  const answerParts = parts
+    .slice(traceEnd)
+    .filter((part) => part.type === "text");
   return (
     <>
-      {groups.map((group, index) =>
-        group.tools ? (
-          <WorkingTrace
-            key={group.key}
-            running={live && index === groups.length - 1}
-            outcome={index === groups.length - 1 ? outcome : "complete"}
-            items={buildTraceItems(
-              group.tools,
-              delegations.filter((run) =>
-                Boolean(
-                  run.callId &&
-                  group.tools!.some((tool) => tool.toolCallId === run.callId),
-                ),
-              ),
-            )}
-            revealed={group.tools.length}
-            collapseReady={index < groups.length - 1}
-            startedAtMs={startedAt.current}
-          />
-        ) : group.text ? (
-          <div className="aui-working-answer" key={group.key}>
-            <RenderedText text={group.text} />
-          </div>
-        ) : null,
-      )}
-      {pending.length > 0 && (
+      {traceItems.length > 0 && (
         <WorkingTrace
+          key="turn-trace"
           running={live}
           outcome={outcome}
-          items={buildTraceItems([], pending)}
-          revealed={pending.length}
+          items={traceItems}
+          revealed={traceItems.length}
+          collapseReady={!live}
           startedAtMs={startedAt.current}
         />
       )}
-      {live && !hasText && groups.length === 0 && pending.length === 0 && (
+      {answerParts.map((part, index) =>
+        part.text ? (
+          <div className="aui-working-answer" key={`answer:${index}`}>
+            <RenderedText text={part.text} />
+          </div>
+        ) : null,
+      )}
+      {live && parts.length === 0 && pending.length === 0 && (
         <MinimalWorkingTrace />
       )}
       {outcome === "failed" && <TurnFailureFallback />}
