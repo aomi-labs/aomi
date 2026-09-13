@@ -22,6 +22,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       "@aomi-labs/client": "../../packages/client/src/index.ts",
+      "@aomi-labs/react": "../../packages/react/src/index.ts",
       // Privy consumes React Query through a peer dependency. Pin both sides to
       // the app copy so the provider and Privy's hooks share one context.
       "@tanstack/react-query": "./node_modules/@tanstack/react-query",
@@ -34,6 +35,10 @@ const nextConfig: NextConfig = {
       "@aomi-labs/client": path.join(
         workspaceRoot,
         "packages/client/src/index.ts",
+      ),
+      "@aomi-labs/react": path.join(
+        workspaceRoot,
+        "packages/react/src/index.ts",
       ),
       "@tanstack/react-query": path.join(
         appNodeModules,

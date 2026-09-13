@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       "@build": resolve(currentDir, "apps/build/src"),
       "@portal": resolve(currentDir, "apps/portal/src"),
+      "@": resolve(currentDir, "apps/telegram/src"),
       "@aomi-labs/account/better-auth/client": resolve(
         currentDir,
         "packages/account/src/better-auth/auth-client.ts",

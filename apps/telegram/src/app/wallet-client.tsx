@@ -152,15 +152,10 @@ export function WalletClient() {
     // Nothing to retry: the launch itself is not trustworthy.
     launch: null,
   };
-  // Memoized because it feeds an effect — rebuilt every render, an inline
-  // object would fire the error haptic on every render instead of once.
   const failureCode = resolved?.code ?? null;
-  const failure = useMemo(
-    () =>
-      resolved ? { code: resolved.code, retry: retryFor[resolved.source] } : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [failureCode, resolved?.source],
-  );
+  const failure = resolved
+    ? { code: resolved.code, retry: retryFor[resolved.source] }
+    : null;
 
   const stageStates = resolveStageStates(ceremony);
   const action = stale ? null : resolveAction(ceremony);
@@ -230,8 +225,8 @@ export function WalletClient() {
   }, [signed]);
 
   useEffect(() => {
-    if (failure) haptic("error");
-  }, [failure]);
+    if (failureCode) haptic("error");
+  }, [failureCode]);
 
   return (
     <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
