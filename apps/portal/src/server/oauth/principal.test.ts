@@ -491,6 +491,47 @@ describe("public OAuth and session principal resolution", () => {
       }),
     ).rejects.toMatchObject({ code: "invalid_token", status: 401 });
   });
+
+  it("accepts a guest cookie on its immutable preview host when the configured issuer is a branch alias", async () => {
+    mocks.getBetterAuthSession.mockResolvedValue({
+      user: {
+        id: "ba-guest",
+        isAnonymous: true,
+      },
+      session: { token: "guest-session" },
+    });
+    const previewUrl =
+      "https://chat-portal-immutable-aomi-labs.vercel.app/v1/agent/chat";
+    const input = {
+      resource,
+      requiredScopes: ["agent:write"],
+      sessionScopes: ["agent:read", "agent:write"],
+    };
+
+    await expect(
+      resolveApiPrincipal({
+        ...input,
+        request: new Request(previewUrl, {
+          method: "POST",
+          headers: { origin: new URL(previewUrl).origin },
+        }),
+      }),
+    ).resolves.toMatchObject({
+      authSource: "session",
+      principalClass: "guest",
+      canonicalUserId: "canonical-user",
+    });
+
+    await expect(
+      resolveApiPrincipal({
+        ...input,
+        request: new Request(previewUrl, {
+          method: "POST",
+          headers: { origin: "https://unregistered.example" },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_token", status: 401 });
+  });
   it("resolves the signed local E2E session at the principal boundary", async () => {
     mocks.e2eCanonicalUserId.mockReturnValue("e2e-user");
     await expect(

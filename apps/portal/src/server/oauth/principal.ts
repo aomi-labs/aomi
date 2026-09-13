@@ -180,6 +180,7 @@ export async function resolveApiPrincipal(input: {
     if (
       origin &&
       origin !== aomiOAuthResources().portalOrigin &&
+      origin !== new URL(input.request.url).origin &&
       !(await isManagedWidgetClientOrigin(origin, principal.clientId))
     ) {
       throw new ApiPrincipalError(401, "invalid_token");
@@ -191,7 +192,8 @@ export async function resolveApiPrincipal(input: {
   if (
     !input.request.headers.has("authorization") &&
     origin &&
-    origin !== aomiOAuthResources().portalOrigin
+    origin !== aomiOAuthResources().portalOrigin &&
+    origin !== new URL(input.request.url).origin
   ) {
     throw new ApiPrincipalError(401, "invalid_token");
   }
