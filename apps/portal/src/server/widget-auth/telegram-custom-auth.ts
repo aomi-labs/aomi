@@ -1,5 +1,7 @@
 import "server-only";
 
+import { WidgetAuthError } from "@aomi-labs/account/widget-auth";
+
 import { createPublicKey } from "node:crypto";
 import {
   exportJWK,
@@ -146,9 +148,13 @@ export async function requirePrivyCustomAuthOwner(input: {
   customSubject: string;
   privyUserId: string;
 }): Promise<void> {
+  // Typed, not bare `Error`: an untyped throw here falls through to the
+  // catch-all and reaches the Mini App as 500 `widget_auth_failed`, which is
+  // indistinguishable from a database fault. These two are the most common
+  // real failures on this path and each has its own fix.
   const env = readAccountAuthEnv();
   if (!env.privyAppId || !env.privyAppSecret) {
-    throw new Error("telegram_custom_auth_not_configured");
+    throw new WidgetAuthError("telegram_custom_auth_not_configured", 503);
   }
   const owner = await findPrivyUserByCustomAuthId({
     appId: env.privyAppId,
@@ -156,6 +162,6 @@ export async function requirePrivyCustomAuthOwner(input: {
     customUserId: input.customSubject,
   });
   if (owner !== input.privyUserId) {
-    throw new Error("telegram_custom_auth_not_linked");
+    throw new WidgetAuthError("telegram_custom_auth_not_linked", 403);
   }
 }
