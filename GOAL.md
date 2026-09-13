@@ -1,5 +1,16 @@
 # Current work
 
+**PREVIEW WALLET AUTH ORIGIN 2026-09-13** — the hosted wallet E2E PR also
+repairs preview SIWE/SIWS verification. A preview browser can open the exact
+deployment, branch alias, or staging alias, but Better Auth's configured SIWE
+domain was one static host. Its 401 `UNAUTHORIZED_SIWE_MESSAGE_MISMATCH` was
+observed on previews. Wallet auth now binds the expected domain (and SIWS URI)
+to the HTTPS request host only when it matches the deployment, branch, or
+configured canonical Portal origin. The request's `Origin` header cannot
+select the signing domain, concurrent requests stay isolated, and production
+retains its static configured domain. Focused origin/env tests, Account type
+check, and scoped lint pass; live preview sign-in still needs deployment proof.
+
 **HOSTED WALLET BROWSER E2E 2026-09-13** — isolated `test/wallet-hosted-e2e`
 from freshly fetched `origin/main` (`576f3f0`) after guest PR #609 merged.
 Add trusted manual/opt-in nightly Playwright journeys for real SIWE/SIWS wallet

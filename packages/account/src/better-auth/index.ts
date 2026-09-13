@@ -1,4 +1,4 @@
-export { auth } from "./auth";
+export { auth, handleWalletAuthRequest } from "./auth";
 export {
   setBetterAuthFailureObserver,
   type BetterAuthFailure,
