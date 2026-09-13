@@ -1,5 +1,16 @@
 # Current work
 
+**EXACT PREVIEW ORIGIN REPAIR 2026-09-13** — isolated
+`fix/preview-origin-auth` from `origin/main` (`aac19da8`). The immutable
+Chat preview returned `401 invalid_token` for a valid guest cookie whenever a
+browser sent its own `Origin`: auth metadata named the moving branch alias,
+and the REST principal check treated the exact deployment host as foreign.
+The candidate uses the deployment URL for ephemeral preview issuer/SIWE
+metadata and recognizes only the request's own host or configured issuer as
+first party, while keeping CSRF and registered widget-origin checks. Focused
+auth tests, Account/Portal type checks, scoped lint, and trusted-base packed
+consumer compatibility pass. PR and live preview validation remain pending.
+
 **FRONTEND CONSUMER COMPATIBILITY 2026-09-13** — isolated
 `feat/fe-consumer-compat` from `origin/main` (`cc556219`). Protect existing
 headless and widget consumers against candidate package tarballs using the
