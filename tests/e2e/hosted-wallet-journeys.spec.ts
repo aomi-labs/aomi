@@ -239,6 +239,7 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
       }>;
       approvals?: unknown[];
       fees?: unknown[];
+      gas?: { units?: string | null };
     };
   };
   expect(request.type).toBe("execute_evm");
@@ -265,6 +266,14 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
   await expect(
     review.getByTestId("asset-effect").filter({ hasText: ONE_WEI_DISPLAY }),
   ).toBeVisible();
+  expect(
+    Boolean(request.simulation?.fees?.length) ||
+      Boolean(request.simulation?.gas?.units),
+  ).toBe(true);
+  await expect(review.getByText(/(?: fee$|Estimated gas ·)/)).toBeVisible();
+  await expect(
+    review.getByRole("button", { name: "Send to wallet" }),
+  ).toBeEnabled();
   expect(wallet.blocked).toEqual([]);
   expect(forbiddenRequests).toEqual([]);
 });
