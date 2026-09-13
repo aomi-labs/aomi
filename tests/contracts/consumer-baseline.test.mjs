@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
@@ -68,3 +68,27 @@ test("candidate consumer edits cannot rewrite the trusted baseline", () => {
     rmSync(temp, { recursive: true, force: true });
   }
 });
+
+for (const baseline of [
+  undefined,
+  "0000000000000000000000000000000000000000",
+  "does-not-exist",
+]) {
+  test(`missing or invalid baseline fails closed: ${baseline ?? "missing"}`, () => {
+    const env = { ...process.env };
+    delete env.CONSUMER_BASE_SHA;
+    const result = spawnSync(
+      process.execPath,
+      [
+        new URL(
+          "../../scripts/check-consumer-compatibility.mjs",
+          import.meta.url,
+        ).pathname,
+        ...(baseline ? ["--base", baseline] : []),
+      ],
+      { env, encoding: "utf8" },
+    );
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout, /Checking consumers/);
+  });
+}
