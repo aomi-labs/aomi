@@ -8,8 +8,13 @@ observed on previews. Wallet auth now binds the expected domain (and SIWS URI)
 to the HTTPS request host only when it matches the deployment, branch, or
 configured canonical Portal origin. The request's `Origin` header cannot
 select the signing domain, concurrent requests stay isolated, and production
-retains its static configured domain. Focused origin/env tests, Account type
-check, and scoped lint pass; live preview sign-in still needs deployment proof.
+retains its static configured domain. Focused origin/env tests, Account and
+Portal type checks, and scoped lint pass. On PR #610's deployed branch alias,
+the same fresh-key SIWE probe changed from nonce 200 / verify 401 / no session
+to 200 / 200 / canonical account. A Chromium wallet-picker sign-in produced
+one real signature, a Better Auth session and canonical account; SIWS preview
+nonce/verify/session also passed. A signed SIWE message for the staging domain
+still returned 401 on the preview host.
 
 **HOSTED WALLET BROWSER E2E 2026-09-13** — isolated `test/wallet-hosted-e2e`
 from freshly fetched `origin/main` (`576f3f0`) after guest PR #609 merged.
