@@ -1,5 +1,15 @@
 # Current work
 
+**FRONTEND CONSUMER COMPATIBILITY 2026-09-13** — isolated
+`feat/fe-consumer-compat` from `origin/main` (`cc556219`). Protect existing
+headless and widget consumers against candidate package tarballs using the
+trusted PR base, include compatibility in `Frontend CI Passed`, and own the
+consumer/check/CI policy. Correct stale agent guidance. Local packed-consumer
+checks pass (11 headless tests, ESM/CJS imports, widget production build); a
+removed SDK export fails the unchanged consumer and restoration passes. Main
+requires `Frontend CI Passed` and code-owner review, verified through GitHub.
+Remote CI/review evidence is tracked in PR #606; no product deployment.
+
 **TTFT MERGE VALIDATION 2026-09-12** — `codex/ttft-live-delivery` merged with
 `main` (widget 2.0.48 over main's 2.0.47; client 0.7.2, React 0.6.14). Paired
 backend branch merged `main` and product-mono #1075. Local browser validation
