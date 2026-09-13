@@ -1,5 +1,21 @@
 # Current work
 
+**HOSTED WALLET BROWSER E2E 2026-09-13** — isolated `test/wallet-hosted-e2e`
+from freshly fetched `origin/main` (`576f3f0`) after guest PR #609 merged.
+Add trusted manual/opt-in nightly Playwright journeys for real SIWE/SIWS wallet
+login and settled hosted chat, plus an EVM 1-wei zero-address transfer review
+with exact payload and visible simulated balance-decrease assertions. Browser
+wallets are simulated at the normal injected/Wallet Standard boundaries; only
+login messages receive real signatures. Transaction execution and broadcast
+are blocked. Staging credentials and a dedicated funded EVM test wallet are
+required for the full hosted run. Nothing is deployed or merged by this work.
+Live `chat-staging.aomi.dev` runs passed SIWE and SIWS with fresh in-process
+keys: real nonce/verify, Better Auth account, and settled backend reply. The
+burn-transfer case is unverified because no dedicated funded Base Sepolia test
+wallet, RPC, or workflow secret set is available here; its preflight fails
+before model use. Focused TypeScript, ESLint, Prettier, Playwright discovery,
+workflow policy, and diff checks pass.
+
 **EXACT PREVIEW ORIGIN REPAIR 2026-09-13** — isolated
 `fix/preview-origin-auth` from `origin/main` (`aac19da8`). The immutable
 Chat preview returned `401 invalid_token` for a valid guest cookie whenever a
