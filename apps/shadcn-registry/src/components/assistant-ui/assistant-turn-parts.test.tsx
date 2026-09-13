@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   includeTool: true,
   answerText: "",
   prefixText: "",
+  middleText: "",
+  secondTool: false,
   isLast: true,
 }));
 
@@ -26,6 +28,21 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
                 argsText: "{}",
                 toolName: "commit",
                 toolCallId: "call-1",
+                args: {},
+                result: { status: "completed" },
+              } satisfies ToolCallMessagePart,
+            ]
+          : []),
+        ...(state.middleText
+          ? [{ type: "text" as const, text: state.middleText }]
+          : []),
+        ...(state.secondTool
+          ? [
+              {
+                type: "tool-call",
+                argsText: "{}",
+                toolName: "commit",
+                toolCallId: "call-2",
                 args: {},
                 result: { status: "completed" },
               } satisfies ToolCallMessagePart,
@@ -72,11 +89,13 @@ beforeEach(() => {
   state.includeTool = true;
   state.answerText = "";
   state.prefixText = "";
+  state.middleText = "";
+  state.secondTool = false;
   state.isLast = true;
 });
 
 describe("AssistantTurnParts lifecycle", () => {
-  it("shows text while running and keeps it before later tools", () => {
+  it("keeps working prose in one trace and the completed answer outside it", () => {
     state.includeTool = false;
     state.prefixText = "Your balance is 10 ETH.";
     const view = render(<AssistantTurnParts />);
@@ -85,12 +104,46 @@ describe("AssistantTurnParts lifecycle", () => {
     state.includeTool = true;
     state.answerText = "The transfer needs your approval.";
     view.rerender(<AssistantTurnParts />);
-    expect(view.getByText(state.prefixText)).toBe(original);
-    expect(view.getByText(state.answerText)).toBeVisible();
+    const trace = view.container.querySelector(".aui-working-trace");
+    expect(trace).toContainElement(view.getByText(state.prefixText));
+    expect(trace).toContainElement(view.getByText(state.answerText));
+    expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
+      1,
+    );
     expect(
       original.compareDocumentPosition(view.getByText(state.answerText)) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+
+    act(() => {
+      state.running = false;
+      state.turnState = "complete";
+    });
+    view.rerender(<AssistantTurnParts />);
+    expect(trace).toContainElement(view.getByText(state.prefixText));
+    expect(trace).not.toContainElement(view.getByText(state.answerText));
+    expect(
+      view.getByText(state.answerText).closest(".aui-working-answer"),
+    ).toBeTruthy();
+  });
+
+  it("places notes before and between tools in a single chronological trace", () => {
+    state.prefixText = "Checking the balance.";
+    state.middleText = "The balance read failed; retrying.";
+    state.secondTool = true;
+    state.answerText = "Withdrawal completed.";
+    state.running = false;
+    state.turnState = "complete";
+    const view = render(<AssistantTurnParts />);
+    const trace = view.container.querySelector(".aui-working-trace");
+    expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
+      1,
+    );
+    expect(trace?.querySelectorAll(".aui-working-note")).toHaveLength(2);
+    expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
+    expect(trace).toContainElement(view.getByText(state.prefixText));
+    expect(trace).toContainElement(view.getByText(state.middleText));
+    expect(trace).not.toContainElement(view.getByText(state.answerText));
   });
 
   it("keeps completed tool work green", () => {
