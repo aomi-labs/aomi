@@ -101,7 +101,8 @@
     "repowiki:refresh": "./scripts/repowiki refresh",
     "repowiki:doctor": "./scripts/repowiki doctor",
     "prepublishOnly": "pnpm run build:lib",
-    "deploy:registry": "./scripts/deploy-registry.sh"
+    "deploy:registry": "./scripts/deploy-registry.sh",
+    "test:contracts": "node scripts/check-consumer-compatibility.mjs"
   },
   "prettier": {
     "plugins": [

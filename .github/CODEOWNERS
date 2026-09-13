@@ -1,0 +1,11 @@
+# Existing consumers and the checks protecting them require frontend-owner review.
+# Keep GitHub main protection's require_code_owner_reviews enabled.
+/apps/widget-consumer/ @CeciliaZ030 @arixoneth
+/apps/examples/headless-client/ @CeciliaZ030 @arixoneth
+/scripts/check-consumer-compatibility* @CeciliaZ030 @arixoneth
+/tests/contracts/ @CeciliaZ030 @arixoneth
+/.github/ @CeciliaZ030 @arixoneth
+/package.json @CeciliaZ030 @arixoneth
+/pnpm-workspace.yaml @CeciliaZ030 @arixoneth
+/AGENTS.md @CeciliaZ030 @arixoneth
+/docs/topics/development/facts/frontend-invariants.md @CeciliaZ030 @arixoneth
