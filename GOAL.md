@@ -24,17 +24,18 @@ with exact payload and visible simulated balance-decrease assertions. Browser
 wallets are simulated at the normal injected/Wallet Standard boundaries; only
 login messages receive real signatures. Transaction execution and broadcast
 are blocked. Staging credentials and a dedicated funded EVM test wallet are
-required for the full hosted run. Nothing is deployed or merged by this work.
-Live `chat-staging.aomi.dev` runs passed SIWE and SIWS with fresh in-process
-keys: real nonce/verify, Better Auth account, and settled backend reply. A
-dedicated EVM wallet was funded with 0.001 Base Sepolia ETH; the SIWE journey
-passed again. The live burn-transfer journey passed its chain/balance preflight
-and the agent constructed and simulated the exact 1 wei transfer, but it did
-not call `commit_txs`: its `get_account_info` tool read 0 ETH from Base mainnet
-because the backend explorer helper maps the `base_sepolia` network key to
-chain 8453. Backend PR #1082 fixes that mapping; the live burn test must be
-rerun after the fix reaches staging. Focused TypeScript, ESLint, Prettier,
-Playwright discovery, workflow policy, and diff checks pass.
+required for the full hosted run. Frontend PR #610 remains unmerged. A dedicated
+EVM wallet was funded with 0.001 Base Sepolia ETH. The first live burn-transfer
+run exposed a backend explorer mapping bug: `base_sepolia` account reads used
+Base mainnet chain 8453, so the agent would not call `commit_txs` despite a
+passed simulation. Backend PR #1082 corrected the mapping, merged as
+`12309f4736b27a16d0d3acb3e77084317fe9a7c0`, and its same-commit staging
+image, migration, both hosts, and edge verification passed. Against that staging
+deployment, all three hosted Playwright journeys passed together (3/3 in 1.1m):
+real SIWE and SIWS nonce/verify, canonical Better Auth accounts, settled hosted
+replies, and the exact signable 1 wei burn transfer with a visible simulated
+balance decrease. No transaction was signed or broadcast. Focused TypeScript,
+ESLint, Prettier, Playwright discovery, workflow policy, and diff checks pass.
 
 **EXACT PREVIEW ORIGIN REPAIR 2026-09-13** — isolated
 `fix/preview-origin-auth` from `origin/main` (`aac19da8`). The immutable
