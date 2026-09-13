@@ -9,7 +9,12 @@ The candidate uses the deployment URL for ephemeral preview issuer/SIWE
 metadata and recognizes only the request's own host or configured issuer as
 first party, while keeping CSRF and registered widget-origin checks. Focused
 auth tests, Account/Portal type checks, scoped lint, and trusted-base packed
-consumer compatibility pass. PR and live preview validation remain pending.
+consumer compatibility pass. PR #607's first exact-commit preview published the
+correct resource/issuer host and completed a guest reply; an unregistered
+origin still received `401 invalid_token`. Guest conversation discovery after
+refresh remains unresolved and is outside this origin repair. The initial CI
+run found a stale branch-alias assertion in the existing environment test; it
+is corrected in the follow-up commit.
 
 **FRONTEND CONSUMER COMPATIBILITY 2026-09-13** — isolated
 `feat/fe-consumer-compat` from `origin/main` (`cc556219`). Protect existing
