@@ -33,10 +33,13 @@ const PERMIT = {
   expiry: 1_800_000_000,
 };
 
-const provider = Object.assign(vi.fn(async () => "wst-token"), {
-  dispose: vi.fn(),
-  subscribe: vi.fn(),
-});
+const provider = Object.assign(
+  vi.fn(async () => "wst-token"),
+  {
+    dispose: vi.fn(),
+    subscribe: vi.fn(),
+  },
+);
 
 function launchWith(permission: Record<string, string | null>) {
   return {
@@ -128,11 +131,41 @@ describe("usePermissionControl", () => {
     });
   });
 
-  it("is ready without any connected-wallet list", () => {
+  it("is ready without Privy's connected-wallet list", () => {
     // The regression this guards: gating on `useWallets().ready` left the sign
     // button permanently unrendered inside Telegram's webview, because Privy's
     // wallet-proxy iframe never connects there.
     expect(render(launchWith({})).result.current.status).toBe("ready");
+  });
+
+  it("restores the completed state for its own already-armed wallet", () => {
+    expect(render(launchWith({}), provider).result.current.status).toBe(
+      "ready",
+    );
+    const { result } = renderHook(() =>
+      usePermissionControl({
+        launch: launchWith({}) as never,
+        provider: provider as never,
+        serverAuto: true,
+      }),
+    );
+    expect(result.current.status).toBe("done");
+    expect(result.current.signedHere).toBe(false);
+  });
+
+  it("never treats a different bot-named key as already armed", () => {
+    const { result } = renderHook(() =>
+      usePermissionControl({
+        launch: launchWith({
+          permissionChain: "evm",
+          permissionWallet: AGENT,
+          permissionMode: "denied",
+        }) as never,
+        provider: provider as never,
+        serverAuto: true,
+      }),
+    );
+    expect(result.current.status).toBe("ready");
   });
 
   it("is not ready without a wallet or a session", () => {
@@ -149,6 +182,7 @@ describe("usePermissionControl", () => {
     const { result } = render(launchWith({}));
     await act(async () => void (await result.current.sign()));
     await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.signedHere).toBe(true);
 
     const [challengeUrl, challengeInit] = fetchMock.mock.calls[0];
     expect(String(challengeUrl)).toBe(
@@ -220,10 +254,13 @@ describe("usePermissionControl", () => {
     // commit — the failure that logged a challenge 200 with no commit.
     const fetchMock = ceremonyFetch();
     vi.stubGlobal("fetch", fetchMock);
-    const replacement = Object.assign(vi.fn(async () => "fresh-token"), {
-      dispose: vi.fn(),
-      subscribe: vi.fn(),
-    });
+    const replacement = Object.assign(
+      vi.fn(async () => "fresh-token"),
+      {
+        dispose: vi.fn(),
+        subscribe: vi.fn(),
+      },
+    );
 
     let releasePrompt: () => void = () => {};
     const prompt = new Promise<void>((resolve) => {

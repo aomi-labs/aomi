@@ -14,12 +14,7 @@ import { aomiBffUrl } from "@/app/config";
 import { embeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 
-export type PermissionStatus =
-  | "idle"
-  | "ready"
-  | "signing"
-  | "done"
-  | "error";
+export type PermissionStatus = "idle" | "ready" | "signing" | "done" | "error";
 
 export type PermissionTarget = {
   chain: string;
@@ -52,9 +47,15 @@ function asTypedData(value: unknown): SignTypedDataParams | null {
 export function usePermissionControl(input: {
   launch: LaunchContext | null;
   provider: AccountSessionProvider | null;
+  /** The exact embedded wallet is already armed in the backend. */
+  serverAuto?: boolean;
 }) {
   const [status, setStatus] = useState<PermissionStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  // A restored `serverAuto` state is complete, but this particular page did
+  // not perform a signing action. Keep that distinction so reopening /wallet
+  // remains visible instead of immediately closing the Mini App.
+  const [signedHere, setSignedHere] = useState(false);
   // Signing a permit puts a wallet prompt between the challenge and the commit.
   // Holding the provider in a ref means the commit uses whatever session is
   // current when it runs, instead of an instance that was disposed while the
@@ -146,6 +147,7 @@ export function usePermissionControl(input: {
       });
       await authorizationCommit(post, { permit: challenge.permit, signature });
       setStatus("done");
+      setSignedHere(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "permission_failed");
       setStatus("error");
@@ -155,10 +157,15 @@ export function usePermissionControl(input: {
   return {
     error,
     sign,
+    signedHere,
     status:
-      status === "idle" && target && input.provider && wallet
-        ? ("ready" as const)
-        : status,
+      status !== "idle"
+        ? status
+        : input.serverAuto && !target?.fromLaunch
+          ? "done"
+          : target && input.provider && wallet
+            ? ("ready" as const)
+            : status,
     target,
   };
 }

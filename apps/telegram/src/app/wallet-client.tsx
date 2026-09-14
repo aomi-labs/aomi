@@ -13,6 +13,7 @@ import {
 } from "@aomi-labs/widget-lib/components/ui/card";
 
 import { useCanonicalAccount } from "@/hooks/use-canonical-account";
+import { useAuthorizationState } from "@/hooks/use-authorization-state";
 import { usePermissionControl } from "@/hooks/use-permission-control";
 import { usePrivyDelegation } from "@/hooks/use-privy-delegation";
 import { useTelegramCustomAuth } from "@/hooks/use-telegram-custom-auth";
@@ -97,14 +98,20 @@ export function WalletClient() {
   });
   const { user } = usePrivy();
   const wallet = useMemo(() => embeddedWallet(user), [user]);
+  const authorization = useAuthorizationState({
+    provider: account.provider,
+    wallet,
+  });
   const delegation = usePrivyDelegation({
     launch: launch.context,
     provider: account.provider,
     wallet,
+    delegated: authorization.delegated && wallet?.delegated === true,
   });
   const permission = usePermissionControl({
     launch: launch.context,
     provider: account.provider,
+    serverAuto: authorization.serverAuto,
   });
   const [showDetail, setShowDetail] = useState(false);
 
@@ -122,6 +129,7 @@ export function WalletClient() {
 
   const linked = account.status === "ready";
   const signed = permission.status === "done";
+  const authorizationReady = authorization.resolved || !wallet;
 
   const ceremony: CeremonyInput = {
     launch: { status: launch.status, error: launch.error },
@@ -158,8 +166,12 @@ export function WalletClient() {
     : null;
 
   const stageStates = resolveStageStates(ceremony);
-  const action = stale ? null : resolveAction(ceremony);
-  const headline = failure ? explainError(failure.code) : resolveHeadline(ceremony);
+  const action = stale || !authorizationReady ? null : resolveAction(ceremony);
+  const headline = failure
+    ? explainError(failure.code)
+    : !authorizationReady && linked
+      ? "Checking server-signing status…"
+      : resolveHeadline(ceremony);
 
   const stages: Stage[] = [
     {
@@ -194,6 +206,7 @@ export function WalletClient() {
     !failure &&
     permission.status !== "done" &&
     (launch.status === "loading" ||
+      (!authorizationReady && linked) ||
       delegation.status === "delegating" ||
       permission.status === "signing" ||
       (account.status !== "ready" &&
@@ -202,7 +215,10 @@ export function WalletClient() {
 
   const primary =
     action === "delegate"
-      ? { label: "Enable server signing", onClick: () => void delegation.delegate() }
+      ? {
+          label: "Enable server signing",
+          onClick: () => void delegation.delegate(),
+        }
       : action === "sign"
         ? { label: "Sign permission", onClick: () => void permission.sign() }
         : failure?.retry
@@ -210,19 +226,17 @@ export function WalletClient() {
           : null;
   // Telegram's own bottom button owns the primary action when it exists; the
   // in-page button below is the fallback for a client that has none.
-  const nativeButton = useTelegramMainButton(
-    primary && { ...primary, busy },
-  );
+  const nativeButton = useTelegramMainButton(primary && { ...primary, busy });
   useTelegramBackButton(telegramAuth.back);
 
   // Finish the ceremony inside Telegram rather than leaving the user to dismiss
   // a sheet that says it is done.
   useEffect(() => {
-    if (!signed) return;
+    if (!permission.signedHere) return;
     haptic("success");
     const timer = setTimeout(closeApp, 1200);
     return () => clearTimeout(timer);
-  }, [signed]);
+  }, [permission.signedHere]);
 
   useEffect(() => {
     if (failureCode) haptic("error");
