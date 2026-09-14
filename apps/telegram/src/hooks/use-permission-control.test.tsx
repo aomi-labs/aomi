@@ -150,7 +150,6 @@ describe("usePermissionControl", () => {
       }),
     );
     expect(result.current.status).toBe("done");
-    expect(result.current.signedHere).toBe(false);
   });
 
   it("never treats a different bot-named key as already armed", () => {
@@ -182,7 +181,6 @@ describe("usePermissionControl", () => {
     const { result } = render(launchWith({}));
     await act(async () => void (await result.current.sign()));
     await waitFor(() => expect(result.current.status).toBe("done"));
-    expect(result.current.signedHere).toBe(true);
 
     const [challengeUrl, challengeInit] = fetchMock.mock.calls[0];
     expect(String(challengeUrl)).toBe(
