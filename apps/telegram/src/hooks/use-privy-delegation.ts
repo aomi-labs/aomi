@@ -55,15 +55,15 @@ export function usePrivyDelegation(input: {
     providerRef.current = input.provider;
   }, [input.provider]);
 
-  const delegated = input.wallet?.delegated === true;
-
   const delegate = useCallback(async () => {
     const provider = providerRef.current;
     const wallet = input.wallet;
     const threadId = input.launch?.sessionId;
     if (!provider || !wallet || !threadId) {
       setError(
-        !threadId ? "delegation_thread_unavailable" : "delegation_session_unavailable",
+        !threadId
+          ? "delegation_thread_unavailable"
+          : "delegation_session_unavailable",
       );
       setStatus("error");
       return;
@@ -101,28 +101,36 @@ export function usePrivyDelegation(input: {
       ) {
         throw new Error(`delegation_begin_failed_${beginResponse.status}`);
       }
-      const signerId = new URL(begin.auth_url).searchParams
-        .get("signer_id")
-        ?.trim();
-      if (!signerId) throw new Error("delegation_signer_unconfigured");
-
-      // Privy rejects a signer that is already installed. The Aomi callback
-      // verifies the real state against Privy's API, so that rejection is not
-      // terminal here — but keep it to explain a callback failure.
+      // Privy's `delegated` bit only says its signer is installed. It does not
+      // prove that Aomi received the callback which persists the matching
+      // server-side delegation. Always reconcile through the callback; only
+      // skip the duplicate Privy signer installation for a returning wallet.
       let signerFailure: string | null = null;
-      const granted = await addSessionSigners({
-        address: wallet.address,
-        signers: [{ signerId, policyIds: [] }],
-      }).catch((cause: unknown) => {
-        signerFailure = cause instanceof Error ? cause.message : "unknown";
-        return null;
-      });
-
-      // Privy only assigns a server wallet id once the wallet is delegated, so
-      // the freshly returned user carries it when the pre-call snapshot did not.
-      const walletId = embeddedWallet(granted?.user ?? null)?.id ?? wallet.id;
+      let walletId = wallet.id;
+      let privyUserId = user?.id;
+      if (!wallet.delegated) {
+        const signerId = new URL(begin.auth_url).searchParams
+          .get("signer_id")
+          ?.trim();
+        if (!signerId) throw new Error("delegation_signer_unconfigured");
+        // Privy rejects a signer that is already installed. The Aomi callback
+        // verifies the real state against Privy's API, so that rejection is not
+        // terminal here — keep it to explain a callback failure should
+        // reconciliation be rejected too.
+        const granted = await addSessionSigners({
+          address: wallet.address,
+          signers: [{ signerId, policyIds: [] }],
+        }).catch((cause: unknown) => {
+          signerFailure = cause instanceof Error ? cause.message : "unknown";
+          return null;
+        });
+        // Privy only assigns a server wallet id once the wallet is delegated,
+        // so the freshly returned user carries it when the pre-call snapshot
+        // did not.
+        walletId = embeddedWallet(granted?.user ?? null)?.id ?? wallet.id;
+        privyUserId = granted?.user.id ?? user?.id;
+      }
       const accessToken = await getAccessToken();
-      const privyUserId = granted?.user.id ?? user?.id;
       if (!accessToken || !privyUserId || !walletId) {
         throw new Error(
           signerFailure
@@ -176,14 +184,13 @@ export function usePrivyDelegation(input: {
   return {
     delegate,
     error,
-    // A wallet Privy already reports as delegated needs no ceremony, so a
-    // returning user never sees this stage.
+    // A Privy-side signer still needs the Aomi callback before it is usable
+    // for server signing, so all wallets with the needed local prerequisites
+    // remain actionable until this hook's callback succeeds.
     status: settled
       ? status
-      : delegated
-        ? "done"
-        : input.provider && input.wallet && input.launch?.sessionId
-          ? "ready"
-          : "idle",
+      : input.provider && input.wallet && input.launch?.sessionId
+        ? "ready"
+        : "idle",
   };
 }

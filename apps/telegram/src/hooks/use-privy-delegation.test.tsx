@@ -28,10 +28,13 @@ const launch = {
 };
 
 const wallet = { address: ADDRESS, id: "wallet-1", delegated: false };
-const provider = Object.assign(vi.fn(async () => "wst-token"), {
-  dispose: vi.fn(),
-  subscribe: vi.fn(),
-});
+const provider = Object.assign(
+  vi.fn(async () => "wst-token"),
+  {
+    dispose: vi.fn(),
+    subscribe: vi.fn(),
+  },
+);
 
 function userWithWallet(delegated: boolean, id: string | null = "wallet-1") {
   return {
@@ -50,7 +53,9 @@ function userWithWallet(delegated: boolean, id: string | null = "wallet-1") {
   } as unknown as User;
 }
 
-function render(overrides: Partial<Parameters<typeof usePrivyDelegation>[0]> = {}) {
+function render(
+  overrides: Partial<Parameters<typeof usePrivyDelegation>[0]> = {},
+) {
   return renderHook(() =>
     usePrivyDelegation({
       launch: launch as never,
@@ -85,9 +90,31 @@ describe("usePrivyDelegation", () => {
     expect(render({ wallet: null }).result.current.status).toBe("idle");
   });
 
-  it("skips the ceremony for an already-delegated wallet", () => {
+  it("keeps an already-delegated wallet actionable until Aomi confirms it", () => {
     const { result } = render({ wallet: { ...wallet, delegated: true } });
-    expect(result.current.status).toBe("done");
+    expect(result.current.status).toBe("ready");
+  });
+
+  it("reconciles an already-delegated wallet without installing its signer again", async () => {
+    privyUser = userWithWallet(true);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okJson({ auth_url: AUTH_URL, state_token: "st" }))
+      .mockResolvedValueOnce(okJson({ status: "connected" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = render({ wallet: { ...wallet, delegated: true } });
+    await act(async () => void (await result.current.delegate()));
+
+    await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(addSessionSigners).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      state: "st",
+      access_token: "privy-access-token",
+      user_id: "did:privy:user",
+      wallets: [{ id: "wallet-1", address: ADDRESS, chain_type: "ethereum" }],
+    });
   });
 
   it("runs begin, installs the signer, then confirms via the callback", async () => {
