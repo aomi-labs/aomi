@@ -1,5 +1,49 @@
 # Current work
 
+**HOSTED WALLET WORKFLOW PROTECTION 2026-09-14** — PR #610's manual
+`workflow_dispatch` could otherwise select a branch and run its test code with
+the future `staging-e2e` wallet secrets. The GitHub environment now permits
+only the `main` branch, and the workflow checks its event ref and explicitly
+checks out `main`. The environment has no secrets configured yet. Backend
+guest-wallet approval PR #1083 merged as `19b7e4b635c277fb634351e103155d7e82aa93e0`.
+
+**PREVIEW WALLET AUTH ORIGIN 2026-09-13** — the hosted wallet E2E PR also
+repairs preview SIWE/SIWS verification. A preview browser can open the exact
+deployment, branch alias, or staging alias, but Better Auth's configured SIWE
+domain was one static host. Its 401 `UNAUTHORIZED_SIWE_MESSAGE_MISMATCH` was
+observed on previews. Wallet auth now binds the expected domain (and SIWS URI)
+to the HTTPS request host only when it matches the deployment, branch, or
+configured canonical Portal origin. The request's `Origin` header cannot
+select the signing domain, concurrent requests stay isolated, and production
+retains its static configured domain. Focused origin/env tests, Account and
+Portal type checks, and scoped lint pass. On PR #610's deployed branch alias,
+the same fresh-key SIWE probe changed from nonce 200 / verify 401 / no session
+to 200 / 200 / canonical account. A Chromium wallet-picker sign-in produced
+one real signature, a Better Auth session and canonical account; SIWS preview
+nonce/verify/session also passed. A signed SIWE message for the staging domain
+still returned 401 on the preview host.
+
+**HOSTED WALLET BROWSER E2E 2026-09-13** — isolated `test/wallet-hosted-e2e`
+from freshly fetched `origin/main` (`576f3f0`) after guest PR #609 merged.
+Add trusted manual/opt-in nightly Playwright journeys for real SIWE/SIWS wallet
+login and settled hosted chat, plus an EVM 1-wei zero-address transfer review
+with exact payload and visible simulated balance-decrease assertions. Browser
+wallets are simulated at the normal injected/Wallet Standard boundaries; only
+login messages receive real signatures. Transaction execution and broadcast
+are blocked. Staging credentials and a dedicated funded EVM test wallet are
+required for the full hosted run. Frontend PR #610 remains unmerged. A dedicated
+EVM wallet was funded with 0.001 Base Sepolia ETH. The first live burn-transfer
+run exposed a backend explorer mapping bug: `base_sepolia` account reads used
+Base mainnet chain 8453, so the agent would not call `commit_txs` despite a
+passed simulation. Backend PR #1082 corrected the mapping, merged as
+`12309f4736b27a16d0d3acb3e77084317fe9a7c0`, and its same-commit staging
+image, migration, both hosts, and edge verification passed. Against that staging
+deployment, all three hosted Playwright journeys passed together (3/3 in 1.1m):
+real SIWE and SIWS nonce/verify, canonical Better Auth accounts, settled hosted
+replies, and the exact signable 1 wei burn transfer with a visible simulated
+balance decrease. No transaction was signed or broadcast. Focused TypeScript,
+ESLint, Prettier, Playwright discovery, workflow policy, and diff checks pass.
+
 **EXACT PREVIEW ORIGIN REPAIR 2026-09-13** — isolated
 `fix/preview-origin-auth` from `origin/main` (`aac19da8`). The immutable
 Chat preview returned `401 invalid_token` for a valid guest cookie whenever a
@@ -73,7 +117,6 @@ Widget package bumped to 2.0.45; React remains at this change's 0.6.14 bump.
 Persistence is same-browser, not cross-device synchronization. Staging confirmed
 Cambrian artifact loading but reproduced budget and usage failures before tool
 execution. These execution failures remain open; nothing deployed.
-
 
 **CAMBRIAN CHAT AND TITLE FIXES 2026-09-10** — made selected app hints provide
 concrete `task` targets and explicit app-tool discovery instructions. Cleaned
