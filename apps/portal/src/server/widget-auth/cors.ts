@@ -9,6 +9,7 @@ const ALLOWED_HEADERS = [
   "Idempotency-Key",
   "Payment-Signature",
   "X-Aomi-Inference-Funding",
+  "X-Aomi-CSRF",
   "X-Request-Id",
   "X-Session-Id",
   "X-Thread-Id",

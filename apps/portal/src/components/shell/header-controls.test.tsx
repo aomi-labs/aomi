@@ -17,12 +17,32 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("@portal/lib/use-settings", () => ({
-  useSettings: () => ({
-    settings: { colorMode: "dark" },
-    updateSetting: vi.fn(),
+vi.mock(
+  "../../../../shadcn-registry/src/components/control-bar/network-select",
+  () => ({ NetworkSelect: () => <button type="button">Network</button> }),
+);
+
+vi.mock(
+  "../../../../shadcn-registry/src/components/activity-sidebar/activity-panel-context",
+  () => ({
+    useActivityPanel: () => ({
+      worthShowing: activityAvailable,
+      reviewing: false,
+      open: activityOpen,
+      setOpen: setActivityOpen,
+    }),
   }),
-}));
+);
+
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
+  () => ({
+    useSettings: () => ({
+      settings: { colorMode: "dark" },
+      updateSetting: vi.fn(),
+    }),
+  }),
+);
 
 afterEach(() => {
   cleanup();

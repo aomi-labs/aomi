@@ -1,2 +1,1 @@
-export { AccountManagement } from "./account-management";
-export type { AddSignInOption } from "./account-management";
+export * from "../../../../../shadcn-registry/src/components/account-shell/features/account/account-management/index";

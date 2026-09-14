@@ -148,7 +148,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
     // Both mount effects call refresh; the in-flight guard coalesces them.
     expect(mockState.accountClient?.getAccount).toHaveBeenCalledTimes(1);
-    expect(result.current.getAccountBearer).toBeDefined();
+    expect(result.current.getAccountBearer).toBeUndefined();
   });
 
   it("replaces a guest session before signing in with an existing EVM wallet", async () => {

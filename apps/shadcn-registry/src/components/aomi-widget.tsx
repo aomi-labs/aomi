@@ -1,6 +1,13 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  WidgetShell,
+  type AomiWidgetFeatures,
+} from "./account-shell/widget-shell";
+import { ShellTransportProvider } from "./account-shell/transport";
+import type { WalletAccountMenuOptions } from "./control-bar/account-menu-types";
+export type { AomiWidgetFeatures } from "./account-shell/widget-shell";
 import type {
   AomiClientOptions,
   AomiInferenceFundingSource,
@@ -14,7 +21,6 @@ import type {
 } from "../lib/wallet-kit/config/types";
 import { BackendAaProvider } from "../lib/wallet-kit/execution/backend-aa-context";
 import { BackendAaProvisioner } from "./backend-aa-provisioner";
-import { NetworkSelect } from "./control-bar/network-select";
 import {
   normalizeAomiRouting,
   toAgentTarget,
@@ -53,6 +59,8 @@ export type AomiWidgetProps = {
   walletFamilies?: Array<"evm" | "solana">;
   showSidebar?: boolean;
   showHeader?: boolean;
+  /** Portal controls enabled by default; account management remains available. */
+  features?: AomiWidgetFeatures;
   controlBarProps?: Omit<AomiFrameControlBarProps, "children">;
   /** Execution modes and Direct apps available in this widget. Defaults to Auto only. */
   routing?: AomiRoutingConfig;
@@ -103,6 +111,7 @@ export function AomiWidget(props: AomiWidgetProps) {
         walletFamilies={props.walletFamilies}
         showSidebar={props.showSidebar}
         showHeader={props.showHeader}
+        features={props.features}
         controlBarProps={props.controlBarProps}
         routing={props.routing}
         clientOptions={props.clientOptions}
@@ -127,6 +136,7 @@ type WidgetFrameProps = Pick<
   | "walletFamilies"
   | "showSidebar"
   | "showHeader"
+  | "features"
   | "controlBarProps"
   | "routing"
   | "clientOptions"
@@ -148,6 +158,7 @@ function WidgetFrame({
   walletFamilies = ["evm", "solana"],
   showSidebar = true,
   showHeader = true,
+  features,
   controlBarProps,
   routing,
   clientOptions,
@@ -158,6 +169,8 @@ function WidgetFrame({
   initialThreadId,
 }: WidgetFrameProps) {
   const walletKit = useAomiWalletKit();
+  const [walletAccountMenu, setWalletAccountMenu] =
+    useState<WalletAccountMenuOptions>();
   // A fresh anonymous widget session cannot read a previous guest's thread.
   // Hosts may still opt into their own guest persistence policy explicitly.
   const shouldPersistThread =
@@ -165,6 +178,10 @@ function WidgetFrame({
     Boolean(
       walletKit.accountUser || threadPersistenceKey || threadPersistenceScope,
     );
+  const runtimeClientOptions = useMemo(() => ({
+    ...clientOptions,
+    getAccountBearer: walletKit.getAccountBearer,
+  }), [clientOptions, walletKit.getAccountBearer]);
   const showNetworkInHeader =
     showHeader && controlBarProps?.hideNetwork !== true;
   const resolvedRouting = routing ?? controlBarProps?.routing;
@@ -176,53 +193,58 @@ function WidgetFrame({
       ? toAgentTarget(normalizedRouting.directApps[0]!)
       : undefined;
   return (
-    <BackendAaProvider
-      value={{ apiUrl, getAccountBearer: walletKit.getAccountBearer }}
+    <ShellTransportProvider
+      key={walletKit.accountUser?.id ?? "anonymous"}
+      baseUrl={apiUrl}
+      getBearer={walletKit.getAccountBearer}
     >
-      <AomiFrame.Root
-        key={walletKit.accountUser?.id ?? "anonymous"}
-        backendUrl={apiUrl}
-        applicationId={applicationId}
-        agentTarget={fixedAgentTarget}
-        accountSessionAvailable={Boolean(walletKit.accountUser)}
-        clientOptions={{
-          ...clientOptions,
-          getAccountBearer: walletKit.getAccountBearer,
-        }}
-        inferenceFunding={inferenceFunding}
-        width={width}
-        height={height}
-        className={className}
-        style={style}
-        walletPosition={walletPosition}
-        walletFamilies={walletFamilies}
-        showSidebar={showSidebar}
-        persistThread={shouldPersistThread}
-        threadPersistenceKey={threadPersistenceKey}
-        threadPersistenceScope={
-          threadPersistenceScope ?? walletKit.accountUser?.id
-        }
-        initialThreadId={initialThreadId}
+      <BackendAaProvider
+        value={{ apiUrl, getAccountBearer: walletKit.getAccountBearer }}
       >
-        <BackendAaProvisioner applicationId={applicationId} />
-        {showHeader ? (
-          <AomiFrame.Header showSidebarTrigger={showSidebar}>
-            {showNetworkInHeader ? (
-              <NetworkSelect className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg h-8 rounded-full border px-2.5 text-[13px]" />
-            ) : null}
-          </AomiFrame.Header>
-        ) : null}
-        <AomiFrame.Composer
-          withControl
-          controlBarProps={{
-            hideApiKey: true,
-            ...controlBarProps,
-            hideNetwork: showNetworkInHeader || controlBarProps?.hideNetwork,
-            routing: resolvedRouting,
-          }}
-        />
-      </AomiFrame.Root>
-    </BackendAaProvider>
+        <AomiFrame.Root
+          key={walletKit.accountUser?.id ?? "anonymous"}
+          backendUrl={apiUrl}
+          applicationId={applicationId}
+          agentTarget={fixedAgentTarget}
+          accountSessionAvailable={Boolean(walletKit.accountUser)}
+          clientOptions={runtimeClientOptions}
+          inferenceFunding={inferenceFunding}
+          width={width}
+          height={height}
+          className={className}
+          style={{ ...style, transform: "translateZ(0)" }}
+          walletPosition={walletPosition}
+          walletConnectLabel="Sign in"
+          walletAccountMenu={walletAccountMenu}
+          walletFamilies={walletFamilies}
+          showSidebar={showSidebar}
+          persistThread={shouldPersistThread}
+          threadPersistenceKey={threadPersistenceKey}
+          threadPersistenceScope={
+            threadPersistenceScope ?? walletKit.accountUser?.id
+          }
+          initialThreadId={initialThreadId}
+        >
+          <BackendAaProvisioner applicationId={applicationId} />
+          <WidgetShell
+            onAccountMenuChange={setWalletAccountMenu}
+            features={features}
+            showHeader={showHeader}
+            showSidebar={showSidebar}
+            showNetwork={showNetworkInHeader}
+          />
+          <AomiFrame.Composer
+            withControl
+            controlBarProps={{
+              hideApiKey: true,
+              ...controlBarProps,
+              hideNetwork: showNetworkInHeader || controlBarProps?.hideNetwork,
+              routing: resolvedRouting,
+            }}
+          />
+        </AomiFrame.Root>
+      </BackendAaProvider>
+    </ShellTransportProvider>
   );
 }
 
