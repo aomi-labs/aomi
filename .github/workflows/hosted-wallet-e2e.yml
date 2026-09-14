@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   wallet:
-    if: github.event_name == 'workflow_dispatch' || vars.AOMI_HOSTED_WALLET_E2E_NIGHTLY == '1'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.AOMI_HOSTED_WALLET_E2E_NIGHTLY == '1')
     runs-on: ubuntu-latest
     environment: staging-e2e
     timeout-minutes: 16
@@ -23,6 +23,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          ref: refs/heads/main
 
       - name: Enable corepack
         run: corepack enable

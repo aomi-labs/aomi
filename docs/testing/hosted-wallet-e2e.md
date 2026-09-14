@@ -21,7 +21,10 @@ The trusted `Hosted Wallet E2E` workflow runs only by manual dispatch or an
 opt-in weekday nightly schedule. It checks out main, uses one Chromium worker,
 has a 16-minute job cap, and stores no Playwright trace, screenshot, or video.
 Pull-request jobs and previews do not receive signing keys. The workflow's
-`staging-e2e` environment must contain these secrets:
+`staging-e2e` environment is restricted to the `main` branch in GitHub's
+deployment branch policy. Keep that rule in place when adding the following
+secrets; workflow code alone cannot protect them from a branch-selected manual
+run:
 
 - `AOMI_HOSTED_E2E_EVM_PRIVATE_KEY`: a dedicated disposable EVM key; the same
   wallet must have a small native-token balance on Base Sepolia for the transfer

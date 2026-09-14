@@ -1,5 +1,12 @@
 # Current work
 
+**HOSTED WALLET WORKFLOW PROTECTION 2026-09-14** — PR #610's manual
+`workflow_dispatch` could otherwise select a branch and run its test code with
+the future `staging-e2e` wallet secrets. The GitHub environment now permits
+only the `main` branch, and the workflow checks its event ref and explicitly
+checks out `main`. The environment has no secrets configured yet. Backend
+guest-wallet approval PR #1083 merged as `19b7e4b635c277fb634351e103155d7e82aa93e0`.
+
 **PREVIEW WALLET AUTH ORIGIN 2026-09-13** — the hosted wallet E2E PR also
 repairs preview SIWE/SIWS verification. A preview browser can open the exact
 deployment, branch alias, or staging alias, but Better Auth's configured SIWE
@@ -110,7 +117,6 @@ Widget package bumped to 2.0.45; React remains at this change's 0.6.14 bump.
 Persistence is same-browser, not cross-device synchronization. Staging confirmed
 Cambrian artifact loading but reproduced budget and usage failures before tool
 execution. These execution failures remain open; nothing deployed.
-
 
 **CAMBRIAN CHAT AND TITLE FIXES 2026-09-10** — made selected app hints provide
 concrete `task` targets and explicit app-tool discovery instructions. Cleaned
