@@ -51,7 +51,11 @@ describe("useAuthorizationState", () => {
     );
 
     await waitFor(() =>
-      expect(result.current).toEqual({ delegated: true, serverAuto: true }),
+      expect(result.current).toEqual({
+        delegated: true,
+        serverAuto: true,
+        resolved: true,
+      }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "https://chat.aomi.dev/api/account",
@@ -98,7 +102,11 @@ describe("useAuthorizationState", () => {
       useAuthorizationState({ provider: provider as never, wallet }),
     );
     await waitFor(() =>
-      expect(result.current).toEqual({ delegated: false, serverAuto: false }),
+      expect(result.current).toEqual({
+        delegated: false,
+        serverAuto: false,
+        resolved: true,
+      }),
     );
   });
 });

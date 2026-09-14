@@ -131,7 +131,7 @@ describe("usePermissionControl", () => {
     });
   });
 
-  it("is ready without any connected-wallet list", () => {
+  it("is ready without Privy's connected-wallet list", () => {
     // The regression this guards: gating on `useWallets().ready` left the sign
     // button permanently unrendered inside Telegram's webview, because Privy's
     // wallet-proxy iframe never connects there.
@@ -150,6 +150,7 @@ describe("usePermissionControl", () => {
       }),
     );
     expect(result.current.status).toBe("done");
+    expect(result.current.signedHere).toBe(false);
   });
 
   it("never treats a different bot-named key as already armed", () => {
@@ -181,6 +182,7 @@ describe("usePermissionControl", () => {
     const { result } = render(launchWith({}));
     await act(async () => void (await result.current.sign()));
     await waitFor(() => expect(result.current.status).toBe("done"));
+    expect(result.current.signedHere).toBe(true);
 
     const [challengeUrl, challengeInit] = fetchMock.mock.calls[0];
     expect(String(challengeUrl)).toBe(

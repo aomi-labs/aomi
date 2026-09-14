@@ -106,7 +106,7 @@ export function WalletClient() {
     launch: launch.context,
     provider: account.provider,
     wallet,
-    delegated: authorization.delegated,
+    delegated: authorization.delegated && wallet?.delegated === true,
   });
   const permission = usePermissionControl({
     launch: launch.context,
@@ -129,6 +129,7 @@ export function WalletClient() {
 
   const linked = account.status === "ready";
   const signed = permission.status === "done";
+  const authorizationReady = authorization.resolved || !wallet;
 
   const ceremony: CeremonyInput = {
     launch: { status: launch.status, error: launch.error },
@@ -165,10 +166,12 @@ export function WalletClient() {
     : null;
 
   const stageStates = resolveStageStates(ceremony);
-  const action = stale ? null : resolveAction(ceremony);
+  const action = stale || !authorizationReady ? null : resolveAction(ceremony);
   const headline = failure
     ? explainError(failure.code)
-    : resolveHeadline(ceremony);
+    : !authorizationReady && linked
+      ? "Checking server-signing status…"
+      : resolveHeadline(ceremony);
 
   const stages: Stage[] = [
     {
@@ -203,6 +206,7 @@ export function WalletClient() {
     !failure &&
     permission.status !== "done" &&
     (launch.status === "loading" ||
+      (!authorizationReady && linked) ||
       delegation.status === "delegating" ||
       permission.status === "signing" ||
       (account.status !== "ready" &&
@@ -228,11 +232,11 @@ export function WalletClient() {
   // Finish the ceremony inside Telegram rather than leaving the user to dismiss
   // a sheet that says it is done.
   useEffect(() => {
-    if (!signed) return;
+    if (!permission.signedHere) return;
     haptic("success");
     const timer = setTimeout(closeApp, 1200);
     return () => clearTimeout(timer);
-  }, [signed]);
+  }, [permission.signedHere]);
 
   useEffect(() => {
     if (failureCode) haptic("error");

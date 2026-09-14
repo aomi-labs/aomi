@@ -12,9 +12,15 @@ import type { EmbeddedWallet } from "@/lib/privy-wallet";
 type AuthorizationState = {
   delegated: boolean;
   serverAuto: boolean;
+  /** The backend profile has answered for the current embedded wallet. */
+  resolved: boolean;
 };
 
-const unknown: AuthorizationState = { delegated: false, serverAuto: false };
+const unknown: AuthorizationState = {
+  delegated: false,
+  serverAuto: false,
+  resolved: false,
+};
 
 type StoredAuthorizationState = AuthorizationState & { address: string };
 
@@ -71,13 +77,14 @@ export function useAuthorizationState(input: {
               sameAddress(row.address.address, address) &&
               row.mode === "auto",
           ),
+          resolved: true,
         });
       })
       // This read only restores a returning user's display. A transient read
       // failure must not block a fresh ceremony that can still prove every
       // write through its own authoritative endpoints.
       .catch(() => {
-        if (current) setState({ address, ...unknown });
+        if (current) setState({ address, ...unknown, resolved: true });
       });
     return () => {
       current = false;
@@ -92,5 +99,9 @@ export function useAuthorizationState(input: {
   ) {
     return unknown;
   }
-  return { delegated: state.delegated, serverAuto: state.serverAuto };
+  return {
+    delegated: state.delegated,
+    serverAuto: state.serverAuto,
+    resolved: state.resolved,
+  };
 }
