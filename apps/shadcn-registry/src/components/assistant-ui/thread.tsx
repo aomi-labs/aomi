@@ -100,8 +100,8 @@ export const Thread: FC = () => {
             }}
           >
             <PaymentRequiredGate />
-            <div className="@[1100px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="aui-chat-column @[1100px]:ml-auto @[1100px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
+            <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
                 <ThreadPrimitive.Viewport
                   autoScroll={!isReviewingAction}
                   className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"

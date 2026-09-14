@@ -29,8 +29,20 @@ Pipeline REST, including the request and response headers used by SDK chat and
 payments. Focused route/CORS tests, Portal typecheck/lint, and the trusted-base
 packed consumer compatibility check pass. A local Portal production build
 compiles but cannot collect auth page data in this frontend-only workspace
-without its database configuration. The PR preview still needs a live widget
+without its database configuration. The PR preview was used for a live widget
 Auto/Direct/subagent smoke before merge.
+PR #617's Portal preview at `https://chat-portal-3f67r8iuu-aomi-labs.vercel.app`
+now answers the consumer's Agent preflight. The Tailscale consumer successfully
+ran an Auto ETH lookup through a subagent and displayed its completed right
+activity panel, plus a Direct Across turn. Preview review exposed two widget
+issues that were added to the PR: at desktop fixture width the panel overlaid
+the answer, fixed by using side-by-side columns at 900px; and an anonymous
+reload could restore a prior guest's inaccessible thread, fixed by disabling
+guest thread persistence by default while retaining user-scoped persistence
+for signed-in accounts and explicit host overrides. A guest sent successfully
+again after reload. Final visual proof is
+`docs/widget/widget-consumer-auto-trace.jpg`. The model's ETH price output is
+not validated market data and lacked an exact retrieval timestamp.
 
 **HOSTED WALLET WORKFLOW PROTECTION 2026-09-14** — PR #610's manual
 `workflow_dispatch` could otherwise select a branch and run its test code with

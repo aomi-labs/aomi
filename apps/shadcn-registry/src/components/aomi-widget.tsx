@@ -158,6 +158,13 @@ function WidgetFrame({
   initialThreadId,
 }: WidgetFrameProps) {
   const walletKit = useAomiWalletKit();
+  // A fresh anonymous widget session cannot read a previous guest's thread.
+  // Hosts may still opt into their own guest persistence policy explicitly.
+  const shouldPersistThread =
+    persistThread ??
+    Boolean(
+      walletKit.accountUser || threadPersistenceKey || threadPersistenceScope,
+    );
   const showNetworkInHeader =
     showHeader && controlBarProps?.hideNetwork !== true;
   const resolvedRouting = routing ?? controlBarProps?.routing;
@@ -190,9 +197,11 @@ function WidgetFrame({
         walletPosition={walletPosition}
         walletFamilies={walletFamilies}
         showSidebar={showSidebar}
-        persistThread={persistThread}
+        persistThread={shouldPersistThread}
         threadPersistenceKey={threadPersistenceKey}
-        threadPersistenceScope={threadPersistenceScope}
+        threadPersistenceScope={
+          threadPersistenceScope ?? walletKit.accountUser?.id
+        }
         initialThreadId={initialThreadId}
       >
         <BackendAaProvisioner applicationId={applicationId} />
