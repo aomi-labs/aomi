@@ -33,10 +33,13 @@ const PERMIT = {
   expiry: 1_800_000_000,
 };
 
-const provider = Object.assign(vi.fn(async () => "wst-token"), {
-  dispose: vi.fn(),
-  subscribe: vi.fn(),
-});
+const provider = Object.assign(
+  vi.fn(async () => "wst-token"),
+  {
+    dispose: vi.fn(),
+    subscribe: vi.fn(),
+  },
+);
 
 function launchWith(permission: Record<string, string | null>) {
   return {
@@ -135,6 +138,35 @@ describe("usePermissionControl", () => {
     expect(render(launchWith({})).result.current.status).toBe("ready");
   });
 
+  it("restores the completed state for its own already-armed wallet", () => {
+    expect(render(launchWith({}), provider).result.current.status).toBe(
+      "ready",
+    );
+    const { result } = renderHook(() =>
+      usePermissionControl({
+        launch: launchWith({}) as never,
+        provider: provider as never,
+        serverAuto: true,
+      }),
+    );
+    expect(result.current.status).toBe("done");
+  });
+
+  it("never treats a different bot-named key as already armed", () => {
+    const { result } = renderHook(() =>
+      usePermissionControl({
+        launch: launchWith({
+          permissionChain: "evm",
+          permissionWallet: AGENT,
+          permissionMode: "denied",
+        }) as never,
+        provider: provider as never,
+        serverAuto: true,
+      }),
+    );
+    expect(result.current.status).toBe("ready");
+  });
+
   it("is not ready without a wallet or a session", () => {
     privyUser = null;
     expect(render(launchWith({})).result.current.status).toBe("idle");
@@ -220,10 +252,13 @@ describe("usePermissionControl", () => {
     // commit — the failure that logged a challenge 200 with no commit.
     const fetchMock = ceremonyFetch();
     vi.stubGlobal("fetch", fetchMock);
-    const replacement = Object.assign(vi.fn(async () => "fresh-token"), {
-      dispose: vi.fn(),
-      subscribe: vi.fn(),
-    });
+    const replacement = Object.assign(
+      vi.fn(async () => "fresh-token"),
+      {
+        dispose: vi.fn(),
+        subscribe: vi.fn(),
+      },
+    );
 
     let releasePrompt: () => void = () => {};
     const prompt = new Promise<void>((resolve) => {

@@ -41,6 +41,8 @@ export function usePrivyDelegation(input: {
   launch: LaunchContext | null;
   provider: AccountSessionProvider | null;
   wallet: EmbeddedWallet | null;
+  /** A live backend delegation, restored when the Mini App is reopened. */
+  delegated?: boolean;
 }): DelegationState {
   const { getAccessToken, user } = usePrivy();
   const { addSessionSigners } = useSessionSigners();
@@ -189,8 +191,10 @@ export function usePrivyDelegation(input: {
     // remain actionable until this hook's callback succeeds.
     status: settled
       ? status
-      : input.provider && input.wallet && input.launch?.sessionId
-        ? "ready"
-        : "idle",
+      : input.delegated
+        ? "done"
+        : input.provider && input.wallet && input.launch?.sessionId
+          ? "ready"
+          : "idle",
   };
 }

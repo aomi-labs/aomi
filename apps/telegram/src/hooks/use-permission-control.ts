@@ -14,12 +14,7 @@ import { aomiBffUrl } from "@/app/config";
 import { embeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 
-export type PermissionStatus =
-  | "idle"
-  | "ready"
-  | "signing"
-  | "done"
-  | "error";
+export type PermissionStatus = "idle" | "ready" | "signing" | "done" | "error";
 
 export type PermissionTarget = {
   chain: string;
@@ -52,6 +47,8 @@ function asTypedData(value: unknown): SignTypedDataParams | null {
 export function usePermissionControl(input: {
   launch: LaunchContext | null;
   provider: AccountSessionProvider | null;
+  /** The exact embedded wallet is already armed in the backend. */
+  serverAuto?: boolean;
 }) {
   const [status, setStatus] = useState<PermissionStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -156,9 +153,13 @@ export function usePermissionControl(input: {
     error,
     sign,
     status:
-      status === "idle" && target && input.provider && wallet
-        ? ("ready" as const)
-        : status,
+      status !== "idle"
+        ? status
+        : input.serverAuto && !target?.fromLaunch
+          ? "done"
+          : target && input.provider && wallet
+            ? ("ready" as const)
+            : status,
     target,
   };
 }

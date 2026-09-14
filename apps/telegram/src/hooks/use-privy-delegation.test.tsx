@@ -95,6 +95,10 @@ describe("usePrivyDelegation", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("restores a backend-confirmed delegation as complete", () => {
+    expect(render({ delegated: true }).result.current.status).toBe("done");
+  });
+
   it("reconciles an already-delegated wallet without installing its signer again", async () => {
     privyUser = userWithWallet(true);
     const fetchMock = vi
