@@ -213,8 +213,15 @@ export function WalletClient() {
         telegramAuth.phase !== "choose" &&
         telegramAuth.phase !== "confirm"));
 
-  const primary =
-    action === "delegate"
+  const primary = signed
+    ? {
+        label: "Done and return to Telegram",
+        onClick: () => {
+          haptic("success");
+          closeApp();
+        },
+      }
+    : action === "delegate"
       ? {
           label: "Enable server signing",
           onClick: () => void delegation.delegate(),
@@ -228,15 +235,6 @@ export function WalletClient() {
   // in-page button below is the fallback for a client that has none.
   const nativeButton = useTelegramMainButton(primary && { ...primary, busy });
   useTelegramBackButton(telegramAuth.back);
-
-  // Finish the ceremony inside Telegram rather than leaving the user to dismiss
-  // a sheet that says it is done.
-  useEffect(() => {
-    if (!permission.signedHere) return;
-    haptic("success");
-    const timer = setTimeout(closeApp, 1200);
-    return () => clearTimeout(timer);
-  }, [permission.signedHere]);
 
   useEffect(() => {
     if (failureCode) haptic("error");
@@ -297,11 +295,7 @@ export function WalletClient() {
           )}
 
           {primary && !nativeButton && (
-            <Button
-              disabled={busy}
-              variant={action ? "default" : "outline"}
-              onClick={primary.onClick}
-            >
+            <Button disabled={busy} variant="default" onClick={primary.onClick}>
               {primary.label}
             </Button>
           )}
