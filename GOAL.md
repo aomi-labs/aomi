@@ -1,5 +1,37 @@
 # Current work
 
+**WIDGET STAGING REVIEW 2026-09-14** — Created the frontend-only
+`review/widget-staging` worktree from `origin/main` (`a7c86172`) with no local
+backend or database. The first Tailscale preview used Landing's
+`/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
+Landing's missing route (404). The current managed runtime serves the actual
+`apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
+pointed at `https://chat-staging.aomi.dev` with public Across application
+24895. Read-only inspection confirmed the host fixture's global `h1` rule
+changes the widget welcome title from its intended 30px to 60px, and its
+global `header` rule caps the internal widget header at 760px and adds a 24px
+bottom margin. The consumer's routing prop visibly offers Auto and Direct,
+while a nonnumeric fixture application ID selects Auto-only. This worktree now
+moves the shared widget network selector to the header by default and scopes
+the consumer's typography rules to its own page header. In the live Tailscale
+preview the widget header has one Ethereum selector with no width cap, and the
+welcome title is 30px. Widget typecheck/build/lint and consumer typecheck/build
+pass. Authenticated chat and actual target dispatch remain unverified.
+The next Auto-mode consumer smoke sent an ETH price/subagent prompt but the
+browser rejected its cross-origin `/v1/agent/chat` request before a turn
+started: staging's OPTIONS response lacks `Access-Control-Allow-Origin` for
+the Tailscale preview, while widget guest auth and model preflights allow it.
+The same prompt in staging Portal succeeded and showed a completed subagent
+in the shared right activity panel; this is a Portal comparison, not widget
+end-to-end proof. Screenshot: `/home/aron/Documents/widget-trace-staging-portal-comparison-2026-09-14.jpg`.
+The follow-up fix adds widget CORS preflight and response headers to Agent and
+Pipeline REST, including the request and response headers used by SDK chat and
+payments. Focused route/CORS tests, Portal typecheck/lint, and the trusted-base
+packed consumer compatibility check pass. A local Portal production build
+compiles but cannot collect auth page data in this frontend-only workspace
+without its database configuration. The PR preview still needs a live widget
+Auto/Direct/subagent smoke before merge.
+
 **HOSTED WALLET WORKFLOW PROTECTION 2026-09-14** — PR #610's manual
 `workflow_dispatch` could otherwise select a branch and run its test code with
 the future `staging-e2e` wallet secrets. The GitHub environment now permits

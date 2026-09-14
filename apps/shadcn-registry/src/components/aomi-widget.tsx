@@ -14,6 +14,7 @@ import type {
 } from "../lib/wallet-kit/config/types";
 import { BackendAaProvider } from "../lib/wallet-kit/execution/backend-aa-context";
 import { BackendAaProvisioner } from "./backend-aa-provisioner";
+import { NetworkSelect } from "./control-bar/network-select";
 import {
   normalizeAomiRouting,
   toAgentTarget,
@@ -157,6 +158,8 @@ function WidgetFrame({
   initialThreadId,
 }: WidgetFrameProps) {
   const walletKit = useAomiWalletKit();
+  const showNetworkInHeader =
+    showHeader && controlBarProps?.hideNetwork !== true;
   const resolvedRouting = routing ?? controlBarProps?.routing;
   const normalizedRouting = normalizeAomiRouting(resolvedRouting);
   const fixedAgentTarget =
@@ -194,14 +197,18 @@ function WidgetFrame({
       >
         <BackendAaProvisioner applicationId={applicationId} />
         {showHeader ? (
-          <AomiFrame.Header showSidebarTrigger={showSidebar} />
+          <AomiFrame.Header showSidebarTrigger={showSidebar}>
+            {showNetworkInHeader ? (
+              <NetworkSelect className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg h-8 rounded-full border px-2.5 text-[13px]" />
+            ) : null}
+          </AomiFrame.Header>
         ) : null}
         <AomiFrame.Composer
           withControl
           controlBarProps={{
             hideApiKey: true,
-            hideNetwork: false,
             ...controlBarProps,
+            hideNetwork: showNetworkInHeader || controlBarProps?.hideNetwork,
             routing: resolvedRouting,
           }}
         />

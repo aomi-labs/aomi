@@ -26,7 +26,7 @@ vi.mock("@portal/server/oauth/resources", () => ({
   }),
 }));
 
-import { GET, POST } from "./route";
+import { GET, OPTIONS, POST } from "./route";
 
 describe("canonical Pipeline BFF route", () => {
   beforeEach(() => {
@@ -41,6 +41,29 @@ describe("canonical Pipeline BFF route", () => {
     );
     expect(response.status).toBe(401);
     expect(mocks.proxyAgentApi).not.toHaveBeenCalled();
+  });
+
+  it("answers cross-origin preflight and makes an auth error readable", async () => {
+    const origin = "https://consumer.example";
+    const preflight = OPTIONS(
+      new Request("https://portal.example/v1/pipeline/tools", {
+        method: "OPTIONS",
+        headers: { origin, "access-control-request-method": "POST" },
+      }),
+    );
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(mocks.resolveApiPrincipal).not.toHaveBeenCalled();
+
+    mocks.resolveApiPrincipal.mockRejectedValue(new Error("invalid_token"));
+    const response = await POST(
+      new Request("https://portal.example/v1/pipeline/tools", {
+        method: "POST",
+        headers: { origin },
+      }),
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get("access-control-allow-origin")).toBe(origin);
   });
 
   it.each([GET, POST])("delegates every supported method", async (handler) => {
