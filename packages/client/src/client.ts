@@ -142,7 +142,14 @@ export function wrapFetchWithAccountBearer(
     const request = input instanceof Request ? input : undefined;
     const path = new URL(String(request?.url ?? input), "http://localhost")
       .pathname;
-    if (path.startsWith("/v1/agent/") || path.startsWith("/v1/pipeline/")) {
+    // Ordinary account bearers do not authorize public Agent/Pipeline APIs;
+    // those use OAuth or guest credentials. A required widget session is the
+    // public API credential for a cross-origin widget, however, so it must be
+    // forwarded to these routes as well.
+    if (
+      !getAccountBearer.required &&
+      (path.startsWith("/v1/agent/") || path.startsWith("/v1/pipeline/"))
+    ) {
       return fetchImpl(request ? request.clone() : input, init);
     }
     const baseHeaders = new Headers(init?.headers ?? request?.headers);
@@ -364,12 +371,18 @@ export class AomiClient {
               baseUrl: this.baseUrl,
               fetch: fetchImpl,
             });
+    const publicApiOauth = options.getAccountBearer?.required
+      ? undefined
+      : options.oauth;
+    const publicApiGuest = options.getAccountBearer?.required
+      ? undefined
+      : guest;
     const authenticatedFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
         fetch: fetchImpl,
         baseUrl: this.baseUrl,
-        oauth: options.oauth,
-        guest,
+        oauth: publicApiOauth,
+        guest: publicApiGuest,
       }),
       options.getAccountBearer,
     );
@@ -377,8 +390,8 @@ export class AomiClient {
       wrapFetchWithPublicApiAuthorization({
         fetch: rawFetchImpl,
         baseUrl: this.baseUrl,
-        oauth: options.oauth,
-        guest,
+        oauth: publicApiOauth,
+        guest: publicApiGuest,
       }),
       options.getAccountBearer,
     );

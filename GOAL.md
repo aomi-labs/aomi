@@ -1,5 +1,20 @@
 # Current work
 
+**WIDGET WALLET RUNTIME FOLLOW-UP 2026-09-14** — In the cross-origin
+consumer on PR #617's Portal preview, a connected Rabby wallet received
+`invalid token` for Agent session listing and chat because the client omitted
+the required widget session bearer from Agent/Pipeline routes. The client now
+forwards that bearer on those routes while retaining the existing public API
+OAuth/guest behavior for optional account bearers. Wallet widget sessions are
+cached for the browser tab and API origin until expiry, sign-out, disconnect,
+or account switch so a reload does not immediately ask Rabby to sign again.
+After one user-approved login signature, the live widget loaded four existing
+threads, sent and restored a diagnostic greeting, opened an older thread, and
+reloaded without another signature prompt. Staging Portal displayed the same
+thread titles and diagnostic thread. Focused client/widget tests, typechecks,
+lint, builds, and packed consumer compatibility passed; no deploy or merge was
+performed. Exact canonical account-ID parity was not directly measured.
+
 **WIDGET STAGING REVIEW 2026-09-14** — Created the frontend-only
 `review/widget-staging` worktree from `origin/main` (`a7c86172`) with no local
 backend or database. The first Tailscale preview used Landing's

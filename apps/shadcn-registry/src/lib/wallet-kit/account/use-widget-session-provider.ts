@@ -78,6 +78,8 @@ export function useAccountSessionProvider(input: {
         svm,
       })
     : false;
+  const credentialsReadyRef = useRef(credentialsReady);
+  credentialsReadyRef.current = credentialsReady;
 
   const authRef = useRef(auth);
   const evmRef = useRef(evm);
@@ -163,7 +165,18 @@ export function useAccountSessionProvider(input: {
         exchange: (options) => currentWalletAdapter().exchange(options),
       };
     }
-    return createAccountSessionProvider({ baseUrl, adapter });
+    // A wallet cannot renew silently, so retain its short-lived, origin-bound
+    // widget session for this tab across page reloads. Provider credentials can
+    // renew without another wallet prompt and stay memory-only.
+    let storage: Storage | undefined;
+    if (widgetAuth.mode === "wallet" && typeof window !== "undefined") {
+      try {
+        storage = window.sessionStorage;
+      } catch {
+        // Private browsing can deny storage access; in-memory auth still works.
+      }
+    }
+    return createAccountSessionProvider({ baseUrl, adapter, storage });
     // Refs supply live auth/evm/svm; the provider is only rebuilt when a flat
     // identity/config primitive below changes.
   }, [
@@ -178,7 +191,14 @@ export function useAccountSessionProvider(input: {
   ]);
 
   useEffect(
-    () => () => accountSessionProvider?.dispose(),
+    () => () => {
+      // A page unload preserves the tab cache. Losing the connected signer or
+      // provider credential is an explicit auth boundary and clears it.
+      if (!credentialsReadyRef.current) {
+        void accountSessionProvider?.revoke();
+      }
+      accountSessionProvider?.dispose();
+    },
     [accountSessionProvider],
   );
 
