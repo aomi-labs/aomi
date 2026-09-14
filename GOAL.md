@@ -1,5 +1,13 @@
 # Current work
 
+**UNLINKED WALLET COMMITS 2026-09-14** — pair the Portal's Solana hosted-link
+recovery with backend attended commits for authenticated unlinked wallets.
+Direct wallet transactions remain available without account linking; hosted
+signing prompts for linking. The client package is bumped to 0.7.3. Focused
+client and Portal tests, client/Portal typechecks, scoped lint, client build,
+and a package dry run pass. Full browser signing remains a separate validation
+gate; nothing deployed or merged.
+
 **HOSTED WALLET WORKFLOW PROTECTION 2026-09-14** — PR #610's manual
 `workflow_dispatch` could otherwise select a branch and run its test code with
 the future `staging-e2e` wallet secrets. The GitHub environment now permits
