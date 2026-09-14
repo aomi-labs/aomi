@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import { Providers } from "./providers";
@@ -11,11 +11,19 @@ const geistSans = localFont({
 
 export const metadata: Metadata = {
   title: "Aomi Wallet",
-  description: "Link Para and sign Aomi permissions from Telegram.",
+  description: "Link your wallet and authorize Aomi signing from Telegram.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
   },
+};
+
+// `viewport-fit=cover` is what makes the `env(safe-area-inset-*)` padding in
+// globals.css do anything; without it Telegram letterboxes the page instead.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -24,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <Script
           src="https://telegram.org/js/telegram-web-app.js?59"

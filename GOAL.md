@@ -300,6 +300,14 @@ registry generation, formatting, and `git diff --check` pass.
 
 # Canonical Landing
 
+Current session goal: **COMPOSER APP MENTIONS AND WORKING TRACE FIXED
+2026-09-13** — app tags now use the same inline, turn-scoped editor mentions as
+skills and chains, preserving caret placement and clearing on send instead of
+persisting as leading chips. Interstitial assistant prose and tool calls now
+share one chronological Working trace; only the final answer renders outside.
+Focused composer and trace interaction tests, widget typecheck, lint, and
+package build validate the change.
+
 Current session goal: **GUEST CHAT BROWSER RECOVERY 2026-09-13** — add a required, isolated Chromium regression for one settled guest Agent response, refresh recovery of the same server thread and messages, and second-guest isolation. The Portal now recognizes a live same-origin Better Auth guest session for remote thread listing without persisting credentials or active thread state. The suite also exercises the real Portal OAuth origin route against disposable Postgres. Final PR and CI verification remain in progress.
 
 Current session goal: **TRANSACTION MOCK READABILITY POLISHED 2026-09-05** —
