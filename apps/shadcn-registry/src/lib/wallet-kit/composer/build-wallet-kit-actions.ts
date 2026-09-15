@@ -48,10 +48,15 @@ export function buildWalletKitActions({
     // lets embedded wallets (which deliberately have no wagmi connector) use
     // their provider switcher while ordinary wagmi wallets keep using wagmi.
     if (
-      evm.activeEvmConnection?.chainId !== chainId &&
+      evm.activeEvmConnection &&
+      evm.activeEvmConnection.chainId !== chainId &&
       execution.evm.switchChainAsync
     ) {
-      await execution.evm.switchChainAsync({ chainId });
+      const connector = execution.evm.activeConnector;
+      await execution.evm.switchChainAsync({
+        chainId,
+        ...(connector ? { connector } : {}),
+      });
     }
     // Persist only after the wallet switch succeeds, so a rejected switch
     // cannot briefly make the UI claim a chain the signer is not on.

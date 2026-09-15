@@ -1,5 +1,10 @@
 # @aomi-labs/client
 
+## 0.7.4
+
+- Correct Arc Testnet native-currency metadata to 18 decimals, matching the
+  chain RPC and wallet network configuration.
+
 ## 0.7.0
 
 Pipeline contract correction and transaction routing surfaces.

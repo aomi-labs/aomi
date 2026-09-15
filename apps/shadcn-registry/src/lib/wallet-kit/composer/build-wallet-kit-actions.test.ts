@@ -53,6 +53,53 @@ describe("buildWalletKitActions", () => {
     expect(selectNetwork).not.toHaveBeenCalled();
   });
 
+  it("switches a regular wallet through its active connector", async () => {
+    const connector = { id: "metamask" } as never;
+    const switchChainAsync = vi.fn(async () => undefined);
+    const selectNetwork = vi.fn(async () => undefined);
+    const actions = buildWalletKitActions({
+      accounts: [],
+      auth: { provider: "wagmi", status: "authenticated" } as never,
+      evm: {
+        activeConnector: connector,
+        activeEvmConnection: { chainId: 1 },
+        selectNetwork,
+      } as never,
+      execution: {
+        evm: { activeConnector: connector, switchChainAsync },
+        sponsorship: {},
+      } as never,
+      registryStore: {} as never,
+      registryEvmConnected: true,
+    });
+
+    await actions.selectNetwork({ family: "evm", chainId: 5_042_002 });
+
+    expect(switchChainAsync).toHaveBeenCalledWith({
+      chainId: 5_042_002,
+      connector,
+    });
+    expect(selectNetwork).toHaveBeenCalledWith(5_042_002);
+  });
+
+  it("persists an EVM selection without switching when no wallet is connected", async () => {
+    const switchChainAsync = vi.fn(async () => undefined);
+    const selectNetwork = vi.fn(async () => undefined);
+    const actions = buildWalletKitActions({
+      accounts: [],
+      auth: { provider: "wagmi", status: "authenticated" } as never,
+      evm: { selectNetwork } as never,
+      execution: { evm: { switchChainAsync }, sponsorship: {} } as never,
+      registryStore: {} as never,
+      registryEvmConnected: false,
+    });
+
+    await actions.selectNetwork({ family: "evm", chainId: 5_042_002 });
+
+    expect(switchChainAsync).not.toHaveBeenCalled();
+    expect(selectNetwork).toHaveBeenCalledWith(5_042_002);
+  });
+
   it("selects an EVM account by one of its grouped connector ids", async () => {
     const selectAccount = vi.fn(async () => undefined);
     const actions = buildWalletKitActions({
