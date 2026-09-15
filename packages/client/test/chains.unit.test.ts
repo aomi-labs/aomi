@@ -62,11 +62,11 @@ describe("supported chain metadata", () => {
     });
   });
 
-  it("defines Arc Testnet as a USDC-native EVM chain", () => {
+  it("defines Arc Testnet with its 18-decimal native EVM precision", () => {
     expect(CHAINS_BY_ID[5042002]).toMatchObject({
       id: 5042002,
       name: "Arc Testnet",
-      nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
+      nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
       rpcUrls: {
         default: {
           http: [

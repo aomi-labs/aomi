@@ -43,6 +43,26 @@ export function buildWalletKitActions({
   registryEvmConnected,
   svmIdentity,
 }: BuildWalletKitActionsParams): WalletKitActions {
+  const selectEvmNetwork = async (chainId: number) => {
+    // The execution runtime owns the signer-specific switch operation. This
+    // lets embedded wallets (which deliberately have no wagmi connector) use
+    // their provider switcher while ordinary wagmi wallets keep using wagmi.
+    if (
+      evm.activeEvmConnection &&
+      evm.activeEvmConnection.chainId !== chainId &&
+      execution.evm.switchChainAsync
+    ) {
+      const connector = execution.evm.activeConnector;
+      await execution.evm.switchChainAsync({
+        chainId,
+        ...(connector ? { connector } : {}),
+      });
+    }
+    // Persist only after the wallet switch succeeds, so a rejected switch
+    // cannot briefly make the UI claim a chain the signer is not on.
+    await evm.selectNetwork(chainId);
+  };
+
   return {
     selectAccount: async (id: string) => {
       const target = accounts.find(
@@ -123,12 +143,10 @@ export function buildWalletKitActions({
       }
       await auth.openAccountUI?.("account-modal", "ACCOUNT_MAIN");
     },
-    switchChain: execution.evm.switchChainAsync
-      ? async (chainId: number) => evm.selectNetwork(chainId)
-      : undefined,
+    switchChain: execution.evm.switchChainAsync ? selectEvmNetwork : undefined,
     selectNetwork: async (target) => {
       if (target.family === "evm") {
-        await evm.selectNetwork(target.chainId);
+        await selectEvmNetwork(target.chainId);
         return;
       }
       await svm?.selectNetwork(target.networkId);
