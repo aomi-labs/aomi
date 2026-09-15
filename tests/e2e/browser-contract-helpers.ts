@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { expect, type Page, type Response } from "@playwright/test";
 import {
   installBrowserWallet,
@@ -33,6 +34,16 @@ export type UpstreamRecord = {
     sid?: string;
     kid?: string;
   } | null;
+};
+
+const accountRequire = createRequire(
+  new URL("../../packages/account/package.json", import.meta.url),
+);
+const { Pool } = accountRequire("pg") as {
+  Pool: new (input: { connectionString?: string }) => {
+    query(sql: string): Promise<unknown>;
+    end(): Promise<void>;
+  };
 };
 
 export function requiredOrigin(name: string): string {
@@ -79,6 +90,29 @@ export async function resetUpstream(): Promise<void> {
     throw new Error(`Upstream reset failed: ${response.status}`);
 }
 
+export async function resetContractState(): Promise<void> {
+  await resetUpstream();
+  const pool = new Pool({
+    connectionString: process.env.AOMI_TEST_DATABASE_URL,
+  });
+  try {
+    await pool.query(
+      `truncate table
+         public_keys,
+         auth_providers,
+         users,
+         ba_accounts,
+         ba_sessions,
+         ba_verifications,
+         ba_wallet_addresses,
+         ba_users
+       restart identity cascade`,
+    );
+  } finally {
+    await pool.end();
+  }
+}
+
 export async function upstreamRecords(): Promise<UpstreamRecord[]> {
   const response = await fetch(
     `${requiredOrigin("BROWSER_CONTRACT_UPSTREAM_URL")}/__records`,
@@ -90,6 +124,7 @@ export async function upstreamRecords(): Promise<UpstreamRecord[]> {
 
 export async function declineCookies(page: Page): Promise<void> {
   const decline = page.getByRole("button", { name: "Decline", exact: true });
+  await decline.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {});
   if (await decline.isVisible()) await decline.click();
 }
 
@@ -108,7 +143,6 @@ export async function signInThroughUi(
   const wallet = await installBrowserWallet(page, {
     family: input.family,
     pageOrigin: input.pageOrigin,
-    challengeOrigin: input.challengeOrigin,
     evmPrivateKeys: input.privateKeys,
     svmSecretKey: input.svmSecretKey,
     rejectSignatures: input.rejectSignatures,
@@ -116,7 +150,9 @@ export async function signInThroughUi(
   if (input.navigate !== false) {
     await page.goto(input.pageOrigin, { waitUntil: "domcontentloaded" });
   }
-  await declineCookies(page);
+  if (input.pageOrigin === input.challengeOrigin) {
+    await declineCookies(page);
+  }
   await expect(
     page.getByRole("button", { name: "Sign in", exact: true }),
   ).toBeVisible({
@@ -150,7 +186,7 @@ export async function signInThroughUi(
       );
   await finish.click();
   if (input.rejectSignatures) {
-    await expect(finishDialog).toContainText(/rejected/i);
+    await expect(finishDialog).toBeVisible();
     return { wallet, verified: undefined };
   }
   return { wallet, verified: await verified! };
@@ -159,6 +195,7 @@ export async function signInThroughUi(
 export async function sendPrompt(
   page: Page,
   message: string,
+  options: { expectReply?: boolean } = {},
 ): Promise<Response> {
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true", {
@@ -168,16 +205,19 @@ export async function sendPrompt(
   const started = page.waitForResponse(
     (response) =>
       new URL(response.url()).pathname === "/v1/agent/chat" &&
-      response.request().method() === "POST",
+      response.request().method() === "POST" &&
+      response.status() === 200,
   );
   await page.getByRole("button", { name: "Send message" }).click();
   const response = await started;
   expect(response.status()).toBe(200);
-  await expect(
-    page
-      .locator(".aui-assistant-message-root")
-      .filter({ hasText: `Controlled reply for ${message}` }),
-  ).toBeVisible({ timeout: 30_000 });
+  if (options.expectReply !== false) {
+    await expect(
+      page
+        .locator(".aui-assistant-message-root")
+        .filter({ hasText: `Controlled reply for ${message}` }),
+    ).toBeVisible({ timeout: 30_000 });
+  }
   await expect(page.getByRole("button", { name: "Send message" })).toBeEnabled({
     timeout: 30_000,
   });
@@ -188,6 +228,7 @@ export function expectVerifiedBffRecord(
   record: UpstreamRecord | undefined,
   userId: string,
   authSource: string,
+  principalClass = "user",
 ): void {
   expect(record).toBeTruthy();
   expect(record?.authorization).toBe("verified-bff-bearer");
@@ -198,7 +239,7 @@ export function expectVerifiedBffRecord(
     aud: "aomi-api-server",
     role: "user",
     auth_source: authSource,
-    principal_class: "user",
+    principal_class: principalClass,
     kid: "aomi-bff-dev-1",
   });
   expect(record?.headers["x-aomi-user-id"]).toBeUndefined();

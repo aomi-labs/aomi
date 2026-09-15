@@ -68,6 +68,8 @@ create table public_keys (
   authorization_version bigint not null default 0,
   authorization_metadata jsonb not null default '{}'::jsonb,
   provider_managed boolean not null default false,
+  created_at bigint not null,
+  updated_at bigint not null,
   constraint public_keys_unique_address unique (chain_type, address),
   constraint public_keys_auth_provider_same_user_fk
     foreign key (auth_provider_id, user_id)

@@ -4,7 +4,7 @@ import {
   fixtureKeys,
   portalAccount,
   requiredOrigin,
-  resetUpstream,
+  resetContractState,
   sendPrompt,
   signInThroughUi,
   signOutThroughUi,
@@ -14,7 +14,7 @@ import {
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
 const keys = fixtureKeys();
 
-test.beforeEach(async () => resetUpstream());
+test.beforeEach(async () => resetContractState());
 test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(90_000));
 
 for (const family of ["evm", "svm"] as const) {
@@ -104,9 +104,7 @@ test("explicit UI wallet linking adds a second key to the same canonical user", 
     .getByRole("button", { name: "Add wallet", exact: true })
     .click();
   const picker = page.getByRole("dialog", { name: /Add a wallet/ });
-  await picker.getByRole("button", { name: "Connect MetaMask" }).click();
-  const linkDialog = page.getByRole("dialog", { name: /Link wallet/ });
-  const link = linkDialog.getByRole("button", { name: /Link wallet/ });
+  const link = picker.getByRole("button", { name: "Link wallet", exact: true });
   await expect(link).toBeEnabled({ timeout: 30_000 });
   await link.click();
   await expect

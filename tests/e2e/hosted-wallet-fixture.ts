@@ -92,7 +92,6 @@ export async function installHostedWallet(
     family,
     chainId,
     pageOrigin: portal,
-    challengeOrigin: portal,
     evmPrivateKeys:
       family === "evm"
         ? [process.env.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY!]
@@ -107,7 +106,6 @@ export async function installBrowserWallet(
   options: {
     family: WalletFamily;
     pageOrigin: string;
-    challengeOrigin: string;
     chainId?: number;
     evmPrivateKeys?: string[];
     svmSecretKey?: string;
@@ -148,7 +146,9 @@ export async function installBrowserWallet(
       if (options.rejectSignatures) {
         throw new Error("User rejected the wallet signature");
       }
-      const challengeHost = new URL(options.challengeOrigin).host;
+      // First-party challenges use the Portal origin; widget challenges are
+      // intentionally bound to the embedding page origin.
+      const challengeHost = new URL(options.pageOrigin).host;
       if (
         (!message.startsWith(
           `${challengeHost} wants you to sign in with your `,
@@ -156,10 +156,12 @@ export async function installBrowserWallet(
           !message.startsWith(
             `${challengeHost} wants to link this wallet to your Aomi account:`,
           )) ||
-        !message.includes(`URI: ${options.challengeOrigin}`) ||
+        !message.includes(`URI: ${options.pageOrigin}`) ||
         !message.includes("Nonce:")
       ) {
-        throw new Error("Only this Portal's sign-in challenge may be signed");
+        throw new Error(
+          "Only this page's origin-bound challenge may be signed",
+        );
       }
       signatures++;
       if (family === "evm" && request.kind === "evm-sign") {
@@ -194,10 +196,29 @@ export async function installBrowserWallet(
       }) => Promise<unknown>;
       const bridge = (window as unknown as { __aomiHostedWallet: WalletBridge })
         .__aomiHostedWallet;
+      const storageKey = `__aomi_browser_contract_wallet_${family}`;
+      const rememberedAddress = (() => {
+        try {
+          return window.sessionStorage.getItem(storageKey);
+        } catch {
+          return null;
+        }
+      })();
+      const rememberAddress = (value: string | null) => {
+        try {
+          if (value) window.sessionStorage.setItem(storageKey, value);
+          else window.sessionStorage.removeItem(storageKey);
+        } catch {
+          // An opaque initial document has no storage; the real page does.
+        }
+      };
       if (family === "evm") {
         const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
-        let connected = false;
-        let activeIndex = 0;
+        let activeIndex = Math.max(
+          0,
+          addresses.indexOf(rememberedAddress ?? ""),
+        );
+        let connected = rememberedAddress !== null;
         const activeAddress = () => addresses[activeIndex];
         const emit = (name: string, value: unknown) =>
           listeners.get(name)?.forEach((listener) => listener(value));
@@ -227,6 +248,7 @@ export async function installBrowserWallet(
               return connected ? [activeAddress()] : [];
             if (method === "eth_requestAccounts") {
               connected = true;
+              rememberAddress(activeAddress());
               emit("connect", { chainId: `0x${chainId.toString(16)}` });
               emit("accountsChanged", [activeAddress()]);
               return [activeAddress()];
@@ -278,6 +300,7 @@ export async function installBrowserWallet(
               throw new Error("Wallet fixture account index is out of range");
             activeIndex = index;
             connected = true;
+            rememberAddress(activeAddress());
             emit("accountsChanged", [activeAddress()]);
           },
         });
@@ -314,12 +337,16 @@ export async function installBrowserWallet(
         name: "Phantom",
         icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
         chains: account.chains,
-        accounts: [] as (typeof account)[],
+        accounts:
+          rememberedAddress === address
+            ? [account]
+            : ([] as (typeof account)[]),
         features: {
           "standard:connect": {
             version: "1.0.0",
             connect: async () => {
               wallet.accounts = [account];
+              rememberAddress(address);
               listeners.forEach((listener) =>
                 listener({ accounts: wallet.accounts }),
               );
@@ -330,6 +357,7 @@ export async function installBrowserWallet(
             version: "1.0.0",
             disconnect: async () => {
               wallet.accounts = [];
+              rememberAddress(null);
               listeners.forEach((listener) => listener({ accounts: [] }));
             },
           },

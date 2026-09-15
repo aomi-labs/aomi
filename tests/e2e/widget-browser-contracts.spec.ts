@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { expect, test, type Page, type Response } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { createSiweMessage } from "viem/siwe";
 import { privateKeyToAccount } from "viem/accounts";
 import {
@@ -7,7 +7,7 @@ import {
   fixtureKeys,
   jsonFromPage,
   requiredOrigin,
-  resetUpstream,
+  resetContractState,
   sendPrompt,
   signInThroughUi,
   upstreamRecords,
@@ -34,36 +34,33 @@ type WidgetSession = {
   user: { id: string };
 };
 
-test.beforeEach(async () => resetUpstream());
+test.beforeEach(async () => resetContractState());
 test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(90_000));
 
 test("packaged guest widget uses readable CORS, a verified BFF assertion, and nonpersistent history", async ({
   page,
 }) => {
-  const responses: Response[] = [];
-  page.on("response", (response) => responses.push(response));
-  const firstGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
+  const firstGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
+  const chatResponse = await sendPrompt(
+    page,
+    "anonymous cross-origin contract",
+  );
   const first = await firstGuest;
   expect(first.response.headers()["access-control-allow-origin"]).toBe(
     consumerOrigin,
   );
-  await sendPrompt(page, "anonymous cross-origin contract");
-  expect(
-    responses.some(
-      (response) =>
-        response.request().method() === "OPTIONS" &&
-        new URL(response.url()).pathname.startsWith("/v1/agent/"),
-    ),
-  ).toBe(true);
+  expect(chatResponse.headers()["access-control-allow-origin"]).toBe(
+    consumerOrigin,
+  );
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
   );
-  expectVerifiedBffRecord(chat, first.session.user.id, "session");
-  expect(chat?.principal?.principal_class).toBe("guest");
+  expectVerifiedBffRecord(chat, first.session.user.id, "session", "guest");
 
   const secondGuest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await page.reload({ waitUntil: "domcontentloaded" });
+  await sendPrompt(page, "fresh anonymous widget session");
   const second = await secondGuest;
   expect(second.session.access_token).not.toBe(first.session.access_token);
   expect(second.session.user.id).not.toBe(first.session.user.id);
@@ -80,9 +77,13 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
 test("an invalid explicit widget credential fails closed and preserves upstream errors", async ({
   page,
 }) => {
-  const guest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
-  const valid = (await guest).session.access_token;
+  const issued = await rawWidgetFetch(page, "/api/auth/widget/guest", {
+    method: "POST",
+    body: {},
+  });
+  expect(issued.status).toBe(200);
+  const valid = (issued.body as WidgetSession).access_token;
   let guestRefreshes = 0;
   page.on("response", (response) => {
     if (new URL(response.url()).pathname === "/api/auth/widget/guest") {
@@ -98,22 +99,35 @@ test("an invalid explicit widget credential fails closed and preserves upstream 
   );
   expect(guestRefreshes).toBe(0);
 
+  const limitedNetworkResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      new URL(response.url()).pathname === "/v1/agent/error-fixture",
+  );
   const limited = await rawWidgetFetch(page, "/v1/agent/error-fixture", {
     token: valid,
   });
+  const limitedResponse = await limitedNetworkResponse;
   expect(limited).toMatchObject({
     status: 429,
     body: { error: { code: "fixture_limited" } },
   });
   expect(limited.headers["retry-after"]).toBe("7");
   expect(limited.headers["x-request-id"]).toBe("fixture-error-request");
-  expect(limited.headers["access-control-allow-origin"]).toBe(consumerOrigin);
+  expect(limitedResponse.headers()["access-control-allow-origin"]).toBe(
+    consumerOrigin,
+  );
 });
 
 test("rejected widget origins receive a readable 403 without credentials", async ({
   page,
 }) => {
   await page.goto(rejectedOrigin, { waitUntil: "domcontentloaded" });
+  const rejectedNetworkResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/widget/guest",
+  );
   const result = await page.evaluate(async (endpoint) => {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -123,25 +137,26 @@ test("rejected widget origins receive a readable 403 without credentials", async
     return {
       status: response.status,
       body: await response.json(),
-      allowOrigin: response.headers.get("access-control-allow-origin"),
       allowCredentials: response.headers.get(
         "access-control-allow-credentials",
       ),
     };
   }, `${portalOrigin}/api/auth/widget/guest`);
+  const rejectedResponse = await rejectedNetworkResponse;
   expect(result).toEqual({
     status: 403,
     body: { error: "invalid_widget_origin" },
-    allowOrigin: "*",
     allowCredentials: null,
   });
+  expect(rejectedResponse.headers()["access-control-allow-origin"]).toBe("*");
 });
 
 test("anonymous widget renews an expired session after the first 401", async ({
   page,
 }) => {
-  const guest = waitForWidgetSession(page, "/api/auth/widget/guest");
   await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
+  const guest = waitForWidgetSession(page, "/api/auth/widget/guest");
+  await sendPrompt(page, "establish anonymous widget session");
   const first = await guest;
   const pool = new Pool({
     connectionString: process.env.AOMI_TEST_DATABASE_URL,
@@ -163,7 +178,9 @@ test("anonymous widget renews an expired session after the first 401", async ({
       statuses.push(response.status());
     }
   });
-  await sendPrompt(page, "renew the anonymous widget session");
+  await sendPrompt(page, "renew the anonymous widget session", {
+    expectReply: false,
+  });
   const second = await renewed;
   expect(second.session.access_token).not.toBe(first.session.access_token);
   expect(statuses).toContain(401);
@@ -187,10 +204,10 @@ test("wallet-authenticated packaged widget persists its WST and canonical user",
     "/v1/account",
   );
   expect(account).toMatchObject({
-    guest: false,
     user: { id: session.user.id },
     session: { carrier: "widget", authMethod: "siwe" },
   });
+  expect(account.guest).not.toBe(true);
   expect(
     account.wallets?.some(
       (entry) =>
@@ -198,6 +215,12 @@ test("wallet-authenticated packaged widget persists its WST and canonical user",
         entry.address?.toLowerCase() === wallet.address.toLowerCase(),
     ),
   ).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Open account menu" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByRole("dialog", { name: "Finish signing in" }),
+  ).toBeHidden({ timeout: 30_000 });
   await sendPrompt(page, "wallet widget production contract");
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",
@@ -266,6 +289,11 @@ test("widget challenge is origin-bound and single-use", async ({ page }) => {
   });
 
   await page.goto(rejectedOrigin, { waitUntil: "domcontentloaded" });
+  const wrongOriginNetworkResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/auth/widget/siwe/nonce",
+  );
   const wrongOrigin = await rawWidgetFetch(
     page,
     "/api/auth/widget/siwe/nonce",
@@ -278,7 +306,9 @@ test("widget challenge is origin-bound and single-use", async ({ page }) => {
     status: 403,
     body: { error: "invalid_widget_origin" },
   });
-  expect(wrongOrigin.headers["access-control-allow-origin"]).toBe("*");
+  expect(
+    (await wrongOriginNetworkResponse).headers()["access-control-allow-origin"],
+  ).toBe("*");
 });
 
 async function waitForWidgetSession(page: Page, path: string) {

@@ -54,7 +54,71 @@ function run(command, commandArgs, cwd = root) {
 }
 
 function baseFile(path) {
-  return execFileSync("git", ["show", `${sha}:${path}`], { cwd: root });
+  return execFileSync("git", ["show", `${sha}:${path}`], {
+    cwd: root,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+}
+
+function exactLockedVersion(value) {
+  const version = value
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .split("(", 1)[0];
+  if (/^(?:file|link|workspace):/.test(version)) return undefined;
+  return version;
+}
+
+function importerVersions(lockfile, importer) {
+  const lines = lockfile.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === `  ${importer}:`);
+  if (start < 0) throw new Error(`Trusted lockfile lacks importer ${importer}`);
+  const versions = {};
+  let inDependencies = false;
+  let dependency;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^  \S/.test(line)) break;
+    const field = line.match(
+      /^    (dependencies|devDependencies|optionalDependencies):$/,
+    );
+    if (field) {
+      inDependencies = true;
+      dependency = undefined;
+      continue;
+    }
+    if (/^    \S/.test(line)) {
+      inDependencies = false;
+      dependency = undefined;
+      continue;
+    }
+    if (!inDependencies) continue;
+    const name = line.match(/^      (.+):$/);
+    if (name) {
+      dependency = name[1].replace(/^['"]|['"]$/g, "");
+      continue;
+    }
+    const locked = line.match(/^        version: (.+)$/);
+    if (dependency && locked) {
+      const version = exactLockedVersion(locked[1]);
+      if (version) versions[dependency] = version;
+    }
+  }
+  return versions;
+}
+
+function packageVersion(lockfile, packageName) {
+  const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = [
+    ...lockfile.matchAll(new RegExp(`^  '${escaped}@([^']+)':$`, "gm")),
+  ].map((match) => match[1].split("(", 1)[0]);
+  const versions = [...new Set(matches)];
+  if (versions.length !== 1) {
+    throw new Error(
+      `Trusted lockfile must resolve exactly one ${packageName}; found ${versions.join(",")}`,
+    );
+  }
+  return versions[0];
 }
 
 function verifyHostCompositionExport(destination) {
@@ -109,6 +173,13 @@ try {
     `Checking consumers from ${sha} against candidate package tarballs`,
   );
   const tarballs = {};
+  const trustedLockfile = baseFile("pnpm-lock.yaml").toString("utf8");
+  const trustedImporters = {
+    root: importerVersions(trustedLockfile, "."),
+    widget: importerVersions(trustedLockfile, "apps/widget-consumer"),
+    registry: importerVersions(trustedLockfile, "apps/shadcn-registry"),
+  };
+  const trustedTap = packageVersion(trustedLockfile, "@assistant-ui/tap");
   for (const [name, path] of packages) {
     if (name === "@aomi-labs/widget-lib") {
       // Widget has prepublishOnly rather than prepack.
@@ -148,6 +219,8 @@ try {
         baseRoot.devDependencies?.["@assistant-ui/react"];
       if (!manifest.dependencies["@assistant-ui/react"])
         throw new Error("Trusted base lacks widget runtime peer");
+      manifest.dependencies["@assistant-ui/react"] =
+        trustedImporters.root["@assistant-ui/react"];
       const baseWidget = JSON.parse(
         baseFile("apps/shadcn-registry/package.json").toString("utf8"),
       );
@@ -155,17 +228,45 @@ try {
         baseWidget.devDependencies?.["@solana/spl-token"];
       if (!manifest.dependencies["@solana/spl-token"])
         throw new Error("Trusted base lacks widget Solana peer");
+      manifest.dependencies["@solana/spl-token"] =
+        trustedImporters.registry["@solana/spl-token"];
     }
     for (const field of ["dependencies", "devDependencies"]) {
       for (const name of Object.keys(manifest[field] ?? {})) {
         if (tarballs[name]) manifest[field][name] = tarballs[name];
         else if (String(manifest[field][name]).startsWith("workspace:")) {
           throw new Error(`Unmapped workspace package ${name} in ${consumer}`);
+        } else if (consumer.endsWith("widget-consumer")) {
+          const locked =
+            trustedImporters.widget[name] ??
+            (name === "@assistant-ui/react"
+              ? trustedImporters.root[name]
+              : undefined) ??
+            (name === "@solana/spl-token"
+              ? trustedImporters.registry[name]
+              : undefined);
+          if (!locked) {
+            throw new Error(
+              `Trusted lockfile lacks ${consumer} dependency ${name}`,
+            );
+          }
+          manifest[field][name] = locked;
         }
       }
     }
     // Transitive dependencies must also use this candidate, not registry releases.
-    manifest.pnpm = { ...manifest.pnpm, overrides: tarballs };
+    manifest.pnpm = {
+      ...manifest.pnpm,
+      overrides: {
+        ...manifest.pnpm?.overrides,
+        ...trustedImporters.registry,
+        ...trustedImporters.widget,
+        "@assistant-ui/react": trustedImporters.root["@assistant-ui/react"],
+        "@assistant-ui/tap": trustedTap,
+        "@types/node": trustedImporters.root["@types/node"],
+        ...tarballs,
+      },
+    };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     if (consumer.endsWith("headless-client")) {
       const tsconfigPath = join(destination, "tsconfig.json");

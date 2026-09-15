@@ -65,6 +65,22 @@ async function main() {
           .join(",")}`,
       );
     }
+    const publicKeyTimestamps = (await pool.query(
+      `select column_name
+         from information_schema.columns
+        where table_schema = 'public'
+          and table_name = 'public_keys'
+          and column_name = any($1::text[])
+        order by column_name`,
+      [["created_at", "updated_at"]],
+    )) as { rowCount: number | null; rows: Array<{ column_name: string }> };
+    if (publicKeyTimestamps.rowCount !== 2) {
+      throw new Error(
+        `Browser contract public_keys schema incomplete: ${publicKeyTimestamps.rows
+          .map((row) => row.column_name)
+          .join(",")}`,
+      );
+    }
     console.log("Browser contract account and Better Auth schemas ready");
   } finally {
     await pool.end();

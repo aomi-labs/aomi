@@ -485,6 +485,36 @@ async function createControlledUpstream(port) {
         records.length = 0;
         return json(response, 204, undefined);
       }
+      if (url.pathname === "/api/account" && request.method === "GET") {
+        const principal = await verifyPrincipal(
+          request,
+          verificationKey,
+          "aomi-backend",
+        );
+        records.push(recordFor(request, url, principal));
+        if (!principal)
+          return json(response, 401, { error: { code: "invalid_token" } });
+        const now = Math.floor(Date.now() / 1000);
+        return json(response, 200, {
+          user: {
+            user_id: principal.sub,
+            username: null,
+            apps: [],
+            tier: "free",
+            verified_email: null,
+            status: "active",
+            last_seen_at: now,
+            created_at: now,
+            updated_at: now,
+          },
+          auth_providers: [],
+          user_accounts: [],
+          signing_policies: [],
+          delegated_accounts: [],
+          operating_accounts: [],
+          onchain_policy_bindings: [],
+        });
+      }
       if (url.pathname.startsWith("/api/")) {
         records.push(recordFor(request, url, null));
         if (url.pathname.endsWith("/models"))
@@ -592,7 +622,7 @@ async function createControlledUpstream(port) {
   return server;
 }
 
-async function verifyPrincipal(request, key) {
+async function verifyPrincipal(request, key, audience = "aomi-api-server") {
   const authorization = request.headers.authorization ?? "";
   const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return null;
@@ -600,7 +630,7 @@ async function verifyPrincipal(request, key) {
     const { payload, protectedHeader } = await jwtVerify(token, key, {
       algorithms: ["EdDSA"],
       issuer: "aomi-bff",
-      audience: "aomi-api-server",
+      audience,
     });
     if (protectedHeader.kid !== "aomi-bff-dev-1" || payload.role !== "user") {
       return null;
