@@ -1,1 +1,1 @@
-export { CreditBank } from "./credit-bank";
+export * from "../../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank/index";

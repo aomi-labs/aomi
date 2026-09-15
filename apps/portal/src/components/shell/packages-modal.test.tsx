@@ -10,7 +10,10 @@ import {
 import { inferLibraryCategory, PackagesModal } from "./packages-modal";
 import { PackageIcon, PackageRow } from "./package-row";
 import { toCatalogPackage } from "./packages-catalog";
-import { seedAccountOverview, useAccountOverview } from "@portal/lib/account-overview";
+import {
+  seedAccountOverview,
+  useAccountOverview,
+} from "@portal/lib/account-overview";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -351,9 +354,14 @@ describe("packages modal wiring", () => {
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const path = new URL(input.toString(), "https://portal.test").pathname;
         if (path === "/api/account/apps" && init?.method === "PUT") {
-          return new Promise<Response>((resolve) => { finishPut = resolve; });
+          return new Promise<Response>((resolve) => {
+            finishPut = resolve;
+          });
         }
         if (path === "/api/account/apps") return Response.json(CATALOG);
+        if (path === "/api/resource/skills") {
+          return Response.json({ skills: [] });
+        }
         return new Response("Unauthenticated", { status: 401 });
       }),
     );
@@ -364,7 +372,9 @@ describe("packages modal wiring", () => {
     seedAccountOverview(null);
 
     await act(async () => {
-      finishPut?.(Response.json({ apps: ["default", "uniswap", "treasury-ops"] }));
+      finishPut?.(
+        Response.json({ apps: ["default", "uniswap", "treasury-ops"] }),
+      );
     });
     function AccountIdentity() {
       return <span>{useAccountOverview()?.user.user_id ?? "signed-out"}</span>;
@@ -389,6 +399,9 @@ describe("packages modal wiring", () => {
           return new Promise<Response>((resolve) => {
             finishPut = resolve;
           });
+        }
+        if (url.pathname === "/api/resource/skills") {
+          return Response.json({ skills: [] });
         }
         return new Response("unexpected", { status: 500 });
       }),

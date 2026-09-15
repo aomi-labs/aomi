@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 export type SkillSummary = {
   id: string;
@@ -75,29 +81,34 @@ async function requestJson(path: string): Promise<unknown> {
   return response.json() as Promise<unknown>;
 }
 
+export const SkillCatalogTransportContext = createContext(requestJson);
+
 export async function fetchSkillCatalog(
   force = false,
+  request: (path: string) => Promise<unknown> = requestJson,
 ): Promise<SkillSummary[]> {
+  if (request !== requestJson) return request(CATALOG_PATH).then(parseCatalog);
   if (!force && cachedCatalog) return cachedCatalog;
   if (!force && catalogRequest) return catalogRequest;
 
-  const request = requestJson(CATALOG_PATH)
+  const pending = requestJson(CATALOG_PATH)
     .then(parseCatalog)
     .then((skills) => {
       cachedCatalog = skills;
       return skills;
     })
     .finally(() => {
-      if (catalogRequest === request) catalogRequest = null;
+      if (catalogRequest === pending) catalogRequest = null;
     });
-  catalogRequest = request;
-  return request;
+  catalogRequest = pending;
+  return pending;
 }
 
-export async function fetchSkillDetail(id: string): Promise<SkillDetail> {
-  const value = await requestJson(
-    `/api/resource/skills/${encodeURIComponent(id)}`,
-  );
+export async function fetchSkillDetail(
+  id: string,
+  request: (path: string) => Promise<unknown> = requestJson,
+): Promise<SkillDetail> {
+  const value = await request(`/api/resource/skills/${encodeURIComponent(id)}`);
   const summary = parseSkill(value);
   if (!summary || !value || typeof value !== "object") {
     throw new Error("Skill details were not available.");
@@ -150,15 +161,19 @@ export function conciseSkillDescription(description: string): string {
   return `${summary.slice(0, boundary >= 42 ? boundary : 61).trimEnd()}…`;
 }
 
-export function useSkillCatalog() {
-  const [skills, setSkills] = useState<SkillSummary[] | null>(cachedCatalog);
+export function useSkillCatalog(fetcher?: (path: string) => Promise<unknown>) {
+  const contextRequest = useContext(SkillCatalogTransportContext);
+  const request = fetcher ?? contextRequest;
+  const [skills, setSkills] = useState<SkillSummary[] | null>(
+    request === requestJson ? cachedCatalog : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
     setError(null);
-    fetchSkillCatalog(revision > 0)
+    fetchSkillCatalog(revision > 0, request)
       .then((rows) => {
         if (active) setSkills(rows);
       })
@@ -171,7 +186,7 @@ export function useSkillCatalog() {
     return () => {
       active = false;
     };
-  }, [revision]);
+  }, [revision, request]);
 
   const retry = useCallback(() => {
     cachedCatalog = null;

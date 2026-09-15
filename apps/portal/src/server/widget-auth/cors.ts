@@ -5,8 +5,25 @@ const ALLOWED_HEADERS = [
   "Content-Type",
   "Aomi-App-Key",
   "Last-Event-ID",
+  "DPoP",
+  "Idempotency-Key",
+  "Payment-Signature",
+  "X-Aomi-Inference-Funding",
+  "X-Aomi-CSRF",
+  "X-Request-Id",
   "X-Session-Id",
   "X-Thread-Id",
+];
+
+const EXPOSED_HEADERS = [
+  "DPoP-Nonce",
+  "WWW-Authenticate",
+  "Payment-Required",
+  "Payment-Receipt",
+  "Payment-Response",
+  "X-Payment-Response",
+  "Retry-After",
+  "X-Request-Id",
 ];
 
 export function widgetCorsPreflight(
@@ -46,6 +63,11 @@ export function applyWidgetCors(
   // to be able to read why it was refused.
   if (!origin) return withReadableRejection(response);
   response.headers.set("Access-Control-Allow-Origin", origin);
+  response.headers.set(
+    "Access-Control-Expose-Headers",
+    EXPOSED_HEADERS.join(", "),
+  );
+  response.headers.delete("Access-Control-Allow-Credentials");
   appendVary(response.headers, "Origin");
   if (options?.preflight) {
     response.headers.set(

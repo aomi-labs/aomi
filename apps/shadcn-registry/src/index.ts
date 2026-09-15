@@ -105,3 +105,6 @@ export {
   isFullTestnet,
   useFullTestnet,
 } from "./lib/wallet-kit";
+
+export { ShellTransportProvider } from "./components/account-shell/transport";
+export type { AomiWidgetFeatures } from "./components/aomi-widget";

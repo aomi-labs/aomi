@@ -8,9 +8,12 @@ const session = vi.hoisted(() => ({
   retry: vi.fn(),
 }));
 
-vi.mock("@portal/components/providers/aomi-session-bridge", () => ({
-  useAomiSession: () => session,
-}));
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/components/providers/aomi-session-bridge",
+  () => ({
+    useAomiSession: () => session,
+  }),
+);
 
 vi.mock("@aomi-labs/widget-lib", () => ({
   useAomiWalletKit: () => ({
@@ -19,33 +22,49 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("@portal/features/general", () => ({
-  GeneralSettings: ({
-    onManageAccount,
-    onViewUsage,
-  }: {
-    onManageAccount: () => void;
-    onViewUsage: () => void;
-  }) => (
-    <div>
-      General content
-      <button type="button" onClick={onManageAccount}>
-        Manage account
-      </button>
-      <button type="button" onClick={onViewUsage}>
-        View usage
-      </button>
-    </div>
-  ),
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => ({
+    identity: { isConnected: true },
+    connect: vi.fn(),
+  }),
 }));
 
-vi.mock("@portal/features/account", () => ({
-  AccountSettings: () => <div>Account content</div>,
-}));
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/features/general",
+  () => ({
+    GeneralSettings: ({
+      onManageAccount,
+      onViewUsage,
+    }: {
+      onManageAccount: () => void;
+      onViewUsage: () => void;
+    }) => (
+      <div>
+        General content
+        <button type="button" onClick={onManageAccount}>
+          Manage account
+        </button>
+        <button type="button" onClick={onViewUsage}>
+          View usage
+        </button>
+      </div>
+    ),
+  }),
+);
 
-vi.mock("@portal/features/usage", () => ({
-  UsageSettings: () => <div>Usage content</div>,
-}));
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/features/account",
+  () => ({
+    AccountSettings: () => <div>Account content</div>,
+  }),
+);
+
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/features/usage",
+  () => ({
+    UsageSettings: () => <div>Usage content</div>,
+  }),
+);
 
 describe("SettingsModal directory shell", () => {
   it("matches the Library frame and keeps navigation in the sidebar", () => {

@@ -1,1 +1,1 @@
-export { AccountSettings } from "./account-settings";
+export * from "../../../../shadcn-registry/src/components/account-shell/features/account/index";

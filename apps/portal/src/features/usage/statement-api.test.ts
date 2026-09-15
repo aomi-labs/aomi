@@ -1,4 +1,4 @@
-import { accountScopedFetch } from "@portal/lib/settings-api";
+import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -9,7 +9,10 @@ import {
   type WireModelStatement,
 } from "./statement-api";
 
-vi.mock("@portal/lib/settings-api", () => ({ accountScopedFetch: vi.fn() }));
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/lib/settings-api",
+  () => ({ accountScopedFetch: vi.fn() }),
+);
 
 const fetchMock = vi.mocked(accountScopedFetch);
 
