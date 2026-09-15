@@ -21,7 +21,7 @@ const adapterState = vi.hoisted(() => ({
   } as AdapterState,
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
   useAomiWalletKit: () => adapterState.current,
 }));
 
