@@ -110,10 +110,10 @@ export const arcTestnet = defineChain({
   nativeCurrency: {
     name: "USDC",
     symbol: "USDC",
-    // Arc RPC quantities use 18-decimal native precision, but EIP-3085 chain
-    // metadata uses USDC's 6 display decimals. Callers handling raw
-    // eth_getBalance/msg.value must retain the 18-decimal internal boundary.
-    decimals: 6,
+    // Arc RPC quantities use 18-decimal native precision. EIP-3085 clients
+    // (including viem and Privy) require the native currency metadata to
+    // represent that precision when adding or switching this EVM chain.
+    decimals: 18,
   },
   rpcUrls: {
     default: {
