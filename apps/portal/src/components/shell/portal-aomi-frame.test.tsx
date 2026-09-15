@@ -104,28 +104,17 @@ vi.mock("@portal/lib/portal-client-options", () => ({
   useRequestedAppConfig: () => requestedAppState.current,
 }));
 
-vi.mock("@portal/lib/settings-api", () => ({
+vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
   getBackendUrl: () => backendUrlState.current,
-}));
-
-vi.mock("@portal/lib/account-overview", () => ({
-  useAccountOverview: () => null,
-}));
-
-vi.mock("@portal/components/shell/use-portal-wallet-account-menu", () => ({
-  usePortalWalletAccountMenu: () => undefined,
-}));
-
-vi.mock("@portal/components/shell/header-controls", () => ({
   HeaderControls: ({ onOpenSettings }: { onOpenSettings: () => void }) => (
     <button type="button" onClick={onOpenSettings}>
       Open settings
     </button>
   ),
-}));
-
-vi.mock("@portal/components/settings/settings-modal", () => ({
+  PackagesModal: () => <div data-testid="packages-modal" />,
   SettingsModal: () => <div data-testid="settings-modal" />,
+  useAccountOverview: () => null,
+  usePortalWalletAccountMenu: () => undefined,
 }));
 
 // Renders in place so the assertion below can check where the overlay is

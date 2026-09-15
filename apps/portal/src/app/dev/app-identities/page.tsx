@@ -1,9 +1,12 @@
 import { createElement, type CSSProperties } from "react";
 import { notFound } from "next/navigation";
-import { getAppIcon } from "@/components/icons/app-map";
-import { CURATED_APP_IDS, resolveAppIdentity } from "@/lib/apps/app-identity";
-import { PackageIcon } from "@portal/components/shell/package-row";
-import { toCatalogPackage } from "@portal/components/shell/packages-catalog";
+import {
+  CURATED_APP_IDS,
+  getAppIcon,
+  PackageIcon,
+  resolveAppIdentity,
+  toCatalogPackage,
+} from "@aomi-labs/widget-lib/host-composition";
 
 export const dynamic = "force-dynamic";
 

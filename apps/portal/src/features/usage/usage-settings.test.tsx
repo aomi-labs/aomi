@@ -8,7 +8,7 @@ vi.mock(
   }),
 );
 
-import { UsageSettings } from "./usage-settings";
+import { UsageSettings } from "../../../../shadcn-registry/src/components/account-shell/features/usage/usage-settings";
 
 const STATEMENT = {
   entries: [

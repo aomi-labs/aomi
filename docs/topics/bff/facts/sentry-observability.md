@@ -156,7 +156,8 @@ everything except tracing. Rust's ignored live smoke test is in
 
 An implementation session should begin here:
 
-1. Read this document, the repository `AGENTS.md`, and `GOAL.md`.
+1. Read this document, the repository `AGENTS.md`, and the maintained topic
+   docs relevant to the change. `GOAL.md` is historical context only.
 2. Confirm `/Users/kevin/aomi/pg2/aomi` is clean and synchronized with
    `origin/main`; do not discard unrelated user changes.
 3. Create a `codex/bff-sentry-observability` branch unless the task specifies

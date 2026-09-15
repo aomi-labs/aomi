@@ -8,8 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 
-import { AccountSettings } from "./account-settings";
-import { seedAccountOverview } from "@portal/lib/account-overview";
+import { AccountSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-settings";
+import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };

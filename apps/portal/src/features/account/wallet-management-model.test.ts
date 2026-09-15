@@ -4,7 +4,7 @@ import {
   isProviderSigningWallet,
   visibleSignInMethods,
   walletConnectionSummary,
-} from "./wallet-management-model";
+} from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
 
 describe("buildUnifiedAccountWallets", () => {
   it("deduplicates connected, linked, and policy records by family and address", () => {

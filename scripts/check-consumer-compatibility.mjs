@@ -46,6 +46,53 @@ function baseFile(path) {
   return execFileSync("git", ["show", `${sha}:${path}`], { cwd: root });
 }
 
+function verifyHostCompositionExport(destination) {
+  const typeCheckPath = join(destination, "host-composition-check.ts");
+  writeFileSync(
+    typeCheckPath,
+    `import {
+  HeaderControls,
+  getBackendUrl,
+  type UsageFixtureData,
+} from "@aomi-labs/widget-lib/host-composition";
+
+export const HostHeader: typeof HeaderControls = HeaderControls;
+export const backendUrl: string = getBackendUrl();
+export type HostUsage = UsageFixtureData;
+`,
+  );
+  run(
+    "corepack",
+    [
+      "pnpm",
+      "exec",
+      "tsc",
+      "--noEmit",
+      "--target",
+      "ES2022",
+      "--module",
+      "ESNext",
+      "--moduleResolution",
+      "Bundler",
+      "--strict",
+      "--skipLibCheck",
+      typeCheckPath,
+    ],
+    destination,
+  );
+
+  const resolutionCheckPath = join(destination, "host-composition-resolve.mjs");
+  writeFileSync(
+    resolutionCheckPath,
+    `const resolved = import.meta.resolve("@aomi-labs/widget-lib/host-composition");
+if (!resolved.endsWith("/dist/host-composition.js")) {
+  throw new Error(\`Packed host-composition export resolved to \${resolved}\`);
+}
+`,
+  );
+  run("node", [resolutionCheckPath], destination);
+}
+
 try {
   console.log(
     `Checking consumers from ${sha} against candidate package tarballs`,
@@ -122,6 +169,11 @@ try {
       destination,
     );
     run("corepack", ["pnpm", "run", "build"], destination);
+    if (consumer.endsWith("widget-consumer")) {
+      // Exercise the packed subpath only after the unchanged trusted fixture
+      // has built, reusing its candidate install without source aliases.
+      verifyHostCompositionExport(destination);
+    }
     if (consumer.endsWith("headless-client")) {
       run("corepack", ["pnpm", "run", "test"], destination);
       // Import from this install's node_modules so module resolution cannot

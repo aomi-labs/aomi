@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccountSigningView } from "./account-signing";
-import type { WalletPolicy } from "./types";
+import { AccountSigningView } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-signing";
+import type { WalletPolicy } from "../../../../shadcn-registry/src/components/account-shell/features/account/types";
 import type { AomiAuthorizationChallenge } from "@aomi-labs/client";
 
 const challenge: AomiAuthorizationChallenge = {

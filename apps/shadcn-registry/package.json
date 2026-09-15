@@ -14,6 +14,10 @@
       "types": "./dist/aomi-widget.d.ts",
       "import": "./dist/aomi-widget.js"
     },
+    "./host-composition": {
+      "types": "./dist/host-composition.d.ts",
+      "import": "./dist/host-composition.js"
+    },
     "./aomi-frame": "./src/components/aomi-frame.tsx",
     "./aomi-frame-collapsible": "./src/components/aomi-frame-collapsible.tsx",
     "./control-bar": "./src/components/control-bar/index.tsx",

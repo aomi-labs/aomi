@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { notFound } from "next/navigation";
-import { getSkillIcon } from "@/components/icons/skills";
 import {
+  getSkillIcon,
   skillIconSources,
   skillIconGenericAliases,
-} from "@/components/icons/skills/source-manifest";
+} from "@aomi-labs/widget-lib/host-composition";
 
 export const dynamic = "force-dynamic";
 export default function SkillIconsPage() {

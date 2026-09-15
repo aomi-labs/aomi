@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 
-import { usePortalWalletAccountMenu } from "./use-portal-wallet-account-menu";
-import { seedAccountOverview } from "@portal/lib/account-overview";
+import { usePortalWalletAccountMenu } from "../../../../shadcn-registry/src/components/account-shell/components/shell/use-portal-wallet-account-menu";
+import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 
 const walletKitState = vi.hoisted(() => ({
   current: {

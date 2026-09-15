@@ -50,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Enforce frontend dependency boundaries
+        run: pnpm run check:frontend-boundaries
+
       - name: Lint and typecheck workspace
         run: pnpm run lint && pnpm run typecheck
 

@@ -8,20 +8,22 @@ import {
   type DirectRoutingApp,
   type WalletAccountMenuOptions,
 } from "@aomi-labs/widget-lib";
+import {
+  getBackendUrl,
+  HeaderControls,
+  PackagesModal,
+  SettingsModal,
+  useAccountOverview,
+  usePortalWalletAccountMenu,
+  type SettingsTab,
+} from "@aomi-labs/widget-lib/host-composition";
 import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
-import { HeaderControls } from "@portal/components/shell/header-controls";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
-import { PackagesModal } from "@portal/components/shell/packages-modal";
-import { SettingsModal } from "@portal/components/settings/settings-modal";
-import type { SettingsTab } from "@portal/components/settings/settings-modal";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
 } from "@portal/lib/portal-client-options";
-import { getBackendUrl } from "@portal/lib/settings-api";
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
-import { usePortalWalletAccountMenu } from "@portal/components/shell/use-portal-wallet-account-menu";
-import { useAccountOverview } from "@portal/lib/account-overview";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
 

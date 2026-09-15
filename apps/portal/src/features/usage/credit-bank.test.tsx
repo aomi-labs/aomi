@@ -40,7 +40,7 @@ vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
   }),
 }));
 
-import { CreditBank } from "./credit-bank";
+import { CreditBank } from "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank";
 
 function position(
   entries: Array<{

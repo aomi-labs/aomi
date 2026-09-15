@@ -4,7 +4,10 @@
  * cover every reconciliation state in one place, which is useful when
  * iterating on `account-signing.tsx` without a backend.
  */
-import type { DelegatedAccountView, WalletPolicy } from "./types";
+import type {
+  DelegatedAccountView,
+  WalletPolicy,
+} from "@aomi-labs/widget-lib/host-composition";
 
 /**
  * Wallet ACL fixtures — one row per `public_keys` record. Chosen to exercise
