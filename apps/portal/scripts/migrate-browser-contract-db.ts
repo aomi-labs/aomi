@@ -1,8 +1,24 @@
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { getPool } from "@aomi-labs/account";
 import { getMigrations } from "better-auth/db/migration";
 import { auth } from "@aomi-labs/account/better-auth";
+
+const accountRequire = createRequire(
+  new URL("../../../packages/account/package.json", import.meta.url),
+);
+const { Pool } = accountRequire("pg") as {
+  Pool: new (input: { connectionString: string }) => {
+    query(
+      sql: string,
+      values?: unknown[],
+    ): Promise<{
+      rowCount: number | null;
+      rows: unknown[];
+    }>;
+    end(): Promise<void>;
+  };
+};
 
 async function main() {
   if (process.env.AOMI_TEST_DATABASE_DISPOSABLE !== "1") {
@@ -12,7 +28,7 @@ async function main() {
   }
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  const pool = getPool();
+  const pool = new Pool({ connectionString: databaseUrl });
   try {
     const schemaPath = fileURLToPath(
       new URL(
@@ -23,7 +39,7 @@ async function main() {
     await pool.query(await readFile(schemaPath, "utf8"));
     const migrations = await getMigrations(auth.options);
     await migrations.runMigrations();
-    const required = await pool.query<{ table_name: string }>(
+    const required = (await pool.query(
       `select table_name
          from information_schema.tables
         where table_schema = 'public'
@@ -41,7 +57,7 @@ async function main() {
           "users",
         ],
       ],
-    );
+    )) as { rowCount: number | null; rows: Array<{ table_name: string }> };
     if (required.rowCount !== 8) {
       throw new Error(
         `Browser contract schema incomplete: ${required.rows
