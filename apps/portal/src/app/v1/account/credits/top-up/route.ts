@@ -1,3 +1,7 @@
+import {
+  applyWidgetCors,
+  widgetCorsPreflight,
+} from "@portal/server/widget-auth/cors";
 import { proxyAccountApi } from "@portal/server/account-api-proxy";
 import {
   ApiPrincipalError,
@@ -11,12 +15,20 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export function OPTIONS(request: Request): Response {
+  return widgetCorsPreflight(request, ["POST", "OPTIONS"]);
+}
+
 export async function POST(request: Request): Promise<Response> {
+  return applyWidgetCors(request, await handle(request));
+}
+
+async function handle(request: Request): Promise<Response> {
   try {
     const requiredScopes = ["account:credits:topup"];
     if (request.headers.has("payment-signature"))
       requiredScopes.push("payments:submit");
-    return proxyAccountApi(
+    return await proxyAccountApi(
       request,
       await resolveApiPrincipal({
         request,

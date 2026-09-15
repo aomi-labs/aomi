@@ -81,8 +81,8 @@ function App() {
         <p className="eyebrow">Cross-origin integration fixture</p>
         <h1>Aomi Widget</h1>
         <p>
-          This Vite app runs on port 3001 and talks to Portal on port 3000 using
-          an origin-bound widget session token. It does not rely on Portal
+          This Vite app embeds the widget and talks to a separate Portal origin
+          using an origin-bound widget session token. It does not rely on Portal
           cookies.
         </p>
         <nav className="provider-fixtures" aria-label="Wallet provider fixture">

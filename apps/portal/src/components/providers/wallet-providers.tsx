@@ -12,6 +12,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { hostedPortalOrigin, hostedPortalApiOrigin } from "@portal/lib/hosted-portal";
+import { ShellTransportProvider } from "@aomi-labs/widget-lib";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   mainnet,
@@ -199,12 +201,15 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     routedChains,
     routedChainIds,
   } = useFullTestnet(networks);
+  const hostedOrigin = hostedPortalOrigin();
   const account = useMemo(
     () => ({
       mode: "aomi-backend" as const,
-      ...(browserAuthOrigin ?? {}),
+      ...(hostedOrigin
+        ? { baseUrl: hostedPortalApiOrigin(), widgetAuth: { mode: "wallet" as const } }
+        : (browserAuthOrigin ?? {})),
     }),
-    [browserAuthOrigin],
+    [browserAuthOrigin, hostedOrigin],
   );
   const evmWallets =
     typeof window !== "undefined" && walletConnectProjectId
@@ -248,18 +253,20 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       routedChainIds={routedChainIds}
       logLabel="portal:FullTestnetWalletRouter"
     >
-      {children}
+      <HostedPortalShell>{children}</HostedPortalShell>
     </FullTestnetWalletRouter>
   );
   const providerTree = (
     <WalletSignInOptionsContext.Provider
       value={
-        !providerRestored || isDeviceAuthRoute(pathname) ? [] : signInOptions
+        !providerRestored || isDeviceAuthRoute(pathname) || hostedOrigin
+          ? []
+          : signInOptions
       }
     >
       <AomiWalletKitProvider
         initializing={!providerRestored}
-        auth={auth}
+        auth={hostedOrigin ? false : auth}
         account={account}
         providers={{
           para: paraApiKey
@@ -297,8 +304,8 @@ export function WalletProviders({ children, e2eWallet }: Props) {
             <ProviderSignIn key={signIn.attempt} provider={signIn.provider} />
           )}
         {!providerRestored ? (
-          children
-        ) : selectedProvider === "privy" ? (
+          <HostedPortalShell>{children}</HostedPortalShell>
+        ) : selectedProvider === "privy" && !hostedOrigin ? (
           <PrivyDelegationProvider>{routedChildren}</PrivyDelegationProvider>
         ) : (
           routedChildren
@@ -390,3 +397,18 @@ const providerConfiguration = {
   paraEnvironment: paraEnvironmentSetting,
   privyAppId,
 };
+
+function HostedPortalShell({ children }: { children: ReactNode }) {
+  const origin = hostedPortalOrigin();
+  const kit = useAomiWalletKit();
+  if (!origin) return <>{children}</>;
+  return (
+    <ShellTransportProvider
+      key={kit.accountUser?.id ?? "anonymous"}
+      baseUrl={hostedPortalApiOrigin()}
+      getBearer={kit.getAccountBearer}
+    >
+      {children}
+    </ShellTransportProvider>
+  );
+}

@@ -50,7 +50,7 @@ function ActivitySidebarContent() {
   useLayoutEffect(() => {
     const parent = anchorRef.current?.parentElement;
     if (!parent || typeof ResizeObserver === "undefined") return;
-    const update = () => setCompact(parent.clientWidth < 1100);
+    const update = () => setCompact(parent.clientWidth < 900);
     update();
     const observer = new ResizeObserver(update);
     observer.observe(parent);

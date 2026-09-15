@@ -43,17 +43,24 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   useAomiWalletKit: () => walletKitState.current,
 }));
 
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => walletKitState.current,
+}));
+
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useAomiRuntime: () => runtimeState.current,
 }));
 
-vi.mock("@portal/lib/use-settings", () => ({
-  useSettings: () => ({
-    settings: { colorMode: "dark" },
-    updateSetting: vi.fn(),
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
+  () => ({
+    useSettings: () => ({
+      settings: { colorMode: "dark" },
+      updateSetting: vi.fn(),
+    }),
   }),
-}));
+);
 
 function readMenu(onManageAccount = () => undefined) {
   let captured: ReturnType<typeof usePortalWalletAccountMenu>;

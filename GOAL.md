@@ -1,5 +1,64 @@
 # Current work
 
+**WIDGET WALLET RUNTIME FOLLOW-UP 2026-09-14** — In the cross-origin
+consumer on PR #617's Portal preview, a connected Rabby wallet received
+`invalid token` for Agent session listing and chat because the client omitted
+the required widget session bearer from Agent/Pipeline routes. The client now
+forwards that bearer on those routes while retaining the existing public API
+OAuth/guest behavior for optional account bearers. Wallet widget sessions are
+cached for the browser tab and API origin until expiry, sign-out, disconnect,
+or account switch so a reload does not immediately ask Rabby to sign again.
+After one user-approved login signature, the live widget loaded four existing
+threads, sent and restored a diagnostic greeting, opened an older thread, and
+reloaded without another signature prompt. Staging Portal displayed the same
+thread titles and diagnostic thread. Focused client/widget tests, typechecks,
+lint, builds, and packed consumer compatibility passed; no deploy or merge was
+performed. Exact canonical account-ID parity was not directly measured.
+
+**WIDGET STAGING REVIEW 2026-09-14** — Created the frontend-only
+`review/widget-staging` worktree from `origin/main` (`a7c86172`) with no local
+backend or database. The first Tailscale preview used Landing's
+`/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
+Landing's missing route (404). The current managed runtime serves the actual
+`apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
+pointed at `https://chat-staging.aomi.dev` with public Across application
+24895. Read-only inspection confirmed the host fixture's global `h1` rule
+changes the widget welcome title from its intended 30px to 60px, and its
+global `header` rule caps the internal widget header at 760px and adds a 24px
+bottom margin. The consumer's routing prop visibly offers Auto and Direct,
+while a nonnumeric fixture application ID selects Auto-only. This worktree now
+moves the shared widget network selector to the header by default and scopes
+the consumer's typography rules to its own page header. In the live Tailscale
+preview the widget header has one Ethereum selector with no width cap, and the
+welcome title is 30px. Widget typecheck/build/lint and consumer typecheck/build
+pass. Authenticated chat and actual target dispatch remain unverified.
+The next Auto-mode consumer smoke sent an ETH price/subagent prompt but the
+browser rejected its cross-origin `/v1/agent/chat` request before a turn
+started: staging's OPTIONS response lacks `Access-Control-Allow-Origin` for
+the Tailscale preview, while widget guest auth and model preflights allow it.
+The same prompt in staging Portal succeeded and showed a completed subagent
+in the shared right activity panel; this is a Portal comparison, not widget
+end-to-end proof. Screenshot: `/home/aron/Documents/widget-trace-staging-portal-comparison-2026-09-14.jpg`.
+The follow-up fix adds widget CORS preflight and response headers to Agent and
+Pipeline REST, including the request and response headers used by SDK chat and
+payments. Focused route/CORS tests, Portal typecheck/lint, and the trusted-base
+packed consumer compatibility check pass. A local Portal production build
+compiles but cannot collect auth page data in this frontend-only workspace
+without its database configuration. The PR preview was used for a live widget
+Auto/Direct/subagent smoke before merge.
+PR #617's Portal preview at `https://chat-portal-3f67r8iuu-aomi-labs.vercel.app`
+now answers the consumer's Agent preflight. The Tailscale consumer successfully
+ran an Auto ETH lookup through a subagent and displayed its completed right
+activity panel, plus a Direct Across turn. Preview review exposed two widget
+issues that were added to the PR: at desktop fixture width the panel overlaid
+the answer, fixed by using side-by-side columns at 900px; and an anonymous
+reload could restore a prior guest's inaccessible thread, fixed by disabling
+guest thread persistence by default while retaining user-scoped persistence
+for signed-in accounts and explicit host overrides. A guest sent successfully
+again after reload. Final visual proof is
+`docs/widget/widget-consumer-auto-trace.jpg`. The model's ETH price output is
+not validated market data and lacked an exact retrieval timestamp.
+
 **UNLINKED WALLET COMMITS 2026-09-14** — pair the Portal's Solana hosted-link
 recovery with backend attended commits for authenticated unlinked wallets.
 Direct wallet transactions remain available without account linking; hosted

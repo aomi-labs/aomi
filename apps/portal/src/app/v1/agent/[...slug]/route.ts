@@ -7,6 +7,10 @@ import {
   AGENT_SCOPES,
   aomiOAuthResources,
 } from "@portal/server/oauth/resources";
+import {
+  applyWidgetCors,
+  widgetCorsPreflight,
+} from "@portal/server/widget-auth/cors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,7 +75,13 @@ function agentRouteScopes(request: Request): string[] {
   return scopes;
 }
 
-export const GET = handle;
-export const POST = handle;
-export const PATCH = handle;
-export const DELETE = handle;
+async function handleWithCors(request: Request): Promise<Response> {
+  return applyWidgetCors(request, await handle(request));
+}
+
+export const GET = handleWithCors;
+export const POST = handleWithCors;
+export const PATCH = handleWithCors;
+export const DELETE = handleWithCors;
+export const OPTIONS = (request: Request): Response =>
+  widgetCorsPreflight(request, ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]);

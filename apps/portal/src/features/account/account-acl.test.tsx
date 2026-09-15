@@ -10,7 +10,7 @@ import {
 
 import { AccountSettings } from "./account-settings";
 import { seedAccountOverview } from "@portal/lib/account-overview";
-import { WalletSignInOptionsContext } from "@aomi-labs/widget-lib";
+import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -49,6 +49,15 @@ vi.mock("@aomi-labs/widget-lib", async () => ({
   useAomiWalletKit: () => walletKit,
   usePrivyDelegation: () => privyDelegation,
 }));
+
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => walletKit,
+}));
+
+vi.mock(
+  "../../../../shadcn-registry/src/lib/wallet-kit/providers/privy/privy-delegation-context",
+  () => ({ usePrivyDelegation: () => privyDelegation }),
+);
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
@@ -814,9 +823,9 @@ describe("account ACL wiring", () => {
         new URL(call.input.toString(), "https://portal.test").pathname ===
         "/api/delegation/privy/begin",
     );
-    expect(begin?.init?.headers).toMatchObject({
-      "X-Thread-Id": "thread-aa-test",
-    });
+    expect(new Headers(begin?.init?.headers).get("X-Thread-Id")).toBe(
+      "thread-aa-test",
+    );
     expect(JSON.parse(String(begin?.init?.body))).toEqual({
       wallet_family: "evm",
       purpose: "delegate_signing",
