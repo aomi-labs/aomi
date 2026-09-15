@@ -5,6 +5,11 @@ real browser CORS behavior. It runs at `http://localhost:3001` while Portal runs
 at `http://localhost:3000`; authentication uses an origin-bound widget session
 token and never depends on Portal cookies.
 
+CI also extracts this fixture from the immutable PR base, installs candidate
+package tarballs into it outside the monorepo, production-builds it, and drives
+its guest and wallet-authenticated CORS contracts in Chromium. A PR therefore
+cannot make a package break pass by editing this consumer at the same time.
+
 ```sh
 pnpm --filter widget-consumer dev
 ```

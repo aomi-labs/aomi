@@ -31,8 +31,11 @@ export function widgetCorsPreflight(
   allowedMethods: readonly string[],
 ): Response {
   if (!observedWidgetOrigin(request)) {
-    return withReadableRejection(
-      Response.json({ error: "invalid_widget_origin" }, { status: 403 }),
+    // A browser will not expose a failed preflight response. Let the actual
+    // credential-free request proceed so the route can return its readable 403.
+    return applyPreflightHeaders(
+      withReadableRejection(new Response(null, { status: 204 })),
+      allowedMethods,
     );
   }
   return applyWidgetCors(request, new Response(null, { status: 204 }), {
@@ -70,16 +73,24 @@ export function applyWidgetCors(
   response.headers.delete("Access-Control-Allow-Credentials");
   appendVary(response.headers, "Origin");
   if (options?.preflight) {
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      (options.allowedMethods ?? []).join(", "),
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      ALLOWED_HEADERS.join(", "),
-    );
-    response.headers.set("Access-Control-Max-Age", "600");
+    applyPreflightHeaders(response, options.allowedMethods ?? []);
   }
+  return response;
+}
+
+function applyPreflightHeaders(
+  response: Response,
+  allowedMethods: readonly string[],
+): Response {
+  response.headers.set(
+    "Access-Control-Allow-Methods",
+    allowedMethods.join(", "),
+  );
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    ALLOWED_HEADERS.join(", "),
+  );
+  response.headers.set("Access-Control-Max-Age", "600");
   return response;
 }
 

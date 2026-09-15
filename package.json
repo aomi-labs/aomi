@@ -104,7 +104,8 @@
     "deploy:registry": "./scripts/deploy-registry.sh",
     "test:contracts": "node scripts/check-consumer-compatibility.mjs",
     "check:frontend-boundaries": "node scripts/check-frontend-boundaries.mjs",
-    "test:browser:guest": "node scripts/test-portal-guest-browser.mjs"
+    "test:browser:guest": "node scripts/test-portal-guest-browser.mjs",
+    "test:browser:contracts": "node scripts/test-browser-contracts.mjs"
   },
   "prettier": {
     "plugins": [
