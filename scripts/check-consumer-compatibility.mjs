@@ -14,12 +14,21 @@ const packageManager = JSON.parse(
 const args = process.argv.slice(2);
 const baseFlag = args.indexOf("--base");
 const base = baseFlag >= 0 ? args[baseFlag + 1] : process.env.CONSUMER_BASE_SHA;
+const outputFlag = args.indexOf("--browser-output");
+const browserOutput =
+  outputFlag >= 0 ? args[outputFlag + 1] : process.env.CONSUMER_BROWSER_OUTPUT;
+const onlyWidget = args.includes("--only-widget");
 if (
   !base ||
   /^0+$/.test(base) ||
-  args.some((arg, i) => arg === "--base" && !args[i + 1])
+  args.some(
+    (arg, i) =>
+      (arg === "--base" || arg === "--browser-output") && !args[i + 1],
+  )
 ) {
-  throw new Error("Pass --base <trusted commit SHA> or CONSUMER_BASE_SHA");
+  throw new Error(
+    "Pass --base <trusted commit SHA> or CONSUMER_BASE_SHA; browser output paths require a value",
+  );
 }
 const sha = execFileSync("git", ["rev-parse", "--verify", `${base}^{commit}`], {
   cwd: root,
@@ -31,7 +40,9 @@ const packages = [
   ["@aomi-labs/react", "packages/react"],
   ["@aomi-labs/widget-lib", "apps/shadcn-registry"],
 ];
-const consumers = ["apps/examples/headless-client", "apps/widget-consumer"];
+const consumers = onlyWidget
+  ? ["apps/widget-consumer"]
+  : ["apps/examples/headless-client", "apps/widget-consumer"];
 
 function run(command, commandArgs, cwd = root) {
   console.log(`> ${command} ${commandArgs.join(" ")}`);
@@ -191,9 +202,20 @@ if (!esm.Aomi || !cjs.Aomi) throw new Error("Packed client facade export missing
       run("node", [importPath], destination);
     }
   }
+  if (browserOutput) {
+    const widgetDirectory = join(temporary, "apps/widget-consumer");
+    writeFileSync(
+      resolve(root, browserOutput),
+      `${JSON.stringify({
+        trustedBase: sha,
+        consumerDirectory: widgetDirectory,
+        immutableSource: "apps/widget-consumer",
+      })}\n`,
+    );
+  }
   console.log("Trusted-base consumers compile against candidate tarballs.");
 } finally {
-  if (process.env.KEEP_CONSUMER_COMPAT_DIR)
+  if (process.env.KEEP_CONSUMER_COMPAT_DIR || browserOutput)
     console.log(`Retained ${temporary}`);
   else rmSync(temporary, { recursive: true, force: true });
 }

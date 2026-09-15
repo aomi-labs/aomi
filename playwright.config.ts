@@ -35,6 +35,14 @@ export default defineConfig({
         baseURL: process.env.LOCAL_PORTAL_URL ?? "http://127.0.0.1:3000",
       },
     },
+    {
+      name: "browser-contracts",
+      testMatch: /(?:portal-auth-contracts|widget-browser-contracts)\.spec\.ts/,
+      fullyParallel: false,
+      retries: 0,
+      workers: 1,
+      use: { trace: "retain-on-failure" },
+    },
   ],
   use: {
     trace: "retain-on-failure",

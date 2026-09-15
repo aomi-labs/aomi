@@ -12,6 +12,10 @@ const bs58 = portalRequire("bs58").default as {
 const nacl = portalRequire("tweetnacl") as {
   sign: {
     keyPair: {
+      fromSeed(value: Uint8Array): {
+        publicKey: Uint8Array;
+        secretKey: Uint8Array;
+      };
       fromSecretKey(value: Uint8Array): {
         publicKey: Uint8Array;
         secretKey: Uint8Array;
@@ -47,8 +51,7 @@ export function hostedPortalUrl(): string {
   return url.origin;
 }
 
-function evmAccount() {
-  const privateKey = process.env.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY;
+function evmAccount(privateKey = process.env.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY) {
   if (!privateKey || !/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
     throw new Error(
       "AOMI_HOSTED_E2E_EVM_PRIVATE_KEY must be a disposable 32-byte test key",
@@ -61,16 +64,18 @@ export function hostedEvmAddress(): string {
   return evmAccount().address;
 }
 
-function svmAccount() {
-  const raw = process.env.AOMI_HOSTED_E2E_SVM_SECRET_KEY;
+function svmAccount(raw = process.env.AOMI_HOSTED_E2E_SVM_SECRET_KEY) {
   if (!raw)
     throw new Error("AOMI_HOSTED_E2E_SVM_SECRET_KEY is required for SIWS");
   const bytes = raw.trim().startsWith("[")
     ? Uint8Array.from(JSON.parse(raw) as number[])
     : bs58.decode(raw);
-  if (bytes.length !== 64)
-    throw new Error("SIWS key must contain 64 secret-key bytes");
-  const keyPair = nacl.sign.keyPair.fromSecretKey(bytes);
+  if (bytes.length !== 32 && bytes.length !== 64)
+    throw new Error("SIWS key must contain 32 seed or 64 secret-key bytes");
+  const keyPair =
+    bytes.length === 32
+      ? nacl.sign.keyPair.fromSeed(bytes)
+      : nacl.sign.keyPair.fromSecretKey(bytes);
   return {
     address: bs58.encode(keyPair.publicKey),
     secretKey: keyPair.secretKey,
@@ -83,8 +88,40 @@ export async function installHostedWallet(
   chainId = 84532,
 ) {
   const portal = hostedPortalUrl();
-  const account = family === "evm" ? evmAccount() : svmAccount();
-  const address = account.address;
+  return installBrowserWallet(page, {
+    family,
+    chainId,
+    pageOrigin: portal,
+    challengeOrigin: portal,
+    evmPrivateKeys:
+      family === "evm"
+        ? [process.env.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY!]
+        : undefined,
+    svmSecretKey:
+      family === "svm" ? process.env.AOMI_HOSTED_E2E_SVM_SECRET_KEY : undefined,
+  });
+}
+
+export async function installBrowserWallet(
+  page: Page,
+  options: {
+    family: WalletFamily;
+    pageOrigin: string;
+    challengeOrigin: string;
+    chainId?: number;
+    evmPrivateKeys?: string[];
+    svmSecretKey?: string;
+    rejectSignatures?: boolean;
+  },
+) {
+  const family = options.family;
+  const chainId = options.chainId ?? 84532;
+  const accounts =
+    family === "evm"
+      ? (options.evmPrivateKeys ?? []).map((key) => evmAccount(key))
+      : [svmAccount(options.svmSecretKey)];
+  if (accounts.length === 0) throw new Error("Wallet fixture has no accounts");
+  const address = accounts[0].address;
   const blocked: string[] = [];
   let signatures = 0;
 
@@ -98,7 +135,7 @@ export async function installHostedWallet(
         method?: string;
       },
     ) => {
-      if (frame.url() && new URL(frame.url()).origin !== portal) {
+      if (frame.url() && new URL(frame.url()).origin !== options.pageOrigin) {
         throw new Error("Wallet request came from another origin");
       }
       if (request.kind === "blocked") {
@@ -108,20 +145,29 @@ export async function installHostedWallet(
         );
       }
       const message = request.message ?? "";
+      if (options.rejectSignatures) {
+        throw new Error("User rejected the wallet signature");
+      }
+      const challengeHost = new URL(options.challengeOrigin).host;
       if (
-        !message.startsWith(
-          `${new URL(portal).host} wants you to sign in with your `,
-        ) ||
-        !message.includes(`URI: ${portal}`) ||
+        (!message.startsWith(
+          `${challengeHost} wants you to sign in with your `,
+        ) &&
+          !message.startsWith(
+            `${challengeHost} wants to link this wallet to your Aomi account:`,
+          )) ||
+        !message.includes(`URI: ${options.challengeOrigin}`) ||
         !message.includes("Nonce:")
       ) {
         throw new Error("Only this Portal's sign-in challenge may be signed");
       }
       signatures++;
       if (family === "evm" && request.kind === "evm-sign") {
-        if (!message.toLowerCase().includes(address.toLowerCase()))
-          throw new Error("Sign-in challenge address mismatch");
-        return (account as ReturnType<typeof evmAccount>).signMessage({
+        const signer = accounts.find((candidate) =>
+          message.toLowerCase().includes(candidate.address.toLowerCase()),
+        );
+        if (!signer) throw new Error("Sign-in challenge address mismatch");
+        return (signer as ReturnType<typeof evmAccount>).signMessage({
           message,
         });
       }
@@ -131,7 +177,7 @@ export async function installHostedWallet(
         return Array.from(
           nacl.sign.detached(
             new TextEncoder().encode(message),
-            (account as ReturnType<typeof svmAccount>).secretKey,
+            (accounts[0] as ReturnType<typeof svmAccount>).secretKey,
           ),
         );
       }
@@ -140,7 +186,7 @@ export async function installHostedWallet(
   );
 
   await page.addInitScript(
-    ({ family, address, chainId }) => {
+    ({ family, addresses, chainId }) => {
       type WalletBridge = (request: {
         kind: string;
         message?: string;
@@ -151,6 +197,8 @@ export async function installHostedWallet(
       if (family === "evm") {
         const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
         let connected = false;
+        let activeIndex = 0;
+        const activeAddress = () => addresses[activeIndex];
         const emit = (name: string, value: unknown) =>
           listeners.get(name)?.forEach((listener) => listener(value));
         const provider = {
@@ -175,12 +223,13 @@ export async function installHostedWallet(
           }) {
             if (method === "eth_chainId") return `0x${chainId.toString(16)}`;
             if (method === "net_version") return String(chainId);
-            if (method === "eth_accounts") return connected ? [address] : [];
+            if (method === "eth_accounts")
+              return connected ? [activeAddress()] : [];
             if (method === "eth_requestAccounts") {
               connected = true;
               emit("connect", { chainId: `0x${chainId.toString(16)}` });
-              emit("accountsChanged", [address]);
-              return [address];
+              emit("accountsChanged", [activeAddress()]);
+              return [activeAddress()];
             }
             if (
               method === "wallet_requestPermissions" ||
@@ -218,6 +267,20 @@ export async function installHostedWallet(
           configurable: true,
           value: provider,
         });
+        Object.defineProperty(window, "__aomiWalletFixtureSwitch", {
+          configurable: true,
+          value: (index: number) => {
+            if (
+              !Number.isInteger(index) ||
+              index < 0 ||
+              index >= addresses.length
+            )
+              throw new Error("Wallet fixture account index is out of range");
+            activeIndex = index;
+            connected = true;
+            emit("accountsChanged", [activeAddress()]);
+          },
+        });
         const announce = () =>
           window.dispatchEvent(
             new CustomEvent("eip6963:announceProvider", {
@@ -237,6 +300,7 @@ export async function installHostedWallet(
         return;
       }
 
+      const address = addresses[0];
       const publicKey = Uint8Array.from(addressBytes(address));
       const account = Object.freeze({
         address,
@@ -329,12 +393,22 @@ export async function installHostedWallet(
         return out;
       }
     },
-    { family, address, chainId },
+    { family, addresses: accounts.map((account) => account.address), chainId },
   );
 
   return {
     address,
+    addresses: accounts.map((account) => account.address),
     blocked,
+    switchAccount: async (index: number) => {
+      await page.evaluate((nextIndex) => {
+        (
+          window as unknown as {
+            __aomiWalletFixtureSwitch?: (value: number) => void;
+          }
+        ).__aomiWalletFixtureSwitch?.(nextIndex);
+      }, index);
+    },
     get signatureCount() {
       return signatures;
     },
