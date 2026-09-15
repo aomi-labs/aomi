@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, extname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -14,11 +14,17 @@ const SOURCE_EXTENSIONS = new Set([
   ".ts",
   ".tsx",
 ]);
-const ALLOWED_PORTAL_WIDGET_IMPORTS = new Set([
-  "@aomi-labs/widget-lib",
-  "@aomi-labs/widget-lib/host-composition",
-  "@aomi-labs/widget-lib/providers/para",
-  "@aomi-labs/widget-lib/providers/privy",
+const ALLOWED_PORTAL_WIDGET_IMPORTS = new Map([
+  ["@aomi-labs/widget-lib", "index.ts"],
+  ["@aomi-labs/widget-lib/host-composition", "host-composition.ts"],
+  [
+    "@aomi-labs/widget-lib/providers/para",
+    "lib/wallet-kit/providers/para/index.ts",
+  ],
+  [
+    "@aomi-labs/widget-lib/providers/privy",
+    "lib/wallet-kit/providers/privy/index.ts",
+  ],
 ]);
 
 function isTestFile(path) {
@@ -80,11 +86,59 @@ function moduleSpecifiers(path) {
   return imports;
 }
 
-function resolvesInside(specifier, importer, directory) {
-  return (
-    specifier.startsWith(".") &&
-    resolve(dirname(importer), specifier).startsWith(`${directory}${sep}`)
+function isInside(path, directory) {
+  return path === directory || path.startsWith(`${directory}${sep}`);
+}
+
+function tsconfigAliases(path) {
+  if (!existsSync(path)) return [];
+  const config = JSON.parse(readFileSync(path, "utf8"));
+  const compilerOptions = config.compilerOptions ?? {};
+  const base = resolve(dirname(path), compilerOptions.baseUrl ?? ".");
+  return Object.entries(compilerOptions.paths ?? {}).map(
+    ([pattern, targets]) => ({
+      pattern,
+      targets: targets.map((target) => resolve(base, target)),
+    }),
   );
+}
+
+function aliasDestinations(specifier, aliases) {
+  const exact = aliases.find(
+    ({ pattern }) => !pattern.includes("*") && specifier === pattern,
+  );
+  if (exact) return exact.targets;
+
+  const matches = [];
+  for (const { pattern, targets } of aliases) {
+    const wildcard = pattern.indexOf("*");
+    if (wildcard < 0) continue;
+    const prefix = pattern.slice(0, wildcard);
+    const suffix = pattern.slice(wildcard + 1);
+    if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) continue;
+    const matched = specifier.slice(
+      prefix.length,
+      specifier.length - suffix.length,
+    );
+    matches.push({
+      prefixLength: prefix.length,
+      suffixLength: suffix.length,
+      targets: targets.map((target) => target.replaceAll("*", matched)),
+    });
+  }
+  matches.sort(
+    (left, right) =>
+      right.prefixLength - left.prefixLength ||
+      right.suffixLength - left.suffixLength,
+  );
+  return matches[0]?.targets ?? [];
+}
+
+function importDestinations(specifier, importer, aliases) {
+  if (specifier.startsWith(".")) {
+    return [resolve(dirname(importer), specifier)];
+  }
+  return aliasDestinations(specifier, aliases);
 }
 
 function inspectTree(root, check) {
@@ -103,14 +157,48 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
   const portalSource = resolve(portalRoot, "src");
   const widgetSource = resolve(root, "apps/shadcn-registry/src");
   const packagesRoot = resolve(root, "packages");
+  const appsRoot = resolve(root, "apps");
   const clientSource = resolve(packagesRoot, "client/src");
   const reactSource = resolve(packagesRoot, "react/src");
+  const portalAliases = tsconfigAliases(resolve(portalRoot, "tsconfig.json"));
+  const widgetAliases = tsconfigAliases(
+    resolve(root, "apps/shadcn-registry/tsconfig.json"),
+  );
+  const packageProjects = readdirSync(packagesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const packageRoot = resolve(packagesRoot, entry.name);
+      return {
+        root: packageRoot,
+        aliases: tsconfigAliases(resolve(packageRoot, "tsconfig.json")),
+      };
+    });
+
+  const packageAliasesFor = (importer) =>
+    packageProjects.find(({ root: packageRoot }) =>
+      isInside(importer, packageRoot),
+    )?.aliases ?? [];
 
   const violations = [
-    ...inspectTree(portalSource, (specifier) => {
+    ...inspectTree(portalSource, (specifier, importer) => {
+      const destinations = importDestinations(
+        specifier,
+        importer,
+        portalAliases,
+      );
+      const widgetDestinations = destinations.filter((destination) =>
+        isInside(destination, widgetSource),
+      );
+      const approvedTarget = ALLOWED_PORTAL_WIDGET_IMPORTS.get(specifier);
       if (
         specifier.includes("shadcn-registry") ||
-        /^@\/(?:components|hooks|lib)(?:\/|$)/.test(specifier)
+        /^@\/(?:components|hooks|lib)(?:\/|$)/.test(specifier) ||
+        (widgetDestinations.length > 0 &&
+          (!approvedTarget ||
+            widgetDestinations.some(
+              (destination) =>
+                destination !== resolve(widgetSource, approvedTarget),
+            )))
       ) {
         return "Portal must consume widget-owned UI through a package entrypoint";
       }
@@ -123,31 +211,47 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
       return null;
     }),
     ...inspectTree(widgetSource, (specifier, importer) => {
+      const destinations = importDestinations(
+        specifier,
+        importer,
+        widgetAliases,
+      );
       if (
         specifier.startsWith("@portal/") ||
-        resolvesInside(specifier, importer, portalSource)
+        destinations.some((destination) => isInside(destination, portalSource))
       ) {
         return "the shared widget implementation cannot depend on Portal";
       }
       return null;
     }),
     ...inspectTree(packagesRoot, (specifier, importer) => {
+      const destinations = importDestinations(
+        specifier,
+        importer,
+        packageAliasesFor(importer),
+      );
       if (
-        importer.startsWith(`${clientSource}${sep}`) &&
-        specifier.startsWith("@aomi-labs/react")
+        isInside(importer, clientSource) &&
+        (specifier.startsWith("@aomi-labs/react") ||
+          destinations.some((destination) =>
+            isInside(destination, reactSource),
+          ))
       ) {
         return "the SDK cannot depend on the React runtime";
       }
       if (
-        importer.startsWith(`${reactSource}${sep}`) &&
-        specifier.startsWith("@aomi-labs/widget-lib")
+        isInside(importer, reactSource) &&
+        (specifier.startsWith("@aomi-labs/widget-lib") ||
+          destinations.some((destination) =>
+            isInside(destination, widgetSource),
+          ))
       ) {
         return "the React runtime cannot depend on widget UI";
       }
       if (
         specifier.startsWith("@portal/") ||
         specifier.startsWith("@aomi-labs/widget-lib") ||
-        resolvesInside(specifier, importer, resolve(root, "apps"))
+        destinations.some((destination) => isInside(destination, appsRoot))
       ) {
         return "workspace packages cannot depend on app-owned UI";
       }
