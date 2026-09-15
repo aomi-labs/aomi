@@ -117,21 +117,54 @@ const completionSummary = (value: unknown): string | undefined => {
   }
 };
 
-/** The `ChildTaskRequest` the mother sent: `{label, app, prompt}`. */
+/**
+ * The `ChildTaskRequest` the mother sent for *this* child: `{label, app,
+ * prompt}`.
+ *
+ * A `task` call carries a batch — `{ tasks: [ChildTaskRequest, …] }` — so the
+ * row reads the array item that belongs to it: its own wire index (batch
+ * children are `<call id>:<one-based n>`), else the position of its result
+ * among the batch's results, else a lone item. Without this a batched child
+ * finds no `label` and falls back to the bare "agent" placeholder.
+ */
 const readArgs = (
   tool: ToolCallMessagePart | undefined,
+  agentId: string,
+  run: TaskRunState | undefined,
 ): Record<string, unknown> | undefined => {
   if (!tool) return undefined;
-  const direct = asRecord(tool.args);
-  if (direct) return direct;
-  if (tool.argsText && tool.argsText !== "undefined") {
-    try {
-      return asRecord(JSON.parse(tool.argsText));
-    } catch {
-      return undefined;
+  const parse = () => {
+    const direct = asRecord(tool.args);
+    if (direct) return direct;
+    if (tool.argsText && tool.argsText !== "undefined") {
+      try {
+        return asRecord(JSON.parse(tool.argsText));
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  };
+  const parsed = parse();
+  const tasks = Array.isArray(parsed?.tasks) ? parsed.tasks : undefined;
+  if (!tasks) return parsed;
+
+  const wireIndex = Number(run?.callId.match(/:(\d+)$/)?.[1]);
+  let index = Number.isInteger(wireIndex) ? wireIndex - 1 : -1;
+  if (index < 0) {
+    const results = asRecord(tool.result)?.results;
+    if (Array.isArray(results)) {
+      index = results.findIndex((entry) => {
+        const child = asRecord(entry);
+        return (
+          asText(child?.agent_id) === agentId ||
+          asText(asRecord(child?.error)?.agent_id) === agentId
+        );
+      });
     }
   }
-  return undefined;
+  if (index < 0 && tasks.length === 1) index = 0;
+  return asRecord(tasks[index]) ?? parsed;
 };
 
 const toStatus = (value: unknown): TaskRunStatus | undefined => {
@@ -288,7 +321,7 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
   active,
   animate,
 }) => {
-  const args = readArgs(tool);
+  const args = readArgs(tool, agentId, run);
   const result = asRecord(tool?.result);
 
   const status: TaskRunStatus =
