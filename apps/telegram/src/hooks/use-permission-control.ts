@@ -12,7 +12,6 @@ import {
 
 import { aomiBffUrl } from "@/app/config";
 import { embeddedWallet } from "@/lib/privy-wallet";
-import type { LaunchContext } from "@/lib/telegram";
 
 export type PermissionStatus = "idle" | "ready" | "signing" | "done" | "error";
 
@@ -20,8 +19,6 @@ export type PermissionTarget = {
   chain: string;
   wallet: string;
   mode: string;
-  /** True when the bot named the key; false when we defaulted to the user's. */
-  fromLaunch: boolean;
 };
 
 /** The backend emits a standard EIP-712 JSON document, which is exactly the
@@ -45,7 +42,6 @@ function asTypedData(value: unknown): SignTypedDataParams | null {
 }
 
 export function usePermissionControl(input: {
-  launch: LaunchContext | null;
   provider: AccountSessionProvider | null;
   /** The exact embedded wallet is already armed in the backend. */
   serverAuto?: boolean;
@@ -71,32 +67,16 @@ export function usePermissionControl(input: {
   const wallet = useMemo(() => embeddedWallet(user), [user]);
 
   const target = useMemo((): PermissionTarget | null => {
-    const launch = input.launch;
-    if (
-      launch?.permissionChain &&
-      launch.permissionWallet &&
-      launch.permissionMode
-    ) {
-      return {
-        chain: launch.permissionChain,
-        wallet: launch.permissionWallet,
-        mode: launch.permissionMode,
-        fromLaunch: true,
-      };
-    }
-    // Launched from `/wallet` rather than `/permission`: the bot named no key,
-    // but the user's own embedded wallet is a valid target — it is already
-    // bound by the exchange, its provider supports delegated signing, and the
-    // permit's signer is the wallet itself, which is what the loosen rule
-    // requires. Arming it is the whole point of opening this page.
+    // The Mini App only ever arms its own embedded wallet. The bot never
+    // injects an execution key, so a provider-managed agent key cannot become
+    // the permit target through a stale launch URL.
     if (!wallet) return null;
     return {
       chain: "evm",
       wallet: wallet.address,
       mode: "server_auto",
-      fromLaunch: false,
     };
-  }, [input.launch, wallet]);
+  }, [wallet]);
 
   const sign = useCallback(async () => {
     if (!target || !wallet) return;
@@ -155,7 +135,7 @@ export function usePermissionControl(input: {
     status:
       status !== "idle"
         ? status
-        : input.serverAuto && !target?.fromLaunch
+        : input.serverAuto
           ? "done"
           : target && input.provider && wallet
             ? ("ready" as const)

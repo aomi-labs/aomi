@@ -58,6 +58,12 @@ for signed-in accounts and explicit host overrides. A guest sent successfully
 again after reload. Final visual proof is
 `docs/widget/widget-consumer-auto-trace.jpg`. The model's ETH price output is
 not validated market data and lacked an exact retrieval timestamp.
+**TELEGRAM WALLET-ONLY AUTHORIZATION 2026-09-15** — removed the unused
+`/permission` launch contract. Telegram now opens the Mini App only through
+`/wallet`, and the Mini App can authorize only its own embedded Privy wallet
+at `server_auto`; it never accepts a bot-selected wallet or mode. Telegram
+lint, typecheck, 72 unit tests, and production build pass; landing lint and
+typecheck pass.
 
 **UNLINKED WALLET COMMITS 2026-09-14** — pair the Portal's Solana hosted-link
 recovery with backend attended commits for authenticated unlinked wallets.
