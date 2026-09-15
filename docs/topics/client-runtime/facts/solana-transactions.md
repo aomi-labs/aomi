@@ -108,6 +108,11 @@ passed.
 
 The current portal now exposes the SVM bind challenge/commit ceremony in
 settings and as a contextual recovery action for `signing_unbound_wallet`.
+For authenticated unlinked wallets, direct `wallet` commits now request a live
+signature without that ceremony. The recovery action also recognizes
+`signing_svm_account_link_required_for_hosted`, explaining that linking is
+needed only for hosted signing. External wallets cannot borrow account signing
+or sponsorship, and a denied key stays denied.
 The shared client removes resolved SVM pending state before the next poll and
 always resumes polling after a wallet response.
 
