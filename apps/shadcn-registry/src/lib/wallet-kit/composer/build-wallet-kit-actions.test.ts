@@ -2,6 +2,57 @@ import { describe, expect, it, vi } from "vitest";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 
 describe("buildWalletKitActions", () => {
+  it("uses an embedded runtime switcher before persisting an EVM selection", async () => {
+    const switchChainAsync = vi.fn(async () => undefined);
+    const selectNetwork = vi.fn(async () => undefined);
+    const actions = buildWalletKitActions({
+      accounts: [],
+      auth: { provider: "privy", status: "authenticated" } as never,
+      evm: {
+        activeEvmConnection: { chainId: 1 },
+        selectNetwork,
+      } as never,
+      execution: { evm: { switchChainAsync }, sponsorship: {} } as never,
+      registryStore: {} as never,
+      registryEvmConnected: true,
+    });
+
+    await actions.selectNetwork({ family: "evm", chainId: 5_042_002 });
+
+    expect(switchChainAsync).toHaveBeenCalledWith({ chainId: 5_042_002 });
+    expect(selectNetwork).toHaveBeenCalledWith(5_042_002);
+    expect(switchChainAsync.mock.invocationCallOrder[0]).toBeLessThan(
+      selectNetwork.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not persist an EVM selection when its wallet switch fails", async () => {
+    const selectNetwork = vi.fn(async () => undefined);
+    const actions = buildWalletKitActions({
+      accounts: [],
+      auth: { provider: "privy", status: "authenticated" } as never,
+      evm: {
+        activeEvmConnection: { chainId: 1 },
+        selectNetwork,
+      } as never,
+      execution: {
+        evm: {
+          switchChainAsync: vi.fn(async () =>
+            Promise.reject(new Error("rejected")),
+          ),
+        },
+        sponsorship: {},
+      } as never,
+      registryStore: {} as never,
+      registryEvmConnected: true,
+    });
+
+    await expect(
+      actions.selectNetwork({ family: "evm", chainId: 5_042_002 }),
+    ).rejects.toThrow("rejected");
+    expect(selectNetwork).not.toHaveBeenCalled();
+  });
+
   it("selects an EVM account by one of its grouped connector ids", async () => {
     const selectAccount = vi.fn(async () => undefined);
     const actions = buildWalletKitActions({
