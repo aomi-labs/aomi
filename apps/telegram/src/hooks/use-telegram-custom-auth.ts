@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  getEmbeddedConnectedWallet,
   useLinkJwtAccount,
   useLogin,
   usePrivy,
   useSubscribeToJwtAuthWithFlag,
-  useWallets,
 } from "@privy-io/react-auth";
 
 import { aomiBffUrl } from "@/app/config";
+import { embeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 
 type BootstrapIntent = "status" | "authenticate" | "link" | "new";
@@ -38,6 +37,12 @@ export type TelegramCustomAuthState = {
   confirmExistingWallet: () => void;
   selectExistingWallet: () => void;
   selectNewWallet: () => void;
+  /** Re-run the bootstrap from the top. Without this an error phase is
+   *  terminal and the only way out is closing the Mini App. */
+  retry: () => void;
+  /** Return to the wallet choice. `null` when there is nowhere to go back to,
+   *  which is also what decides whether Telegram's back button is shown. */
+  back: (() => void) | null;
 };
 
 function errorCode(error: unknown): string {
@@ -64,6 +69,7 @@ export function useTelegramCustomAuth(
   );
   const [customSubject, setCustomSubject] = useState<string | null>(null);
   const [customJwt, setCustomJwt] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const { linkWithCustomJwt, state: linkState } = useLinkJwtAccount();
   // Only the existing-wallet path opens the modal, but Privy fires these
   // callbacks for any login it completes — including one that was already in
@@ -88,13 +94,12 @@ export function useTelegramCustomAuth(
     },
   });
   const { authenticated, ready: privyReady, user } = usePrivy();
-  const { ready: walletsReady, wallets } = useWallets();
+  // Off the Privy user, not `useWallets()` — inside Telegram's webview that
+  // hook's `ready` can stay false forever, which would show "Your existing
+  // Privy wallet" on the confirm card for an account whose address is known.
   const existingWalletAddress = useMemo(
-    () =>
-      walletsReady
-        ? (getEmbeddedConnectedWallet(wallets)?.address ?? null)
-        : null,
-    [wallets, walletsReady],
+    () => embeddedWallet(user)?.address ?? null,
+    [user],
   );
   /** The Custom JWT identity Privy currently holds, if any. */
   const privyCustomSubject = useMemo(() => {
@@ -222,7 +227,19 @@ export function useTelegramCustomAuth(
     return () => {
       active = false;
     };
-  }, [bootstrap, launch?.proof, privyReady]);
+  }, [attempt, bootstrap, launch?.proof, privyReady]);
+
+  const retry = useCallback(() => {
+    setError(null);
+    setPhase("validating");
+    setAttempt((value) => value + 1);
+  }, []);
+
+  const back = useCallback(() => {
+    setError(null);
+    awaitingModalLogin.current = false;
+    setPhase("choose");
+  }, []);
 
   const selectExistingWallet = useCallback(() => {
     setError(null);
@@ -240,6 +257,15 @@ export function useTelegramCustomAuth(
     void bootstrap("new")
       .then((result) => {
         if (!result.custom_auth_jwt) {
+          // The route issues no JWT for `new`/`link` once the Telegram identity
+          // is already bound — which a race with another open of the Mini App
+          // can produce. That is "already linked", not a failure: rerun the
+          // bootstrap so it takes the `authenticate` path.
+          if (result.status === "bound") {
+            setAttempt((value) => value + 1);
+            setPhase("validating");
+            return;
+          }
           throw new Error("telegram_custom_auth_new_not_issued");
         }
         setCustomJwt(result.custom_auth_jwt);
@@ -256,6 +282,12 @@ export function useTelegramCustomAuth(
     void bootstrap("link")
       .then(async (result) => {
         if (!result.custom_auth_jwt) {
+          // See `selectNewWallet`: already-bound is a race, not a failure.
+          if (result.status === "bound") {
+            setAttempt((value) => value + 1);
+            setPhase("validating");
+            return;
+          }
           throw new Error("telegram_custom_auth_link_not_issued");
         }
         await linkWithCustomJwt(result.custom_auth_jwt);
@@ -311,6 +343,11 @@ export function useTelegramCustomAuth(
     phase: effectivePhase,
     readyForExchange,
     existingWalletAddress,
+    retry,
+    // Only the two steps reached *from* the choice can go back to it. Offering
+    // it anywhere else would let someone reopen a decision already committed.
+    back:
+      effectivePhase === "email" || effectivePhase === "confirm" ? back : null,
     selectExistingWallet,
     selectNewWallet,
   };

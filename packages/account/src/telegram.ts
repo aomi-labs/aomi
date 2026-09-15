@@ -12,6 +12,16 @@ export type VerifiedTelegramLaunch = {
   botId: string;
   telegramUserId: string;
   startParam?: string;
+  /**
+   * Telegram's `auth_date`, in epoch seconds, as verified above.
+   *
+   * Returned because freshness is asymmetric across this system: the launch is
+   * accepted for 24 hours here, while the widget-auth routes require a proof no
+   * older than five minutes. A client that cannot see the age can only discover
+   * that gap as an `expired` failure halfway through a ceremony; with it, it can
+   * say "reopen this from Telegram" before the user starts.
+   */
+  authDate: number;
 };
 
 export type TelegramLaunchFailure =
@@ -118,6 +128,7 @@ export function verifyTelegramInitData(
   return {
     ok: true,
     launch: {
+      authDate,
       botId,
       telegramUserId: userId,
       startParam: fields.get("start_param") ?? undefined,

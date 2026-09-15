@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
@@ -14,6 +14,9 @@ const walletKitState = vi.hoisted(() => ({
   },
 }));
 const frameInstances = vi.hoisted(() => ({ next: 0 }));
+const backendUrlState = vi.hoisted(() => ({
+  current: "https://api.example.test",
+}));
 const requestedAppState = vi.hoisted(() => ({
   current: {
     app: null,
@@ -102,7 +105,7 @@ vi.mock("@portal/lib/portal-client-options", () => ({
 }));
 
 vi.mock("@portal/lib/settings-api", () => ({
-  getBackendUrl: () => "https://api.example.test",
+  getBackendUrl: () => backendUrlState.current,
 }));
 
 vi.mock("@portal/lib/account-overview", () => ({
@@ -137,7 +140,9 @@ vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
 
 describe("PortalAomiFrame account bootstrap", () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     frameInstances.next = 0;
+    backendUrlState.current = "https://api.example.test";
     walletKitState.current = {
       accountStatus: "loading",
       accountUser: undefined,
@@ -207,6 +212,62 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-persist-thread",
       "false",
+    );
+  });
+
+  it("loads guest-owned threads only after Better Auth confirms this browser's anonymous session", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          user: { id: "guest-1", isAnonymous: true },
+        }),
+      ),
+    );
+    render(<PortalAomiFrame />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+        "data-account-session-available",
+        "true",
+      ),
+    );
+    expect(fetch).toHaveBeenCalledWith("/api/auth/get-session", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-persist-thread",
+      "false",
+    );
+  });
+
+  it("does not unlock a guest thread list for a non-anonymous session", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          user: { id: "other-user", isAnonymous: false },
+        }),
+      ),
+    );
+    render(<PortalAomiFrame />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+        "data-account-session-available",
+        "false",
+      ),
     );
   });
 

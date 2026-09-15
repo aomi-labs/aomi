@@ -531,6 +531,36 @@ describe("public OAuth and session principal resolution", () => {
         }),
       }),
     ).rejects.toMatchObject({ code: "invalid_token", status: 401 });
+
+    await expect(
+      resolveApiPrincipal({
+        ...input,
+        requiredScopes: ["agent:read"],
+        request: new Request(previewUrl, {
+          headers: { origin: new URL(previewUrl).origin },
+        }),
+      }),
+    ).resolves.toMatchObject({ principalClass: "guest" });
+    await expect(
+      resolveApiPrincipal({
+        ...input,
+        requiredScopes: ["agent:read"],
+        request: new Request(previewUrl, {
+          headers: { origin: "https://unregistered.example" },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_token", status: 401 });
+    await expect(
+      resolveApiPrincipal({
+        ...input,
+        request: new Request(previewUrl, {
+          method: "POST",
+          headers: {
+            "sec-fetch-site": "cross-site",
+          },
+        }),
+      }),
+    ).rejects.toMatchObject({ code: "csrf_failed", status: 403 });
   });
   it("resolves the signed local E2E session at the principal boundary", async () => {
     mocks.e2eCanonicalUserId.mockReturnValue("e2e-user");
