@@ -25,10 +25,10 @@ page only links a wallet and signs permits.
 
 ## Configuration
 
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | yes | Must be the **portal's** Privy app id — one app is the whole point. Validated for shape; anything else renders the "not configured" card rather than failing the build. |
-| `NEXT_PUBLIC_AOMI_BFF_URL` | no | Portal BFF origin. Defaults to `https://chat.aomi.dev`. |
+| Variable                   | Required | Notes                                                                                                                                                                   |
+| -------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | yes      | Must be the **portal's** Privy app id — one app is the whole point. Validated for shape; anything else renders the "not configured" card rather than failing the build. |
+| `NEXT_PUBLIC_AOMI_BFF_URL` | no       | Portal BFF origin. Defaults to `https://chat.aomi.dev`.                                                                                                                 |
 
 > The Vercel CLI marks env vars **sensitive** by default when added
 > non-interactively, and a sensitive `NEXT_PUBLIC_*` never reaches the client
@@ -41,19 +41,15 @@ check in both widget routes, and an unset value rejects **every** request with
 ## Launch contract
 
 The bot builds the URL (`product-mono`, `aomi/bin/telegram/src/mini_app.rs`).
-Both entry points carry `bot_id` and `session_id`; `/permission` adds three more:
+The bot launches the Mini App with two parameters:
 
-| Param | Source | Notes |
-| --- | --- | --- |
-| `bot_id` | the bot's own numeric Telegram id | must be in `TELEGRAM_WIDGET_BOT_IDS` |
+| Param        | Source                                        | Notes                                      |
+| ------------ | --------------------------------------------- | ------------------------------------------ |
+| `bot_id`     | the bot's own numeric Telegram id             | must be in `TELEGRAM_WIDGET_BOT_IDS`       |
 | `session_id` | the canonical thread id, e.g. `telegram:dm:7` | also sent as `X-Thread-Id` when delegating |
-| `permission_chain` | `/permission` only | `evm` |
-| `permission_wallet` | `/permission` only | the application's managed execution key |
-| `permission_mode` | `/permission` only | `server_auto` or `denied` |
 
-When the permission params are absent — the `/wallet` entry point — the app
-targets the user's own embedded wallet at `server_auto`, which is the
-configuration where every backend precondition is satisfiable.
+The app always targets its own embedded Privy wallet at `server_auto`; it
+accepts no wallet or mode override in the launch URL.
 
 `initData` freshness is asymmetric and worth knowing: the app's own
 `/api/telegram/launch` verifies with the 24-hour default, while the portal's
@@ -80,7 +76,7 @@ pnpm --filter telegram check   # typecheck → lint → test → build
 The UI is built from the Aomi design system exactly as the portal is:
 `@aomi-labs/widget-lib/themes/default.css` for tokens and
 `@aomi-labs/widget-lib/components/ui/*` for primitives, so the two surfaces
-cannot drift. Only the light/dark *choice* is taken from Telegram.
+cannot drift. Only the light/dark _choice_ is taken from Telegram.
 
 **widget-lib pins Privy v2 while this app runs v3.** Its UI primitives are
 Privy-free and safe; nothing under `providers/` or `lib/wallet-kit` may ever be

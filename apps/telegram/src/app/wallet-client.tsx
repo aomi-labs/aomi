@@ -109,7 +109,6 @@ export function WalletClient() {
     delegated: authorization.delegated && wallet?.delegated === true,
   });
   const permission = usePermissionControl({
-    launch: launch.context,
     provider: account.provider,
     serverAuto: authorization.serverAuto,
   });

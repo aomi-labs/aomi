@@ -21,9 +21,6 @@ const launch = {
   inTelegram: true,
   proof: { botId: "1", initData: "raw", telegramUserId: "7" },
   sessionId: "telegram:dm:7",
-  permissionChain: null,
-  permissionWallet: null,
-  permissionMode: null,
   verified: true,
 };
 
