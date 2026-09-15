@@ -212,6 +212,35 @@ describe("WorkingTrace", () => {
     }
   });
 
+  it("reports a delegated span when it mounts after the run finished", () => {
+    // A delegating turn's `task` part lands only once its children are done, so
+    // this trace never sees running -> complete. It must still report the work.
+    const now = Date.now();
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const finished: TaskRunState = {
+        ...run([]),
+        status: "completed",
+        startedAt: now - 9000,
+        durationMs: 8600,
+      };
+      const { getByRole } = render(
+        <WorkingTrace
+          running={false}
+          items={buildTraceItems([], [finished])}
+          revealed={1}
+          startedAtMs={finished.startedAt}
+        />,
+      );
+
+      expect(getByRole("button", { name: /Worked for/ })).toHaveTextContent(
+        "Worked for 9s",
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it("renders received text immediately without synthetic typing", () => {
     const { getByTestId, rerender } = render(
       <RenderedText text="First text" />,
@@ -447,6 +476,43 @@ describe("WorkingTrace", () => {
       first.agentId,
       second.agentId,
     ]);
+  });
+
+  it("names each batched child from its own work order", () => {
+    // History carries the mother's `{tasks: […]}` batch and the per-child
+    // results, but no live sidecar. Each row still belongs to one work order,
+    // so it must show that order's label instead of the bare placeholder.
+    const delegatedTask = {
+      type: "tool-call" as const,
+      argsText: "{}",
+      toolCallId: "call-batch",
+      toolName: "task",
+      args: {
+        tasks: [
+          { label: "Ethereum latest block", prompt: "one" },
+          { label: "Base latest block", prompt: "two" },
+        ],
+      },
+      result: {
+        status: "completed",
+        results: [
+          { agent_id: "task-agent:first", status: "completed" },
+          { agent_id: "task-agent:second", status: "completed" },
+        ],
+      },
+    } satisfies ToolCallMessagePart;
+
+    const { getByText, queryByText } = render(
+      <WorkingTrace
+        running={false}
+        items={buildTraceItems([delegatedTask], [])}
+        revealed={2}
+      />,
+    );
+
+    expect(getByText("Ethereum latest block")).toBeInTheDocument();
+    expect(getByText("Base latest block")).toBeInTheDocument();
+    expect(queryByText("agent")).toBeNull();
   });
 
   it("keeps repeated child invocations distinct without borrowing the latest state", () => {

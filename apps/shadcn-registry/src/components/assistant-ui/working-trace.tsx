@@ -332,6 +332,23 @@ export const WorkingTrace: FC<{
     wasRunning.current = running;
   }, [running]);
 
+  // A delegating turn's `task` part only lands once its children have finished,
+  // so this trace can mount already-complete and never observe the transition
+  // above — leaving it with no duration at all. Its children carry real
+  // client-clock spans; report those instead of dropping the label. Never
+  // `Date.now()` here: that would grow with the age of reloaded history rather
+  // than measure the run.
+  const delegatedSpanMs = items.reduce<number | undefined>((span, item) => {
+    const run = item.kind === "agent" ? item.run : undefined;
+    if (!run || run.startedAt <= 0 || run.durationMs == null) return span;
+    const end = run.startedAt + run.durationMs - startedAt.current;
+    return Math.max(span ?? 0, end);
+  }, undefined);
+  useEffect(() => {
+    if (running || elapsed !== null || delegatedSpanMs === undefined) return;
+    setElapsed(Math.max(0, delegatedSpanMs) / 1000);
+  }, [running, elapsed, delegatedSpanMs]);
+
   // Auto-collapse only once final-answer playback has actually begun. An
   // awaiting Action temporarily marks the assistant message complete, but the
   // trace must stay open through approval and the resumed model turn.
@@ -700,11 +717,31 @@ export const AssistantTurnParts: FC = () => {
       : isLast && runtime?.turnState === "interrupted"
         ? "interrupted"
         : "complete";
-  const startedAt = useRef<number | undefined>(live ? Date.now() : undefined);
-  if (live && startedAt.current === undefined) startedAt.current = Date.now();
   const delegations = isLast
     ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
     : [];
+  // When the work actually began, for the header's "Worked for Ns". Anchored to
+  // the earliest signal available: the moment this turn was first seen live, or
+  // the earliest delegation's client-clock start — whichever is older. Mount
+  // time alone lies when the trace mounts late, and a delegating turn's `task`
+  // part only lands once its children have already finished.
+  const firstSeenLive = useRef<number | undefined>(
+    live ? Date.now() : undefined,
+  );
+  if (live && firstSeenLive.current === undefined) {
+    firstSeenLive.current = Date.now();
+  }
+  const earliestDelegation = delegations.reduce<number | undefined>(
+    (earliest, run) =>
+      run.startedAt > 0
+        ? Math.min(earliest ?? run.startedAt, run.startedAt)
+        : earliest,
+    undefined,
+  );
+  const startedAtMs =
+    firstSeenLive.current !== undefined && earliestDelegation !== undefined
+      ? Math.min(firstSeenLive.current, earliestDelegation)
+      : (firstSeenLive.current ?? earliestDelegation);
   const parts = content.filter(
     (part): part is TextMessagePart | ToolCallMessagePart =>
       part.type === "text" || part.type === "tool-call",
@@ -740,7 +777,7 @@ export const AssistantTurnParts: FC = () => {
           items={traceItems}
           revealed={traceItems.length}
           collapseReady={!live}
-          startedAtMs={startedAt.current}
+          startedAtMs={startedAtMs}
         />
       )}
       {answerParts.map((part, index) =>
