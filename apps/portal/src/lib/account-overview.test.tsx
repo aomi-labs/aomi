@@ -6,7 +6,7 @@ import {
   scopeAccountOverviewToUser,
   seedAccountOverview,
   useAccountOverview,
-} from "./account-overview";
+} from "../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 
 function AccountUserId() {
   const account = useAccountOverview();

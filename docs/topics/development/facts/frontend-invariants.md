@@ -7,10 +7,13 @@ review_after_days: 30
 sources_of_truth:
   - scripts/check-consumer-compatibility.mjs
   - scripts/check-consumer-compatibility-baseline.mjs
+  - scripts/check-frontend-boundaries.mjs
   - .github/workflows/ci.yml
   - .github/CODEOWNERS
   - apps/widget-consumer/package.json
   - apps/examples/headless-client/package.json
+  - apps/shadcn-registry/src/host-composition.ts
+  - apps/portal/src/components/shell/portal-aomi-frame.tsx
 ---
 
 # Frontend Compatibility Invariants
@@ -19,13 +22,49 @@ Existing integrations must keep working when their installed Aomi packages
 change. Implementation can change freely while these contracts hold.
 Frontend owners: @CeciliaZ030 and @arixoneth.
 
-| Rule        | Contract                                                                                       | Enforcement                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| SDK-01      | Existing headless consumer imports and calls still compile against the shipped client package. | Packed-package consumer check.                                             |
-| WIDGET-01   | The existing widget consumer still builds with the shipped widget and React packages.          | Packed-package consumer check.                                             |
-| CONSUMER-01 | A PR cannot hide a break by rewriting its consumers.                                           | Extract consumers from the event's trusted base commit, never the PR tree. |
-| TEST-01     | Compatibility failures or missing prerequisites block merging.                                 | Required `Frontend CI Passed` aggregate checks `consumer-compat` success.  |
-| OWNER-01    | Consumer, harness, and CI protection changes require frontend-owner review.                    | CODEOWNERS plus GitHub required code-owner approval.                       |
+| Rule         | Contract                                                                                                    | Enforcement                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| SDK-01       | Existing headless consumer imports and calls still compile against the shipped client package.              | Packed-package consumer check.                                             |
+| WIDGET-01    | Existing `<AomiWidget>` integrations work without new mandatory host providers or setup calls.              | Trusted-base packed widget consumer build.                                 |
+| SHARED-UI-01 | Reusable chat, account, settings, usage, and Library UI has one implementation in `apps/shadcn-registry`.   | Portal imports the explicit `host-composition` package entrypoint.         |
+| HOST-01      | Portal may compose `AomiFrame`; it need not render public `AomiWidget` or copy its host policy.             | Portal frame tests plus dependency-boundary check.                         |
+| DIRECTION-01 | Portal cannot import private widget source; widget cannot import Portal; packages cannot depend on app UI.  | `check:frontend-boundaries` in the required packages job.                  |
+| AUTH-01      | Public credentials terminate at the BFF; internal backend assertions are server-minted and fail closed.     | Principal, route, CORS, and proxy tests; server/client module separation.  |
+| GUEST-01     | Portal may recover cookie-owned guest history; anonymous cross-origin widgets do not persist it by default. | Portal guest browser test and widget runtime tests.                        |
+| CONSUMER-01  | A PR cannot hide a break by rewriting its consumers.                                                        | Extract consumers from the event's trusted base commit, never the PR tree. |
+| TEST-01      | Compatibility failures or missing prerequisites block merging.                                              | Required `Frontend CI Passed` aggregate checks all dependency jobs.        |
+| OWNER-01     | Consumer, boundary, harness, and CI protection changes require frontend-owner review.                       | CODEOWNERS plus GitHub required code-owner approval.                       |
+
+## Shared UI and host policy
+
+`@aomi-labs/widget-lib/host-composition` is the intentional contract for
+first-party hosts that assemble `AomiFrame`. Keep the entrypoint curated: add a
+shared export because a host needs the shared implementation, not as a shortcut
+around package ownership. Portal-local routes, BFF handlers, URL handoffs,
+session integration, transport selection, and persistence policy stay in
+`apps/portal`.
+
+The public `AomiWidget` owns its wallet providers, widget authentication, and
+cross-origin transport. `PortalAomiFrame` owns first-party composition and its
+cookie-aware guest policy. Both consume the same reusable UI without forcing
+these legitimate host differences into one component.
+
+Do not add Portal forwarding files, relative imports into
+`apps/shadcn-registry/src`, or Portal imports through the widget's internal
+`@/components`, `@/hooks`, and `@/lib` aliases. Those aliases exist only so the
+widget source graph can compile inside the Portal workspace.
+
+## Authentication and transport
+
+First-party cookies, origin-bound widget sessions, OAuth access tokens, opaque
+Better Auth session bearers, and server-minted internal assertions are distinct
+credentials. Browser code must not import service assertion signing. The BFF
+validates the caller and requested resource/scope, allowlists forwarded headers,
+strips incoming authorization and cookies before the backend hop, and mints the
+internal assertion server-side. An invalid explicit credential must not fall
+back to a weaker identity.
+
+## Packaged compatibility
 
 Run `pnpm run test:contracts -- --base <trusted-base-sha>` from the checkout.
 The check builds candidate packages, packs them, and installs them into temporary
@@ -33,13 +72,13 @@ consumer directories outside the monorepo. The original source and build scripts
 come from the trusted base. Workspace dependency references are replaced with
 candidate tarballs and source aliases are removed so unpublished source cannot
 make a broken package pass. The widget fixture retains two peers previously
-supplied by the monorepo: assistant-ui from the trusted root manifest and
-SPL Token from the trusted widget development manifest. These fixed allowances
+supplied by the monorepo: assistant-ui from the trusted root manifest and SPL
+Token from the trusted widget development manifest. These fixed allowances
 preserve the existing fixture environment; they do not establish that the
-example manifest alone contains every dependency a fresh host needs.
-The headless tests and SDK
-ESM/CJS imports also run against the installed package. No login credentials
-or running backend are needed.
+example manifest alone contains every dependency a fresh host needs. The
+headless tests and SDK ESM/CJS imports also run against the installed package.
+No login credentials or running backend are needed.
+
 CI uses the PR base SHA, or the previous commit from a push event. A missing or
 invalid baseline fails rather than falling back to candidate consumers.
 
@@ -54,5 +93,7 @@ and `Frontend CI Passed` in GitHub branch protection. Keep stale approval
 dismissal enabled. The baseline and enforcement files are themselves owned.
 
 These checks establish package and consumer compatibility for the exercised
-examples. They do not prove browser login, signing, real-provider availability,
-or every SDK/CLI behavior; those require their own tests.
+examples and dependency direction visible in source. They do not prove a real
+cross-origin browser-to-BFF journey, visual baselines, wallet signing,
+real-provider availability, or every SDK/CLI behavior; those remain separate
+tests and must not be implied by a green boundary check.

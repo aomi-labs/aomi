@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { SettingsModal } from "./settings-modal";
+import { SettingsModal } from "../../../../shadcn-registry/src/components/account-shell/components/settings/settings-modal";
 
 const session = vi.hoisted(() => ({
   status: "ready" as "ready" | "anonymous" | "establishing" | "error",

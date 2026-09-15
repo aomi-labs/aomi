@@ -6,7 +6,7 @@ import type {
   ReactNode,
 } from "react";
 
-import { GeneralSettings } from "./general/general-settings";
+import { GeneralSettings } from "../../../shadcn-registry/src/components/account-shell/features/general/general-settings";
 
 type FetchCall = {
   input: string | URL | Request;

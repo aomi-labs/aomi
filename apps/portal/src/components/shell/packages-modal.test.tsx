@@ -7,13 +7,19 @@ import {
   waitFor,
 } from "@testing-library/react";
 
-import { inferLibraryCategory, PackagesModal } from "./packages-modal";
-import { PackageIcon, PackageRow } from "./package-row";
-import { toCatalogPackage } from "./packages-catalog";
+import {
+  inferLibraryCategory,
+  PackagesModal,
+} from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-modal";
+import {
+  PackageIcon,
+  PackageRow,
+} from "../../../../shadcn-registry/src/components/account-shell/components/shell/package-row";
+import { toCatalogPackage } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-catalog";
 import {
   seedAccountOverview,
   useAccountOverview,
-} from "@portal/lib/account-overview";
+} from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 

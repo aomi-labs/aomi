@@ -1,5 +1,5 @@
-import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
 
 import {
   fetchModelStatement,
@@ -7,7 +7,7 @@ import {
   recentMonthKeys,
   toMonthlyStatement,
   type WireModelStatement,
-} from "./statement-api";
+} from "../../../../shadcn-registry/src/components/account-shell/features/usage/statement-api";
 
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/lib/settings-api",

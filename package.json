@@ -103,6 +103,7 @@
     "prepublishOnly": "pnpm run build:lib",
     "deploy:registry": "./scripts/deploy-registry.sh",
     "test:contracts": "node scripts/check-consumer-compatibility.mjs",
+    "check:frontend-boundaries": "node scripts/check-frontend-boundaries.mjs",
     "test:browser:guest": "node scripts/test-portal-guest-browser.mjs"
   },
   "prettier": {

@@ -3,6 +3,7 @@
 /apps/widget-consumer/ @CeciliaZ030 @arixoneth
 /apps/examples/headless-client/ @CeciliaZ030 @arixoneth
 /scripts/check-consumer-compatibility* @CeciliaZ030 @arixoneth
+/scripts/check-frontend-boundaries* @CeciliaZ030 @arixoneth
 /tests/contracts/ @CeciliaZ030 @arixoneth
 /.github/ @CeciliaZ030 @arixoneth
 /package.json @CeciliaZ030 @arixoneth

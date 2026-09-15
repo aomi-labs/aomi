@@ -2,8 +2,10 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { useAccountOverviewStore } from "@portal/lib/account-overview";
-import { useSettings } from "@portal/lib/use-settings";
+import {
+  useAccountOverviewStore,
+  useSettings,
+} from "@aomi-labs/widget-lib/host-composition";
 
 // Client boundary that runs `useSettings()` at the app root so persisted user
 // settings (theme/colorMode) load and apply. It also owns the lifetime of the

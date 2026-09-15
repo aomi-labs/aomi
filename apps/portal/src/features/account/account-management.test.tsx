@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccountManagement } from "./account-management";
-import type { UnifiedAccountWallet } from "./wallet-management-model";
+import { AccountManagement } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management";
+import type { UnifiedAccountWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
 
 const connectedWallet: UnifiedAccountWallet = {
   key: "evm:0xda65",

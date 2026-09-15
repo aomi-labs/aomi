@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { HeaderControls } from "./header-controls";
+import { HeaderControls } from "../../../../shadcn-registry/src/components/account-shell/components/shell/header-controls";
 
 const setActivityOpen = vi.fn();
 let activityAvailable = false;

@@ -6,7 +6,7 @@ import {
   type AuthorizationPoster,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { accountScopedFetch } from "@portal/lib/settings-api";
+import { accountScopedFetch } from "@aomi-labs/widget-lib/host-composition";
 
 type SigningPolicy = {
   address: { chain: "evm" | "svm"; address: string };
@@ -35,8 +35,7 @@ export function useSvmWalletBinding() {
   const cluster = adapter.identity.svmCluster;
   const capabilities = adapter.identity.svmCapabilities;
   const signSolanaMessage = adapter.signSolanaMessage;
-  const requiresBinding =
-    adapter.identity.svmTransport === "embedded";
+  const requiresBinding = adapter.identity.svmTransport === "embedded";
   const [state, setState] = useState<SvmBindingState>({ status: "no-wallet" });
   const [binding, setBinding] = useState(false);
 

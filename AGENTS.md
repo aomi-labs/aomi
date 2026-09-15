@@ -1,8 +1,5 @@
 # Repository Guidelines
 
-> Persistent goal: see `GOAL.md` in the repo root. Every session should
-> read it first and update it as work progresses.
-
 ## Project Structure & Module Organization
 
 Read [frontend invariants](docs/topics/development/facts/frontend-invariants.md)
@@ -12,6 +9,7 @@ before changing public packages, examples, or CI. See
 integration; `apps/shadcn-registry` owns the published widget and registry.
 `packages/account` owns shared authentication and BFF support. Deployed apps
 live under `apps/`, including Portal, Build, Base, Landing, and Telegram.
+`GOAL.md` is a historical work log, not current routing or normative policy.
 
 ## Build, Test, and Development Commands
 
@@ -26,6 +24,8 @@ workflow for the selected workspace.
 - `pnpm run test:contracts -- --base <trusted-base-sha>` — build and pack the
   candidate SDK, React runtime, and widget; validate existing consumers from
   that base outside the workspace. CI supplies the PR base SHA automatically.
+- `pnpm run check:frontend-boundaries` — reject private cross-app UI imports
+  and package dependency-direction violations.
 - `pnpm run typecheck:apps` and `pnpm run build:apps` — deployed app checks.
 
 ## Coding Style & Naming Conventions
@@ -40,6 +40,9 @@ changes, run the consumer compatibility check against the trusted base before
 finishing. Never edit an existing consumer to conceal a compatibility failure;
 intentional migrations require frontend-owner review. Browser checks remain a
 separate layer and are not implied by a successful consumer build.
+Portal host composition must use `@aomi-labs/widget-lib/host-composition`;
+do not add relative imports into `apps/shadcn-registry/src` or use its internal
+`@/` aliases from Portal source.
 
 ## Commit & Pull Request Guidelines
 

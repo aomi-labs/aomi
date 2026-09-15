@@ -37,6 +37,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     include: [
+      "scripts/**/*.{test,spec}.{mjs,cjs,js}",
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",

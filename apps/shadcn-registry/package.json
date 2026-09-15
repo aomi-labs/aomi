@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget-lib",
-  "version": "2.0.52",
+  "version": "2.0.53",
   "description": "Shadcn registry for the Aomi widget.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +13,10 @@
     "./aomi-widget": {
       "types": "./dist/aomi-widget.d.ts",
       "import": "./dist/aomi-widget.js"
+    },
+    "./host-composition": {
+      "types": "./dist/host-composition.d.ts",
+      "import": "./dist/host-composition.js"
     },
     "./aomi-frame": "./src/components/aomi-frame.tsx",
     "./aomi-frame-collapsible": "./src/components/aomi-frame-collapsible.tsx",
