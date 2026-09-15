@@ -13,7 +13,6 @@ vi.mock("@privy-io/react-auth", () => ({
 const { usePermissionControl } = await import("./use-permission-control");
 
 const ADDRESS = "0x1111111111111111111111111111111111111111";
-const AGENT = "0x2222222222222222222222222222222222222222";
 
 const TYPED_DATA = {
   types: {
@@ -41,19 +40,6 @@ const provider = Object.assign(
   },
 );
 
-function launchWith(permission: Record<string, string | null>) {
-  return {
-    inTelegram: true,
-    proof: { botId: "1", initData: "raw", telegramUserId: "7" },
-    sessionId: "telegram:dm:7",
-    permissionChain: null,
-    permissionWallet: null,
-    permissionMode: null,
-    verified: true,
-    ...permission,
-  };
-}
-
 function userWithWallet() {
   return {
     id: "did:privy:user",
@@ -71,10 +57,9 @@ function userWithWallet() {
   } as unknown as User;
 }
 
-function render(launch: unknown, useProvider: unknown = provider) {
+function render(useProvider: unknown = provider) {
   return renderHook(() =>
     usePermissionControl({
-      launch: launch as never,
       provider: useProvider as never,
     }),
   );
@@ -103,31 +88,12 @@ describe("usePermissionControl", () => {
     provider.mockClear();
   });
 
-  it("honours the key and mode the bot named", () => {
-    const { result } = render(
-      launchWith({
-        permissionChain: "evm",
-        permissionWallet: AGENT,
-        permissionMode: "denied",
-      }),
-    );
-    expect(result.current.target).toEqual({
-      chain: "evm",
-      wallet: AGENT,
-      mode: "denied",
-      fromLaunch: true,
-    });
-  });
-
-  it("falls back to the user's own wallet when the bot named no key", () => {
-    // Launched from /wallet rather than /permission: arming the user's own
-    // embedded wallet is a valid, fully-satisfiable target.
-    const { result } = render(launchWith({}));
+  it("always arms the user's embedded wallet", () => {
+    const { result } = render();
     expect(result.current.target).toEqual({
       chain: "evm",
       wallet: ADDRESS,
       mode: "server_auto",
-      fromLaunch: false,
     });
   });
 
@@ -135,16 +101,13 @@ describe("usePermissionControl", () => {
     // The regression this guards: gating on `useWallets().ready` left the sign
     // button permanently unrendered inside Telegram's webview, because Privy's
     // wallet-proxy iframe never connects there.
-    expect(render(launchWith({})).result.current.status).toBe("ready");
+    expect(render().result.current.status).toBe("ready");
   });
 
   it("restores the completed state for its own already-armed wallet", () => {
-    expect(render(launchWith({}), provider).result.current.status).toBe(
-      "ready",
-    );
+    expect(render(provider).result.current.status).toBe("ready");
     const { result } = renderHook(() =>
       usePermissionControl({
-        launch: launchWith({}) as never,
         provider: provider as never,
         serverAuto: true,
       }),
@@ -152,33 +115,18 @@ describe("usePermissionControl", () => {
     expect(result.current.status).toBe("done");
   });
 
-  it("never treats a different bot-named key as already armed", () => {
-    const { result } = renderHook(() =>
-      usePermissionControl({
-        launch: launchWith({
-          permissionChain: "evm",
-          permissionWallet: AGENT,
-          permissionMode: "denied",
-        }) as never,
-        provider: provider as never,
-        serverAuto: true,
-      }),
-    );
-    expect(result.current.status).toBe("ready");
-  });
-
   it("is not ready without a wallet or a session", () => {
     privyUser = null;
-    expect(render(launchWith({})).result.current.status).toBe("idle");
+    expect(render().result.current.status).toBe("idle");
     privyUser = userWithWallet();
-    expect(render(launchWith({}), null).result.current.status).toBe("idle");
+    expect(render(null).result.current.status).toBe("idle");
   });
 
   it("signs the challenge with the embedded wallet and commits it", async () => {
     const fetchMock = ceremonyFetch();
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = render(launchWith({}));
+    const { result } = render();
     await act(async () => void (await result.current.sign()));
     await waitFor(() => expect(result.current.status).toBe("done"));
 
@@ -219,7 +167,7 @@ describe("usePermissionControl", () => {
       }),
     );
 
-    const { result } = render(launchWith({}));
+    const { result } = render();
     await act(async () => void (await result.current.sign()));
 
     await waitFor(() => expect(result.current.status).toBe("error"));
@@ -238,7 +186,7 @@ describe("usePermissionControl", () => {
       }),
     );
 
-    const { result } = render(launchWith({}));
+    const { result } = render();
     await act(async () => void (await result.current.sign()));
 
     await waitFor(() => expect(result.current.status).toBe("error"));
@@ -270,11 +218,7 @@ describe("usePermissionControl", () => {
     });
 
     const { result, rerender } = renderHook(
-      ({ current }) =>
-        usePermissionControl({
-          launch: launchWith({}) as never,
-          provider: current as never,
-        }),
+      ({ current }) => usePermissionControl({ provider: current as never }),
       { initialProps: { current: provider as unknown } },
     );
 
@@ -304,7 +248,7 @@ describe("usePermissionControl", () => {
 
   it("does not reject into the click handler", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    const { result } = render(launchWith({}));
+    const { result } = render();
     await expect(result.current.sign()).resolves.toBeUndefined();
     await waitFor(() => expect(result.current.status).toBe("error"));
   });

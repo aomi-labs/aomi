@@ -16,9 +16,6 @@ function context(authDateMs: number, withProof = true): LaunchContext {
       ? { botId: "1", initData: "raw", telegramUserId: "7" }
       : null,
     sessionId: "telegram:dm:7",
-    permissionChain: null,
-    permissionWallet: null,
-    permissionMode: null,
     verified: withProof,
   };
 }
@@ -32,9 +29,9 @@ describe("launchProofIsFresh", () => {
   it("rejects one past it", () => {
     // The gap that motivated this: the launch route accepts 24 hours, so a Mini
     // App left open still looks valid locally and then fails with `expired`.
-    expect(
-      launchProofIsFresh(context(NOW - 24 * 60 * 60 * 1000), NOW),
-    ).toBe(false);
+    expect(launchProofIsFresh(context(NOW - 24 * 60 * 60 * 1000), NOW)).toBe(
+      false,
+    );
   });
 
   it("stays inside the server's five-minute window", () => {
