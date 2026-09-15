@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
+import { getPool } from "@aomi-labs/account";
 import { getMigrations } from "better-auth/db/migration";
 import { auth } from "@aomi-labs/account/better-auth";
 
@@ -12,7 +12,7 @@ async function main() {
   }
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = getPool();
   try {
     const schemaPath = fileURLToPath(
       new URL(
