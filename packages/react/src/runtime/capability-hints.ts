@@ -7,6 +7,7 @@ export type CapabilityHint = {
   kind: CapabilityKind;
   id: string;
   label?: string;
+  appName?: string;
 };
 
 type CapabilityHintEnvelope = {
@@ -35,7 +36,18 @@ function parseHint(raw: unknown): CapabilityHint | null {
           .trim()
           .slice(0, 100)
       : undefined;
-  return { kind, id, ...(label ? { label } : {}) };
+  const appName =
+    kind === "app" &&
+    typeof candidate.appName === "string" &&
+    SAFE_ID.test(candidate.appName)
+      ? candidate.appName
+      : undefined;
+  return {
+    kind,
+    id,
+    ...(label ? { label } : {}),
+    ...(appName ? { appName } : {}),
+  };
 }
 
 function parseEnvelope(raw: unknown): CapabilityHintEnvelope | null {
@@ -98,13 +110,19 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
       `User removed app selection: ${hint.label ?? hint.id} (${hint.id}). Avoid using this app for this turn. This removal guidance applies only to this turn.`,
     );
   }
-  for (const id of apps) {
+  for (const hint of envelope.capabilities.filter(
+    (hint) => hint.kind === "app",
+  )) {
+    const id = hint.id;
     const applicationId = /^application:[1-9][0-9]*$/u.test(id)
       ? Number(id.slice("application:".length))
       : NaN;
     const target =
       Number.isSafeInteger(applicationId) && applicationId > 0
-        ? { application_id: applicationId }
+        ? {
+            ...(hint.appName ? { app: hint.appName } : {}),
+            application_id: applicationId,
+          }
         : id.startsWith("name:") && SAFE_ID.test(id.slice(5))
           ? { app: id.slice(5) }
           : null;
@@ -114,6 +132,7 @@ export function appendCapabilityHints(text: string, raw: unknown): string {
   if (lines.some((line) => line.startsWith("Selected app task target:"))) {
     lines.push(
       "For work addressed to a selected app, including requests to list its tools, call `task` with a work order in `tasks` using that target and the user's request as `prompt`.",
+      "Copy the selected app task target exactly. Display labels must not be used as task app names; when the target contains only application_id, omit app.",
       "App-specific tools are loaded in the selected child, not in your own tool list. Do not infer app availability from your own tool list; report an actual task failure if the selected app cannot be loaded. Existing authorization and compatibility checks still apply.",
     );
   }
