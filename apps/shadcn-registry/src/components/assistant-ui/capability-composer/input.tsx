@@ -456,7 +456,7 @@ export const CapabilityMentionInput: FC<{
             <div
               ref={editorRef}
               role="textbox"
-              aria-label="Message input"
+              aria-label="CI regression probe"
               aria-multiline="true"
               aria-autocomplete="list"
               aria-expanded={query !== null}
