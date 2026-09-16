@@ -30,7 +30,7 @@ const policies: Array<{
 }> = [];
 const posts: Array<{ path: string; body: unknown }> = [];
 
-vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
+vi.mock("@portal/lib/settings-api", () => ({
   accountScopedFetch: async (path: string, options?: RequestInit) => {
     if (path === "/api/account") {
       return { signing_policies: [...policies] };

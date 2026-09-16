@@ -101,20 +101,10 @@ describe("Solana wallet authorization", () => {
     ).resolves.toEqual({ status: "already_bound" });
   });
 
-  it("recognizes legacy and hosted-only account-link signals", () => {
+  it("recognizes only the kernel unbound-wallet signal", () => {
     expect(
       isUnboundWalletError(new Error("[err.type=signing_unbound_wallet]")),
     ).toBe(true);
-    expect(
-      isUnboundWalletError(
-        new Error("[err.type=signing_svm_account_link_required_for_hosted]"),
-      ),
-    ).toBe(true);
-    expect(
-      isUnboundWalletError(
-        new Error("[err.type=signing_evm_account_link_required_for_hosted]"),
-      ),
-    ).toBe(false);
     expect(isUnboundWalletError(new Error("signing_denied"))).toBe(false);
   });
 });

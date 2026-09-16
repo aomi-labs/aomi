@@ -17,8 +17,6 @@ const REQUEST_HEADERS = new Set([
 ]);
 
 const RESPONSE_HEADERS = new Set([
-  "server-timing",
-  "x-accel-buffering",
   "cache-control",
   "content-type",
   "mcp-protocol-version",
@@ -51,7 +49,6 @@ export async function proxyAgentApi(
   principal: ApiPrincipal,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
-  const started = performance.now();
   const incoming = new URL(request.url);
   if (
     incoming.pathname !== "/v1/agent" &&
@@ -79,7 +76,6 @@ export async function proxyAgentApi(
     // assertion. Use a non-secret bounded correlation marker instead.
     sid: principal.sid ? "session-bound" : undefined,
   });
-  const minted = performance.now();
   const headers = allowlisted(request.headers, REQUEST_HEADERS);
   headers.set("authorization", `Bearer ${bearer}`);
   const response = await fetchImpl(upstream, {
@@ -89,20 +85,14 @@ export async function proxyAgentApi(
       request.method === "GET" || request.method === "HEAD"
         ? undefined
         : request.body,
-    signal: request.signal,
     cache: "no-store",
     redirect: "manual",
     // Node fetch requires this for a streamed Request body.
     duplex: "half",
   } as RequestInit & { duplex: "half" });
-  const responseHeaders = allowlisted(response.headers, RESPONSE_HEADERS);
-  responseHeaders.append(
-    "server-timing",
-    `bff_prepare;dur=${(minted - started).toFixed(1)},agent_headers;dur=${(performance.now() - minted).toFixed(1)}`,
-  );
   return new Response(response.body, {
     status: response.status,
-    headers: responseHeaders,
+    headers: allowlisted(response.headers, RESPONSE_HEADERS),
   });
 }
 

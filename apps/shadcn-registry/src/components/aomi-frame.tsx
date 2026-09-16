@@ -12,7 +12,6 @@ import {
   cn,
   useAomiRuntime,
   type AomiClientOptions,
-  type AgentTarget,
   type AomiInferenceFundingSource,
 } from "@aomi-labs/react";
 import { Thread } from "@/components/assistant-ui/thread";
@@ -20,15 +19,14 @@ import {
   ThreadListSidebar,
   type SidebarProduct,
 } from "@/components/assistant-ui/threadlist-sidebar";
+import { RuntimeTxHandler } from "@/components/runtime-tx-handler";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { NotificationToaster } from "@/components/ui/notification";
 import { ControlBar, type ControlBarProps } from "@/components/control-bar";
 import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
-import { ActivityPanelProvider } from "@/components/activity-sidebar/activity-panel-context";
 import { safeEnv } from "../lib/wallet-kit/env";
 import { useActionCapabilities } from "../lib/wallet-kit";
 
@@ -77,8 +75,6 @@ type RootProps = {
   backendUrl?: string;
   /** Concrete hosted application used to isolate runtime and persisted threads. */
   applicationId?: number | string | null;
-  /** Optional host-fixed execution target. */
-  agentTarget?: AgentTarget;
   /** Optional runtime client overrides. */
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
   /** Explicit inference funding lane for Agent turns. */
@@ -142,7 +138,6 @@ const Root: FC<RootProps> = ({
   defaultSidebarOpen = true,
   backendUrl,
   applicationId,
-  agentTarget,
   clientOptions,
   inferenceFunding,
   accountSessionAvailable,
@@ -163,7 +158,6 @@ const Root: FC<RootProps> = ({
       backendUrl={resolvedBackendUrl}
       actions={actions}
       applicationId={applicationId}
-      agentTarget={agentTarget}
       clientOptions={clientOptions}
       inferenceFunding={inferenceFunding}
       accountSessionAvailable={accountSessionAvailable}
@@ -172,35 +166,33 @@ const Root: FC<RootProps> = ({
       threadPersistenceScope={threadPersistenceScope}
       initialThreadId={initialThreadId}
     >
-      <ActivityPanelProvider>
-        <SidebarProvider
-          defaultOpen={defaultSidebarOpen}
-          className="min-h-0! h-full"
+      <SidebarProvider
+        defaultOpen={defaultSidebarOpen}
+        className="min-h-0! h-full"
+      >
+        <div
+          className={cn(
+            "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
+            className,
+          )}
+          style={frameStyle}
         >
-          <div
-            className={cn(
-              "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
-              className,
-            )}
-            style={frameStyle}
-          >
-            {showSidebar && (
-              <ThreadListSidebar
-                walletPosition={walletPosition}
-                walletFamilies={walletFamilies}
-                walletConnectLabel={walletConnectLabel}
-                walletAccountMenu={walletAccountMenu}
-                products={products}
-                currentProductId={currentProductId}
-              />
-            )}
-            <SidebarInset className="@container relative flex min-h-0 flex-col">
-              {children}
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-        <NotificationToaster />
-      </ActivityPanelProvider>
+          {showSidebar && (
+            <ThreadListSidebar
+              walletPosition={walletPosition}
+              walletFamilies={walletFamilies}
+              walletConnectLabel={walletConnectLabel}
+              walletAccountMenu={walletAccountMenu}
+              products={products}
+              currentProductId={currentProductId}
+            />
+          )}
+          <SidebarInset className="relative flex min-h-0 flex-col">
+            {children}
+          </SidebarInset>
+          <RuntimeTxHandler />
+        </div>
+      </SidebarProvider>
     </AomiRuntimeProvider>
   );
 };
@@ -299,14 +291,15 @@ const DefaultLayout: FC<DefaultLayoutProps> = ({
       showSidebar={showSidebar}
       {...props}
     >
-      <Header showSidebarTrigger={showSidebar} />
-      <Composer
+      <Header
         withControl
+        showSidebarTrigger={showSidebar}
         controlBarProps={{
           hideWallet: hideWalletInControlBar,
           hideNetwork: false,
         }}
       />
+      <Composer />
     </Root>
   );
 };

@@ -14,12 +14,7 @@ export function ProjectRow({
   requiredSdk?: string | null;
   href?: string;
 }) {
-  // Index rows never run the runtime probe; strip the Manager's flag so the
-  // row reads "Activated" instead of a verification claim either way.
-  const status = projectDeploymentStatus({
-    ...source,
-    apps: source.apps.map((app) => ({ ...app, loaded: undefined })),
-  });
+  const status = projectDeploymentStatus(source);
   const appLabel =
     source.apps.length === 0
       ? "No apps"

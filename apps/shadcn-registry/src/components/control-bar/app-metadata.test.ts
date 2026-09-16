@@ -21,23 +21,14 @@ describe("app-metadata", () => {
 
   it("returns fallback metadata for empty app id", () => {
     const info = getAppInfo("" as unknown as string);
-    expect(info.id).toBe("unknown");
     expect(info.displayName).toBe("Unknown App");
     expect(info.abbr).toBe("?");
   });
 
-  it("keeps normalized legacy ids while sharing canonical presentation", () => {
-    expect(getAppInfo("  LI_FI ")).toMatchObject({
-      id: "li_fi",
-      brandId: "lifi",
-      displayName: "LI.FI",
-    });
-  });
-
-  it("labels the default as Aomi Core", () => {
+  it("labels the default as Basic", () => {
     expect(getAppInfo("default")).toMatchObject({
-      displayName: "Aomi Core",
-      abbr: "A",
+      displayName: "Basic",
+      abbr: "B",
     });
   });
 

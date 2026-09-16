@@ -45,13 +45,10 @@ export function SvmWalletBindingGate() {
 
   return (
     <aside className="bg-background border-border absolute bottom-24 right-4 z-50 w-[min(24rem,calc(100%-2rem))] rounded-xl border p-4 shadow-xl">
-      <p className="text-sm font-medium">
-        Link your Solana wallet for hosted signing
-      </p>
+      <p className="text-sm font-medium">Bind your Solana wallet to continue</p>
       <p className="text-muted-foreground mt-1 text-sm">
-        Direct wallet transactions do not require linking. This one-time
-        signature links the wallet to your Aomi account so hosted signing can
-        use its account policy; it does not move funds.
+        This one-time signature proves the connected wallet belongs to your Aomi
+        account. It does not move funds.
       </p>
       <div className="mt-3 flex gap-2">
         <Button

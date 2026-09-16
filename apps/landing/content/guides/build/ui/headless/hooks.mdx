@@ -139,11 +139,7 @@ type UserState = {
     provider_label?: string | null;
     auth_method?: string | null;
   };
-  evm?: {
-    address?: string | null;
-    chain_id?: number | null;
-    ens_name?: string | null;
-  };
+  evm?: { address?: string | null; chain_id?: number | null; ens_name?: string | null };
   svm?: { address?: string | null; cluster?: string | null };
   preferences?: Record<string, unknown>;
   ext?: Record<string, unknown>;
@@ -201,7 +197,7 @@ const metadata = useCurrentThreadMetadata();
 
 ## useControl
 
-Agent routing, model, app catalog, and API key state management.
+Model, app, and API key state management.
 
 ```tsx
 import { useControl } from "@aomi-labs/react";
@@ -213,11 +209,7 @@ function ControlPanel() {
     getAvailableModels, // () => Promise<string[]>
     getAuthorizedApps, // () => Promise<string[]>
     onModelSelect, // (model: string) => Promise<void>
-    getCurrentThreadAgentMode, // () => "auto" | "direct"
-    getCurrentThreadTarget, // () => AgentTarget
-    onAgentModeSelect, // (mode: "auto" | "direct") => void
-    onAgentTargetSelect, // (target: DirectAgentTarget) => void
-    onAppSelect, // legacy convenience: selects Direct by app name
+    onAppSelect, // (app: string) => void
     getCurrentThreadControl, // () => ThreadControlState
     isProcessing, // boolean
     getControlState, // () => ControlState (synchronous)
@@ -234,15 +226,9 @@ function ControlPanel() {
   // Per-thread state
   const tc = getCurrentThreadControl();
   tc.model; // string | null
-  tc.agentMode; // "auto" | "direct" | undefined for legacy persisted threads
   tc.app; // string | null
 }
 ```
-
-Use `onAgentModeSelect("auto")` for automatic routing. For Direct, call
-`onAgentTargetSelect({ mode: "direct", app: "uniswap" })` (or provide a
-positive hosted `applicationId`). `onAppSelect` remains a shorthand that also
-sets Direct; selecting an app is never part of Auto hint handling.
 
 ### ControlState Type
 

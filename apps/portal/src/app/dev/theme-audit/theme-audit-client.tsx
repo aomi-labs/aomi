@@ -11,7 +11,7 @@ import {
   OutcomeTable,
   StatementSection,
   usd,
-} from "@aomi-labs/widget-lib/host-composition";
+} from "@portal/features/usage/usage-shared";
 
 import { AuditTable } from "./theme-audit-table";
 

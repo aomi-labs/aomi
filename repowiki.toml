@@ -30,7 +30,7 @@ exclude = [
     "memory/**",
     "node_modules/**",
     "apps/**/.next/**",
-    "apps/shadcn-registry/dist/**",
+    "apps/registry/dist/**",
     "packages/**/dist/**",
     "**/diffHistory.md",
 ]
@@ -112,7 +112,7 @@ code = [
     "pnpm-workspace.yaml",
     "scripts/**",
     "apps/landing/package.json",
-    "apps/shadcn-registry/package.json",
+    "apps/registry/package.json",
     "packages/client/package.json",
     "packages/react/package.json",
 ]
@@ -129,11 +129,10 @@ code = [
     "apps/landing/**",
     "apps/portal/**",
     "apps/telegram/**",
-    "apps/shadcn-registry/src/components/aomi-frame.tsx",
-    "apps/shadcn-registry/src/components/assistant-ui/**",
-    "apps/shadcn-registry/src/components/control-bar/**",
-    "apps/shadcn-registry/src/host-composition.ts",
-    "apps/shadcn-registry/src/index.ts",
+    "apps/registry/src/components/aomi-frame.tsx",
+    "apps/registry/src/components/assistant-ui/**",
+    "apps/registry/src/components/control-bar/**",
+    "apps/registry/src/index.ts",
     "src/components/assistant-ui/runtime.tsx",
 ]
 docs = [
@@ -171,10 +170,10 @@ owners = ["frontend", "sdk"]
 [[area]]
 name = "auth"
 code = [
-    "packages/account/**",
+    "packages/auth/**",
     "apps/portal/src/app/api/auth/**",
     "apps/portal/src/lib/aomi-account/**",
-    "apps/shadcn-registry/src/lib/wallet-kit/**",
+    "apps/registry/src/lib/wallet-kit/**",
     "packages/react/src/runtime/user-state-provider.tsx",
 ]
 docs = [

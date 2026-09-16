@@ -7,10 +7,6 @@ import {
   PIPELINE_SCOPES,
   aomiOAuthResources,
 } from "@portal/server/oauth/resources";
-import {
-  applyWidgetCors,
-  widgetCorsPreflight,
-} from "@portal/server/widget-auth/cors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,11 +59,5 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
-async function handleWithCors(request: Request): Promise<Response> {
-  return applyWidgetCors(request, await handle(request));
-}
-
-export const GET = handleWithCors;
-export const POST = handleWithCors;
-export const OPTIONS = (request: Request): Response =>
-  widgetCorsPreflight(request, ["GET", "POST", "OPTIONS"]);
+export const GET = handle;
+export const POST = handle;

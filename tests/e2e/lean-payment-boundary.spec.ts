@@ -289,16 +289,13 @@ test("local Portal root chat settles and settings renders", async ({
     }
   });
 
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible({
     timeout: 30_000,
   });
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toBeVisible();
-  await expect(input).toHaveAttribute("contenteditable", "true");
-  await input.pressSequentially(
-    "Reply with exactly LEAN_PAYMENT_PORTAL_UI_OK.",
-  );
+  await input.fill("Reply with exactly LEAN_PAYMENT_PORTAL_UI_OK.");
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect.poll(() => agentStatuses, { timeout: 30_000 }).toContain(200);

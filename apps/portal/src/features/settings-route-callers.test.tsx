@@ -6,7 +6,7 @@ import type {
   ReactNode,
 } from "react";
 
-import { GeneralSettings } from "../../../shadcn-registry/src/components/account-shell/features/general/general-settings";
+import { GeneralSettings } from "./general/general-settings";
 
 type FetchCall = {
   input: string | URL | Request;
@@ -92,66 +92,19 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
-  useAomiWalletKit: () => ({
-    accountUser: { id: "acct-user-1", displayName: "Aron" },
-    accountWallets: [
-      {
-        id: "wallet-rabby",
-        family: "evm",
-        address: "0xabc",
-        label: "Rabby",
-        kind: "external",
-      },
-      {
-        id: "wallet-metamask",
-        family: "evm",
-        address: "0xdef",
-        label: "MetaMask",
-        kind: "external",
-      },
-    ],
-    accounts: [
-      {
-        id: "rabby",
-        family: "evm",
-        address: "0xabc",
-        walletName: "Rabby",
-        active: true,
-        linked: true,
-      },
-    ],
-    canConnect: true,
-    canOpenAccountUI: true,
-    connect: widgetMock.connect,
-    getAccountCredential: widgetMock.getAccountCredential,
-    identity: {
-      address: "0xabc",
-      authMethod: "wallet",
-      chainId: 1,
-      isConnected: true,
-      status: "connected",
-    },
-    openAccountUI: widgetMock.openAccountUI,
+vi.mock("./account/use-account-acl", () => ({
+  useAccountAcl: () => ({
+    status: "ready",
+    wallets: [],
+    delegatedAccounts: [],
+    refresh: vi.fn(),
+    commitMode: vi.fn(),
+    revokeDelegation: vi.fn(),
+    stopAllAuto: vi.fn(),
+    renewDelegation: vi.fn(),
+    blockedReason: () => null,
   }),
 }));
-
-vi.mock(
-  "../../../shadcn-registry/src/components/account-shell/features/account/use-account-acl",
-  () => ({
-    useAccountAcl: () => ({
-      status: "ready",
-      wallets: [],
-      delegatedAccounts: [],
-      refresh: vi.fn(),
-      commitMode: vi.fn(),
-      revokeDelegation: vi.fn(),
-      stopAllAuto: vi.fn(),
-      renewDelegation: vi.fn(),
-      blockedReason: () => null,
-    }),
-  }),
-);
 
 function requestUrl(input: FetchCall["input"]): URL {
   if (input instanceof Request) return new URL(input.url);

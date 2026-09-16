@@ -26,8 +26,7 @@ const op = (
 });
 
 const displaySkillLabel = (skillId: string): string | undefined => {
-  if (skillId === "lifi_swap") return "Lifi Swap";
-  if (skillId === "common_erc20") return "Common Erc20";
+  if (skillId === "lifi_swap") return "Lifi";
   return undefined;
 };
 
@@ -102,20 +101,14 @@ export const matchChainContext: ToolMatcher = ({ rawLabel, resultRecord }) => {
   ]);
 };
 
-export const matchNativeBalance: ToolMatcher = ({
-  rawLabel,
-  parsedArgs,
-  resultRecord,
-}) => {
+export const matchNativeBalance: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;
   const address = addressFact(resultRecord.address, "owner");
   const balance = amountFact(resultRecord.balance_eth, "ETH");
   if (!address || !balance) return null;
 
-  const args = asRecord(parsedArgs);
-
   return op("evm.account.native_balance", rawLabel, [
-    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
+    chainFactFromRecord(resultRecord),
     address,
     { ...balance, role: "native" },
   ]);
@@ -149,15 +142,10 @@ export const matchError: ToolMatcher = ({ rawLabel, resultRecord }) => {
     asString(errorRecord?.code) ??
     asString(errorRecord?.type);
 
-  return {
-    ...op("tool.error", rawLabel, [
-      statusFact("failed"),
-      code
-        ? { kind: "code", role: "error", value: code, source: "result" }
-        : null,
-    ]),
-    title: /^(?:evm[_ .-])?get[_ .-]erc20[_ .-]balance$/i.test(rawLabel)
-      ? "Get balance"
-      : undefined,
-  };
+  return op("tool.error", rawLabel, [
+    statusFact("failed"),
+    code
+      ? { kind: "code", role: "error", value: code, source: "result" }
+      : null,
+  ]);
 };

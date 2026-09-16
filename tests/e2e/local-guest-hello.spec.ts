@@ -33,14 +33,13 @@ test("fresh guest can send hello without returning to the start page", async ({
     }
   });
 
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible({
     timeout: 30_000,
   });
 
   const input = page.getByRole("textbox", { name: "Message input" });
-  await expect(input).toHaveAttribute("contenteditable", "true");
-  await input.pressSequentially("hello");
+  await input.fill("hello");
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect.poll(() => statuses, { timeout: 30_000 }).toContain(200);

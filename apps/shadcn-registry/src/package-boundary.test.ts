@@ -66,7 +66,6 @@ describe("published widget package boundaries", () => {
     for (const entry of [
       "index.js",
       "aomi-widget.js",
-      "host-composition.js",
       "providers/para.js",
       "providers/privy.js",
     ]) {

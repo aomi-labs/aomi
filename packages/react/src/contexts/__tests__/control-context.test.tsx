@@ -50,7 +50,6 @@ const renderControlContext = (
 
   const result = render(
     <ControlContextProvider
-      accountSessionAvailable
       aomiClient={aomiClient as never}
       sessionId="session-1"
       getThreadMetadata={(threadId) => threadMetadata.get(threadId)}
@@ -192,42 +191,6 @@ describe("ControlContextProvider", () => {
     );
   });
 
-  it("routes per-user app secrets through the control session", async () => {
-    globalThis.localStorage.setItem("aomi_client_id", "client-stored");
-    const listAppSecrets = vi.fn(async () => ({
-      application_id: 42,
-      app: "okx",
-      slots: [],
-    }));
-    const saveAppSecrets = vi.fn(async () => ({
-      application_id: 42,
-      app: "okx",
-      slots: [],
-    }));
-    const deleteAppSecret = vi.fn(async () => ({ deleted: true }));
-    const { getControl } = renderControlContext({
-      listAppSecrets,
-      saveAppSecrets,
-      deleteAppSecret,
-    });
-
-    await act(async () => {
-      await getControl().listAppSecrets(42);
-      await getControl().saveAppSecrets(42, { OKX_API_KEY: "key" });
-      expect(await getControl().deleteAppSecret(42, "OKX_API_KEY")).toBe(true);
-    });
-
-    expect(listAppSecrets).toHaveBeenCalledWith("control:client-stored", 42);
-    expect(saveAppSecrets).toHaveBeenCalledWith("control:client-stored", 42, {
-      OKX_API_KEY: "key",
-    });
-    expect(deleteAppSecret).toHaveBeenCalledWith(
-      "control:client-stored",
-      42,
-      "OKX_API_KEY",
-    );
-  });
-
   it("loads redacted BYOK keys from the account model-key API", async () => {
     globalThis.localStorage.setItem("aomi_client_id", "client-stored");
     const listByokKeys = vi.fn(async () => [
@@ -270,14 +233,11 @@ describe("ControlContextProvider", () => {
     });
 
     expect(setModel).not.toHaveBeenCalled();
-    const selectedControl = threadMetadata.get("session-1")?.control;
-    expect(selectedControl).toMatchObject({
+    expect(threadMetadata.get("session-1")?.control).toMatchObject({
       model: "gpt-5",
       modelMode: "manual",
-      app: null,
       controlDirty: true,
     });
-    expect(selectedControl?.agentMode).not.toBe("direct");
     expect(
       JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
     ).toMatchObject({ mode: "manual", model: "gpt-5" });
@@ -460,37 +420,8 @@ describe("ControlContextProvider", () => {
 
     expect(threadMetadata.get("session-1")?.control).toMatchObject({
       model: "gpt-5",
-      agentMode: "direct",
       app: "docs",
       controlDirty: true,
     });
-  });
-
-  it("defaults fresh threads to Auto and preserves an id-only Direct target", () => {
-    const threadMetadata = createThreadMetadata();
-    const { getControl } = renderControlContext({}, threadMetadata);
-
-    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
-
-    act(() => {
-      getControl().onAgentTargetSelect({
-        mode: "direct",
-        applicationId: 2936682,
-      });
-    });
-    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("direct");
-    expect(getControl().getCurrentThreadTarget()).toEqual({
-      mode: "direct",
-      applicationId: 2936682,
-    });
-
-    act(() => {
-      getControl().onAgentModeSelect("auto");
-    });
-    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("auto");
-    expect(getControl().getPreferredThreadControl()).toMatchObject({
-      agentMode: "auto",
-    });
-    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
   });
 });

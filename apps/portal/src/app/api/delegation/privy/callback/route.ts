@@ -1,8 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  widgetPreflight,
-  widgetRoute,
-} from "@portal/server/widget-auth/response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +40,7 @@ function isCallback(
   );
 }
 
-export const POST = widgetRoute(async (req: Request) => {
+export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as PrivyCallback | null;
   if (!isCallback(body)) {
     return NextResponse.json(
@@ -79,10 +75,4 @@ export const POST = widgetRoute(async (req: Request) => {
       { status: 502 },
     );
   }
-}, "Privy delegation callback");
-
-// The Mini App calls this BFF route from a different origin. Without the
-// explicit preflight, the browser accepts the automatic 204 but refuses to
-// send the callback POST, leaving Privy's signer installed without recording
-// the matching Aomi signing delegation.
-export const OPTIONS = widgetPreflight(["POST", "OPTIONS"]);
+}

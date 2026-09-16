@@ -136,7 +136,7 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "evm.tx.simulate_batch": {
     title: "fixed",
-    fixedTitle: "Simulate transaction",
+    fixedTitle: "Simulate batch",
     icon: SHAPE_ICONS.simulation,
     chipPlan: [
       { kind: "chain" },
@@ -236,7 +236,7 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "svm.tx.simulate_batch": {
     title: "fixed",
-    fixedTitle: "Simulate transaction",
+    fixedTitle: "Simulate batch",
     icon: SHAPE_ICONS.simulation,
     chipPlan: [{ kind: "count", role: "tx" }, { kind: "status" }],
   },
@@ -258,8 +258,7 @@ const descriptorById: Record<string, Descriptor> = {
 };
 
 const stagedDescriptor: Descriptor = {
-  title: "fixed",
-  fixedTitle: "Stage transaction",
+  title: "label",
   icon: "stagedAction",
   chipPlan: [
     { kind: "chain" },

@@ -1,9 +1,5 @@
 import { createRoot } from "react-dom/client";
-import {
-  AomiWidget,
-  type AomiRoutingConfig,
-  type CrossOriginWidgetAuth,
-} from "@aomi-labs/widget-lib";
+import { AomiWidget, type CrossOriginWidgetAuth } from "@aomi-labs/widget-lib";
 import "@aomi-labs/widget-lib/providers/para";
 import "@aomi-labs/widget-lib/providers/privy";
 import "@aomi-labs/widget-lib/styles.css";
@@ -18,19 +14,6 @@ const configuredApplicationId =
   import.meta.env.VITE_AOMI_APPLICATION_ID?.trim();
 const applicationId =
   params.get("application_id")?.trim() || configuredApplicationId;
-const numericApplicationId = Number(applicationId);
-const routing: AomiRoutingConfig =
-  Number.isSafeInteger(numericApplicationId) && numericApplicationId > 0
-    ? {
-        targets: [
-          { mode: "auto" },
-          {
-            mode: "direct",
-            apps: [{ applicationId: numericApplicationId }],
-          },
-        ],
-      }
-    : { targets: [{ mode: "auto" }] };
 const providerParam = params.get("provider");
 const provider =
   providerParam === "para" || providerParam === "privy"
@@ -49,12 +32,7 @@ const paraApiKey =
 const privyAppId = import.meta.env.VITE_PRIVY_APP_ID?.trim() || undefined;
 const auth: CrossOriginWidgetAuth =
   provider === "para"
-    ? {
-        kind: "embedded_wallet",
-        provider: "para",
-        environment,
-        apiKey: paraApiKey,
-      }
+    ? { kind: "embedded_wallet", provider: "para", environment, apiKey: paraApiKey }
     : provider === "privy"
       ? { kind: "embedded_wallet", provider: "privy", appId: privyAppId }
       : { kind: "browser_wallet" };
@@ -81,8 +59,8 @@ function App() {
         <p className="eyebrow">Cross-origin integration fixture</p>
         <h1>Aomi Widget</h1>
         <p>
-          This Vite app embeds the widget and talks to a separate Portal origin
-          using an origin-bound widget session token. It does not rely on Portal
+          This Vite app runs on port 3001 and talks to Portal on port 3000 using
+          an origin-bound widget session token. It does not rely on Portal
           cookies.
         </p>
         <nav className="provider-fixtures" aria-label="Wallet provider fixture">
@@ -106,8 +84,8 @@ function App() {
           </a>
         </nav>
         <p className="fixture-note">
-          Provider selection and allowed routing are host concerns. This fixture
-          offers Auto plus its hosted application as Direct.
+          Provider selection is a host concern. Execution remains
+          backend-resolved for application {applicationId}.
         </p>
       </header>
       <AomiWidget
@@ -115,7 +93,6 @@ function App() {
         initialThreadId={initialThreadId}
         apiUrl={apiUrl}
         auth={auth}
-        routing={routing}
         wallets={{
           evm: {
             preset: "popular",

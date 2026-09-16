@@ -240,7 +240,7 @@ export function IntegrationShowcases({
                   points={[
                     "Each trader chats on their own Aomi identity and wallet",
                     "Route, slippage, and notional policy checked before signing",
-                    "Autonomous signing is off until the trader enables it in Aomi Wallet",
+                    "Autonomous signing is off until the trader turns it on with /permission",
                   ]}
                 />
               </article>
@@ -653,7 +653,7 @@ function TelegramChat({
             <div className={styles.tgKeyboard}>Review order · {data.title}</div>
             <div className={styles.tgKeyboard}>Approve &amp; sign&nbsp;↗</div>
             <div className={`${styles.tgKeyboard} ${styles.tgKeyboardMuted}`}>
-              /wallet · manual <em>· agent cannot sign alone</em>
+              /permission · manual <em>· agent cannot sign alone</em>
             </div>
           </div>
         </div>

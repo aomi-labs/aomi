@@ -414,10 +414,7 @@ export function isUnboundWalletError(error: unknown): boolean {
       : typeof error === "string"
         ? error
         : "";
-  return (
-    text.includes("signing_unbound_wallet") ||
-    text.includes("signing_svm_account_link_required_for_hosted")
-  );
+  return text.includes("signing_unbound_wallet");
 }
 
 function isAlreadyBound(error: unknown): boolean {

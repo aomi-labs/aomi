@@ -2,11 +2,7 @@
 // API Client (re-exported from @aomi-labs/client)
 // =============================================================================
 export { AomiClient } from "@aomi-labs/client";
-export type {
-  AgentMode,
-  AgentTarget,
-  AomiClientOptions,
-} from "@aomi-labs/client";
+export type { AomiClientOptions } from "@aomi-labs/client";
 export type {
   Action,
   ActionRequest,
@@ -114,7 +110,7 @@ export {
   SUPPORTED_CHAINS,
   type ChainInfo,
 } from "./runtime/utils";
-export { resolveAutoModel } from "./control/model-selection";
+export { resolveAutoModel } from "./utils/model-selection";
 
 // =============================================================================
 // Notification Context (for toast UI)
@@ -136,7 +132,6 @@ export {
   useControl,
   useApiKey,
   useByok,
-  useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
   ControlContextProvider,

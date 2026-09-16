@@ -353,8 +353,6 @@ export type AomiWalletKit = {
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
-  /** Live message-signing capability, not merely a linked account record. */
-  canSignFor?: (family: "evm" | "svm", address: string) => boolean;
   signMessage?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
@@ -369,7 +367,7 @@ export type AomiWalletKit = {
    * deserialization failure, mirroring what wallet adapters do.
    *
    * Optional like `signTypedData` — adapters that don't support Solana
-   * (e.g. base-account) leave it undefined; the wallet Action handler rejects
+   * (e.g. base-account) leave it undefined; `RuntimeTxHandler` rejects
    * the request with a "Solana wallet provider is not ready" error in
    * that case.
    */

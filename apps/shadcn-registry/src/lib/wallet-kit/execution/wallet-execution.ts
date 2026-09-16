@@ -197,15 +197,8 @@ export async function executeWalletKitTransaction({
   // fee-injected or dependent batch must not be silently split into
   // sequential sends.
   const requiresAtomicForBatch = isBatch && payload.aaStrict === true;
-  if (
-    payload.aaPreference === "none" &&
-    state.nativeWalletExecution?.sponsorship?.mode === "required"
-  ) {
-    throw new Error("wallet_sponsorship_incompatible_with_prepared_eoa");
-  }
   const nativeWalletExecution = resolveNativeWalletExecutionPolicy({
-    policy:
-      payload.aaPreference === "none" ? undefined : state.nativeWalletExecution,
+    policy: state.nativeWalletExecution,
     chainId: callList[0]?.chainId ?? state.currentChainId ?? 1,
     requiresAtomicForBatch,
   });
@@ -242,8 +235,7 @@ export async function executeWalletKitTransaction({
     execution = await executeWalletCalls({
       callList,
       currentChainId: state.currentChainId,
-      capabilities:
-        payload.aaPreference === "none" ? undefined : state.capabilities,
+      capabilities: state.capabilities,
       localPrivateKey: null,
       nativeWalletExecution,
       sendCallsSyncAsync: sendCallsSyncAsync

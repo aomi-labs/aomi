@@ -84,7 +84,7 @@ export function WidgetProductPageContent({
               [
                 "04",
                 "Users choose how the agent signs",
-                "Users enable autonomous signing for their own wallet once in the Aomi Wallet Mini App.",
+                "Agent wallets start unable to sign. /permission turns autonomous signing on—or back off—per user.",
               ],
             ].map(([number, title, body]) => (
               <li key={number}>

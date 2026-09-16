@@ -10,11 +10,7 @@ vi.mock("@aomi-labs/account/better-auth", () => ({
   readManagedOAuthClient: mocks.readClient,
 }));
 
-import {
-  applyManagedWidgetCors,
-  applyManagedWidgetOriginCors,
-  managedWidgetPreflight,
-} from "./cors";
+import { applyManagedWidgetCors, managedWidgetPreflight } from "./cors";
 
 beforeEach(() => {
   mocks.listOrigins.mockReset().mockResolvedValue(["https://partner.example"]);
@@ -100,56 +96,5 @@ describe("managed widget OAuth CORS", () => {
     expect(actual).toBe(response);
     expect(actual.headers.has("access-control-allow-origin")).toBe(false);
     expect(mocks.readClient).not.toHaveBeenCalled();
-  });
-
-  it("keeps exact-deployment first-party responses and auth errors on their original status", async () => {
-    const request = new Request(
-      "https://chat-portal-immutable-aomi-labs.vercel.app/v1/agent/chat",
-      {
-        method: "POST",
-        headers: {
-          origin: "https://chat-portal-immutable-aomi-labs.vercel.app",
-        },
-      },
-    );
-    const success = Response.json({ ok: true });
-    const failure = Response.json({ error: "invalid_token" }, { status: 401 });
-
-    expect(
-      await applyManagedWidgetCors({
-        request,
-        response: success,
-        clientId: undefined,
-      }),
-    ).toBe(success);
-    expect(
-      await applyManagedWidgetOriginCors({ request, response: failure }),
-    ).toBe(failure);
-    expect(mocks.readClient).not.toHaveBeenCalled();
-    expect(mocks.listOrigins).not.toHaveBeenCalled();
-  });
-
-  it("still rejects an unregistered origin on the immutable deployment", async () => {
-    const request = new Request(
-      "https://chat-portal-immutable-aomi-labs.vercel.app/v1/agent/chat",
-      { headers: { origin: "https://unregistered.example" } },
-    );
-    expect(
-      (
-        await applyManagedWidgetCors({
-          request,
-          response: new Response(),
-          clientId: undefined,
-        })
-      ).status,
-    ).toBe(403);
-    expect(
-      (
-        await applyManagedWidgetOriginCors({
-          request,
-          response: new Response(),
-        })
-      ).status,
-    ).toBe(403);
   });
 });

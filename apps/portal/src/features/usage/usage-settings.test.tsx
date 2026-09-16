@@ -1,14 +1,11 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank",
-  () => ({
-    CreditBank: () => <div>Credit Bank</div>,
-  }),
-);
+vi.mock("./credit-bank", () => ({
+  CreditBank: () => <div>Credit Bank</div>,
+}));
 
-import { UsageSettings } from "../../../../shadcn-registry/src/components/account-shell/features/usage/usage-settings";
+import { UsageSettings } from "./usage-settings";
 
 const STATEMENT = {
   entries: [

@@ -12,16 +12,6 @@ export type VerifiedTelegramLaunch = {
   botId: string;
   telegramUserId: string;
   startParam?: string;
-  /**
-   * Telegram's `auth_date`, in epoch seconds, as verified above.
-   *
-   * Returned because freshness is asymmetric across this system: the launch is
-   * accepted for 24 hours here, while the widget-auth routes require a proof no
-   * older than five minutes. A client that cannot see the age can only discover
-   * that gap as an `expired` failure halfway through a ceremony; with it, it can
-   * say "reopen this from Telegram" before the user starts.
-   */
-  authDate: number;
 };
 
 export type TelegramLaunchFailure =
@@ -70,11 +60,6 @@ export function verifyTelegramInitData(
   botId: string,
   options: {
     now?: number;
-    /**
-     * A caller may require a fresher proof for an action that links a new
-     * login factor. It may only tighten the default, never extend it.
-     */
-    maxAgeMs?: number;
     /** Test-only override. Production always verifies against Telegram's key. */
     publicKeyHex?: string;
   } = {},
@@ -97,11 +82,7 @@ export function verifyTelegramInitData(
   }
 
   const age = now - authDate * 1000;
-  const maxAgeMs = Math.min(options.maxAgeMs ?? MAX_AGE_MS, MAX_AGE_MS);
-  if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) {
-    return { ok: false, reason: "malformed" };
-  }
-  if (age > maxAgeMs || age < -MAX_CLOCK_SKEW_MS) {
+  if (age > MAX_AGE_MS || age < -MAX_CLOCK_SKEW_MS) {
     return { ok: false, reason: "expired" };
   }
 
@@ -128,7 +109,6 @@ export function verifyTelegramInitData(
   return {
     ok: true,
     launch: {
-      authDate,
       botId,
       telegramUserId: userId,
       startParam: fields.get("start_param") ?? undefined,

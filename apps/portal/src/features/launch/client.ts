@@ -11,7 +11,7 @@ import {
   type GitHubSessionInfo,
   type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
-import { sessionScopedFetch } from "@aomi-labs/widget-lib/host-composition";
+import { sessionScopedFetch } from "@portal/lib/settings-api";
 import type {
   LaunchActivateResult,
   LaunchAppStatusesResult,

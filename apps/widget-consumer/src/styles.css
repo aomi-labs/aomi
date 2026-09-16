@@ -21,27 +21,23 @@ body {
   padding: 32px 0;
 }
 
-.shell > header {
+header {
   max-width: 760px;
   margin-bottom: 24px;
 }
 
-.shell > header h1,
-.shell > header p,
-.setup h1,
-.setup p {
+h1,
+p {
   margin-top: 0;
 }
 
-.shell > header h1,
-.setup h1 {
+h1 {
   margin-bottom: 8px;
   font-size: clamp(2rem, 5vw, 3.75rem);
   line-height: 1;
 }
 
-.shell > header p,
-.setup p {
+p {
   color: #aeb9c8;
   line-height: 1.6;
 }

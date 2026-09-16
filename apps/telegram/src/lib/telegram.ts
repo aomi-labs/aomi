@@ -4,41 +4,9 @@ export type TelegramLaunch = {
   botId: string;
   telegramUserId: string;
   startParam?: string;
-  /** Epoch seconds, as verified by `/api/telegram/launch`. */
-  authDate: number;
 };
 
-/** How long the portal's widget-auth routes accept a launch proof.
- *
- *  This app's own `/api/telegram/launch` accepts 24 hours, but every call that
- *  matters — `custom-auth`, `exchange` — forces five minutes. A Mini App left
- *  open past that point looks fine and then fails mid-ceremony with `expired`,
- *  which reads as a bug rather than as "reopen this". Knowing the deadline lets
- *  the page say so first. Kept slightly under the server's window so a request
- *  started just inside it still lands. */
-export const LAUNCH_PROOF_TTL_MS = 4.5 * 60 * 1000;
-
-/** Whether the launch proof is still inside the window the BFF will accept. */
-export function launchProofIsFresh(
-  launch: LaunchContext | null,
-  now: number = Date.now(),
-): boolean {
-  // A local preview has no proof and no deadline to miss.
-  if (!launch?.proof) return true;
-  return now - launch.authDate * 1000 < LAUNCH_PROOF_TTL_MS;
-}
-
-/** Every launch this app receives is an inline `web_app` button built by the
- *  bot, and that URL always carries `session_id`
- *  (product-mono `aomi/bin/telegram/src/mini_app.rs`). Telegram only populates
- *  `start_param` for direct-link launches (`t.me/<bot>/<app>?startapp=…`),
- *  which nothing generates — so the old fallback to it was unreachable code
- *  that read as a supported path. If direct links are ever added, restore it
- *  deliberately, with the bot emitting the parameter. */
-
 export type LaunchContext = {
-  /** Epoch seconds from the verified launch; 0 when there is no proof. */
-  authDate: number;
   inTelegram: boolean;
   proof: {
     botId: string;
@@ -46,6 +14,9 @@ export type LaunchContext = {
     telegramUserId: string;
   } | null;
   sessionId: string | null;
+  permissionChain: string | null;
+  permissionWallet: string | null;
+  permissionMode: string | null;
   verified: boolean;
 };
 
@@ -67,13 +38,18 @@ export async function establishTelegramLaunch(): Promise<LaunchContext> {
   webApp?.expand();
 
   const querySessionId = queryValue("session_id");
+  const permissionChain = queryValue("permission_chain");
+  const permissionWallet = queryValue("permission_wallet");
+  const permissionMode = queryValue("permission_mode");
   if (!webApp?.initData) {
     if (!isLocalPreview()) throw new Error("open_from_telegram");
     return {
-      authDate: 0,
       inTelegram: false,
       proof: null,
       sessionId: querySessionId,
+      permissionChain,
+      permissionWallet,
+      permissionMode,
       verified: false,
     };
   }
@@ -96,14 +72,16 @@ export async function establishTelegramLaunch(): Promise<LaunchContext> {
   const launch = body as TelegramLaunch;
 
   return {
-    authDate: launch.authDate,
     inTelegram: true,
     proof: {
       botId,
       initData: webApp.initData,
       telegramUserId: launch.telegramUserId,
     },
-    sessionId: querySessionId,
+    sessionId: querySessionId ?? launch.startParam ?? null,
+    permissionChain,
+    permissionWallet,
+    permissionMode,
     verified: true,
   };
 }

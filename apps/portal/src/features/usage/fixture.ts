@@ -12,7 +12,7 @@
  * API-server `/v1/account/statement`; tool/outcome subjects remain absent
  * until their ledger writers exist.
  */
-import type { UsageFixtureData } from "@aomi-labs/widget-lib/host-composition";
+import type { UsageFixtureData } from "./types";
 
 export const usageFixture: UsageFixtureData = {
   account: {

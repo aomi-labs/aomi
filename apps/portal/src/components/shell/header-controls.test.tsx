@@ -1,55 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { HeaderControls } from "../../../../shadcn-registry/src/components/account-shell/components/shell/header-controls";
-
-const setActivityOpen = vi.fn();
-let activityAvailable = false;
-let activityOpen = false;
+import { HeaderControls } from "./header-controls";
 
 vi.mock("@aomi-labs/widget-lib", () => ({
   NetworkSelect: () => <button type="button">Network</button>,
-  useActivityPanel: () => ({
-    worthShowing: activityAvailable,
-    reviewing: false,
-    open: activityOpen,
-    setOpen: setActivityOpen,
+}));
+
+vi.mock("@portal/lib/use-settings", () => ({
+  useSettings: () => ({
+    settings: { colorMode: "dark" },
+    updateSetting: vi.fn(),
   }),
 }));
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/control-bar/network-select",
-  () => ({ NetworkSelect: () => <button type="button">Network</button> }),
-);
-
-vi.mock(
-  "../../../../shadcn-registry/src/components/activity-sidebar/activity-panel-context",
-  () => ({
-    useActivityPanel: () => ({
-      worthShowing: activityAvailable,
-      reviewing: false,
-      open: activityOpen,
-      setOpen: setActivityOpen,
-    }),
-  }),
-);
-
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
-  () => ({
-    useSettings: () => ({
-      settings: { colorMode: "dark" },
-      updateSetting: vi.fn(),
-    }),
-  }),
-);
-
-afterEach(() => {
-  cleanup();
-  activityAvailable = false;
-  activityOpen = false;
-  setActivityOpen.mockReset();
-});
+afterEach(cleanup);
 
 describe("HeaderControls", () => {
   it("hides account settings while the Portal session is anonymous", () => {
@@ -65,15 +30,8 @@ describe("HeaderControls", () => {
       screen.queryByRole("button", { name: "Open settings" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Open capability library" }),
+      screen.getByRole("button", { name: "Browse packages" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Chat activity unavailable" }),
-    ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Chat activity unavailable" }),
-    );
-    expect(setActivityOpen).not.toHaveBeenCalled();
   });
 
   it("shows account settings for an authenticated account", () => {
@@ -88,27 +46,5 @@ describe("HeaderControls", () => {
     expect(
       screen.getByRole("button", { name: "Open settings" }),
     ).toBeInTheDocument();
-  });
-
-  it("toggles available chat activity from the header", () => {
-    activityAvailable = true;
-    render(
-      <HeaderControls
-        showSettings
-        onOpenSettings={vi.fn()}
-        onOpenPackages={vi.fn()}
-      />,
-    );
-
-    const theme = screen.getByRole("switch", { name: "Dark mode" });
-    const activity = screen.getByRole("button", {
-      name: "Show chat activity",
-    });
-    expect(theme.compareDocumentPosition(activity)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-
-    fireEvent.click(activity);
-    expect(setActivityOpen).toHaveBeenCalledWith(true);
   });
 });

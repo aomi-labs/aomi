@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FC } from "react";
+import { ChevronDownIcon, CheckIcon } from "lucide-react";
 import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,26 +16,15 @@ import {
   CommandItem,
   CommandList,
   CommandInput,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   groupModelsByVendor,
   getVendorForModel,
-  AUTO_MODEL_LABEL,
+  AUTO_MODE_LABEL,
   resolveAutoModel,
 } from "./model-metadata";
 import { AutoModeIcon, getVendorIcon } from "@/components/icons";
-import {
-  ControlMenuCheck,
-  ControlSelectChevron,
-  controlMenuCommandClass,
-  controlMenuContentClass,
-  controlMenuGroupClass,
-  controlMenuIconClass,
-  controlMenuItemClass,
-  controlMenuListClass,
-  controlSelectTriggerClass,
-  useControlMenuHighlight,
-} from "./control-menu";
 
 export type ModelSelectProps = {
   className?: string;
@@ -45,11 +35,14 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   className,
   placeholder = "Select model",
 }) => {
-  const { state, getAvailableModels, getCurrentThreadControl, onModelSelect } =
-    useControl();
+  const {
+    state,
+    getAvailableModels,
+    getCurrentThreadControl,
+    onModelSelect,
+  } = useControl();
   const { isRunning } = useAomiRuntime();
   const [open, setOpen] = useState(false);
-  const { resetHighlight, commandHighlightProps } = useControlMenuHighlight();
 
   useEffect(() => {
     void getAvailableModels();
@@ -86,7 +79,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   const groups = groupModelsByVendor(models);
 
   // Display label for the trigger button
-  const triggerLabel = isAuto ? AUTO_MODEL_LABEL : selectedModel || placeholder;
+  const triggerLabel = isAuto ? AUTO_MODE_LABEL : selectedModel || placeholder;
 
   const handleSelect = (model: string) => {
     if (isRunning) return;
@@ -105,13 +98,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        resetHighlight();
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -119,8 +106,8 @@ export const ModelSelect: FC<ModelSelectProps> = ({
           aria-expanded={open}
           disabled={isRunning}
           className={cn(
-            controlSelectTriggerClass,
-            "w-auto justify-start",
+            "h-8 w-auto min-w-0 justify-between rounded-full px-0.5 text-xs md:min-w-[100px] md:px-3",
+            "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
             isRunning && "cursor-not-allowed opacity-50",
             className,
           )}
@@ -140,49 +127,53 @@ export const ModelSelect: FC<ModelSelectProps> = ({
             })()}
             <span className="truncate">{triggerLabel}</span>
           </div>
-          <ControlSelectChevron />
+          <ChevronDownIcon className="ml-0 h-3 w-3 shrink-0 opacity-50 md:ml-2" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        side="bottom"
         sideOffset={4}
-        avoidCollisions
-        collisionPadding={8}
-        className={controlMenuContentClass}
+        className="w-[280px] overflow-hidden rounded-xl p-0"
         onOpenAutoFocus={(e) => {
           if (window.matchMedia("(max-width: 767px)").matches) {
             e.preventDefault();
           }
         }}
       >
-        <Command className={controlMenuCommandClass} {...commandHighlightProps}>
+        <Command className="rounded-xl">
           <CommandInput placeholder="Search models..." />
-          <CommandList className={controlMenuListClass}>
+          <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
 
             {/* Auto mode — pinned at top */}
-            <CommandGroup className={controlMenuGroupClass}>
+            <CommandGroup>
               <CommandItem
                 value="auto"
                 disabled={isRunning}
                 onSelect={handleAutoSelect}
-                className={controlMenuItemClass}
+                className="flex items-center justify-between gap-2"
               >
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className={controlMenuIconClass}>
-                    <AutoModeIcon className="size-4" />
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+                      "bg-primary/10 text-primary",
+                    )}
+                  >
+                    <AutoModeIcon className="h-3.5 w-3.5" />
                   </span>
                   <div className="flex flex-col">
-                    <span className="font-medium">{AUTO_MODEL_LABEL}</span>
-                    <span className="text-aomi-muted text-[11px] leading-4">
-                      Balanced speed and cost
+                    <span className="font-medium">{AUTO_MODE_LABEL}</span>
+                    <span className="text-muted-foreground text-xs">
+                      Best balance of speed & cost
                     </span>
                   </div>
                 </div>
-                <ControlMenuCheck selected={isAuto} />
+                {isAuto && <CheckIcon className="h-4 w-4 shrink-0" />}
               </CommandItem>
             </CommandGroup>
+
+            <CommandSeparator />
 
             {/* Vendor-grouped models */}
             {groups.map((group) => {
@@ -191,7 +182,6 @@ export const ModelSelect: FC<ModelSelectProps> = ({
                 <CommandGroup
                   key={group.vendor.id}
                   heading={group.vendor.label}
-                  className={controlMenuGroupClass}
                 >
                   {group.models.map((model) => (
                     <CommandItem
@@ -199,23 +189,28 @@ export const ModelSelect: FC<ModelSelectProps> = ({
                       value={model}
                       disabled={isRunning}
                       onSelect={() => handleSelect(model)}
-                      className={controlMenuItemClass}
+                      className="flex items-center justify-between gap-2"
                     >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <span className={controlMenuIconClass}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+                            "bg-muted text-muted-foreground",
+                          )}
+                        >
                           {VendorIcon ? (
-                            <VendorIcon className="size-4" />
+                            <VendorIcon className="h-3.5 w-3.5" />
                           ) : (
-                            <span className="text-[11px] font-medium">
+                            <span className="text-[10px] font-medium">
                               {group.vendor.abbr}
                             </span>
                           )}
                         </span>
                         <span className="truncate">{model}</span>
                       </div>
-                      <ControlMenuCheck
-                        selected={!isAuto && selectedModel === model}
-                      />
+                      {!isAuto && selectedModel === model && (
+                        <CheckIcon className="h-4 w-4 shrink-0" />
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

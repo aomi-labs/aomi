@@ -9,7 +9,6 @@ export type AomiAuthClass =
   | "service"
   | "admin"
   | "activation"
-  | "activation-admin"
   | "activation-or-wallet"
   | "wallet"
   | "wallet-session";

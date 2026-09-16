@@ -13,49 +13,12 @@ const IMPORT_EXPORT_RE =
 const baseDir = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(baseDir, "../dist");
 const srcDir = path.resolve(baseDir, "../src");
-const packageManifest = JSON.parse(
-  readFileSync(path.resolve(baseDir, "../package.json"), "utf8"),
-);
 
-function resolveNpmDependency(name) {
-  const version =
-    packageManifest.dependencies?.[name] ??
-    packageManifest.peerDependencies?.[name];
-  if (!version) {
-    throw new Error(`Registry dependency ${name} is absent from package.json`);
-  }
-  if (!version.startsWith("workspace:")) return `${name}@${version}`;
-
-  const workspacePackage = JSON.parse(
-    readFileSync(
-      path.resolve(
-        baseDir,
-        "../../../packages",
-        name.split("/").at(-1),
-        "package.json",
-      ),
-      "utf8",
-    ),
-  );
-  if (workspacePackage.name !== name) {
-    throw new Error(`Registry dependency ${name} has no matching workspace`);
-  }
-  return `${name}@${workspacePackage.version}`;
-}
-
-function resolveFileLocation(filePath) {
-  if (filePath.endsWith(".css")) return { type: "registry:style" };
-  for (const [prefix, type, alias] of [
-    ["components/ui/", "registry:ui", "@ui/"],
-    ["components/", "registry:component", "@components/"],
-    ["hooks/", "registry:hook", "@hooks/"],
-    ["lib/", "registry:lib", "@lib/"],
-  ]) {
-    if (filePath.startsWith(prefix)) {
-      return { type, target: alias + filePath.slice(prefix.length) };
-    }
-  }
-  throw new Error(`Unknown registry file location: ${filePath}`);
+function resolveFileType(filePath) {
+  if (filePath.endsWith(".css")) return "registry:style";
+  if (filePath.includes("/hooks/")) return "registry:hook";
+  if (filePath.includes("/lib/")) return "registry:lib";
+  return "registry:component";
 }
 
 function fileExists(registryFilePath) {
@@ -144,16 +107,9 @@ function buildComponent(entry) {
 
   const files = filePaths.map((f) => {
     const content = readFileSync(path.join(srcDir, f), "utf8");
-    return { ...resolveFileLocation(f), path: f, content };
+    return { type: resolveFileType(f), path: f, content };
   });
   validateInternalImports(entry, files);
-  const dependencies = (entry.dependencies ?? []).map(resolveNpmDependency);
-  const registryDependencies = (entry.registryDependencies ?? []).map(
-    (dependency) =>
-      registry.some((candidate) => candidate.name === dependency)
-        ? `${REGISTRY_HOMEPAGE}/r/${dependency}.json`
-        : dependency,
-  );
 
   const payload = {
     $schema: "https://ui.shadcn.com/schema/registry-item.json",
@@ -161,8 +117,8 @@ function buildComponent(entry) {
     type: entry.type ?? "registry:component",
     description: entry.description,
     files,
-    dependencies,
-    registryDependencies,
+    dependencies: entry.dependencies ?? [],
+    registryDependencies: entry.registryDependencies ?? [],
   };
 
   const outPath = path.join(distDir, `${entry.name}.json`);
@@ -173,13 +129,9 @@ function buildComponent(entry) {
     name: entry.name,
     type: entry.type ?? "registry:component",
     description: entry.description,
-    files: files.map(({ type, path: p, target }) => ({
-      type,
-      path: p,
-      target,
-    })),
-    dependencies,
-    registryDependencies,
+    files: files.map(({ type, path: p }) => ({ type, path: p })),
+    dependencies: entry.dependencies ?? [],
+    registryDependencies: entry.registryDependencies ?? [],
   };
 }
 

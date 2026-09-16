@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccountManagement } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management";
-import type { UnifiedAccountWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
+import { AccountManagement } from "./account-management";
+import type { UnifiedAccountWallet } from "./wallet-management-model";
 
 const connectedWallet: UnifiedAccountWallet = {
   key: "evm:0xda65",
@@ -35,26 +35,6 @@ const inactiveWallet: UnifiedAccountWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
-  it("opens the canonical wallet chooser from Add wallet", () => {
-    const onAddWallet = vi.fn();
-    render(
-      <AccountManagement
-        user={{ id: "user-1", displayName: "Aron" }}
-        wallets={[]}
-        signInMethods={[]}
-        canAddWallet
-        addSignInOptions={[]}
-        pending={null}
-        onAddWallet={onAddWallet}
-        onAddSignIn={async () => undefined}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Add wallet" }));
-
-    expect(onAddWallet).toHaveBeenCalledTimes(1);
-  });
-
   it("edits the account name in place without relabeling the row", async () => {
     const onRenameAccount = vi.fn(async () => undefined);
     render(
@@ -62,11 +42,11 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
-        canAddWallet={false}
+        addWalletOptions={[]}
         addSignInOptions={[]}
         pending={null}
         onRenameAccount={onRenameAccount}
-        onAddWallet={() => undefined}
+        onAddWallet={async () => undefined}
         onAddSignIn={async () => undefined}
       />,
     );
@@ -96,11 +76,11 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[]}
         signInMethods={[]}
-        canAddWallet={false}
+        addWalletOptions={[]}
         addSignInOptions={[]}
         pending={null}
         onRenameAccount={async () => undefined}
-        onAddWallet={() => undefined}
+        onAddWallet={async () => undefined}
         onAddSignIn={async () => undefined}
       />,
     );
@@ -128,10 +108,10 @@ describe("AccountManagement wallet actions", () => {
         user={{ id: "user-1", displayName: "Aron" }}
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
-        canAddWallet={false}
+        addWalletOptions={[]}
         addSignInOptions={[]}
         pending={null}
-        onAddWallet={() => undefined}
+        onAddWallet={async () => undefined}
         onAddSignIn={async () => undefined}
         onConnectWallet={onConnectWallet}
         onDisconnectWallet={onDisconnectWallet}
