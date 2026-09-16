@@ -13,9 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Select preview paths
+    runs-on: ubuntu-latest
+    outputs:
+      preview: ${{ steps.select.outputs.preview }}
+    steps:
+      - name: Checkout comparison history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select affected checks
+        id: select
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_DIFF_MODE: pull_request
+        run: node .github/scripts/select-ci-paths.mjs
+
   playwright:
     name: Playwright Preview (non-blocking observation)
-    if: vars.PLAYWRIGHT_PREVIEW_MODE != 'nightly'
+    needs: changes
+    if: needs.changes.outputs.preview == 'true' && vars.PLAYWRIGHT_PREVIEW_MODE != 'nightly'
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 25
