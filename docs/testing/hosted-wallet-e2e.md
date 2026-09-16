@@ -8,14 +8,17 @@ only the exact Portal SIWE/SIWS challenge can be signed. The server verifies the
 signature and creates the real Better Auth session. No test fabricates a session
 cookie or a successful chat response.
 
-The third scenario asks the hosted model to construct and simulate one native
-transfer of exactly 1 wei on Base Sepolia (chain 84532) to
+The third scenario selects Direct execution and asks the hosted model to use
+the connected wallet's attended `human_sync` path to construct and simulate one
+native transfer of exactly 1 wei on Base Sepolia (chain 84532) to
 `0x0000000000000000000000000000000000000000`. It checks the pending action's
 sender, recipient, chain, value, empty calldata, approvals, simulation result,
 and the rendered `0.000000000000000001` native-token outflow. Fee estimates
 remain distinct from the transfer amount. The test never clicks **Send to
 wallet**. All provider transaction methods reject, and browser routes that
 could broadcast or approve a transaction are aborted and counted as failures.
+The prompt explicitly forbids Privy delegation because this case verifies the
+attended wallet-review path, not autonomous custody.
 
 The trusted `Hosted Wallet E2E` workflow runs only by manual dispatch or an
 opt-in weekday nightly schedule. It checks out main, uses one Chromium worker,
@@ -31,13 +34,15 @@ run:
   scenario.
 - `AOMI_HOSTED_E2E_SVM_SECRET_KEY`: a separate disposable 64-byte Solana secret
   key, encoded as a JSON byte array or base58 string.
-- `AOMI_HOSTED_E2E_RPC_URL`: HTTPS RPC for the selected EVM public chain.
 
-Set `AOMI_HOSTED_E2E_CHAIN_ID=84532` as an environment variable, and set the
-repository variable `AOMI_HOSTED_WALLET_E2E_NIGHTLY=1` only when the nightly run is wanted. The
+The staging workflow pins `AOMI_HOSTED_E2E_CHAIN_ID=84532` and the public HTTPS
+Base Sepolia RPC directly in its environment. Its preflight validates both
+wallet inputs and confirms the RPC reports chain 84532 before installing
+dependencies or Chromium. Set the repository variable
+`AOMI_HOSTED_WALLET_E2E_NIGHTLY=1` only when the nightly run is wanted. The
 default workflow target is the canonical staging Portal. No production wallet,
-personal wallet, funding action, local chain, local backend, or browser extension
-is part of this test.
+personal wallet, funding action, local chain, local backend, or browser
+extension is part of this test.
 
 To run locally, supply those variables to the process and run
 `pnpm exec playwright test --project=hosted-wallet --workers=1`. Missing keys,
