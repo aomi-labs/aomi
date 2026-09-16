@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
