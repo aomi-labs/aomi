@@ -89,6 +89,8 @@
     "test:openapi": "vitest run packages/client/test/backend-openapi.contract.test.ts",
     "generate:agent-api": "node scripts/generate-agent-api-contract.mjs",
     "check:agent-api": "node scripts/check-agent-api-contract.mjs",
+    "sync:db-pool-budgets": "node scripts/sync-db-pool-budgets.mjs",
+    "check:db-pool-budgets": "node scripts/sync-db-pool-budgets.mjs --check",
     "test:openapi:live": "node scripts/test-live-backend-openapi.mjs",
     "update:backend-openapi": "node scripts/update-backend-openapi.mjs",
     "check": "pnpm run lint && pnpm run typecheck && pnpm exec vitest run",

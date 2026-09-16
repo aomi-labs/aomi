@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import budgets from "../src/db/pool-budgets.json";
 import {
   resolveAccountConnectionString,
   resolveAccountPoolOptions,
+  resolvePortalBudget,
 } from "../src/db/pool";
+
+const stagingPooler = `postgresql://postgres.${budgets.staging.project_ref}:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres`;
 
 describe("resolveAccountConnectionString", () => {
   const sessionPooler =
@@ -43,7 +47,16 @@ describe("resolveAccountConnectionString", () => {
 });
 
 describe("resolveAccountPoolOptions", () => {
-  it("uses one short-lived connection per Vercel function instance", () => {
+  it("takes the budgeted per-instance allowance on Vercel", () => {
+    const portal = budgets.staging.portal;
+    expect(resolveAccountPoolOptions({ VERCEL: "1" }, stagingPooler)).toEqual({
+      max: portal.max_connections_per_instance,
+      idleTimeoutMillis: portal.idle_timeout_ms,
+      connectionTimeoutMillis: portal.connection_timeout_ms,
+    });
+  });
+
+  it("keeps one short-lived connection per Vercel function instance", () => {
     expect(resolveAccountPoolOptions({ VERCEL: "1" })).toEqual({
       max: 1,
       idleTimeoutMillis: 5_000,
@@ -57,5 +70,27 @@ describe("resolveAccountPoolOptions", () => {
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
     });
+  });
+});
+
+describe("resolvePortalBudget", () => {
+  it("selects the environment by the connection string's project ref", () => {
+    const production = `postgresql://postgres:secret@db.${budgets.production.project_ref}.supabase.co:5432/postgres`;
+    expect(resolvePortalBudget(stagingPooler)).toBe(budgets.staging.portal);
+    expect(resolvePortalBudget(production)).toBe(budgets.production.portal);
+  });
+
+  it("rejects a hosted project with no budget", () => {
+    expect(() =>
+      resolvePortalBudget(
+        "postgresql://postgres.aaaaaaaaaaaaaaaaaaaa:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+      ),
+    ).toThrow("no entry in pool-budgets.json");
+  });
+
+  it("only ever routes serverless functions to the transaction pooler", () => {
+    for (const environment of Object.values(budgets)) {
+      expect(environment.portal.pooler_port).toBe(6543);
+    }
   });
 });
