@@ -167,7 +167,7 @@
     over.
   - `resolve`'s `GET /v1/account` was unbounded while the exchange around it
     had a 15s timeout. The backend's DB pool is deliberately 2 connections per
-    host (`infra/database-pool-budgets.json`) and staging logs ~20 saturation
+    host (product-mono `aomi/crates/database/pool-budgets.json`) and staging logs ~20 saturation
     events a day, so that call now aborts at 15s as `canonical_account_timeout`.
   - `sessionMatchesTelegram` also accepts `linkState.status === "done"`:
     `user.linkedAccounts` lags Privy's own link confirmation by a render or

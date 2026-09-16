@@ -80,6 +80,19 @@ describe("resolvePortalBudget", () => {
     expect(resolvePortalBudget(production)).toBe(budgets.production.portal);
   });
 
+  it("gives a non-Supabase URL the strictest allowance", () => {
+    expect(
+      resolvePortalBudget("postgresql://user:secret@db.example.com:5432/aomi")
+        .max_connections_per_instance,
+    ).toBe(
+      Math.min(
+        ...Object.values(budgets).map(
+          (environment) => environment.portal.max_connections_per_instance,
+        ),
+      ),
+    );
+  });
+
   it("rejects a hosted project with no budget", () => {
     expect(() =>
       resolvePortalBudget(

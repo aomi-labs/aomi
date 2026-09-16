@@ -43,6 +43,24 @@ function supabaseProjectRef(url: URL): string | undefined {
  * its pools, so the portal can never be sized for the other database. A
  * hosted project with no budget is configuration drift and fails loudly.
  */
+const portals = Object.values(budgets).map((environment) => environment.portal);
+
+/**
+ * The allowance for a connection string no budget names (not a Supabase
+ * project): the strictest value of each field across environments, so a later
+ * divergence between the environment blocks can only tighten it.
+ */
+const UNBUDGETED_PORTAL: PortalBudget = {
+  pooler_port: portals[0].pooler_port,
+  max_connections_per_instance: Math.min(
+    ...portals.map((portal) => portal.max_connections_per_instance),
+  ),
+  idle_timeout_ms: Math.min(...portals.map((portal) => portal.idle_timeout_ms)),
+  connection_timeout_ms: Math.min(
+    ...portals.map((portal) => portal.connection_timeout_ms),
+  ),
+};
+
 export function resolvePortalBudget(connectionString: string): PortalBudget {
   let url: URL | undefined;
   try {
@@ -51,7 +69,7 @@ export function resolvePortalBudget(connectionString: string): PortalBudget {
     url = undefined;
   }
   const ref = url && supabaseProjectRef(url);
-  if (!ref) return budgets.production.portal;
+  if (!ref) return UNBUDGETED_PORTAL;
   const budget = Object.values(budgets).find(
     (environment) => environment.project_ref === ref,
   );
