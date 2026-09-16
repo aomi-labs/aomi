@@ -752,7 +752,7 @@
                               ]
                             },
                             {
-                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
+                              "description": "Anonymous device \u2014 no DB record, metered in memory by client_id.",
                               "type": "string",
                               "enum": [
                                 "anon"
@@ -826,41 +826,6 @@
                           "created_at"
                         ]
                       }
-                    },
-                    "usage": {
-                      "description": "Aggregated usage with monthly credit fields for the frontend and credit gate.",
-                      "type": "object",
-                      "properties": {
-                        "period_utc_month": {
-                          "description": "`\"YYYY-MM-01\"` for monthly aggregation; empty for cross-period summaries.",
-                          "type": "string"
-                        },
-                        "input_tokens": {
-                          "type": "integer",
-                          "format": "int64"
-                        },
-                        "output_tokens": {
-                          "type": "integer",
-                          "format": "int64"
-                        },
-                        "credit_used": {
-                          "description": "Aomi credits consumed in the period.",
-                          "type": "number",
-                          "format": "double"
-                        },
-                        "credit_paid": {
-                          "description": "Allowance for the period (e.g. tier monthly cap in credits).",
-                          "type": "number",
-                          "format": "double"
-                        }
-                      },
-                      "required": [
-                        "period_utc_month",
-                        "input_tokens",
-                        "output_tokens",
-                        "credit_used",
-                        "credit_paid"
-                      ]
                     },
                     "user_accounts": {
                       "type": "array",
@@ -1478,7 +1443,6 @@
                   "required": [
                     "user",
                     "auth_providers",
-                    "usage",
                     "user_accounts",
                     "signing_policies",
                     "delegated_accounts",
@@ -1517,6 +1481,70 @@
         ]
       },
       "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps/{application_id}/secrets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/apps/{application_id}/secrets/{name}": {
+      "delete": {
         "responses": {
           "200": {
             "description": "OK"
@@ -2017,7 +2045,7 @@
         ]
       }
     },
-    "/api/thread/updates": {
+    "/api/thread/apps": {
       "get": {
         "responses": {
           "200": {
@@ -2051,7 +2079,7 @@
         ]
       }
     },
-    "/api/thread/apps": {
+    "/api/thread/updates": {
       "get": {
         "responses": {
           "200": {
@@ -3297,6 +3325,30 @@
         ]
       }
     },
+    "/api/platforms/{name}/venue": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/{bot}/{id}": {
       "get": {
         "responses": {
@@ -3307,19 +3359,6 @@
         "security": [],
         "x-aomi-auth": [
           "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
         ]
       }
     },
@@ -3363,6 +3402,19 @@
       }
     },
     "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
       "post": {
         "responses": {
           "200": {

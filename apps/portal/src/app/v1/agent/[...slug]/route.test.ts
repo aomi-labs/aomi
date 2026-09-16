@@ -27,7 +27,7 @@ vi.mock("@portal/server/oauth/resources", () => ({
   }),
 }));
 
-import { DELETE, GET, PATCH, POST } from "./route";
+import { DELETE, GET, OPTIONS, PATCH, POST } from "./route";
 
 describe("canonical Agent BFF route", () => {
   beforeEach(() => {
@@ -42,6 +42,56 @@ describe("canonical Agent BFF route", () => {
     );
     expect(response.status).toBe(401);
     expect(mocks.proxyAgentApi).not.toHaveBeenCalled();
+  });
+
+  it("answers a cross-origin preflight before auth and exposes auth errors", async () => {
+    const origin = "https://consumer.example";
+    const preflight = OPTIONS(
+      new Request("https://portal.example/v1/agent/chat", {
+        method: "OPTIONS",
+        headers: {
+          origin,
+          "access-control-request-method": "POST",
+          "access-control-request-headers": "authorization,content-type",
+        },
+      }),
+    );
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(preflight.headers.get("access-control-allow-methods")).toContain(
+      "POST",
+    );
+    expect(mocks.resolveApiPrincipal).not.toHaveBeenCalled();
+
+    mocks.resolveApiPrincipal.mockRejectedValue(new Error("invalid_token"));
+    const rejected = await POST(
+      new Request("https://portal.example/v1/agent/chat", {
+        method: "POST",
+        headers: { origin },
+      }),
+    );
+    expect(rejected.status).toBe(401);
+    expect(rejected.headers.get("access-control-allow-origin")).toBe(origin);
+  });
+
+  it("preserves a streamed proxy response and adds origin CORS", async () => {
+    mocks.resolveApiPrincipal.mockResolvedValue({ scopes: [] });
+    mocks.proxyAgentApi.mockResolvedValue(
+      new Response("data: done\\n\\n", {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    );
+    const response = await POST(
+      new Request("https://portal.example/v1/agent/chat", {
+        method: "POST",
+        headers: { origin: "https://consumer.example" },
+      }),
+    );
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "https://consumer.example",
+    );
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    expect(await response.text()).toBe("data: done\\n\\n");
   });
 
   it.each([GET, POST, PATCH, DELETE])(

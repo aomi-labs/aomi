@@ -1,5 +1,6 @@
 import * as accessors from "./accessors";
 import type { components } from "../generated/agent-v1/types";
+import type { AomiAccountProfile, AomiOnchainAddress } from "../types";
 
 /**
  * Client-side user state synced with the backend.
@@ -27,6 +28,61 @@ export const CLIENT_TYPE_TS_CLI: AomiClientType = "ts_cli";
 export const CLIENT_TYPE_WEB_UI: AomiClientType = "web_ui";
 
 export namespace UserState {
+  /** Display labels and provider names are not wallet identities. */
+  export function sameAddress(
+    left: AomiOnchainAddress,
+    right: AomiOnchainAddress,
+  ): boolean {
+    return (
+      left.chain === right.chain &&
+      (left.chain === "evm"
+        ? left.address.toLowerCase() === right.address.toLowerCase()
+        : left.address === right.address)
+    );
+  }
+
+  /** Choose the submitter before assembly, without changing the selected account.
+   *
+   * This only selects; it never blocks a turn. Auto with a live delegation
+   * defaults to Hosted. Explicit selections are preserved in every mode;
+   * this boundary cannot distinguish an intentional route from a stale one.
+   * Every rejection (locked wallet, missing delegation, Auto × Wallet, unknown mode) is left
+   * for the backend commit gate, which is authoritative and only fires when a
+   * transaction is actually prepared.
+   */
+  export function route(
+    state: UserState,
+    profile: AomiAccountProfile,
+    now = Date.now(),
+  ): UserState {
+    const next = { ...state };
+    for (const chain of ["evm", "svm"] as const) {
+      const wallet = state[chain];
+      if (!wallet?.address) continue;
+      const address = { chain, address: wallet.address };
+      const policy = profile.signing_policies.find((row) =>
+        sameAddress(row.address, address),
+      );
+      if (!policy) continue; // Guest/unbound wallets still face the backend gate.
+      if (policy.mode !== "auto") continue;
+      if (wallet.broadcaster === "wallet") continue; // Backend rejects Auto × Wallet.
+      const owner = profile.user_accounts.find((row) =>
+        sameAddress(row.address, address),
+      );
+      const delegation = profile.delegated_accounts.some(
+        (row) =>
+          sameAddress(row.address, address) &&
+          row.delegation_provider === owner?.auth_provider &&
+          row.status === "active" &&
+          row.revoked_at === null &&
+          (row.expires_at === null || row.expires_at * 1000 > now),
+      );
+      if (!delegation) continue; // Backend gate reports the missing delegation.
+      next[chain] = { ...wallet, broadcaster: wallet.broadcaster ?? "hosted" };
+    }
+    return next;
+  }
+
   export const address = accessors.address;
   export const evmAddress = accessors.evmAddress;
   export const svmAddress = accessors.svmAddress;

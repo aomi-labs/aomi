@@ -1,5 +1,11 @@
 # Orchestrator UI Integration Plan
 
+> Entry-point update (2026-09-03): the “orchestrator is an app in the selector”
+> decision in §1 is superseded by `specs/CAPABILITY-LIBRARY-AND-MENTIONS.md`.
+> Orchestrator remains an internal runtime app but is presented as the Coordinate
+> execution mode. The delegation event and Working trace sections below remain in
+> force.
+
 Status: PLANNED (2026-08-03). Decided UX is locked (see mock artifact and auto-memory
 `orchestrator-trace-ui-decisions`): agent rows auto-expand while live, auto-fold to a
 one-line summary when done (unless the user toggled them), "Orchestrating" header +
@@ -39,9 +45,10 @@ Work items (frontend only):
      rendered above the category groups, separated by a `CommandSeparator`.
 3. Control bar affordance: when `control.app === "orchestrator"`, the AppSelect
    trigger shows the orchestrator icon + name like any app — no extra chrome needed.
-   The *trace* is where the mode is announced (§4).
+   The _trace_ is where the mode is announced (§4).
 
 Notes:
+
 - The backend must include `orchestrator` in `GET /api/session/apps` descriptors for
   the account tiers that should see it. If it is to be gated (beta), gate it there —
   the selector renders only authorized apps, so no frontend flag is needed.
@@ -92,7 +99,7 @@ emitted from `crates/runtime/src/child_task.rs` / `child_task/drive.rs`):
 
 Redaction posture (decide once, here): `public_tool_return` currently strips the
 child's return message down to `{agent_id, status, staged_count}`. The done-state
-summary line needs prose. Recommendation: keep the *transcript* projection redacted
+summary line needs prose. Recommendation: keep the _transcript_ projection redacted
 as-is, but carry `ChildTaskResult.message` (first ~200 chars) on `task_completed`,
 and likewise pass child tool args/results through the same public-redaction rules
 used for mother-thread tool transcripts. Nothing new becomes visible that the mother
@@ -128,22 +135,33 @@ dispatch later requires no protocol change).
 ## 4. React runtime projection (`packages/react`)
 
 The live agent row cannot come from the transcript — the mother's `task` tool-call
-message only exists *after* the child finishes. So live state is a sidecar keyed by
+message only exists _after_ the child finishes. So live state is a sidecar keyed by
 `agent_id`, joined to the transcript part when it lands.
 
 1. `src/state/thread-store.ts` — per-thread `taskRuns: Record<agentId, TaskRunState>`:
 
 ```ts
 export type TaskRunStep =
-  | { kind: "tool_call"; toolName: string; args?: unknown; resultPreview?: string; childSeq: number }
+  | {
+      kind: "tool_call";
+      toolName: string;
+      args?: unknown;
+      resultPreview?: string;
+      childSeq: number;
+    }
   | { kind: "note"; text: string; childSeq: number };
 
 export type TaskRunState = {
-  agentId: string; callId: string; label: string; app: string | null;
+  agentId: string;
+  callId: string;
+  label: string;
+  app: string | null;
   status: "running" | "completed" | "failed" | "stalled" | "cancelled";
-  startedAt: number;                 // client clock at task_started
-  steps: TaskRunStep[];             // ordered by childSeq, deduped
-  message?: string; stagedCount?: number; durationMs?: number;
+  startedAt: number; // client clock at task_started
+  steps: TaskRunStep[]; // ordered by childSeq, deduped
+  message?: string;
+  stagedCount?: number;
+  durationMs?: number;
 };
 ```
 
@@ -204,7 +222,7 @@ New component `WorkingAgent` (new file `working-agent.tsx`, class root
   (`control.app === "orchestrator"` or any `taskRuns` entry is live for this turn):
   label "Orchestrating" instead of "Working"; add badge chip
   (`aui-working-badge`: mono 10px uppercase, `bg-aomi-accent-subtle
-  text-aomi-accent-strong rounded-full px-2`). Done label "Orchestrated for Xs";
+text-aomi-accent-strong rounded-full px-2`). Done label "Orchestrated for Xs";
   badge repeats on the collapsed pill. Decide from turn data (presence of task
   parts/sidecar), not just current thread app, so scrollback renders correctly
   after the user switches apps.
@@ -215,7 +233,7 @@ New component `WorkingAgent` (new file `working-agent.tsx`, class root
   plus child steps (matches the mocks: "9 steps").
 
 Tool interpreter: add a `task` matcher to
-`tool-interpreter/families/` so *Phase 0 / degraded* renders of the transcript part
+`tool-interpreter/families/` so _Phase 0 / degraded_ renders of the transcript part
 get a sane title ("Delegated: swap-worker") + chips (`agent_id` short-hash, staged
 count) instead of `humanize("task")`.
 

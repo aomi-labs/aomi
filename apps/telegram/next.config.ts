@@ -6,22 +6,25 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(appRoot, "../..");
 const appNodeModules = path.join(appRoot, "node_modules");
 
-// Para consumes React Query through a peer dependency. Pin both sides to the
-// app copy so the provider and Para hooks share the same runtime context.
-
 const nextConfig: NextConfig = {
   agentRules: false,
   reactStrictMode: true,
-  output: "standalone",
   outputFileTracingRoot: workspaceRoot,
-  transpilePackages: ["@aomi-labs/client"],
+  // `@aomi-labs/widget-lib` is consumed for its Privy-free UI primitives and
+  // design tokens only. Its wallet providers pin Privy v2 while this app runs
+  // v3, so nothing under `providers/*` or `lib/wallet-kit` may ever be imported
+  // here — see the bundle check in the package's `check` script.
+  transpilePackages: [
+    "@aomi-labs/client",
+    "@aomi-labs/react",
+    "@aomi-labs/widget-lib",
+  ],
   turbopack: {
     resolveAlias: {
       "@aomi-labs/client": "../../packages/client/src/index.ts",
-      "@getpara/core-sdk": "./node_modules/@getpara/core-sdk",
-      "@getpara/user-management-client":
-        "./node_modules/@getpara/user-management-client",
-      "@getpara/web-sdk": "./node_modules/@getpara/web-sdk",
+      "@aomi-labs/react": "../../packages/react/src/index.ts",
+      // Privy consumes React Query through a peer dependency. Pin both sides to
+      // the app copy so the provider and Privy's hooks share one context.
       "@tanstack/react-query": "./node_modules/@tanstack/react-query",
     },
   },
@@ -33,12 +36,10 @@ const nextConfig: NextConfig = {
         workspaceRoot,
         "packages/client/src/index.ts",
       ),
-      "@getpara/core-sdk": path.join(appNodeModules, "@getpara/core-sdk"),
-      "@getpara/user-management-client": path.join(
-        appNodeModules,
-        "@getpara/user-management-client",
+      "@aomi-labs/react": path.join(
+        workspaceRoot,
+        "packages/react/src/index.ts",
       ),
-      "@getpara/web-sdk": path.join(appNodeModules, "@getpara/web-sdk"),
       "@tanstack/react-query": path.join(
         appNodeModules,
         "@tanstack/react-query",

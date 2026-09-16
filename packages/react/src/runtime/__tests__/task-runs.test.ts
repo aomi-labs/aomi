@@ -95,4 +95,87 @@ describe("selectTaskRuns", () => {
       startedAtSeconds * 1000,
     );
   });
+
+  it("resets a continued child and ignores late events from its prior invocation", () => {
+    const started = (sequence: number, call_id: string): Event => ({
+      ...meta(sequence, "task_started"),
+      type: "task_started",
+      call_id,
+      agent_id: "agent-1",
+      label: "Trader",
+      app: "swap",
+      resumed: sequence > 1,
+    });
+    const completed = (sequence: number, call_id: string): Event => ({
+      ...meta(sequence, "task_completed"),
+      type: "task_completed",
+      call_id,
+      agent_id: "agent-1",
+      status: "completed",
+      message: "old answer",
+      staged_count: 1,
+      steps: 1,
+      duration_ms: 50,
+    });
+    const events: Event[] = [
+      started(1, "first"),
+      completed(2, "first"),
+      started(3, "second"),
+      completed(4, "first"),
+      {
+        ...meta(5, "task_activity"),
+        type: "task_activity",
+        call_id: "first",
+        agent_id: "agent-1",
+        child_seq: 1,
+        kind: "note",
+        text: "late old note",
+      },
+    ];
+    const current = selectTaskRuns(events)["agent-1"];
+    expect(current).toMatchObject({
+      callId: "second",
+      status: "running",
+      steps: [],
+    });
+    expect(current?.message).toBeUndefined();
+    expect(current?.stagedCount).toBeUndefined();
+    expect(current?.durationMs).toBeUndefined();
+  });
+
+  it("limits turn traces to the current turn while retaining thread activity", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "task_started"),
+        type: "task_started",
+        call_id: "old",
+        agent_id: "old-child",
+        label: "Old",
+        app: "default",
+        resumed: false,
+      },
+      {
+        ...meta(2, "message"),
+        type: "message",
+        sender: "user",
+        turn_id: "turn-2",
+        content: "Next request",
+      } as Event,
+      {
+        ...meta(3, "task_started"),
+        type: "task_started",
+        call_id: "new",
+        turn_id: "turn-2",
+        agent_id: "new-child",
+        label: "New",
+        app: "default",
+        resumed: false,
+      },
+    ];
+    expect(Object.keys(selectTaskRuns(events))).toEqual([
+      "old-child",
+      "new-child",
+    ]);
+    expect(Object.keys(selectTaskRuns(events, "turn"))).toEqual(["new-child"]);
+  });
 });

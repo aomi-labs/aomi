@@ -275,6 +275,76 @@ describe("listParaWalletsForUser", () => {
     ]);
   });
 
+  it("returns the schemes Para actually reports for embedded wallets", async () => {
+    // Para's documented `scheme` enum is DKLS | CGGMP | ED25519. A Solana
+    // embedded wallet comes back as ED25519, so a filter that only knew DKLS
+    // silently dropped every Solana signer.
+    mockFetch([
+      jsonResponse({
+        data: [
+          {
+            id: "p-evm",
+            address: EVM,
+            type: "EVM",
+            scheme: "CGGMP",
+            status: "ready",
+          },
+          {
+            id: "p-sol",
+            address: SOL,
+            type: "SOLANA",
+            scheme: "ED25519",
+            status: "ready",
+          },
+        ],
+        pagination: { cursor: null, hasMore: false },
+      }),
+    ]);
+
+    const result = await listParaWalletsForUser({
+      apiKey: "sk_x",
+      userIdentifier: "alice@example.com",
+      userIdentifierType: "EMAIL",
+    });
+
+    expect(result.map((w) => [w.providerWalletId, w.family])).toEqual([
+      ["p-evm", "evm"],
+      ["p-sol", "svm"],
+    ]);
+  });
+
+  it("skips a wallet whose key generation has not finished", async () => {
+    mockFetch([
+      jsonResponse({
+        data: [
+          {
+            id: "p-creating",
+            address: EVM,
+            type: "EVM",
+            scheme: "DKLS",
+            status: "creating",
+          },
+          {
+            id: "p-ready",
+            address: EVM2,
+            type: "EVM",
+            scheme: "DKLS",
+            status: "ready",
+          },
+        ],
+        pagination: { cursor: null, hasMore: false },
+      }),
+    ]);
+
+    const result = await listParaWalletsForUser({
+      apiKey: "sk_x",
+      userIdentifier: "alice@example.com",
+      userIdentifierType: "EMAIL",
+    });
+
+    expect(result.map((w) => w.providerWalletId)).toEqual(["p-ready"]);
+  });
+
   it("filters out wallets without a recognized embedded/MPC scheme", async () => {
     mockFetch([
       jsonResponse({

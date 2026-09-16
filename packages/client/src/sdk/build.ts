@@ -8,7 +8,11 @@ import type {
   EvmSimulatedBuild,
   EvmStagedBuild,
   PipelineActionSummary,
+  PipelineApprovalChange,
+  PipelineBalanceChange,
+  PipelineBuildOrigin,
   PipelineCommitOptions,
+  PipelineMutationOptions,
   PipelineSimulation,
   SvmCommitResult,
   SvmPresentedAction,
@@ -22,7 +26,7 @@ export class EvmStaged {
     private readonly transport: EvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -34,7 +38,6 @@ export class EvmStaged {
     return this.raw.actions.map((action) => ({
       ...action,
       chainFamily: "evm",
-      kind: "calls",
     }));
   }
 
@@ -42,9 +45,21 @@ export class EvmStaged {
     return this.raw.digest;
   }
 
-  async simulate(): Promise<EvmBuild> {
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
+  }
+
+  async simulate(options?: PipelineMutationOptions): Promise<EvmBuild> {
     return new EvmBuild(
-      await this.transport.simulate(this.raw),
+      await this.transport.simulate(this.raw, options),
       this.transport,
     );
   }
@@ -60,7 +75,7 @@ export class EvmBuild {
     private readonly transport: EvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -72,7 +87,6 @@ export class EvmBuild {
     return this.raw.actions.map((action) => ({
       ...action,
       chainFamily: "evm",
-      kind: "calls",
     }));
   }
 
@@ -84,8 +98,30 @@ export class EvmBuild {
     return this.raw.simulation;
   }
 
+  /** Wallet asset movements decoded from successful simulation steps. */
+  get balanceChanges(): PipelineBalanceChange[] {
+    return this.raw.simulation.balanceChanges;
+  }
+
+  /** Allowance, token, and operator permissions changed by the build. */
+  get approvals(): PipelineApprovalChange[] {
+    return this.raw.simulation.approvals;
+  }
+
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async commit(options?: PipelineCommitOptions): Promise<EvmCommitResult> {
@@ -103,7 +139,7 @@ export class SvmStaged {
     private readonly transport: SvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -122,9 +158,21 @@ export class SvmStaged {
     return this.raw.digest;
   }
 
-  async simulate(): Promise<SvmBuild> {
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
+  }
+
+  async simulate(options?: PipelineMutationOptions): Promise<SvmBuild> {
     return new SvmBuild(
-      await this.transport.simulate(this.raw),
+      await this.transport.simulate(this.raw, options),
       this.transport,
     );
   }
@@ -140,7 +188,7 @@ export class SvmBuild {
     private readonly transport: SvmPipelineTransport,
   ) {}
 
-  get version(): 1 {
+  get version(): 2 {
     return this.raw.version;
   }
 
@@ -165,6 +213,18 @@ export class SvmBuild {
 
   get digest(): string {
     return this.raw.digest;
+  }
+
+  get origin(): PipelineBuildOrigin {
+    return this.raw.origin;
+  }
+
+  get expiresAt(): number {
+    return this.raw.expiresAt;
+  }
+
+  get attestation(): string {
+    return this.raw.attestation;
   }
 
   async commit(options?: PipelineCommitOptions): Promise<SvmCommitResult> {

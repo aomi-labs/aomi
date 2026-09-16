@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
-import { seedAccountOverview } from "@portal/lib/account-overview";
-import { useAomiSession } from "./aomi-session-bridge";
+import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
+import { useAomiSession } from "../../../../shadcn-registry/src/components/account-shell/components/providers/aomi-session-bridge";
 
 type AdapterState = {
   identity: { status: "anonymous" | "booting" | "connected" };
@@ -21,7 +21,7 @@ const adapterState = vi.hoisted(() => ({
   } as AdapterState,
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
   useAomiWalletKit: () => adapterState.current,
 }));
 

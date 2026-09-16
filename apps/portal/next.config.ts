@@ -18,7 +18,8 @@ const nobleHashesAssertCompatPath = path.join(
 
 // Portal-local code should import from `@portal/*`.
 // These `@/components|hooks|lib` aliases exist only so registry source imported
-// through `@aomi-labs/widget-lib` can resolve its own internal paths.
+// through an explicit widget package entrypoint can resolve its own internal
+// paths. `check:frontend-boundaries` rejects using them from Portal source.
 const widgetTurbopackAliases = {
   "@/components": "../../apps/shadcn-registry/src/components",
   "@/hooks": "../../apps/shadcn-registry/src/hooks",
@@ -27,6 +28,8 @@ const widgetTurbopackAliases = {
     "../../apps/shadcn-registry/src/lib/wallet-kit/providers/para/index.ts",
   "@aomi-labs/widget-lib/providers/privy":
     "../../apps/shadcn-registry/src/lib/wallet-kit/providers/privy/index.ts",
+  "@aomi-labs/widget-lib/host-composition":
+    "../../apps/shadcn-registry/src/host-composition.ts",
   "@aomi-labs/widget-lib": "../../apps/shadcn-registry/src/index.ts",
 } as const;
 
@@ -43,6 +46,10 @@ const widgetWebpackAliases = {
   "@aomi-labs/widget-lib/providers/privy": path.join(
     widgetSrc,
     "lib/wallet-kit/providers/privy/index.ts",
+  ),
+  "@aomi-labs/widget-lib/host-composition": path.join(
+    widgetSrc,
+    "host-composition.ts",
   ),
   "@aomi-labs/widget-lib": path.join(widgetSrc, "index.ts"),
 } as const;
@@ -64,13 +71,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Hide the dev-tools indicator when recording demo takes. It renders a
-  // badge in the bottom-left corner, directly on top of the account chip,
-  // and reads on camera as "this product has N issues". Opt-in via env so
-  // normal local development keeps the indicator.
+  // Keep the development badge clear of the account and sign-in controls.
+  // Demo recordings may hide it entirely.
   ...(process.env.AOMI_HIDE_DEV_INDICATOR === "true"
     ? { devIndicators: false as const }
-    : {}),
+    : { devIndicators: { position: "bottom-right" as const } }),
   env: {
     NEXT_PUBLIC_BACKEND_URL:
       process.env.NEXT_PUBLIC_BACKEND_URL ||

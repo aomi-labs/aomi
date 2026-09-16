@@ -122,11 +122,11 @@ export function TelegramHowItWorks() {
     },
     {
       title: "Users choose how their agent signs",
-      body: "Agent wallets start unable to sign. In /permission, a user can turn on autonomous signing — letting the agent trade without approving each transaction — or turn it back off. Wallets the user holds themselves stay read-only there and change in the web app, since loosening those needs their signature.",
+      body: "Users enable autonomous signing for their own wallet in the Aomi Wallet Mini App. Once they approve the one-time permit, the agent can trade without asking for each transaction.",
     },
     {
       title: "Optional: make slash commands visible",
-      body: "Send /setcommands to BotFather as shown on the right, so commands like /permission and /tx autocomplete in Telegram.",
+      body: "Send /setcommands to BotFather as shown on the right, so commands like /wallet and /transactions autocomplete in Telegram.",
     },
   ];
   return (

@@ -50,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Enforce frontend dependency boundaries
+        run: pnpm run check:frontend-boundaries
+
       - name: Lint and typecheck workspace
         run: pnpm run lint && pnpm run typecheck
 
@@ -58,6 +61,38 @@ jobs:
 
       - name: Run workspace tests and committed OpenAPI contract
         run: pnpm exec vitest run
+
+  consumer-compat:
+    name: Consumer compatibility · packed SDK and widget
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Event payload selects the trusted baseline; PR files cannot move it.
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout candidate and trusted baseline history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify trusted-baseline isolation
+        run: node --test tests/contracts/*.test.mjs
+
+      - name: Check protected consumers against candidate packages
+        run: pnpm run test:contracts
 
   apps:
     name: Apps · Portal, Build, Base, Landing, Telegram
@@ -100,13 +135,13 @@ jobs:
         run: pnpm run build:packages
 
       - name: Typecheck and test every app
-        run: pnpm run typecheck:apps && pnpm run test:portal && pnpm run test:telegram
+        run: pnpm run typecheck:apps && pnpm run lint:telegram && pnpm run test:portal && pnpm run test:telegram
 
       - name: Build every deployed app
         env:
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aomi_ci_build
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
           NEXT_PUBLIC_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
@@ -114,6 +149,85 @@ jobs:
           NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: pnpm run build:apps
+
+  guest-browser:
+    name: Guest Chat · deterministic Chromium regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run isolated guest send and recovery regression
+        run: pnpm run test:browser:guest
+
+      - name: Upload sanitized server log and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: guest-browser-${{ github.sha }}
+          path: |
+            output/playwright/guest-regression/
+            output/playwright/test-results/
+            output/playwright/report/
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser-contracts:
+    name: Production Browser Contracts · auth and packaged widget
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # The immutable consumer comes from the event-selected base, never PR files.
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout candidate and trusted baseline history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run production Portal and immutable packaged-widget contracts
+        run: pnpm run test:browser:contracts
+
+      - name: Upload sanitized browser contract diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-contracts-${{ github.sha }}
+          path: output/playwright/browser-contracts/
+          if-no-files-found: error
+          retention-days: 14
 
   promotion-policy:
     name: Production Promotion Policy
@@ -253,7 +367,17 @@ jobs:
   all-checks:
     name: Frontend CI Passed
     if: always()
-    needs: [packages, apps, promotion-policy, hotfix-divergence, workflow-policy]
+    needs:
+      [
+        packages,
+        apps,
+        guest-browser,
+        browser-contracts,
+        consumer-compat,
+        promotion-policy,
+        hotfix-divergence,
+        workflow-policy,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
@@ -261,6 +385,9 @@ jobs:
           set -euo pipefail
           test '${{ needs.packages.result }}' = success
           test '${{ needs.apps.result }}' = success
+          test '${{ needs.guest-browser.result }}' = success
+          test '${{ needs.browser-contracts.result }}' = success
+          test '${{ needs.consumer-compat.result }}' = success
           case '${{ needs.promotion-policy.result }}' in success|skipped) ;; *) exit 1 ;; esac
           case '${{ needs.hotfix-divergence.result }}' in success|skipped) ;; *) exit 1 ;; esac
           test '${{ needs.workflow-policy.result }}' = success

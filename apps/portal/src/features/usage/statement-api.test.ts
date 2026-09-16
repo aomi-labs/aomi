@@ -1,5 +1,5 @@
-import { accountScopedFetch } from "@portal/lib/settings-api";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
 
 import {
   fetchModelStatement,
@@ -7,9 +7,12 @@ import {
   recentMonthKeys,
   toMonthlyStatement,
   type WireModelStatement,
-} from "./statement-api";
+} from "../../../../shadcn-registry/src/components/account-shell/features/usage/statement-api";
 
-vi.mock("@portal/lib/settings-api", () => ({ accountScopedFetch: vi.fn() }));
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/lib/settings-api",
+  () => ({ accountScopedFetch: vi.fn() }),
+);
 
 const fetchMock = vi.mocked(accountScopedFetch);
 
@@ -127,6 +130,8 @@ describe("statement adapter", () => {
     expect(month.period.periodLabel).toBe("July 2026");
     expect(month.summary.totalUsd).toBeCloseTo(1.5);
     expect(month.summary.modelUsd).toBeCloseTo(1.5);
+    expect(month.summary.computeUsd).toBeCloseTo(1.5);
+    expect(month.summary.onchainUsd).toBe(0);
     // Unwritten subjects are absent, never invented.
     expect(month.apps.every((a) => a.tool === null && a.outcome === null)).toBe(
       true,

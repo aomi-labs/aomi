@@ -1,59 +1,92 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { createParaViemClientHook } from "@getpara/react-core/evm/viem";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePrivy, useSignTypedData } from "@privy-io/react-auth";
+import type { SignTypedDataParams } from "@privy-io/react-auth";
 import {
   authorizationChallenge,
   authorizationCommit,
-  toViemSignTypedDataArgs,
   type AccountSessionProvider,
   type AuthorizationPoster,
 } from "@aomi-labs/client";
-import { http } from "viem";
-import { mainnet } from "viem/chains";
 
 import { aomiBffUrl } from "@/app/config";
-import type { LaunchContext } from "@/lib/telegram";
+import { embeddedWallet } from "@/lib/privy-wallet";
 
-const useEmbeddedParaViemClient = createParaViemClientHook();
+export type PermissionStatus = "idle" | "ready" | "signing" | "done" | "error";
+
+export type PermissionTarget = {
+  chain: string;
+  wallet: string;
+  mode: string;
+};
+
+/** The backend emits a standard EIP-712 JSON document, which is exactly the
+ *  shape Privy's `signTypedData` takes — but the client types it as `unknown`,
+ *  so narrow it rather than asserting. */
+function asTypedData(value: unknown): SignTypedDataParams | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<SignTypedDataParams>;
+  if (
+    typeof candidate.primaryType !== "string" ||
+    !candidate.types ||
+    typeof candidate.types !== "object" ||
+    !candidate.domain ||
+    typeof candidate.domain !== "object" ||
+    !candidate.message ||
+    typeof candidate.message !== "object"
+  ) {
+    return null;
+  }
+  return candidate as SignTypedDataParams;
+}
 
 export function usePermissionControl(input: {
-  launch: LaunchContext | null;
   provider: AccountSessionProvider | null;
+  /** The exact embedded wallet is already armed in the backend. */
+  serverAuto?: boolean;
 }) {
-  const [status, setStatus] = useState<
-    "idle" | "ready" | "signing" | "done" | "error"
-  >("idle");
+  const [status, setStatus] = useState<PermissionStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const { viemClient } = useEmbeddedParaViemClient({
-    walletClientConfig: {
-      chain: mainnet,
-      transport: http(mainnet.rpcUrls.default.http[0]),
-    },
-  });
-  const target = useMemo(() => {
-    const launch = input.launch;
-    if (
-      !launch?.permissionChain ||
-      !launch.permissionWallet ||
-      !launch.permissionMode
-    ) {
-      return null;
-    }
+  // Signing a permit puts a wallet prompt between the challenge and the commit.
+  // Holding the provider in a ref means the commit uses whatever session is
+  // current when it runs, instead of an instance that was disposed while the
+  // prompt was on screen — the failure mode where the backend logs an
+  // `authorization/challenge` 200 that no `authorization/commit` ever follows.
+  const providerRef = useRef(input.provider);
+  useEffect(() => {
+    providerRef.current = input.provider;
+  }, [input.provider]);
+
+  const { user } = usePrivy();
+  const { signTypedData } = useSignTypedData();
+  // Read off the Privy *user*, never `useWallets()`: that hook's `ready` waits
+  // on a wallet-proxy iframe that Telegram's webview routinely blocks, so it
+  // would leave the sign button permanently unrendered on an account whose
+  // wallet exists and works. See `lib/privy-wallet.ts`.
+  const wallet = useMemo(() => embeddedWallet(user), [user]);
+
+  const target = useMemo((): PermissionTarget | null => {
+    // The Mini App only ever arms its own embedded wallet. The bot never
+    // injects an execution key, so a provider-managed agent key cannot become
+    // the permit target through a stale launch URL.
+    if (!wallet) return null;
     return {
-      chain: launch.permissionChain,
-      wallet: launch.permissionWallet,
-      mode: launch.permissionMode,
+      chain: "evm",
+      wallet: wallet.address,
+      mode: "server_auto",
     };
-  }, [input.launch]);
+  }, [wallet]);
 
   const sign = useCallback(async () => {
-    if (!target || !input.provider || !viemClient?.account) return;
+    if (!target || !wallet) return;
     setStatus("signing");
     setError(null);
     try {
       const post: AuthorizationPoster = async (path, body) => {
-        const token = await input.provider!();
+        const provider = providerRef.current;
+        if (!provider) throw new Error("permission_session_unavailable");
+        const token = await provider();
         const response = await fetch(new URL(path, aomiBffUrl), {
           method: "POST",
           credentials: "omit",
@@ -78,20 +111,15 @@ export function usePermissionControl(input: {
         wallet: target.wallet,
         mode: target.mode,
       });
-      if (!challenge.typed_data) {
-        throw new Error("permission_challenge_missing_typed_data");
-      }
-      const request = toViemSignTypedDataArgs({
-        typed_data: challenge.typed_data,
-      });
-      if (!request?.message) {
+      const typedData = asTypedData(challenge.typed_data);
+      if (!typedData) {
         throw new Error("permission_challenge_invalid_typed_data");
       }
-      const { message, ...rest } = request;
-      const signature = await viemClient.signTypedData({
-        account: viemClient.account,
-        ...rest,
-        message,
+      // Signed through Privy's own headless path, which takes the wallet by
+      // address. The permit's EIP-712 domain carries only name and version —
+      // no chainId, no verifying contract — so there is no chain to select.
+      const { signature } = await signTypedData(typedData, {
+        address: wallet.address,
       });
       await authorizationCommit(post, { permit: challenge.permit, signature });
       setStatus("done");
@@ -99,15 +127,19 @@ export function usePermissionControl(input: {
       setError(cause instanceof Error ? cause.message : "permission_failed");
       setStatus("error");
     }
-  }, [input.provider, target, viemClient]);
+  }, [signTypedData, target, wallet]);
 
   return {
     error,
     sign,
     status:
-      status === "idle" && target && input.provider && viemClient?.account
-        ? "ready"
-        : status,
+      status !== "idle"
+        ? status
+        : input.serverAuto
+          ? "done"
+          : target && input.provider && wallet
+            ? ("ready" as const)
+            : status,
     target,
   };
 }

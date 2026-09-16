@@ -44,7 +44,7 @@ export const EVM_SELECTOR_REGISTRY: Record<string, SelectorMeta> = {
   "0x70a08231": {
     selector: "0x70a08231",
     name: "balanceOf",
-    title: "Check token balance",
+    title: "Get balance",
     chip: "balanceOf",
     icon: WalletIcon,
     kind: "erc20_balance",

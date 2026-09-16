@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useDeploymentAttempts } from "./use-deployment-attempts";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -8,6 +11,7 @@ import type {
 } from "@aomi-labs/deploy";
 import {
   deploymentProjects,
+  launchAppsStatus,
   deploymentHistory,
   deploymentSecrets,
   deploymentSetSecrets,
@@ -19,17 +23,7 @@ import {
   deploymentDeactivate,
   deploymentUpgradeSdk,
   deploymentSdkUpgradeStatus,
-  launchPreflight,
-  launchDeploy,
-  launchStatus,
-  launchActivate,
-  launchAppsStatus,
 } from "@build/features/launch/client";
-import {
-  isFatalLaunchRequestError,
-  waitForAppsToLoad,
-  waitForDeploymentReady,
-} from "@aomi-labs/deploy/launch";
 import {
   MissingRequiredSecretsError,
   missingRequiredSecrets,
@@ -43,11 +37,6 @@ import type {
 import { isRetryableLaunchError } from "@aomi-labs/deploy/launch";
 import { useGitHubSession } from "@build/components/control-plane/github-session-context";
 import {
-  ciProgress,
-  stageProgress,
-  type DeployFlowProgress,
-} from "@build/features/launch/components/deployments/deploy-flow-progress";
-import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
@@ -56,44 +45,14 @@ import {
 /** Progress of an in-flight linked-source redeploy (deploy → CI → activate). */
 export type DeployFlowState =
   | { phase: "idle" }
-  | { phase: "deploying"; message: string; progress?: DeployFlowProgress }
-  | { phase: "building"; message: string; progress?: DeployFlowProgress }
-  | { phase: "activating"; message: string; progress?: DeployFlowProgress }
-  | { phase: "done"; message: string; progress?: DeployFlowProgress }
-  | { phase: "error"; message: string; progress?: DeployFlowProgress };
-
-const DEPLOY_POLL_MS = 4000;
-const DEPLOYMENT_READY_TIMEOUT_MS = 8 * 60 * 1000;
-const RUNTIME_READY_TIMEOUT_MS = 8 * 60 * 1000;
+  | { phase: "deploying"; message: string }
+  | { phase: "building"; message: string }
+  | { phase: "activating"; message: string }
+  | { phase: "done"; message: string }
+  | { phase: "error"; message: string };
 
 type MissingSecrets = Record<string, string[]>;
 
-function missingSecretsFromLaunchError(error: unknown): MissingSecrets | null {
-  if (
-    !error ||
-    typeof error !== "object" ||
-    (error as { status?: unknown }).status !== 409
-  ) {
-    return null;
-  }
-  const body = (error as { body?: unknown }).body;
-  if (!body || typeof body !== "object") return null;
-  const missing = (body as { missing?: unknown }).missing;
-  if (!missing || typeof missing !== "object") return null;
-  const entries = Object.entries(missing).flatMap(([app, keys]) =>
-    Array.isArray(keys) && keys.every((key) => typeof key === "string")
-      ? [[app, keys] as const]
-      : [],
-  );
-  return entries.length > 0 ? Object.fromEntries(entries) : null;
-}
-
-/**
- * The read endpoint reports the Manager's persisted declarations. A deploy or
- * promote 409 can be newer: it verifies the exact candidate release. Keep
- * that authoritative write-time result visible until the user sets its keys,
- * instead of collapsing the project back to "No keys required".
- */
 function mergedRequiredSecrets(
   declared: RequiredSecretsByApp | null,
   gateMissing: MissingSecrets,
@@ -136,12 +95,6 @@ function mergedRequiredSecrets(
   return result;
 }
 
-function missingSecretsMessage(missing: MissingSecrets) {
-  return Object.entries(missing)
-    .map(([app, keys]) => `${app}: ${keys.join(", ")}`)
-    .join("; ");
-}
-
 function gateSecretsStorageKey(projectId: number) {
   return `aomi-build:project:${projectId}:candidate-required-secrets`;
 }
@@ -178,6 +131,9 @@ function storedMissingSecrets(projectId: number): MissingSecrets {
 export function useProjectDetail(projectId: number) {
   const { account } = useGitHubSession();
   const accountKey = githubAccountKey(account.githubLogin);
+  const attempts = useDeploymentAttempts(projectId, accountKey);
+  const startAttempt = attempts.start;
+  const router = useRouter();
   const queryClient = useQueryClient();
   const sourceKey = useMemo(
     () => buildQueryKeys.projectSource(accountKey ?? "unavailable", projectId),
@@ -214,11 +170,47 @@ export function useProjectDetail(projectId: number) {
     enabled: !account.loading,
     staleTime: buildQueryStaleTime.sdkStatus,
   });
-  const source = useMemo(
+  const rawSource = useMemo(
     () => projectsQuery.data?.projects.find((s) => s.id === projectId) ?? null,
     [projectsQuery.data, projectId],
   );
-  const projectPlatform = source ? source.platformName.trim() : undefined;
+  const runtimeKey = useMemo(
+    () => ["project-runtime", accountKey, projectId] as const,
+    [accountKey, projectId],
+  );
+  const runtime = useQuery({
+    queryKey: runtimeKey,
+    queryFn: () => launchAppsStatus({ projectId }),
+    enabled: !!accountKey && !!rawSource?.apps.some((app) => app.isActive),
+    retry: (count, error) => count < 4 && isRetryableLaunchError(error),
+    retryDelay: (count) => Math.min(4000 * 2 ** count, 30000),
+    // Keep polling through errors: react-query keeps the last data, and the
+    // next tick recovers once the runtime answers again.
+    refetchInterval: 10000,
+    refetchOnWindowFocus: false,
+  });
+  const source = useMemo(
+    () =>
+      rawSource
+        ? {
+            ...rawSource,
+            apps: rawSource.apps.map((app) => ({
+              ...app,
+              // Only a runtime probe proves readiness. Keep its last result
+              // through refetch errors; before the first result it is unknown.
+              loaded: runtime.data
+                ? runtime.data.apps.some(
+                    (current) =>
+                      current.id === app.id &&
+                      current.app_release_tag === app.appReleaseTag &&
+                      current.loaded,
+                  )
+                : undefined,
+            })),
+          }
+        : null,
+    [rawSource, runtime.data],
+  );
   const sdk = sdkQuery.data ?? null;
   const loading = account.loading || projectsQuery.isPending;
   const error = projectsQuery.error
@@ -253,18 +245,35 @@ export function useProjectDetail(projectId: number) {
   const [requiredSecretsError, setRequiredSecretsError] = useState<
     string | null
   >(null);
-  const [deployFlow, setDeployFlow] = useState<DeployFlowState>({
-    phase: "idle",
-  });
-  /** Epoch ms the current deploy started, for the progress bar's clock. */
-  const [deployStartedAt, setDeployStartedAt] = useState<number | null>(null);
+  const latestAttempt = attempts.attempts[0];
+  const deployFlow: DeployFlowState = latestAttempt
+    ? latestAttempt.status !== "completed"
+      ? { phase: "building", message: "Deployment is running in CI" }
+      : latestAttempt.conclusion !== "success"
+        ? {
+            phase: "error",
+            message: "Deployment failed. Review the attempt below.",
+          }
+        : latestAttempt.jobs?.filter((job) =>
+              job.name.startsWith("Verify runtime"),
+            ).length &&
+            latestAttempt.jobs
+              .filter((job) => job.name.startsWith("Verify runtime"))
+              .every((job) => job.conclusion === "success")
+          ? { phase: "done", message: "Runtime verified" }
+          : { phase: "idle" }
+    : { phase: "idle" };
+  const deployStartedAt = latestAttempt
+    ? Date.parse(latestAttempt.createdAt)
+    : null;
   const historyReq = useRef(false);
   const secretsReq = useRef<Set<number>>(new Set());
   const recordsReq = useRef(false);
   const requiredSecretsReq = useRef(false);
   const gateMissingSecretsRef = useRef<MissingSecrets>({});
+  // `id:status` of the latest attempt last seen by the completion effect.
+  const seenAttemptRef = useRef<string>(undefined);
   const projectEpochRef = useRef(0);
-  const deployAbortRef = useRef<AbortController | null>(null);
   // Advance the generation after a project navigation commits. Async reads
   // capture the generation they started in and cannot write into a later page.
   useEffect(() => {
@@ -310,10 +319,7 @@ export function useProjectDetail(projectId: number) {
     setGateMissingSecrets({});
     gateMissingSecretsRef.current = {};
     setRequiredSecretsError(null);
-    setDeployFlow({ phase: "idle" });
-    setDeployStartedAt(null);
-    deployAbortRef.current?.abort();
-    deployAbortRef.current = null;
+    seenAttemptRef.current = undefined;
   }, [projectId]);
 
   // A 409 describes a candidate release which the Manager cannot expose until
@@ -334,13 +340,6 @@ export function useProjectDetail(projectId: number) {
         secretsByApp,
       ),
     [declaredRequiredSecrets, gateMissingSecrets, secretsByApp, source?.apps],
-  );
-
-  useEffect(
-    () => () => {
-      deployAbortRef.current?.abort();
-    },
-    [],
   );
 
   const loadHistory = useCallback(() => {
@@ -606,206 +605,41 @@ export function useProjectDetail(projectId: number) {
     [projectId],
   );
 
-  // Deploy the source repo's current HEAD and activate the resulting release
-  // once CI publishes it. GitHub is read only here (status polling) — the
-  // "update deployment" operation — never on the passive tab render.
-  const redeploySource = useCallback(async () => {
-    const requestEpoch = projectEpochRef.current;
-    const isCurrent = () => projectEpochRef.current === requestEpoch;
-    const repo = source?.repositoryLink;
-    deployAbortRef.current?.abort();
-    const controller = new AbortController();
-    deployAbortRef.current = controller;
-    if (!repo) {
-      setDeployFlow({ phase: "error", message: "Source repo is unknown." });
-      deployAbortRef.current = null;
-      return;
-    }
-    const startedAt = Date.now();
-    setDeployStartedAt(startedAt);
-    // CI progress is monotonic within one deploy: a transient `no_ci`/`failed`
-    // poll reports the last completed step rather than snapping the bar back.
-    let lastCompleted = 0;
-    let ciUrl: string | null = null;
-    try {
-      setDeployFlow({
-        phase: "deploying",
-        message: "Resolving latest commit…",
-        progress: stageProgress("deploying", "Resolving commit"),
-      });
-      const pre = await launchPreflight({
-        repo,
-        projectId,
-      });
-      if (!isCurrent()) return;
-      const targetProjectId = pre.projectId ?? projectId;
-      // Preflight re-syncs the source from the repo, so HEAD's `aomi.toml` can
-      // register apps this page never saw. Refresh the source before gating:
-      // the required-secret check runs against `pre.apps`, and both the gate
-      // banner and the Environment tab list apps from `source.apps`. Without
-      // this the check can fail for an app the UI has no row for — the user is
-      // told a secret is missing with nowhere to enter it.
-      await reload();
-      if (!isCurrent()) return;
-      await ensureRequiredSecrets(pre.apps, targetProjectId);
-      if (!isCurrent()) return;
-      if (!pre.sourceRef) {
-        throw new Error("Preflight did not return an immutable source commit.");
-      }
-      setDeployFlow({
-        phase: "deploying",
-        message: "Deploying new version…",
-        progress: stageProgress("deploying", "Dispatching build"),
-      });
-      const deployed = await launchDeploy({
-        projectId: targetProjectId,
-        sourceRef: pre.sourceRef,
-      });
-      if (!isCurrent()) return;
-      const deploymentId = deployed.deployment.id;
-
-      let releaseTags = deployed.releaseTags;
-      const apps = deployed.apps;
-      const ready = await waitForDeploymentReady(
-        // Read the CI url here, not in `onProgress`: the watcher throws on a
-        // `failed`/`no_ci` status *before* reporting progress, and that poll is
-        // exactly the one whose run link the failure banner needs.
-        async () => {
-          const status = await launchStatus(deploymentId, projectPlatform);
-          ciUrl = status.ci?.url ?? ciUrl;
-          return status;
-        },
-        {
-          signal: controller.signal,
-          intervalMs: DEPLOY_POLL_MS,
-          timeoutMs: DEPLOYMENT_READY_TIMEOUT_MS,
-          isFatal: isFatalLaunchRequestError,
-          onProgress: (status) => {
-            if (!isCurrent()) return;
-            releaseTags = status.releaseTags?.length
-              ? status.releaseTags
-              : releaseTags;
-            const { model, progress } = ciProgress(status, lastCompleted);
-            lastCompleted = model.completed;
-            if (status.state !== "ready") {
-              setDeployFlow({
-                phase: "building",
-                message: `Building… (${status.state})`,
-                progress: { ...progress, ciUrl },
-              });
-            }
-          },
-        },
+  // GitHub owns continuation; navigation and component lifetime cannot stop it.
+  const redeploySource = useCallback(
+    async (branch = "") => {
+      const requestEpoch = projectEpochRef.current;
+      const operation = startAttempt(branch);
+      router.push(
+        `/projects/${projectId}?tab=deployments&platform=${encodeURIComponent(source?.platformName ?? "community")}`,
       );
-      releaseTags = ready.releaseTags?.length ? ready.releaseTags : releaseTags;
-      if (!isCurrent()) return;
+      const attempt = await operation;
+      if (attempt && projectEpochRef.current === requestEpoch) await reload();
+      return attempt;
+    },
+    [startAttempt, router, projectId, source?.platformName, reload],
+  );
 
-      setDeployFlow({
-        phase: "activating",
-        message: "Activating release…",
-        progress: stageProgress("activating", "Activating release", ciUrl),
-      });
-      // Activate the SAME project the deploy targeted — `targetProjectId`
-      // is preflight-resolved and can differ from the page's `projectId`.
-      const activated = await launchActivate({
-        projectId: targetProjectId,
-        releaseTags,
-        apps,
-      });
-      if (!isCurrent()) return;
-      // A rejected/partial activation still returns apps (with `error` set), and
-      // a malformed response may omit `activation` entirely — surface the real
-      // reason instead of throwing into the generic "Deploy failed" catch.
-      const activatedApps = activated.activation?.apps ?? [];
-      const failed = activatedApps.find((app) => app.error);
-      if (!activated.ok || failed) {
-        setDeployFlow({
-          phase: "error",
-          message: failed?.error ?? "Activation was not accepted.",
-          progress: stageProgress("activating", "Activation failed", ciUrl),
-        });
-        return;
-      }
-      if (apps.length > 0 && activatedApps.length === 0) {
-        setDeployFlow({
-          phase: "error",
-          message: "Activation returned no application statuses.",
-          progress: stageProgress("activating", "Activation failed", ciUrl),
-        });
-        return;
-      }
-      const unloaded = activatedApps.filter((app) => !app.loaded);
-      if (unloaded.length > 0) {
-        setDeployFlow({
-          phase: "activating",
-          message: "Loading app runtime…",
-          progress: stageProgress("activating", "Loading app runtime", ciUrl),
-        });
-        try {
-          await waitForAppsToLoad(
-            () => launchAppsStatus({ projectId: targetProjectId }),
-            unloaded.map((app) => ({
-              name: app.name,
-              releaseTag: app.releaseTag ?? undefined,
-            })),
-            {
-              signal: controller.signal,
-              intervalMs: DEPLOY_POLL_MS,
-              timeoutMs: RUNTIME_READY_TIMEOUT_MS,
-              isFatal: isFatalLaunchRequestError,
-              onProgress: ({ ready, total }) => {
-                if (isCurrent()) {
-                  setDeployFlow({
-                    phase: "activating",
-                    message: `Loading app runtime… (${ready}/${total})`,
-                    progress: stageProgress(
-                      "activating",
-                      `Loading app runtime (${ready}/${total})`,
-                      ciUrl,
-                    ),
-                  });
-                }
-              },
-            },
-          );
-        } catch (err) {
-          if (controller.signal.aborted) return;
-          throw err;
-        }
-        if (!isCurrent()) return;
-      }
-      setDeployFlow({
-        phase: "done",
-        message: "New version is live.",
-        progress: stageProgress("done", "Live", ciUrl),
-      });
-      await reload();
-      if (!isCurrent()) return;
-      refreshRecords();
-    } catch (err) {
-      if (controller.signal.aborted || !isCurrent()) return;
-      const missing = missingSecretsFromLaunchError(err);
-      if (missing) noteMissingRequiredSecrets(missing);
-      setDeployFlow({
-        phase: "error",
-        message: missing
-          ? `Missing required secrets — ${missingSecretsMessage(missing)}. Set them in Environment, then redeploy.`
-          : err instanceof Error
-            ? err.message
-            : "Deploy failed",
-        progress: { percent: 100, label: "Deploy failed", ciUrl },
-      });
-    } finally {
-      if (deployAbortRef.current === controller) deployAbortRef.current = null;
-    }
+  // Refresh on the transition to a completed attempt, never on first sight:
+  // opening a project whose latest attempt already completed must not refetch
+  // what the page just loaded (double-reload waterfall, empty-list flash).
+  useEffect(() => {
+    if (!latestAttempt) return;
+    const key = `${latestAttempt.id}:${latestAttempt.status}`;
+    const seen = seenAttemptRef.current;
+    seenAttemptRef.current = key;
+    if (seen === undefined || seen === key) return;
+    if (latestAttempt.status !== "completed") return;
+    void reload();
+    void refreshRequiredSecrets().catch(() => undefined);
+    // Live appears right after Verify instead of on the next 10 s tick.
+    void queryClient.invalidateQueries({ queryKey: runtimeKey });
   }, [
-    ensureRequiredSecrets,
-    noteMissingRequiredSecrets,
-    projectPlatform,
-    refreshRecords,
+    latestAttempt,
     reload,
-    source,
-    projectId,
+    refreshRequiredSecrets,
+    queryClient,
+    runtimeKey,
   ]);
 
   const upgradeSdk = useCallback(
@@ -822,6 +656,8 @@ export function useProjectDetail(projectId: number) {
 
   return {
     source,
+    runtime,
+    attempts,
     loading,
     error,
     sdk,

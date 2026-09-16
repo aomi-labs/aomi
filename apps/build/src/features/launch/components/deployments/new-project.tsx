@@ -15,10 +15,8 @@ import { RepositoryConnector } from "./repository-connector";
 import { GitHubSignInPanel, LoadingPanel } from "./ui/state-panels";
 
 const HEADLINES: Record<NewProjectMode, string> = {
-  template:
-    "Fork the template, deploy it, and go live from your GitHub account.",
-  import:
-    "Connect a repository you already own. Aomi deploys it once GitHub confirms your access.",
+  template: "Create your repository, review configuration, then choose Deploy.",
+  import: "Connect your repository, review configuration, then choose Deploy.",
 };
 
 const CHOICES = [
@@ -27,14 +25,14 @@ const CHOICES = [
     icon: Sparkles,
     title: "Start from the template",
     description:
-      "Creates a new repository in your GitHub account from the Aomi template, then builds and deploys it for you.",
+      "Creates a repository from the Aomi template. Review configuration and choose Deploy when ready.",
   },
   {
     key: "import",
     icon: Github,
     title: "Import from GitHub",
     description:
-      "Connects a repository you already have — yours or one a partner shared — and deploys it the same way.",
+      "Connects a repository you already have. Review configuration and choose Deploy when ready.",
   },
 ] as const satisfies readonly {
   key: NewProjectMode;

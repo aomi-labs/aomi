@@ -38,6 +38,26 @@ packageExtensions:
   "@getpara/react-sdk@2.24.0":
     dependencies:
       "@getpara/react-core": "2.24.0"
+  # The 2.19.0 line imports `@getpara/shared` and `eventemitter3` at runtime
+  # without listing them in its published manifests. They used to resolve only
+  # because another workspace pulled a newer Para line into the store, so the
+  # landing build broke the moment the Telegram app stopped depending on Para.
+  # 1.14.0 is the version `@getpara/user-management-client@2.19.0` pins.
+  "@getpara/core-sdk@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-common@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-core@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-sdk-lite@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/wagmi-v2-connector@2.19.0":
+    dependencies:
+      eventemitter3: "5.0.1"
 
 # @better-auth/mcp 1.7.1 automatically adds its primary MCP endpoint to every
 # dynamically registered client's default resources. This widens Agent,

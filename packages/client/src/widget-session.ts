@@ -218,11 +218,14 @@ export function createAccountSessionProvider(input: {
   fetch?: typeof fetch;
   now?: () => number;
   refreshBeforeExpiryMs?: number;
+  /** Optional tab-scoped cache for wallet sessions that cannot refresh silently. */
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
 }): AccountSessionProvider {
   const { adapter } = input;
   const fetchImpl = input.fetch ?? fetch;
   const now = input.now ?? Date.now;
   const refreshBeforeExpiryMs = input.refreshBeforeExpiryMs ?? 60_000;
+  const storageKey = `aomi:widget-session:${input.baseUrl.replace(/\/+$/, "")}`;
   let cached: (AccountAuthSession & { fingerprint: string }) | null = null;
   let pending: {
     fingerprint: string;
@@ -264,6 +267,61 @@ export function createAccountSessionProvider(input: {
     }).catch(() => undefined);
   };
 
+  const clearStoredSession = () => {
+    try {
+      input.storage?.removeItem(storageKey);
+    } catch {
+      // Browsers can disable storage; the in-memory session still works.
+    }
+  };
+
+  const storeSession = (
+    session: AccountAuthSession & { fingerprint: string },
+  ) => {
+    try {
+      input.storage?.setItem(storageKey, JSON.stringify(session));
+    } catch {
+      // A storage quota or privacy setting must not prevent authentication.
+    }
+  };
+
+  const restoreSession = (fingerprint: string) => {
+    if (!input.storage) return;
+    let stored: (AccountAuthSession & { fingerprint: string }) | null = null;
+    try {
+      const raw = input.storage.getItem(storageKey);
+      if (!raw) return;
+      const value: unknown = JSON.parse(raw);
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "accessToken" in value &&
+        typeof value.accessToken === "string" &&
+        value.accessToken.startsWith("aomi_wst_") &&
+        "expiresAt" in value &&
+        typeof value.expiresAt === "number" &&
+        Number.isFinite(value.expiresAt) &&
+        "fingerprint" in value &&
+        typeof value.fingerprint === "string"
+      ) {
+        stored = value as AccountAuthSession & { fingerprint: string };
+      }
+    } catch {
+      // Malformed or unavailable tab storage is treated as an empty cache.
+    }
+    if (
+      stored?.fingerprint === fingerprint &&
+      now() < stored.expiresAt * 1000 - refreshBeforeExpiryMs
+    ) {
+      cached = stored;
+      return;
+    }
+    clearStoredSession();
+    if (stored && stored.fingerprint !== fingerprint) {
+      void revokeSession(stored);
+    }
+  };
+
   const base = async ({ forceRefresh = false } = {}) => {
     if (disposed) {
       throw new Error("Widget session provider has been disposed");
@@ -294,6 +352,7 @@ export function createAccountSessionProvider(input: {
       };
     }
     latestFingerprint = fingerprint;
+    if (!cached) restoreSession(fingerprint);
     if (pending?.fingerprint === fingerprint) {
       return (await pending.promise).accessToken;
     }
@@ -324,8 +383,10 @@ export function createAccountSessionProvider(input: {
       // the old cache stays in place and another generic 401 cannot immediately
       // open the same prompt again.
       lastForcedAccessToken = stale.accessToken;
+      clearStoredSession();
     } else if (stale) {
       cached = null;
+      clearStoredSession();
       void revokeSession(stale);
     }
     if (!pending || pending.fingerprint !== fingerprint) {
@@ -346,6 +407,7 @@ export function createAccountSessionProvider(input: {
             throw new Error("Widget session exchange was superseded");
           }
           cached = { ...session, fingerprint };
+          storeSession(cached);
           lastForcedAccessToken = forcedExchange ? session.accessToken : null;
           if (retainStaleDuringForcedExchange && stale) {
             void revokeSession(stale);
@@ -370,6 +432,7 @@ export function createAccountSessionProvider(input: {
     const session = cached;
     epoch += 1;
     cached = null;
+    clearStoredSession();
     pending = null;
     latestResolvedFingerprint = null;
     lastForcedAccessToken = null;

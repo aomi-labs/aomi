@@ -2,6 +2,7 @@ export { AutoModeIcon } from "./auto-mode";
 export * from "./apps";
 export * from "./vendors";
 export * from "./chains";
+export * from "./skills";
 export * from "./wallets";
 export { getVendorIcon } from "./vendor-map";
 export { getChainIcon } from "./chain-map";

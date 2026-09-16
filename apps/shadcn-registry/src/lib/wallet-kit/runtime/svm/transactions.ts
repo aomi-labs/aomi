@@ -97,6 +97,9 @@ export function buildSvmTransactionMethods(
       : undefined,
     signSolanaMessage: signMessage
       ? async (payload: WalletSolanaSignMessagePayload) => {
+          if (payload.signer && payload.signer !== wallet.publicKey) {
+            throw new Error("The requested Solana wallet is not connected.");
+          }
           if (!payload.message) {
             throw new Error("Missing message payload");
           }
