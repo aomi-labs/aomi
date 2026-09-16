@@ -44,6 +44,14 @@ describe("resolveAccountConnectionString", () => {
       resolveAccountConnectionString(connectionString, { VERCEL: "1" }),
     ).toBe(connectionString);
   });
+
+  it("rejects direct Supabase connections from Vercel functions", () => {
+    const direct = `postgresql://postgres:secret@db.${budgets.staging.project_ref}.supabase.co:5432/postgres`;
+    expect(() =>
+      resolveAccountConnectionString(direct, { VERCEL: "1" }),
+    ).toThrow("must use the Supabase transaction pooler");
+    expect(resolveAccountConnectionString(direct, {})).toBe(direct);
+  });
 });
 
 describe("resolveAccountPoolOptions", () => {

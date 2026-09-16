@@ -99,6 +99,11 @@ export function resolveAccountConnectionString(
   } catch {
     return connectionString;
   }
+  if (/^db\.[a-z0-9]{20}\.supabase\.co$/.test(url.hostname)) {
+    throw new Error(
+      "Vercel account connections must use the Supabase transaction pooler, not a direct database URL",
+    );
+  }
   if (
     url.hostname.endsWith(".pooler.supabase.com") &&
     (url.port === "" || url.port === "5432")
