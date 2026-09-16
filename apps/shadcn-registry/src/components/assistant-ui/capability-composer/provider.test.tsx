@@ -84,6 +84,7 @@ function Composer() {
             id: "application:2937773",
             key: "app:cambrian",
             label: "Cambrian",
+            appName: "cambrian",
           })
         }
       >
@@ -208,7 +209,9 @@ describe("turn-scoped app mentions", () => {
       fireEvent.click(screen.getByText("Choose Cambrian"));
     });
     expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
-      capabilities: [{ kind: "app", id: "application:2937773" }],
+      capabilities: [
+        { kind: "app", id: "application:2937773", appName: "cambrian" },
+      ],
     });
     await act(async () => {
       fireEvent.click(screen.getByText("Send button"));

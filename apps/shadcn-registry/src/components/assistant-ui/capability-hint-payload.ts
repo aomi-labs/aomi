@@ -4,6 +4,7 @@ export type CapabilityHintSelection = {
   kind: "app" | "skill" | "chain";
   id: string;
   label?: string;
+  appName?: string;
 };
 
 export function buildCapabilityHintPayload(
@@ -28,10 +29,11 @@ export function buildCapabilityHintPayload(
           })),
         }
       : {}),
-    capabilities: selections.map(({ kind, id, label }) => ({
+    capabilities: selections.map(({ kind, id, label, appName }) => ({
       kind,
       id,
       ...(kind === "app" && label ? { label } : {}),
+      ...(kind === "app" && appName ? { appName } : {}),
     })),
   };
 }

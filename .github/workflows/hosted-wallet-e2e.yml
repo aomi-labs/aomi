@@ -25,6 +25,14 @@ jobs:
           persist-credentials: false
           ref: refs/heads/main
 
+      - name: Validate staging wallet configuration
+        env:
+          AOMI_HOSTED_E2E_EVM_PRIVATE_KEY: ${{ secrets.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY }}
+          AOMI_HOSTED_E2E_SVM_SECRET_KEY: ${{ secrets.AOMI_HOSTED_E2E_SVM_SECRET_KEY }}
+          AOMI_HOSTED_E2E_CHAIN_ID: "84532"
+          AOMI_HOSTED_E2E_RPC_URL: https://sepolia.base.org
+        run: node .github/scripts/validate-hosted-wallet-env.mjs
+
       - name: Enable corepack
         run: corepack enable
 
@@ -44,6 +52,6 @@ jobs:
           AOMI_HOSTED_E2E_PORTAL_URL: https://chat-staging.aomi.dev
           AOMI_HOSTED_E2E_EVM_PRIVATE_KEY: ${{ secrets.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY }}
           AOMI_HOSTED_E2E_SVM_SECRET_KEY: ${{ secrets.AOMI_HOSTED_E2E_SVM_SECRET_KEY }}
-          AOMI_HOSTED_E2E_CHAIN_ID: ${{ vars.AOMI_HOSTED_E2E_CHAIN_ID }}
-          AOMI_HOSTED_E2E_RPC_URL: ${{ secrets.AOMI_HOSTED_E2E_RPC_URL }}
+          AOMI_HOSTED_E2E_CHAIN_ID: "84532"
+          AOMI_HOSTED_E2E_RPC_URL: https://sepolia.base.org
         run: pnpm exec playwright test --project=hosted-wallet --workers=1 --reporter=list
