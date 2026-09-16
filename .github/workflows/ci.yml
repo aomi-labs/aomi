@@ -331,7 +331,10 @@ jobs:
           merge_base="$(git merge-base origin/main origin/prod)"
           merge_base_tree="$(git show -s --format=%T "$merge_base")"
           prod_tree="$(git show -s --format=%T origin/prod)"
-          if ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
+          # Rollback #631 intentionally restored the pre-promotion production tree.
+          # Main keeps the staging changes; this exception expires if prod moves.
+          if [ "$(git rev-parse origin/prod)" != "6da2f909e32528ae083a7a760fcfb4606d18e52f" ] &&
+             ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
             echo "prod contains a tree change that has not been back-merged to main" >&2
             git diff --stat "$merge_base_tree" "$prod_tree"
             exit 1
@@ -380,11 +383,14 @@ jobs:
           merge_base="$(git merge-base HEAD origin/prod)"
           merge_base_tree="$(git show -s --format=%T "$merge_base")"
           prod_tree="$(git show -s --format=%T origin/prod)"
-          git diff --quiet "$merge_base_tree" "$prod_tree" || {
+          # Rollback #631 intentionally restored the pre-promotion production tree.
+          # Main keeps the staging changes; this exception expires if prod moves.
+          if [ "$(git rev-parse origin/prod)" != "6da2f909e32528ae083a7a760fcfb4606d18e52f" ] &&
+             ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
             echo "prod has a tree change absent from main; merge the production hotfix first" >&2
             git diff --stat "$merge_base_tree" "$prod_tree"
             exit 1
-          }
+          fi
 
   live-production-contract:
     name: Production Backend Contract

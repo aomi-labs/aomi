@@ -11,7 +11,7 @@ overrides:
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
 
-packageExtensionsChecksum: sha256-B2fer3rvXVfutzioDLt75L6xOGQVBv54uLXKeS8ZsoA=
+packageExtensionsChecksum: sha256-MTZU5Mdlc17FuOaKBIHt0kHrKQFyqLAK4fcOR932MMY=
 
 patchedDependencies:
   '@better-auth/mcp@1.7.1':
@@ -20670,6 +20670,7 @@ snapshots:
       '@getpara/react-common': 2.24.0(@emotion/is-prop-valid@1.4.0)(@farcaster/miniapp-sdk@0.1.10(bufferutil@4.1.0)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@getpara/react-components': 2.24.0
       '@getpara/react-core': 2.24.0(e709bc110b61a8cd2c21a5e2f97e9490)
+      '@getpara/shared': 1.14.0
       '@getpara/web-sdk': 2.24.0(@farcaster/miniapp-sdk@0.1.10(bufferutil@4.1.0)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@tanstack/react-query': 5.100.9(react@19.2.7)
       date-fns: 3.6.0
