@@ -21,6 +21,7 @@ describe("app identity", () => {
         name: " POLYMARKET_REWARDS ",
         label: "messy backend rewards label",
         applicationId: 42,
+        metadata: { registered_via: "official_source" },
       }),
     ).toMatchObject({
       id: " POLYMARKET_REWARDS ",
@@ -49,6 +50,18 @@ describe("app identity", () => {
       displayName: "Internal GitHub Review",
       applicationId: 71,
     });
+  });
+
+  it("does not lend official branding to a same-name public community app", () => {
+    expect(
+      resolveAppIdentity({
+        name: "dune",
+        label: "Community Dune",
+        applicationId: 72,
+        isPublic: true,
+        metadata: { registered_via: "activate_apps" },
+      }),
+    ).toMatchObject({ brandId: "", displayName: "Community Dune" });
   });
 
   it("uses publisher labels only for unknown apps, then humanizes the id", () => {

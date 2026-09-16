@@ -1,4 +1,7 @@
-import type { AomiAppDescriptor } from "@aomi-labs/client";
+import {
+  isOfficialAppDescriptor,
+  type AomiAppDescriptor,
+} from "@aomi-labs/client";
 
 export type AppCategoryInfo = {
   id: string;
@@ -156,9 +159,12 @@ export function resolveAppIdentity(app: string | AomiAppDescriptor): AppInfo {
   const descriptor = typeof app === "string" ? undefined : app;
   const wireId = typeof app === "string" ? app : app.name;
 
-  // Private publishers own their presentation even if their wire name happens
-  // to match a built-in app. An empty brand prevents accidental logo reuse.
-  if (descriptor?.isPublic === false) {
+  // Community publishers own their presentation even if their wire name
+  // happens to match an official app. Never borrow official artwork by name.
+  if (
+    descriptor &&
+    (descriptor.isPublic === false || !isOfficialAppDescriptor(descriptor))
+  ) {
     const displayName =
       descriptor.label?.trim() || titleizeAppId(wireId.trim()) || "Unknown App";
     return {

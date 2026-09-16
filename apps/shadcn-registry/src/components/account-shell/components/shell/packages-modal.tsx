@@ -14,10 +14,7 @@ import {
   useAccountOverviewStore,
   useAccountOverview,
 } from "../../lib/account-overview";
-import {
-  LibraryDetailPanel,
-  type LibrarySelection,
-} from "./library-detail-panel";
+import { LibraryDetailPanel } from "./library-detail-panel";
 import { PINNED_APPS } from "./packages-catalog";
 import { setInstalledApps } from "./packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
@@ -26,6 +23,7 @@ import {
   NAV_ITEMS,
   CATEGORIES,
   selectionKey,
+  selectionIsOfficial,
   useLibraryEntries,
   type LibraryView,
 } from "./library/model";
@@ -56,11 +54,12 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   } = useSkillCatalog(transport.json);
   const [view, setView] = useState<LibraryView>("discover");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<LibrarySelection | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const mutationInFlight = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const accountUserId = account?.user.user_id;
   const installedBaseline = account?.user.apps ?? null;
@@ -140,10 +139,12 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   } = useLibraryEntries({ catalog, skills, installedIds, query, view });
 
   const activeSelection =
-    selected &&
-    visible.some((entry) => selectionKey(entry) === selectionKey(selected))
-      ? selected
-      : (visible[0] ?? null);
+    visible.find((entry) => selectionKey(entry) === selectedKey) ??
+    visible[0] ??
+    null;
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [view, query]);
   const selectedInstalled =
     activeSelection?.kind === "app" &&
     installedIds.has(activeSelection.item.id);
@@ -201,7 +202,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                   active={view === item.id}
                   onClick={() => {
                     setView(item.id);
-                    setSelected(null);
+                    setSelectedKey(null);
                   }}
                   count={
                     item.id === "discover"
@@ -230,7 +231,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                     active={view === category.id}
                     onClick={() => {
                       setView(category.id);
-                      setSelected(null);
+                      setSelectedKey(null);
                     }}
                     count={categoryCounts.get(category.id)}
                   />
@@ -242,7 +243,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
           <main className="flex min-h-0 min-w-0 flex-col p-4">
             <SearchField
               query={query}
-              onQueryChange={setQuery}
+              onQueryChange={(next) => {
+                setQuery(next);
+                setSelectedKey(null);
+              }}
               searchRef={searchRef}
             />
             {actionError ? (
@@ -256,7 +260,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 {visible.length}
               </span>
             </div>
-            <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+            <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
               {loadError ? (
                 <div className="flex min-h-44 flex-col items-center justify-center gap-3 text-center text-xs">
                   <p className="text-aomi-muted">{loadError}</p>
@@ -279,30 +283,39 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 <EmptyList />
               ) : (
                 <div className="space-y-0.5">
-                  {visible.map((entry) => (
-                    <CatalogRow
-                      key={selectionKey(entry)}
-                      selection={entry}
-                      selected={
-                        activeSelection
-                          ? selectionKey(activeSelection) ===
-                            selectionKey(entry)
-                          : false
-                      }
-                      installed={
-                        entry.kind === "app" && installedIds.has(entry.item.id)
-                      }
-                      busy={entry.kind === "app" && busyId === entry.item.id}
-                      disabled={!installedReady || busyId !== null}
-                      activeChainId={activeChainId}
-                      onSelect={() => setSelected(entry)}
-                      onInstall={() =>
-                        entry.kind === "app" && install(entry.item.id)
-                      }
-                      onTry={() =>
-                        entry.kind === "skill" && trySkill(entry.item)
-                      }
-                    />
+                  {visible.map((entry, index) => (
+                    <div key={selectionKey(entry)}>
+                      {!selectionIsOfficial(entry) &&
+                      (index === 0 ||
+                        selectionIsOfficial(visible[index - 1])) ? (
+                        <div className="border-aomi-border text-aomi-muted mt-3 border-t px-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                          Community apps
+                        </div>
+                      ) : null}
+                      <CatalogRow
+                        selection={entry}
+                        selected={
+                          activeSelection
+                            ? selectionKey(activeSelection) ===
+                              selectionKey(entry)
+                            : false
+                        }
+                        installed={
+                          entry.kind === "app" &&
+                          installedIds.has(entry.item.id)
+                        }
+                        busy={entry.kind === "app" && busyId === entry.item.id}
+                        disabled={!installedReady || busyId !== null}
+                        activeChainId={activeChainId}
+                        onSelect={() => setSelectedKey(selectionKey(entry))}
+                        onInstall={() =>
+                          entry.kind === "app" && install(entry.item.id)
+                        }
+                        onTry={() =>
+                          entry.kind === "skill" && trySkill(entry.item)
+                        }
+                      />
+                    </div>
                   ))}
                 </div>
               )}

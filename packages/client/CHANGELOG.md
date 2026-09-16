@@ -1,5 +1,10 @@
 # @aomi-labs/client
 
+## 0.7.5
+
+- Normalize backend-owned Library `feature_catalog` and registration metadata
+  while keeping same-name hosted apps distinct by application ID.
+
 ## 0.7.4
 
 - Correct Arc Testnet native-currency metadata to 18 decimals, matching the

@@ -27,7 +27,7 @@ export type LibraryView =
   | "apps"
   | "skills"
   | LibraryCategory;
-type LibraryCategory =
+export type LibraryCategory =
   | "lending"
   | "cross-chain"
   | "staking"
@@ -70,7 +70,15 @@ const FEATURED = [
 ];
 
 export function selectionKey(selection: LibrarySelection): string {
-  return `${selection.kind}:${selection.item.id}`;
+  if (selection.kind === "skill") return `skill:${selection.item.id}`;
+  const identity = selection.item.applicationId;
+  return identity == null
+    ? `app:name:${selection.item.id}`
+    : `app:application:${identity}`;
+}
+
+export function selectionIsOfficial(selection: LibrarySelection): boolean {
+  return selection.kind === "skill" || selection.item.official;
 }
 
 export function selectionName(selection: LibrarySelection): string {
@@ -88,51 +96,9 @@ export function selectionDescription(selection: LibrarySelection): string {
 export function inferLibraryCategory(
   selection: LibrarySelection,
 ): LibraryCategory | null {
-  const tags = selection.kind === "skill" ? selection.item.tags.join(" ") : "";
-  const text =
-    `${selection.item.id} ${selectionName(selection)} ${selection.item.description} ${tags}`.toLowerCase();
-  if (
-    /bridge|cross[- ]chain|cctp|stargate|across|debridge|swap|uniswap|sushi|curve|aerodrome|jupiter|oneinch|lifi|raydium|meteora|sanctum/u.test(
-      text,
-    )
-  ) {
-    return "cross-chain";
-  }
-  if (/lend|borrow|repay|collateral|aave|compound|morpho|kamino/u.test(text)) {
-    return "lending";
-  }
-  if (
-    /stake|restake|yield|liquidity|lido|etherfi|kelp|renzo|rocket|pendle|yearn|eigenlayer|convex/u.test(
-      text,
-    )
-  ) {
-    return "staking";
-  }
-  if (
-    /perp|market|trade|order|stock|prediction|hyperliquid|dydx|gmx|kalshi|polymarket|limitless/u.test(
-      text,
-    )
-  ) {
-    return "trading";
-  }
-  if (
-    /wallet|payment|allowance|transfer|balance|erc[-_ ]?20|token/u.test(text)
-  ) {
-    return "wallets";
-  }
-  if (
-    /query|analytics|research|data|chart|explain|portfolio|inspect/u.test(text)
-  ) {
-    return "research";
-  }
-  if (
-    /deploy|developer|contract|nft|multisig|account abstraction|orchestrat|automat/u.test(
-      text,
-    )
-  ) {
-    return "developer";
-  }
-  return null;
+  return (
+    (selection.item.featureCatalog[0] as LibraryCategory | undefined) ?? null
+  );
 }
 
 export function useLibraryEntries({
@@ -165,8 +131,8 @@ export function useLibraryEntries({
       new Map(
         CATEGORIES.map((category) => [
           category.id,
-          allEntries.filter(
-            (entry) => inferLibraryCategory(entry) === category.id,
+          allEntries.filter((entry) =>
+            entry.item.featureCatalog.includes(category.id),
           ).length,
         ]),
       ),
@@ -174,17 +140,18 @@ export function useLibraryEntries({
   );
 
   const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
     let source = allEntries;
-    if (view === "installed")
+    if (needle) source = allEntries;
+    else if (view === "installed")
       source = appEntries.filter((entry) => installedIds.has(entry.item.id));
     else if (view === "apps") source = appEntries;
     else if (view === "skills") source = skillEntries;
     else if (view !== "discover")
-      source = allEntries.filter(
-        (entry) => inferLibraryCategory(entry) === view,
+      source = allEntries.filter((entry) =>
+        entry.item.featureCatalog.includes(view),
       );
 
-    const needle = query.trim().toLowerCase();
     const filtered = needle
       ? source.filter((entry) =>
           `${selectionName(entry)} ${entry.item.description} ${entry.kind === "skill" ? entry.item.tags.join(" ") : entry.item.searchTerms.join(" ")}`
@@ -193,10 +160,17 @@ export function useLibraryEntries({
         )
       : source;
     return [...filtered].sort((left, right) => {
-      if (view !== "discover")
+      const officialOrder =
+        Number(selectionIsOfficial(right)) - Number(selectionIsOfficial(left));
+      if (officialOrder) return officialOrder;
+      if (view !== "discover" && !needle)
         return selectionName(left).localeCompare(selectionName(right));
-      const leftRank = FEATURED.indexOf(selectionKey(left));
-      const rightRank = FEATURED.indexOf(selectionKey(right));
+      const leftRank = FEATURED.indexOf(
+        left.kind === "app" ? `app:${left.item.id}` : selectionKey(left),
+      );
+      const rightRank = FEATURED.indexOf(
+        right.kind === "app" ? `app:${right.item.id}` : selectionKey(right),
+      );
       return (
         (leftRank < 0 ? FEATURED.length : leftRank) -
           (rightRank < 0 ? FEATURED.length : rightRank) ||
