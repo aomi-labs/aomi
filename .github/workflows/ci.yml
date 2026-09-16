@@ -172,7 +172,40 @@ jobs:
       - name: Build package prerequisites
         run: pnpm run build:packages
 
-      - name: Check and build affected apps
+      - name: Check affected apps
+        env:
+          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
+          CHECK_BUILD: ${{ needs.changes.outputs.build }}
+          CHECK_BASE: ${{ needs.changes.outputs.base }}
+          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
+          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
+        run: |
+          set -euo pipefail
+          if [ "$CHECK_PORTAL" = true ]; then
+            pnpm run lint:portal
+            pnpm run typecheck:portal
+            pnpm run test:portal
+          fi
+          if [ "$CHECK_BUILD" = true ]; then
+            pnpm run lint:aomi-build
+            pnpm run typecheck:aomi-build
+            pnpm --filter aomi-build test
+          fi
+          if [ "$CHECK_BASE" = true ]; then
+            pnpm run lint:base
+            pnpm run typecheck:base
+          fi
+          if [ "$CHECK_LANDING" = true ]; then
+            pnpm run lint:landing
+            pnpm run typecheck:landing
+          fi
+          if [ "$CHECK_TELEGRAM" = true ]; then
+            pnpm run lint:telegram
+            pnpm run typecheck:telegram
+            pnpm run test:telegram
+          fi
+
+      - name: Build affected apps
         env:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
@@ -191,31 +224,18 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
-            pnpm run lint:portal
-            pnpm run typecheck:portal
-            pnpm run test:portal
             pnpm run build:portal
           fi
           if [ "$CHECK_BUILD" = true ]; then
-            pnpm run lint:aomi-build
-            pnpm run typecheck:aomi-build
-            pnpm --filter aomi-build test
             pnpm run build:aomi-build
           fi
           if [ "$CHECK_BASE" = true ]; then
-            pnpm run lint:base
-            pnpm run typecheck:base
             pnpm run build:base
           fi
           if [ "$CHECK_LANDING" = true ]; then
-            pnpm run lint:landing
-            pnpm run typecheck:landing
             pnpm run build:landing
           fi
           if [ "$CHECK_TELEGRAM" = true ]; then
-            pnpm run lint:telegram
-            pnpm run typecheck:telegram
-            pnpm run test:telegram
             pnpm run build:telegram
           fi
 
