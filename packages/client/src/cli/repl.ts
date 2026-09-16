@@ -1,12 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { chatCommand } from "./commands/chat";
-import {
-  modelsCommand,
-  setAgentModeCommand,
-  setAppCommand,
-  setModelCommand,
-} from "./commands/control";
+import { modelsCommand, setAppCommand, setModelCommand } from "./commands/control";
 import {
   clearByokKeysCommand,
   saveByokKeyCommand,
@@ -24,11 +19,7 @@ function str(value: unknown): string | undefined {
 function printReplHelp(): void {
   console.log("Commands:");
   console.log("  /heap                  Show this message");
-  console.log("  /mode auto             Use automatic routing");
-  console.log(
-    "  /mode direct [app]     Route directly (default app if omitted)",
-  );
-  console.log("  /app <name>            Shorthand for /mode direct [app]");
+  console.log("  /app <name>            Switch app by loaded app name");
   console.log("  /model <rig>           Set the active backend model");
   console.log("  /model list            Show available models");
   console.log("  /model show            Show the current model");
@@ -43,10 +34,7 @@ function currentModelLabel(config: CliConfig): string {
   return cli.model ?? "(default backend model)";
 }
 
-async function handleModelCommand(
-  config: CliConfig,
-  command: string,
-): Promise<void> {
+async function handleModelCommand(config: CliConfig, command: string): Promise<void> {
   if (!command) {
     fatal("Usage: /model <rig> | /model list | /model show");
   }
@@ -67,8 +55,7 @@ async function handleModelCommand(
     fatal(`Usage: /model ${action} <rig>`);
   }
 
-  const nextModel =
-    action === "main" || action === "small" ? maybeModel : command;
+  const nextModel = action === "main" || action === "small" ? maybeModel : command;
   if (!nextModel) {
     fatal("Usage: /model <rig>");
   }
@@ -77,10 +64,7 @@ async function handleModelCommand(
   config.model = nextModel;
 }
 
-async function handleKeyCommand(
-  config: CliConfig,
-  command: string,
-): Promise<void> {
+async function handleKeyCommand(config: CliConfig, command: string): Promise<void> {
   if (!command) {
     fatal("Usage: /key <provider:key> | /key show | /key clear");
   }
@@ -117,45 +101,23 @@ export async function handleReplLine(
     return "continue";
   }
 
-  if (trimmed === "/app" || trimmed.startsWith("/app ")) {
+  if (trimmed.startsWith("/app")) {
     const app = trimmed.slice("/app".length).trim();
     if (!app) {
       fatal("Usage: /app <app-name>");
     }
     setAppCommand(config, app, { printLocation: false });
-    config.agentMode = "direct";
     config.app = app;
-    delete config.applicationId;
     return "continue";
   }
 
-  if (trimmed === "/mode" || trimmed.startsWith("/mode ")) {
-    const command = trimmed.slice("/mode".length).trim();
-    const [rawMode, ...appParts] = command.split(/\s+/u);
-    if (rawMode !== "auto" && rawMode !== "direct") {
-      fatal("Usage: /mode auto | /mode direct [app-name]");
-    }
-    const app = appParts.join(" ").trim() || undefined;
-    if (rawMode === "auto" && app) {
-      fatal("Usage: /mode auto");
-    }
-    setAgentModeCommand(config, rawMode, app, { printLocation: false });
-    config.agentMode = rawMode;
-    delete config.app;
-    delete config.applicationId;
-    if (rawMode === "direct" && app) {
-      config.app = app;
-    }
-    return "continue";
-  }
-
-  if (trimmed === "/model" || trimmed.startsWith("/model ")) {
+  if (trimmed.startsWith("/model")) {
     const command = trimmed.slice("/model".length).trim();
     await handleModelCommand(config, command);
     return "continue";
   }
 
-  if (trimmed === "/key" || trimmed.startsWith("/key ")) {
+  if (trimmed.startsWith("/key")) {
     const command = trimmed.slice("/key".length).trim();
     await handleKeyCommand(config, command);
     return "continue";
@@ -170,28 +132,20 @@ export async function runInteractiveCli(
   options?: { showTool?: boolean },
 ): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    fatal(
-      "Interactive mode requires a TTY. Use `--prompt` for non-interactive usage.",
-    );
+    fatal("Interactive mode requires a TTY. Use `--prompt` for non-interactive usage.");
   }
 
   CliSession.loadOrCreate(config);
 
   console.log("Interactive Aomi CLI ready.");
-  console.log(
-    "Commands: /heap, /mode auto|direct [app], /app <name>, /model <rig>|list|show, /key, :exit",
-  );
+  console.log("Commands: /heap, /app <name>, /model <rig>|list|show, /key, :exit");
 
   const rl = createInterface({ input, output });
   try {
     while (true) {
       const line = await rl.question("> ");
       try {
-        const next = await handleReplLine(
-          config,
-          line,
-          options?.showTool === true,
-        );
+        const next = await handleReplLine(config, line, options?.showTool === true);
         if (next === "exit") {
           break;
         }

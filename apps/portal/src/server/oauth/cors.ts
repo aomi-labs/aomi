@@ -83,7 +83,7 @@ export async function applyManagedWidgetCors(input: {
 }): Promise<Response> {
   const origin = normalizedOrigin(input.request.headers.get("origin"));
   if (!origin) return input.response;
-  if (isFirstPartyOrigin(input.request, origin)) return input.response;
+  if (origin === aomiOAuthResources().portalOrigin) return input.response;
   if (!(await isManagedWidgetClientOrigin(origin, input.clientId))) {
     return Response.json({ error: "origin_not_allowed" }, { status: 403 });
   }
@@ -101,7 +101,7 @@ export async function applyManagedWidgetOriginCors(input: {
 }): Promise<Response> {
   const origin = normalizedOrigin(input.request.headers.get("origin"));
   if (!origin) return input.response;
-  if (isFirstPartyOrigin(input.request, origin)) return input.response;
+  if (origin === aomiOAuthResources().portalOrigin) return input.response;
   if (!(await listManagedWidgetOrigins()).includes(origin)) {
     return Response.json({ error: "origin_not_allowed" }, { status: 403 });
   }
@@ -157,11 +157,4 @@ function normalizedOrigin(value: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-function isFirstPartyOrigin(request: Request, origin: string): boolean {
-  return (
-    origin === new URL(request.url).origin ||
-    origin === aomiOAuthResources().portalOrigin
-  );
 }

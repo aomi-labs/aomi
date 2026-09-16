@@ -17,8 +17,7 @@ export type KnownAuthIdentityProvider =
   | "siws"
   | "privy"
   | "para"
-  | "email"
-  | "telegram";
+  | "email";
 export type AuthIdentityProvider = KnownAuthIdentityProvider | (string & {});
 
 /** Canonical `(issuerEnvironment, tenantId)` scope for every provider whose
@@ -27,7 +26,6 @@ export type AuthIdentityProvider = KnownAuthIdentityProvider | (string & {});
 export const IDENTITY_SCOPES = {
   betterAuth: { issuerEnvironment: "aomi", tenantId: "portal" },
   email: { issuerEnvironment: "aomi", tenantId: "global" },
-  telegram: { issuerEnvironment: "aomi", tenantId: "global" },
   siwe: { issuerEnvironment: "eip155", tenantId: "global" },
   siws: { issuerEnvironment: "solana", tenantId: "global" },
 } as const;

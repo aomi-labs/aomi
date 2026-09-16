@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 // Type-side registration of the jest-dom matchers the root vitest.setup.ts
 // installs at runtime; the app tsconfig doesn't load the augmentation globally.
 import "@testing-library/jest-dom/vitest";
-import { useEffect, type ContextType } from "react";
+import { useEffect } from "react";
 import {
   act,
   cleanup,
@@ -17,12 +17,7 @@ import type { AomiWalletKit } from "@/lib/wallet-kit";
 import { AomiWalletKitContextProvider } from "@/lib/wallet-kit";
 import { AomiWalletNetworkPreferencesProvider } from "@/lib/wallet-kit/network-preferences";
 import { registerWalletProvider } from "@/lib/wallet-kit/providers/plugin-registry";
-import {
-  requestWalletPickerOpen,
-  WalletPickerProvider,
-  WalletSignInOptionsContext,
-  useWalletPicker,
-} from "./wallet-picker-context";
+import { WalletPickerProvider, useWalletPicker } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
 
 afterEach(cleanup);
@@ -61,9 +56,8 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
       address: "0xAAAAAAAA",
       chainId: 1,
       svmAddress: "9xQpubKey",
-      authMethod: "google",
-      embeddedProvider: "para",
-      sessionProvider: "para",
+      authProvider: "google",
+      walletProvider: "para",
       primaryLabel: "0xAAA..AA",
     },
     isReady: true,
@@ -222,12 +216,7 @@ function OpenAndRender() {
   return <WalletPicker />;
 }
 
-function renderPicker(
-  adapter: AomiWalletKit,
-  hasBlockingActions = false,
-  initiallyOpen = true,
-  signInOptions: ContextType<typeof WalletSignInOptionsContext> = [],
-) {
+function renderPicker(adapter: AomiWalletKit, hasBlockingActions = false) {
   const runtime = {
     hasBlockingActions,
     showNotification: vi.fn(),
@@ -241,11 +230,9 @@ function renderPicker(
             evmChains={evmChains}
             solanaNetworks={solanaNetworks}
           >
-            <WalletSignInOptionsContext.Provider value={signInOptions}>
-              <WalletPickerProvider>
-                {initiallyOpen ? <OpenAndRender /> : <WalletPicker />}
-              </WalletPickerProvider>
-            </WalletSignInOptionsContext.Provider>
+            <WalletPickerProvider>
+              <OpenAndRender />
+            </WalletPickerProvider>
           </AomiWalletNetworkPreferencesProvider>
         </AomiWalletKitContextProvider>
       </AomiRuntimeApiProvider>
@@ -260,19 +247,9 @@ function openAddWallets() {
 }
 
 describe("WalletPicker", () => {
-  it("opens from a host-owned surface request", async () => {
-    renderPicker(makeAdapter(), false, false);
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    await act(async () => requestWalletPickerOpen());
-
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
   it("uses the shared light blurred backdrop", () => {
     renderPicker(makeAdapter());
 
-    expect(screen.getByRole("dialog").parentElement).toBe(document.body);
     const backdrop = screen.getAllByRole("button", { name: "Close" })[0];
     expect(backdrop).toHaveAttribute("data-slot", "modal-backdrop");
     expect(backdrop.className).toContain("bg-black/20");
@@ -297,8 +274,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "disconnected",
           isConnected: false,
-          embeddedProvider: "para",
-          sessionProvider: "para",
+          walletProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -327,8 +303,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "disconnected",
           isConnected: false,
-          embeddedProvider: "para",
-          sessionProvider: "para",
+          walletProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -583,6 +558,7 @@ describe("WalletPicker", () => {
           chainId: 1,
           sessionProvider: "privy",
           embeddedProvider: "privy",
+          walletProvider: "privy",
         },
         accounts: [
           {
@@ -795,15 +771,14 @@ describe("WalletPicker", () => {
         identity: {
           status: "disconnected",
           isConnected: false,
-          embeddedProvider: "para",
-          sessionProvider: "para",
+          walletProvider: "para",
         },
         accounts: [],
       }),
     );
     const socialRow = screen.getByRole("button", { name: "Email or Google" });
     expect(within(socialRow).getByText("Email or Google")).toBeTruthy();
-    expect(within(socialRow).getByText("Para")).toBeTruthy();
+    expect(within(socialRow).getByText("Fast account sign-in")).toBeTruthy();
   });
 
   it("falls back to the method label when no account provider brand exists", () => {
@@ -864,7 +839,7 @@ describe("WalletPicker", () => {
     );
 
     expect(screen.getByText("Connected wallet")).toBeTruthy();
-    expect(screen.getByText("Connected")).toBeTruthy();
+    expect(screen.getByText("Connected now")).toBeTruthy();
     expect(document.querySelector('[data-wallet-brand="rabby"]')).toBeTruthy();
 
     await act(async () => {
@@ -1106,7 +1081,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "connected",
           isConnected: true,
-          embeddedProvider: "para",
+          walletProvider: "para",
           sessionProvider: "para",
         },
         accounts: [
@@ -1127,72 +1102,6 @@ describe("WalletPicker", () => {
         .getAllByTitle("Embedded wallet")
         .some((node) => node.getAttribute("data-wallet-brand") === "para"),
     ).toBe(true);
-  });
-
-  it("hides the connected host provider and offers the other one as a link", async () => {
-    const privy = vi.fn(async () => undefined);
-    const para = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        identity: {
-          status: "connected",
-          isConnected: true,
-          sessionProvider: "privy",
-          walletProviderSubject: "privy-user",
-        },
-      }),
-      false,
-      true,
-      [
-        {
-          id: "privy",
-          label: "Privy",
-          status: "available",
-          family: "multichain",
-          kind: "social",
-          connect: privy,
-        },
-        {
-          id: "para",
-          label: "Para",
-          status: "available",
-          family: "multichain",
-          kind: "social",
-          connect: para,
-        },
-      ],
-    );
-    expect(screen.queryByRole("button", { name: "Privy" })).toBeNull();
-    expect(screen.getByText("Link another provider")).toBeVisible();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Para" }));
-    });
-    expect(para).toHaveBeenCalledOnce();
-    expect(privy).not.toHaveBeenCalled();
-  });
-
-  it("shows both host providers as ways to sign in when no provider account is connected", () => {
-    renderPicker(makeAdapter({}), false, true, [
-      {
-        id: "privy",
-        label: "Privy",
-        status: "available",
-        family: "multichain",
-        kind: "social",
-        connect: vi.fn(async () => undefined),
-      },
-      {
-        id: "para",
-        label: "Para",
-        status: "available",
-        family: "multichain",
-        kind: "social",
-        connect: vi.fn(async () => undefined),
-      },
-    ]);
-    expect(screen.getByText("Other ways to sign in")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Para" })).toBeVisible();
   });
 
   it("hides the social sign-in row when the Para account is connected", () => {
@@ -1227,7 +1136,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "connected",
           isConnected: true,
-          embeddedProvider: "privy",
+          walletProvider: "privy",
           sessionProvider: "privy",
           walletProviderSubject: "did:privy:user",
           primaryLabel: "privy@example.com",
@@ -1278,7 +1187,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "connected",
           isConnected: true,
-          embeddedProvider: "privy",
+          walletProvider: "privy",
           sessionProvider: "privy",
           walletProviderSubject: "did:privy:user",
           primaryLabel: "privy@example.com",
@@ -1317,8 +1226,7 @@ describe("WalletPicker", () => {
           isConnected: true,
           address: "0xAAAAAAAA",
           chainId: 1,
-          embeddedProvider: "privy",
-          sessionProvider: "privy",
+          walletProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         socialLoginOptions: [
@@ -1340,7 +1248,7 @@ describe("WalletPicker", () => {
     expect(
       within(socialRow).getByText("Email, wallet, or social"),
     ).toBeTruthy();
-    expect(within(socialRow).getByText("Privy")).toBeTruthy();
+    expect(within(socialRow).getByText("Fast account sign-in")).toBeTruthy();
   });
 
   it("dedupes stored embedded wallets behind the provider quick sign-in row", () => {
@@ -1373,8 +1281,7 @@ describe("WalletPicker", () => {
           isConnected: true,
           address: "0xAAAAAAAA",
           chainId: 1,
-          embeddedProvider: "privy",
-          sessionProvider: "privy",
+          walletProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         walletModalRows: [
@@ -1420,7 +1327,7 @@ describe("WalletPicker", () => {
     const socialRow = screen.getByRole("button", {
       name: "Email or Google",
     });
-    expect(within(socialRow).getByText("Privy")).toBeTruthy();
+    expect(within(socialRow).getByText("Fast account sign-in")).toBeTruthy();
     expect(
       screen.getAllByRole("button", { name: "Email or Google" }),
     ).toHaveLength(1);

@@ -18,7 +18,6 @@ export type PortalPrincipal =
       kind: "better_auth";
       userId: string;
       betterAuthUserId: string;
-      isAnonymous: boolean;
       session: Awaited<ReturnType<typeof getBetterAuthSession>>;
     }
   | {
@@ -53,7 +52,6 @@ export async function resolvePortalPrincipal(
         kind: "better_auth",
         userId: current.user.id,
         betterAuthUserId,
-        isAnonymous: current.session?.user?.isAnonymous === true,
         session: current.session,
       };
     }

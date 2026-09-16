@@ -14,7 +14,6 @@ import {
   uniqueFacts,
 } from "../normalize";
 import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { formatTokenUnits, knownToken } from "../token-registry";
 
 const op = (
   id: string,
@@ -43,7 +42,6 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   const secondAddress = addressFromWord(calldataWord(input, 1));
   const secondAmount = bigintFromWord(calldataWord(input, 1));
   const decoded = decodedValue(resultRecord);
-  const token = knownToken(tx.chain_id, tx.to);
 
   if (selectorMeta?.kind === "erc20_balance") {
     return op("evm.call.erc20.balance_of", rawLabel, [
@@ -89,13 +87,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
       chainFactFromRecord(tx),
       topicTokenFact(rawLabel),
       addressFact(firstAddress, "spender", "decoded"),
-      amountFact(
-        secondAmount && token
-          ? formatTokenUnits(secondAmount, token.decimals)
-          : secondAmount,
-        token?.symbol ?? "raw units",
-        "decoded",
-      ),
+      amountFact(secondAmount, undefined, "decoded"),
     ]);
   }
 

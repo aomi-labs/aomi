@@ -8,10 +8,8 @@ import type {
   PipelineCommitOptions,
   PipelineDirectory,
   PipelineErrorBody,
-  PipelineExecutionScope,
   PipelineFilesystemResource,
   PipelineInvokeOptions,
-  PipelineMutationOptions,
   PipelineOperationBuildInput,
   PipelineOperationDescriptor,
   SvmCommitResult,
@@ -43,32 +41,20 @@ export class PipelineApiError extends Error {
 export class EvmPipelineTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  build(
-    input: PipelineOperationBuildInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<EvmSimulatedBuild> {
+  build(input: PipelineOperationBuildInput): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/build", {
-      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  stage(
-    input: EvmStageInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<EvmStagedBuild> {
+  stage(input: EvmStageInput): Promise<EvmStagedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/stage", {
-      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  simulate(
-    build: EvmStagedBuild,
-    options: PipelineMutationOptions = {},
-  ): Promise<EvmSimulatedBuild> {
+  simulate(build: EvmStagedBuild): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/simulate", {
-      headers: mutationHeaders(options),
       body: { build: jsonBody(build) },
     });
   }
@@ -87,32 +73,20 @@ export class EvmPipelineTransport {
 export class SvmPipelineTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  build(
-    input: PipelineOperationBuildInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmSimulatedBuild> {
+  build(input: PipelineOperationBuildInput): Promise<SvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/build", {
-      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  stage(
-    input: SvmStageInput,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmStagedBuild> {
+  stage(input: SvmStageInput): Promise<SvmStagedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/stage", {
-      headers: mutationHeaders(options),
       body: jsonBody(input),
     });
   }
 
-  simulate(
-    build: SvmStagedBuild,
-    options: PipelineMutationOptions = {},
-  ): Promise<SvmSimulatedBuild> {
+  simulate(build: SvmStagedBuild): Promise<SvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/svm/simulate", {
-      headers: mutationHeaders(options),
       body: { build: jsonBody(build) },
     });
   }
@@ -130,16 +104,13 @@ export class SvmPipelineTransport {
 
 export class PipelineOperationTransport {
   readonly href: string;
-  readonly executionScope: PipelineExecutionScope;
 
   constructor(
     private readonly requestResponse: RequestResponse,
     scope: "apps" | "skills",
     owner: string,
   ) {
-    const name = required("name", owner);
-    this.href = `/v1/pipeline/${scope}/${encodeURIComponent(name)}`;
-    this.executionScope = scope === "apps" ? { app: name } : { skills: [name] };
+    this.href = `/v1/pipeline/${scope}/${encodeURIComponent(required("name", owner))}`;
   }
 
   directory(): Promise<PipelineDirectory> {
@@ -257,6 +228,7 @@ export class PipelineTransport {
       options,
     );
   }
+
 }
 
 async function invokeOperation<T>(
@@ -309,9 +281,7 @@ async function pipelineError(response: Response): Promise<PipelineApiError> {
     response.status === 408 ||
       response.status === 429 ||
       response.status >= 500,
-    stringValue(error?.requestId) ??
-      response.headers.get("x-request-id") ??
-      undefined,
+    stringValue(error?.requestId) ?? response.headers.get("x-request-id") ?? undefined,
     error?.details,
   );
 }

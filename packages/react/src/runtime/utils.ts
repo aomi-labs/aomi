@@ -12,10 +12,6 @@ import {
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import {
-  extractCapabilityHints,
-  stripCapabilityHints,
-} from "./capability-hints";
 
 /**
  * Utility function to merge Tailwind CSS classes with conflict resolution.
@@ -104,12 +100,8 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
   const role: ThreadMessageLike["role"] =
     msg.sender === "user" ? "user" : "assistant";
 
-  const messageText =
-    role === "user" ? stripCapabilityHints(msg.content ?? "") : msg.content;
-  const capabilityHints =
-    role === "user" ? extractCapabilityHints(msg.content ?? "") : [];
-  if (messageText && messageText.trim().length > 0) {
-    content.push({ type: "text" as const, text: messageText });
+  if (msg.content && msg.content.trim().length > 0) {
+    content.push({ type: "text" as const, text: msg.content });
   }
 
   if (content.length === 0 && role === "assistant" && !msg.is_streaming) {
@@ -123,9 +115,6 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
     role,
     content: content as ThreadMessageLike["content"],
     createdAt: new Date(parseTimestamp(msg.occurred_at)),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
-      : {}),
   } satisfies ThreadMessageLike;
 
   return threadMessage;
@@ -193,7 +182,6 @@ const inlineToolResult = (event: MessageEvent) => {
 const inlineToolPart = (
   tool: NonNullable<ReturnType<typeof inlineToolResult>>,
   key: string,
-  toolCallId?: string | null,
 ): MessageContentPart => {
   let result: unknown = tool.payload;
   try {
@@ -203,7 +191,7 @@ const inlineToolPart = (
   }
   return {
     type: "tool-call",
-    toolCallId: toolCallId ?? `inline:${key}`,
+    toolCallId: `inline:${key}`,
     toolName: tool.toolName,
     args: tool.args,
     result,
@@ -280,7 +268,7 @@ export function projectAssistantMessages(
               projection,
               projection.toolParts,
               key,
-              inlineToolPart(toolResult, key, event.tool_call_id),
+              inlineToolPart(toolResult, key),
             );
           }
         } else {
@@ -351,39 +339,19 @@ export function projectAssistantMessages(
 export function projectRuntimeMessages(
   events: readonly Event[],
   pendingUserMessage?: string,
-  liveMessages: readonly MessageEvent[] = [],
 ): ThreadMessageLike[] {
-  const visible = [...events];
-  for (const message of liveMessages) {
-    let index = visible.findIndex((event) => {
-      const runtimeSequence = event.runtime_sequence;
-      if (
-        event.turn_id === message.turn_id &&
-        runtimeSequence !== undefined &&
-        message.runtime_sequence !== undefined
-      )
-        return runtimeSequence > message.runtime_sequence;
-      return event.sequence > message.sequence;
-    });
-    if (index < 0) index = visible.length;
-    visible.splice(index, 0, message);
-  }
-  const projected = projectAssistantMessages(visible);
+  const projected = projectAssistantMessages(events);
   if (pendingUserMessage === undefined) return projected;
 
   const userMessageOrdinal = projected.reduce(
     (count, message) => count + Number(message.role === "user"),
     0,
   );
-  const capabilityHints = extractCapabilityHints(pendingUserMessage);
   projected.push({
     id: userMessageId(userMessageOrdinal),
     role: "user",
-    content: [{ type: "text", text: stripCapabilityHints(pendingUserMessage) }],
+    content: [{ type: "text", text: pendingUserMessage }],
     createdAt: new Date(),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
-      : {}),
   });
   return projected;
 }

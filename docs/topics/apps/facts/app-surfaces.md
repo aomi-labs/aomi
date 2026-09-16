@@ -32,8 +32,7 @@ The app surfaces in `apps/` are the main product and validation targets for pack
 ## Operational Notes
 
 - These app surfaces depend on workspace packages instead of published versions.
-- Changes in `packages/react`, `packages/client`, or `apps/shadcn-registry`
-  should generally be checked in at least one app surface before release.
+- Changes in `packages/react`, `packages/client`, or `apps/registry` should generally be checked in at least one app surface before release.
 
 ## Related Topics
 

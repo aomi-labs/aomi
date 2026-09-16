@@ -35,12 +35,7 @@ import {
 } from "../../runtime/svm/wallet-runtime";
 import { useParaSessionSource } from "./sources/para-session-source";
 import { isParaEmbeddedAccount } from "./para-embedded-wallet";
-import {
-  findParaSigningWallet,
-  signParaMessage,
-  signParaTypedData,
-  signParaSolanaMessage,
-} from "./para-message-signing";
+import { signParaMessage } from "./para-message-signing";
 import {
   defaultOAuthMethods,
   resolveParaAuthValue,
@@ -385,73 +380,11 @@ export function AomiParaPluginProvider({
       Boolean(paraModal) && exposeParaSession && isParaEmbeddedAccount(account),
     [exposeParaSession, paraModal],
   );
-  const executionRuntime = useMemo<ExecutionRuntime>(() => {
-    const evm = buildEvmExecutionRuntime(evmRuntime);
-    return {
-      canSignFor: (family, address) => {
-        if (
-          exposeParaSession &&
-          paraSession?.signMessage &&
-          findParaSigningWallet(paraSession, address, family)?.id
-        )
-          return true;
-        return family === "evm"
-          ? Boolean(
-              evmRuntime.activeConnector &&
-              evm.signTypedData &&
-              evmRuntime.activeEvmConnection?.address.toLowerCase() ===
-                address.toLowerCase(),
-            )
-          : Boolean(
-              svmWallet.connected &&
-              svmWallet.signMessage &&
-              svmWallet.publicKey === address,
-            );
-      },
-      evm: {
-        ...evm,
-        signTypedData: async (payload) => {
-          const address =
-            payload.signer ?? evmRuntime.activeEvmConnection?.address;
-          if (
-            address &&
-            exposeParaSession &&
-            paraSession &&
-            findParaSigningWallet(paraSession, address)?.id
-          ) {
-            return signParaTypedData(paraSession, address, payload);
-          }
-          if (!evm.signTypedData)
-            throw new Error("No Ethereum wallet is available for signing.");
-          return evm.signTypedData(payload);
-        },
-      },
-    };
-  }, [evmRuntime, exposeParaSession, paraSession, svmWallet]);
-  const signingSvmRuntime = useMemo<SvmWalletRuntime>(
+  const executionRuntime = useMemo<ExecutionRuntime>(
     () => ({
-      ...svmRuntime,
-      execution: {
-        ...svmRuntime.execution,
-        signSolanaMessage: async (payload) => {
-          const address =
-            payload.signer ?? svmRuntime.identity(Date.now()).address;
-          if (
-            address &&
-            exposeParaSession &&
-            paraSession &&
-            findParaSigningWallet(paraSession, address, "svm")?.id
-          ) {
-            if (!payload.message) throw new Error("Missing message payload");
-            return signParaSolanaMessage(paraSession, address, payload.message);
-          }
-          if (!svmRuntime.execution.signSolanaMessage)
-            throw new Error("No Solana wallet is available for signing.");
-          return svmRuntime.execution.signSolanaMessage(payload);
-        },
-      },
+      evm: buildEvmExecutionRuntime(evmRuntime),
     }),
-    [svmRuntime, exposeParaSession, paraSession],
+    [evmRuntime],
   );
   const accountRuntime = useResolvedAccountRuntime({
     account,
@@ -465,7 +398,7 @@ export function AomiParaPluginProvider({
       auth={authRuntime}
       account={accountRuntime}
       evm={evmRuntime}
-      svm={signingSvmRuntime}
+      svm={svmRuntime}
       execution={executionRuntime}
       additionalEvmWalletOptions={providerEvmWalletOptions}
       transformEvmIdentity={transformEvmIdentity}

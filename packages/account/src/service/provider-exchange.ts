@@ -4,15 +4,14 @@ import {
   findSignalOwner,
   upsertEmailIdentity,
 } from "../db/queries";
-import {
-  IDENTITY_SCOPES,
-  type AomiAccountCredential,
-  type AomiAccountResponse,
-  type AomiUserId,
-  type DbAomiAuthIdentity,
-  type DbAomiUser,
-  type SignalRef,
-  type SignalResolution,
+import type {
+  AomiAccountCredential,
+  AomiAccountResponse,
+  AomiUserId,
+  DbAomiAuthIdentity,
+  DbAomiUser,
+  SignalRef,
+  SignalResolution,
 } from "../types";
 import {
   createDefaultProviderCredentialVerifiers,
@@ -33,7 +32,6 @@ import type {
 } from "../providers/descriptor";
 import {
   betterAuthWalletSignals,
-  claimTelegramSessionOwner,
   ensureAccountSchema,
   fetchAttestedProviderWallets,
   isIdentityAlreadyLinkedError,
@@ -74,16 +72,6 @@ type ProviderSignInResult =
       identity: DbAomiAuthIdentity;
     }
   | (SignalResolution & { status: "conflict" });
-
-export type TelegramProviderSignInResult =
-  | ProviderSignInResult
-  | { status: "session_mismatch" };
-
-class TelegramSessionMismatchError extends Error {
-  constructor() {
-    super("telegram_session_mismatch");
-  }
-}
 
 class ProviderLinkRollback extends Error {
   constructor(readonly resolution: SignalResolution & { status: "conflict" }) {
@@ -182,58 +170,6 @@ export async function signInWithVerifiedProviderIdentity(input: {
     };
   } catch (error) {
     return providerConflict(error);
-  }
-}
-
-/**
- * Resolves the provider and Telegram identities in one transaction, then
- * claims only the matching private thread. A Telegram identity owned by a
- * different canonical account is intentionally reported as a conflict: the
- * caller must use a dedicated account-merge flow rather than move state here.
- */
-export async function signInWithTelegramProviderIdentity(input: {
-  identity: VerifiedProviderIdentity;
-  policy: Pick<WidgetProviderPolicy, "subjectIsEnvironmentGlobal">;
-  telegramUserId: string;
-  sessionId: string;
-  wallets?: readonly AttestedWallet[];
-}): Promise<TelegramProviderSignInResult> {
-  const telegramSignal: SignalRef = {
-    type: "identity",
-    provider: "telegram",
-    ...IDENTITY_SCOPES.telegram,
-    subject: input.telegramUserId,
-  };
-  try {
-    return await signInWithVerifiedProviderIdentity({
-      identity: input.identity,
-      policy: input.policy,
-      wallets: input.wallets,
-      additionalRecoverySignals: [telegramSignal],
-      onResolved: async (user, db) => {
-        const linked = await linkProviderIdentity({
-          userId: user.id,
-          provider: "telegram",
-          ...IDENTITY_SCOPES.telegram,
-          subject: input.telegramUserId,
-          db,
-        });
-        if (linked.status === "conflict") {
-          throw new IdentityConflictError([], linked.signalType);
-        }
-        const sessionOwner = await claimTelegramSessionOwner({
-          sessionId: input.sessionId,
-          telegramUserId: input.telegramUserId,
-          db,
-        });
-        if (sessionOwner !== user.id) throw new TelegramSessionMismatchError();
-      },
-    });
-  } catch (error) {
-    if (error instanceof TelegramSessionMismatchError) {
-      return { status: "session_mismatch" };
-    }
-    throw error;
   }
 }
 

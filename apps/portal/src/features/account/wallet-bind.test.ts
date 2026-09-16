@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { bindWalletVia } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-bind";
+import { bindWalletVia } from "./wallet-bind";
 
 describe("bindWalletVia", () => {
   it("runs challenge → sign → commit for EVM bind", async () => {

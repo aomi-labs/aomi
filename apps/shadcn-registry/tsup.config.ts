@@ -4,7 +4,6 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     "aomi-widget": "src/components/aomi-widget.tsx",
-    "host-composition": "src/host-composition.ts",
     "providers/para": "src/lib/wallet-kit/providers/para/index.ts",
     "providers/privy": "src/lib/wallet-kit/providers/privy/index.ts",
   },

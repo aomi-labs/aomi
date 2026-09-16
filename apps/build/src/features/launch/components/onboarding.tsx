@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { useAomiWalletKit } from "@aomi-labs/widget-lib";
 import {
   githubAppInstallUrl,
   loadLaunch,
@@ -38,6 +39,9 @@ export function Onboarding({
    */
   sessionInstallationId?: string | null;
 }) {
+  const adapter = useAomiWalletKit();
+  const actor = adapter.identity.address ?? undefined;
+
   const [state, setState] = useState<LaunchState>(() => {
     // Scoped load: wizard progress belongs to exactly one platform, and
     // `loadLaunch` discards progress saved under a different one rather than
@@ -240,6 +244,15 @@ export function Onboarding({
     [state, update],
   );
 
+  const onReset = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("deployment_id");
+    url.searchParams.delete("deploy_path");
+    window.history.replaceState({}, "", url.toString());
+    update(withProgress(state, PATH, { deploymentId: undefined, live: false }));
+  }, [state, update]);
+
   /**
    * Send the browser to GitHub.
    *
@@ -293,11 +306,13 @@ export function Onboarding({
       <OneshotWizard
         progress={state.oneshot}
         platform={platform}
+        actor={actor}
         onRestart={restart}
         beginInstall={beginInstall}
         installing={installing}
         installError={installError}
         patch={patch}
+        onReset={onReset}
         onInstallRejected={onInstallRejected}
       />
     </>

@@ -1,22 +1,9 @@
-import type {
-  AomiAppDescriptor,
-  AomiArtifactStatus,
-  AomiFeatureCategory,
-} from "./types";
+import type { AomiAppDescriptor, AomiArtifactStatus } from "./types";
 
 const ARTIFACT_STATUSES = new Set<AomiArtifactStatus>([
   "ready",
   "pending",
   "fetch_backoff",
-]);
-const FEATURE_CATEGORIES = new Set<AomiFeatureCategory>([
-  "lending",
-  "cross-chain",
-  "staking",
-  "trading",
-  "research",
-  "wallets",
-  "developer",
 ]);
 
 /**
@@ -55,25 +42,6 @@ export function normalizeAppDescriptor(
   }
   if (typeof raw.platform === "string") descriptor.platform = raw.platform;
   if (typeof raw.label === "string") descriptor.label = raw.label;
-  if (
-    raw.metadata &&
-    typeof raw.metadata === "object" &&
-    !Array.isArray(raw.metadata)
-  ) {
-    descriptor.metadata = raw.metadata as Record<string, unknown>;
-  }
-  const featureCatalog = raw.featureCatalog ?? raw.feature_catalog;
-  descriptor.featureCatalog = Array.isArray(featureCatalog)
-    ? [
-        ...new Set(
-          featureCatalog.filter(
-            (feature): feature is AomiFeatureCategory =>
-              typeof feature === "string" &&
-              FEATURE_CATEGORIES.has(feature as AomiFeatureCategory),
-          ),
-        ),
-      ]
-    : [];
   if (typeof raw.appReleaseTag === "string") {
     descriptor.appReleaseTag = raw.appReleaseTag;
   } else if (typeof raw.app_release_tag === "string") {
@@ -127,23 +95,10 @@ export function normalizeAppDescriptor(
     "artifact_ready",
     "artifact_status",
     "chain_ids",
-    "feature_catalog",
   ]) {
     delete (descriptor as unknown as Record<string, unknown>)[key];
   }
   return descriptor;
-}
-
-/** Registration is backend-controlled; neither public visibility nor a repo
- * URL implies official ownership. Bare app names are code-owned builtins. */
-export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean {
-  const source = app.metadata?.source;
-  const registeredVia = app.metadata?.registered_via;
-  return (
-    source === "builtin" ||
-    registeredVia === "official_source" ||
-    (app.applicationId == null && !app.platform && registeredVia == null)
-  );
 }
 
 /**

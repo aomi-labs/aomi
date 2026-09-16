@@ -1,7 +1,6 @@
 import {
   BETTER_AUTH_OAUTH_PROVIDER_VERSION,
   auth,
-  handleWalletAuthRequest,
   aomiOAuthResources,
   guestScopesForAomiResource,
   hashOAuthClientId,
@@ -109,10 +108,7 @@ async function handleAuth(request: Request) {
       }
     }
   }
-  let response =
-    request.method === "POST" && /\/siw(?:e|s)\/(?:nonce|verify)$/.test(path)
-      ? await handleWalletAuthRequest(request)
-      : await auth.handler(request);
+  let response = await auth.handler(request);
   if (request.method === "GET" && path.endsWith("/jwks")) {
     response = publicDiscoveryResponse(response);
   }

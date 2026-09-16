@@ -1,15 +1,4 @@
-import {
-  hashMessage,
-  hashTypedData,
-  isHex,
-  parseSignature,
-  recoverTypedDataAddress,
-  serializeSignature,
-} from "viem";
-import {
-  toViemSignTypedDataArgs,
-  type WalletEip712Payload,
-} from "@aomi-labs/client";
+import { hashMessage, isHex, parseSignature, serializeSignature } from "viem";
 import { hexToBase64 } from "../../account/encoding";
 
 type ParaSigningWallet = {
@@ -43,75 +32,18 @@ function normalizeParaSignature(signature: string): `0x${string}` {
   });
 }
 
-export function findParaSigningWallet(
+function findParaSigningWallet(
   paraSession: ParaSigningClient,
-  address: string,
-  family: "evm" | "svm" = "evm",
+  address: `0x${string}`,
 ): ParaSigningWallet | undefined {
-  const wallet =
-    family === "evm"
-      ? paraSession.findWalletByAddress?.(address as `0x${string}`, {
-          type: ["EVM"],
-        })
-      : undefined;
+  const wallet = paraSession.findWalletByAddress?.(address, { type: ["EVM"] });
   if (wallet) return wallet;
 
-  return Object.values(paraSession.wallets ?? {}).find((candidate) =>
-    family === "evm"
-      ? candidate.address?.toLowerCase() === address.toLowerCase() &&
-        (!candidate.type || candidate.type === "EVM")
-      : candidate.address === address && candidate.type === "SOLANA",
+  return Object.values(paraSession.wallets ?? {}).find(
+    (candidate) =>
+      candidate.address?.toLowerCase() === address.toLowerCase() &&
+      (!candidate.type || candidate.type === "EVM"),
   );
-}
-
-export async function signParaTypedData(
-  paraSession: ParaSigningClient,
-  address: string,
-  payload: WalletEip712Payload,
-): Promise<{ signature: string }> {
-  const walletId = findParaSigningWallet(paraSession, address)?.id;
-  const args = toViemSignTypedDataArgs(payload);
-  if (!walletId || !paraSession.signMessage || !args?.message) {
-    throw new Error("Para wallet is not available for typed-data signing");
-  }
-  const typedData = { ...args, message: args.message };
-  const result = await paraSession.signMessage({
-    walletId,
-    messageBase64: hexToBase64(hashTypedData(typedData)),
-  });
-  if (!("signature" in result))
-    throw new Error("Para authorization is still awaiting a signature.");
-  const signature = normalizeParaSignature(result.signature);
-  const recovered = await recoverTypedDataAddress({ ...typedData, signature });
-  if (recovered.toLowerCase() !== address.toLowerCase()) {
-    throw new Error(
-      "Para returned a signature for a different wallet. Nothing changed.",
-    );
-  }
-  return { signature };
-}
-
-export async function signParaSolanaMessage(
-  paraSession: ParaSigningClient,
-  address: string,
-  messageBase64: string,
-): Promise<{ signature: string }> {
-  const walletId = findParaSigningWallet(paraSession, address, "svm")?.id;
-  if (!walletId || !paraSession.signMessage) {
-    throw new Error("Para Solana wallet is not available for signing");
-  }
-  // Ed25519 signs the original bytes, not an EVM personal-sign/typed-data hash.
-  const result = await paraSession.signMessage({ walletId, messageBase64 });
-  if (!("signature" in result))
-    throw new Error("Para authorization is still awaiting a signature.");
-  // Para Web SDK's ED25519_SIGN worker returns base64, unlike its EVM signer.
-  if (
-    !/^[A-Za-z0-9+/]{86}==$/.test(result.signature) ||
-    btoa(atob(result.signature)) !== result.signature
-  ) {
-    throw new Error("Para returned an invalid Solana signature.");
-  }
-  return { signature: result.signature };
 }
 
 export async function signParaMessage(

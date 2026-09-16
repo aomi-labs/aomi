@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Chain } from "viem";
 import type { Connector } from "wagmi";
 import type { AomiAccount, AomiWalletOption } from "../../types";
@@ -271,9 +271,16 @@ export function useEvmWalletRuntime({
     stableId: activeEvmConnection?.stableId,
     walletName: activeEvmConnection?.walletName,
   });
+  const evmSwitchInFlightRef = useRef(false);
+
   useEffect(() => {
     const chainId = activeEvmConnection?.chainId;
-    if (!chainId || !chainsById[chainId] || chainId === selectedEvmChainId) {
+    if (
+      evmSwitchInFlightRef.current ||
+      !chainId ||
+      !chainsById[chainId] ||
+      chainId === selectedEvmChainId
+    ) {
       return;
     }
     walletDebug("evm:chain-external-sync", {
@@ -575,8 +582,28 @@ export function useEvmWalletRuntime({
       const chainId = Number(networkId);
       if (!Number.isFinite(chainId)) return;
       setSelectedEvmChainId(chainId);
+      if (
+        switchChainAsync &&
+        activeConnector &&
+        activeEvmConnection?.chainId !== chainId
+      ) {
+        evmSwitchInFlightRef.current = true;
+        try {
+          await switchChainAsync({
+            chainId,
+            connector: activeConnector,
+          });
+        } finally {
+          evmSwitchInFlightRef.current = false;
+        }
+      }
     },
-    [setSelectedEvmChainId],
+    [
+      activeConnector,
+      activeEvmConnection?.chainId,
+      setSelectedEvmChainId,
+      switchChainAsync,
+    ],
   );
 
   const selectRuntimeAccounts = useCallback(

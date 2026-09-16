@@ -5,7 +5,7 @@ import { SettingsInitializer } from "./settings-initializer";
 import {
   seedAccountOverview,
   useAccountOverview,
-} from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
+} from "@portal/lib/account-overview";
 
 const adapterState = vi.hoisted(() => ({
   current: { accountUser: { id: "acct-a" } } as {
@@ -16,12 +16,9 @@ const adapterState = vi.hoisted(() => ({
 vi.mock("@aomi-labs/widget-lib", () => ({
   useAomiWalletKit: () => adapterState.current,
 }));
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
-  () => ({
-    useSettings: () => undefined,
-  }),
-);
+vi.mock("@portal/lib/use-settings", () => ({
+  useSettings: () => undefined,
+}));
 
 function AccountUserId() {
   const account = useAccountOverview();

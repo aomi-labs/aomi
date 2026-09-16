@@ -86,8 +86,6 @@ export type ApplicationId = number | string | null;
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface AomiRequestOptions {
-  /** Cancels the response body as well as the request. */
-  signal?: AbortSignal;
   /** Thread id for thread-scoped routes. Kept as sessionId for SDK compatibility. */
   sessionId?: string;
   /** App key for app-key checked routes; defaults to the client's apiKey. */
@@ -340,39 +338,6 @@ export interface AomiListSecretsResponse {
 }
 
 /**
- * One declared slot of an app together with the signed-in user's own
- * configuration state. Values never come back from the backend.
- *
- * `GET|POST /api/account/apps/:application_id/secrets`
- */
-export interface AomiUserAppSecretSlot {
-  name: string;
-  description: string;
-  required: boolean;
-  /** The current account stored its own value for this slot. */
-  configured: boolean;
-  /**
-   * The app ships a shared value for this slot (official bundle file or
-   * Build Environment), so a user value is an override rather than a
-   * prerequisite for the app to work.
-   */
-  app_provided: boolean;
-}
-
-/** The per-user key set for one application. */
-export interface AomiUserAppSecrets {
-  application_id: number;
-  app: string;
-  slots: AomiUserAppSecretSlot[];
-}
-
-/** DELETE /api/account/apps/:application_id/secrets */
-export interface AomiClearAppSecretsResponse {
-  cleared: boolean;
-  removed: number;
-}
-
-/**
  * One per-app secret slot declared by a plugin manifest. Surfaced via
  * `AomiAppDescriptor.secrets` so the frontend can render input rows and
  * gate app load on `required` slots being filled.
@@ -393,10 +358,6 @@ export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
  */
 export interface AomiAppDescriptor {
   name: string;
-  /** Backend-owned Library taxonomy. Empty means the "More" fallback. */
-  featureCatalog?: AomiFeatureCategory[];
-  /** Backend-controlled registration metadata used to identify official apps. */
-  metadata?: Record<string, unknown> | null;
   applicationId?: number | string | null;
   platform?: string | null;
   label?: string | null;
@@ -409,12 +370,3 @@ export interface AomiAppDescriptor {
   /** Exact EVM chain IDs declared by the official app release. */
   chainIds?: number[];
 }
-
-export type AomiFeatureCategory =
-  | "lending"
-  | "cross-chain"
-  | "staking"
-  | "trading"
-  | "research"
-  | "wallets"
-  | "developer";

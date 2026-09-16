@@ -21,8 +21,6 @@
       "@aomi-labs/account/*": ["../../packages/account/src/*"],
       "@aomi-labs/client": ["../../packages/client/src/index.ts"],
       "@aomi-labs/client/*": ["../../packages/client/src/*"],
-      "@aomi-labs/react": ["../../packages/react/src/index.ts"],
-      "@aomi-labs/react/*": ["../../packages/react/src/*"],
       "@/*": ["./src/*"]
     },
     "target": "ES2017"

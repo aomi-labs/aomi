@@ -16,7 +16,6 @@ import {
 
 import { getChainIcon } from "@/components/icons/chain-map";
 import { SolanaIcon } from "@/components/icons/chains";
-import { getSkillIcon } from "@/components/icons/skills";
 import {
   SHAPE_ICONS,
   STAGED_ACTION_ICON_REGISTRY,
@@ -54,8 +53,6 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Queued", icon: ClockIcon };
     case "pending":
       return { label: "Pending confirmation", icon: ClockIcon };
-    case "pending_approval":
-      return { label: "Pending approval", icon: ClockIcon };
     case "success":
       return { label: "Success", icon: CircleCheckIcon };
     case "failed":
@@ -102,13 +99,13 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       if (fact.role === "native") {
         return {
           label: formatNativeAmount(fact.value),
-          icon: CoinsIcon,
+          icon: getChainIcon(1),
         };
       }
       if (fact.role === "primary" || fact.role === "secondary") {
         return { label: fact.label ?? fact.value, icon: CoinsIcon };
       }
-      return { label: fact.label ?? fact.value, icon: CoinsIcon };
+      return { label: fact.label ?? fact.value };
     case "block":
       return { label: formatInteger(fact.value), icon: BlocksIcon };
     case "chain": {
@@ -150,10 +147,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
     case "selector":
       return { label: fact.label ?? fact.value };
     case "skill":
-      return {
-        label: fact.label ?? humanize(fact.value),
-        icon: getSkillIcon(fact.value) ?? PuzzleIcon,
-      };
+      return { label: fact.label ?? humanize(fact.value), icon: PuzzleIcon };
     case "sourceHost":
       return { label: fact.label ?? fact.value };
     case "status":

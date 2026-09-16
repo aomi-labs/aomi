@@ -5,8 +5,7 @@
   "description": "Use to show a placeholder while content is loading.",
   "files": [
     {
-      "type": "registry:ui",
-      "target": "@ui/skeleton.tsx",
+      "type": "registry:component",
       "path": "components/ui/skeleton.tsx",
       "content": "import * as React from \"react\";\n\nimport { cn } from \"@aomi-labs/react\";\n\nfunction Skeleton({ className, ...props }: React.ComponentProps<\"div\">) {\n  return (\n    <div\n      data-slot=\"skeleton\"\n      className={cn(\"bg-accent animate-pulse rounded-md\", className)}\n      {...props}\n    />\n  );\n}\n\nexport { Skeleton };\n"
     }

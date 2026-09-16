@@ -90,7 +90,6 @@ export function buildEvmExecutionRuntime(
             }
             const signature = await signTypedDataAsync({
               ...(signArgs as Record<string, unknown>),
-              account: payload.signer ?? evm.activeEvmConnection?.address,
               connector: runtime.activeConnector,
             } as never);
             return { signature };

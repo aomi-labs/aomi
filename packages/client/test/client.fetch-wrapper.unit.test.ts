@@ -108,32 +108,6 @@ describe("wrapFetchWithAccountBearer", () => {
     expect(headers.has("authorization")).toBe(false);
   });
 
-  it("sends a required widget session to Agent and Pipeline APIs", async () => {
-    const fetchMock = vi.fn(async () =>
-      Response.json({ sessions: [], nextCursor: null }),
-    );
-    const getBearer = bearerSource("widget-session");
-    getBearer.required = true;
-    const guest = vi.fn(async () => "guest-session");
-    const client = new AomiClient({
-      baseUrl: "https://chat.aomi.dev",
-      fetch: fetchMock as unknown as typeof fetch,
-      getAccountBearer: getBearer,
-      guest,
-    });
-
-    await client.agent.sessions.list();
-    await client.requestResponse("GET", "/v1/pipeline/catalog");
-
-    expect(getBearer).toHaveBeenCalledTimes(2);
-    expect(guest).not.toHaveBeenCalled();
-    for (const call of fetchMock.mock.calls) {
-      expect(new Headers(call[1]?.headers).get("authorization")).toBe(
-        "Bearer widget-session",
-      );
-    }
-  });
-
   it("simulateBatch delivers its JSON body through the wrapped fetch", async () => {
     const fetchMock = vi.fn(
       async () =>

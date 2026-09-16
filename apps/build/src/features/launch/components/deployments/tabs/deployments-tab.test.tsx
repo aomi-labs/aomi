@@ -54,13 +54,6 @@ function makeDetail(
         },
       ],
     },
-    attempts: {
-      attempts: [],
-      local: [],
-      busy: false,
-      isSuccess: true,
-      refetch: vi.fn(),
-    },
     loading: false,
     sdk: {
       sdkStatus: { requiredVersion: overrides.requiredSdk ?? "3.0.1" },
@@ -277,7 +270,9 @@ describe("DeploymentsTab", () => {
 
   it("redeploys from the linked repository", () => {
     renderTab(<DeploymentsTab detail={detail} />);
-    fireEvent.click(screen.getByRole("button", { name: "Deploy" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /redeploy from linked repository/i }),
+    );
     expect(detail.redeploySource).toHaveBeenCalled();
   });
 
@@ -328,7 +323,9 @@ describe("DeploymentsTab", () => {
     expect(
       screen.queryByRole("button", { name: /upgrade to 3\.0\.3/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Deploy" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /redeploy from linked repository/i }),
+    ).toBeDisabled();
   });
 
   it("does nothing when the upgrade confirm is cancelled", () => {
@@ -406,7 +403,9 @@ describe("DeploymentsTab", () => {
     );
 
     expect(await screen.findByText(/pr merged/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Deploy" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: /redeploy from linked repository/i }),
+    ).toBeEnabled();
   });
 
   it("surfaces the manual-upgrade exit with the fix command", async () => {
@@ -476,7 +475,9 @@ describe("DeploymentsTab", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Deploy" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /redeploy from linked repository/i }),
+    ).toBeDisabled();
     fireEvent.click(
       screen.getByRole("button", { name: "Set required secrets" }),
     );
@@ -511,42 +512,27 @@ describe("DeploymentsTab", () => {
     expect(screen.queryByText("No deployments yet")).not.toBeInTheDocument();
   });
 
-  it("shows named CI stages and the run link without invented percentage progress", async () => {
-    const running = {
-      ...makeDetail(),
-      attempts: {
-        attempts: [
-          {
-            id: 11,
-            branch: "main",
-            commit: "abc123",
-            status: "in_progress",
-            conclusion: null,
-            createdAt: new Date().toISOString(),
-            url: "https://github.com/a/b/actions/runs/11",
-            jobs: [
-              {
-                id: 2,
-                name: "Build / my-bot",
-                status: "in_progress",
-                conclusion: null,
-                steps: [],
-              },
-            ],
+  it("shows a CI progress bar while a redeploy builds", async () => {
+    renderTab(
+      <DeploymentsTab
+        detail={makeDetail({
+          deployFlow: {
+            phase: "building",
+            message: "Building… (building)",
+            progress: {
+              percent: 30,
+              label: "Building CI",
+              ciUrl: "https://github.com/a/b/actions/runs/1",
+            },
           },
-        ],
-        local: [],
-        busy: true,
-        isSuccess: true,
-      },
-    } as Detail;
-    renderTab(<DeploymentsTab detail={running} />);
-    expect(
-      await screen.findByRole("list", { name: "Deployment stages" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /View full CI logs/ }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+        })}
+      />,
+    );
+    const bar = await screen.findByRole("progressbar", {
+      name: "Deployment progress",
+    });
+    expect(bar).toHaveAttribute("aria-valuenow", "30");
+    expect(screen.getByText("Building… (building)")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /CI run/i })).toBeInTheDocument();
   });
 });

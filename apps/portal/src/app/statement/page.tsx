@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { StatementView } from "@aomi-labs/widget-lib/host-composition";
+import { StatementView } from "@portal/features/usage";
 
 export const metadata: Metadata = {
   title: "Usage statement — Aomi",

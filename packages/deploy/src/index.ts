@@ -22,7 +22,6 @@ export {
 export type { DeployErrorCode } from "./errors";
 
 export type {
-  ProjectDeploymentAttempt,
   AomiConfig,
   AuditEvent,
   BackendClientOptions,

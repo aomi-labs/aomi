@@ -128,89 +128,76 @@ function ExtUserProviderImpl({ children }: { children: ReactNode }) {
   const userRef = useRef(user);
   userRef.current = user;
 
-  const setUser = useCallback((data: Partial<UserState>) => {
-    setUserState((prev) => {
-      const incoming = data as UserState;
-      const merged = mergeRecords(prev, incoming) as UserState;
-      // Submitter choice belongs to the selected account, not its connector
-      // or chain. Wallet switches must not inherit the previous Auto route.
-      for (const chain of ["evm", "svm"] as const) {
-        const wallet = incoming[chain];
-        const before = prev[chain];
-        const after = merged[chain];
-        if (!wallet || !after) continue;
-        const changed =
-          wallet.address &&
-          before?.address &&
-          !UserState.sameAddress(
-            { chain, address: wallet.address },
-            { chain, address: before.address },
-          );
-        if (
-          (changed && !Object.hasOwn(wallet, "broadcaster")) ||
-          (Object.hasOwn(wallet, "broadcaster") &&
-            wallet.broadcaster === undefined)
-        ) {
-          delete after.broadcaster;
+  const setUser = useCallback(
+    (data: Partial<UserState>) => {
+      setUserState((prev) => {
+        const incoming = data as UserState;
+        const merged = mergeRecords(prev, incoming) as UserState;
+
+        // Wallet-context fields belong to a specific connected session. On
+        // disconnect we wipe identity, AA, and sponsorship so that the next
+        // connection cannot inherit state from the previous wallet. The
+        // selected chain is a wallet-independent read preference, so keep it
+        // available to chat and read-only tools while disconnected.
+        let next: UserState;
+        if (UserState.isConnected(incoming) === false) {
+          next = dropWalletBlocks(merged);
+        } else {
+          // Address change while staying connected (wallet switch in place):
+          // Per-tx AA outputs belong to the prior address. Pending requests stay
+          // until their backend callback resolves or rejects them.
+          const prevAddress = UserState.address(prev);
+          const nextAddress = UserState.address(merged);
+          const addressChanged =
+            prevAddress !== undefined &&
+            nextAddress !== undefined &&
+            prevAddress.toLowerCase() !== nextAddress.toLowerCase();
+          next = addressChanged ? dropAddressScopedState(merged) : merged;
         }
-      }
 
-      // Wallet-context fields belong to a specific connected session. On
-      // disconnect we wipe identity, AA, and sponsorship so that the next
-      // connection cannot inherit state from the previous wallet. The
-      // selected chain is a wallet-independent read preference, so keep it
-      // available to chat and read-only tools while disconnected.
-      let next: UserState;
-      if (UserState.isConnected(incoming) === false) {
-        next = dropWalletBlocks(merged);
-      } else {
-        // Address change while staying connected (wallet switch in place):
-        // Per-tx AA outputs belong to the prior address. Pending requests stay
-        // until their backend callback resolves or rejects them.
-        const prevAddress = UserState.address(prev);
-        const nextAddress = UserState.address(merged);
-        const addressChanged =
-          prevAddress !== undefined &&
-          nextAddress !== undefined &&
-          prevAddress.toLowerCase() !== nextAddress.toLowerCase();
-        next = addressChanged ? dropAddressScopedState(merged) : merged;
-      }
+        if (stableStateString(prev) === stableStateString(next)) {
+          return prev;
+        }
 
-      if (stableStateString(prev) === stableStateString(next)) {
-        return prev;
-      }
+        return next;
+      });
+    },
+    [],
+  );
 
-      return next;
-    });
-  }, []);
+  const addExtValue = useCallback(
+    (key: string, value: unknown) => {
+      setUserState((prev) => {
+        const next = UserState.withExt(prev, key, value);
+        return next;
+      });
+    },
+    [],
+  );
 
-  const addExtValue = useCallback((key: string, value: unknown) => {
-    setUserState((prev) => {
-      const next = UserState.withExt(prev, key, value);
-      return next;
-    });
-  }, []);
-
-  const removeExtValue = useCallback((key: string) => {
-    setUserState((prev) => {
-      const ext = prev.ext;
-      if (
-        typeof ext !== "object" ||
-        ext === null ||
-        Array.isArray(ext) ||
-        !(key in ext)
-      ) {
-        return prev;
-      }
-      const nextExt = { ...(ext as Record<string, unknown>) };
-      delete nextExt[key];
-      const next: UserState = {
-        ...prev,
-        ext: Object.keys(nextExt).length > 0 ? nextExt : undefined,
-      };
-      return next;
-    });
-  }, []);
+  const removeExtValue = useCallback(
+    (key: string) => {
+      setUserState((prev) => {
+        const ext = prev.ext;
+        if (
+          typeof ext !== "object" ||
+          ext === null ||
+          Array.isArray(ext) ||
+          !(key in ext)
+        ) {
+          return prev;
+        }
+        const nextExt = { ...(ext as Record<string, unknown>) };
+        delete nextExt[key];
+        const next: UserState = {
+          ...prev,
+          ext: Object.keys(nextExt).length > 0 ? nextExt : undefined,
+        };
+        return next;
+      });
+    },
+    [],
+  );
 
   // Stable getters that runtime classes can call
   const getUserState = useCallback(() => userRef.current, []);

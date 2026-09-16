@@ -25,10 +25,6 @@ import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
-import {
-  previewWalletAuthOrigin,
-  withPreviewWalletAuthOrigin,
-} from "./preview-origin";
 
 const env = readAccountAuthEnv();
 const resources = aomiOAuthResources();
@@ -235,11 +231,7 @@ export const auth = betterAuth({
     }),
     snakeCasedSiwe(
       siwe({
-        get domain() {
-          return previewWalletAuthOrigin()
-            ? new URL(previewWalletAuthOrigin()!).host
-            : env.siweDomain;
-        },
+        domain: env.siweDomain,
         emailDomainName: env.siweEmailDomain,
         anonymous: true,
         getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
@@ -247,14 +239,8 @@ export const auth = betterAuth({
       }),
     ),
     aomiSiwsPlugin({
-      get domain() {
-        return previewWalletAuthOrigin()
-          ? new URL(previewWalletAuthOrigin()!).host
-          : env.siweDomain;
-      },
-      get baseUrl() {
-        return previewWalletAuthOrigin() ?? env.betterAuthUrl;
-      },
+      domain: env.siweDomain,
+      baseUrl: env.betterAuthUrl,
       getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
     }),
     bearer(),
@@ -358,13 +344,3 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 });
-
-export function handleWalletAuthRequest(request: Request): Promise<Response> {
-  const result = withPreviewWalletAuthOrigin(
-    request,
-    process.env,
-    env.betterAuthUrl,
-    () => auth.handler(request),
-  );
-  return Promise.resolve(result);
-}

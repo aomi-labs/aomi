@@ -252,7 +252,7 @@ export function HomeTab({
     ],
   );
 
-  if (!source || !status || !lifecycle) {
+  if (!source || !lifecycle) {
     return <EmptyPanel>Project not found.</EmptyPanel>;
   }
 
@@ -261,7 +261,7 @@ export function HomeTab({
   ) => tabHref?.(tab) ?? `?tab=${tab}`;
 
   const isLive =
-    status.isLive && Boolean(lifecycle.chatApp) && !outdated;
+    lifecycle.kind === "live" && Boolean(lifecycle.chatApp) && !outdated;
   const chatUrl = isLive
     ? chatAppUrl(lifecycle.chatApp!, {
         locked: true,
@@ -272,16 +272,20 @@ export function HomeTab({
   const liveValue = outdated
     ? "Outdated"
     : lifecycle.kind === "live"
-      ? status.isLive
-        ? "Live"
-        : status.label
+      ? "Live"
       : lifecycle.kind === "building" || lifecycle.kind === "build_ready"
         ? lifecycle.statusLabel
         : lifecycle.kind === "failed"
           ? lifecycle.statusLabel
           : "Not live";
 
-  const liveTone = isLive ? "good" : "warn";
+  const liveTone = outdated
+    ? "warn"
+    : lifecycle.kind === "live"
+      ? "good"
+      : lifecycle.kind === "failed"
+        ? "warn"
+        : "warn";
 
   const usageCopy = usageCardCopy(usage);
   const monetization = monetizationCard(source);

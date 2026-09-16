@@ -7,17 +7,12 @@ import {
   AGENT_SCOPES,
   aomiOAuthResources,
 } from "@portal/server/oauth/resources";
-import {
-  applyWidgetCors,
-  widgetCorsPreflight,
-} from "@portal/server/widget-auth/cors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function handle(request: Request): Promise<Response> {
-  const started = performance.now();
   const resource = aomiOAuthResources().agentRest;
   try {
     const requiredScopes = agentRouteScopes(request);
@@ -34,16 +29,10 @@ async function handle(request: Request): Promise<Response> {
     ) {
       delegatedScopes.push("custody:delegate");
     }
-    const authMs = performance.now() - started;
-    const response = await proxyAgentApi(request, {
+    return await proxyAgentApi(request, {
       ...principal,
       scopes: delegatedScopes,
     });
-    response.headers.append(
-      "server-timing",
-      `bff_auth;dur=${authMs.toFixed(1)}`,
-    );
-    return response;
   } catch (error) {
     if (
       error instanceof Error &&
@@ -75,13 +64,7 @@ function agentRouteScopes(request: Request): string[] {
   return scopes;
 }
 
-async function handleWithCors(request: Request): Promise<Response> {
-  return applyWidgetCors(request, await handle(request));
-}
-
-export const GET = handleWithCors;
-export const POST = handleWithCors;
-export const PATCH = handleWithCors;
-export const DELETE = handleWithCors;
-export const OPTIONS = (request: Request): Response =>
-  widgetCorsPreflight(request, ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]);
+export const GET = handle;
+export const POST = handle;
+export const PATCH = handle;
+export const DELETE = handle;

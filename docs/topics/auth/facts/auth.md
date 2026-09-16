@@ -5,12 +5,12 @@ status: authoritative
 area: auth
 review_after_days: 30
 sources_of_truth:
-  - packages/account/src/account.ts
-  - packages/account/src/better-auth/auth.ts
-  - packages/account/src/better-auth/provider-plugin.ts
-  - packages/account/src/service/account-service.ts
-  - packages/account/src/service/provider-exchange.ts
-  - packages/account/src/types.ts
+  - packages/auth/src/account.ts
+  - packages/auth/src/better-auth/auth.ts
+  - packages/auth/src/better-auth/provider-plugin.ts
+  - packages/auth/src/service/account-service.ts
+  - packages/auth/src/service/provider-exchange.ts
+  - packages/auth/src/types.ts
 ---
 
 # Auth
@@ -30,12 +30,12 @@ part of this architecture.
 
 ## Source Map
 
-- [packages/account/src/account.ts](../../../../packages/account/src/account.ts)
-- [packages/account/src/better-auth/auth.ts](../../../../packages/account/src/better-auth/auth.ts)
-- [packages/account/src/better-auth/provider-plugin.ts](../../../../packages/account/src/better-auth/provider-plugin.ts)
-- [packages/account/src/service/account-service.ts](../../../../packages/account/src/service/account-service.ts)
-- [packages/account/src/service/provider-exchange.ts](../../../../packages/account/src/service/provider-exchange.ts)
-- [packages/account/src/types.ts](../../../../packages/account/src/types.ts)
+- [packages/auth/src/account.ts](../../../../packages/auth/src/account.ts)
+- [packages/auth/src/better-auth/auth.ts](../../../../packages/auth/src/better-auth/auth.ts)
+- [packages/auth/src/better-auth/provider-plugin.ts](../../../../packages/auth/src/better-auth/provider-plugin.ts)
+- [packages/auth/src/service/account-service.ts](../../../../packages/auth/src/service/account-service.ts)
+- [packages/auth/src/service/provider-exchange.ts](../../../../packages/auth/src/service/provider-exchange.ts)
+- [packages/auth/src/types.ts](../../../../packages/auth/src/types.ts)
 
 ## Key Flows
 
@@ -65,10 +65,7 @@ service mesh through the Aomi EdDSA signer, never through `/api/auth/token`.
 
 ### Providers
 
-Privy and Para provider verification lives under
-`packages/account/src/providers/`. Provider tokens are verified server-side
-before account sign-in or linking, and provider-attested wallets are synced
-only when the corresponding REST credentials are configured.
+Privy and Para provider verification lives under `packages/auth/src/providers/`. Provider tokens are verified server-side before account sign-in or linking, and provider-attested wallets are synced only when the corresponding REST credentials are configured.
 
 ## Operational Notes
 

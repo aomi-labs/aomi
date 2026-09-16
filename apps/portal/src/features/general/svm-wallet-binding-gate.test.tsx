@@ -43,9 +43,7 @@ describe("SvmWalletBindingGate", () => {
       {
         type: "tool_complete",
         sequence: 1,
-        result: {
-          error: { type: "signing_svm_account_link_required_for_hosted" },
-        },
+        result: { error: { type: "signing_unbound_wallet" } },
       },
     ];
     view.rerender(<SvmWalletBindingGate />);
@@ -53,9 +51,6 @@ describe("SvmWalletBindingGate", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Bind wallet and retry" }),
     );
-    expect(
-      screen.getByText(/direct wallet transactions do not require linking/i),
-    ).toBeInTheDocument();
     await waitFor(() => expect(bind).toHaveBeenCalledOnce());
     expect(sendMessage).toHaveBeenCalledWith(
       "Retry the previous Solana transaction now that the wallet is bound.",

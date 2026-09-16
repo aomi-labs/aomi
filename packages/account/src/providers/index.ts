@@ -44,7 +44,6 @@ export { createDefaultWalletAttesters } from "./default-wallet-attesters";
 
 export {
   createPrivyAccessTokenVerifier,
-  findPrivyUserByCustomAuthId,
   listPrivyWalletsForUser,
   verifyPrivyToken,
   type PrivyAccessTokenVerifierConfig,
@@ -55,11 +54,9 @@ export {
 export {
   createParaWidgetDescriptor,
   listParaWalletsForUser,
-  paraUserIdentifierType,
   paraWidgetDescriptor,
   verifyParaJwt,
   verifyParaWidgetCredential,
-  type ParaUserIdentifierType,
 } from "./para";
 
 export { privyWidgetDescriptor } from "./privy";
@@ -68,7 +65,6 @@ export {
   validWalletAddress,
   type AttestedWallet,
   type AttestedWalletProvider,
-  type ProviderLoginIdentifier,
   type WalletAttestationLogger,
   type WalletAttester,
   type WalletAttesterRegistry,

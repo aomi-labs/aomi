@@ -2,7 +2,6 @@
 
 import { describe, expect, it } from "vitest";
 import { readAccountAuthEnv } from "../src/better-auth/env";
-import { aomiOAuthResources } from "../src/better-auth/oauth-policy";
 
 const DEV_BETTER_AUTH_SECRET =
   "dev-better-auth-secret-change-me-at-least-32-bytes";
@@ -57,8 +56,11 @@ describe("readAccountAuthEnv", () => {
     );
   });
 
-  it("uses the immutable Vercel deployment as an ephemeral preview issuer", () => {
-    const preview = {
+  it("derives preview auth URLs from arbitrary Vercel branch URLs when no explicit override is set", () => {
+    // Ephemeral PR previews get a unique *.vercel.app URL and no BETTER_AUTH_URL,
+    // so auth derives from the branch URL (and AOMI_AUTH_DOMAIN is ignored on
+    // preview in favour of that derived host).
+    const env = readAccountAuthEnv({
       BETTER_AUTH_SECRET: "preview-secret",
       DATABASE_URL: "postgresql://preview.example/aomi",
       NODE_ENV: "production",
@@ -70,40 +72,21 @@ describe("readAccountAuthEnv", () => {
       AOMI_AUTH_DOMAIN: "chat-staging.aomi.dev",
       AOMI_TRUSTED_ORIGINS:
         "https://chat-staging.aomi.dev, https://extra-preview.aomi.dev",
-    };
-    const env = readAccountAuthEnv(preview);
+    });
 
     expect(env.betterAuthUrl).toBe(
-      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
+      "https://chat-portal-git-codex-merge-bff-betterauth-aomi-labs.vercel.app",
     );
     expect(env.siweDomain).toBe(
-      "chat-portal-random-deployment-id-aomi-labs.vercel.app",
+      "chat-portal-git-codex-merge-bff-betterauth-aomi-labs.vercel.app",
     );
     expect(env.trustedOrigins).toEqual([
       "https://chat-staging.aomi.dev",
       "https://extra-preview.aomi.dev",
-      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
       "https://chat-portal-git-codex-merge-bff-betterauth-aomi-labs.vercel.app",
+      "https://chat-portal-random-deployment-id-aomi-labs.vercel.app",
       "https://chat.aomi.dev",
     ]);
-    expect(aomiOAuthResources(preview).agentRest).toBe(
-      `${env.betterAuthUrl}/v1/agent`,
-    );
-  });
-
-  it("does not use an explicitly configured branch alias as an immutable issuer", () => {
-    const env = readAccountAuthEnv({
-      BETTER_AUTH_SECRET: "preview-secret",
-      BETTER_AUTH_URL: "https://chat-portal-git-feature-aomi-labs.vercel.app",
-      DATABASE_URL: "postgresql://preview.example/aomi",
-      NODE_ENV: "production",
-      VERCEL_ENV: "preview",
-      VERCEL_BRANCH_URL: "chat-portal-git-feature-aomi-labs.vercel.app",
-      VERCEL_URL: "chat-portal-immutable-aomi-labs.vercel.app",
-    });
-    expect(env.betterAuthUrl).toBe(
-      "https://chat-portal-immutable-aomi-labs.vercel.app",
-    );
   });
 
   it("lets an explicit BETTER_AUTH_URL win on preview (stable custom-alias deploys)", () => {

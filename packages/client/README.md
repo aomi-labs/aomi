@@ -104,20 +104,7 @@ const agentResult = await aomi.agent.run("Supply 100 USDC to Aave");
 console.log(agentResult.messages);
 
 // The wire-close client is always available without a second instance.
-await aomi.raw.pipeline.root();
-```
-
-Agent runs use **Auto** routing by default. Select **Direct** only when the
-caller intentionally pins a turn to one app:
-
-```ts
-await aomi.agent.run("Summarize this market", {
-  target: { mode: "direct", app: "polymarket" },
-});
-
-await aomi.agent.run("Use our hosted research agent", {
-  target: { mode: "direct", applicationId: 2936682 },
-});
+await aomi.raw.pipeline.evm.stage({ actions: [] });
 ```
 
 For event-driven Agent integrations, retain the run object:
@@ -142,47 +129,23 @@ const result = await run.result();
 primitives have distinct DTOs and lifecycle transitions; TypeScript rejects a
 commit of a merely staged Build.
 
-Build V2 values retain the server's native action records, `origin`, `expiresAt`,
-`digest`, and `attestation`. Pass the complete value through simulate/commit;
-do not reconstruct it from displayed calls. Commit returns `result` (EVM) or
-`results` (SVM), plus `requests`; it does not manufacture a session Action or
-execute a wallet request. An expired Build requires fresh preparation.
-
-The direct staging helpers translate calls into Catalog staging parameters.
-Pipeline chooses the authorizing account from account policy: a caller `from`
-override is rejected. SVM cluster/payer overrides and non-base64 instruction
-data are currently unsupported and rejected rather than ignored.
-
 ```ts
 const staged = await client.pipeline.evm.stage({
   actions: [
     {
-      to: "0x...",
-      chain_id: 1,
-      description: "Transfer",
-      data: { signature: "", args: [], raw: "0x" },
-      value: 0n,
+      chainId: 1,
+      calls: [{ to: "0x...", data: "0x", value: 0n }],
     },
   ],
 });
 const simulated = await client.pipeline.evm.simulate(staged);
-const committed = await client.pipeline.evm.commit(simulated);
+const receipt = await client.pipeline.evm.commit(simulated);
 
 const svmStaged = await client.pipeline.svm.stage({
   kind: "instructions",
-  instructions: [
-    {
-      description: "Transfer",
-      instructions: [{ program_id: "...", accounts: [], data_base64: "..." }],
-    },
-  ],
+  instructions,
 });
 ```
-
-Portable builds preserve backend transaction records and operation provenance.
-Commit returns `requests` containing wallet intents (`ActionRequest[]`), plus
-operation output in `result` (EVM) or `results` (SVM). Stateless requests have
-no durable Agent Action IDs and are not automatically signed by the SDK.
 
 The Catalog is filesystem-like and arbitrary live operations deliberately stay
 runtime-schema-driven:
@@ -207,17 +170,17 @@ operations; Catalog-specific generation remains a separate later capability.
 
 ### Session (high-level)
 
-Owns authenticated streaming, ordered Event reduction, lifecycle, and Action execution.
+Owns polling, ordered Event reduction, lifecycle, and Action execution.
 
 ```ts
 import { Session } from "@aomi-labs/client";
 
 const session = new Session(
   { baseUrl: "https://api.aomi.dev" },
-  { actions: walletCapabilities }, // Auto routing
+  { app: "default", actions: walletCapabilities },
 );
 
-// Blocking send — receives streamed updates until the agent finishes responding
+// Blocking send — polls until the agent finishes responding
 const result = await session.send("Swap 1 ETH for USDC on Uniswap");
 console.log(result.messages);
 
@@ -231,14 +194,6 @@ unsubscribe();
 session.close();
 ```
 
-To pin a session to one app, pass a typed Direct target:
-
-```ts
-const directSession = new Session(client, {
-  target: { mode: "direct", app: "uniswap" },
-});
-```
-
 ### Session API
 
 #### Constructor
@@ -249,32 +204,28 @@ new Session(clientOptions: AomiClientOptions, sessionOptions?: SessionOptions)
 new Session(client: AomiClient, sessionOptions?: SessionOptions)
 ```
 
-| Option         | Default               | Description                                             |
-| -------------- | --------------------- | ------------------------------------------------------- |
-| `sessionId`    | `crypto.randomUUID()` | Agent session ID                                        |
-| `target`       | `{ mode: "auto" }`    | Auto, or a Direct `app` / hosted `applicationId` target |
-| `model`        | —                     | Optional model preference                               |
-| `getUserState` | —                     | Reads canonical UserState when a turn starts            |
-| `actions`      | `{}`                  | Canonical wallet/action capabilities                    |
-| `logger`       | —                     | Pass `console` for debug output                         |
-
-Legacy `app` and `applicationId` options still imply Direct for compatibility;
-new integrations should use `target` so routing intent is unambiguous.
+| Option           | Default               | Description                                  |
+| ---------------- | --------------------- | -------------------------------------------- |
+| `sessionId`      | `crypto.randomUUID()` | Agent session ID                             |
+| `app`            | `"default"`           | App selected for new turns                   |
+| `model`          | —                     | Optional model preference                    |
+| `getUserState`   | —                     | Reads canonical UserState when a turn starts |
+| `pollIntervalMs` | `500`                 | Event polling interval                       |
+| `actions`        | `{}`                  | Canonical wallet/action capabilities         |
+| `logger`         | —                     | Pass `console` for debug output              |
 
 #### Methods
 
 | Method                | Description                                                       |
 | --------------------- | ----------------------------------------------------------------- |
 | `send(message)`       | Send a message, wait for completion, return `{ messages, title }` |
-| `sendAsync(message)`  | Send without waiting — stream in background, listen via events    |
+| `sendAsync(message)`  | Send without waiting — poll in background, listen via events      |
 | `interrupt()`         | Cancel current processing                                         |
 | `sync()`              | Fetch the next ordered EventPage                                  |
 | `fetchCurrentState()` | Hydrate from the session Event ledger                             |
 | `getSnapshot()`       | Immutable SessionSnapshot                                         |
 | `subscribe(listener)` | Subscribe for `useSyncExternalStore`                              |
-| `startStreaming()`    | Start or resume live delivery                                     |
-| `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
-| `close()`             | Stop streaming and release listeners                              |
+| `close()`             | Stop polling and release listeners                                |
 
 #### Snapshot
 
@@ -309,8 +260,6 @@ npx @aomi-labs/client --version                         # print installed CLI ve
 npx @aomi-labs/client                                    # start the interactive REPL
 npx @aomi-labs/client --prompt "swap 1 ETH for USDC"    # one-shot prompt mode
 npx @aomi-labs/client chat "swap 1 ETH for USDC"        # explicit chat subcommand
-npx @aomi-labs/client chat "compare lending rates" --mode auto
-npx @aomi-labs/client chat "quote this swap" --mode direct --app uniswap
 npx @aomi-labs/client chat "swap 1 ETH for USDC" --model claude-sonnet-4
 npx @aomi-labs/client chat "swap 1 ETH" --verbose        # stream tool calls + responses live
 npx @aomi-labs/client --provider-key anthropic:sk-ant-... --prompt "hello"
@@ -321,51 +270,27 @@ npx @aomi-labs/client session new                        # create a fresh active
 npx @aomi-labs/client secret list                        # list configured secret handles
 npx @aomi-labs/client secret add ALCHEMY_API_KEY=...     # ingest a secret for the active session
 npx @aomi-labs/client session log                        # show full conversation history
-npx @aomi-labs/client tx list                            # list session Actions
-npx @aomi-labs/client tx simulate action-1               # simulate an EVM Action
-npx @aomi-labs/client tx export action-1 > execution.json # canonical EIP-5792
-npx @aomi-labs/client tx export action-1 --format moss   # MOSS call array
-npx @aomi-labs/client tx export action-1 --format metamask # MetaMask handoff
-npx @aomi-labs/client tx sign action-1                   # execute a pending Action
+npx @aomi-labs/client tx list                            # list pending + signed txs
+npx @aomi-labs/client tx simulate tx-1                   # simulate pending calls
+npx @aomi-labs/client tx export tx-1 > execution.json    # canonical EIP-5792
+npx @aomi-labs/client tx export tx-1 --format moss       # MOSS call array
+npx @aomi-labs/client tx export tx-1 --format metamask   # MetaMask handoff
+npx @aomi-labs/client tx sign tx-1                       # sign a specific pending tx
 npx @aomi-labs/client session status                     # session info
 npx @aomi-labs/client session events                     # system events
 npx @aomi-labs/client session close                      # clear session
-npx @aomi-labs/client pipeline apps --filter solana
-npx @aomi-labs/client pipeline operations --app svm-read-only --filter balance
-npx @aomi-labs/client pipeline operation svm_get_balance --app svm-read-only
-npx @aomi-labs/client pipeline invoke svm_get_balance --app svm-read-only --arguments '{"address":"..."}'
-npx @aomi-labs/client pipeline build supply --app aave --arguments @supply.json > build.json
-npx @aomi-labs/client pipeline evm commit build.json
+npx @aomi-labs/client pipeline apps --query solana       # search Pipeline apps
+npx @aomi-labs/client pipeline tools --app svm-read-only --query balance
+npx @aomi-labs/client pipeline tool svm_get_balance --app svm-read-only
+npx @aomi-labs/client pipeline call svm_get_balance --app svm-read-only --idempotency-key operation-1 --arguments '{"address":"..."}'
+npx @aomi-labs/client pipeline run --app svm-read-only --idempotency-key operation-2 --program 'svm_get_balance address=...'
 ```
 
 The root command now mirrors the Rust CLI shape:
 
-- `aomi` starts an interactive REPL with `/mode`, `/app`, `/model`, `/key`, and `:exit`.
-- `/mode auto` restores automatic routing; `/mode direct <app>` pins one app.
-- `/app <name>` remains shorthand for `/mode direct <name>`.
+- `aomi` starts an interactive REPL with `/app`, `/model`, `/key`, and `:exit`.
 - `aomi --prompt "..."` sends a single prompt and exits.
 - The noun-verb subcommands remain available for transaction, session, secret, and control flows.
-
-### Pipeline CLI
-
-Pipeline commands use the same filesystem scopes and Build types as the
-TypeScript SDK. The normal operation flow is discover, build, inspect, then
-commit:
-
-```bash
-aomi pipeline operations --app aave
-aomi pipeline build supply --app aave --arguments @supply.json > build.json
-aomi pipeline evm commit build.json
-```
-
-`--arguments` and raw lifecycle inputs accept inline JSON, a file path,
-`@file`, or `-` for stdin. Results are JSON on stdout, while payment progress
-uses stderr, so Builds can be safely redirected or piped. `commit` accepts only
-a simulated Build and does not implicitly sign returned wallet requests.
-
-Use `aomi pipeline evm ...` or `aomi pipeline svm ...` for direct
-`build`, `stage`, `simulate`, and `commit` control. `aomi pipeline read [path]`
-is the generic Catalog escape hatch.
 
 ### Wallet connection
 
@@ -487,28 +412,39 @@ Cleared all secrets for the active session.
 
 ### Transaction flow
 
-The backend exposes durable Actions containing the simulated transactions or
-signing payloads that need a wallet response:
+The backend builds transactions; the CLI persists and signs them:
 
 ```
 $ npx @aomi-labs/client chat "swap 1 ETH for USDC on Uniswap" --public-key 0xYourAddr --chain 1
-⚡ Action awaiting response: action-1
-   EVM transactions: 1
+⚡ Wallet request queued: tx-1
+   to:    0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD
+   value: 1000000000000000000
+   chain: 1
+Run `aomi tx list` to see pending transactions, `aomi tx sign <id>` to sign.
 
 $ npx @aomi-labs/client tx list
-⏳ action-1  1 EVM transaction  (pending, revision 1)
+Pending (1):
+  ⏳ tx-1  to: 0x3fC9...7FAD  value: 1000000000000000000  chain: 1
 
-$ npx @aomi-labs/client tx simulate action-1
+$ npx @aomi-labs/client tx simulate tx-1
 All steps passed.
 
-$ npx @aomi-labs/client tx export action-1 > execution.json
+$ npx @aomi-labs/client tx export tx-1 > execution.json
 
-$ npx @aomi-labs/client tx sign action-1 --private-key 0xac0974...
-⏳ action-1  1 EVM transaction  (pending, revision 1)
-✅ action-1 submitted
+$ npx @aomi-labs/client tx sign tx-1 --private-key 0xac0974...
+Signer:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+IDs:     tx-1
+Kind:    transaction
+Tx:      tx-1 -> 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD
+Value:   1000000000000000000
+Chain:   1
+Exec:    aa (alchemy, 7702; fallback: eoa)
+✅ Sent! Hash: 0xabc123...
+Backend notified.
 
 $ npx @aomi-labs/client tx list
-✅ action-1  1 EVM transaction  (submitted, revision 2)
+Signed (1):
+  ✅ tx-1  hash: 0xabc123...  to: 0x3fC9...7FAD  value: 1000000000000000000
 ```
 
 `aomi tx export <id>...` refreshes the backend's authoritative pending state
@@ -518,7 +454,7 @@ sender and chain. Redirect stdout to keep the artifact separate from
 diagnostics:
 
 ```bash
-aomi tx export action-1 action-2 > execution.json
+aomi tx export evm:tx-1 evm:tx-2 > execution.json
 ```
 
 The default `eip5792` format is the canonical export. It contains an EIP-5792
@@ -532,14 +468,14 @@ tuples. `moss` and `metamask` are small adapters over that representation:
 | `moss`     | Ordered call array                                   | Preserves all calls       |
 | `metamask` | Numeric `chainId` plus one raw transaction `payload` | Requires exactly one call |
 
-The command does not sign, broadcast, notify the backend, or resolve the
-pending Action. Simulate the same ordered selection before handing it to an
-external wallet.
+The command does not sign, broadcast, append the local signer's execution-time
+Aomi service-fee call, notify the backend, or remove pending requests. Simulate
+the same ordered selection before handing it to an external wallet.
 
 MegaETH MOSS consumes the call array directly:
 
 ```bash
-aomi tx export action-1 action-2 --format moss > moss-calls.json
+aomi tx export evm:tx-1 evm:tx-2 --format moss > moss-calls.json
 mega moss execute --calls moss-calls.json --network mainnet --json
 ```
 
@@ -563,7 +499,7 @@ MetaMask Agent Wallet currently exposes one raw EVM transaction at a time. The
 hexadecimal transaction payload:
 
 ```bash
-aomi tx export action-1 --format metamask > metamask.json
+aomi tx export evm:tx-1 --format metamask > metamask.json
 mm wallet send-transaction \
   --chain-id "$(jq -r '.chainId' metamask.json)" \
   --payload "$(jq -c '.payload' metamask.json)" \
@@ -575,24 +511,30 @@ unrelated sequential transactions. Use the default `eip5792` format for native
 MetaMask batch execution when the connected account advertises that
 capability.
 
-**EIP-712 signing** is also supported. When an Action requests a typed-data
-signature, `aomi tx sign` routes it through the configured local EVM wallet and
-submits the signed result to the backend:
+**EIP-712 signing** is also supported. When the backend requests a typed data
+signature (e.g. for CoW Protocol orders or permit approvals), it shows up as a
+pending tx with `kind: eip712_sign`. `aomi tx sign` handles both kinds
+automatically:
 
 ```
 $ npx @aomi-labs/client tx list
-⏳ action-2  EVM signature  (pending, revision 1)
+Pending (1):
+  ⏳ tx-2  eip712  Sign CoW swap order  (2:15:30 PM)
 
-$ npx @aomi-labs/client tx sign action-2 --private-key 0xac0974...
-⏳ action-2  EVM signature  (pending, revision 1)
-✅ action-2 completed
+$ npx @aomi-labs/client tx sign tx-2 --private-key 0xac0974...
+Signer:  0xf39Fd...92266
+IDs:     tx-2
+Kind:    eip712_sign
+Desc:    Sign CoW swap order
+Type:    Order
+✅ Signed! Signature: 0x1a2b3c4d5e6f...
+Backend notified.
 ```
 
-`aomi tx sign` executes whatever Action the backend prepared. Account
-abstraction is decided by backend application policy, never by the CLI: an AA
-operation arrives as a `sign` Action whose owner authorization the local key
-signs once, and the backend submits it. `--aa` and `--eoa` only assert which
-kind of Action you expect; see "Signing modes" below.
+By default, `aomi tx sign` tries account abstraction first. In default mode the CLI
+retries unsponsored Alchemy AA when sponsorship is unavailable, then falls back
+to direct EOA signing automatically if AA still fails. Use `--aa` to require AA
+only, or `--eoa` to force EOA only.
 
 ### Verbose mode & conversation log
 
@@ -625,26 +567,24 @@ $ npx @aomi-labs/client session log
 
 All config can be passed as flags (which take priority over env vars):
 
-| Flag                   | Env Variable          | Default                 | Description                                   |
-| ---------------------- | --------------------- | ----------------------- | --------------------------------------------- |
-| `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                              |
-| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                  |
-| `--mode`               | `AOMI_AGENT_MODE`     | `auto`                  | Agent routing mode (`auto` or `direct`)       |
-| `--app`                | `AOMI_APP`            | —                       | Direct app (also implies Direct when omitted) |
-| `--application-id`     | `AOMI_APPLICATION_ID` | —                       | Direct hosted application identity            |
-| `--model`              | `AOMI_MODEL`          | —                       | Model rig to apply before chat                |
-| `--prompt`, `-p`       | —                     | —                       | Send a single prompt and exit                 |
-| `--show-tool`          | —                     | —                       | Show tool output in root prompt/REPL mode     |
-| `--provider-key`       | —                     | —                       | Save a BYOK provider key as `PROVIDER:KEY`    |
-| `--public-key`         | `AOMI_PUBLIC_KEY`     | —                       | EVM wallet address (0x-prefixed)              |
-| `--private-key`        | `PRIVATE_KEY`         | —                       | Hex private key for `aomi tx sign`            |
-| `--solana-private-key` | `SOLANA_PRIVATE_KEY`  | —                       | Solana keypair (base58 or JSON byte array)    |
-| `--cluster`            | `AOMI_SOLANA_CLUSTER` | `mainnet-beta`          | Solana cluster (also CAIP-2 `solana:...`)     |
-| `--rpc-url`            | `CHAIN_RPC_URL`       | —                       | RPC URL for transaction submission            |
-| `--chain`              | `AOMI_CHAIN_ID`       | `1`                     | Chain ID (1, 137, 42161, 8453, 10, 11155111)  |
-| `--json`               | —                     | —                       | Machine-readable JSON where supported         |
-| `--verbose`, `-v`      | —                     | —                       | Stream tool calls and agent responses live    |
-| `--version`, `-V`      | —                     | —                       | Print the installed CLI version               |
+| Flag                   | Env Variable          | Default                 | Description                                  |
+| ---------------------- | --------------------- | ----------------------- | -------------------------------------------- |
+| `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                             |
+| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                 |
+| `--app`                | `AOMI_APP`            | `default`               | App                                          |
+| `--model`              | `AOMI_MODEL`          | —                       | Model rig to apply before chat               |
+| `--prompt`, `-p`       | —                     | —                       | Send a single prompt and exit                |
+| `--show-tool`          | —                     | —                       | Show tool output in root prompt/REPL mode    |
+| `--provider-key`       | —                     | —                       | Save a BYOK provider key as `PROVIDER:KEY`   |
+| `--public-key`         | `AOMI_PUBLIC_KEY`     | —                       | EVM wallet address (0x-prefixed)             |
+| `--private-key`        | `PRIVATE_KEY`         | —                       | Hex private key for `aomi tx sign`           |
+| `--solana-private-key` | `SOLANA_PRIVATE_KEY`  | —                       | Solana keypair (base58 or JSON byte array)   |
+| `--cluster`            | `AOMI_SOLANA_CLUSTER` | `mainnet-beta`          | Solana cluster (also CAIP-2 `solana:...`)    |
+| `--rpc-url`            | `CHAIN_RPC_URL`       | —                       | RPC URL for transaction submission           |
+| `--chain`              | `AOMI_CHAIN_ID`       | `1`                     | Chain ID (1, 137, 42161, 8453, 10, 11155111) |
+| `--json`               | —                     | —                       | Machine-readable JSON where supported        |
+| `--verbose`, `-v`      | —                     | —                       | Stream tool calls and agent responses live   |
+| `--version`, `-V`      | —                     | —                       | Print the installed CLI version              |
 
 ```bash
 # Use a custom backend
@@ -656,26 +596,18 @@ npx @aomi-labs/client chat "send 0.1 ETH to vitalik.eth" \
   --api-key sk-abc123 \
   --app my-agent \
   --model claude-sonnet-4
-npx @aomi-labs/client tx sign action-1 \
+npx @aomi-labs/client tx sign tx-1 \
   --private-key 0xYourPrivateKey \
   --rpc-url https://eth.llamarpc.com
 ```
 
 ### Signing modes
 
-The flags are assertions about an already-prepared Action, not routing
-overrides. The backend chose the route (Wallet, Hosted, or Venue submission;
-ordinary transaction or AA) from the account's signing policy and the
-application's execution policy before the Action reached you.
+`aomi tx sign` supports three practical modes:
 
-- Default: execute the prepared Action as-is.
-- `--aa`: require a backend-prepared AA owner authorization (an EVM `sign`
-  Action with `executionKind: "erc4337"` and an `operationId`); anything else
-  is rejected and nothing is signed.
-- `--eoa`: reject such an AA Action; ordinary EVM executions, permits, and
-  Solana Actions pass through unchanged.
-- `--aa-provider` / `--aa-mode` are rejected: the AA provider and account
-  implementation belong to backend application policy.
+- Default: AA first, then automatic EOA fallback if AA is unavailable or fails
+- `--aa`: require AA and do not fall back to EOA
+- `--eoa`: force direct EOA execution
 
 ### How state works
 
@@ -687,26 +619,23 @@ persists local state under `AOMI_STATE_DIR` or `~/.aomi` by default:
 | --------------- | ------------------------------------------------------ |
 | `sessionId`     | Which conversation to continue                         |
 | `clientId`      | Stable client identity used for session secret handles |
-| `agentMode`     | Auto or Direct routing for the active session          |
-| `app`           | Direct app, when Direct is selected                    |
-| `applicationId` | Direct hosted app identity, when selected              |
 | `model`         | Last successfully applied model for the session        |
 | `publicKey`     | EVM wallet address (from `--public-key`)               |
-| `privateKey`    | EVM key persisted by `aomi wallet set`                 |
 | `chainId`       | Active chain ID (from `--chain`)                       |
 | `svmPublicKey`  | Solana address (from `wallet set --solana`)            |
-| `svmPrivateKey` | Solana key persisted by `wallet set --solana`          |
+| `svmPrivateKey` | Solana signing key persisted by `wallet set --solana`  |
 | `svmCluster`    | Solana cluster; always set when `svmPublicKey` is set  |
 | `secretHandles` | Opaque handles returned for ingested secrets           |
-| `auth`          | Current CLI account authentication                     |
-| `oauthGrants`   | Saved scoped OAuth grants                              |
+| `pendingTxs`    | Unsigned transactions waiting for `aomi tx sign <id>`  |
+| `pendingSolTxs` | Unsigned Solana requests waiting for `aomi tx sign`    |
+| `signedTxs`     | Completed transactions with hashes/signatures          |
 
 ```
 $ npx @aomi-labs/client chat "hello"           # creates session, saves sessionId
-$ npx @aomi-labs/client chat "swap 1 ETH"      # reuses the Agent session and receives an Action
-$ npx @aomi-labs/client tx list                 # refreshes Actions from the backend
-$ npx @aomi-labs/client tx sign action-1        # executes and submits the Action result
-$ npx @aomi-labs/client session close           # clears the active local session pointer
+$ npx @aomi-labs/client chat "swap 1 ETH"     # reuses the Agent session and handles any returned Action
+$ npx @aomi-labs/client tx sign tx-1           # signs tx-1, moves to signedTxs, notifies backend
+$ npx @aomi-labs/client tx list                # shows all txs
+$ npx @aomi-labs/client close                  # clears the active local session pointer
 ```
 
 Session files live under `~/.aomi/sessions/` by default, with an active session

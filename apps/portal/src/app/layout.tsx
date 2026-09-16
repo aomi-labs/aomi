@@ -35,9 +35,9 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Execution Portal | Aomi Labs",
+  title: "Aomi Labs",
   description:
-    "What should happen onchain? Keep your wallet, act on any protocols across chains.",
+    "A research and engineering group focused on building agentic software for blockchain automation",
   icons: {
     icon: "/assets/images/a.svg",
     shortcut: "/assets/images/a.svg",
