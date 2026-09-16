@@ -9,8 +9,7 @@ import {
 const stagingPooler = `postgresql://postgres.${budgets.staging.project_ref}:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres`;
 
 describe("resolveAccountConnectionString", () => {
-  const sessionPooler =
-    "postgresql://postgres.project:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres";
+  const sessionPooler = stagingPooler;
 
   it("uses Supabase transaction pooling for Vercel functions", () => {
     const resolved = resolveAccountConnectionString(sessionPooler, {
@@ -18,12 +17,14 @@ describe("resolveAccountConnectionString", () => {
     });
 
     expect(new URL(resolved).port).toBe("6543");
-    expect(new URL(resolved).username).toBe("postgres.project");
+    expect(new URL(resolved).username).toBe(
+      `postgres.${budgets.staging.project_ref}`,
+    );
   });
 
   it("also normalizes an implicit session-pooler port", () => {
     const resolved = resolveAccountConnectionString(
-      "postgresql://postgres.project:secret@aws-0-us-east-1.pooler.supabase.com/postgres",
+      `postgresql://postgres.${budgets.staging.project_ref}:secret@aws-0-us-east-1.pooler.supabase.com/postgres`,
       { VERCEL: "1" },
     );
 
@@ -47,10 +48,27 @@ describe("resolveAccountConnectionString", () => {
 
   it("rejects direct Supabase connections from Vercel functions", () => {
     const direct = `postgresql://postgres:secret@db.${budgets.staging.project_ref}.supabase.co:5432/postgres`;
+    const uppercase = direct
+      .replace("db.", "DB.")
+      .replace(".supabase.co", ".SUPABASE.CO");
     expect(() =>
       resolveAccountConnectionString(direct, { VERCEL: "1" }),
     ).toThrow("must use the Supabase transaction pooler");
+    expect(() =>
+      resolveAccountConnectionString(uppercase, { VERCEL: "1" }),
+    ).toThrow("must use the Supabase transaction pooler");
     expect(resolveAccountConnectionString(direct, {})).toBe(direct);
+  });
+
+  it("normalizes uppercase Supabase pooler hosts before selecting the budget", () => {
+    const uppercase = stagingPooler.replace(
+      ".pooler.supabase.com",
+      ".POOLER.SUPABASE.COM",
+    );
+    expect(
+      new URL(resolveAccountConnectionString(uppercase, { VERCEL: "1" })).port,
+    ).toBe("6543");
+    expect(resolvePortalBudget(uppercase)).toBe(budgets.staging.portal);
   });
 });
 
@@ -107,6 +125,14 @@ describe("resolvePortalBudget", () => {
         "postgresql://postgres.aaaaaaaaaaaaaaaaaaaa:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres",
       ),
     ).toThrow("no entry in pool-budgets.json");
+  });
+
+  it("rejects a pooler URL without a project ref", () => {
+    expect(() =>
+      resolvePortalBudget(
+        "postgresql://postgres:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+      ),
+    ).toThrow("must contain a valid project ref");
   });
 
   it("only ever routes serverless functions to the transaction pooler", () => {

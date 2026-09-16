@@ -29,11 +29,15 @@ type PortalBudget = (typeof budgets)["production"]["portal"];
 const PROJECT_REF = /^[a-z0-9]{20}$/;
 
 function supabaseProjectRef(url: URL): string | undefined {
-  const direct = /^db\.([a-z0-9]{20})\.supabase\.co$/.exec(url.hostname);
+  const host = url.hostname.toLowerCase();
+  const direct = /^db\.([a-z0-9]{20})\.supabase\.co$/.exec(host);
   if (direct) return direct[1];
-  if (!url.hostname.endsWith(".pooler.supabase.com")) return undefined;
+  if (!host.endsWith(".pooler.supabase.com")) return undefined;
   const ref = decodeURIComponent(url.username).split(".").pop() ?? "";
-  return PROJECT_REF.test(ref) ? ref : undefined;
+  if (!PROJECT_REF.test(ref)) {
+    throw new Error("Supabase pooler URL must contain a valid project ref");
+  }
+  return ref;
 }
 
 /**
@@ -99,13 +103,14 @@ export function resolveAccountConnectionString(
   } catch {
     return connectionString;
   }
-  if (/^db\.[a-z0-9]{20}\.supabase\.co$/.test(url.hostname)) {
+  const host = url.hostname.toLowerCase();
+  if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
     throw new Error(
       "Vercel account connections must use the Supabase transaction pooler, not a direct database URL",
     );
   }
   if (
-    url.hostname.endsWith(".pooler.supabase.com") &&
+    host.endsWith(".pooler.supabase.com") &&
     (url.port === "" || url.port === "5432")
   ) {
     url.port = String(resolvePortalBudget(connectionString).pooler_port);
