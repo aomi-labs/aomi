@@ -57,12 +57,13 @@ const terminalSnippets = {
   CLI: `# Sign in with an embedded provider in your browser
 aomi account login --provider privy
 
-# Or authenticate with the wallet itself
-aomi account login --siwe
+# Or authenticate with the configured EVM wallet
+aomi account login --wallet
 
 aomi wallet current --json`,
   MCP: `npx skills add aomi-labs/skills
-codex mcp add aomi --url https://chat.aomi.dev/api/mcp
+codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp
+codex mcp login aomi-agent
 
 # OAuth binds the session to your Aomi account.
 # Wallets remain account-scoped.`,
