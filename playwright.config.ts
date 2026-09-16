@@ -37,11 +37,12 @@ export default defineConfig({
     },
     {
       name: "browser-contracts",
-      testMatch: /(?:portal-auth-contracts|widget-browser-contracts)\.spec\.ts/,
+      testMatch:
+        /(?:portal-auth-contracts|visual-signing-contracts|widget-browser-contracts)\.spec\.ts/,
       fullyParallel: false,
       retries: 0,
       workers: 1,
-      use: { trace: "retain-on-failure" },
+      use: { trace: "retain-on-failure", colorScheme: "light" },
     },
   ],
   use: {

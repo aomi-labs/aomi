@@ -111,6 +111,7 @@ export const registry: RegistryComponent[] = [
       aomi("aomi-wallet-kit"),
       aomi("control-bar"),
       aomi("activity-sidebar"),
+      aomi("notification"),
       // shadcn primitives
       "separator",
       "breadcrumb",

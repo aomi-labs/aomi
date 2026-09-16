@@ -130,6 +130,8 @@ describe("statement adapter", () => {
     expect(month.period.periodLabel).toBe("July 2026");
     expect(month.summary.totalUsd).toBeCloseTo(1.5);
     expect(month.summary.modelUsd).toBeCloseTo(1.5);
+    expect(month.summary.computeUsd).toBeCloseTo(1.5);
+    expect(month.summary.onchainUsd).toBe(0);
     // Unwritten subjects are absent, never invented.
     expect(month.apps.every((a) => a.tool === null && a.outcome === null)).toBe(
       true,

@@ -189,7 +189,12 @@ export async function signInThroughUi(
     await expect(finishDialog).toBeVisible();
     return { wallet, verified: undefined };
   }
-  return { wallet, verified: await verified! };
+  const verifiedResponse = await verified!;
+  await expect(finishDialog).toBeHidden({ timeout: 30_000 });
+  await expect(
+    page.getByRole("button", { name: "Open account menu" }),
+  ).toBeVisible({ timeout: 30_000 });
+  return { wallet, verified: verifiedResponse };
 }
 
 export async function sendPrompt(

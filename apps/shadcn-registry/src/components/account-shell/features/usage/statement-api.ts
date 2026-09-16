@@ -330,7 +330,7 @@ export function toMonthlyStatement(
       modelUsd: wire.total_usd,
       toolUsd: 0,
       outcomeUsd: 0,
-      computeUsd: 0,
+      computeUsd: wire.total_usd,
       onchainUsd: 0,
       totalUsd: wire.total_usd,
       managedMarkupUsd: 0,
