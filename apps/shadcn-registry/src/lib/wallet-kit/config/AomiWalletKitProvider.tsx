@@ -9,6 +9,7 @@ import { useStandardWalletAdapters } from "@solana/wallet-standard-wallet-adapte
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExtUserProvider } from "@aomi-labs/react";
 import {
+  arc,
   arcTestnet,
   megaeth,
   monad,
@@ -88,6 +89,7 @@ const defaultNetworks = [
   monadTestnet,
   robinhood,
   megaeth,
+  arc,
   arcTestnet,
 ] as const;
 

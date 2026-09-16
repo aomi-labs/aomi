@@ -77,6 +77,7 @@ vi.mock("@aomi-labs/widget-lib", async () => {
       ),
     FullTestnetWalletRouter: ({ children }: { children: ReactNode }) =>
       children,
+    arc: { id: 5042 },
     arcTestnet: { id: 5042002 },
     megaeth: { id: 4326 },
     monad: { id: 143 },

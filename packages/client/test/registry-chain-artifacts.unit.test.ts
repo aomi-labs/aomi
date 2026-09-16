@@ -26,8 +26,10 @@ describe("registry chain artifacts", () => {
     expect(kitSource).toContain("robinhood");
     expect(kitSource).toContain("megaeth");
     expect(kitSource).toContain("arcTestnet");
+    expect(kitSource).toContain("arc,");
     expect(privyProviderSource).toContain("megaeth");
     expect(privyProviderSource).toContain("arcTestnet");
+    expect(privyProviderSource).toContain("arc,");
     expect(providerSource).toContain("supportedChains={supportedChains}");
   });
 });
