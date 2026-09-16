@@ -393,6 +393,10 @@ export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
  */
 export interface AomiAppDescriptor {
   name: string;
+  /** Backend-owned Library taxonomy. Empty means the "More" fallback. */
+  featureCatalog?: AomiFeatureCategory[];
+  /** Backend-controlled registration metadata used to identify official apps. */
+  metadata?: Record<string, unknown> | null;
   applicationId?: number | string | null;
   platform?: string | null;
   label?: string | null;
@@ -405,3 +409,12 @@ export interface AomiAppDescriptor {
   /** Exact EVM chain IDs declared by the official app release. */
   chainIds?: number[];
 }
+
+export type AomiFeatureCategory =
+  | "lending"
+  | "cross-chain"
+  | "staking"
+  | "trading"
+  | "research"
+  | "wallets"
+  | "developer";
