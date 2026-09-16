@@ -430,12 +430,22 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/thread/events",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
     path: "/api/thread/models",
     auth: ["thread"],
   },
   {
     method: "GET",
     path: "/api/thread/runtime/models",
+    auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/updates",
     auth: ["thread"],
   },
   {

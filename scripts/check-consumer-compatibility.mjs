@@ -12,6 +12,11 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyTrustedConsumer } from "./check-consumer-compatibility-baseline.mjs";
+import {
+  importerResolution,
+  importerVersions,
+  packageVersion,
+} from "./consumer-lockfile.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageManager = JSON.parse(
@@ -72,67 +77,6 @@ function baseFile(path) {
     cwd: root,
     maxBuffer: 16 * 1024 * 1024,
   });
-}
-
-function exactLockedVersion(value) {
-  const version = value
-    .trim()
-    .replace(/^['"]|['"]$/g, "")
-    .split("(", 1)[0];
-  if (/^(?:file|link|workspace):/.test(version)) return undefined;
-  return version;
-}
-
-function importerVersions(lockfile, importer) {
-  const lines = lockfile.split(/\r?\n/);
-  const start = lines.findIndex((line) => line === `  ${importer}:`);
-  if (start < 0) throw new Error(`Trusted lockfile lacks importer ${importer}`);
-  const versions = {};
-  let inDependencies = false;
-  let dependency;
-  for (let index = start + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^  \S/.test(line)) break;
-    const field = line.match(
-      /^    (dependencies|devDependencies|optionalDependencies):$/,
-    );
-    if (field) {
-      inDependencies = true;
-      dependency = undefined;
-      continue;
-    }
-    if (/^    \S/.test(line)) {
-      inDependencies = false;
-      dependency = undefined;
-      continue;
-    }
-    if (!inDependencies) continue;
-    const name = line.match(/^      (.+):$/);
-    if (name) {
-      dependency = name[1].replace(/^['"]|['"]$/g, "");
-      continue;
-    }
-    const locked = line.match(/^        version: (.+)$/);
-    if (dependency && locked) {
-      const version = exactLockedVersion(locked[1]);
-      if (version) versions[dependency] = version;
-    }
-  }
-  return versions;
-}
-
-function packageVersion(lockfile, packageName) {
-  const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const matches = [
-    ...lockfile.matchAll(new RegExp(`^  '${escaped}@([^']+)':$`, "gm")),
-  ].map((match) => match[1].split("(", 1)[0]);
-  const versions = [...new Set(matches)];
-  if (versions.length !== 1) {
-    throw new Error(
-      `Trusted lockfile must resolve exactly one ${packageName}; found ${versions.join(",")}`,
-    );
-  }
-  return versions[0];
 }
 
 function verifyHostCompositionExport(destination) {
@@ -318,7 +262,11 @@ try {
     widget: importerVersions(trustedLockfile, "apps/widget-consumer"),
     registry: importerVersions(trustedLockfile, "apps/shadcn-registry"),
   };
-  const trustedTap = packageVersion(trustedLockfile, "@assistant-ui/tap");
+  const trustedTap = packageVersion(
+    trustedLockfile,
+    "@assistant-ui/tap",
+    importerResolution(trustedLockfile, ".", "@assistant-ui/react-ai-sdk"),
+  );
   for (const [name, path] of packages) {
     if (name === "@aomi-labs/widget-lib" || name === "@aomi-labs/deploy") {
       // These packages have no prepack hook; build before producing the
