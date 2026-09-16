@@ -1,4 +1,5 @@
 import type {
+  Action,
   AgentTarget,
   Event,
   EventPage,
@@ -133,7 +134,8 @@ export class ClientSession {
       this.actions.subscribe(() => {
         if (!this.applyingPage) this.publish();
       }),
-      this.actions.on("resolved", () => {
+      this.actions.on("resolved", (action) => {
+        this.applyResolvedAction(action);
         this.startStreaming();
       }),
     );
@@ -359,7 +361,16 @@ export class ClientSession {
     this.lastPageNewEvents = 0;
     try {
       for (const event of page.events) {
-        if (this.eventIds.has(event.event_id)) continue;
+        if (event.type === "action" && this.replaceActionEvent(event)) {
+          this.actions.ingest(event);
+          this.lastPageNewEvents += 1;
+          this.turnId = event.turn_id ?? this.turnId;
+          continue;
+        }
+        if (this.eventIds.has(event.event_id)) {
+          if (event.type === "action") this.actions.ingest(event);
+          continue;
+        }
         const previous = this.events.at(-1);
         if (previous && event.sequence <= previous.sequence) {
           throw new TypeError("Agent events are not monotonically ordered");
@@ -421,6 +432,41 @@ export class ClientSession {
     );
     if (index >= 0) this.messages[index] = event;
     else this.messages.push(event);
+  }
+
+  private applyResolvedAction(action: Action): void {
+    if (this.replaceActionEvent(action)) {
+      this.publish();
+      return;
+    }
+    if (this.eventIds.has(action.event_id)) return;
+    const previous = this.events.at(-1);
+    if (previous && action.sequence <= previous.sequence) return;
+    this.eventIds.add(action.event_id);
+    this.events.push(action);
+    this.storeVersion += 1;
+    this.publish();
+  }
+
+  private replaceActionEvent(action: Action): boolean {
+    const index = this.events.findIndex(
+      (event) => event.type === "action" && event.id === action.id,
+    );
+    if (index < 0) return false;
+    const current = this.events[index];
+    if (current?.type !== "action" || current.revision >= action.revision) {
+      return false;
+    }
+    this.events.splice(index, 1);
+    this.eventIds.delete(current.event_id);
+    const insertion = this.events.findIndex(
+      (event) => event.sequence > action.sequence,
+    );
+    if (insertion < 0) this.events.push(action);
+    else this.events.splice(insertion, 0, action);
+    this.eventIds.add(action.event_id);
+    this.storeVersion += 1;
+    return true;
   }
 
   private async connectStream(): Promise<void> {

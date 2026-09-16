@@ -90,7 +90,10 @@ describe("ClientSession Agent transport", () => {
     const start = vi
       .spyOn(api.agent, "start")
       .mockImplementation(async (intent) =>
-        page([], { session_id: intent.sessionId ?? "session-agent", cursor: "cursor-2" }),
+        page([], {
+          session_id: intent.sessionId ?? "session-agent",
+          cursor: "cursor-2",
+        }),
       );
     vi.spyOn(api.agent, "poll").mockResolvedValue(
       page([], { session_id: "session-agent", cursor: "cursor-2" }),
@@ -451,15 +454,14 @@ describe("ClientSession Agent transport", () => {
     vi.spyOn(api.agent, "start").mockResolvedValue(
       page([turn(1, "processing"), pending, turn(3, "awaiting_action")]),
     );
-    const respond = vi.spyOn(api.agent, "respondToAction").mockResolvedValue(
-      action(pending.request, {
-        sequence: 4,
-        event_id: "event-4",
-        revision: 2,
-        state: "rejected",
-        result: { status: "rejected", reason: "Not now" },
-      }),
-    );
+    const rejected = action(pending.request, {
+      revision: 2,
+      state: "rejected",
+      result: { status: "rejected", reason: "Not now" },
+    });
+    const respond = vi
+      .spyOn(api.agent, "respondToAction")
+      .mockResolvedValue(rejected);
     vi.spyOn(api.agent, "poll").mockResolvedValue(
       page([turn(5, "complete")], { cursor: "cursor-5" }),
     );
@@ -480,6 +482,9 @@ describe("ClientSession Agent transport", () => {
       expect.any(String),
     );
     expect(session.actions.pending()).toEqual([]);
+    expect(
+      session.getSnapshot().events.filter((event) => event.type === "action"),
+    ).toEqual([rejected]);
     session.close();
   });
 

@@ -5,6 +5,12 @@
 /scripts/check-consumer-compatibility* @CeciliaZ030 @arixoneth
 /scripts/check-frontend-boundaries* @CeciliaZ030 @arixoneth
 /tests/contracts/ @CeciliaZ030 @arixoneth
+/tests/e2e/portal-auth-contracts.spec.ts @CeciliaZ030 @arixoneth
+/tests/e2e/visual-signing-contracts.spec.ts @CeciliaZ030 @arixoneth
+/tests/e2e/widget-browser-contracts.spec.ts @CeciliaZ030 @arixoneth
+/tests/e2e/browser-contract-helpers.ts @CeciliaZ030 @arixoneth
+/tests/e2e/visual-signing-contracts.spec.ts-snapshots/ @CeciliaZ030 @arixoneth
+/playwright.config.ts @CeciliaZ030 @arixoneth
 /.github/ @CeciliaZ030 @arixoneth
 /package.json @CeciliaZ030 @arixoneth
 /pnpm-workspace.yaml @CeciliaZ030 @arixoneth
