@@ -15,6 +15,7 @@ import {
 } from "wagmi/chains";
 import {
   AomiWalletKitProvider,
+  arc,
   arcTestnet,
   megaeth,
 } from "@aomi-labs/widget-lib";
@@ -34,6 +35,7 @@ const networks = [
   linea,
   lineaSepolia,
   megaeth,
+  arc,
   arcTestnet,
 ] as const satisfies readonly [Chain, ...Chain[]];
 const solanaNetworks = [
