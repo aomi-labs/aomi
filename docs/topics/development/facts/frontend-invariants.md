@@ -9,6 +9,7 @@ sources_of_truth:
   - scripts/check-consumer-compatibility-baseline.mjs
   - scripts/check-frontend-boundaries.mjs
   - scripts/test-browser-contracts.mjs
+  - .github/scripts/select-ci-paths.mjs
   - .github/workflows/ci.yml
   - .github/CODEOWNERS
   - apps/widget-consumer/package.json
@@ -88,6 +89,23 @@ or running backend are needed.
 
 CI uses the PR base SHA, or the previous commit from a push event. A missing or
 invalid baseline fails rather than falling back to candidate consumers.
+
+## Conditional CI selection
+
+The required `Frontend CI Passed` check always runs, but expensive dependency
+jobs run only when their owned paths or a shared dependency changed. Portal and
+Build changes select their preview smoke; Portal and widget/auth changes select
+the relevant browser contracts; publishable package changes select packed
+consumer compatibility. Plain documentation and historical work-log changes do
+not run product builds. Landing content under `apps/landing/content` is product
+input and still selects Landing.
+
+Lockfiles, root build configuration, shared source, selector changes, unknown
+paths, unavailable comparisons, and every production candidate default to the
+full check set. The aggregate requires selected jobs to succeed and unselected
+jobs to be explicitly skipped, so a selector failure or unexpected skip cannot
+produce a green required check. Keep path-selection cases in
+`tests/contracts/ci-path-selection.test.mjs` whenever ownership changes.
 
 ## Production browser contracts
 

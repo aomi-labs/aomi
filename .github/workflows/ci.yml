@@ -13,8 +13,42 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Select affected CI paths
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.select.outputs.packages }}
+      apps: ${{ steps.select.outputs.apps }}
+      portal: ${{ steps.select.outputs.portal }}
+      build: ${{ steps.select.outputs.build }}
+      base: ${{ steps.select.outputs.base }}
+      landing: ${{ steps.select.outputs.landing }}
+      telegram: ${{ steps.select.outputs.telegram }}
+      guest_browser: ${{ steps.select.outputs.guest_browser }}
+      browser_contracts: ${{ steps.select.outputs.browser_contracts }}
+      consumer_compat: ${{ steps.select.outputs.consumer_compat }}
+      workflow_policy: ${{ steps.select.outputs.workflow_policy }}
+      preview: ${{ steps.select.outputs.preview }}
+    steps:
+      - name: Checkout comparison history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select affected checks
+        id: select
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_DIFF_MODE: ${{ github.event_name == 'push' && 'push' || 'pull_request' }}
+          CI_FORCE_FULL: ${{ (github.ref == 'refs/heads/prod' || github.base_ref == 'prod') && '1' || '0' }}
+        run: node .github/scripts/select-ci-paths.mjs
+
   packages:
     name: Packages · lint, types, tests, builds
+    needs: changes
+    if: needs.changes.outputs.packages == 'true'
     runs-on: ubuntu-latest
     services:
       auth-postgres:
@@ -64,6 +98,8 @@ jobs:
 
   consumer-compat:
     name: Consumer compatibility · packed SDK and widget
+    needs: changes
+    if: needs.changes.outputs.consumer_compat == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -95,7 +131,9 @@ jobs:
         run: pnpm run test:contracts
 
   apps:
-    name: Apps · Portal, Build, Base, Landing, Telegram
+    name: Apps · affected surfaces
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: ubuntu-latest
     services:
       auth-postgres:
@@ -134,11 +172,13 @@ jobs:
       - name: Build package prerequisites
         run: pnpm run build:packages
 
-      - name: Typecheck and test every app
-        run: pnpm run typecheck:apps && pnpm run lint:telegram && pnpm run test:portal && pnpm run test:telegram
-
-      - name: Build every deployed app
+      - name: Check and build affected apps
         env:
+          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
+          CHECK_BUILD: ${{ needs.changes.outputs.build }}
+          CHECK_BASE: ${{ needs.changes.outputs.base }}
+          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
+          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
@@ -148,10 +188,41 @@ jobs:
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
           NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
-        run: pnpm run build:apps
+        run: |
+          set -euo pipefail
+          if [ "$CHECK_PORTAL" = true ]; then
+            pnpm run lint:portal
+            pnpm run typecheck:portal
+            pnpm run test:portal
+            pnpm run build:portal
+          fi
+          if [ "$CHECK_BUILD" = true ]; then
+            pnpm run lint:aomi-build
+            pnpm run typecheck:aomi-build
+            pnpm --filter aomi-build test
+            pnpm run build:aomi-build
+          fi
+          if [ "$CHECK_BASE" = true ]; then
+            pnpm run lint:base
+            pnpm run typecheck:base
+            pnpm run build:base
+          fi
+          if [ "$CHECK_LANDING" = true ]; then
+            pnpm run lint:landing
+            pnpm run typecheck:landing
+            pnpm run build:landing
+          fi
+          if [ "$CHECK_TELEGRAM" = true ]; then
+            pnpm run lint:telegram
+            pnpm run typecheck:telegram
+            pnpm run test:telegram
+            pnpm run build:telegram
+          fi
 
   guest-browser:
     name: Guest Chat · deterministic Chromium regression
+    needs: changes
+    if: needs.changes.outputs.guest_browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -190,6 +261,8 @@ jobs:
 
   browser-contracts:
     name: Production Browser Contracts · auth and packaged widget
+    needs: changes
+    if: needs.changes.outputs.browser_contracts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -341,6 +414,8 @@ jobs:
 
   workflow-policy:
     name: Workflow Security Policy
+    needs: changes
+    if: needs.changes.outputs.workflow_policy == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact source
@@ -369,6 +444,7 @@ jobs:
     if: always()
     needs:
       [
+        changes,
         packages,
         apps,
         guest-browser,
@@ -376,18 +452,54 @@ jobs:
         consumer-compat,
         promotion-policy,
         hotfix-divergence,
+        live-production-contract,
         workflow-policy,
       ]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          PACKAGES_SELECTED: ${{ needs.changes.outputs.packages }}
+          PACKAGES_RESULT: ${{ needs.packages.result }}
+          APPS_SELECTED: ${{ needs.changes.outputs.apps }}
+          APPS_RESULT: ${{ needs.apps.result }}
+          GUEST_SELECTED: ${{ needs.changes.outputs.guest_browser }}
+          GUEST_RESULT: ${{ needs.guest-browser.result }}
+          BROWSER_SELECTED: ${{ needs.changes.outputs.browser_contracts }}
+          BROWSER_RESULT: ${{ needs.browser-contracts.result }}
+          CONSUMER_SELECTED: ${{ needs.changes.outputs.consumer_compat }}
+          CONSUMER_RESULT: ${{ needs.consumer-compat.result }}
+          WORKFLOW_SELECTED: ${{ needs.changes.outputs.workflow_policy }}
+          WORKFLOW_RESULT: ${{ needs.workflow-policy.result }}
+          PROMOTION_RESULT: ${{ needs.promotion-policy.result }}
+          HOTFIX_RESULT: ${{ needs.hotfix-divergence.result }}
+          PRODUCTION_CONTRACT_RESULT: ${{ needs.live-production-contract.result }}
+          REQUIRE_PRODUCTION_CONTRACT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/prod') && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          test '${{ needs.packages.result }}' = success
-          test '${{ needs.apps.result }}' = success
-          test '${{ needs.guest-browser.result }}' = success
-          test '${{ needs.browser-contracts.result }}' = success
-          test '${{ needs.consumer-compat.result }}' = success
-          case '${{ needs.promotion-policy.result }}' in success|skipped) ;; *) exit 1 ;; esac
-          case '${{ needs.hotfix-divergence.result }}' in success|skipped) ;; *) exit 1 ;; esac
-          test '${{ needs.workflow-policy.result }}' = success
+          require_selected() {
+            selected="$1"
+            result="$2"
+            label="$3"
+            if [ "$selected" = true ]; then
+              test "$result" = success || { echo "$label was selected but ended as $result" >&2; exit 1; }
+            else
+              test "$result" = skipped || { echo "$label was not selected but ended as $result" >&2; exit 1; }
+            fi
+          }
+
+          test "$CHANGES_RESULT" = success
+          require_selected "$PACKAGES_SELECTED" "$PACKAGES_RESULT" packages
+          require_selected "$APPS_SELECTED" "$APPS_RESULT" apps
+          require_selected "$GUEST_SELECTED" "$GUEST_RESULT" guest-browser
+          require_selected "$BROWSER_SELECTED" "$BROWSER_RESULT" browser-contracts
+          require_selected "$CONSUMER_SELECTED" "$CONSUMER_RESULT" consumer-compat
+          require_selected "$WORKFLOW_SELECTED" "$WORKFLOW_RESULT" workflow-policy
+          case "$PROMOTION_RESULT" in success|skipped) ;; *) exit 1 ;; esac
+          case "$HOTFIX_RESULT" in success|skipped) ;; *) exit 1 ;; esac
+          if [ "$REQUIRE_PRODUCTION_CONTRACT" = true ]; then
+            test "$PRODUCTION_CONTRACT_RESULT" = success
+          else
+            test "$PRODUCTION_CONTRACT_RESULT" = skipped
+          fi
