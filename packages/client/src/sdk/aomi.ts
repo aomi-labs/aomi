@@ -32,9 +32,7 @@ export type AomiOptions = (
   | AomiManagedAuthOptions
   | (Omit<AomiClientOptions, "x402"> & { auth?: never })
 ) &
-  AomiExecutionOptions & {
-    compatibilityProbe: true;
-  };
+  AomiExecutionOptions;
 
 /** Product-oriented SDK facade. Use `raw` for wire-close protocol control. */
 export class Aomi {
