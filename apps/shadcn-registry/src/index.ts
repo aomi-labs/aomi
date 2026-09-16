@@ -65,6 +65,7 @@ export {
 } from "@aomi-labs/react";
 export { ExtUserProvider, useUser, UserState } from "@aomi-labs/react";
 export {
+  arc,
   arcTestnet,
   megaeth,
   monad,

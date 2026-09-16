@@ -12,7 +12,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { hostedPortalOrigin, hostedPortalApiOrigin } from "@portal/lib/hosted-portal";
+import {
+  hostedPortalOrigin,
+  hostedPortalApiOrigin,
+} from "@portal/lib/hosted-portal";
 import { ShellTransportProvider } from "@aomi-labs/widget-lib";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -31,6 +34,7 @@ import {
   AomiWalletKitProvider,
   ExtUserProvider,
   FullTestnetWalletRouter,
+  arc,
   arcTestnet,
   monad,
   monadTestnet,
@@ -79,6 +83,7 @@ const defaultNetworks = [
   monadTestnet,
   robinhood,
   megaeth,
+  arc,
   arcTestnet,
 ] as const;
 
@@ -206,7 +211,10 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     () => ({
       mode: "aomi-backend" as const,
       ...(hostedOrigin
-        ? { baseUrl: hostedPortalApiOrigin(), widgetAuth: { mode: "wallet" as const } }
+        ? {
+            baseUrl: hostedPortalApiOrigin(),
+            widgetAuth: { mode: "wallet" as const },
+          }
         : (browserAuthOrigin ?? {})),
     }),
     [browserAuthOrigin, hostedOrigin],

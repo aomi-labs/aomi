@@ -104,6 +104,24 @@ export const megaeth = defineChain({
   },
 });
 
+export const arc = defineChain({
+  id: 5042,
+  name: "Arc",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        "https://rpc.mainnet.arc.io",
+        "https://rpc.drpc.mainnet.arc.io",
+        "https://rpc.quicknode.mainnet.arc.io",
+      ],
+    },
+  },
+  blockExplorers: {
+    default: { name: "Arc Explorer", url: "https://explorer.arc.io" },
+  },
+});
+
 export const arcTestnet = defineChain({
   id: 5042002,
   name: "Arc Testnet",
@@ -147,6 +165,7 @@ export const SUPPORTED_CHAINS = [
   { id: 10143, name: "Monad Testnet", ticker: "MON" },
   { id: 4663, name: "Robinhood Chain", ticker: "ETH" },
   { id: 4326, name: "MegaETH", ticker: "ETH" },
+  { id: 5042, name: "Arc", ticker: "USDC" },
   { id: 5042002, name: "Arc Testnet", ticker: "USDC" },
   { id: 31337, name: "Anvil (local)", ticker: "ETH" },
 ] as const satisfies readonly ChainInfo[];
@@ -186,6 +205,7 @@ export const CHAINS_BY_ID: Record<number, Chain> = {
   10143: monadTestnet,
   4663: robinhood,
   4326: megaeth,
+  5042: arc,
   5042002: arcTestnet,
   31337: foundry,
 };

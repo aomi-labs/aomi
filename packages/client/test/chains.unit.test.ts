@@ -24,7 +24,7 @@ describe("supported chain metadata", () => {
     expect(SUPPORTED_CHAIN_IDS).toEqual(
       expect.arrayContaining([
         1, 137, 42161, 8453, 84532, 10, 11155111, 59144, 59141, 143, 10143,
-        4663, 4326, 5042002, 31337,
+        4663, 4326, 5042, 5042002, 31337,
       ]),
     );
   });
@@ -83,6 +83,26 @@ describe("supported chain metadata", () => {
         },
       },
       testnet: true,
+    });
+  });
+
+  it("defines Arc Mainnet with 18-decimal native USDC and the live explorer", () => {
+    expect(CHAINS_BY_ID[5042]).toMatchObject({
+      id: 5042,
+      name: "Arc",
+      nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+      rpcUrls: {
+        default: {
+          http: [
+            "https://rpc.mainnet.arc.io",
+            "https://rpc.drpc.mainnet.arc.io",
+            "https://rpc.quicknode.mainnet.arc.io",
+          ],
+        },
+      },
+      blockExplorers: {
+        default: { name: "Arc Explorer", url: "https://explorer.arc.io" },
+      },
     });
   });
 });
