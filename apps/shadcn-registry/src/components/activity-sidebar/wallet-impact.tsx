@@ -262,7 +262,7 @@ function AssetChange({
           </div>
           <p
             className={cn(
-              "max-w-[55%] break-all text-right text-[14px] font-medium tabular-nums",
+              "max-w-[60%] whitespace-nowrap text-right text-[12px] font-medium tabular-nums",
               incoming
                 ? "text-aomi-success"
                 : outgoing

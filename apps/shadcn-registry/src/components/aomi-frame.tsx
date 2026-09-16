@@ -25,6 +25,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { NotificationToaster } from "@/components/ui/notification";
 import { ControlBar, type ControlBarProps } from "@/components/control-bar";
 import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
 import { ActivityPanelProvider } from "@/components/activity-sidebar/activity-panel-context";
@@ -198,6 +199,7 @@ const Root: FC<RootProps> = ({
             </SidebarInset>
           </div>
         </SidebarProvider>
+        <NotificationToaster />
       </ActivityPanelProvider>
     </AomiRuntimeProvider>
   );

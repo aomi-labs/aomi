@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import {
   appendFileSync,
@@ -25,6 +25,7 @@ const portalRequire = createRequire(
 const { importSPKI, jwtVerify } = await import(
   pathToFileURL(portalRequire.resolve("jose")).href
 );
+const { privateKeyToAccount } = await import("viem/accounts");
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const output = join(root, "output/playwright/browser-contracts");
@@ -61,12 +62,19 @@ if (!trustedBase) {
     "CONSUMER_BASE_SHA must identify the immutable consumer baseline",
   );
 }
+if (process.env.CI && process.env.UPDATE_BROWSER_SNAPSHOTS === "1") {
+  throw new Error("CI cannot update committed browser snapshots");
+}
 
-const evmPrivateKeys = [
-  `0x${randomBytes(32).toString("hex")}`,
-  `0x${randomBytes(32).toString("hex")}`,
-];
-const svmSeed = JSON.stringify([...randomBytes(32)]);
+const fixtureBytes = (label) =>
+  createHash("sha256").update(`aomi-browser-contract:${label}`).digest();
+const evmPrivateKeys = ["evm-1", "evm-2"].map(
+  (label) => `0x${fixtureBytes(label).toString("hex")}`,
+);
+const evmAddresses = evmPrivateKeys.map(
+  (privateKey) => privateKeyToAccount(privateKey).address,
+);
+const svmSeed = JSON.stringify([...fixtureBytes("svm-1")]);
 const fixturePrivateKey =
   "-----BEGIN PRIVATE KEY-----\n" +
   "MC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n" +
@@ -252,6 +260,9 @@ try {
       "--project=browser-contracts",
       "--workers=1",
       "--reporter=list,html,json",
+      ...(process.env.UPDATE_BROWSER_SNAPSHOTS === "1"
+        ? ["--update-snapshots"]
+        : []),
     ],
     {
       cwd: root,
@@ -275,13 +286,13 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected < 8 ||
+    stats.expected !== 13 ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
   ) {
     throw new Error(
-      `Browser contract suite failed or omitted mandatory scenarios (exit=${code}, stats=${JSON.stringify(stats)})`,
+      `Browser contract suite failed or omitted mandatory scenarios (expected=13, exit=${code}, stats=${JSON.stringify(stats)})`,
     );
   }
   console.log(
@@ -483,6 +494,8 @@ async function createControlledUpstream(port) {
       }
       if (url.pathname === "/__reset" && request.method === "POST") {
         records.length = 0;
+        threads.clear();
+        eventSequence = 0;
         return json(response, 204, undefined);
       }
       if (url.pathname === "/api/account" && request.method === "GET") {
@@ -535,6 +548,42 @@ async function createControlledUpstream(port) {
         response.setHeader("x-request-id", "fixture-error-request");
         return json(response, 429, { error: { code: "fixture_limited" } });
       }
+      if (
+        url.pathname === "/v1/account/statement" &&
+        request.method === "GET"
+      ) {
+        return json(response, 200, {
+          entries: [
+            {
+              usage_event_id: "fixture-usage-1",
+              operation_id: "fixture-operation-1",
+              application: "default",
+              provider: "openai",
+              model: "fixture-model",
+              input_tokens: 1200,
+              output_tokens: 300,
+              inference_funding_source: "platform",
+              gross_charge_microusd: 125_000,
+              included_applied_microusd: 100_000,
+              bank_debit_microusd: 25_000,
+              occurred_at: 1_700_000_000,
+            },
+          ],
+          next_cursor: null,
+        });
+      }
+      if (url.pathname === "/v1/account/credits" && request.method === "GET") {
+        return json(response, 200, {
+          period_utc_month: "2026-09",
+          included: {
+            limit_microusd: 10_000_000,
+            used_microusd: 1_250_000,
+          },
+          bank: { balance_microusd: 25_000_000 },
+          activity: [],
+          next_cursor: null,
+        });
+      }
       if (url.pathname === "/v1/agent/sessions" && request.method === "GET") {
         return json(response, 200, {
           sessions: [...threads.entries()]
@@ -555,14 +604,20 @@ async function createControlledUpstream(port) {
           return json(response, 400, { error: { code: "invalid_request" } });
         }
         const turn = ++eventSequence;
-        const events = [
-          event(turn, 1, "message", { sender: "user", content: body.message }),
-          event(turn, 2, "message", {
-            sender: "agent",
-            content: `Controlled reply for ${body.message}`,
-          }),
-          event(turn, 3, "turn_state_changed", { state: "complete" }),
-        ];
+        const events =
+          body.message === "prepare the deterministic wallet review"
+            ? actionFixtureEvents(turn, body.message, evmAddresses[0])
+            : [
+                event(turn, 1, "message", {
+                  sender: "user",
+                  content: body.message,
+                }),
+                event(turn, 2, "message", {
+                  sender: "agent",
+                  content: `Controlled reply for ${body.message}`,
+                }),
+                event(turn, 3, "turn_state_changed", { state: "complete" }),
+              ];
         threads.set(sessionId, {
           owner: principal.sub,
           prompt: body.message,
@@ -589,6 +644,61 @@ async function createControlledUpstream(port) {
           events: url.searchParams.has("cursor") ? [] : thread.events,
           has_more: false,
         });
+      }
+      const actionResult = url.pathname.match(
+        /^\/v1\/agent\/chat\/([^/]+)\/actions\/([^/]+)\/result$/,
+      );
+      if (actionResult && request.method === "POST") {
+        const sessionId = decodeURIComponent(actionResult[1]);
+        const actionId = decodeURIComponent(actionResult[2]);
+        const thread = threads.get(sessionId);
+        if (!thread || thread.owner !== principal.sub) {
+          return json(response, 404, { error: { code: "session_not_found" } });
+        }
+        const body = JSON.parse((await bodyText(request)) || "{}");
+        const idempotencyKey = request.headers["idempotency-key"];
+        const replay = idempotencyKey
+          ? thread.actionResults?.get(idempotencyKey)
+          : undefined;
+        if (replay) return json(response, 200, replay);
+        const index = thread.events.findIndex(
+          (entry) => entry.type === "action" && entry.id === actionId,
+        );
+        const current = thread.events[index];
+        if (!current) {
+          return json(response, 404, { error: { code: "action_not_found" } });
+        }
+        if (body.revision !== current.revision || current.state !== "pending") {
+          return json(response, 409, {
+            error: { code: "stale_action_revision" },
+          });
+        }
+        const next = {
+          ...current,
+          revision: current.revision + 1,
+          state:
+            body.result?.status === "rejected"
+              ? "rejected"
+              : body.result?.status === "submitted"
+                ? "submitted"
+                : "completed",
+          result: body.result,
+        };
+        thread.events[index] = next;
+        thread.events = [
+          ...thread.events.filter(
+            (entry) =>
+              !(
+                entry.type === "turn_state_changed" &&
+                entry.state === "awaiting_action"
+              ),
+          ),
+          event(turnFor(next), 5, "turn_state_changed", { state: "complete" }),
+        ];
+        const payload = { action: next };
+        thread.actionResults ??= new Map();
+        if (idempotencyKey) thread.actionResults.set(idempotencyKey, payload);
+        return json(response, 200, payload);
       }
       if (/^\/v1\/agent\/chat\/[^/]+\/stream$/.test(url.pathname)) {
         response.writeHead(200, { "content-type": "text/event-stream" }).end();
@@ -680,6 +790,70 @@ function event(turn, sequence, type, data) {
     type,
     ...data,
   };
+}
+
+function actionFixtureEvents(turn, prompt, from) {
+  return [
+    event(turn, 1, "message", { sender: "user", content: prompt }),
+    event(turn, 2, "message", {
+      sender: "agent",
+      content:
+        "Review the simulated transfer before handing it to your wallet.",
+    }),
+    {
+      ...event(turn, 3, "action", {}),
+      id: `fixture-action-${turn}`,
+      revision: 1,
+      state: "pending",
+      request: {
+        type: "execute_evm",
+        transactions: [
+          {
+            chain_id: 84532,
+            from,
+            to: "0x000000000000000000000000000000000000dEaD",
+            value: "1",
+            data: "0x",
+            label: "Send 1 wei",
+            kind: "transfer",
+            broadcaster: "wallet",
+          },
+        ],
+        simulation: {
+          status: "passed",
+          balanceChanges: [
+            {
+              account: from,
+              asset: "native",
+              amount: "1",
+              direction: "out",
+              symbol: "ETH",
+              standard: "native",
+              chainId: 84532,
+            },
+          ],
+          approvals: [],
+          fees: [],
+          gas: {
+            units: "21000",
+            priceWei: "1000000000",
+            nativeCost: "21000000000000",
+          },
+          guards: [],
+          logs: [],
+          warnings: [],
+        },
+      },
+      result: null,
+      created_at: 1_700_000_000,
+      expires_at: null,
+    },
+    event(turn, 4, "turn_state_changed", { state: "awaiting_action" }),
+  ];
+}
+
+function turnFor(action) {
+  return Number(String(action.turn_id).replace(/^turn-/, "")) || 0;
 }
 
 function bodyText(request) {

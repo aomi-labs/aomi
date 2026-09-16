@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 // Compile consumers from the trusted base against the packages this checkout ships.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +24,13 @@ const outputFlag = args.indexOf("--browser-output");
 const browserOutput =
   outputFlag >= 0 ? args[outputFlag + 1] : process.env.CONSUMER_BROWSER_OUTPUT;
 const onlyWidget = args.includes("--only-widget");
+const consumerHeapMb = Number(process.env.CONSUMER_NODE_HEAP_MB ?? "5120");
+if (!Number.isSafeInteger(consumerHeapMb) || consumerHeapMb < 1024) {
+  throw new Error("CONSUMER_NODE_HEAP_MB must be an integer of at least 1024");
+}
+const nodeOptions = `${(process.env.NODE_OPTIONS ?? "")
+  .replace(/--max-old-space-size(?:=|\s+)\d+/g, "")
+  .trim()} --max-old-space-size=${consumerHeapMb}`.trim();
 if (
   !base ||
   /^0+$/.test(base) ||
@@ -38,8 +51,9 @@ const temporary = mkdtempSync(join(tmpdir(), "aomi-consumer-compat-"));
 const packages = [
   ["@aomi-labs/client", "packages/client"],
   ["@aomi-labs/react", "packages/react"],
+  ["@aomi-labs/deploy", "packages/deploy"],
   ["@aomi-labs/widget-lib", "apps/shadcn-registry"],
-];
+].filter(([name]) => !onlyWidget || name !== "@aomi-labs/deploy");
 const consumers = onlyWidget
   ? ["apps/widget-consumer"]
   : ["apps/examples/headless-client", "apps/widget-consumer"];
@@ -49,7 +63,7 @@ function run(command, commandArgs, cwd = root) {
   execFileSync(command, commandArgs, {
     cwd,
     stdio: "inherit",
-    env: { ...process.env, CI: "true" },
+    env: { ...process.env, CI: "true", NODE_OPTIONS: nodeOptions },
   });
 }
 
@@ -168,6 +182,131 @@ if (!resolved.endsWith("/dist/host-composition.js")) {
   run("node", [resolutionCheckPath], destination);
 }
 
+function verifyFreshInstall(tarballs, temporaryRoot) {
+  const clientManifest = JSON.parse(
+    readFileSync(join(root, "packages/client/package.json"), "utf8"),
+  );
+  const widgetDestination = join(temporaryRoot, "fresh-widget-install");
+  const widgetManifest = {
+    name: "aomi-clean-widget-install-contract",
+    version: "0.0.0",
+    private: true,
+    type: "module",
+    packageManager,
+    dependencies: {
+      "@aomi-labs/widget-lib": tarballs["@aomi-labs/widget-lib"],
+      react: "19.2.0",
+      "react-dom": "19.2.0",
+    },
+    devDependencies: {
+      "@vitejs/plugin-react": "^4.7.0",
+      vite: "^7.2.2",
+      "vite-plugin-node-polyfills": "^0.28.0",
+    },
+    pnpm: { overrides: tarballs },
+  };
+  mkdirSync(widgetDestination, { recursive: true });
+  writeFileSync(
+    join(widgetDestination, "package.json"),
+    `${JSON.stringify(widgetManifest, null, 2)}\n`,
+  );
+  run(
+    "corepack",
+    [
+      "pnpm",
+      "install",
+      "--no-frozen-lockfile",
+      "--ignore-scripts",
+      "--strict-peer-dependencies=false",
+    ],
+    widgetDestination,
+  );
+  writeFileSync(
+    join(widgetDestination, "index.html"),
+    '<div id="root"></div><script type="module" src="/main.jsx"></script>\n',
+  );
+  writeFileSync(
+    join(widgetDestination, "main.jsx"),
+    `import React from "react";
+import { createRoot } from "react-dom/client";
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
+createRoot(document.getElementById("root")).render(
+  React.createElement(AomiWidget, { applicationId: "1", apiUrl: "https://example.invalid" }),
+);
+`,
+  );
+  writeFileSync(
+    join(widgetDestination, "vite.config.mjs"),
+    `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
+export default defineConfig({
+  plugins: [react(), nodePolyfills({ include: ["buffer", "crypto", "stream", "util"] })],
+  resolve: { dedupe: ["react", "react-dom"] },
+});
+`,
+  );
+  run("corepack", ["pnpm", "exec", "vite", "build"], widgetDestination);
+
+  const sdkDestination = join(temporaryRoot, "fresh-sdk-install");
+  const sdkManifest = {
+    name: "aomi-clean-sdk-install-contract",
+    version: "0.0.0",
+    private: true,
+    type: "module",
+    packageManager,
+    dependencies: {
+      "@aomi-labs/client": tarballs["@aomi-labs/client"],
+      "@aomi-labs/deploy": tarballs["@aomi-labs/deploy"],
+      "@aomi-labs/react": tarballs["@aomi-labs/react"],
+      "@assistant-ui/react": "^0.14.0",
+      react: "19.2.0",
+      "react-dom": "19.2.0",
+    },
+    pnpm: { overrides: tarballs },
+  };
+  mkdirSync(sdkDestination, { recursive: true });
+  writeFileSync(
+    join(sdkDestination, "package.json"),
+    `${JSON.stringify(sdkManifest, null, 2)}\n`,
+  );
+  run(
+    "corepack",
+    [
+      "pnpm",
+      "install",
+      "--no-frozen-lockfile",
+      "--ignore-scripts",
+      "--strict-peer-dependencies=false",
+    ],
+    sdkDestination,
+  );
+  const sdkRuntimeCheck = join(sdkDestination, "runtime-check.mjs");
+  writeFileSync(
+    sdkRuntimeCheck,
+    `import { Aomi, AomiClient } from "@aomi-labs/client";
+import { AomiRuntimeProvider } from "@aomi-labs/react";
+import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";
+for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvider, deploymentLifecycleFromProject })) {
+  if (typeof value !== "function") throw new Error(\`Fresh SDK install lacks \${name}\`);
+}
+`,
+  );
+  run("node", [sdkRuntimeCheck], sdkDestination);
+
+  const version = execFileSync(
+    join(sdkDestination, "node_modules/.bin/aomi"),
+    ["--version"],
+    { cwd: sdkDestination, encoding: "utf8" },
+  ).trim();
+  if (!version.includes(clientManifest.version)) {
+    throw new Error(
+      `Packed CLI version mismatch: expected ${clientManifest.version}, got ${version}`,
+    );
+  }
+}
+
 try {
   console.log(
     `Checking consumers from ${sha} against candidate package tarballs`,
@@ -181,8 +320,9 @@ try {
   };
   const trustedTap = packageVersion(trustedLockfile, "@assistant-ui/tap");
   for (const [name, path] of packages) {
-    if (name === "@aomi-labs/widget-lib") {
-      // Widget has prepublishOnly rather than prepack.
+    if (name === "@aomi-labs/widget-lib" || name === "@aomi-labs/deploy") {
+      // These packages have no prepack hook; build before producing the
+      // exact archive consumed by the clean-install fixture.
       run("corepack", ["pnpm", "--dir", join(root, path), "build"]);
     }
     run("corepack", [
@@ -203,6 +343,8 @@ try {
     // pnpm names scoped archives without the @ and slash.
     tarballs[name] = `file:${actual}`;
   }
+
+  if (!onlyWidget) verifyFreshInstall(tarballs, temporary);
 
   for (const consumer of consumers) {
     const destination = join(temporary, consumer);

@@ -6,6 +6,13 @@ into the headless and widget examples copied from the trusted base commit, then
 compiles and builds those examples. The headless example's TypeScript source
 alias is removed in the temporary copy so it resolves the packed client.
 
+The same command also creates a synthetic clean host with only the public widget
+and React declared directly. It installs the full candidate Aomi package stack,
+public runtime imports must load, and the packed `aomi --version` executable must
+run. Third-party peer-range warnings remain advisory and visible. This catches
+undeclared or workspace-hoisted dependencies that the immutable historical
+fixtures intentionally keep.
+
 The baseline isolation test creates a small Git repository, commits a consumer
 that imports `Aomi`, commits a candidate change to import `NewAomi`, and verifies
 the extracted test consumer still imports `Aomi` from the base commit. It also

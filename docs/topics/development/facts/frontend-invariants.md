@@ -34,6 +34,9 @@ Frontend owners: @CeciliaZ030 and @arixoneth.
 | AUTH-02      | EVM/SVM sign-in and wallet linking resolve one canonical account; rejected, replayed, or wrong-origin proofs fail closed. | Production wallet-provider browser contracts against disposable Postgres.  |
 | GUEST-01     | Portal may recover cookie-owned guest history; anonymous cross-origin widgets do not persist it by default.               | Portal guest test plus packaged cross-origin browser contracts.            |
 | CONSUMER-01  | A PR cannot hide a break by rewriting its consumers.                                                                      | Extract consumers from the event's trusted base commit, never the PR tree. |
+| INSTALL-01   | Published packages install without undeclared workspace or hoisted dependencies; public entries and the SDK CLI load.     | Synthetic isolated clean install from candidate tarballs.                  |
+| VISUAL-01    | Chat, account, settings, usage, and wallet-review surfaces keep their reviewed production layout.                         | Deterministic production-build Playwright image contracts.                 |
+| ACTION-01    | Wallet Actions require an explicit choice and remain durable, idempotent, and fail closed across errors and reloads.      | Controlled-upstream browser Action lifecycle contract.                     |
 | TEST-01      | Compatibility failures, omitted browser scenarios, or missing prerequisites block merging.                                | Required `Frontend CI Passed` aggregate checks all dependency jobs.        |
 | OWNER-01     | Consumer, boundary, harness, and CI protection changes require frontend-owner review.                                     | CODEOWNERS plus GitHub required code-owner approval.                       |
 
@@ -73,13 +76,15 @@ The check builds candidate packages, packs them, and installs them into temporar
 consumer directories outside the monorepo. The original source and build scripts
 come from the trusted base. Workspace dependency references are replaced with
 candidate tarballs and source aliases are removed so unpublished source cannot
-make a broken package pass. The widget fixture retains two peers previously
-supplied by the monorepo: assistant-ui from the trusted root manifest and SPL
-Token from the trusted widget development manifest. These fixed allowances
-preserve the existing fixture environment; they do not establish that the
-example manifest alone contains every dependency a fresh host needs. The
-headless tests and SDK ESM/CJS imports also run against the installed package.
-No login credentials or running backend are needed.
+make a broken package pass. The immutable widget fixture retains two
+dependencies previously supplied by the monorepo so the historical consumer is
+reproduced exactly. A separate isolated clean-install fixture starts from only the
+public widget plus React, resolves the complete candidate package stack from
+tarballs, loads the widget, React runtime, client, and deploy lifecycle entries,
+and executes the packed SDK CLI. Third-party peer-range warnings remain visible
+but do not mask whether Aomi's own files and exports work. The headless tests and
+SDK ESM/CJS imports also run against the installed package. No login credentials
+or running backend are needed.
 
 CI uses the PR base SHA, or the previous commit from a push event. A missing or
 invalid baseline fails rather than falling back to candidate consumers.
@@ -97,7 +102,9 @@ unexpected.
 
 The Portal cases cover EVM and SIWS sign-in, reload persistence, explicit wallet
 linking, signature rejection, sign-out/account switching, canonical identity,
-history isolation, completed chat, and the allowlisted BFF hop. The packaged
+history isolation, completed chat, the allowlisted BFF hop, deterministic visual
+baselines, and a durable wallet Action through local handoff failure, rejection,
+idempotent replay, stale-result rejection, and reload. The packaged
 widget cases cover real preflight/CORS behavior, guest nonpersistence, invalid
 explicit WST fail-closed behavior, readable origin rejection, session renewal,
 wallet-authenticated persistence, nonce replay/origin binding, canonical account
@@ -118,6 +125,6 @@ examples and prove the listed cross-origin browser-to-BFF journeys. Browser
 wallets are standards-compatible injected fixtures with ephemeral keys, not
 real extension or embedded-provider accounts. The controlled upstream validates
 identity and protocol transport but does not replace a hosted backend smoke.
-The suite never signs transactions or broadcasts. It is not a visual-baseline,
-real-provider-availability, exhaustive SDK/CLI, or full backend-migration test;
-the separate hosted-wallet workflow remains the staging-provider/backend check.
+The suite never signs transactions or broadcasts. It is not a real-provider-
+availability or full backend-migration test; the separate hosted-wallet workflow
+remains the staging-provider/backend check.
