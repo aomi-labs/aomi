@@ -1,0 +1,38 @@
+{
+  "staging": {
+    "project_ref": "cmwkmjpfbffmdiluvgtu",
+    "session_client_limit": 30,
+    "reserved_clients": 5,
+    "backend_max_connections_per_host": 2,
+    "backend_listener_connections_per_host": 1,
+    "api_server_max_connections_per_host": 2,
+    "manager_max_connections_per_host": 1,
+    "tool_max_connections": 2,
+    "idle_timeout_secs": 60,
+    "long_hold_secs": 5,
+    "portal": {
+      "pooler_port": 6543,
+      "max_connections_per_instance": 1,
+      "idle_timeout_ms": 5000,
+      "connection_timeout_ms": 10000
+    }
+  },
+  "production": {
+    "project_ref": "akejwtxsjvbexutsfhkn",
+    "session_client_limit": 48,
+    "reserved_clients": 5,
+    "backend_max_connections_per_host": 2,
+    "backend_listener_connections_per_host": 1,
+    "api_server_max_connections_per_host": 2,
+    "manager_max_connections_per_host": 1,
+    "tool_max_connections": 2,
+    "idle_timeout_secs": 60,
+    "long_hold_secs": 5,
+    "portal": {
+      "pooler_port": 6543,
+      "max_connections_per_instance": 1,
+      "idle_timeout_ms": 5000,
+      "connection_timeout_ms": 10000
+    }
+  }
+}
