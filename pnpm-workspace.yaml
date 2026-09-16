@@ -38,6 +38,11 @@ packageExtensions:
   "@getpara/react-sdk@2.24.0":
     dependencies:
       "@getpara/react-core": "2.24.0"
+  # The published lite SDK imports shared formatting helpers without declaring
+  # the package. A clean Vercel install cannot resolve those imports.
+  "@getpara/react-sdk-lite@2.24.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
   # The 2.19.0 line imports `@getpara/shared` and `eventemitter3` at runtime
   # without listing them in its published manifests. They used to resolve only
   # because another workspace pulled a newer Para line into the store, so the
