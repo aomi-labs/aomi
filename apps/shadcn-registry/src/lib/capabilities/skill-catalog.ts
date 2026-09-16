@@ -13,6 +13,7 @@ export type SkillSummary = {
   name: string;
   description: string;
   tags: string[];
+  featureCatalog: string[];
   chainIds: number[];
   injectedTools: string[];
   estimatedTokens?: number;
@@ -52,6 +53,7 @@ function parseSkill(value: unknown): SkillSummary | null {
     name: row.name,
     description: typeof row.description === "string" ? row.description : "",
     tags: strings(row.tags),
+    featureCatalog: strings(row.feature_catalog),
     chainIds: numbers(row.chain_ids),
     injectedTools: strings(row.injected_tools),
     ...(typeof row.est_tokens === "number"

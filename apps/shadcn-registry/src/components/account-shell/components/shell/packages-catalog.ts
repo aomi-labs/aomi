@@ -1,4 +1,8 @@
-import type { AomiAppDescriptor } from "@aomi-labs/client";
+import {
+  isOfficialAppDescriptor,
+  type AomiAppDescriptor,
+  type AomiFeatureCategory,
+} from "@aomi-labs/client";
 import { resolveAppIdentity } from "../../../../lib/apps/app-identity";
 
 export type PackageVisibility = "public" | "personal";
@@ -16,6 +20,8 @@ export interface CatalogPackage {
   brandId: string;
   /** Stable hosted-app identity, when supplied by the catalog. */
   applicationId?: AomiAppDescriptor["applicationId"];
+  official: boolean;
+  featureCatalog: AomiFeatureCategory[];
   name: string;
   abbr: string;
   description: string;
@@ -157,7 +163,8 @@ export function explainPackageLoadError(cause: unknown): string {
 /** One wire row + its decoration → a renderable catalog entry. */
 export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
   const identity = resolveAppIdentity(app);
-  const decor = DECOR[identity.brandId] ?? {};
+  const official = isOfficialAppDescriptor(app);
+  const decor = official ? (DECOR[identity.brandId] ?? {}) : {};
   const visibility: PackageVisibility =
     app.isPublic === false ? "personal" : "public";
 
@@ -165,6 +172,8 @@ export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
     id: app.name,
     brandId: identity.brandId,
     applicationId: identity.applicationId,
+    official,
+    featureCatalog: app.featureCatalog ?? [],
     name: identity.displayName,
     abbr: identity.abbr,
     description:

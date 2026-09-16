@@ -224,6 +224,7 @@ export type {
 
 export type {
   AomiAppDescriptor,
+  AomiFeatureCategory,
   AomiArtifactStatus,
   AomiPlatformFilter,
   ApplicationId,
@@ -278,7 +279,11 @@ export {
   type AccountSessionProvider,
   type AccountSessionSigner,
 } from "./widget-session";
-export { normalizeAppDescriptor, appIdentityKey } from "./app-descriptor";
+export {
+  normalizeAppDescriptor,
+  appIdentityKey,
+  isOfficialAppDescriptor,
+} from "./app-descriptor";
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 

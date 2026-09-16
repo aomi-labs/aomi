@@ -26,24 +26,36 @@ type FetchCall = { input: string | URL | Request; init?: RequestInit };
 /** `GET /api/account/apps` wire rows (backend `AppSpec`, snake_case). */
 const CATALOG = [
   { name: "default" },
-  { name: "uniswap", is_public: true, application_id: 7 },
+  {
+    name: "uniswap",
+    is_public: true,
+    application_id: 7,
+    metadata: { registered_via: "official_source" },
+    feature_catalog: ["cross-chain"],
+  },
   {
     name: "oneinch",
     is_public: true,
     application_id: 10,
     label: "Exchange Aggregator",
+    metadata: { registered_via: "official_source" },
+    feature_catalog: ["cross-chain"],
   },
   {
     name: "polymarket_rewards",
     is_public: true,
     application_id: 11,
     label: "Market Incentives",
+    metadata: { registered_via: "official_source" },
+    feature_catalog: ["trading"],
   },
   {
     name: "stablefx",
     is_public: true,
     application_id: 8,
     chain_ids: [5_042_002],
+    metadata: { registered_via: "official_source" },
+    feature_catalog: ["trading"],
   },
   {
     name: "treasury-ops",
@@ -53,8 +65,18 @@ const CATALOG = [
   },
 ];
 
-function installFetchRecorder() {
+function installFetchRecorder(
+  extraApps: Array<{
+    name: string;
+    is_public: boolean;
+    application_id: number;
+    label: string;
+    metadata: { registered_via: string };
+    feature_catalog: string[];
+  }> = [],
+) {
   const calls: FetchCall[] = [];
+  const catalog = [...CATALOG, ...extraApps];
   let installed = ["default", "uniswap"];
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
@@ -62,10 +84,10 @@ function installFetchRecorder() {
       const url = new URL(input.toString(), "https://portal.test");
       const method = init?.method ?? "GET";
       if (url.pathname === "/api/thread/apps" && method === "GET") {
-        return Response.json(CATALOG.filter((app) => app.is_public !== false));
+        return Response.json(catalog.filter((app) => app.is_public !== false));
       }
       if (url.pathname === "/api/account/apps" && method === "GET") {
-        return Response.json(CATALOG);
+        return Response.json(catalog);
       }
       if (url.pathname === "/api/account/apps" && method === "PUT") {
         installed = (JSON.parse(String(init?.body)) as { apps: string[] }).apps;
@@ -79,6 +101,7 @@ function installFetchRecorder() {
               name: "aave",
               description: "Supply and borrow through Aave V3.",
               tags: ["lending"],
+              feature_catalog: ["lending"],
               chain_ids: [1, 8453],
               injected_tools: ["aave_position"],
             },
@@ -91,6 +114,7 @@ function installFetchRecorder() {
           name: "aave",
           description: "Supply and borrow through Aave V3.",
           tags: ["lending"],
+          feature_catalog: ["lending"],
           chain_ids: [1, 8453],
           injected_tools: ["aave_position"],
           tool_names: ["aomi_call_tool"],
@@ -222,6 +246,45 @@ describe("packages modal wiring", () => {
     ).toBeTruthy();
   });
 
+  it("keeps same-name community rows stable across tabs and global search", async () => {
+    installFetchRecorder([
+      {
+        name: "dune",
+        is_public: true,
+        application_id: 40,
+        label: "Dune",
+        metadata: { registered_via: "official_source" },
+        feature_catalog: ["research"],
+      },
+      {
+        name: "dune",
+        is_public: true,
+        application_id: 41,
+        label: "My Dune",
+        metadata: { registered_via: "activate_apps" },
+        feature_catalog: [],
+      },
+    ]);
+    await renderModal();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Apps\b/ }));
+    expect(screen.getByLabelText("Open Dune details")).toBeTruthy();
+    expect(screen.getByLabelText("Open My Dune details")).toBeTruthy();
+    expect(screen.getByText("Community apps")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Skills\b/ }));
+    expect(screen.queryByLabelText("Open My Dune details")).toBeNull();
+    expect(screen.getByLabelText("Open Aave details")).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search library" }), {
+      target: { value: "dune" },
+    });
+    expect(screen.getByLabelText("Open Dune details")).toBeTruthy();
+    expect(screen.getByLabelText("Open My Dune details")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Open My Dune details"));
+    expect(screen.getByLabelText("My Dune details")).toBeTruthy();
+  });
+
   it("puts token operations in Tokens & wallets before broad research matches", () => {
     expect(
       inferLibraryCategory({
@@ -231,6 +294,7 @@ describe("packages modal wiring", () => {
           name: "common erc20",
           description: "Check balances, allowances, and token transfers.",
           tags: ["tokens"],
+          featureCatalog: ["wallets"],
           chainIds: [1, 8453],
           injectedTools: [],
         },
@@ -484,6 +548,7 @@ describe("catalog app identity", () => {
       label: "messy backend label",
       applicationId: 42,
       isPublic: true,
+      metadata: { registered_via: "official_source" },
     });
 
     expect(app).toMatchObject({
