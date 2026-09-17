@@ -213,6 +213,7 @@ export function PortalAomiFrame() {
         ? {
             targets: [{ mode: "direct", apps: [lockedTarget] }],
             defaultMode: "direct",
+            showFixedControls: true,
           }
         : {
             targets: [
@@ -286,7 +287,7 @@ export function PortalAomiFrame() {
         // available in the sidebar, but the previously active thread is not
         // restored after a reload.
         persistThread={false}
-        showSidebar={!lockedApp}
+        showSidebar
         walletPosition="footer"
         walletFamilies={["evm", "solana"]}
         walletConnectLabel="Sign in"
