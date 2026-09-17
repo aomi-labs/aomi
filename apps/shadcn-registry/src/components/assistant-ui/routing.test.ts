@@ -7,6 +7,7 @@ describe("normalizeAomiRouting", () => {
       modes: ["auto"],
       directApps: [],
       defaultMode: "auto",
+      showFixedControls: false,
       error: null,
     });
   });
@@ -70,5 +71,15 @@ describe("shouldShowDirectAppSelect", () => {
 
     expect(shouldShowDirectAppSelect("direct", fixed)).toBe(false);
     expect(shouldShowDirectAppSelect("direct", selectable)).toBe(true);
+  });
+
+  it("can expose a host-fixed Direct destination as read-only choices", () => {
+    const fixed = normalizeAomiRouting({
+      targets: [{ mode: "direct", apps: [{ app: "hoodit" }] }],
+      showFixedControls: true,
+    });
+
+    expect(fixed.showFixedControls).toBe(true);
+    expect(shouldShowDirectAppSelect("direct", fixed)).toBe(true);
   });
 });
