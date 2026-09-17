@@ -105,6 +105,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/_internal/agent/sessions/:thread_id/stream",
+    auth: ["delegated"],
+  },
+  {
+    method: "GET",
     path: "/api/_internal/secrets",
     auth: ["service"],
   },
@@ -260,6 +265,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/integrations/github-app/user/projects/:id/attempts",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/:id/attempts/:run",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
     path: "/api/integrations/github-app/user/projects/:id/bots",
     auth: ["service"],
   },
@@ -396,12 +411,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/resource/skills",
-    auth: ["account"],
+    auth: [],
   },
   {
     method: "GET",
-    path: "/api/resource/skills/:skill_id",
-    auth: ["account"],
+    path: "/api/resource/skills/*skill_id",
+    auth: [],
   },
   {
     method: "GET",
@@ -430,22 +445,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/thread/events",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
     path: "/api/thread/models",
     auth: ["thread"],
   },
   {
     method: "GET",
     path: "/api/thread/runtime/models",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/updates",
     auth: ["thread"],
   },
   {
@@ -656,6 +661,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/integrations/github-app/user/model-keys",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/:id/attempts",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/:id/attempts/:run/cancel",
     auth: ["service"],
   },
   {
