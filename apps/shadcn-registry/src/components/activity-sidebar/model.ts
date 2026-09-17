@@ -1,4 +1,5 @@
 import type { Action, Event } from "@aomi-labs/client";
+import { summarizeSimulation } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
 import { unwrapToolStep } from "../assistant-ui/tool-interpreter/unwrap";
 
@@ -203,11 +204,12 @@ export function selectActivity(
           (typeof result.tx_id === "number" ? [result.tx_id] : []),
       );
       const success =
-        typeof sim.batch_success === "boolean"
+        summarizeSimulation(sim)?.passed ??
+        (typeof sim.batch_success === "boolean"
           ? sim.batch_success
           : "err" in sim
             ? sim.err == null
-            : undefined;
+            : undefined);
       if (success !== undefined)
         for (const id of affected) {
           const item = staged.get(`${event.turn_id}:${family}:${id}`);

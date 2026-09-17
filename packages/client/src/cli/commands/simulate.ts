@@ -1,4 +1,4 @@
-import { formatEther } from "viem";
+import { summarizeSimulation } from "../../simulation";
 import type { Action } from "../../agent/types";
 import { CliSession } from "../cli-session";
 import { createCliClient } from "../client-factory";
@@ -47,42 +47,62 @@ export async function simulateCommand(
     { ...config, secrets: config.secrets ?? {} },
     { baseUrl: cli.baseUrl, apiKey: cli.apiKey },
   );
-  const { result } = await client.simulateBatch(cli.sessionId, transactions, {
-    from: cli.publicKey,
-    chainId: cli.chainId,
-  });
+  const { result, fee } = await client.simulateBatch(
+    cli.sessionId,
+    transactions,
+    {
+      from: cli.publicKey,
+      chainId: cli.chainId,
+    },
+  );
 
-  const mode = result.stateful
-    ? "stateful (Anvil snapshot)"
-    : "stateless (independent eth_call)";
-  console.log(`\nBatch simulation (${mode}):`);
-  console.log(`From: ${result.from} | Network: ${result.network}\n`);
+  const summary = summarizeSimulation(result);
+  if (!summary)
+    fatal(
+      "Unsupported simulation response; update client and backend together.",
+    );
+  console.log("\nStateful call simulation:");
+  for (const context of result.contexts) {
+    console.log(
+      `From: ${context.sender} | Chain: ${context.chain_id} | Block: ${context.block_number}`,
+    );
+  }
   for (const step of result.steps) {
-    const icon = step.success ? `${GREEN}✓${RESET}` : `\x1b[31m✗${RESET}`;
-    const gas = step.gas_used
-      ? ` | gas: ${step.gas_used.toLocaleString()}`
+    const execution = step.execution;
+    const passed = execution?.status.kind === "succeeded";
+    const icon = !execution
+      ? `${DIM}–${RESET}`
+      : passed
+        ? `${GREEN}✓${RESET}`
+        : `\x1b[31m✗${RESET}`;
+    const gas = execution?.gas_used
+      ? ` | gas: ${execution.gas_used.toLocaleString()}`
       : "";
     console.log(`  ${icon} ${step.step}. ${step.label || `Step ${step.step}`}`);
     console.log(
-      `    ${DIM}to: ${step.tx.to} | value: ${step.tx.value_eth} ETH${gas}${RESET}`,
+      `    ${DIM}to: ${step.call.to} | value: ${step.call.value} native atomic units (chain ${step.chain_id})${gas}${RESET}`,
     );
-    if (!step.success && step.revert_reason) {
-      console.log(`    \x1b[31mRevert: ${step.revert_reason}${RESET}`);
+    if (!passed) {
+      console.log(`    Status: ${execution?.status.kind ?? "skipped"}`);
+      if (execution?.status.kind === "halted")
+        console.log(`    ${execution.status.reason}`);
+      if (execution?.return_data && execution.return_data !== "0x")
+        console.log(`    Return data: ${execution.return_data}`);
     }
   }
-  if (result.total_gas) {
+  if (summary.gas) {
     console.log(
-      `\n${DIM}Total gas: ${result.total_gas.toLocaleString()}${RESET}`,
+      `\n${DIM}Successful-step gas: ${summary.gas.toLocaleString()}${RESET}`,
     );
   }
-  if (result.fee) {
-    const amount = BigInt(result.fee.amount_wei);
+  if (fee) {
+    const amount = BigInt(fee.amount_wei);
     console.log(
-      `Service fee: ${formatEther(amount)} ETH (${amount} wei) → ${result.fee.recipient}`,
+      `Service fee: ${amount} native atomic units → ${fee.recipient}`,
     );
   }
   console.log(
-    result.batch_success
+    summary.passed
       ? `\n${GREEN}All steps passed.${RESET}`
       : `\n\x1b[31mBatch failed.${RESET}`,
   );

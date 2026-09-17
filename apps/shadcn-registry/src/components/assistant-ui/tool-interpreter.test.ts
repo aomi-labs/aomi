@@ -825,6 +825,36 @@ describe("tool interpreter", () => {
     expect(step.chips[3].dot).toBeUndefined();
   });
 
+  it("derives current simulation status from execution evidence", () => {
+    const result = interpretToolStep({
+      toolName: "simulate_batch",
+      result: {
+        simulation: {
+          contexts: [{ chain_id: 8453 }],
+          steps: [
+            {
+              step: 1,
+              chain_id: 8453,
+              execution: { status: { kind: "succeeded" }, gas_used: 21000 },
+            },
+          ],
+        },
+      },
+    });
+    expect(labelsFor(result.chips)).toContain("Success");
+    expect(labelsFor(result.chips)).toContain("21,000 gas");
+    const skipped = interpretToolStep({
+      toolName: "simulate_batch",
+      result: {
+        simulation: {
+          contexts: [{ chain_id: 8453 }],
+          steps: [{ step: 1, chain_id: 8453, execution: null }],
+        },
+      },
+    });
+    expect(labelsFor(skipped.chips)).not.toContain("Success");
+  });
+
   it("recognizes successful Solana simulations", () => {
     const step = interpretToolStep({
       toolName: "Simulate staged Solana instructions",
