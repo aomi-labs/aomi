@@ -1,3 +1,4 @@
+import { SimulationApiError } from "./simulation";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
@@ -1036,9 +1037,17 @@ export class AomiClient {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `HTTP ${response.status}: ${response.statusText}${body ? `\n${body}` : ""}`,
+      const body = await response.json().catch(() => null);
+      const detail = body?.error;
+      throw new SimulationApiError(
+        response.status,
+        detail &&
+          typeof detail.code === "string" &&
+          typeof detail.message === "string" &&
+          Array.isArray(detail.partial?.contexts) &&
+          Array.isArray(detail.partial?.steps)
+          ? detail
+          : undefined,
       );
     }
 

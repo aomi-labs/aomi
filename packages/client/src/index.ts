@@ -264,6 +264,12 @@ export type {
   AomiSecretSlot,
   AomiSimulateFee,
   AomiSimulateResponse,
+  SimulationCall,
+  SimContext,
+  SimulationExecution,
+  SimStep,
+  SimReport,
+  SimulationError,
   Logger,
 } from "./types";
 export {
@@ -397,3 +403,4 @@ export type {
   ExecuteWalletCallsParams,
   NormalizedSimulatedFee,
 } from "./aa";
+export { summarizeSimulation, SimulationApiError } from "./simulation";

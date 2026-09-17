@@ -1,5 +1,16 @@
 # Current work
 
+**RELEASE SIMULATION COMPATIBILITY 2026-09-17 (IN PROGRESS)** — Ported the
+Arc simulation client migration onto frontend main `75877713` in an isolated
+worktree. The client and CLI consume typed `SimReport` evidence and fail
+closed on empty or skipped results; the widget summarizes the same evidence
+while retaining historical tool display. Client and widget versions are
+`0.8.0` and `2.0.56`. Focused client/widget tests, client and Portal
+typechecks, builds, lint, formatting, full FE lint/typecheck/1,588 tests,
+and packed consumer compatibility pass. GitHub CI, staging browser and wallet
+paths, and the paired backend release remain open gates. The original worktree
+and its uncommitted files are intact.
+
 **WIDGET WALLET RUNTIME FOLLOW-UP 2026-09-14** — In the cross-origin
 consumer on PR #617's Portal preview, a connected Rabby wallet received
 `invalid token` for Agent session listing and chat because the client omitted

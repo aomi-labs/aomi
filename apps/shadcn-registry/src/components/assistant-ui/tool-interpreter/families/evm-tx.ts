@@ -1,4 +1,5 @@
 import { EVM_SELECTOR_REGISTRY } from "@/components/assistant-ui/tool-registry";
+import { summarizeSimulation } from "@aomi-labs/client";
 
 import {
   asNumber,
@@ -116,9 +117,10 @@ export const matchEvmSimulation: ToolMatcher = ({
     typeof resultRecord?.simulation === "object" && resultRecord.simulation
       ? (resultRecord.simulation as Record<string, unknown>)
       : null;
+  const summary = summarizeSimulation(sim ?? resultRecord);
   if (
     !namedSimulation &&
-    !(sim || (resultRecord && "batch_success" in resultRecord))
+    !(summary || sim || (resultRecord && "batch_success" in resultRecord))
   )
     return null;
 
@@ -133,20 +135,24 @@ export const matchEvmSimulation: ToolMatcher = ({
       : [];
   const chain =
     chainFactFromRecord(resultRecord) ??
+    (summary?.chainIds.length === 1 ? chainFact(summary.chainIds[0]) : null) ??
     chainFact(undefined, sim?.network) ??
     chainFactFromRecord(args, "args") ??
     associatedChain(relatedResultRecords, requestedIds);
   if (!namedSimulation && !chain) return null;
 
   const explicitBatchSuccess =
-    sim?.batch_success ?? resultRecord?.batch_success;
+    summary?.passed ?? sim?.batch_success ?? resultRecord?.batch_success;
   const simulationStatus =
     explicitBatchSuccess !== undefined
       ? explicitBatchSuccess
       : sim && "err" in sim
         ? sim.err == null
         : resultRecord?.last_batch_status;
-  const gas = asNumber(sim?.total_gas) ?? asNumber(resultRecord?.total_gas);
+  const gas =
+    summary?.gas ??
+    asNumber(sim?.total_gas) ??
+    asNumber(resultRecord?.total_gas);
   const steps = Array.isArray(sim?.steps)
     ? sim.steps.length
     : Array.isArray(resultRecord?.tx_ids)
