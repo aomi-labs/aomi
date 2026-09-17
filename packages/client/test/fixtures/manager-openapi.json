@@ -225,6 +225,56 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/projects/{id}/attempts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}/cancel": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}": {
       "get": {
         "responses": {

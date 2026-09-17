@@ -1,5 +1,14 @@
 # Current work
 
+**LIVE BACKEND CONTRACT SYNC 2026-09-17 (IN PROGRESS)** — The frozen frontend
+promotion PR #639 exposed three routes in the deployed production backend that
+were missing from the checked-in route manifest. Refreshed the generated
+backend and manager OpenAPI fixtures from production backend `d2ed26a6` and
+the paired local manager exporter. The refresh also records public skill
+resource routes, delegated session streaming, and four manager attempt
+operations. The live contract gate and CI must pass before cutting a new
+immutable frontend candidate; PR #639 remains an unmerged stale snapshot.
+
 **RELEASE SIMULATION COMPATIBILITY 2026-09-17 (IN PROGRESS)** — Ported the
 Arc simulation client migration onto frontend main `d28c8838` in an isolated
 worktree. The client and CLI consume typed `SimReport` evidence and fail
