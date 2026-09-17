@@ -368,7 +368,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-show-sidebar",
-      "false",
+      "true",
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-agent-target",
@@ -387,6 +387,7 @@ describe("PortalAomiFrame account bootstrap", () => {
           },
         ],
         defaultMode: "direct",
+        showFixedControls: true,
       },
     );
   });
