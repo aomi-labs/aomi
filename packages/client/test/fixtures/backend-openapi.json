@@ -752,7 +752,7 @@
                               ]
                             },
                             {
-                              "description": "Anonymous device \u2014 no DB record, metered in memory by client_id.",
+                              "description": "Anonymous device — no DB record, metered in memory by client_id.",
                               "type": "string",
                               "enum": [
                                 "anon"
@@ -1984,31 +1984,19 @@
             "description": "OK"
           }
         },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "security": [],
+        "x-aomi-auth": []
       }
     },
-    "/api/resource/skills/{skill_id}": {
+    "/api/resource/skills/*skill_id": {
       "get": {
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
+        "security": [],
+        "x-aomi-auth": []
       }
     },
     "/api/resource/search/apps": {
@@ -2046,40 +2034,6 @@
       }
     },
     "/api/thread/apps": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/thread/events": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "thread"
-        ]
-      }
-    },
-    "/api/thread/updates": {
       "get": {
         "responses": {
           "200": {
@@ -2235,7 +2189,7 @@
       }
     },
     "/api/_internal/agent/sessions/{thread_id}": {
-      "delete": {
+      "get": {
         "responses": {
           "200": {
             "description": "OK"
@@ -2250,7 +2204,7 @@
           "delegated"
         ]
       },
-      "get": {
+      "delete": {
         "responses": {
           "200": {
             "description": "OK"
@@ -2282,6 +2236,23 @@
       }
     },
     "/api/_internal/agent/sessions/{thread_id}/delta": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
+    "/api/_internal/agent/sessions/{thread_id}/stream": {
       "get": {
         "responses": {
           "200": {
@@ -2754,6 +2725,56 @@
     },
     "/api/integrations/github-app/user/projects/{id}/deployments": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}/cancel": {
+      "post": {
         "responses": {
           "200": {
             "description": "OK"

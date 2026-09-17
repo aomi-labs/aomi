@@ -2,6 +2,28 @@ import { describe, expect, it } from "vitest";
 import { appendCapabilityHints } from "../capability-hints";
 
 describe("selected app delegation", () => {
+  it("keeps a branded app's registered name in the task target", () => {
+    const message = appendCapabilityHints(
+      "▦ Circle StableFX simulate a quote",
+      {
+        capabilities: [
+          {
+            kind: "app",
+            id: "application:2937605",
+            label: "Circle StableFX",
+            appName: "stablefx",
+          },
+        ],
+      },
+    );
+    expect(message).toContain(
+      'Selected app task target: {"app":"stablefx","application_id":2937605}',
+    );
+    expect(message).toContain(
+      "Display labels must not be used as task app names",
+    );
+  });
+
   it.each([
     ["application:123", '{"application_id":123}'],
     ["name:cambrian", '{"app":"cambrian"}'],

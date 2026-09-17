@@ -238,7 +238,9 @@ export function CapabilityComposerProvider({
       policy,
       routing: normalizedRouting,
       selectedDirectApp,
-      showModeSelect: normalizedRouting.modes.length > 1,
+      showModeSelect:
+        normalizedRouting.showFixedControls ||
+        normalizedRouting.modes.length > 1,
       showDirectAppSelect: shouldShowDirectAppSelect(policy, normalizedRouting),
       hintsEnabled,
       hostError: normalizedRouting.error,

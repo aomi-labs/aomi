@@ -116,23 +116,63 @@ export interface AomiSimulateFee {
 }
 
 export interface AomiSimulateResponse {
-  result: {
-    batch_success: boolean;
-    stateful: boolean;
-    from: string;
-    network: string;
-    total_gas?: number;
-    fee?: AomiSimulateFee;
-    steps: Array<{
-      step: number;
-      label: string;
-      success: boolean;
-      result?: string | null;
-      revert_reason?: string | null;
-      gas_used?: number;
-      tx: { to: string; value_wei: string; value_eth: string; data: string };
-    }>;
-  };
+  result: SimReport;
+  fee: AomiSimulateFee | null;
+}
+
+export interface SimulationCall {
+  to: string;
+  /** Decimal native atomic units; not display units or ERC-20 units. */
+  value: string;
+  data: string;
+  gas_limit: number | null;
+}
+
+export interface SimContext {
+  chain_id: number;
+  sender: string;
+  block_number: number;
+  block_hash: string;
+  engine: string;
+  rules: string;
+  balance_overrides: Array<{ address: string; amount: string }>;
+}
+
+export interface SimulationExecution {
+  status:
+    | { kind: "succeeded" | "reverted" | "failed" }
+    | { kind: "halted"; reason: string };
+  return_data: string;
+  gas_used: number;
+  logs: Array<{ address: string; topics: string[]; data: string }>;
+  native_balance: { before: string; after: string } | null;
+}
+
+export interface SimStep {
+  step: number;
+  chain_id: number;
+  label: string;
+  call: SimulationCall;
+  /** null means skipped after an earlier failure, not an unknown execution. */
+  execution: SimulationExecution | null;
+}
+
+export interface SimReport {
+  contexts: SimContext[];
+  steps: SimStep[];
+}
+
+export interface SimulationError {
+  code:
+    | "invalid_input"
+    | "unavailable"
+    | "incomplete"
+    | "fork_drift"
+    | "world_needs_reopen";
+  message: string;
+  /** Diagnostic only: this report must never satisfy a simulation gate. */
+  partial: SimReport;
+  interrupted_step: number | null;
 }
 
 export type AomiAccountResponse = AomiAccountProfile;
