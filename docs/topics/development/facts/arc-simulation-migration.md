@@ -8,7 +8,7 @@ area: development
 # Arc simulation response migration
 
 Companion to product-mono's typed Arc simulation contract. The release
-candidate starts from frontend main `75877713` and backend main `1aa8f100`
+candidate includes frontend main `d28c8838` and backend main `1aa8f100`
 in isolated worktrees.
 
 Client 0.8.0 intentionally migrates `AomiSimulateResponse` to
@@ -20,7 +20,7 @@ an interrupted request into a successful report.
 
 CLI output uses chain-labelled native atomic amounts instead of assuming ETH.
 The widget derives current report summaries and retains its previous display
-path only for stored tool history. Widget version becomes 2.0.56. Existing
+path only for stored tool history. Widget version becomes 2.0.57. Existing
 staging and signed-wallet execution types are distinct from simulation evidence;
 the latter uses `SimulationCall` and `SimulationExecution` names in the client.
 
