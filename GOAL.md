@@ -2717,3 +2717,14 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
   after the wallet-routing PR landed. The merge is conflict-free and all 324
   focused launch/deployment-route tests pass. Template and both platform PRs
   are merged; Manager precedes Build after refreshed CI.
+
+## 2026-09-17 — Post-release SDK and pool fixes
+
+- Integrated Build SDK display and canonical pool-budget fixes on a branch
+  from main; preserved the original uncommitted worktrees.
+- Partial live SDK summaries now flag any known mismatch; historical deployment
+  stamps cannot make an incomplete runtime record look current. Added helper,
+  Home and Chat regression coverage.
+- Bumped the account package patch version for its shipped budget JSON.
+- Local managed builds are blocked by disk headroom; PR CI is the test gate.
+- Scope is main only. This work does not promote production or publish npm.

@@ -93,6 +93,9 @@ jobs:
       - name: Build every publishable package
         run: pnpm run build:packages
 
+      - name: Verify shared account package tarball
+        run: pnpm --filter @aomi-labs/account pack --pack-destination /tmp/aomi-account-pack
+
       - name: Run workspace tests and committed OpenAPI contract
         run: pnpm exec vitest run
 
