@@ -1,6 +1,13 @@
-* {
-  box-sizing: border-box;
-}
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@aomi-labs/widget-lib/themes/default.css";
+@source "../../../shadcn-registry/src/**/*.{ts,tsx}";
+
+/* The Mini App is styled from the Aomi design system, exactly as the portal is,
+   so the two surfaces cannot drift. Telegram's own palette is deliberately NOT
+   bridged into the tokens — only the light/dark *choice* is taken from it (see
+   `useTelegramTheme`), which keeps the app in step with the surrounding chat
+   without making it look like a different product. */
 
 html,
 body {
@@ -9,55 +16,18 @@ body {
 }
 
 body {
-  background: var(--tg-theme-bg-color, #0f0f10);
-  color: var(--tg-theme-text-color, #ffffff);
+  background: var(--aomi-bg);
+  color: var(--aomi-fg);
   font-family:
     var(--font-geist-sans),
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-}
-
-.wallet-page {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: var(--tg-theme-bg-color, #0f0f10);
-}
-
-.wallet-control {
-  display: grid;
-  justify-items: center;
-  gap: 16px;
-  text-align: center;
-}
-
-.wallet-control p {
-  margin: 0;
-  color: var(--tg-theme-hint-color, #a1a1aa);
-  font-size: 14px;
-}
-
-.para-button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.para-button {
-  min-width: 180px;
-  min-height: 48px;
-  padding: 0 22px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--tg-theme-button-color, #2aabee);
-  color: var(--tg-theme-button-text-color, #ffffff);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.para-button:active {
-  transform: scale(0.98);
+  /* Telegram renders the Mini App edge to edge under the home indicator and its
+     own bottom chrome; paired with `viewport-fit=cover` this keeps the primary
+     action off both. */
+  padding:
+    env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
 }

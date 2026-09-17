@@ -16,6 +16,7 @@ import {
 import {
   useAccountSessionProvider,
   widgetCredentialsReady,
+  WalletSignInRequiredError,
   type WidgetAuthConfig,
 } from "./use-widget-session-provider";
 import { utf8ToBase64 } from "./encoding";
@@ -160,12 +161,17 @@ export function useAomiBackendAccountRuntime(input: {
         }
         setAccount(next);
         setStatus("ready");
-      } catch {
+      } catch (error) {
         const latest = latestRefreshContext.current;
         if (
           latest.accountClient !== accountClient ||
           latest.refreshContextKey !== refreshContextKey
         ) {
+          return;
+        }
+        if (error instanceof WalletSignInRequiredError) {
+          setAccount(null);
+          setStatus("ready");
           return;
         }
         setStatus("error");
@@ -332,6 +338,10 @@ export function useAomiBackendAccountRuntime(input: {
           error.code === "already_linked_to_another_account"
         ) {
           setAccountError(error.message);
+        } else {
+          setAccountError(
+            "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+          );
         }
         setStatus("ready");
         setErrorVersion((version) => version + 1);
@@ -397,7 +407,13 @@ export function useAomiBackendAccountRuntime(input: {
     user: account?.guest ? undefined : (account?.user ?? undefined),
     linkedAccounts: account?.guest ? [] : (account?.linkedAccounts ?? []),
     wallets,
-    getAccountBearer: accountSessionProvider,
+    // A connected signer without an account is still a signed-out user.
+    // Keep background chat/catalog loaders on their normal guest path until
+    // explicit linking or a restored session has resolved the account.
+    getAccountBearer:
+      input.widgetAuth?.mode === "wallet" && (!account?.user || account.guest)
+        ? undefined
+        : accountSessionProvider,
     refresh,
     signOut: async () => {
       if (
@@ -474,6 +490,22 @@ export function useAomiBackendAccountRuntime(input: {
       await refresh();
     },
     linkWallet: async (wallet) => {
+      if (
+        input.widgetAuth?.mode === "wallet" &&
+        (!account?.user || account.guest)
+      ) {
+        const activeAddress =
+          wallet.family === "svm" ? activeSvmAddress : activeEvmAddress;
+        const matches =
+          wallet.family === "svm"
+            ? wallet.address === activeAddress
+            : wallet.address.toLowerCase() === activeAddress?.toLowerCase();
+        if (!matches || !accountSessionProvider)
+          throw new Error("Select this wallet before linking it");
+        await accountSessionProvider.signIn();
+        await refresh();
+        return;
+      }
       if (wallet.family === "svm") {
         if (
           !activeSvmAddress ||

@@ -785,6 +785,30 @@
         ]
       }
     },
+    "/api/platforms/{name}/venue": {
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/{bot}/{id}": {
       "get": {
         "responses": {
@@ -795,19 +819,6 @@
         "security": [],
         "x-aomi-auth": [
           "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [],
-        "x-aomi-auth": [
-          "activation-or-wallet"
         ]
       }
     },
@@ -851,6 +862,19 @@
       }
     },
     "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/revoke": {
       "post": {
         "responses": {
           "200": {

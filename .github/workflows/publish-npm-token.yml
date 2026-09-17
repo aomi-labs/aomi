@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: Full current main SHA
+        description: Full immutable candidate SHA merged into main
         required: true
         type: string
+      allow_package_drift:
+        description: Publish this already-soaked candidate even though publishable package paths changed on main
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -26,11 +31,19 @@ jobs:
           ref: ${{ inputs.candidate_sha }}
           fetch-depth: 0
 
-      - name: Verify the candidate is on main with successful same-SHA CI
+      - name: Verify the candidate under main's release policy
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-        run: .github/scripts/verify-main-ci.sh
+          ALLOW_PUBLISHABLE_PACKAGE_DRIFT: ${{ inputs.allow_package_drift }}
+        run: |
+          # The candidate is intentionally frozen, so its checkout can contain
+          # an older verifier. Load the policy from main while retaining the
+          # candidate checkout for the ancestry and package-diff checks below.
+          git fetch origin main --quiet
+          git show origin/main:.github/scripts/verify-main-ci.sh > "$RUNNER_TEMP/verify-main-ci.sh"
+          chmod +x "$RUNNER_TEMP/verify-main-ci.sh"
+          "$RUNNER_TEMP/verify-main-ci.sh"
 
       - name: Enable corepack
         run: corepack enable

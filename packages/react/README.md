@@ -58,10 +58,15 @@ Root provider that composes thread selection, notifications, the client-owned
 `UserState` source, controls, and the runtime core. Each active thread owns one
 `ClientSession` external store; React only selects and projects its snapshot.
 
-| Prop         | Default                   | Description      |
-| ------------ | ------------------------- | ---------------- |
-| `backendUrl` | `"http://localhost:8080"` | Aomi backend URL |
-| `children`   | —                         | React children   |
+| Prop            | Default                   | Description                                       |
+| --------------- | ------------------------- | ------------------------------------------------- |
+| `backendUrl`    | `"http://localhost:8080"` | Aomi backend URL                                  |
+| `agentTarget`   | Auto                      | Optional fixed Auto or Direct target              |
+| `applicationId` | —                         | Catalog/persistence scope; does not select Direct |
+| `children`      | —                         | React children                                    |
+
+Omit `agentTarget` for Auto. A host that intentionally pins every turn can
+pass `{ mode: "direct", app: "uniswap" }` or a hosted `applicationId` target.
 
 ## Hooks
 
@@ -73,11 +78,11 @@ Returns an `AomiRuntimeApi` object with:
 
 **User API**
 
-| Property                | Description                                      |
-| ----------------------- | ------------------------------------------------ |
-| `user`                  | Current user state (wallet address, chain, etc.) |
-| `setUser(data)`         | Update user state (partial merge)                |
-| `getUserState()`        | Read the current canonical UserState             |
+| Property         | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `user`           | Current user state (wallet address, chain, etc.) |
+| `setUser(data)`  | Update user state (partial merge)                |
+| `getUserState()` | Read the current canonical UserState             |
 
 **Thread API**
 
@@ -92,35 +97,35 @@ Returns an `AomiRuntimeApi` object with:
 
 **Agent API**
 
-| Property                 | Description                     |
-| ------------------------ | ------------------------------- |
-| `isSubmitting`           | Before the first backend Event exists          |
-| `isRunning`              | Derived from authoritative `TurnState`         |
-| `events`                 | Ordered canonical Events for the active session|
-| `turnState`              | Backend-owned lifecycle                        |
-| `getMessages(threadId?)` | Assistant UI projection of `MessageEvent`s     |
+| Property                 | Description                                     |
+| ------------------------ | ----------------------------------------------- |
+| `isSubmitting`           | Before the first backend Event exists           |
+| `isRunning`              | Derived from authoritative `TurnState`          |
+| `events`                 | Ordered canonical Events for the active session |
+| `turnState`              | Backend-owned lifecycle                         |
+| `getMessages(threadId?)` | Assistant UI projection of `MessageEvent`s      |
 | `sendMessage(text)`      | Submit a typed StartTurn Intent                 |
-| `cancelGeneration()`     | Submit a typed Interrupt Intent                |
+| `cancelGeneration()`     | Submit a typed Interrupt Intent                 |
 
 **Action API**
 
-| Property                           | Description               |
-| ---------------------------------- | ------------------------- |
-| `pendingActions`              | Durable Actions awaiting a response |
-| `actionAttempts`              | Execution attempts from ClientSession |
+| Property                      | Description                            |
+| ----------------------------- | -------------------------------------- |
+| `pendingActions`              | Durable Actions awaiting a response    |
+| `actionAttempts`              | Execution attempts from ClientSession  |
 | `executeAction(id)`           | Execute through canonical capabilities |
-| `respondToAction(id, result)` | Submit a typed ActionResult Intent |
-| `rejectAction(id, reason?)`   | Reject a pending Action |
+| `respondToAction(id, result)` | Submit a typed ActionResult Intent     |
+| `rejectAction(id, reason?)`   | Reject a pending Action                |
 
 ### Other Hooks
 
-| Hook                       | Description                                               |
-| -------------------------- | --------------------------------------------------------- |
-| `useUser()`                | User/wallet state context                                 |
-| `useThreadContext()`       | Thread management context                                 |
-| `useControl()`             | Model/namespace/API key state                             |
-| `useNotification()`        | Toast notification context                                |
-| `useActions(session)`      | Thin Action/attempt selector over a ClientSession snapshot |
+| Hook                  | Description                                                |
+| --------------------- | ---------------------------------------------------------- |
+| `useUser()`           | User/wallet state context                                  |
+| `useThreadContext()`  | Thread management context                                  |
+| `useControl()`        | Auto/Direct target, model, catalog, and API key state      |
+| `useNotification()`   | Toast notification context                                 |
+| `useActions(session)` | Thin Action/attempt selector over a ClientSession snapshot |
 
 ## Utilities
 

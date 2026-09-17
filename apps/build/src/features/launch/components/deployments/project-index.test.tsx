@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
+const replace = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
 vi.mock("@build/features/launch/hooks/use-projects", () => ({
   useProjects: vi.fn(() => ({
     state: {
@@ -36,6 +38,19 @@ import { useProjects } from "@build/features/launch/hooks/use-projects";
 import { ProjectIndex } from "./project-index";
 
 describe("ProjectIndex", () => {
+  it("continues a successful import on the same project setup page", async () => {
+    render(
+      <ProjectIndex
+        platform="somm.finance"
+        connectionResult={{ status: "success", repo: "alice/bot" }}
+      />,
+    );
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(
+        "/projects/3?tab=deployments&platform=somm.finance",
+      ),
+    );
+  });
   it("lists projects with links", async () => {
     render(<ProjectIndex platform="somm.finance" />);
     await waitFor(() =>

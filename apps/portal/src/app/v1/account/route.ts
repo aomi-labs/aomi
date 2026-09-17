@@ -22,8 +22,7 @@ export const GET = widgetRoute(async (req: Request) => {
   const principal = await resolvePortalPrincipal(req);
   const body =
     principal.kind === "anonymous" ||
-    (principal.kind === "better_auth" &&
-      principal.session?.user?.isAnonymous === true)
+    (principal.kind === "better_auth" && principal.isAnonymous)
       ? {
           guest: principal.kind === "better_auth",
           user: null,

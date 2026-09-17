@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveWalletBrandKey } from "./wallet-brands";
+import { resolveWalletBrandKey } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-brands";
 
 describe("resolveWalletBrandKey", () => {
   it("recognizes persisted numbered wallet labels", () => {

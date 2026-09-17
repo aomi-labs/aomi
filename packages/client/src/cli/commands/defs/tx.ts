@@ -30,6 +30,33 @@ const txSimulateDef = defineCommand({
   },
 });
 
+const txExportDef = defineCommand({
+  meta: {
+    name: "export",
+    description: "Export pending EVM Actions for an external wallet",
+  },
+  args: {
+    ...globalArgs,
+    format: {
+      type: "string",
+      description: "Output format: eip5792 (default), moss, or metamask",
+    },
+    txIds: {
+      type: "positional",
+      description: "Pending EVM Action IDs to export",
+      required: false,
+    },
+  },
+  async run({ args }) {
+    const { exportCommand } = await import("../export");
+    await exportCommand(
+      buildCliConfig(args),
+      getPositionals(args),
+      typeof args.format === "string" ? args.format : undefined,
+    );
+  },
+});
+
 const txSignDef = defineCommand({
   meta: { name: "sign", description: "Execute pending Actions" },
   args: {
@@ -37,21 +64,12 @@ const txSignDef = defineCommand({
     eoa: {
       type: "boolean",
       description:
-        "Plain EOA execution (the default; local signing is always EOA)",
+        "Require an ordinary EVM Action; never rewrite a prepared AA operation",
     },
     aa: {
       type: "boolean",
       description:
-        "Request AA execution — errors: AA now runs in the backend lane",
-    },
-    "aa-provider": {
-      type: "string",
-      description:
-        "AA provider preference synced to user_state: alchemy | pimlico",
-    },
-    "aa-mode": {
-      type: "string",
-      description: "AA mode preference synced to user_state: 4337 | 7702",
+        "Require a backend-prepared AA owner authorization; backend submits",
     },
     txIds: {
       type: "positional",
@@ -71,6 +89,7 @@ export const txDef = defineCommand({
   subCommands: {
     list: txListDef,
     simulate: txSimulateDef,
+    export: txExportDef,
     sign: txSignDef,
   },
 });

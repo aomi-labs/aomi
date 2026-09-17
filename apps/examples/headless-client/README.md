@@ -17,6 +17,11 @@ Guest authentication is automatic. The first request creates a Better Auth
 anonymous session, and the Node client retains its official session cookie in
 memory for the life of the client.
 
+Agent routing is also automatic by default. Omit `target` for Auto, or pin a
+specific integration with
+`target: { mode: "direct", app: "your-app" }`. Legacy `app` and
+`applicationId` options still imply Direct, but new code should use `target`.
+
 ## Pick an authentication path
 
 | Path            | Use it when                                           | Example                                                                                             |

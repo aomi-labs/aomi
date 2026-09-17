@@ -21,7 +21,7 @@ import type {
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
-import { resolveAutoModel } from "../utils/model-selection";
+import { resolveAutoModel } from "./model-selection";
 
 export type AuthEndpointsState = {
   availableModels: string[];

@@ -7,18 +7,6 @@ const loadSecrets = vi.fn();
 const loadRequiredSecrets = vi.fn();
 const operateFetch = vi.fn();
 
-vi.mock("@aomi-labs/deploy/lifecycle", () => ({
-  deploymentLifecycleFromProject: () => ({
-    kind: "empty",
-    repo: "a/b",
-    statusLabel: "No deployment",
-    statusTone: "muted",
-    message: "No deployment recorded yet.",
-    appNames: [],
-    releaseTags: [],
-  }),
-}));
-
 vi.mock("@build/features/operate/client", () => ({
   operateFetch: (...args: unknown[]) => operateFetch(...args),
 }));
@@ -68,6 +56,33 @@ describe("HomeTab", () => {
     (detail.source as { apps: unknown[] }).apps = [];
     (detail as { requiredSecrets: unknown }).requiredSecrets = null;
   });
+
+  it.each([
+    { loaded: undefined, label: "Activated" },
+    { loaded: false, label: "Activated — runtime not verified" },
+    { loaded: true, label: "Live" },
+  ])(
+    "uses runtime readiness for the Home and Chat cards ($loaded)",
+    async ({ loaded, label }) => {
+      detail.source!.apps = [
+        {
+          id: 17,
+          name: "my-bot",
+          isActive: true,
+          appReleaseTag: "release-2",
+          loaded,
+        },
+      ];
+
+      renderTab(<HomeTab detail={detail} />);
+
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+      expect(
+        screen.getByText(loaded === true ? "Ready" : "Needs live app"),
+      ).toBeInTheDocument();
+      expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+    },
+  );
 
   it("shows status cards and a deploy next action when not live", async () => {
     renderTab(

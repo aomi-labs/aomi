@@ -77,6 +77,9 @@ const fallbackOperation = (ctx: ToolContext) => {
     facts,
     confidence,
     rawLabel: ctx.rawLabel,
+    title: /^(?:evm[_ .-])?get[_ .-]erc20[_ .-]balance$/i.test(ctx.rawLabel)
+      ? "Get balance"
+      : undefined,
   };
 };
 

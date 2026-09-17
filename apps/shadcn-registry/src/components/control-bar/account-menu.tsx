@@ -364,7 +364,7 @@ export function AccountMenu({
                     Sign out
                   </span>
                   <span className="text-aomi-muted block text-[11px] leading-snug">
-                    End the Aomi session; keep wallet connected
+                    End the session and disconnect this device
                   </span>
                 </span>
               </button>

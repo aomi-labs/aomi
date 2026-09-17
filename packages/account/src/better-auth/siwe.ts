@@ -1,5 +1,6 @@
 import {
   createPublicClient,
+  defineChain,
   http,
   recoverMessageAddress,
   verifyMessage as verifyEoaMessage,
@@ -107,6 +108,16 @@ const VERIFY_CHAINS: readonly Chain[] = [
   linea,
   lineaSepolia,
   megaeth,
+  // This workspace's viem version does not yet export Arc Mainnet.
+  defineChain({
+    id: 5042,
+    name: "Arc",
+    nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+    rpcUrls: { default: { http: ["https://rpc.mainnet.arc.io"] } },
+    blockExplorers: {
+      default: { name: "Arc Explorer", url: "https://explorer.arc.io" },
+    },
+  }),
   arcTestnet,
 ];
 

@@ -26,6 +26,35 @@ export function projectDeploymentStatus(
     source.latestDeployment != null ||
     source.apps.some((app) => app.appReleaseTag != null);
 
+  // `loaded` is a runtime probe result. Rows that never probed (`undefined`,
+  // the Projects index) say "Activated" rather than claiming a verification
+  // that did not run; a probe that answered `false` is the unverified case.
+  if (
+    lifecycle.kind === "live" &&
+    source.apps.some((app) => app.loaded === undefined)
+  ) {
+    return {
+      lifecycle,
+      label: "Activated",
+      dotState: "ready",
+      isLive: false,
+      hasRecordedDeployment,
+    };
+  }
+
+  if (
+    lifecycle.kind === "live" &&
+    !source.apps.every((app) => app.isActive && app.loaded === true)
+  ) {
+    return {
+      lifecycle,
+      label: "Activated — runtime not verified",
+      dotState: "building",
+      isLive: false,
+      hasRecordedDeployment,
+    };
+  }
+
   if (lifecycle.kind === "live") {
     return {
       lifecycle,
@@ -81,7 +110,9 @@ export function projectDeploymentStatus(
     // A claimed source with no apps yet is the fresh-connect state — say so
     // instead of the generic "No deployment".
     label:
-      source.apps.length === 0 ? "Connected — not deployed yet" : "No deployment",
+      source.apps.length === 0
+        ? "Connected — not deployed yet"
+        : "No deployment",
     dotState: "none",
     isLive: false,
     hasRecordedDeployment: false,

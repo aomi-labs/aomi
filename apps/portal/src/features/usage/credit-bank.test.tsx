@@ -27,7 +27,20 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-import { CreditBank } from "./credit-bank";
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => ({
+    identity: {
+      isConnected: mocks.connected,
+      address: "0x0000000000000000000000000000000000000001",
+      chainId: 84532,
+    },
+    accountUser: { id: "user-1" },
+    signTypedData: vi.fn(),
+    switchChain: vi.fn(),
+  }),
+}));
+
+import { CreditBank } from "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank";
 
 function position(
   entries: Array<{

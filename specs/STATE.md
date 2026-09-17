@@ -2,6 +2,453 @@
 
 ## Last Updated
 
+2026-09-12 — TELEGRAM MINI APP: DELEGATION ADDED, PORTAL UI ADOPTED, AND THE
+  PARA PINS PULLED OUT OF THE BOT (branches `feat/telegram-delegation-prod-ready`
+  in aomi-widget, `feat/telegram-privy-execution-key` in product-mono).
+  The Mini App implemented Privy login and the permit ceremony and had NO
+  delegation step at all — which also made the permit unreachable:
+  `check_auto_preconditions` (product-mono
+  `aomi/bin/backend/src/endpoint/account/authorization.rs:184`) requires an
+  active `signing_delegations` row covering the exact key and runs at
+  *challenge* time (it is deliberately fail-fast so nobody signs a doomed
+  permit), so every `server_auto` challenge answered 409
+  `missing_delegated_account`. New `use-privy-delegation` runs the ceremony the
+  portal already runs. `/api/delegation/privy/begin` needed NO portal change: it
+  is already `widgetRoute`-wrapped and `resolvePortalCanonicalUserId` accepts an
+  `aomi_wst_` bearer, so the Mini App's own session works cross-origin.
+  Second, independent blocker: `usePermissionControl` gated the sign button on
+  `useWallets().ready` — the exact hook `use-canonical-account` documents as
+  one whose `ready` can stay false forever in Telegram's webview (it waits on a
+  wallet-proxy iframe that webview blocks). One hook had been fixed in #601/#602;
+  the other still had the bug, so the button often never rendered. `useWallets`
+  is now absent from the app: wallets come off `user.linkedAccounts` (shared
+  `lib/privy-wallet.ts`, which also carries `delegated` and the server wallet
+  id), and the permit is signed with Privy's `useSignTypedData`, which takes an
+  address. viem/ox are gone from the app — the permit domain is name+version
+  only, so there was never a chain to select.
+  The permit target now falls back to the user's own embedded wallet when the
+  bot named no key, so the ceremony is reachable from `/wallet`, not only
+  `/permission` — and that is the one configuration where every backend
+  precondition is satisfiable today.
+  PRODUCT-MONO: four separate surfaces resolved wallets by asking for provider
+  `"para"` by name, each failing differently for a Privy account —
+  `/permission` (via `application_agent_key`, whose `provision_partner_agent` is
+  only ever called from the World handover path, so ordinary users have no agent
+  key at all), `/wallet`'s authority line (the long-reported
+  "Authority: not linked"), `bound_wallet`'s DB fallback, and a dead
+  `UserWalletState::evm` hardcoding the Para label. All now share one
+  `provider_signs_server_side` rule that asks the provider backend for the
+  capability — which still honours Para's real dependence on a configured
+  project secret. This also removes the `wrong_signer` trap: with no
+  provider-managed key involved, `require_managed_authority`'s same-provider
+  requirement never applies.
+  UI is rebuilt on the Aomi design system exactly as the portal is
+  (`@aomi-labs/widget-lib` `themes/default.css` + `components/ui/*`, mirroring
+  `apps/portal/src/app/device-auth/device-auth-client.tsx`): a four-stage
+  checklist, recoverable errors everywhere (`retry` added to the auth and
+  account hooks), explained failure codes with the raw code behind a disclosure,
+  and Telegram's own chrome (back button, swipe-collapse guard, haptics, close
+  on success, live `themeChanged`).
+  BOUNDARY THAT MUST HOLD: widget-lib pins Privy v2 while the Mini App runs
+  v3. Only its Privy-free subpaths may be imported. `test/invariants.test.ts`
+  enforces it and the built bundle was checked to contain 3.27.1 only, 2.25.0
+  zero times.
+  Also fixed: a malformed `NEXT_PUBLIC_PRIVY_APP_ID` threw inside
+  `PrivyProvider` during render and failed the BUILD — it is now shape-checked
+  and falls back to the "not configured" card, which itself had no CSS rule
+  (`.wallet-control` was never styled); `requirePrivyCustomAuthOwner` threw bare
+  `Error`s so a not-linked wallet and a DB fault both arrived as 500
+  `widget_auth_failed`; an origin rejection carried no CORS header so it reached
+  the browser as an opaque network failure; `bound` + `link`/`new` issues no JWT
+  and that race is now read as "already linked"; dead `@getpara/*` aliases,
+  `output: "standalone"`, and the unreachable `start_param` fallback removed.
+  TESTS: the 14 source-grep assertions are replaced by 58 real tests (vitest,
+  wired through a new `apps/telegram/vitest.config.ts`) — the launch route's
+  reason→status map, the delegation ceremony against a stubbed Privy and fetch,
+  the permit ceremony including the provider-swapped-mid-signature regression,
+  and the error-precedence rules that have regressed twice (now a pure
+  `lib/ceremony.ts`). `lint:telegram` now runs in CI, which it never did.
+  Verified: telegram typecheck/lint/58 tests/build (valid, malformed and absent
+  app id); portal typecheck + 579 tests; product-mono `cargo check`, `clippy`,
+  `fmt --check`, 61 crate tests; both themes rendered at a mobile viewport.
+
+  SECOND PASS (same day) closed the gaps the first pass left: Telegram's
+  MainButton now owns the primary action with the in-page button as the
+  fallback for any client that has none (`useTelegramMainButton` reports
+  ownership), the BackButton is actually wired to a new `back()` on the auth
+  hook — it was written and never called, which is worse than absent — and the
+  launch proof's age is now visible to the client. `verifyTelegramInitData`
+  returns `authDate`, so `launchProofIsFresh` can say "reopen this from
+  Telegram" BEFORE a ceremony fails with `expired`: this app accepts a proof for
+  24 hours while the widget routes force five minutes, and nothing could see
+  that gap. product-mono gained three tests pinning `require_managed_authority`
+  (same-provider authority accepted, cross-provider and foreign wallet
+  rejected) — the boundary the Para-pin removal must not erode.
+
+  REVIEW ROUND 1 (Codex, P1 accepted): `/permission` offered the Mini App button
+  for any key `account_execution_key` resolved, including a Para-provisioned
+  agent key the Privy Mini App can authorize in NEITHER direction —
+  `provider_managed` + Loosen is forced to Tighten, and Tighten runs
+  `require_managed_authority`, which demands an authority wallet from the
+  managed key's own provider, so both enable and disable end in 403
+  `wrong_signer`. `mini_app_can_authorize` now gates the button and both command
+  paths explain the mismatch instead. Two details of the report were wrong and
+  were checked before acting: it is NOT `missing_delegated_account` (agent
+  provisioning writes a `signing_delegations` row with no expiry at
+  `para/agent.rs:327`, so the precondition passes and the failure is at the
+  signature), and World handover is NOT affected (that branch already returns
+  `keyboard: None`).
+
+  RECOMMENDATION ON `requires_action_approval` (the open question from the
+  plan's Phase 0) — KEEP IT. Read off the code rather than a live run, which
+  needs a Telegram account:
+  `commit_gate.rs:94-105` blocks `Auto` for Telegram unless a handover mandate
+  is settled, and its comment states the intent plainly: "Telegram is the
+  approval surface for direct bots. `server_auto` authorizes the backend key,
+  but does not authorize an individual trade." The bot's own `/permission` copy
+  already promises the same thing. Lifting the flag would mean a compromised
+  Telegram account can spend unattended, and it would silently change the
+  authorizer for every existing direct bot. The designed path for unattended
+  execution already exists — the settled handover mandate that World uses — so
+  the milestone should read "server signing works" as: the BACKEND key signs
+  (not the user's device), with the user approving each Action via
+  `/transactions` → `/sign`. That is now reachable end to end for the first
+  time. Revisit only as its own reviewed change, with a mandate mechanism, never
+  by flipping the hardcoded flag.
+
+  PREFLIGHT RUN 2026-09-12 (`vercel env pull`, values never printed — only
+  lengths). STAGING IS READY; PRODUCTION IS BROKEN THREE WAYS AND CANNOT WORK
+  AT ALL TODAY:
+  - `tg-mini-app` (production, mini-app.aomi.dev): `NEXT_PUBLIC_PRIVY_APP_ID`
+    pulls back EMPTY. It is marked sensitive, and a sensitive `NEXT_PUBLIC_*`
+    never reaches the client bundle — so the production Mini App renders
+    "Wallet provider is not configured." Re-add with `--no-sensitive`. This is
+    the trap recorded on 2026-09-10; it is still live, now measured rather than
+    suspected.
+  - `chat-portal` PRODUCTION has NO `TELEGRAM_WIDGET_BOT_IDS` and no
+    `PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY` — not stale values, absent. The
+    bot allowlist is the FIRST check in both widget routes, so every production
+    request 403s `bot_not_allowed`, and the Custom JWT cannot be minted at all.
+  - `tg-mini-app-staging` is correct (app id 25 chars, cuid2-shaped) and
+    `chat-portal` PREVIEW (branch `main` → chat-staging.aomi.dev) carries both
+    `TELEGRAM_WIDGET_BOT_IDS` and `PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY`, set
+    2026-09-11. So the staging cell is fully configured and testable NOW.
+  Not fixed here on purpose: setting production secrets — especially moving a
+  signing key — is a deployment decision, not a code change.
+  STILL NEEDS A HUMAN — the live cell has never passed and cannot be driven from
+  here (Telegram account + Privy login). On STAGING:
+  DM `@hoodittest_bot` → `/wallet` → link → Enable server signing →
+  Sign permission → send an action → `/transactions` → `/sign <id>`.
+  Also still unverified on the backend side: `PRIVY_SIGNER_ID`,
+  `PRIVY_APP_SECRET`, `PRIVY_JWT_VERIFICATION_KEY` and ideally
+  `PRIVY_AUTHORIZATION_PRIVATE_KEY` live on the Rust hosts, not in Vercel, and
+  were not inspected.
+  Known unrelated wall still open: application 2937805 (`hoodit`) fails manifest
+  validation (built against aomi-sdk 4.0.0, backend requires 5.0.0), so a turn
+  can fail before any Action exists.
+
+2026-09-11 (later) — "LINKING YOUR AOMI ACCOUNT…" WAS THE TERMINAL STATE FOR
+  EVERY UPSTREAM FAILURE (branch `fix/telegram-stuck-linking`, on top of
+  merged #598). Reported again after #598 shipped, and the live bundle on
+  mini-app-staging.aomi.dev was confirmed to carry the new code, so this is a
+  second, independent defect:
+  - `useCanonicalAccount` returned `status: "loading"` for *any*
+    `authenticated && !provider` state. `provider` is null whenever the
+    prerequisites are unmet — including right after the custom-auth flow
+    errors — so the page's message waterfall overwrote the real error with
+    "Linking your Aomi account…" and nothing ever cleared it. Every failure in
+    the link flow looked like the same hang, which is why the underlying cause
+    was never visible. It now reports `loading` only when
+    `customAuth.readyForExchange` is true (provider genuinely a render away)
+    and `disconnected` otherwise, so the auth layer keeps its own message.
+  - `page.tsx` evaluated messages as an override chain where later stages won.
+    Rewritten as explicit precedence: errors first, deepest failing stage wins,
+    then progress messages in stage order. An error can no longer be painted
+    over.
+  - `resolve`'s `GET /v1/account` was unbounded while the exchange around it
+    had a 15s timeout. The backend's DB pool is deliberately 2 connections per
+    host (product-mono `aomi/crates/database/pool-budgets.json`) and staging logs ~20 saturation
+    events a day, so that call now aborts at 15s as `canonical_account_timeout`.
+  - `sessionMatchesTelegram` also accepts `linkState.status === "done"`:
+    `user.linkedAccounts` lags Privy's own link confirmation by a render or
+    two, and the 15s watchdog could expire inside that window and fail a link
+    that had succeeded.
+  Verified: telegram typecheck, eslint, 11 contract tests (1 new), `build`.
+
+2026-09-11 — `send 1 wei` HAS A NAMED CAUSE, READ OFF STAGING: the app is
+  broken, not the wallet flow. Application 2937805 is `hoodit` from
+  `aomi-labs/community-apps`, release tag
+  `apps-142751037-rbd47b5191b-hoodit-705e3bd9946e`. The tarball downloads
+  fine and then fails manifest validation: built with aomi-sdk 4.0.0 while the
+  backend requires 5.0.0. After 3 consecutive failures the fetcher parks it for
+  a 21600s cooldown, so the source is never installed and `find_app_path`
+  raises "application-scoped app source `application-2937805` is not
+  installed" — the thread has no app, hence no reply. Fix is the one the error
+  states: rebuild hoodit against `aomi-sdk = "=5.0.0"`, redeploy, activate
+  again. `requires_action_approval` is the NEXT wall, not this one: it only
+  applies once an Action exists. Also seen on staging-1: dozens of
+  `aomi-oneshot-staging GitHub App is not installed for
+  aomi-labs/partner-*.finance` reconcile failures, and `DB pool saturated`
+  ~20x/24h with `waiting` 1-5 — the pool size is by design
+  (`backend_max_connections_per_host: 2`), not a misconfiguration.
+
+2026-09-11 — THE MINI APP'S 15s AUTH TIMEOUT WAS DISPOSING LIVE SESSIONS, AND
+  PRIVY WAS LOGGING THE USER OUT ON EVERY LAUNCH (branch
+  `feat/telegram-permission-provider-stability`, on top of PR #598's
+  address-keyed provider memo). Three findings, all in `apps/telegram`:
+  - `use-telegram-custom-auth` never moved `phase` off `authenticating` on
+    success — no code path set it to `ready`. The 15s watchdog therefore fired
+    through a perfectly good session, set `phase = "error"`, which dropped
+    `readyForExchange`, which nulled the provider memo in
+    `use-canonical-account`, whose effect cleanup calls `provider.dispose()`.
+    Any later call throws "Widget session provider has been disposed". That is
+    the whole of the `Enable server auto` symptom: the challenge posts inside
+    15s and returns 200, the wallet signature holds the flow past the deadline,
+    and the commit hits a disposed provider — so staging logs
+    `authorization/challenge 200` with no `authorization/commit`. PR #598's
+    stable wallet key does not touch this; the timer fires regardless of how
+    the memo is keyed.
+  - Readiness is now `sessionMatchesTelegram`: Privy is authenticated AND the
+    `custom_auth` linked account's `customUserId` equals the server's
+    `custom_subject`. A string comparison cannot flap, whereas
+    `jwtState.state.status` goes `done -> loading -> done` every time Privy
+    re-runs its sync (its effect depends on Privy's own `authenticated`/
+    `logout`), and every flap disposed the provider.
+  - `useSubscribeToJwtAuthWithFlag` was enabled unconditionally. Reading the
+    3.27.1 bundle: `useSyncJwtBasedAuthState` runs its sync as soon as Privy is
+    `ready`, and when `getExternalJwt()` resolves `undefined` it calls
+    `logout()`. `customJwt` is null at launch, so every single open destroyed
+    the session Privy had just restored — the "re-login on every open" complaint. Now
+    `enabled: customJwt !== null`, and a bound user whose restored session
+    already carries this Telegram identity skips the `authenticate` mint and
+    Privy's re-authentication entirely (one BFF round trip instead of two plus
+    a full Privy login). `not-enabled` only counts as a failure once a Custom
+    JWT has actually been handed over.
+  - `use-permission-control` resolves the session provider from a ref per call
+    instead of capturing it, so a provider rebuilt while the wallet prompt is
+    on screen cannot strand the commit.
+  Same pass, the Mini App UI moved onto Privy's own components: the hand-rolled
+  email + OTP form is gone in favour of `useLogin()`'s native modal (opened with
+  `{ loginMethods: ["email"], disableSignup: true }`, so the property that
+  mattered — this path may only reach a wallet that already exists — survives
+  the swap), `UserPill` from `@privy-io/react-auth/ui` now owns account and
+  wallet management, and the modal is themed from
+  `window.Telegram.WebApp.colorScheme` / `themeParams.button_color` so it stops
+  arriving as a white sheet over a dark Mini App. `useLoginWithEmail`, the
+  `email`/`code` state and the `submitEmail*` callbacks are deleted with it.
+  Aomi keeps what Privy must not own: bot allowlist, Telegram Custom JWT
+  auto-login, and the explicit "Confirm and link Telegram" binding step. The
+  page itself is now one card with a status tone, a spinner, and a facts table
+  for the permission being signed.
+  Verified: telegram typecheck, eslint, 10 contract tests (3 new), `build`, and
+  a local mobile-viewport render of the card.
+  NOT a frontend problem, and still open: `send 1 wei` never reaches a
+  broadcast because (a) `telegram_user_state` in product-mono hardcodes
+  `telegram.requires_action_approval = true`, so `commit_gate` rejects
+  delegated execution with `signing_action_approval_required` even under
+  `server_auto` unless a handover mandate is settled — the intended path is
+  `/transactions` then `/sign <action_id>`; and (b) staging is logging
+  `application-scoped app source application-2937805 is not installed` plus
+  `DB pool saturated: max_size=2`, which fails the turn before any Action
+  exists.
+
+2026-09-10 — TELEGRAM MINI APP MOVED FROM PARA TO PRIVY (branch
+  `feat/telegram-privy`; stacks on `fix/para-token-wallet-attestation` / PR #592).
+  The decision is driven by one asymmetry the Para debugging surfaced: Privy's
+  server wallet API is keyed by the verified token subject
+  (`GET /v1/wallets?user_id=did:privy:…`, `listPrivyWalletsForUser`), so the
+  server-side hosted-wallet attestation that Para structurally cannot support
+  works for Privy without any token-claim fallback. Same provider as the portal
+  means one Privy app id, one identity per human across chat.aomi.dev and
+  Telegram, one set of secrets, one already-tested code path.
+  Client (`apps/telegram`): `@getpara/*` dropped for `@privy-io/react-auth`
+  3.27.1 (the version the portal already runs). `providers.tsx` uses
+  `PrivyProvider` with `loginMethods: ["telegram"]` and
+  `embeddedWallets.ethereum.createOnLogin`, so the wallet exists before the
+  exchange instead of being provisioned as a separate step. `page.tsx` logs in
+  headlessly through `useLoginWithTelegram` — Telegram already proved the
+  identity via `initData`, so there is no provider modal. `use-canonical-account`
+  posts a `privy` credential built from `getIdentityToken()` (fetched per
+  exchange, not captured — identity tokens are short lived).
+  `use-permission-control` signs the permit through the embedded wallet's own
+  EIP-1193 provider (`getEmbeddedConnectedWallet` + viem `custom()`), so the
+  typed data is byte-identical to the browser path.
+  Server: the Telegram exchange route accepted only `para`; it now accepts
+  `privy` too (`TELEGRAM_PROVIDERS`) and stamps `authMethod` as
+  `telegram_<provider>`. Para stays accepted so a Mini App build still in the
+  wild keeps working, and portal surfaces still offer it.
+  `config.ts` now treats a blank env var as unset — the `??` trap that made an
+  empty `NEXT_PUBLIC_AOMI_BFF_URL` silently win over the default. `Providers`
+  renders a readable "not configured" state instead of letting `PrivyProvider`
+  throw on an empty app id, which also unblocks the prerender.
+  Verified: telegram typecheck, 6 contract tests, portal 573, root 1463, eslint,
+  and `build:telegram` both with and without `NEXT_PUBLIC_PRIVY_APP_ID`.
+  BEFORE THIS CAN BE TESTED:
+  - `tg-mini-app-staging` needs `NEXT_PUBLIC_PRIVY_APP_ID` =
+    `cmq0ye6b800v20cjieham3z4r` (the portal's app id — same app is the whole
+    point; the value currently on `tg-mini-app` is sensitive and unreadable, so
+    assume it is NOT the portal's until re-set with `--no-sensitive`).
+  - The Privy dashboard for that app needs Telegram login enabled and the
+    `@hoodittest_bot` token registered, otherwise `useLoginWithTelegram` has
+    nothing to verify against.
+  - Privy's Telegram Mini App login reads `window.Telegram.WebApp.initData`
+    itself; that path is documented but has NOT been exercised here.
+  Para is untouched server-side and in the portal — this only moves the Mini App.
+  Fallout worth knowing: dropping `@getpara/*` from `apps/telegram` broke the
+  LANDING build, because the Para 2.19.0 line imports `@getpara/shared` and
+  `eventemitter3` without listing them in its published manifests and had been
+  resolving them only through the newer Para tree the Mini App pulled in. Fixed
+  with `packageExtensions` in `pnpm-workspace.yaml` (same mechanism already used
+  for `@getpara/react-sdk@2.24.0`), pinning `@getpara/shared` to the 1.14.0 that
+  `@getpara/user-management-client@2.19.0` itself depends on.
+
+2026-09-10 — PARA'S REST WALLET LIST CANNOT ATTEST AN SDK-CREATED WALLET
+  (branch `fix/para-token-wallet-attestation`). Follow-up to the two entries
+  below: with the server-side attestation wired in (#590) and the Mini App
+  provisioning an EVM wallet before the exchange (#591), staging still returned
+  422 `provider_hosted_wallet_missing`. An unfiltered
+  `GET /v1/wallets?limit=20` against the staging Para partner scope settled it:
+  15 rows, `hasMore: false`, newest created 2026-05-19 — the wallet the Mini App
+  had created minutes earlier was NOT there, and every row was a pregen/REST
+  test wallet (`a@b.com`, `user@example.com`, `+4912333333`). The public REST
+  list is indexed by pregen login handle; wallets a user creates through the
+  client SDK live in the user-management API the SDK itself calls
+  (`client.getWallets(userId)`), which a partner API key cannot reach. So no
+  `userIdentifierType` mapping and no row filter could ever have fixed this —
+  the data is not in that endpoint. (Also: zero SOLANA wallets exist in the
+  partner scope at all.)
+  The proof therefore comes from Para's signed token, and this is a deliberate
+  reversal of the premise the work started from:
+  - `verifyParaWidgetCredential` now converts `data.wallets` into
+    `AttestedWallet[]` instead of returning `[]`. That array carries exactly
+    the trust of the `sub` the canonical account is bound to — same RS256
+    signature, same JWKS, same `aud` pinned to our API key id. Treating `sub`
+    as authoritative while calling the sibling field unverifiable was
+    incoherent. `connectedWallets` stays discarded: those are session-attached
+    external wallets, not Para-custodied, and can never back hosted signing.
+    That is the boundary that actually matters.
+  - `requireAttestedProviderWallets` now MERGES the REST answer with the token
+    attestation (REST first) and only 422s when both are empty. Consequence:
+    `provider_wallets_unconfigured` / `provider_wallets_unavailable` no longer
+    fail the exchange — an endpoint that structurally cannot see the wallet
+    proves nothing by being empty or down. This mirrors the native path's
+    long-standing `prepareVerifiedCredential` merge; the widget path was the
+    outlier.
+  Unchanged: cross-account wallet conflict still fails closed (409), wallets
+  still land in `public_keys` through the same single transaction, and the
+  scheme/status/type filters still gate the REST source.
+  Deployment topology learned the hard way, now correct and verified by
+  grepping the live bundles:
+  - `tg-mini-app` → mini-app.aomi.dev → `NEXT_PUBLIC_AOMI_BFF_URL=https://chat.aomi.dev`
+  - `tg-mini-app-staging` → mini-app-staging.aomi.dev → `=https://chat-staging.aomi.dev`
+    (root dir `.`, build `pnpm --filter telegram build`, CLI-deployed)
+  The Vercel CLI marks env vars SENSITIVE by default when added
+  non-interactively, and a sensitive `NEXT_PUBLIC_*` never reaches the client
+  bundle — it reads back as `""`. Always pass `--no-sensitive` for public vars.
+  STILL NOT VERIFIED: the live `Auto × Telegram × AA × Hosted` cell. This change
+  has to reach chat-staging (portal main) before the next run.
+
+2026-09-10 — TELEGRAM × PARA HOSTED WALLETS NEVER REACHED `public_keys`
+  (working tree, uncommitted). The Mini App said "Para is linked" while the bot
+  still reported `Authority: not linked`: `/api/auth/widget/telegram/exchange`
+  linked the Para identity and stopped there. Every widget descriptor returns
+  `walletAttestations: []` on purpose (a session JWT's wallet arrays are client
+  claims), and no widget route ever ran the server-side attestation, so no
+  Para-custodied wallet became a canonical row. Fixed at three layers:
+  - `requireAttestedProviderWallets` (`apps/portal/src/server/widget-auth/exchange.ts`)
+    asks Para's own API with `PARA_API_SECRET_KEY` and hands the result to
+    `linkVerifiedProviderIdentityForUser({ wallets })` BEFORE the link, so
+    identity, the cross-account wallet conflict check and `public_keys` all
+    commit in one transaction and a provider outage cannot leave a linked
+    identity with no signer. Failure codes are distinct and never fall back to
+    token claims: `provider_wallets_unconfigured` (503, no server secret),
+    `provider_wallets_unavailable` (503, API failed), `provider_hosted_wallet_missing`
+    (422, Para attests no embedded wallet). `resolveAttestedProviderWallets`
+    (`packages/account/src/service/account-service.ts`) is the new
+    three-state lookup; `fetchAttestedProviderWallets` keeps its null contract
+    on top of it.
+  - THE LOOKUP KEY WAS WRONG, and this is what actually broke staging: Para's
+    `GET /v1/wallets` is partner-scoped and keyed by the LOGIN HANDLE, and its
+    `userIdentifierType` enum (EMAIL/PHONE/CUSTOM_ID/GUEST_ID/DISCORD/TWITTER/
+    TELEGRAM/FARCASTER) has no member naming a Para user id — so the old
+    `CUSTOM_ID`-on-`sub` attester could only ever return nothing (already
+    flagged in WIDGET-AUTH-INTEGRATION-PLAN.md:253). `verifyParaWidgetCredential`
+    now surfaces `loginIdentifier` (`data.authType` + `data.identifier`), which
+    threads through `WalletAttester` to `paraWalletLookup`: login handle first,
+    verified email second, `CUSTOM_ID`-on-subject last. An unmappable handle
+    (`externalWallet`) answers `null` — "no answer", not "no wallets".
+  - THE SCHEME FILTER WAS WRONG TOO: `isEmbeddedScheme` accepted only
+    DKLS/FROST/*MPC*, but Para's documented enum is DKLS | CGGMP | ED25519, so
+    every Solana embedded wallet (ED25519) was being dropped. Now accepts the
+    documented three plus the old tolerances, and skips `status: "creating"`
+    rows (Para returns an address before key generation finishes).
+  Mini App: the exchange's failure code now rides through
+  `use-canonical-account.ts` into the visible message, so a hosted-wallet
+  failure is diagnosable instead of a bare "Could not link your account."
+  Verified: root `vitest run` 1461 tests, portal 571, telegram 6, root
+  typecheck, portal `tsc` (after `rm -rf .next/dev/types` — the checked-out
+  `.next` carried stale route validators that fail typecheck on `main` too),
+  eslint clean. `apps/portal/src/server/widget-auth/exchange.test.ts` drives the
+  real identity → attester → REST chain with only `fetch` + env stubbed.
+  NOT DONE — needs a human: the live staging matrix cell
+  `Auto × Telegram × AA × Hosted` (deploy to chat-staging.aomi.dev, DM
+  `@hoodittest_bot`, `/wallet` → Open Para → Para login → `/wallet` → expect an
+  Authority address → `/permission`). Cannot be driven from here (Telegram
+  account + Para login). Preflight done: `PARA_API_SECRET_KEY` IS set on
+  chat-portal Preview; `PARA_API_BASE_URL` is not, so the beta default host
+  applies, which matches tg-mini-app (no `NEXT_PUBLIC_PARA_ENVIRONMENT` → BETA).
+  Pending decisions/known gaps:
+  - `/api/auth/widget/exchange` and `/v1/account/provider/exchange` (widget
+    principal branch) still link identity WITHOUT attested wallets — same defect,
+    deliberately left alone to keep this change on the Telegram cell.
+    `requireAttestedProviderWallets` is shared and ready for them, but the
+    browser widget would need a decision on whether a Para user with no hosted
+    wallet may still sign in (here it may not).
+  - `paraWalletsUrl()` is deployment-global while credentials carry a BETA/PROD
+    environment; a portal serving both would query the wrong Para host. Fine
+    today (staging is BETA-only), a hazard for the production rollout.
+
+2026-09-09 — TRANSACTION ROUTING SURFACES: FIX + TEST PROGRAM (branch
+  `codex/wallet-routing-surfaces`, working tree, uncommitted; pairs with
+  product-mono `cecilia/para-evm-envelope`). Review findings resolved:
+  - H1 `UserState.route()` no longer throws (`packages/client/src/user-state/index.ts`).
+    It only selects: Auto with a live delegation defaults to Hosted (explicit Venue
+    stays); explicit selections are preserved in every mode,
+    everything else goes as-is. The backend commit gate is the authority
+    (`signing_denied`, `broadcaster_incompatible`, `broadcaster_unsupported_for_chain`),
+    so a Locked wallet or an expired delegation still chats.
+  - H2 `WalletProviders` renders children (and server-renders) under
+    `AOMI_BOOTING_WALLET_KIT` while the remembered provider is restored; no SDK
+    mounts before restore; one `ExtUserProvider` is hoisted over both trees.
+    New exports from widget-lib: `AOMI_BOOTING_WALLET_KIT`, `AomiWalletNetworkPreferencesProvider`.
+  - M1 `selectWallet` no longer asserts `is_connected`; `AomiWalletKitSync` sends
+    `is_connected` only on a connect/disconnect transition.
+  - M2 picker hides the connected host provider and offers the other as
+    "Link another provider".
+  - M3 CLI `--eoa` rejects only a prepared AA `sign` Action; L3 `--aa-provider`/
+    `--aa-mode` declarations removed (presence still fatal; citty is non-strict);
+    README signing-modes section rewritten to assertion-only semantics.
+  - L1 typed `SvmBuildAction` (lane-tagged), `AssembledSvmInstruction`,
+    `SvmAssembledAccountMeta`, structural `PipelineActionSummary`; new
+    `packages/client/CHANGELOG.md` for 0.7.0.
+  - Docs: `docs/topics/auth/facts/wallet-kit.md` says the client never blocks a turn.
+  Test program deliverables: `scripts/routing-matrix-e2e.mts` (HTTP harness for
+  every EVM/SVM/Telegram cell, three stages, JSONL verdicts, blocked lanes never
+  pass), four Playwright specs `tests/e2e/routing-ui-{manual,locked,sign-action,solana}.spec.ts`
+  registered in the `local-agent` project.
+  Verified: root check 1383 tests, portal 546, widget-lib 370, portal typecheck,
+  `pnpm --filter portal build` (NEXT_DIST_DIR=.next-routing-build) all green; spec
+  regeneration from the BE worktree produced no diff.
+  NOT run (blocked by infra): T2 harness, T3 CLI lanes, T4 Playwright lanes, T5
+  computer-use lanes, T6 compat table, T7 staging. Local Supabase/Docker was
+  unresponsive (`docker info` and `psql` hang) and `SUPABASE_DB_URL` (hosted) is
+  set in the shell. A backend on :8080 and api-server on :8082 belong to another
+  session and were not used. `output/routing-program/` holds baseline logs and is
+  not gitignored; do not `git add -A`.
+  Pending decisions: `prepareUserState` still throws on a 5xx profile fetch
+  (default kept); T7 testnet for Hosted Auto / AA execution (Base Sepolia
+  proposed); BE lands first (`origin/main` whitelist has no `broadcaster`).
+
 2026-09-03 — MCP GRANTS NEVER CARRIED A REFRESH TOKEN (branch
   `fix/mcp-offline-access-advertised`). Agent MCP and Pipeline MCP sessions
   went invalid a few minutes after login. The refresh machinery was fine —

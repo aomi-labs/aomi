@@ -103,16 +103,26 @@ function requiredDatabaseUrl(env: AccountAuthEnvInput): string {
 }
 
 function resolveBetterAuthUrl(env: AccountAuthEnvInput): string {
-  // An explicit override always wins, including on Vercel `preview`. Stable
-  // custom-alias deployments (e.g. chat-staging.aomi.dev fronting a `preview`
-  // build) are served on a host that is NOT the auto-detected *.vercel.app URL;
-  // deriving the SIWE domain / trusted origins from that URL breaks every login
-  // on the alias (domain/origin mismatch). Ephemeral PR previews leave this
-  // unset and keep the *.vercel.app fallback below.
+  // A stable custom alias (for example chat-staging.aomi.dev) takes priority,
+  // including when Vercel labels its build as a preview. A branch alias is
+  // different: it moves between deployments, so it cannot be the issuer of
+  // an immutable preview even if it was supplied as an explicit override.
   const explicit = firstUrl(env.BETTER_AUTH_URL, env.AOMI_PORTAL_BASE_URL);
+  // The branch alias can move to a newer deployment while an exact-commit
+  // preview remains live. Its issuer and SIWE domain must match that immutable
+  // deployment host, which is also the URL exercised by preview CI.
+  const branchUrl = firstUrl(env.VERCEL_BRANCH_URL);
+  const deploymentUrl = firstUrl(env.VERCEL_URL);
+  const vercelDeploymentUrl = deploymentUrl ?? branchUrl;
+  if (
+    env.VERCEL_ENV === "preview" &&
+    explicit &&
+    explicit === branchUrl &&
+    deploymentUrl
+  ) {
+    return deploymentUrl;
+  }
   if (explicit) return explicit;
-
-  const vercelDeploymentUrl = firstUrl(env.VERCEL_BRANCH_URL, env.VERCEL_URL);
   if (env.VERCEL_ENV === "preview" && vercelDeploymentUrl) {
     return vercelDeploymentUrl;
   }

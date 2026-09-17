@@ -155,6 +155,8 @@ export type AccountConfig =
     };
 
 export type AomiWalletKitProviderProps = {
+  /** Render the loading wallet state without starting SDKs while host config is restored. */
+  initializing?: boolean;
   preset?: "para" | "privy" | "wallets-only" | (string & {});
   providers?: ProvidersConfig;
   auth?: AuthConfig;

@@ -2,7 +2,7 @@
 
 **The best blockchain harness for agentic AI - on-chain execution with runtime, skills, and component library.** Aomi ships five entry points from one repo — a React widget, a headless runtime, a TypeScript client, a CLI, and an agent skill — all backed by an Aomi-compatible backend.
 
-- **Widget** — `<AomiFrame />`, a drop-in React chat component with wallet actions.
+- **Widget** — `<AomiWidget />`, a drop-in React chat component with wallet auth and actions.
 - **Headless runtime** — `@aomi-labs/react` hooks and providers that manage concurrent threads, backend polling, control state, and wallet events, with no UI opinions.
 - **TypeScript client** — `@aomi-labs/client`, a platform-agnostic client for Node.js and browsers.
 - **CLI** — `aomi`, a terminal client for chatting with Aomi agents and signing on-chain transactions directly from your shell.
@@ -28,7 +28,7 @@ All entry points share a common backend API, so a conversation started in the wi
 ## Key features
 
 - **AI chat + on-chain actions in one loop** — the agent can queue wallet requests inside any conversation.
-- **Drop-in React widget** — one `<AomiFrame />` tag renders the full chat, sidebar, and composer.
+- **Drop-in React widget** — one `<AomiWidget />` tag owns the public wallet, auth, transport, and chat shell.
 - **Headless runtime for custom UIs** — concurrent thread management, per-thread model/namespace state, backend polling/SSE, event bus, and wallet request handler, exposed as React hooks.
 - **Terminal-first CLI** — `aomi chat`, `aomi tx list`, `aomi tx simulate`, `aomi tx sign`, session management, secret ingestion.
 - **Account auth in CLI** — `aomi account login` opens a backend-minted Privy auth URL, and `aomi account whoami` confirms the backend session is bound to an Aomi account.
@@ -56,25 +56,45 @@ pnpm install @aomi-labs/client
 npm install -g @aomi-labs/client
 ```
 
-Or copy widget source into your repo via the shadcn registry:
+Or copy widget source into a Radix-based shadcn project via the registry.
+For a new project, initialize shadcn with the Radix base first:
 
 ```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npx shadcn@latest init --base radix
+npx shadcn@latest add https://aomi.dev/r/aomi-frame.json
 ```
 
 ---
 
-## Widget: `<AomiFrame />`
+## Widget: `<AomiWidget />`
 
-A prebuilt React chat widget for on-chain AI assistants. Without wallet providers, chat works and wallet actions stay disabled.
+A prebuilt React chat widget for on-chain AI assistants. Point `apiUrl` at an
+Aomi Portal/BFF origin and select one supported widget authentication mode.
 
 ```tsx
-import { AomiFrame } from "@aomi-labs/widget-lib";
+import { AomiWidget } from "@aomi-labs/widget-lib/aomi-widget";
 
 export function Assistant() {
-  return <AomiFrame height="640px" width="100%" />;
+  return (
+    <AomiWidget
+      apiUrl="https://your-portal.example"
+      applicationId="your-application-id"
+      auth={{ kind: "browser_wallet" }}
+      height="640px"
+      width="100%"
+    />
+  );
 }
 ```
+
+Existing consumers do not need an additional host provider, wrapper, or setup
+call. Use the lower-level frame only when the host intentionally owns those
+policies itself.
+
+## Lower-level widget composition: `<AomiFrame />`
+
+`AomiFrame` is the compound UI/runtime surface used by first-party and custom
+hosts. Without wallet providers, chat works and wallet actions stay disabled.
 
 ### With wallet providers
 
@@ -168,7 +188,8 @@ export function Assistant() {
 }
 ```
 
-`AomiBaseAccountProvider` remains as a deprecated compatibility wrapper, but new integrations should use `AomiWalletKitProvider`.
+Base Account uses the same `AomiWalletKitProvider` configuration path as the
+other EVM connectors.
 
 ### AomiFrame props
 
@@ -432,7 +453,8 @@ The packages in this repo are client libraries. They talk to an **Aomi-compatibl
 ### What's the difference between `@aomi-labs/react` and `@aomi-labs/widget-lib`?
 
 - `@aomi-labs/react` — headless runtime, contexts, and hooks. No UI.
-- `@aomi-labs/widget-lib` — prebuilt UI components (`AomiFrame`, `ControlBar`, etc.) built on top of the runtime.
+- `@aomi-labs/widget-lib` — the public `AomiWidget` integration plus lower-level
+  `AomiFrame` composition and UI components built on top of the runtime.
 
 Install both for the default experience, or install only `@aomi-labs/react` if you're building a custom UI.
 
@@ -486,7 +508,7 @@ packages/
   react/       # @aomi-labs/react — headless runtime, contexts, hooks
   client/      # @aomi-labs/client — TypeScript client + `aomi` CLI + skills
 apps/
-  registry/    # @aomi-labs/widget-lib — shadcn-installable UI components
+  shadcn-registry/ # @aomi-labs/widget-lib — widget and shadcn-installable UI
   landing/     # Demo Next.js app (localhost:3000)
 ```
 

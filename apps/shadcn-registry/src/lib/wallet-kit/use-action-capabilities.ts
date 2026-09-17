@@ -37,11 +37,14 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
   if (!address) throw new Error("No EVM wallet is active");
   const sendCalls = wallet.sendTransaction
     ? async ({
-      chainId,
-      calls,
+        chainId,
+        calls,
       }: Parameters<NonNullable<EvmWallet["sendCalls"]>>[0]) => {
         const payload: WalletTxPayload = {
           requestId: "action",
+          // execute_evm is the ordinary Wallet route. AA arrives separately
+          // as an owner-authorization request for a backend operation.
+          aaPreference: "none",
           chainId,
           calls: calls.map((call, index) => ({
             ...call,

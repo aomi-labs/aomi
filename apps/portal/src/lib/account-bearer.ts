@@ -6,7 +6,7 @@ import {
   type AccountBearerProvider,
 } from "@aomi-labs/client";
 import type { AomiWalletKit } from "@aomi-labs/widget-lib";
-import { getBackendUrl } from "./settings-api";
+import { getBackendUrl } from "@aomi-labs/widget-lib/host-composition";
 
 type GetAccountCredential = AomiWalletKit["getAccountCredential"];
 

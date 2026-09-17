@@ -17,8 +17,8 @@ export function buildCliUserState(
 ): UserState {
   // Each wallet family is emitted iff its address is explicitly configured.
   // Account-abstraction is backend authority and no longer carried in
-  // user_state. The CLI's `--aa` preference is applied per-transaction via the
-  // execution payload, not persisted here.
+  // user_state. ClientSession resolves the current account's submitter before
+  // sending; --aa only asserts the kind of an already prepared Action.
   const userState: UserState = {};
 
   if (evmAddress !== undefined) {

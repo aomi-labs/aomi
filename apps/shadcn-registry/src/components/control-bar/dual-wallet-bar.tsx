@@ -3,7 +3,11 @@
 import { Fragment, useEffect, useState, type FC } from "react";
 import { ChevronsUpDownIcon, UnfoldVerticalIcon } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
-import { useAomiWalletKit, formatWalletAddress } from "../../lib/wallet-kit";
+import {
+  useAomiWalletKit,
+  formatWalletAddress,
+  signOutAndDisconnect,
+} from "../../lib/wallet-kit";
 import { WalletIconSlot } from "./wallet-icon-slot";
 import { WalletPicker } from "./wallet-picker";
 import { WalletPickerProvider, useWalletPicker } from "./wallet-picker-context";
@@ -146,9 +150,13 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
     try {
       if (sessionAction === "signout") {
         if (accountMenu?.onSignOut) {
-          await accountMenu.onSignOut();
+          try {
+            await accountMenu.onSignOut();
+          } finally {
+            await adapter.disconnect?.({ family: "all" });
+          }
         } else {
-          await adapter.signOutAccount?.();
+          await signOutAndDisconnect(adapter);
         }
       } else {
         if (accountMenu?.onDisconnect) {

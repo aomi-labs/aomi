@@ -27,10 +27,35 @@ const pickFacts = (
   return picked;
 };
 
-const statusLast = (facts: ToolFact[]): ToolFact[] => [
-  ...facts.filter((fact) => fact.kind !== "status"),
-  ...facts.filter((fact) => fact.kind === "status"),
-];
+const CHIP_KIND_ORDER: Record<ToolFact["kind"], number> = {
+  chain: 0,
+  cluster: 0,
+  action: 1,
+  token: 1,
+  skill: 1,
+  sourceHost: 1,
+  selector: 1,
+  address: 2,
+  amount: 3,
+  block: 3,
+  code: 3,
+  count: 3,
+  decoded: 3,
+  gas: 3,
+  slot: 3,
+  txId: 3,
+  status: 4,
+};
+
+const canonicalFactOrder = (facts: ToolFact[]): ToolFact[] =>
+  facts
+    .map((fact, index) => ({ fact, index }))
+    .sort(
+      (left, right) =>
+        CHIP_KIND_ORDER[left.fact.kind] - CHIP_KIND_ORDER[right.fact.kind] ||
+        left.index - right.index,
+    )
+    .map(({ fact }) => fact);
 
 /** A failure/error status fact — the same signal that renders the "Failed" chip. */
 const isFailedStatus = (fact: ToolFact): boolean =>
@@ -46,7 +71,7 @@ export const presentOperation = (
       ? (descriptor.fixedTitle ?? humanize(operation.rawLabel))
       : humanize(operation.rawLabel));
   const chips = uniqueChips(
-    statusLast(pickFacts(operation.facts, descriptor.chipPlan))
+    canonicalFactOrder(pickFacts(operation.facts, descriptor.chipPlan))
       .map(chipForFact)
       .filter((chip): chip is NonNullable<typeof chip> => chip != null),
   );

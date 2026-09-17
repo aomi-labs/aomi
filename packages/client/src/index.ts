@@ -46,8 +46,14 @@ export type {
   EvmStagedAction,
   EvmStagedBuild,
   PipelineActionSummary,
+  PipelineApprovalChange,
+  PipelineApprovalKind,
+  PipelineAssetStandard,
   PipelineBalanceChange,
   PipelineCommitOptions,
+  PipelineBuildOrigin,
+  PipelineBuildProvenance,
+  PipelineExecutionScope,
   PipelineDirectory,
   PipelineDirectoryEntry,
   PipelineDirectoryEntryKind,
@@ -56,6 +62,7 @@ export type {
   PipelineGasEstimate,
   PipelineGuardResult,
   PipelineInvokeOptions,
+  PipelineMutationOptions,
   PipelineJsonSchema,
   PipelineLog,
   PipelineOperationBuildInput,
@@ -63,11 +70,14 @@ export type {
   PipelineOperationInvocation,
   PipelineSimulation,
   PipelineSimulationStatus,
-  PipelineTransactionReceipt,
+  AssembledSvmInstruction,
   SvmAccountMeta,
+  SvmAssembledAccountMeta,
+  SvmBuildAction,
   SvmCommitResult,
   SvmDirectInput,
   SvmInstruction,
+  SvmInstructionBatch,
   SvmPresentedAction,
   SvmSimulatedBuild,
   SvmStageInput,
@@ -77,6 +87,8 @@ export type {
 } from "./pipeline/types";
 export type {
   Action,
+  AgentMode,
+  AgentTarget,
   ActionRequest,
   ActionResult,
   ErrorEvent,
@@ -212,6 +224,7 @@ export type {
 
 export type {
   AomiAppDescriptor,
+  AomiFeatureCategory,
   AomiArtifactStatus,
   AomiPlatformFilter,
   ApplicationId,
@@ -240,6 +253,9 @@ export type {
   AomiClearSecretsResponse,
   AomiAccountResponse,
   AomiByokKeyEntry,
+  AomiClearAppSecretsResponse,
+  AomiUserAppSecretSlot,
+  AomiUserAppSecrets,
   AomiListByokKeysResponse,
   AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
@@ -263,7 +279,11 @@ export {
   type AccountSessionProvider,
   type AccountSessionSigner,
 } from "./widget-session";
-export { normalizeAppDescriptor, appIdentityKey } from "./app-descriptor";
+export {
+  normalizeAppDescriptor,
+  appIdentityKey,
+  isOfficialAppDescriptor,
+} from "./app-descriptor";
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 
@@ -338,6 +358,7 @@ export {
   CHAINS_BY_ID,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_IDS,
+  arc,
   arcTestnet,
   monad,
   monadTestnet,

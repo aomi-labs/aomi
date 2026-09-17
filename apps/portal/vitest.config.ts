@@ -24,6 +24,10 @@ export default defineConfig({
         registryDir,
         "lib/wallet-kit/providers/privy/index.ts",
       ),
+      "@aomi-labs/widget-lib/host-composition": resolve(
+        registryDir,
+        "host-composition.ts",
+      ),
       "@aomi-labs/widget-lib": registryDir,
       "@aomi-labs/account/better-auth/client": resolve(
         currentDir,

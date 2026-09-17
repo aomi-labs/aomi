@@ -148,7 +148,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
     // Both mount effects call refresh; the in-flight guard coalesces them.
     expect(mockState.accountClient?.getAccount).toHaveBeenCalledTimes(1);
-    expect(result.current.getAccountBearer).toBeDefined();
+    expect(result.current.getAccountBearer).toBeUndefined();
   });
 
   it("replaces a guest session before signing in with an existing EVM wallet", async () => {
@@ -421,6 +421,36 @@ describe("useAomiBackendAccountRuntime", () => {
         .invocationCallOrder[0]!,
     );
     await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
+  });
+
+  it("shows a failed provider handoff without claiming an Aomi account exists", async () => {
+    mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
+      new Error("credential verification failed"),
+    );
+    const { result } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: "authenticated",
+          provider: "para",
+          subject: "para-user",
+          getCredential: vi
+            .fn()
+            .mockResolvedValue({
+              provider: "para",
+              providerToken: "provider-session",
+            }),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+      ),
+    );
+    expect(result.current.user).toBeUndefined();
   });
 
   it("exposes an account conflict instead of silently swallowing provider sign-in failure", async () => {

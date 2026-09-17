@@ -1,4 +1,6 @@
 import type {
+  Action,
+  AgentTarget,
   Event,
   EventPage,
   MessageEvent,
@@ -40,23 +42,29 @@ export class ClientSession {
   readonly sessionId: string;
   readonly actions: ActionHandler;
 
-  private app: string;
+  private target?: AgentTarget;
+  private app?: string;
   private model?: string | null;
   private applicationId?: number | string | null;
   private getUserState?: SessionOptions["getUserState"];
   private inferenceFunding?: SessionOptions["inferenceFunding"];
   private clientId: string;
-  private pollIntervalMs: number;
   private logger?: { debug: (...args: unknown[]) => void };
   private cursor?: string;
   private turnId?: string;
   private turnState?: TurnState;
-  private startOperation?: { message: string; idempotencyKey: string };
-  private pollTimer: ReturnType<typeof setTimeout> | null = null;
-  private pollingActive = false;
-  private pollInFlight = false;
-  private pollFailureCount = 0;
-  private awaitingResume = false;
+  private startOperation?: {
+    message: string;
+    idempotencyKey: string;
+    intent?: StartTurnIntent;
+  };
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private streamingActive = false;
+  private streamInFlight = false;
+  private streamFailureCount = 0;
+  private streamAbort?: AbortController;
+  private liveMessages = new Map<string, MessageEvent>();
+  private liveRevisions = new Map<string, number>();
   private terminalDrainUntil?: number;
   private terminalTurnId?: string;
   private isSubmitting = false;
@@ -73,7 +81,15 @@ export class ClientSession {
   private lastPageNewEvents = 0;
   private title?: string;
   private error?: unknown;
+  private sentAt?: number;
+  private timingTurnId?: string;
+  private timing?: {
+    startedAt: number;
+    acknowledgedMs?: number;
+    firstTextReceivedMs?: number;
+  };
   private closed = false;
+  private pendingReject: ((error: unknown) => void) | null = null;
   private pendingResolve: ((result: SendResult) => void) | null = null;
   private listeners = new Set<() => void>();
   private actionUnsubscribers: Array<() => void> = [];
@@ -89,13 +105,18 @@ export class ClientSession {
         ? clientOrOptions
         : new AomiClient(clientOrOptions);
     this.sessionId = sessionOptions?.sessionId ?? crypto.randomUUID();
-    this.app = sessionOptions?.app ?? "default";
+    this.target = normalizeTarget(sessionOptions?.target);
+    this.app = normalizeOptionalString(sessionOptions?.app);
     this.model = sessionOptions?.model;
     this.applicationId = sessionOptions?.applicationId;
+    assertTargetCompatibility({
+      target: this.target,
+      app: this.app,
+      applicationId: this.applicationId,
+    });
     this.getUserState = sessionOptions?.getUserState;
     this.inferenceFunding = sessionOptions?.inferenceFunding;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
-    this.pollIntervalMs = sessionOptions?.pollIntervalMs ?? 500;
     this.logger = sessionOptions?.logger;
     this.actions = new ActionHandler(
       sessionOptions?.actions ?? {},
@@ -113,9 +134,9 @@ export class ClientSession {
       this.actions.subscribe(() => {
         if (!this.applyingPage) this.publish();
       }),
-      this.actions.on("resolved", () => {
-        this.awaitingResume = true;
-        this.startPolling();
+      this.actions.on("resolved", (action) => {
+        this.applyResolvedAction(action);
+        this.startStreaming();
       }),
     );
   }
@@ -133,12 +154,13 @@ export class ClientSession {
       this.drainTerminalPage(page);
       // The drain may still be polling for the trailing final message /
       // title; only a finished drain has the complete result in hand.
-      if (!this.pollingActive) return this.result();
+      if (!this.streamingActive) return this.result();
     } else if (this.turnState !== "awaiting_action" || page.has_more) {
-      this.startPolling();
+      this.startStreaming();
     }
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.pendingResolve = resolve;
+      this.pendingReject = reject;
     });
   }
 
@@ -149,14 +171,14 @@ export class ClientSession {
       return page;
     }
     if (this.turnState !== "awaiting_action" || page.has_more) {
-      this.startPolling();
+      this.startStreaming();
     }
     return page;
   }
 
   async interrupt(): Promise<void> {
     if (!this.turnId) throw new Error("No active turn to interrupt");
-    this.stopPolling();
+    this.stopStreaming();
     this.applyEventPage(
       await this.client.agent.interrupt(this.sessionId, this.turnId),
     );
@@ -164,7 +186,15 @@ export class ClientSession {
   }
 
   syncRuntimeOptions(options: SessionRuntimeOptions): void {
-    this.app = options.app;
+    const target = normalizeTarget(options.target);
+    const app = normalizeOptionalString(options.app);
+    assertTargetCompatibility({
+      target,
+      app,
+      applicationId: options.applicationId,
+    });
+    this.target = target;
+    this.app = app;
     this.model = options.model;
     this.applicationId = options.applicationId;
     this.clientId = options.clientId ?? this.clientId;
@@ -182,44 +212,33 @@ export class ClientSession {
     const page = await this.sync();
     if (this.isTerminal()) this.finish();
     else if (this.turnState && this.turnState !== "awaiting_action") {
-      this.startPolling();
+      this.startStreaming();
     }
-    if (page.has_more) this.startPolling();
+    if (page.has_more) this.startStreaming();
   }
 
-  startPolling(): void {
-    if (this.pollingActive || this.closed) return;
-    this.pollingActive = true;
-    this.logger?.debug("[session] polling started", this.sessionId);
-    if (typeof document !== "undefined") {
-      document.addEventListener(
-        "visibilitychange",
-        this.handleVisibilityChange,
-      );
-    }
+  startStreaming(): void {
+    if (this.streamingActive || this.closed) return;
+    this.streamingActive = true;
+    this.logger?.debug("[session] streaming started", this.sessionId);
     this.publish();
-    this.schedulePoll(0);
+    this.scheduleReconnect(0);
   }
 
-  stopPolling(): void {
-    if (!this.pollingActive && !this.pollTimer) return;
-    this.pollingActive = false;
-    if (this.pollTimer) clearTimeout(this.pollTimer);
-    this.pollTimer = null;
-    if (typeof document !== "undefined") {
-      document.removeEventListener(
-        "visibilitychange",
-        this.handleVisibilityChange,
-      );
-    }
-    this.logger?.debug("[session] polling stopped", this.sessionId);
+  stopStreaming(): void {
+    if (!this.streamingActive && !this.reconnectTimer) return;
+    this.streamingActive = false;
+    this.streamAbort?.abort();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    this.logger?.debug("[session] streaming stopped", this.sessionId);
     this.publish();
   }
 
   close(): void {
     if (this.closed) return;
     this.closed = true;
-    this.stopPolling();
+    this.stopStreaming();
     this.resolvePending();
     for (const unsubscribe of this.actionUnsubscribers) unsubscribe();
     this.actionUnsubscribers = [];
@@ -231,8 +250,7 @@ export class ClientSession {
     this.assertOpen();
     const text = message.trim();
     if (!text) throw new TypeError("message is required");
-    const applicationId = Number(this.applicationId);
-    const operation =
+    const operation: NonNullable<ClientSession["startOperation"]> =
       this.startOperation?.message === text
         ? this.startOperation
         : {
@@ -240,10 +258,12 @@ export class ClientSession {
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
           };
     this.startOperation = operation;
-    this.awaitingResume = false;
     this.terminalDrainUntil = undefined;
     this.terminalTurnId = undefined;
     this.isSubmitting = true;
+    this.timingTurnId = undefined;
+    this.sentAt = performance.now();
+    this.timing = { startedAt: Date.now() };
     // The start response and even the first polls may not carry the user's
     // message event yet (it can trail in a later page). Hold an optimistic
     // echo so consumers can render the outbound message immediately; it is
@@ -255,27 +275,47 @@ export class ClientSession {
     this.error = undefined;
     this.publish();
     try {
-      const state = this.getUserState?.();
-      const page = await this.client.agent.start(
-        {
+      if (!operation.intent) {
+        const selected = this.getUserState?.();
+        const state = selected
+          ? await this.client.prepareUserState(this.sessionId, selected)
+          : undefined;
+        const target = startTargetFields({
+          target: this.target,
+          app: this.app,
+          applicationId: this.applicationId,
+        });
+        // An uncertain start must replay exactly the same intent and key.
+        // Fresh operations refresh policy; execution still checks live authority.
+        operation.intent = {
           sessionId: this.sessionId,
           clientId: this.clientId,
           message: text,
-          ...(Number.isSafeInteger(applicationId) && applicationId > 0
-            ? { applicationId }
-            : { app: this.app }),
+          ...target,
           ...(this.model ? { model: this.model } : {}),
           ...(state
             ? {
-                userState: state as StartTurnIntent["userState"],
+                userState: structuredClone(state),
               }
             : {}),
+        };
+      }
+      // The cursor rides alongside the stored intent rather than inside it:
+      // it is a read position, not part of what was requested, and the stored
+      // intent must replay byte-for-byte on an uncertain start. The server
+      // strips it before hashing, so sending it never changes idempotency.
+      const page = await this.client.agent.start(
+        {
+          ...operation.intent,
+          ...(this.cursor ? { cursor: this.cursor } : {}),
         },
         {
           idempotencyKey: operation.idempotencyKey,
           inferenceFunding: this.inferenceFunding,
         },
       );
+      if (this.timing && this.sentAt !== undefined)
+        this.timing.acknowledgedMs = performance.now() - this.sentAt;
       this.startOperation = undefined;
       this.applyEventPage(page);
       return page;
@@ -292,11 +332,10 @@ export class ClientSession {
     }
   }
 
-  private async fetchPage(waitMs = 0): Promise<EventPage> {
+  private async fetchPage(): Promise<EventPage> {
     try {
       const page = await this.client.agent.poll(this.sessionId, {
         cursor: this.cursor,
-        waitMs,
       });
       this.applyEventPage(page);
       return page;
@@ -322,7 +361,16 @@ export class ClientSession {
     this.lastPageNewEvents = 0;
     try {
       for (const event of page.events) {
-        if (this.eventIds.has(event.event_id)) continue;
+        if (event.type === "action" && this.replaceActionEvent(event)) {
+          this.actions.ingest(event);
+          this.lastPageNewEvents += 1;
+          this.turnId = event.turn_id ?? this.turnId;
+          continue;
+        }
+        if (this.eventIds.has(event.event_id)) {
+          if (event.type === "action") this.actions.ingest(event);
+          continue;
+        }
         const previous = this.events.at(-1);
         if (previous && event.sequence <= previous.sequence) {
           throw new TypeError("Agent events are not monotonically ordered");
@@ -334,12 +382,24 @@ export class ClientSession {
         this.turnId = event.turn_id ?? this.turnId;
         switch (event.type) {
           case "message":
+            if (
+              event.sender === "agent" &&
+              event.turn_id === this.timingTurnId &&
+              !event.tool_result &&
+              event.content.trim()
+            )
+              this.recordTextReceipt();
+            if (event.message_key) {
+              this.liveMessages.delete(event.message_key);
+              this.liveRevisions.delete(event.message_key);
+            }
             this.applyMessage(event);
             if (
               event.sender === "user" &&
               this.pendingUserMessage &&
               event.sequence > this.pendingUserMessage.sinceSequence
             ) {
+              this.timingTurnId = event.turn_id ?? undefined;
               this.pendingUserMessage = undefined;
             }
             break;
@@ -347,9 +407,6 @@ export class ClientSession {
             this.turnState = event.state;
             if (TERMINAL_TURN_STATES.has(event.state)) {
               this.terminalTurnId = event.turn_id ?? this.turnId;
-            }
-            if (event.state !== "awaiting_action") {
-              this.awaitingResume = false;
             }
             break;
           case "title_changed":
@@ -377,45 +434,165 @@ export class ClientSession {
     else this.messages.push(event);
   }
 
-  private async pollTick(): Promise<void> {
-    if (!this.pollingActive || this.pollInFlight) return;
-    this.pollTimer = null;
-    this.pollInFlight = true;
+  private applyResolvedAction(action: Action): void {
+    if (this.replaceActionEvent(action)) {
+      this.publish();
+      return;
+    }
+    if (this.eventIds.has(action.event_id)) return;
+    const previous = this.events.at(-1);
+    if (previous && action.sequence <= previous.sequence) return;
+    this.eventIds.add(action.event_id);
+    this.events.push(action);
+    this.storeVersion += 1;
+    this.publish();
+  }
+
+  private replaceActionEvent(action: Action): boolean {
+    const index = this.events.findIndex(
+      (event) => event.type === "action" && event.id === action.id,
+    );
+    if (index < 0) return false;
+    const current = this.events[index];
+    if (current?.type !== "action" || current.revision >= action.revision) {
+      return false;
+    }
+    this.events.splice(index, 1);
+    this.eventIds.delete(current.event_id);
+    const insertion = this.events.findIndex(
+      (event) => event.sequence > action.sequence,
+    );
+    if (insertion < 0) this.events.push(action);
+    else this.events.splice(insertion, 0, action);
+    this.eventIds.add(action.event_id);
+    this.storeVersion += 1;
+    return true;
+  }
+
+  private async connectStream(): Promise<void> {
+    if (!this.streamingActive || this.streamInFlight) return;
+    this.reconnectTimer = null;
+    this.streamInFlight = true;
     try {
-      const page = await this.fetchPage(25_000);
-      this.pollFailureCount = 0;
-      if (this.isTerminal()) this.drainTerminalPage(page);
-      else if (
-        this.turnState === "awaiting_action" &&
-        !this.awaitingResume &&
-        !page.has_more
-      ) {
-        this.stopPolling();
-      }
+      this.streamAbort = new AbortController();
+      await this.client.agent.stream(
+        this.sessionId,
+        { cursor: this.cursor, signal: this.streamAbort.signal },
+        (kind, data) => {
+          if (!this.streamingActive) return;
+          if (kind === "page") {
+            const page = data as EventPage;
+            this.applyEventPage(page);
+            this.streamFailureCount = 0;
+            if (this.isTerminal()) this.drainTerminalPage(page);
+          } else if (kind === "message") {
+            this.applyLiveMessage(data);
+          } else if (kind === "resync") {
+            this.streamAbort?.abort();
+          }
+        },
+      );
     } catch (error) {
-      this.pollFailureCount += 1;
+      if (this.streamAbort?.signal.aborted) return;
+      if (
+        error instanceof AgentApiError &&
+        ["invalid_cursor", "cursor_expired"].includes(error.code)
+      )
+        this.cursor = undefined;
+      else if (
+        error instanceof AgentApiError &&
+        (!error.retryable || error.status === 501)
+      ) {
+        this.stopStreaming();
+        this.pendingReject?.(error);
+        this.pendingReject = null;
+        this.pendingResolve = null;
+      }
+      this.streamFailureCount += 1;
       this.error = error;
-      this.logger?.debug("[session] poll error", error);
+      this.logger?.debug("[session] stream error", error);
       this.publish();
     } finally {
-      this.pollInFlight = false;
-      if (this.pollingActive) {
-        this.schedulePoll(
-          Math.min(
-            this.currentPollInterval() * 2 ** this.pollFailureCount,
-            5_000,
-          ),
+      this.streamAbort = undefined;
+      this.streamInFlight = false;
+      if (this.streamingActive) {
+        this.scheduleReconnect(
+          this.streamFailureCount === 0
+            ? 0
+            : Math.min(500 * 2 ** (this.streamFailureCount - 1), 5_000),
         );
       }
     }
   }
 
+  private applyLiveMessage(value: unknown): void {
+    const frame = value as {
+      turn_id?: string;
+      revision?: number;
+      message?: Partial<MessageEvent>;
+    };
+    const message = frame?.message;
+    const key = message?.message_key;
+    if (
+      frame?.turn_id !== this.turnId ||
+      !key ||
+      message?.sender !== "agent" ||
+      typeof message.content !== "string" ||
+      message.tool_result
+    )
+      return;
+    if (
+      !Number.isSafeInteger(frame.revision) ||
+      (this.liveRevisions.get(key) ?? -1) >= frame.revision!
+    )
+      return;
+    // A late replay must never overwrite the committed message.
+    if (
+      this.messages.some(
+        (stored) => stored.message_key === key && !stored.is_streaming,
+      )
+    )
+      return;
+    if (message.content.trim()) this.recordTextReceipt();
+    this.liveRevisions.set(key, frame.revision!);
+    this.liveMessages.set(key, {
+      type: "message",
+      event_id: `live:${key}`,
+      message_key: key,
+      turn_id: frame.turn_id ?? null,
+      runtime_sequence: frame.revision,
+      sequence:
+        this.liveMessages.get(key)?.sequence ??
+        this.events.at(-1)?.sequence ??
+        0,
+      occurred_at: Date.now() / 1000,
+      sender: "agent",
+      content: message.content,
+      is_streaming: true,
+    });
+    this.publish();
+  }
+
+  private recordTextReceipt(): void {
+    if (
+      this.timing &&
+      this.sentAt !== undefined &&
+      this.timing.firstTextReceivedMs === undefined
+    ) {
+      this.timing.firstTextReceivedMs = performance.now() - this.sentAt;
+      this.logger?.debug("[session] first text received", {
+        sessionId: this.sessionId,
+        turnId: this.turnId,
+        ...this.timing,
+      });
+    }
+  }
+
   private finish(): void {
-    this.awaitingResume = false;
     this.terminalDrainUntil = undefined;
     this.terminalTurnId = undefined;
     this.pendingUserMessage = undefined;
-    this.stopPolling();
+    this.stopStreaming();
     this.resolvePending();
   }
 
@@ -437,7 +614,7 @@ export class ClientSession {
       this.finish();
       return;
     }
-    this.startPolling();
+    this.startStreaming();
   }
 
   private hasTerminalAnswer(): boolean {
@@ -465,6 +642,7 @@ export class ClientSession {
   private resolvePending(): void {
     const resolve = this.pendingResolve;
     this.pendingResolve = null;
+    this.pendingReject = null;
     resolve?.(this.result());
   }
 
@@ -486,9 +664,11 @@ export class ClientSession {
       ...(this.turnState ? { turnState: this.turnState } : {}),
       events: this.cachedStore.events,
       messages: this.cachedStore.messages,
+      liveMessages: [...this.liveMessages.values()],
       actions: this.actions.all(),
+      ...(this.timing ? { timing: { ...this.timing } } : {}),
       ...(this.title ? { title: this.title } : {}),
-      isPolling: this.pollingActive,
+      isStreaming: this.streamingActive,
       isSubmitting: this.isSubmitting,
       ...(this.pendingUserMessage
         ? { pendingUserMessage: this.pendingUserMessage.content }
@@ -503,29 +683,99 @@ export class ClientSession {
     for (const listener of this.listeners) listener();
   }
 
-  private currentPollInterval(): number {
-    return typeof document !== "undefined" && document.hidden
-      ? 2_000
-      : this.pollIntervalMs;
+  private scheduleReconnect(delayMs: number): void {
+    if (!this.streamingActive || this.closed) return;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => void this.connectStream(), delayMs);
   }
-
-  private schedulePoll(delayMs: number): void {
-    if (!this.pollingActive || this.closed) return;
-    if (this.pollTimer) clearTimeout(this.pollTimer);
-    this.pollTimer = setTimeout(() => void this.pollTick(), delayMs);
-  }
-
-  private handleVisibilityChange = (): void => {
-    if (
-      typeof document !== "undefined" &&
-      !document.hidden &&
-      !this.pollInFlight
-    ) {
-      this.schedulePoll(0);
-    }
-  };
 
   private assertOpen(): void {
     if (this.closed) throw new Error("Session is closed");
   }
+}
+
+function normalizeOptionalString(
+  value: string | undefined,
+): string | undefined {
+  const normalized = value?.trim();
+  return normalized || undefined;
+}
+
+function normalizeTarget(
+  target: AgentTarget | undefined,
+): AgentTarget | undefined {
+  if (!target) return undefined;
+  if (target.mode !== "direct") return { mode: "auto" };
+  const app = normalizeOptionalString(target.app);
+  if ("applicationId" in target && target.applicationId !== undefined) {
+    if (
+      !Number.isSafeInteger(target.applicationId) ||
+      target.applicationId <= 0
+    ) {
+      throw new TypeError("Direct applicationId must be a positive integer");
+    }
+    return {
+      mode: "direct",
+      applicationId: target.applicationId,
+      ...(app ? { app } : {}),
+    };
+  }
+  return { mode: "direct", ...(app ? { app } : {}) };
+}
+
+function assertTargetCompatibility(options: {
+  target?: AgentTarget;
+  app?: string;
+  applicationId?: number | string | null;
+}): void {
+  if (
+    options.target &&
+    (normalizeOptionalString(options.app) ||
+      normalizeApplicationId(options.applicationId) !== undefined)
+  ) {
+    throw new TypeError(
+      "target cannot be combined with legacy app or applicationId options",
+    );
+  }
+}
+
+function normalizeApplicationId(
+  value: number | string | null | undefined,
+): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new TypeError("applicationId must be a positive integer");
+  }
+  return parsed;
+}
+
+function startTargetFields(options: {
+  target?: AgentTarget;
+  app?: string;
+  applicationId?: number | string | null;
+}): Pick<StartTurnIntent, "mode" | "app" | "applicationId"> {
+  if (options.target?.mode === "direct") {
+    return "applicationId" in options.target &&
+      options.target.applicationId !== undefined
+      ? {
+          mode: "direct",
+          applicationId: options.target.applicationId,
+          ...(options.target.app ? { app: options.target.app } : {}),
+        }
+      : {
+          mode: "direct",
+          ...(options.target.app ? { app: options.target.app } : {}),
+        };
+  }
+  if (options.target) return { mode: "auto" };
+
+  const applicationId = normalizeApplicationId(options.applicationId);
+  if (applicationId !== undefined) {
+    return {
+      applicationId,
+      ...(options.app ? { app: options.app } : {}),
+    };
+  }
+  return options.app ? { app: options.app } : {};
 }

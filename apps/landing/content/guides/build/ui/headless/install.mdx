@@ -17,45 +17,45 @@ npm install @aomi-labs/react
 
 ### Providers
 
-| Export | Description |
-| --- | --- |
-| `AomiRuntimeProvider` | Top-level provider that connects to the Aomi backend and sets up all contexts |
-| `ThreadContextProvider` | Thread state management (messages, metadata, thread switching) |
-| `ExtUserProvider` | Wallet/user state (address, chain, connection status) |
-| `NotificationContextProvider` | Toast notification state |
-| `ClientSession` | Ordered Event reduction and polling |
-| `ControlContextProvider` | Model/app/API key selection state |
+| Export                        | Description                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `AomiRuntimeProvider`         | Top-level provider that connects to the Aomi backend and sets up all contexts |
+| `ThreadContextProvider`       | Thread state management (messages, metadata, thread switching)                |
+| `ExtUserProvider`             | Wallet/user state (address, chain, connection status)                         |
+| `NotificationContextProvider` | Toast notification state                                                      |
+| `ClientSession`               | Ordered Event reduction and polling                                           |
+| `ControlContextProvider`      | Auto/Direct target, model, and API key state                                  |
 
 ### Hooks
 
-| Hook | Description |
-| --- | --- |
-| `useAomiRuntime` | Unified API combining all sub-contexts (threads, messages, user, events, notifications, wallet) |
-| `useUser` | Wallet/user state and setters |
-| `useThreadContext` | Current thread ID, messages map, metadata map |
-| `useCurrentThreadMessages` | Messages for the active thread |
-| `useCurrentThreadMetadata` | Metadata (title, status) for the active thread |
-| `useControl` | Model/app/API key state and selection |
-| `useNotification` | Show, dismiss, and list notifications |
-| `useAomiRuntime` | Ordered Events, lifecycle, and Actions |
-| `useActions` | Select canonical Actions and execution attempts |
-| `useNotificationHandler` | Process notification events from the backend |
+| Hook                       | Description                                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `useAomiRuntime`           | Unified API combining all sub-contexts (threads, messages, user, events, notifications, wallet) |
+| `useUser`                  | Wallet/user state and setters                                                                   |
+| `useThreadContext`         | Current thread ID, messages map, metadata map                                                   |
+| `useCurrentThreadMessages` | Messages for the active thread                                                                  |
+| `useCurrentThreadMetadata` | Metadata (title, status) for the active thread                                                  |
+| `useControl`               | Auto/Direct target, model, and API key state                                                    |
+| `useNotification`          | Show, dismiss, and list notifications                                                           |
+| `useAomiRuntime`           | Ordered Events, lifecycle, and Actions                                                          |
+| `useActions`               | Select canonical Actions and execution attempts                                                 |
+| `useNotificationHandler`   | Process notification events from the backend                                                    |
 
 ### API Client
 
-| Export | Description |
-| --- | --- |
+| Export       | Description                                                    |
+| ------------ | -------------------------------------------------------------- |
 | `BackendApi` | Direct HTTP client for the Aomi backend (usable outside React) |
 
 ### Utilities
 
-| Export | Description |
-| --- | --- |
-| `cn` | Class name merger (clsx + tailwind-merge) |
-| `formatAddress` | Truncates wallet addresses for display (`0xABC...12`) |
-| `getNetworkName` | Resolves chain ID to human-readable network name |
-| `getChainInfo` | Returns chain metadata (name, ticker, explorer URL) |
-| `SUPPORTED_CHAINS` | Array of supported chain configurations |
+| Export             | Description                                           |
+| ------------------ | ----------------------------------------------------- |
+| `cn`               | Class name merger (clsx + tailwind-merge)             |
+| `formatAddress`    | Truncates wallet addresses for display (`0xABC...12`) |
+| `getNetworkName`   | Resolves chain ID to human-readable network name      |
+| `getChainInfo`     | Returns chain metadata (name, ticker, explorer URL)   |
+| `SUPPORTED_CHAINS` | Array of supported chain configurations               |
 
 ### Types
 
@@ -73,6 +73,8 @@ import type {
   ActionResult,
   Event,
   TurnState,
+  AgentMode,
+  AgentTarget,
 } from "@aomi-labs/react";
 ```
 
@@ -108,14 +110,14 @@ UserState source, preferences, and the runtime core. Event reduction belongs to
 
 ## When to Use Headless vs Widget
 
-| Scenario | Recommendation |
-| --- | --- |
-| Standard chat interface needed quickly | Widget |
-| Existing design system, custom look | Headless |
-| Non-Next.js React app | Headless |
-| Server-side API calls (no React) | Headless (`BackendApi` class directly) |
-| Want to start fast, customize later | Widget (edit source files) |
-| Embedding in an existing complex layout | Headless |
+| Scenario                                | Recommendation                         |
+| --------------------------------------- | -------------------------------------- |
+| Standard chat interface needed quickly  | Widget                                 |
+| Existing design system, custom look     | Headless                               |
+| Non-Next.js React app                   | Headless                               |
+| Server-side API calls (no React)        | Headless (`BackendApi` class directly) |
+| Want to start fast, customize later     | Widget (edit source files)             |
+| Embedding in an existing complex layout | Headless                               |
 
 ## Next Steps
 

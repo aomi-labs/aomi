@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   AomiClient,
   type ActionCapabilities,
+  type AgentTarget,
   type AomiClientOptions,
   type AomiPlatformFilter,
 } from "@aomi-labs/client";
@@ -31,6 +32,8 @@ export type AomiRuntimeProviderProps = {
   children: ReactNode;
   backendUrl?: string;
   applicationId?: number | string | null;
+  /** Optional host-fixed target. Omit to use the per-thread Auto/Direct control. */
+  agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
   inferenceFunding?: AomiInferenceFundingSource;
@@ -55,6 +58,7 @@ export function AomiRuntimeProvider({
   children,
   backendUrl = "http://127.0.0.1:8080",
   applicationId,
+  agentTarget,
   appPlatforms,
   clientOptions,
   inferenceFunding,
@@ -116,6 +120,7 @@ export function AomiRuntimeProvider({
             aomiClient={aomiClient}
             inferenceFunding={inferenceFunding}
             applicationId={applicationId}
+            agentTarget={agentTarget}
             appPlatforms={appPlatforms}
             accountSessionAvailable={accountSessionAvailable}
             actions={actions}
@@ -139,6 +144,7 @@ type AomiRuntimeInnerProps = {
   aomiClient: AomiClient;
   inferenceFunding?: AomiInferenceFundingSource;
   applicationId?: number | string | null;
+  agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
   accountSessionAvailable: boolean;
   actions?: ActionCapabilities;
@@ -151,6 +157,7 @@ function AomiRuntimeInner({
   aomiClient,
   inferenceFunding,
   applicationId,
+  agentTarget,
   appPlatforms,
   accountSessionAvailable,
   actions,
@@ -168,10 +175,11 @@ function AomiRuntimeInner({
       appPlatforms={appPlatforms}
       applicationId={applicationId}
       inferenceFunding={inferenceFunding}
+      accountSessionAvailable={accountSessionAvailable}
     >
       <AomiRuntimeCore
         aomiClient={aomiClient}
-        applicationId={applicationId}
+        agentTarget={agentTarget}
         accountSessionAvailable={accountSessionAvailable}
         actions={actions}
         restoredThreadId={restoredThreadId}

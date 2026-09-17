@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
 
-import { usePortalWalletAccountMenu } from "./use-portal-wallet-account-menu";
-import { seedAccountOverview } from "@portal/lib/account-overview";
+import { usePortalWalletAccountMenu } from "../../../../shadcn-registry/src/components/account-shell/components/shell/use-portal-wallet-account-menu";
+import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 
 const walletKitState = vi.hoisted(() => ({
   current: {
@@ -43,17 +43,24 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   useAomiWalletKit: () => walletKitState.current,
 }));
 
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => walletKitState.current,
+}));
+
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useAomiRuntime: () => runtimeState.current,
 }));
 
-vi.mock("@portal/lib/use-settings", () => ({
-  useSettings: () => ({
-    settings: { colorMode: "dark" },
-    updateSetting: vi.fn(),
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
+  () => ({
+    useSettings: () => ({
+      settings: { colorMode: "dark" },
+      updateSetting: vi.fn(),
+    }),
   }),
-}));
+);
 
 function readMenu(onManageAccount = () => undefined) {
   let captured: ReturnType<typeof usePortalWalletAccountMenu>;

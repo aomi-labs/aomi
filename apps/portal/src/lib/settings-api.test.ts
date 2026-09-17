@@ -37,7 +37,8 @@ describe("settingsApiFetch", () => {
     });
 
     try {
-      const { sessionScopedFetch } = await import("./settings-api");
+      const { sessionScopedFetch } =
+        await import("../../../shadcn-registry/src/components/account-shell/lib/settings-api");
       await sessionScopedFetch("/api/account/apps");
 
       expect(calls[0]?.url).toBe("/api/account/apps");

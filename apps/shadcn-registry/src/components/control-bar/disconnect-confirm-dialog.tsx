@@ -23,7 +23,7 @@ export function DisconnectConfirmDialog({
   const signingOut = mode === "signout";
   const title = signingOut ? "Sign out of Aomi?" : "Disconnect wallet?";
   const description = signingOut
-    ? "Ends your Aomi account session. Your wallet stays connected in this browser."
+    ? "Ends your Aomi account session and disconnects wallets from this browser."
     : `Stops using ${label} in Aomi. Your Aomi account stays signed in.`;
   const actionLabel = signingOut ? "Sign out" : "Disconnect";
   const busyLabel = signingOut ? "Signing out…" : "Disconnecting…";

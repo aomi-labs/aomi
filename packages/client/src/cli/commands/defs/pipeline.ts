@@ -1,28 +1,84 @@
 import { defineCommand } from "citty";
 import { buildCliConfig, getPositionals, globalArgs } from "./shared";
 
-const discoveryArgs = {
-  ...globalArgs,
-  query: { type: "string", alias: "q", description: "Ranked search query" },
-  limit: { type: "string", description: "Maximum results (server-bounded)" },
+const pipelineArgs = {
+  "backend-url": globalArgs["backend-url"],
+  "api-key": globalArgs["api-key"],
+  "account-bearer": globalArgs["account-bearer"],
+  app: globalArgs.app,
+  "private-key": globalArgs["private-key"],
+  "rpc-url": globalArgs["rpc-url"],
+  "payment-method": globalArgs["payment-method"],
 } as const;
 
+const filterArgs = {
+  filter: {
+    type: "string",
+    alias: "q",
+    description: "Keep entries whose name contains this text",
+  },
+  limit: { type: "string", description: "Maximum entries to print" },
+} as const;
+
+const scopeArgs = {
+  ...pipelineArgs,
+  skill: { type: "string", description: "Use a skill operation scope" },
+} as const;
+
+const operationArg = {
+  operation: {
+    type: "positional",
+    description: "Operation name",
+    required: true,
+  },
+} as const;
+
+const argumentsArg = {
+  arguments: {
+    type: "string",
+    description: "JSON object, file path, @file, or - for stdin (default: {})",
+  },
+} as const;
+
+const idempotencyArg = {
+  "idempotency-key": {
+    type: "string",
+    description: "Stable key to reuse when manually retrying the same mutation",
+  },
+} as const;
+
+const pipelineReadDef = defineCommand({
+  meta: { name: "read", description: "Read any Pipeline filesystem resource" },
+  args: {
+    ...pipelineArgs,
+    path: {
+      type: "positional",
+      description: "Path beneath /v1/pipeline (default: root)",
+      required: false,
+    },
+  },
+  async run({ args }) {
+    const { pipelineReadCommand } = await import("../pipeline");
+    await pipelineReadCommand(
+      buildCliConfig(args),
+      text(getPositionals(args)[0]),
+    );
+  },
+});
+
 const pipelineAppsDef = defineCommand({
-  meta: { name: "apps", description: "List or search Pipeline apps" },
-  args: discoveryArgs,
+  meta: { name: "apps", description: "List Pipeline apps" },
+  args: { ...pipelineArgs, ...filterArgs },
   async run({ args }) {
     const { pipelineAppsCommand } = await import("../pipeline");
-    await pipelineAppsCommand(buildCliConfig(args), {
-      query: text(args.query),
-      limit: limit(args.limit),
-    });
+    await pipelineAppsCommand(buildCliConfig(args), listOptions(args));
   },
 });
 
 const pipelineAppDef = defineCommand({
   meta: { name: "app", description: "Describe one Pipeline app" },
   args: {
-    ...globalArgs,
+    ...pipelineArgs,
     appName: {
       type: "positional",
       description: "App name",
@@ -35,121 +91,182 @@ const pipelineAppDef = defineCommand({
   },
 });
 
-const pipelineToolsDef = defineCommand({
-  meta: { name: "tools", description: "List or search Pipeline tools" },
-  args: {
-    ...discoveryArgs,
-    namespace: { type: "string", description: "Namespace filter" },
-  },
-  async run({ args }) {
-    const { pipelineToolsCommand } = await import("../pipeline");
-    const config = buildCliConfig(args);
-    await pipelineToolsCommand(config, {
-      query: text(args.query),
-      app: config.app,
-      namespace: text(args.namespace),
-      limit: limit(args.limit),
-    });
-  },
-});
-
-const pipelineToolDef = defineCommand({
-  meta: { name: "tool", description: "Describe one Pipeline tool" },
-  args: {
-    ...globalArgs,
-    toolId: {
-      type: "positional",
-      description: "Tool id",
-      required: true,
-    },
-  },
-  async run({ args }) {
-    const { pipelineToolCommand } = await import("../pipeline");
-    const config = buildCliConfig(args);
-    await pipelineToolCommand(config, getPositionals(args)[0]!, config.app);
-  },
-});
-
 const pipelineSkillsDef = defineCommand({
   meta: { name: "skills", description: "List Pipeline skills" },
-  args: discoveryArgs,
+  args: { ...pipelineArgs, ...filterArgs },
   async run({ args }) {
     const { pipelineSkillsCommand } = await import("../pipeline");
-    await pipelineSkillsCommand(buildCliConfig(args), limit(args.limit));
+    await pipelineSkillsCommand(buildCliConfig(args), listOptions(args));
   },
 });
 
 const pipelineSkillDef = defineCommand({
   meta: { name: "skill", description: "Describe one Pipeline skill" },
   args: {
-    ...globalArgs,
-    skillId: {
+    ...pipelineArgs,
+    skillName: {
       type: "positional",
-      description: "Skill id",
+      description: "Skill name",
       required: true,
+    },
+    instructions: {
+      type: "boolean",
+      description: "Print the skill's SKILL.md instead of its directory",
     },
   },
   async run({ args }) {
     const { pipelineSkillCommand } = await import("../pipeline");
-    await pipelineSkillCommand(buildCliConfig(args), getPositionals(args)[0]!);
+    await pipelineSkillCommand(
+      buildCliConfig(args),
+      getPositionals(args)[0]!,
+      args.instructions === true,
+    );
   },
 });
 
-const executionArgs = {
-  ...globalArgs,
-  "idempotency-key": {
-    type: "string",
-    description:
-      "Stable key for this logical execution; reuse it for a manual retry",
-    required: true,
-  },
-} as const;
-
-const pipelineCallDef = defineCommand({
+const pipelineOperationsDef = defineCommand({
   meta: {
-    name: "call",
-    description:
-      "Call a builtin public Pipeline tool through backend policy gates",
+    name: "operations",
+    description: "List operations for an app or skill",
   },
-  args: {
-    ...executionArgs,
-    toolId: {
-      type: "positional",
-      description: "Tool id",
-      required: true,
-    },
-    arguments: {
-      type: "string",
-      description: "Tool arguments as a JSON object",
-    },
-  },
+  args: { ...scopeArgs, ...filterArgs },
   async run({ args }) {
-    const { pipelineCallCommand } = await import("../pipeline");
-    const config = buildCliConfig(args);
-    await pipelineCallCommand(config, {
-      toolId: getPositionals(args)[0]!,
-      arguments: text(args.arguments),
-      app: config.app,
-      applicationId: config.applicationId,
-      platform: config.appPlatform,
-      idempotencyKey: text(args["idempotency-key"])!,
+    const { pipelineOperationsCommand } = await import("../pipeline");
+    await pipelineOperationsCommand(buildCliConfig(args), {
+      ...scopeOptions(args),
+      ...listOptions(args),
     });
   },
 });
 
+const pipelineOperationDef = defineCommand({
+  meta: {
+    name: "operation",
+    description: "Describe one app or skill operation",
+  },
+  args: { ...scopeArgs, ...operationArg },
+  async run({ args }) {
+    const { pipelineOperationCommand } = await import("../pipeline");
+    await pipelineOperationCommand(
+      buildCliConfig(args),
+      getPositionals(args)[0]!,
+      scopeOptions(args),
+    );
+  },
+});
+
+const pipelineInvokeDef = defineCommand({
+  meta: {
+    name: "invoke",
+    description: "Validate and invoke one app or skill operation",
+  },
+  args: {
+    ...scopeArgs,
+    ...operationArg,
+    ...argumentsArg,
+    ...idempotencyArg,
+  },
+  async run({ args }) {
+    const { pipelineInvokeCommand } = await import("../pipeline");
+    await pipelineInvokeCommand(
+      buildCliConfig(args),
+      getPositionals(args)[0]!,
+      {
+        ...scopeOptions(args),
+        arguments: text(args.arguments),
+        idempotencyKey: text(args["idempotency-key"]),
+      },
+    );
+  },
+});
+
+const pipelineBuildDef = defineCommand({
+  meta: {
+    name: "build",
+    description: "Build and simulate one app or skill operation",
+  },
+  args: {
+    ...scopeArgs,
+    ...operationArg,
+    ...argumentsArg,
+    "chain-family": {
+      type: "string",
+      description: "Override descriptor inference with evm or svm",
+    },
+  },
+  async run({ args }) {
+    const { pipelineBuildCommand } = await import("../pipeline");
+    await pipelineBuildCommand(buildCliConfig(args), getPositionals(args)[0]!, {
+      ...scopeOptions(args),
+      arguments: text(args.arguments),
+      chainFamily: chain(text(args["chain-family"])),
+    });
+  },
+});
+
+function lifecycleDef(
+  chainFamily: "evm" | "svm",
+  lifecycle: "build" | "stage" | "simulate" | "commit",
+) {
+  return defineCommand({
+    meta: {
+      name: lifecycle,
+      description: lifecycleDescription(chainFamily, lifecycle),
+    },
+    args: {
+      ...pipelineArgs,
+      input: {
+        type: "positional",
+        description: "JSON object, file path, @file, or - for stdin",
+        required: true,
+      },
+      ...(lifecycle === "commit" ? idempotencyArg : {}),
+    },
+    async run({ args }) {
+      const { pipelineLifecycleCommand } = await import("../pipeline");
+      await pipelineLifecycleCommand(
+        buildCliConfig(args),
+        chainFamily,
+        lifecycle,
+        getPositionals(args)[0]!,
+        text(args["idempotency-key"]),
+      );
+    },
+  });
+}
+
+function chainDef(chainFamily: "evm" | "svm") {
+  return defineCommand({
+    meta: {
+      name: chainFamily,
+      description: `${chainFamily.toUpperCase()} raw Build lifecycle`,
+    },
+    subCommands: {
+      build: lifecycleDef(chainFamily, "build"),
+      stage: lifecycleDef(chainFamily, "stage"),
+      simulate: lifecycleDef(chainFamily, "simulate"),
+      commit: lifecycleDef(chainFamily, "commit"),
+    },
+  });
+}
+
 export const pipelineDef = defineCommand({
   meta: {
     name: "pipeline",
-    description: "Pipeline discovery and builtin policy-gated execution",
+    description: "Discover, build, simulate, and commit Pipeline operations",
   },
   subCommands: {
+    read: pipelineReadDef,
     apps: pipelineAppsDef,
     app: pipelineAppDef,
-    tools: pipelineToolsDef,
-    tool: pipelineToolDef,
     skills: pipelineSkillsDef,
     skill: pipelineSkillDef,
-    call: pipelineCallDef,
+    operations: pipelineOperationsDef,
+    operation: pipelineOperationDef,
+    invoke: pipelineInvokeDef,
+    build: pipelineBuildDef,
+    evm: chainDef("evm"),
+    svm: chainDef("svm"),
   },
 });
 
@@ -158,16 +275,48 @@ function text(value: unknown): string | undefined {
 }
 
 function limit(value: unknown): number | undefined {
-  const parsed = Number(text(value));
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const raw = text(value);
+  if (raw === undefined) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new TypeError("--limit must be a positive integer");
+  }
+  return parsed;
 }
 
-function list(value: unknown): string[] | undefined {
-  const raw = text(value);
-  if (!raw) return undefined;
-  const values = raw
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return values.length ? values : undefined;
+function listOptions(args: Record<string, unknown>) {
+  return { filter: text(args.filter), limit: limit(args.limit) };
+}
+
+function scopeOptions(args: Record<string, unknown>) {
+  return { app: text(args.app), skill: text(args.skill) };
+}
+
+function chain(value: string | undefined): "evm" | "svm" | undefined {
+  const normalized = value?.toLowerCase();
+  if (
+    normalized === undefined ||
+    normalized === "evm" ||
+    normalized === "svm"
+  ) {
+    return normalized;
+  }
+  throw new TypeError("--chain-family must be evm or svm");
+}
+
+function lifecycleDescription(
+  chainFamily: "evm" | "svm",
+  lifecycle: "build" | "stage" | "simulate" | "commit",
+): string {
+  const chain = chainFamily.toUpperCase();
+  switch (lifecycle) {
+    case "build":
+      return `Build and simulate an ${chain} operation or direct input`;
+    case "stage":
+      return `Stage ${chain} actions without simulation`;
+    case "simulate":
+      return `Simulate a staged ${chain} Build`;
+    case "commit":
+      return `Commit a simulated ${chain} Build`;
+  }
 }
