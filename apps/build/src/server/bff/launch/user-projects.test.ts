@@ -160,6 +160,85 @@ describe("userProjectsRoute", () => {
     expect(managerUrl).not.toContain("platform");
   });
 
+  // The manager's detail read omits the live SDK summary its list read
+  // carries; the BFF fills it from the list so the page and the index agree.
+  it("stamps the list's live SDK onto a detail read that lacks it", async () => {
+    getGitHubSession.mockResolvedValue({
+      githubUserId: "42",
+      githubLogin: "alice",
+    });
+    const liveApp = {
+      id: 2937808,
+      name: "bot",
+      is_active: true,
+      loaded: true,
+      app_release_tag: "apps-555-r1-bot-abc",
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).includes("/projects/1663?")
+        ? Response.json({
+            ...sourceRow(1663),
+            apps: [liveApp],
+            sdk_version: null,
+            sdk_versions: [],
+            configuration: { status: "invalid", checked_revision: "abc" },
+          })
+        : Response.json({
+            projects: [
+              {
+                ...sourceRow(1663),
+                apps: [liveApp],
+                sdk_version: "5.0.0",
+                sdk_versions: ["5.0.0"],
+              },
+            ],
+          }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await userProjectsRoute(req(undefined, "1663"));
+    expect(res.status).toBe(200);
+    const [project] = (await res.json()).projects;
+    expect(project).toMatchObject({
+      id: 1663,
+      sdkVersion: "5.0.0",
+      sdkVersions: ["5.0.0"],
+      configuration: { status: "invalid" },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toContain(
+      "/api/integrations/github-app/user/projects?github_user_id=42",
+    );
+  });
+
+  it("keeps a detail read's own SDK stamp without a list read", async () => {
+    getGitHubSession.mockResolvedValue({
+      githubUserId: "42",
+      githubLogin: "alice",
+    });
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        ...sourceRow(1663),
+        apps: [
+          {
+            id: 2937808,
+            name: "bot",
+            is_active: true,
+            loaded: true,
+            app_release_tag: "apps-555-r1-bot-abc",
+          },
+        ],
+        sdk_version: "5.1.0",
+        sdk_versions: ["5.1.0"],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await userProjectsRoute(req(undefined, "1663"));
+    expect((await res.json()).projects[0].sdkVersion).toBe("5.1.0");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("400s on a malformed projectId", async () => {
     getGitHubSession.mockResolvedValueOnce({
       githubUserId: "42",

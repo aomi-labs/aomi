@@ -1,7 +1,7 @@
 "use client";
 
 import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { sourceSdkVersion } from "../sdk-compatibility";
+import { projectSdk } from "../sdk-compatibility";
 import { SdkBadge } from "../ui/sdk-badge";
 import { EmptyPanel } from "../ui/state-panels";
 
@@ -21,8 +21,8 @@ export function SettingsTab({ detail }: { detail: Detail }) {
   if (!source) {
     return <EmptyPanel>Project not found.</EmptyPanel>;
   }
-  const stamped = sourceSdkVersion(source);
-  const required = detail.sdk?.sdkStatus.requiredVersion;
+  const required = detail.sdk?.sdkStatus.requiredVersion ?? null;
+  const sdk = projectSdk(source, required);
 
   return (
     <div className="text-sm">
@@ -36,9 +36,10 @@ export function SettingsTab({ detail }: { detail: Detail }) {
           <div className="font-medium">SDK compatibility</div>
           <div className="text-dim mt-1 text-xs">
             Backend requires {required ?? "unknown"}
+            {sdk.warning ? ` · ${sdk.warning}` : ""}
           </div>
         </div>
-        <SdkBadge stamped={stamped} required={required} />
+        <SdkBadge sdk={sdk} />
       </div>
       <div className="border-border border-t px-4 py-4">
         <div className="text-foreground text-sm font-medium">

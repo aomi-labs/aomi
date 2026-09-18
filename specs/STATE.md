@@ -2,6 +2,23 @@
 
 ## Last Updated
 
+2026-09-17 — BUILD PROJECTS INDEX vs PROJECT PAGE DISAGREED ABOUT THE SDK
+  (worktree `release-fix-build-sdk`, uncommitted). Staging listed project 1663
+  as `SDK 5.0.0 / outdated` while its page read `SDK UNKNOWN` with a clean
+  `Live / Ready`. Cause: the manager's detail read (`GET /user/projects/:id`,
+  product-mono `aomi/bin/manager/src/project/mod.rs` `detail_json`) builds on
+  `list_json(None, Vec::new())`, so `sdk_version`/`sdk_versions` are always
+  null there, whereas the list read (`list_builder_projects`) stamps them from
+  `current_sdk_versions` (active promotion record). The BFF projects route
+  (`apps/build/src/server/bff/launch/routes.ts` `userProjectsRoute`) now fills
+  a live project's missing SDK summary from the same cached list read; the
+  derivation moved to one `projectSdk(source, required)` model
+  (`sdk-compatibility.ts`) that ProjectRow, Home, Chat and Settings all render
+  from; Home shows an SDK callout + warn-toned Live card whenever the SDK is
+  outdated or the runtime SDK is unrecorded, and never a bare "unknown".
+  BACKEND FIX STILL WANTED: `detail_json` should compute `project_sdk_summary`
+  exactly as `list_builder_projects` does (then the BFF merge is a no-op).
+
 2026-09-12 — TELEGRAM MINI APP: DELEGATION ADDED, PORTAL UI ADOPTED, AND THE
   PARA PINS PULLED OUT OF THE BOT (branches `feat/telegram-delegation-prod-ready`
   in aomi-widget, `feat/telegram-privy-execution-key` in product-mono).
@@ -5367,3 +5384,14 @@ Controls disabled while isProcessing === true
 - Control bar components get all data from context (no props needed)
 - New threads initialize with `createDefaultControlState()` (null model/namespace)
 - Thread switching restores the thread's previous model/namespace selection
+
+## 2026-09-17 — Post-release SDK and pool fixes
+
+- Integrated Build SDK display and canonical pool-budget fixes on a branch
+  from main; preserved the original uncommitted worktrees.
+- Partial live SDK summaries now flag any known mismatch; historical deployment
+  stamps cannot make an incomplete runtime record look current. Added helper,
+  Home and Chat regression coverage.
+- Bumped the account package patch version for its shipped budget JSON.
+- Local managed builds are blocked by disk headroom; PR CI is the test gate.
+- Scope is main only. This work does not promote production or publish npm.
