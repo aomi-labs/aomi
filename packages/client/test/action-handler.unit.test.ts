@@ -119,3 +119,125 @@ describe("ActionHandler", () => {
     );
   });
 });
+
+describe("signing Action safety", () => {
+  const signed: ActionResult = {
+    status: "signed",
+    outputs: [{ id: "payload_1", signature: "fixture" }],
+  };
+  const signingAction = (overrides: Partial<Action> = {}): Action =>
+    action({
+      request: {
+        type: "sign",
+        requestId: "sign-1",
+        chainFamily: "evm",
+        executionKind: "message",
+        signer: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        chainId: 1337,
+        description: "Domain test",
+        payloads: [],
+      },
+      ...overrides,
+    });
+  const acknowledge = async (current: Action, result: ActionResult) => ({
+    ...current,
+    revision: current.revision + 1,
+    state: "completed" as const,
+    result,
+  });
+
+  it("coalesces duplicate clicks and never signs again when retrying delivery", async () => {
+    let resolve!: (result: Extract<ActionResult, { status: "signed" }>) => void;
+    const sign = vi.fn(
+      () =>
+        new Promise<Extract<ActionResult, { status: "signed" }>>((done) => {
+          resolve = done;
+        }),
+    );
+    const respond = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementation(acknowledge);
+    const handler = new ActionHandler({ sign }, respond);
+    handler.ingest(signingAction());
+    const first = handler.execute("action-1");
+    expect(handler.execute("action-1")).toBe(first);
+    resolve(signed as Extract<ActionResult, { status: "signed" }>);
+    await expect(first).rejects.toThrow("offline");
+    await handler.retry("action-1");
+    expect(sign).toHaveBeenCalledOnce();
+    expect(respond.mock.calls[0][2]).toBe(respond.mock.calls[1][2]);
+    expect(() => handler.execute("action-1")).toThrow("No pending Action");
+  });
+
+  it("does not submit a wallet rejection or automatically retry signing", async () => {
+    const sign = vi.fn().mockRejectedValue(new Error("User rejected"));
+    const respond = vi.fn(acknowledge);
+    const handler = new ActionHandler({ sign }, respond);
+    handler.ingest(signingAction());
+    await expect(handler.execute("action-1")).rejects.toThrow("User rejected");
+    expect(respond).not.toHaveBeenCalled();
+    expect(sign).toHaveBeenCalledOnce();
+  });
+
+  it.each(["action", "request"])(
+    "requires fresh preparation and approval for expired %s",
+    async (expiry) => {
+      const sign = vi.fn().mockResolvedValue(signed);
+      const respond = vi.fn(acknowledge);
+      const handler = new ActionHandler({ sign }, respond);
+      const expired = signingAction();
+      if (expiry === "action")
+        expired.expires_at = Math.floor(Date.now() / 1000) - 1;
+      else if (expired.request.type === "sign")
+        expired.request.expiresAt = new Date(Date.now() - 1000).toISOString();
+      handler.ingest(expired);
+      expect(handler.canExecute("action-1")).toBe(false);
+      expect(() => handler.execute("action-1")).toThrow(
+        "Prepare a new request",
+      );
+      expect(sign).not.toHaveBeenCalled();
+      expect(respond).not.toHaveBeenCalled();
+      handler.ingest(signingAction({ id: "fresh-action", revision: 1 }));
+      expect(sign).not.toHaveBeenCalled();
+      await handler.execute("fresh-action");
+      expect(sign).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["expired", "superseded", "aborted"])(
+    "discards a signature when the approval is %s during the prompt",
+    async (reason) => {
+      let resolve!: (
+        result: Extract<ActionResult, { status: "signed" }>,
+      ) => void;
+      const sign = vi.fn(
+        () =>
+          new Promise<Extract<ActionResult, { status: "signed" }>>((done) => {
+            resolve = done;
+          }),
+      );
+      const respond = vi.fn(acknowledge);
+      const handler = new ActionHandler({ sign }, respond);
+      const start = Date.now();
+      handler.ingest(
+        signingAction({ expires_at: Math.floor(start / 1000) + 60 }),
+      );
+      const pending = handler.execute("action-1");
+      if (reason === "expired")
+        vi.spyOn(Date, "now").mockReturnValue(start + 120_000);
+      if (reason === "superseded")
+        handler.ingest(signingAction({ revision: 2 }));
+      if (reason === "aborted") handler.abort("action-1");
+      resolve(signed as Extract<ActionResult, { status: "signed" }>);
+      await expect(pending).rejects.toThrow(
+        reason === "expired" ? "expired" : "Action changed",
+      );
+      expect(respond).not.toHaveBeenCalled();
+      if (reason === "expired")
+        await expect(handler.retry("action-1")).rejects.toThrow("expired");
+      expect(respond).not.toHaveBeenCalled();
+      expect(sign).toHaveBeenCalledOnce();
+    },
+  );
+});
