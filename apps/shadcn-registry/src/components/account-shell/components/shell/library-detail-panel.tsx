@@ -384,7 +384,7 @@ export function LibraryDetailPanel({
           ? `${selection.kind === "app" ? selection.item.name : skillLabel(selection.item)} details`
           : "Capability details"
       }
-      className="bg-aomi-raised border-aomi-border flex min-h-0 flex-col border-l"
+      className="bg-aomi-raised border-aomi-border flex min-h-0 flex-1 flex-col md:border-l"
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-5">
         {!selection ? (

@@ -24,6 +24,7 @@ import {
   useWalletPicker,
 } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
+import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 
 afterEach(cleanup);
 
@@ -227,6 +228,7 @@ function renderPicker(
   hasBlockingActions = false,
   initiallyOpen = true,
   signInOptions: ContextType<typeof WalletSignInOptionsContext> = [],
+  insideSidebar = false,
 ) {
   const runtime = {
     hasBlockingActions,
@@ -243,7 +245,18 @@ function renderPicker(
           >
             <WalletSignInOptionsContext.Provider value={signInOptions}>
               <WalletPickerProvider>
-                {initiallyOpen ? <OpenAndRender /> : <WalletPicker />}
+                {insideSidebar ? (
+                  <Sheet open>
+                    <SheetContent>
+                      <SheetTitle>Sidebar</SheetTitle>
+                      <OpenAndRender />
+                    </SheetContent>
+                  </Sheet>
+                ) : initiallyOpen ? (
+                  <OpenAndRender />
+                ) : (
+                  <WalletPicker />
+                )}
               </WalletPickerProvider>
             </WalletSignInOptionsContext.Provider>
           </AomiWalletNetworkPreferencesProvider>
@@ -831,56 +844,76 @@ describe("WalletPicker", () => {
     expect(screen.getByText("Finish signing in")).toBeTruthy();
   });
 
-  it("uses the new finish-sign-in panel and closes after a successful link", async () => {
-    const linkWallet = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accounts: [
-          {
-            id: "rabby-account",
-            family: "evm",
-            address: "0xBBBBBBBB",
-            walletName: "Rabby Wallet",
-            chainId: 1,
-            active: true,
-          },
-        ],
-        accountWallets: [],
-        linkWallet,
-        walletModalRows: [
-          {
-            id: "rabby-account",
-            family: "evm",
-            address: "0xBBBBBBBB",
-            walletName: "Rabby Wallet",
-            label: "0xBBBBBBBB",
-            chainId: 1,
-            source: "live",
-            status: "active",
-            actions: [{ kind: "link", label: "Link wallet" }],
-          },
-        ],
-      }),
-    );
-
-    expect(screen.getByText("Connected wallet")).toBeTruthy();
-    expect(screen.getByText("Connected")).toBeTruthy();
-    expect(document.querySelector('[data-wallet-brand="rabby"]')).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Link wallet and sign in" }),
+  it.each([false, true])(
+    "links from the finish-sign-in panel (inside sidebar: %s)",
+    async (insideSidebar) => {
+      const linkWallet = vi.fn(async () => undefined);
+      renderPicker(
+        makeAdapter({
+          accounts: [
+            {
+              id: "rabby-account",
+              family: "evm",
+              address: "0xBBBBBBBB",
+              walletName: "Rabby Wallet",
+              chainId: 1,
+              active: true,
+            },
+          ],
+          accountWallets: [],
+          linkWallet,
+          walletModalRows: [
+            {
+              id: "rabby-account",
+              family: "evm",
+              address: "0xBBBBBBBB",
+              walletName: "Rabby Wallet",
+              label: "0xBBBBBBBB",
+              chainId: 1,
+              source: "live",
+              status: "active",
+              actions: [{ kind: "link", label: "Link wallet" }],
+            },
+          ],
+        }),
+        false,
+        true,
+        [],
+        insideSidebar,
       );
-    });
 
-    expect(linkWallet).toHaveBeenCalledWith({
-      accountId: "rabby-account",
-      family: "evm",
-      address: "0xBBBBBBBB",
-      chainId: 1,
-    });
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
+      expect(screen.getByText("Connected wallet")).toBeTruthy();
+      expect(screen.getByText("Connected")).toBeTruthy();
+      expect(
+        document.querySelector('[data-wallet-brand="rabby"]'),
+      ).toBeTruthy();
+
+      const dialog = screen.getByRole("dialog", { name: "Finish signing in" });
+      expect(getComputedStyle(dialog).pointerEvents).toBe("auto");
+      const link = screen.getByRole("button", {
+        name: "Link wallet and sign in",
+      });
+      act(() => link.focus());
+      expect(link).toHaveFocus();
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Link wallet and sign in" }),
+        );
+      });
+
+      expect(linkWallet).toHaveBeenCalledWith({
+        accountId: "rabby-account",
+        family: "evm",
+        address: "0xBBBBBBBB",
+        chainId: 1,
+      });
+      expect(
+        screen.queryByRole("dialog", { name: "Finish signing in" }),
+      ).toBeNull();
+      if (insideSidebar)
+        expect(screen.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+    },
+  );
 
   it("disconnects without linking from the finish-sign-in panel", async () => {
     const disconnect = vi.fn(async () => undefined);
