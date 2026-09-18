@@ -1,5 +1,20 @@
 # Current work
 
+**COMMIT SERVICE CLIENT CUTOVER 2026-09-17** — Isolated
+`codex/commit-service-extraction` pairs with the backend worktree. Added a
+generated tagged Commit view, sign-only wallet capabilities, exact-byte
+Wallet/Venue submission, Hosted status tracking, reconnect discovery, and
+late-confirmation stream draining. Portal exposes three thin commit proxies;
+old AA transaction completion routes are removed while off-chain signing stays.
+Nine supported real-chain routes pass through the rendered CommitReview fixture
+against Anvil/Surfpool, including sponsored ERC-4337. The backend recovery gate
+kills and restarts a separate service process after losing a broadcast response.
+Focused client/Portal tests (30), widget/adapter tests (9), TypeScript checks,
+dependency boundaries, and trusted-base packed consumer compatibility pass.
+Versions: client 0.9.0, React 0.7.0, widget 2.1.0. Browser tests use deterministic
+wallets and a test transport proxy; live-provider and Portal-login verification
+are separate. No publish or deployment performed.
+
 **LIVE BACKEND CONTRACT SYNC 2026-09-17 (IN PROGRESS)** — The frozen frontend
 promotion PR #639 exposed three routes in the deployed production backend that
 were missing from the checked-in route manifest. Refreshed the generated

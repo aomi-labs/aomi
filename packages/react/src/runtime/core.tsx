@@ -490,6 +490,8 @@ export function AomiRuntimeCore({
 
       // Action API
       pendingActions: actions.pendingActions,
+      commits: snapshot.commits,
+      commitController: currentSession?.commits,
       actionAttempts: actions.actionAttempts,
       hasBlockingActions: actions.hasBlockingActions,
       executeAction: actions.executeAction,

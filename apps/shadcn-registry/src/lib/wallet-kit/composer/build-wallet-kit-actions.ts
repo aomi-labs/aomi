@@ -42,7 +42,7 @@ export function buildWalletKitActions({
   evmAddress,
   registryEvmConnected,
   svmIdentity,
-}: BuildWalletKitActionsParams): WalletKitActions {
+}: BuildWalletKitActionsParams) {
   const selectEvmNetwork = async (chainId: number) => {
     // The execution runtime owns the signer-specific switch operation. This
     // lets embedded wallets (which deliberately have no wagmi connector) use
