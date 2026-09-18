@@ -267,6 +267,7 @@ export const registry: RegistryComponent[] = [
     name: "assistant-thread",
     file: [
       "components/assistant-ui/thread.tsx",
+      "components/assistant-ui/assistant-message-row.tsx",
       "components/assistant-ui/thread-loading.ts",
       "components/assistant-ui/capability-message-text.tsx",
       "components/assistant-ui/capability-composer.tsx",

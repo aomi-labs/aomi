@@ -212,7 +212,7 @@ describe("packages modal wiring", () => {
       "text-[13px]",
     );
     expect(screen.getByRole("textbox", { name: "Search library" })).toHaveClass(
-      "text-[14px]",
+      "md:text-[14px]",
     );
     expect(screen.getByLabelText("Aave details").className).toContain(
       "border-l",

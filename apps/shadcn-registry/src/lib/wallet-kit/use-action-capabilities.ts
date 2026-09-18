@@ -75,11 +75,10 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
           })
       : undefined,
     signTypedData: wallet.signTypedData
-      ? async ({ typedData, chainId }) =>
+      ? async ({ typedData }) =>
           wallet.signTypedData!({
             typed_data: typedData,
             signer: address,
-            chainId,
           })
       : undefined,
   };
