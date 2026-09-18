@@ -27,12 +27,13 @@ import { chatAppUrl } from "@build/lib/chat-url";
 import { BUILD_GLOSSARY } from "@build/lib/glossary";
 import { environmentCard } from "./environment-card";
 import { projectDeploymentStatus } from "../project-deployment-status";
-import { sdkCompatibility, sourceSdkVersion } from "../sdk-compatibility";
+import { projectSdk } from "../sdk-compatibility";
 import {
   formatCompactCount,
   summarizeProjectUsage,
   type UsagePeek,
 } from "../usage-peek";
+import { SdkBadge } from "../ui/sdk-badge";
 import { EmptyPanel } from "../ui/state-panels";
 
 type Detail = ReturnType<typeof useProjectDetail>;
@@ -219,9 +220,13 @@ export function HomeTab({
   );
   const lifecycle = status?.lifecycle ?? null;
   const requiredSdk = detail.sdk?.sdkStatus.requiredVersion ?? null;
-  const outdated =
-    sdkCompatibility(source ? sourceSdkVersion(source) : null, requiredSdk) ===
-    "outdated";
+  // Same derivation the Projects index row renders from: the page must show
+  // the SDK and outdated state the list showed, never a bare "unknown".
+  const sdk = useMemo(
+    () => (source ? projectSdk(source, requiredSdk) : null),
+    [source, requiredSdk],
+  );
+  const outdated = sdk?.outdated ?? false;
 
   // Gate on the union of the source's apps and any the required-secrets check
   // itself named — a re-synced repo can register an app this snapshot predates.
@@ -252,7 +257,7 @@ export function HomeTab({
     ],
   );
 
-  if (!source || !status || !lifecycle) {
+  if (!source || !status || !lifecycle || !sdk) {
     return <EmptyPanel>Project not found.</EmptyPanel>;
   }
 
@@ -281,7 +286,9 @@ export function HomeTab({
           ? lifecycle.statusLabel
           : "Not live";
 
-  const liveTone = isLive ? "good" : "warn";
+  // A live app whose runtime SDK was never recorded is not a clean Live: the
+  // card keeps the runtime verdict but carries the warning beside it.
+  const liveTone = isLive && !sdk.unrecorded ? "good" : "warn";
 
   const usageCopy = usageCardCopy(usage);
   const monetization = monetizationCard(source);
@@ -328,15 +335,36 @@ export function HomeTab({
         </p>
       </div>
 
+      {sdk.warning ? (
+        <div
+          role="alert"
+          data-testid="sdk-callout"
+          className="flex flex-wrap items-center gap-3 border-amber-500/30 bg-amber-500/5 px-4 py-3"
+        >
+          <SdkBadge sdk={sdk} />
+          <p className="text-foreground min-w-0 flex-1 text-xs leading-5">
+            {sdk.warning}
+          </p>
+          <Link
+            href={hrefForTab("deployments")}
+            className="border-warning/40 bg-warning/10 text-warning hover:bg-warning/15 inline-flex h-7 items-center justify-center rounded-md border px-2.5 text-xs font-medium"
+          >
+            {outdated && requiredSdk
+              ? `Upgrade to ${requiredSdk}`
+              : "View deployments"}
+          </Link>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         <StatusCard
           label="Live"
           value={liveValue}
           hint={
-            outdated && requiredSdk
-              ? `This deployment must be rebuilt with aomi-sdk ${requiredSdk}.`
+            sdk.warning
+              ? sdk.warning
               : isLive
-                ? `${lifecycle.chatApp} is active.`
+                ? `${lifecycle.chatApp} is active on aomi-sdk ${sdk.runtime}.`
                 : lifecycle.message || "Deploy and activate an app to go live."
           }
           tone={liveTone}
@@ -353,13 +381,15 @@ export function HomeTab({
         />
         <StatusCard
           label="Chat"
-          value={isLive ? "Ready" : "Needs live app"}
+          value={outdated ? "Blocked" : isLive ? "Ready" : "Needs live app"}
           hint={
-            isLive
-              ? "Open the chat session for this app."
-              : "Chat unlocks after a live deployment."
+            outdated
+              ? `Chat is blocked until the app is rebuilt with aomi-sdk ${requiredSdk ?? "the required version"}.`
+              : isLive
+                ? "Open the chat session for this app."
+                : "Chat unlocks after a live deployment."
           }
-          tone={isLive ? "good" : "neutral"}
+          tone={outdated ? "warn" : isLive ? "good" : "neutral"}
           actionHref={isLive ? hrefForTab("chat") : hrefForTab("deployments")}
           actionLabel={isLive ? "Chat tab" : "Go to deployments"}
         />

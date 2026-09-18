@@ -1085,30 +1085,60 @@ export async function userProjectsRoute(req: Request) {
     const listPlatform =
       projectId === undefined ? (platform ?? undefined) : undefined;
     const client = await backendClient();
+    const listProjects = (platform?: string) =>
+      readCache.projects.get(
+        [session.githubUserId, platform ?? null, visibilityGrant ?? ""],
+        () =>
+          timedManagerRead("list_user_projects", () =>
+            client.listUserProjects({
+              githubUserId: session.githubUserId,
+              platform,
+              ...(visibilityGrant ? { visibilityGrant } : {}),
+            }),
+          ),
+      );
     const projects =
       projectId === undefined
-        ? await readCache.projects.get(
-            [session.githubUserId, listPlatform ?? null, visibilityGrant ?? ""],
-            () =>
-              timedManagerRead("list_user_projects", () =>
-                client.listUserProjects({
-                  githubUserId: session.githubUserId,
-                  platform: listPlatform,
-                  ...(visibilityGrant ? { visibilityGrant } : {}),
-                }),
-              ),
-          )
+        ? await listProjects(listPlatform)
         : [
             await readCache.projectDetails.get(
               [session.githubUserId, projectId, visibilityGrant ?? ""],
-              () =>
-                timedManagerRead("get_user_project", () =>
-                  client.getUserProject({
-                    githubUserId: session.githubUserId,
-                    projectId,
-                    ...(visibilityGrant ? { visibilityGrant } : {}),
-                  }),
-                ),
+              async () => {
+                const project = await timedManagerRead(
+                  "get_user_project",
+                  () =>
+                    client.getUserProject({
+                      githubUserId: session.githubUserId,
+                      projectId,
+                      ...(visibilityGrant ? { visibilityGrant } : {}),
+                    }),
+                );
+                // The manager's detail read never stamps the live SDK summary
+                // its list read carries (`sdk_version` / `sdk_versions`, from
+                // the active promotion records), so a project page fetched on
+                // its own read "SDK unknown" while the Projects index called
+                // the same project outdated. Fill the gap from the same list
+                // derivation; once the manager stamps it on the detail this is
+                // a no-op. Only live apps carry a runtime SDK, so skip the
+                // extra read for everything else.
+                const stamped =
+                  project.sdkVersion != null ||
+                  (project.sdkVersions?.length ?? 0) > 0;
+                const live = project.apps.some(
+                  (app) => app.isActive && app.appReleaseTag != null,
+                );
+                if (stamped || !live) return project;
+                const listed = (await listProjects()).find(
+                  (row) => row.id === projectId,
+                );
+                return listed
+                  ? {
+                      ...project,
+                      sdkVersion: listed.sdkVersion ?? null,
+                      sdkVersions: listed.sdkVersions ?? [],
+                    }
+                  : project;
+              },
             ),
           ];
     return NextResponse.json({
