@@ -17,6 +17,16 @@ export type WalletTransactionResult =
 
 export interface EvmWallet {
   address: string;
+  signTransaction?: (
+    payload: Extract<
+      import("../commits").SignableCommit,
+      { kind: "evm_transaction" }
+    >,
+  ) => Promise<string>;
+  broadcastTransaction?: (
+    signedTransaction: string,
+    chainId: number,
+  ) => Promise<string>;
   chainId?: number | (() => number | undefined);
   sendCalls?: (input: {
     chainId: number;
@@ -38,6 +48,10 @@ export interface EvmWallet {
 
 export interface SvmWallet {
   address: string;
+  broadcastTransaction?: (
+    signedTransaction: string,
+    cluster: string,
+  ) => Promise<string>;
   cluster?: string | (() => string | undefined);
   signTransaction?: (input: {
     transactionBase64: string;

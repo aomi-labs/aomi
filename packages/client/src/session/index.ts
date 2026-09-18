@@ -8,6 +8,11 @@ import type {
   TurnState,
 } from "../agent/types";
 import { ActionHandler } from "../actions";
+import {
+  CommitController,
+  isTerminalCommit,
+  type CommitView,
+} from "../commits";
 import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
 import type { AomiClientOptions } from "../types";
@@ -41,6 +46,7 @@ export class ClientSession {
   readonly client: AomiClient;
   readonly sessionId: string;
   readonly actions: ActionHandler;
+  readonly commits: CommitController;
 
   private target?: AgentTarget;
   private app?: string;
@@ -95,6 +101,8 @@ export class ClientSession {
   private actionUnsubscribers: Array<() => void> = [];
   private snapshot: SessionSnapshot;
   private applyingPage = false;
+  private pendingCommits = new Set<string>();
+  private commitDrainAfter?: number;
 
   constructor(
     clientOrOptions: AomiClient | AomiClientOptions,
@@ -128,6 +136,25 @@ export class ClientSession {
           result,
           idempotencyKey,
         ),
+    );
+    this.commits = new CommitController(
+      this.client,
+      this.sessionId,
+      sessionOptions?.commits,
+    );
+    this.actionUnsubscribers.push(
+      this.commits.subscribe(() => {
+        for (const view of this.commits.all()) {
+          if (!isTerminalCommit(view)) this.pendingCommits.add(view.commit_id);
+          else if (this.pendingCommits.delete(view.commit_id)) {
+            this.commitDrainAfter = this.events.at(-1)?.sequence ?? 0;
+            this.terminalTurnId = this.turnId;
+            this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
+            this.startStreaming();
+          }
+        }
+        if (!this.applyingPage) this.publish();
+      }),
     );
     this.snapshot = this.buildSnapshot();
     this.actionUnsubscribers.push(
@@ -201,6 +228,7 @@ export class ClientSession {
     this.getUserState = options.getUserState;
     this.inferenceFunding = options.inferenceFunding;
     if (options.actions) this.actions.setCapabilities(options.actions);
+    if (options.commits) this.commits.setCapabilities(options.commits);
   }
 
   async sync(): Promise<EventPage> {
@@ -243,6 +271,7 @@ export class ClientSession {
     for (const unsubscribe of this.actionUnsubscribers) unsubscribe();
     this.actionUnsubscribers = [];
     this.actions.close();
+    this.commits.close();
     this.listeners.clear();
   }
 
@@ -360,6 +389,7 @@ export class ClientSession {
     this.applyingPage = true;
     this.lastPageNewEvents = 0;
     try {
+      for (const view of page.commits ?? []) this.commits.ingest(view);
       for (const event of page.events) {
         if (event.type === "action" && this.replaceActionEvent(event)) {
           this.actions.ingest(event);
@@ -382,6 +412,26 @@ export class ClientSession {
         this.turnId = event.turn_id ?? this.turnId;
         switch (event.type) {
           case "message":
+            if (
+              event.tool_result &&
+              [
+                "commit_txs",
+                "evm_commit_txs",
+                "svm_commit_txs",
+                "svm_commit_ix",
+                "svm_commit_tx",
+              ].includes(event.tool_name?.split("::").at(-1) ?? "")
+            ) {
+              try {
+                const result = JSON.parse(event.tool_result[1]) as {
+                  commits?: CommitView[];
+                };
+                for (const view of result.commits ?? [])
+                  this.commits.ingest(view);
+              } catch {
+                /* A failed tool has no commit view. */
+              }
+            }
             if (
               event.sender === "agent" &&
               event.turn_id === this.timingTurnId &&
@@ -589,6 +639,7 @@ export class ClientSession {
   }
 
   private finish(): void {
+    this.commitDrainAfter = undefined;
     this.terminalDrainUntil = undefined;
     this.terminalTurnId = undefined;
     this.pendingUserMessage = undefined;
@@ -623,6 +674,8 @@ export class ClientSession {
     return this.events.some(
       (event) =>
         event.type === "message" &&
+        (this.commitDrainAfter === undefined ||
+          event.sequence > this.commitDrainAfter) &&
         event.turn_id === turnId &&
         event.sender === "agent" &&
         event.is_streaming !== true &&
@@ -666,6 +719,7 @@ export class ClientSession {
       messages: this.cachedStore.messages,
       liveMessages: [...this.liveMessages.values()],
       actions: this.actions.all(),
+      commits: this.commits.all(),
       ...(this.timing ? { timing: { ...this.timing } } : {}),
       ...(this.title ? { title: this.title } : {}),
       isStreaming: this.streamingActive,

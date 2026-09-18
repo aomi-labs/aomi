@@ -10,6 +10,8 @@ import {
   normalizeSolanaCluster,
   parseChainId,
   walletCapabilities,
+  commitCapabilities,
+  type CommitCapabilities,
   type ActionCapabilities,
   type EvmWallet,
   type SvmWallet,
@@ -18,6 +20,19 @@ import {
 } from "@aomi-labs/client";
 
 import { useAomiWalletKit } from "./context";
+import { createPublicClient, http } from "viem";
+
+export function useCommitCapabilities(): CommitCapabilities {
+  const wallet = useAomiWalletKit();
+  return useMemo(
+    () =>
+      commitCapabilities({
+        ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
+        ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
+      }),
+    [wallet],
+  );
+}
 
 /** Adapts wallet-kit methods into the wallet subroutines used by ActionHandler. */
 export function useActionCapabilities(): ActionCapabilities {
@@ -63,6 +78,17 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
 
   return {
     address,
+    signTransaction: wallet.signEvmTransaction,
+    broadcastTransaction: async (bytes, chainId) => {
+      const chain = wallet.supportedChains?.find(
+        (chain) => chain.id === chainId,
+      );
+      if (!chain) throw new Error("Commit chain is not configured");
+      return createPublicClient({
+        chain,
+        transport: http(),
+      }).sendRawTransaction({ serializedTransaction: bytes as `0x${string}` });
+    },
     chainId: () => wallet.identity.chainId,
     switchChain: (chainId) => switchEvm(wallet, chainId),
     sendCalls,
@@ -99,6 +125,16 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
 
   return {
     address,
+    broadcastTransaction: async (bytes, cluster) => {
+      const network = wallet.supportedNetworks?.solana.find(
+        (network) => network.cluster === cluster,
+      );
+      if (!network) throw new Error("Commit cluster is not configured");
+      const connection = new SolanaConnection(network.rpcHttpUrl, "confirmed");
+      return connection.sendRawTransaction(decodeBase64(bytes), {
+        skipPreflight: false,
+      });
+    },
     cluster: () => wallet.selectedSolanaNetwork?.cluster,
     switchCluster: (cluster) => switchSvm(wallet, cluster),
     signTransaction: wallet.signSolanaTransaction

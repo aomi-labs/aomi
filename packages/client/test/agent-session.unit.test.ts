@@ -80,6 +80,62 @@ function client() {
 }
 
 describe("ClientSession Agent transport", () => {
+  it("reopens a completed stream for a later commit receipt and drains the new answer", async () => {
+    vi.useFakeTimers();
+    const api = client();
+    const commit = {
+      commit_id: "commit-later",
+      thread_id: "session-agent",
+      stage_id: "svm:1",
+      chain_family: "svm" as const,
+      chain_ref: "localnet",
+      signer: "payer",
+      broadcaster: "hosted" as const,
+      state: "submitted" as const,
+      version: 1,
+      action: null,
+      transaction_id: "sig",
+      failure_code: null,
+    };
+    vi.spyOn(api.agent, "start").mockResolvedValue(
+      page(
+        [
+          {
+            ...meta("message", 1),
+            type: "message",
+            sender: "agent",
+            content: "Submitted; waiting for confirmation.",
+            is_streaming: false,
+          },
+          turn(2, "complete"),
+        ],
+        { commits: [commit] },
+      ),
+    );
+    const session = new Session(api, { sessionId: "session-agent" });
+    await session.send("transfer");
+    expect(session.getSnapshot().isStreaming).toBe(false);
+    vi.spyOn(api.agent, "poll").mockResolvedValue(
+      page([
+        {
+          ...meta("message", 3),
+          type: "message",
+          sender: "agent",
+          content: "Confirmed on chain.",
+          is_streaming: false,
+        },
+      ]),
+    );
+    session.commits.ingest({ ...commit, state: "confirmed", version: 2 });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(session.getSnapshot().messages.at(-1)?.content).toBe(
+      "Confirmed on chain.",
+    );
+    expect(session.getSnapshot().isStreaming).toBe(false);
+    expect(session.getSnapshot().commits[0].state).toBe("confirmed");
+    session.close();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();

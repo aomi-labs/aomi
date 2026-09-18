@@ -220,6 +220,30 @@ describe("portal API proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("forwards only the three commit operations through the existing authenticated proxy", async () => {
+    canonicalSessionMock.userId = "widget-user-1";
+    const fetchMock = vi.fn(async () => Response.json({ state: "submitted" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "11111111-2222-4333-8444-555555555555";
+    for (const [path, method] of [
+      ["/api/commits", "POST"],
+      [`/api/commits/${id}`, "GET"],
+      [`/api/commits/${id}/manual`, "POST"],
+    ] as const) {
+      const response = await (method === "GET" ? GET : POST)(
+        ...apiRequest(path, method),
+      );
+      expect(response.status).toBe(200);
+      expect(proxiedUrl(fetchMock.mock.calls.at(-1)!).pathname).toBe(path);
+    }
+    fetchMock.mockClear();
+    expect(
+      (await POST(...apiRequest(`/api/commits/${id}/broadcast`, "POST")))
+        .status,
+    ).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("logs a downstream Rust 5xx without changing its response", async () => {
     vi.stubGlobal(
       "fetch",

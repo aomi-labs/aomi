@@ -20,6 +20,7 @@ import { selectActivity, type ActivityTransaction } from "./model";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
+import { CommitReview } from "./commit-review";
 import { useActivityPanel } from "./activity-panel-context";
 
 export function ActivitySidebar() {
@@ -28,8 +29,14 @@ export function ActivitySidebar() {
 }
 
 function ActivitySidebarContent() {
-  const { events, pendingActions, actionAttempts, threadViewKey, isRunning } =
-    useAomiRuntime();
+  const {
+    events,
+    pendingActions,
+    actionAttempts,
+    threadViewKey,
+    isRunning,
+    commits = [],
+  } = useAomiRuntime();
   const reduceMotion = useReducedMotion();
   const {
     open: panelOpen,
@@ -112,11 +119,15 @@ function ActivitySidebarContent() {
     activity.skills.length ||
     activity.transactions.length ||
     activity.history.length ||
-    pendingActions.length,
+    pendingActions.length ||
+    commits.length,
   );
   useEffect(() => {
-    setWorthShowing(hasActivity, Boolean(pending));
-  }, [hasActivity, pending, setWorthShowing]);
+    setWorthShowing(
+      hasActivity,
+      Boolean(pending) || commits.some((commit) => commit.action !== null),
+    );
+  }, [hasActivity, pending, commits, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   const showRail = hasActivity && panelOpen;
   return (
@@ -157,6 +168,7 @@ function ActivitySidebarContent() {
           >
             <div className="w-[352px] max-w-[100cqw] py-4 pl-3 pr-6">
               <div className="border-aomi-border bg-aomi-raised divide-aomi-border divide-y rounded-3xl border px-4">
+                <CommitReview />
                 {activity.agents.length > 0 && (
                   <Group title="Subagents" count={activity.agents.length}>
                     {activity.agents.map((agent, index) => (
