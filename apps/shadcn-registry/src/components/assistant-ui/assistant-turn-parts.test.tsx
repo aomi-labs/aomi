@@ -101,10 +101,18 @@ describe("AssistantTurnParts lifecycle", () => {
     const view = render(<AssistantTurnParts />);
     const original = view.getByText(state.prefixText);
     expect(original).toBeVisible();
+    const initialTrace = view.container.querySelector(".aui-working-trace");
+    expect(initialTrace).toContainElement(original);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    state.prefixText += " Checking whether it can be transferred.";
+    view.rerender(<AssistantTurnParts />);
+    expect(initialTrace).toContainElement(view.getByText(state.prefixText));
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
     state.includeTool = true;
     state.answerText = "The transfer needs your approval.";
     view.rerender(<AssistantTurnParts />);
     const trace = view.container.querySelector(".aui-working-trace");
+    expect(trace).toBe(initialTrace);
     expect(trace).toContainElement(view.getByText(state.prefixText));
     expect(trace).toContainElement(view.getByText(state.answerText));
     expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
@@ -125,6 +133,28 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(
       view.getByText(state.answerText).closest(".aui-working-answer"),
     ).toBeTruthy();
+  });
+
+  it("promotes a text-only reply only when the turn completes", () => {
+    state.includeTool = false;
+    state.answerText = "Here is the answer.";
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+
+    state.running = false;
+    view.rerender(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+
+    state.turnState = "complete";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-trace")).toBeNull();
+    expect(
+      view.container.querySelector(".aui-working-answer"),
+    ).toHaveTextContent(state.answerText);
+    expect(view.getAllByText(state.answerText)).toHaveLength(1);
   });
 
   it("places notes before and between tools in a single chronological trace", () => {
