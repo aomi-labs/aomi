@@ -3,7 +3,11 @@
 import type { AomiAccount, AomiWalletOption } from "../types";
 import type { AccountWallet } from "../account/types";
 import type { AuthRuntime } from "./types";
-import { toRegistryFamily, walletKey } from "../wallet-utils";
+import {
+  canLinkWalletBySignature,
+  toRegistryFamily,
+  walletKey,
+} from "../wallet-utils";
 
 export type WalletRowAction =
   | { kind: "select"; label: string }
@@ -151,12 +155,11 @@ function defaultLiveWalletActions({
   canLinkWallet: boolean;
 }): WalletRowAction[] {
   const actions: WalletRowAction[] = [];
-  const canLinkFamily =
-    account.family === "evm" ||
-    (account.family === "svm" &&
-      account.walletKind !== "embedded" &&
-      account.walletKind !== "smart_account");
-  if (canLinkWallet && !linked && canLinkFamily) {
+  if (
+    canLinkWallet &&
+    !linked &&
+    canLinkWalletBySignature(account.family, account.walletKind)
+  ) {
     actions.push({ kind: "link", label: "Link" });
   }
   actions.push(
