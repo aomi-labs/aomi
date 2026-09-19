@@ -1,4 +1,5 @@
 import { Link2, Loader2, Plug, Plus, Trash2, Unplug } from "lucide-react";
+import { canLinkWalletBySignature } from "../../../../../lib/wallet-kit/wallet-utils";
 import { shortenAddress } from "../account-api";
 import { WalletProviderAvatar } from "../wallet-brands";
 import type { UnifiedAccountWallet } from "../wallet-management-model";
@@ -90,7 +91,11 @@ export function WalletRow({
         {busy ? (
           <Loader2 className="text-aomi-muted size-4 animate-spin" />
         ) : null}
-        {!busy && wallet.connected && !wallet.linked && onLink ? (
+        {!busy &&
+        wallet.connected &&
+        !wallet.linked &&
+        onLink &&
+        canLinkWalletBySignature(wallet.family, wallet.kind) ? (
           <TextButton onClick={() => void onLink(wallet)}>
             <Link2 size={13} />
             Link
