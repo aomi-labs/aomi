@@ -111,6 +111,7 @@ function createHarnessAdapter(options?: {
     canOpenAccountUI: Boolean(options?.connected),
     canDisconnect: false,
     accounts: [],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     supportedChains: harnessEvmChains,
     supportedNetworks: {

@@ -132,7 +132,7 @@ export const ConnectButton: FC<ConnectButtonProps> = ({
   const pickerFamilies =
     families && families.length > 0 ? families : inferWalletFamilies(adapter);
   const shouldUsePicker = Boolean(
-    pickerFamilies.length > 0 && (adapter.walletModalRows?.length ?? 0) > 0,
+    pickerFamilies.length > 0 && adapter.wallets.length > 0,
   );
 
   if (shouldUsePicker) {

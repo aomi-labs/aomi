@@ -9,36 +9,35 @@ import {
 } from "../identity";
 import type { AomiSessionIdentity } from "../types";
 import type { AuthRuntime, SvmWalletRuntime } from "./types";
+import type { WalletRow } from "./wallet-state";
 
 export function buildWalletKitIdentity({
   auth,
-  address,
-  chainId,
+  evmWallet,
+  svmWallet,
   isBooting,
   isConnected,
   svm,
-  walletName,
-  walletSource,
 }: {
   auth: AuthRuntime;
-  address?: string;
-  chainId?: number;
+  evmWallet?: WalletRow;
+  svmWallet?: WalletRow;
   isBooting: boolean;
   isConnected: boolean;
   svm?: SvmWalletRuntime;
-  walletName?: string;
-  walletSource?: AomiSessionIdentity["walletSource"];
 }): AomiSessionIdentity {
   const svmIdentity = svm?.identity(Date.now());
-  const svmAddress = svmIdentity?.address;
+  const address = evmWallet?.address;
+  const chainId = evmWallet?.chainId;
+  const svmAddress = svmWallet?.address;
   const svmTransport = svmIdentity?.transport;
   const svmCapabilities = svmIdentity?.capabilities;
   const baseSvm = {
     svmAddress,
     svmCluster: svmIdentity?.cluster,
-    svmWalletName: svmIdentity?.walletName,
+    svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
     svmTransport: svmAddress ? svmTransport : undefined,
-    svmCapabilities,
+    svmCapabilities: svmAddress ? svmCapabilities : undefined,
   };
 
   if (isBooting) {
@@ -54,13 +53,15 @@ export function buildWalletKitIdentity({
       status: "connected",
       isConnected: true,
       address,
-      walletKind: "eoa",
+      walletKind: address ? "eoa" : undefined,
       chainId,
       sessionProvider: auth.sessionProvider,
       embeddedProvider: auth.embeddedProvider,
-      walletSource:
-        walletSource ??
-        (address && auth.embeddedProvider ? "embedded" : undefined),
+      walletSource: evmWallet
+        ? evmWallet.kind === "embedded"
+          ? "embedded"
+          : "injected"
+        : undefined,
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
       authValue: auth.authValue,
@@ -81,14 +82,13 @@ export function buildWalletKitIdentity({
       chainId,
       sessionProvider: auth.sessionProvider,
       embeddedProvider: auth.embeddedProvider,
-      walletSource:
-        walletSource ?? (auth.embeddedProvider ? "embedded" : "injected"),
+      walletSource: evmWallet?.kind === "embedded" ? "embedded" : "injected",
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod ?? "wagmi",
       authValue: auth.authValue,
       primaryLabel: formatWalletAddress(address) ?? "Connected wallet",
       secondaryLabel:
-        walletName ??
+        evmWallet?.walletName ??
         formatAuthMethod(auth.authMethod ?? "wagmi") ??
         formatWalletProvider(auth.provider),
       ...baseSvm,
@@ -103,14 +103,15 @@ export function buildWalletKitIdentity({
       chainId,
       svmAddress,
       sessionProvider: auth.sessionProvider,
-      walletSource: "injected",
+      walletSource: svmWallet?.kind === "embedded" ? "embedded" : "injected",
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
       authValue: auth.authValue,
-      primaryLabel: formatWalletAddress(svmAddress) ?? "Connected Solana wallet",
+      primaryLabel:
+        formatWalletAddress(svmAddress) ?? "Connected Solana wallet",
       secondaryLabel: "Solana",
       svmCluster: svmIdentity?.cluster,
-      svmWalletName: svmIdentity?.walletName,
+      svmWalletName: svmWallet?.walletName ?? svmIdentity?.walletName,
       svmTransport,
       svmCapabilities,
     };

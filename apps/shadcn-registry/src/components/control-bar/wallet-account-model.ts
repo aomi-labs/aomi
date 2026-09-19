@@ -1,29 +1,15 @@
 import { formatWalletProvider } from "../../lib/wallet-kit";
 import { getWalletProvider } from "../../lib/wallet-kit/providers/plugin-registry";
 import type { AomiWalletKit, WalletFamily } from "../../lib/wallet-kit/types";
+import type { WalletRow } from "../../lib/wallet-kit/composer/wallet-state";
 
-export type WalletModalRow = NonNullable<
-  AomiWalletKit["walletModalRows"]
->[number];
+export type WalletModalRow = WalletRow;
 export type LinkedAccountRow = NonNullable<
   AomiWalletKit["accountLinkedAccounts"]
 >[number];
 export type LinkedWalletRow = NonNullable<
   AomiWalletKit["accountWallets"]
 >[number];
-
-export type ConnectedEntry = {
-  key: string;
-  title: string;
-  iconId: string;
-  iconLabel: string;
-  iconProvider?: string;
-  family: WalletFamily;
-  address?: string;
-  chainId?: number;
-  capability?: "read" | "write";
-  linked?: boolean;
-};
 
 export type AccountAccessEntries = {
   providerAccounts: ProviderAccountAccessGroup[];
@@ -100,41 +86,6 @@ export function providerBackedWalletTitle(input: {
   return provider !== null
     ? (formatWalletProvider(provider) ?? provider)
     : (input.walletName ?? familyLabel(input.family));
-}
-
-export function buildConnectedEntries(
-  accounts: readonly WalletModalRow[],
-  wallets: readonly LinkedWalletRow[],
-): ConnectedEntry[] {
-  return accounts.map((account) => {
-    const linkedWallet = account.linked
-      ? wallets.find((wallet) =>
-          sameWalletAddress(wallet.family, wallet.address, account.address),
-        )
-      : undefined;
-    const provider = providerBackedAccountProvider(account);
-    const title = providerBackedWalletTitle(account);
-    return {
-      key: `row:${account.family}:${account.id}:${account.address ?? ""}`,
-      title,
-      iconId: provider ?? account.id,
-      iconLabel: title,
-      iconProvider: provider ?? account.provider,
-      family: account.family,
-      address: account.address,
-      chainId: account.chainId ?? linkedWallet?.chainId,
-      capability: account.capability ?? linkedWallet?.capability,
-      linked: account.linked ?? Boolean(linkedWallet),
-    };
-  });
-}
-
-export function connectedLinkState(entry: {
-  family: WalletFamily;
-  linked?: boolean;
-}): string {
-  if (entry.linked) return "Linked";
-  return entry.family === "evm" ? "Verify to link" : "Connected only";
 }
 
 export function buildAccountAccessEntries(

@@ -1,4 +1,4 @@
-import type { WalletFamily } from "../types";
+import type { AomiAccountAction, WalletFamily } from "../types";
 import { walletKey } from "../wallet-utils";
 
 type WalletKind = "external" | "embedded";
@@ -10,6 +10,9 @@ export type LinkedWalletFact = {
   address: string;
   kind?: WalletKind;
   provider?: string;
+  chainId?: number;
+  label?: string;
+  capability?: "read" | "write";
 };
 
 /** A signer this browser exposes right now, at exactly this address. */
@@ -19,6 +22,12 @@ export type WalletConnectionFact = {
   address: string;
   kind: WalletKind;
   provider?: string;
+  chainId?: number;
+  walletName?: string;
+  label?: string;
+  capability?: "read" | "write";
+  manageable?: boolean;
+  providerActions?: readonly AomiAccountAction[];
   /** Embedded only: the provider has hydrated a signer for this address. */
   signerReady?: boolean;
 };
@@ -38,6 +47,8 @@ export type WalletAction =
   | { kind: "connect"; walletKey: string; provider?: string }
   | { kind: "disconnect"; connectionId: string }
   | { kind: "unlink"; linkedWalletId: string }
+  | { kind: "manage" }
+  | { kind: "signout" }
   | { kind: "reauthenticate"; provider: string };
 
 type WalletStatus =
@@ -54,12 +65,22 @@ type WalletFacts = {
   address: string;
   kind: WalletKind;
   provider?: string;
+  chainId?: number;
+  walletName?: string;
+  label?: string;
+  capability?: "read" | "write";
+  manageable?: boolean;
   linkedWalletId?: string;
   connectionId?: string;
 };
 
 export type WalletRow = WalletFacts &
-  WalletStatus & { operating: boolean; actions: WalletAction[] };
+  WalletStatus & {
+    connected: boolean;
+    linked: boolean;
+    operating: boolean;
+    actions: WalletAction[];
+  };
 
 export type WalletState = {
   wallets: WalletRow[];
@@ -91,6 +112,17 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       ...((wallet.provider ?? connection?.provider)
         ? { provider: wallet.provider ?? connection?.provider }
         : {}),
+      ...((wallet.chainId ?? connection?.chainId)
+        ? { chainId: wallet.chainId ?? connection?.chainId }
+        : {}),
+      ...((wallet.label ?? connection?.label)
+        ? { label: wallet.label ?? connection?.label }
+        : {}),
+      ...(connection?.walletName ? { walletName: connection.walletName } : {}),
+      ...((wallet.capability ?? connection?.capability)
+        ? { capability: wallet.capability ?? connection?.capability }
+        : {}),
+      ...(connection?.manageable ? { manageable: true } : {}),
       linkedWalletId: wallet.id,
       ...(connection ? { connectionId: connection.id } : {}),
     };
@@ -140,6 +172,11 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       address: connection.address,
       kind: connection.kind,
       ...(connection.provider ? { provider: connection.provider } : {}),
+      ...(connection.chainId ? { chainId: connection.chainId } : {}),
+      ...(connection.walletName ? { walletName: connection.walletName } : {}),
+      ...(connection.label ? { label: connection.label } : {}),
+      ...(connection.capability ? { capability: connection.capability } : {}),
+      ...(connection.manageable ? { manageable: true } : {}),
       connectionId: connection.id,
       // A guest owns nothing, so a connected external wallet operates through
       // the client-only path. Until an account's graph lands, "not linked" is
@@ -193,8 +230,18 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     const actions: WalletAction[] = [];
     if (row.state === "ready" || row.state === "guest") {
       if (!isOperating) actions.push({ kind: "select", walletKey: row.key });
-      if (row.connectionId)
+      const connection = row.connectionId ? connected.get(row.key) : undefined;
+      if (connection?.providerActions?.length) {
+        for (const action of connection.providerActions) {
+          if (action.kind === "disconnect") {
+            actions.push({ kind: "disconnect", connectionId: connection.id });
+          } else {
+            actions.push({ kind: action.kind });
+          }
+        }
+      } else if (row.connectionId) {
         actions.push({ kind: "disconnect", connectionId: row.connectionId });
+      }
       if (row.state === "ready" && row.linkedWalletId)
         actions.push({ kind: "unlink", linkedWalletId: row.linkedWalletId });
     } else if (row.state === "unlinked") {
@@ -220,7 +267,13 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       if (row.linkedWalletId)
         actions.push({ kind: "unlink", linkedWalletId: row.linkedWalletId });
     }
-    return { ...row, operating: isOperating, actions };
+    return {
+      ...row,
+      connected: Boolean(row.connectionId),
+      linked: Boolean(row.linkedWalletId),
+      operating: isOperating,
+      actions,
+    };
   });
   return { wallets, operating, clearSelection };
 }

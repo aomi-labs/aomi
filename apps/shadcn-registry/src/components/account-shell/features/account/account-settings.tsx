@@ -11,11 +11,11 @@ import { AccountSigningView } from "./account-signing";
 import { AccountManagement, type AddSignInOption } from "./account-management";
 import { useAccountAcl } from "./use-account-acl";
 import {
-  buildUnifiedAccountWallets,
   isProviderSigningWallet,
   visibleSignInMethods,
-  type UnifiedAccountWallet,
+  type ManagedWallet,
 } from "./wallet-management-model";
+import { walletKey } from "../../../../lib/wallet-kit/wallet-utils";
 import { resolveWalletBrandKey } from "./wallet-brands";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
@@ -26,81 +26,17 @@ export function AccountSettings() {
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const liveConnections = useMemo(() => {
-    const rows = (adapter.walletModalRows ?? [])
-      .filter(
-        (row) =>
-          row.source === "live" &&
-          Boolean(row.address) &&
-          (row.status === "active" || row.status === "connected"),
-      )
-      .map((row) => ({
-        id: row.id,
-        family: row.family,
-        address: row.address!,
-        chainId: row.chainId,
-        walletName: row.walletName,
-        provider: row.provider,
-        active: row.status === "active",
-      }));
-
-    const addIdentityFallback = (
-      family: "evm" | "svm",
-      address: string | undefined,
-      walletName?: string,
-      chainId?: number,
-    ) => {
-      if (!address) return;
-      const normalized = family === "evm" ? address.toLowerCase() : address;
-      if (
-        rows.some(
-          (row) =>
-            row.family === family &&
-            (family === "evm" ? row.address.toLowerCase() : row.address) ===
-              normalized,
-        )
-      ) {
-        return;
-      }
-      rows.push({
-        id: `identity:${family}:${normalized}`,
-        family,
-        address,
-        chainId,
-        walletName,
-        provider: undefined,
-        active: true,
-      });
-    };
-
-    addIdentityFallback(
-      "evm",
-      adapter.identity.address,
-      adapter.accounts.find(
-        (account) =>
-          account.family === "evm" &&
-          account.address.toLowerCase() ===
-            adapter.identity.address?.toLowerCase(),
-      )?.walletName,
-      adapter.identity.chainId,
-    );
-    addIdentityFallback(
-      "svm",
-      adapter.identity.svmAddress,
-      adapter.identity.svmWalletName,
-    );
-    return rows;
-  }, [adapter.accounts, adapter.identity, adapter.walletModalRows]);
-
   const wallets = useMemo(
     () =>
-      buildUnifiedAccountWallets({
-        accounts: adapter.accounts ?? [],
-        linkedWallets: adapter.accountWallets ?? [],
-        policies: acl.wallets,
-        liveConnections,
-      }),
-    [acl.wallets, adapter.accountWallets, adapter.accounts, liveConnections],
+      adapter.wallets.map(
+        (wallet): ManagedWallet => ({
+          ...wallet,
+          policy: acl.wallets.find(
+            (policy) => walletKey(policy.chain, policy.address) === wallet.key,
+          ),
+        }),
+      ),
+    [acl.wallets, adapter.wallets],
   );
   const signInMethods = useMemo(
     () => visibleSignInMethods(adapter.accountLinkedAccounts ?? []),
@@ -142,12 +78,12 @@ export function AccountSettings() {
     }
   };
 
-  const linkWallet = async (wallet: UnifiedAccountWallet) => {
-    if (!wallet.connectedAccountId) return;
+  const linkWallet = async (wallet: ManagedWallet) => {
+    if (!wallet.connectionId) return;
     await run(`link:${wallet.key}`, async () => {
       if (adapter.linkWallet) {
         await adapter.linkWallet({
-          accountId: wallet.connectedAccountId,
+          accountId: wallet.connectionId,
           family: wallet.family,
           address: wallet.address,
           chainId: wallet.chainId,
@@ -160,20 +96,20 @@ export function AccountSettings() {
         address: wallet.address,
         walletName: wallet.walletName,
         provider: wallet.provider,
-        active: wallet.active,
+        active: wallet.operating,
       });
     });
   };
 
-  const unlinkWallet = async (wallet: UnifiedAccountWallet) => {
-    if (!adapter.unlinkLinkedWallet || !wallet.accountWalletId) return;
+  const unlinkWallet = async (wallet: ManagedWallet) => {
+    if (!adapter.unlinkLinkedWallet || !wallet.linkedWalletId) return;
     if (!window.confirm(`Unlink ${wallet.address} from this account?`)) return;
     await run(`unlink:${wallet.key}`, () =>
-      adapter.unlinkLinkedWallet!(wallet.accountWalletId!),
+      adapter.unlinkLinkedWallet!(wallet.linkedWalletId!),
     );
   };
 
-  const connectWallet = async (wallet: UnifiedAccountWallet) => {
+  const connectWallet = async (wallet: ManagedWallet) => {
     await run(`connect:${wallet.key}`, async () => {
       const provider = wallet.provider?.toLowerCase();
       if (
@@ -274,9 +210,9 @@ export function AccountSettings() {
         onLinkWallet={linkWallet}
         onConnectWallet={connectWallet}
         onSelectWallet={async (wallet) => {
-          if (!wallet.connectedAccountId) return;
+          if (!wallet.connectionId) return;
           await run(`select:${wallet.key}`, () =>
-            adapter.selectAccount(wallet.connectedAccountId!),
+            adapter.selectAccount(wallet.connectionId!),
           );
         }}
         onDisconnectWallet={
@@ -284,8 +220,8 @@ export function AccountSettings() {
             ? async (wallet) =>
                 run(`disconnect:${wallet.key}`, () =>
                   adapter.disconnect!(
-                    wallet.family === "evm" && wallet.connectedAccountId
-                      ? { accountId: wallet.connectedAccountId }
+                    wallet.family === "evm" && wallet.connectionId
+                      ? { accountId: wallet.connectionId }
                       : { family: wallet.family },
                   ),
                 )
