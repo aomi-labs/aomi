@@ -119,6 +119,8 @@ export function ThreeGatesResearch({ post }: Props) {
             wrong one. We separate those two families of loss, adversarial
             attacks and capability defects, and argue that only the first is
             addressed by gates while the second is decided by model and harness.
+            Benchmark evidence from coding agents and from our own onchain suite
+            shows the second family is where most day-to-day loss sits.
             We then trace a transaction through four places it can be refused: a runtime guard while it is
             built, a wallet policy at signing, a mandate enforced by the smart
             account or protocol, and an assertion evaluated by the builder
@@ -133,8 +135,8 @@ export function ThreeGatesResearch({ post }: Props) {
             modules from ZeroDev, Biconomy, Rhinestone, Safe, Zodiac and
             EIP-7702; and pre-inclusion assertions from Phylax, Forta, BlockSec
             and Hypernative. We classify each by enforcement location and rule
-            ownership rather than by marketing category, and include a
-            first-party review of Aomi&apos;s own runtime. We close with a
+            ownership rather than by marketing category. We build one of the
+            runtimes discussed and hold it to the same questions. We close with a
             composite design: an action envelope that binds one action across
             all four gates, and a bypass test plan for any claimed coverage.
           </p>

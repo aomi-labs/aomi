@@ -12,6 +12,8 @@ We observe that the guardrail in this process is not a single checkpoint but a s
 
 Before specifying those checkpoints, it is worth asking what they are for. A checkpoint only earns its place if there is a concrete way the transaction crossing it could be wrong. So we start with the ways a transaction goes wrong.
 
+One disclosure up front. We build a runtime of the kind discussed under the first checkpoint, and it appears below wherever the argument needs an implementation to point at. It is held to the same questions as every other product named, and where it fails them we say so.
+
 ## The risk landscape: attacks vs defects
 
 Two families of failure end in the same place: a transaction that is valid onchain and wrong for the user.
@@ -20,7 +22,9 @@ Two families of failure end in the same place: a transaction that is valid oncha
 
 **Capability defects.** Nobody is attacking. The agent simply gets it wrong: a mis-encoded call, a missed approval step, a wrong decimal, a stale route, a protocol feature it did not know about. The inputs are honest and the output still loses money.
 
-Nearly every product sold as an agent guardrail addresses the first family. That is reasonable, because the first family is where an adversary can scale. But in day-to-day operation the second family is the more common source of loss, and it is not solved by a gate at all. It is solved by the combination of model and harness, and the quality of that combination decides how often the gates are even asked to work. The two families need to be kept apart, because a strong harness makes an honest agent accurate and does nothing against a forged instruction, while a strong gate refuses the forged instruction and does nothing to make the agent competent.
+The gateway policies, wallet policies, onchain mandates and builder assertions surveyed below all address the first family. That is reasonable, because the first family is where an adversary can scale. But in day-to-day operation the second family is the more common source of loss, and it is not solved by a gate at all. It is solved by the combination of model and harness, and the quality of that combination decides how often the gates are even asked to work.
+
+The coding-agent world has already measured this. The same model scores very differently on the same repair benchmark depending on the scaffold it runs in; the [SWE-agent](https://arxiv.org/abs/2405.15793) authors reported roughly an order of magnitude between a retrieval baseline and an agent-computer interface for one model, and nobody calls the interface a security product. Our own benchmark shows the same shape for onchain work. In [AomiBench v0.1](/research/aomibench-v0-1), 65 strict failures across 694 scorable runs were all defects of the second family, mis-sequenced tools, wrong arguments, missing evidence, and none involved an adversary. Under an identical harness the frontier models clustered between 94.8 and 99.0 percent task success while two small models fell to 74 and 77 percent, which is the model half of the combination; the harness half is what the next two sections are about. The two families need to be kept apart, because a strong harness makes an honest agent accurate and does nothing against a forged instruction, while a strong gate refuses the forged instruction and does nothing to make the agent competent.
 
 ### Adversarial attacks
 
@@ -42,15 +46,17 @@ Key compromise matters too, but it predates agents and does not explain any of t
 
 ### Capability defects
 
-Two scenarios show how much of the defect problem is decided before any gate is consulted.
+Three scenarios show how much of the defect problem is decided before any gate is consulted. The first is a thought experiment, the second is how most agents are deployed today, and the third is the design we measure.
 
 **A frontier model with no harness.** Put a current frontier model on a fresh machine with a funded wallet and ask it to stake on Kamino or lend on Aave. It has to find the right program or contract, fetch the IDL or ABI, work out the account list or the approval step, encode the instruction by hand, guess at compute units or gas and then broadcast. Every one of those steps is a place to be subtly wrong, and the model's only back-pressure is a revert on a live chain. That revert costs a fee, arrives late and says almost nothing about which step failed. A capable model will often get there, but it gets there by paying for its mistakes in public.
 
-**A cheap model with a good harness.** Put a much smaller model, say minimax-m2.5, on a runtime that has already integrated the EVM and SVM. The model calls a tool named for what it wants to do and the system builds the instruction. It does not encode calldata. It is handed a current view of chain state, the source of any public contract it touches and skills that describe how a specific protocol behaves. Back-pressure now arrives before anything is signed: the transaction is executed in a sandboxed fork and a revert comes back as a readable error, the tool itself fails loudly on bad arguments, and guards run before and after each tool hook. The small model self-corrects inside the loop instead of on the chain.
+**A frontier model on a generic tool layer.** This is the common deployment: the same model, now with a wallet or RPC tool server, a signing SDK and perhaps a search tool. The tools remove the broadcast step and the key handling, and that is real progress. But the model still chooses the contract address, still fetches and reads the ABI, still decides the argument encoding and the amount in base units, and the tool signs and sends whatever it is handed. Nothing in that layer executes the call against a fork before it is staged, so the first error signal is still the live revert, or at best a wallet's simulation warning at the moment of signing, when the model's turn is already over.
 
-![Two columns run the same instruction, approve 500 USDC for the Uniswap router. On the left a frontier model with no harness performs eight steps by hand, four of which can be silently wrong until a revert on the live chain. On the right a small model on Aomi emits one typed tool call and the harness encodes, simulates in a sandbox, runs guards and stages, with the first error signal arriving before anything is signed.](figures/02b-same-task-two-worlds.svg)
+**A cheap model with an integrated harness.** Put a much smaller model, say minimax-m2.5, on a runtime that has already integrated the EVM and SVM. The model calls a tool named for what it wants to do and the system builds the instruction. It does not encode calldata. It is handed a current view of chain state, the source of any public contract it touches and skills that describe how a specific protocol behaves. Back-pressure now arrives before anything is signed: the transaction is executed in a sandboxed fork and a revert comes back as a readable error, the tool itself fails loudly on bad arguments, and guards run before and after each tool hook. The small model self-corrects inside the loop instead of on the chain.
 
-Figure 3. The same instruction in both worlds. Without a harness, four of eight steps can be wrong without any signal until the chain rejects the transaction. With one, the model emits a single typed call and the first failure arrives inside the loop, before authorization.
+![Two columns run the same instruction, approve 500 USDC for the Uniswap router. On the left a frontier model with no harness performs eight steps by hand, four of which can be silently wrong until a revert on the live chain. On the right a small model on an integrated runtime emits one typed tool call and the harness encodes, simulates in a sandbox, runs guards and stages, with the first error signal arriving before anything is signed.](figures/02b-same-task-two-worlds.svg)
+
+Figure 3. The same instruction in the first and third worlds. Without a harness, four of eight steps can be wrong without any signal until the chain rejects the transaction. With an integrated one, the model emits a single typed call and the first failure arrives inside the loop, before authorization. The generic tool layer sits between: it removes steps 6 and 7 from the model's hands and leaves steps 1, 4 and 5 there.
 
 What the model actually writes in the second world is worth seeing. This is a real argument to the staging tool for the instruction in Figure 3, taken from the [AomiBench v0.1](/research/aomibench-v0-1) write-up:
 
@@ -74,13 +80,13 @@ What the model actually writes in the second world is worth seeing. This is a re
 
 Every character of that is the model's, and none of it is calldata. The harness computes the four-byte selector, ABI-encodes the two arguments, injects the sender and chain id from wallet context, executes the result on a forked chain, runs the guards against the simulated outcome and only then stages it for signing. The one place the model still touches a raw quantity is the amount in base units, and a protocol skill can close even that.
 
-| | Frontier model, no harness | Small model, good harness |
-| --- | --- | --- |
-| Who encodes the call | The model, by hand | The runtime, from a typed tool |
-| What the model sees | Whatever it fetches itself | Live state, contract source, protocol skills |
-| Knowledge of the protocol | In-weights only | Skill-supplied: addresses, ABI, procedure |
-| First signal of error | Revert on the live chain | Sandbox revert, tool failure, guard refusal |
-| Cost of a mistake | A fee, and possibly the position | Nothing; the loop retries |
+| | Frontier model, no harness | Frontier model, generic tool layer | Small model, integrated harness |
+| --- | --- | --- | --- |
+| Who encodes the call | The model, by hand | The model, from an ABI it fetched; the tool signs what it is given | The runtime, from a typed tool |
+| What the model sees | Whatever it fetches itself | RPC reads through tools, no forked execution | Live state, contract source, protocol skills |
+| Knowledge of the protocol | In-weights only | In-weights, plus whatever it retrieves | Skill-supplied: addresses, ABI, procedure |
+| First signal of error | Revert on the live chain | Live revert, or a wallet's simulation warning at signing | Sandbox revert, tool failure, guard refusal |
+| Cost of a mistake | A fee, and possibly the position | A fee, and possibly the position | Tokens and a retry; nothing onchain |
 
 The harness is not magic, and the bench write-up records where it runs out. One of the strongest models in that matrix failed a read-only task, checking a ZORA token balance on Base, on both passes. The trace is short:
 
@@ -92,7 +98,7 @@ First bad step: no matching `to` (ZORA contract), no matching `function_signatur
 Failed check:   tool assertion, both passes
 ```
 
-ZORA is a newer token whose address is not reliably in any model's weights. The harness could encode the call perfectly, but only once the model asked for the right contract, and nothing in the runtime supplied that fact. This is the defect family at its purest: honest inputs, a competent model, a wrong result, and no adversary anywhere. It is also why the knowledge row in the table matters as much as the encoding rows. A harness has two halves, capability and knowledge, and a skill that ships the protocol's addresses and procedure is the knowledge half.
+ZORA is a newer token whose address is not reliably in any model's weights. The harness could encode the call perfectly, but only once the model asked for the right contract, and nothing in the runtime supplied that fact. The obvious rebuttal is correct: a frontier model with a web search tool would have found the address in one query, and on this task the second world beats the third. The lesson is not that skills are the answer. It is that the knowledge has to arrive before staging, whether a skill ships it or a search fetches it, and that a harness which encodes perfectly is still only half a harness. This is the defect family at its purest: honest inputs, a competent model, a wrong result, and no adversary anywhere. It is why the knowledge row in the table matters as much as the encoding rows.
 
 The harness is not a gate either. It does not refuse anything on the user's behalf. What it does is make the built transaction correct in the first place, which is why the defect family mostly disappears once the harness is good, and why it reappears the moment the harness is removed. It also creates the conditions for the first gate: the guards that run on the simulated result are exactly what Gate 0.5 looks like inside a real runtime, and tool hooks can only guard tool calls. A model encoding calldata by hand has no tool calls to guard.
 
@@ -116,9 +122,9 @@ The first useful “no” can happen while an agent is building a transaction. A
 
 ### The pre-commit veto in practice
 
-In Aomi's current implementation, inactive skill tools can be refused and tool hooks can block calls before execution. App and skill guard code is designed to interpret EVM chain, target, selector, and approval-spender restrictions or Solana program/discriminator restrictions at staging. A separate signing-policy path can deny commits for read-only threads and reject unbound or foreign-owned wallets in the hosted database-backed flow. The child-agent `commit_staged` path requires passed simulation evidence. These are concrete veto mechanisms, not merely model instructions. They are also path-specific: **direct commit is not universally conditioned on a passed simulation**, and a guard that relies on a caller-declared `usd_amount` is not an independently measured dollar limit. We should not collapse these differences into “all transactions are simulated and policy checked.”
+Our own runtime is a fair specimen, because we can read it. Its refusals come in three kinds. Tool hooks can block a call before it executes, and tools belonging to a skill that is not active are refused outright. Guard code interprets restrictions on chain, target, function selector and approval spender for the EVM, and on program and instruction discriminator for Solana, at the moment a transaction is staged. A separate signing-policy step denies commits from read-only threads and from wallets the thread does not own. The path a child agent uses to commit staged work requires simulation evidence to have passed. These are concrete vetoes, not model instructions.
 
-Policy binding also depends on the tool name and route. An end-to-end test must show that the actual staging tool invokes the intended guard. Reading the guard's code is not enough. Until that test passes, the EVM guard-table path should not be counted as verified coverage. A correct guard has no effect if dispatch never invokes it. We describe the runtime as a *development and operational control*, not an independent settlement guarantee.
+They are also path-specific, and this is the part worth generalising. Not every commit route is conditioned on a passed simulation. A guard that trusts the caller's declared dollar amount is not an independently measured limit. A guard table that is correct in source has no effect on any route where dispatch never invokes it, so reading the code is not the same as an end-to-end test showing the staging tool actually calls it. Until that test passes for a given route, the route should not be counted as covered. We would apply the same three questions to any runtime, and we describe our own as a *development and operational control*, not an independent settlement guarantee. It cannot protect the user from the operator that runs it.
 
 The surrounding market is moving toward the same enforcement point. [AWS AgentCore Gateway Policy](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/use-gateway-with-policy.html) evaluates MCP tool calls and can deny them by default. AWS limits this policy surface to MCP tools, so other actions may not pass through it. [Permit MCP Gateway](https://docs.permit.io/permit-mcp-gateway/guide/) and [Cloudflare MCP portals](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/mcp-portals/) also put controls at the tool boundary. [Lakera's agent behavior defense](https://docs.lakera.ai/docs/agent-behavior-defense) looks for suspicious agent behavior. All can intervene early. The question for each is whether every path that can move value passes through the check.
 
@@ -218,6 +224,8 @@ An action envelope records who authorized a transaction and which account will s
 
 This is where the coding-agent analogy becomes operational. A deployment pipeline records which source produced which artifact, who approved it, which environment deployed it, and what actually ran. Agentic finance needs a similarly inspectable provenance chain, but with stricter authority because settlement may be irreversible and funds may move through contracts the agent did not author.
 
+The runtime is the natural party to assemble this envelope, since it is the only one that sees the conversation, the simulation and the signing request together. For the record, ours carries part of it today: a staged transaction travels with the simulated result and the guard decisions that ran against it. It does not yet carry a policy version, and nothing compares the receipt back against the envelope after settlement. We list these as gaps rather than features because the test plan below would find them.
+
 ![An action envelope binds the mandate and transaction data to limits, simulation evidence and policy versions. The runtime, wallet, contract, builder and receipt verification each read a different part of it.](figures/04-action-envelope.svg)
 
 Figure 6. The envelope is not another gate. It links decisions about the same action. Each gate receives only the fields its interface can authenticate and inspect.
@@ -228,15 +236,17 @@ The most revealing tests try to bypass a gate. Change a quote after simulation b
 
 ## Conclusion
 
-An agent can assemble a plausible transaction from corrupted intent or corrupted state. The resulting signature and chain receipt can both be cryptographically sound while the action is wrong. Runtime guardrails can prevent bad construction and make failures legible. Independent wallet policy can deny signatures the app cannot authorize alone. Onchain mandates can make delegated authority a settlement rule. Builder assertions can reject certain harmful state transitions just before inclusion. None should be credited with protecting a path it does not see.
+A transaction that is valid onchain and wrong for the user can come from two places, and they call for different remedies. When an adversary forged the intent or the state, a gate is the answer: a party who sees the transaction at a transition and can refuse it under a rule the attacker does not control. When nobody attacked and the agent simply built the wrong thing, no gate helps and the remedy is the model and harness that built it. Most products in this space are sold against the first problem while most day-to-day loss comes from the second, and a harness that makes an honest agent accurate does nothing about a forged instruction. Keeping the two apart is the main claim of this note.
 
-The research task for agentic finance is therefore precise: specify the user's mandate, enumerate the paths to value movement, identify the actor who can say “no” on each path, and test every claimed veto under injected intent, injected state, and degraded operation. That is the route from a persuasive safety story to an enforceable one.
+On the gate side the map is now specific. Runtime guardrails can prevent bad construction and make failures legible, under rules the application operates. Independent wallet policy can deny signatures the application cannot authorize alone. Onchain mandates can make delegated authority a settlement rule. Builder assertions can reject harmful state transitions just before inclusion, and are the only checkpoint positioned where inclusion-time risk lives. None should be credited with protecting a path it does not see.
+
+The research task is therefore precise: specify the user's mandate, enumerate the paths to value movement, identify the actor who can say “no” on each path, and test every claimed veto under injected intent, injected state and degraded operation. That is the route from a persuasive safety story to an enforceable one.
 
 ## Method and scope
 
 ### Evidence standard
 
-We classify a control by what it evaluates, who can change it and where it acts relative to signing or inclusion. We also examine possible bypass routes. A vendor's feature description supports a claim about the mechanism, not how a customer configured it. A named integration establishes more than a product page, but it still does not prove complete coverage or an independently measured prevention rate. Our discussion of Aomi's runtime is a first-party source review at `product-mono` commit `a63f5f4f593f`. It is not an external audit. The EVM guard-table path remains unverified pending an end-to-end binding test.
+We classify a control by what it evaluates, who can change it and where it acts relative to signing or inclusion. We also examine possible bypass routes. A vendor's feature description supports a claim about the mechanism, not how a customer configured it. A named integration establishes more than a product page, but it still does not prove complete coverage or an independently measured prevention rate. Our discussion of our own runtime is a first-party source review of `product-mono` at commit `a63f5f4f593f`. It is not an external audit. Specifically: the child-agent path is `commit_staged`, the direct commit path is not conditioned on simulation, the EVM guard table reads a caller-declared `usd_amount` for its dollar limit, and that guard-table path remains unverified pending an end-to-end test that the staging tool invokes it. The benchmark figures quoted in the risk-landscape section are from [AomiBench v0.1](/research/aomibench-v0-1), two passes per spec, and are joint model-and-harness scores rather than a ranking of model intelligence.
 
 ### Limits
 

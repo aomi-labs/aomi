@@ -30,7 +30,7 @@
 
   <!-- APPLICATION region: x 50..600 -->
   <rect class="region" x="50" y="130" width="550" height="600" rx="22"/>
-  <text class="label muted" x="74" y="160">APPLICATION · AOMI HOSTED SERVICE</text>
+  <text class="label muted" x="74" y="160">APPLICATION</text>
   <text class="small muted" x="74" y="180">Operator controls the runtime and the signing route.</text>
 
   <!-- RUNTIME region: x 74..576, y 200..490 -->
@@ -94,7 +94,7 @@
   <!-- WALLET PROVIDER region: x 700..1050, y 500..730 -->
   <rect class="region-dash" x="700" y="500" width="350" height="230" rx="18"/>
   <text class="label muted" x="724" y="528">WALLET PROVIDER</text>
-  <text class="small muted" x="724" y="548">Keys and signing policy held outside Aomi.</text>
+  <text class="small muted" x="724" y="548">Keys and signing policy held outside the application.</text>
   <rect class="card" x="724" y="562" width="302" height="62" rx="10"/>
   <text class="name dark" x="744" y="588">Signing policy · enclave</text>
   <text class="small muted" x="744" y="608">Privy · Para · Turnkey · CDP · Fireblocks</text>

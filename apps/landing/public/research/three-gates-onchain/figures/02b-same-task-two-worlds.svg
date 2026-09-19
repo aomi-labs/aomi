@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="720" viewBox="0 0 1100 720" role="img" aria-labelledby="title desc">
   <title id="title">Same task, two worlds</title>
-  <desc id="desc">Two columns run the same instruction, approve 500 USDC for the Uniswap router. On the left a frontier model with no harness performs eight steps by hand, four of which can be silently wrong until a revert on the live chain. On the right a small model on Aomi emits one typed tool call and the harness encodes, simulates in a sandbox, runs guards and stages; the first error signal arrives before anything is signed.</desc>
+  <desc id="desc">Two columns run the same instruction, approve 500 USDC for the Uniswap router. On the left a frontier model with no harness performs eight steps by hand, four of which can be silently wrong until a revert on the live chain. On the right a small model on an integrated runtime emits one typed tool call and the harness encodes, simulates in a sandbox, runs guards and stages; the first error signal arrives before anything is signed.</desc>
   <defs>
     <style>
       .bg{fill:#f8f9fb}
@@ -47,7 +47,7 @@
 
   <!-- RIGHT column -->
   <rect class="colblue" x="574" y="124" width="476" height="470" rx="18"/>
-  <text class="label blue" x="598" y="152">SMALL MODEL · AOMI HARNESS</text>
+  <text class="label blue" x="598" y="152">SMALL MODEL · INTEGRATED HARNESS</text>
   <text class="small muted" x="598" y="172">The model writes one typed call. The harness does the rest.</text>
 
   <rect class="model" x="598" y="190" width="428" height="112" rx="10"/>
@@ -71,9 +71,9 @@
     <text class="small dark" y="150">Skills supply addresses and protocol procedure</text>
   </g>
   <rect class="signalok" x="598" y="536" width="428" height="40" rx="10"/>
-  <text class="name green" x="812" y="561" text-anchor="middle">First error signal: inside the loop, before signing, free</text>
+  <text class="name green" x="812" y="561" text-anchor="middle">First error signal: in the loop, before signing, no fee paid</text>
 
   <text class="note muted" x="50" y="632">Pink steps are where an honest mistake stays invisible until the chain rejects it. The harness moves every one of them</text>
   <text class="note muted" x="50" y="652">behind a tool the model cannot get subtly wrong, and puts the first failure signal before authorization instead of after.</text>
-  <text class="small muted" x="50" y="690">Right column reflects the Aomi runtime as documented in AomiBench v0.1, Section 2.3 and Section 4.</text>
+  <text class="small muted" x="50" y="690">Right column reflects our own runtime as documented in AomiBench v0.1, Section 2.3 and Section 4.</text>
 </svg>
