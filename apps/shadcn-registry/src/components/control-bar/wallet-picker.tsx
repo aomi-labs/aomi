@@ -153,14 +153,6 @@ function isGenericBrowserWallet(
   );
 }
 
-function buildConnectedWalletRows(
-  walletRows: readonly WalletModalRow[],
-  identity: AomiWalletKit["identity"],
-): WalletModalRow[] {
-  if (!identity.isConnected) return [];
-  return walletRows.filter((row) => row.connected);
-}
-
 function dedupeWalletActions(actions: readonly WalletAction[]): WalletAction[] {
   const seen = new Set<string>();
   const result: WalletAction[] = [];
@@ -313,8 +305,8 @@ export function WalletPicker() {
 
   const walletRows = adapter.wallets;
   const connectedAccounts = useMemo(
-    () => buildConnectedWalletRows(walletRows, identity),
-    [identity, walletRows],
+    () => walletRows.filter((row) => row.connected),
+    [walletRows],
   );
   const canManageAccounts = Boolean(
     adapter.openAccountUI && adapter.canOpenAccountUI,

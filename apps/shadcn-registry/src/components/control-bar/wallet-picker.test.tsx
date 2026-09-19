@@ -1068,6 +1068,53 @@ describe("WalletPicker", () => {
     expect(linkWallet).not.toHaveBeenCalled();
   });
 
+  it("shows a connected unlinked wallet when no operating wallet exists", () => {
+    renderPicker(
+      makeAdapter({
+        identity: { status: "disconnected", isConnected: false },
+        accountUser: { id: "user-1", displayName: "Ada Account" },
+        accountWallets: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            kind: "external",
+            linkedVia: "siwe",
+          },
+        ],
+        linkWallet: vi.fn(async () => undefined),
+        walletModalRows: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            walletName: "MetaMask",
+            label: "0xAAAAAAAA",
+            source: "stored",
+            status: "stored",
+            linked: true,
+            actions: [],
+          },
+          {
+            id: "mm-2",
+            family: "evm",
+            address: "0xBBBBBBBB",
+            walletName: "MetaMask",
+            label: "0xBBBBBBBB",
+            source: "live",
+            status: "connected",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Link wallet" }),
+    ).toBeEnabled();
+  });
+
   it("keeps a dual-chain wallet connectable on both families", () => {
     renderPicker(
       makeAdapter({
