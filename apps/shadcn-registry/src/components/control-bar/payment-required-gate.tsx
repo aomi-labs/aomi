@@ -16,7 +16,7 @@ type ProviderId = (typeof PROVIDERS)[number]["id"];
 export function PaymentRequiredGate() {
   const { notifications, dismissNotification, showNotification } =
     useNotification();
-  const { setByok } = useControl();
+  const { setByok, setInferenceFunding } = useControl();
   const paymentNotification = notifications.find(
     (notification) => notification.kind === "payment_required",
   );
@@ -46,11 +46,8 @@ export function PaymentRequiredGate() {
     setSaving(true);
     setError(null);
     try {
-      await setByok(
-        selectedProvider,
-        apiKey.trim(),
-        label.trim() || undefined,
-      );
+      await setByok(selectedProvider, apiKey.trim(), label.trim() || undefined);
+      setInferenceFunding("user_byok");
       setApiKey("");
       setLabel("");
       handleDismiss();
@@ -59,7 +56,8 @@ export function PaymentRequiredGate() {
       // we do tell them the gate is cleared so the modal isn't silently gone.
       showNotification({
         type: "success",
-        title: "Provider key saved — resend your message to continue.",
+        title:
+          "Provider key saved — resend your message to continue with BYOK.",
         duration: 6000,
       });
     } catch (err) {
@@ -73,6 +71,7 @@ export function PaymentRequiredGate() {
     handleDismiss,
     label,
     selectedProvider,
+    setInferenceFunding,
     setByok,
     showNotification,
   ]);
@@ -140,8 +139,8 @@ export function PaymentRequiredGate() {
         </div>
 
         <p className="text-muted-foreground mt-4 text-sm leading-6">
-          Keys are stored in your browser and synchronized with the backend
-          vault. BYOK usage is recorded, but it does not consume Aomi credits.
+          Keys are stored securely on your account. BYOK usage is recorded, but
+          it does not consume Aomi credits.
         </p>
 
         {error && <p className="text-destructive mt-3 text-sm">{error}</p>}
@@ -162,7 +161,7 @@ export function PaymentRequiredGate() {
             disabled={!canSave}
             className="h-11 rounded-full px-7"
           >
-            {saving ? "Saving..." : "Save and continue"}
+            {saving ? "Saving..." : "Save and use BYOK"}
           </Button>
         </div>
       </div>

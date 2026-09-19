@@ -1,18 +1,16 @@
 // =============================================================================
-// Wallet Payload Normalization
+// Wallet adapter payloads
 // =============================================================================
 //
-// Pure functions extracted from packages/react/src/handlers/wallet-handler.ts.
-// Normalizes the various payload shapes the backend can send for wallet
-// transaction and EIP-712 signing requests.
+// These types belong to wallet-kit adapters. Public runtime orchestration uses
+// Action, ActionRequest, and ActionResult instead.
 
 // =============================================================================
 // Types
 // =============================================================================
 
-import { type Hex, getAddress } from "viem";
+import { type Hex } from "viem";
 import type { AAWalletCall } from "./aa/types";
-import { UserState } from "./user-state";
 
 export type WalletTxAaPreference = "auto" | "eip4337" | "eip7702" | "none";
 
@@ -40,13 +38,17 @@ export type WalletTxPayload = {
   calls?: WalletTxCallPayload[];
 };
 
-type HydrateTxPayloadOptions = {
-  strict?: boolean;
-};
-
 export type WalletEip712Payload = {
+  /** Stable public Agent action id when projected from the canonical API. */
+  requestId?: string;
   typed_data?: {
-    domain?: { chainId?: number | string };
+    domain?: {
+      name?: string;
+      version?: string;
+      chainId?: number | string;
+      verifyingContract?: string;
+      salt?: `0x${string}`;
+    };
     types?: Record<string, Array<{ name: string; type: string }>>;
     primaryType?: string;
     message?: Record<string, unknown>;
@@ -61,15 +63,15 @@ export type WalletEip712Payload = {
 };
 
 /**
- * Legacy internal SVM payload projected into the public `wallet_signing_request`.
- * in shape — singular sign-only — but carries a base64-encoded serialized
- * Solana transaction instead of EIP-712 typed data.
+ * Wallet-kit payload carrying a serialized Solana transaction.
  *
  * `unsignedTx` is base64 of `VersionedTransaction.serialize()` (legacy
  * `Transaction.serialize()` also accepted by adapters). The host doesn't
  * decode it; the wallet adapter handles deserialization.
  */
 export type WalletSolanaSignPayload = {
+  /** Stable public Agent action id when projected from the canonical API. */
+  requestId?: string;
   /** Base64 of the unsigned Solana transaction. */
   unsignedTx?: string;
   /** Human-readable summary shown alongside the wallet's decoded preview. */
@@ -78,11 +80,21 @@ export type WalletSolanaSignPayload = {
   cluster?: string;
   /** Server-side correlation id for the staged sign request. */
   pendingSolanaId?: number;
-  /** All staged instruction/transaction ids resolved by this wallet request. */
+  /** Staged instruction identifiers covered by this wallet-kit operation. */
   pendingSolanaIds?: number[];
+  /** Canonical multi-leg Agent action, in execution order. */
+  transactions?: Array<{
+    id: string;
+    unsignedTx: string;
+    description?: string;
+  }>;
 };
 
 export type WalletSolanaSignMessagePayload = {
+  /** Exact wallet whose message signature is required. */
+  signer?: string;
+  /** Stable public Agent action id when projected from the canonical API. */
+  requestId?: string;
   /** Base64 of the raw message bytes to sign. */
   message?: string;
   /** Human-readable summary shown alongside the wallet's decoded preview. */
@@ -91,15 +103,6 @@ export type WalletSolanaSignMessagePayload = {
   cluster?: string;
   /** Server-side correlation id for the staged sign request. */
   pendingSolanaId?: number;
-};
-
-export type NormalizedSolanaWalletRequest = {
-  kind:
-    | "solana_sign"
-    | "solana_sign_message"
-    | "solana_send"
-    | "solana_sign_and_send";
-  payload: WalletSolanaSignPayload | WalletSolanaSignMessagePayload;
 };
 
 export type ViemSignTypedDataArgs = {
@@ -123,26 +126,6 @@ function asRecord(value: unknown): UnknownRecord | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value))
     return undefined;
   return value as UnknownRecord;
-}
-
-function pendingTxsFromUserState(
-  userState: unknown,
-): UnknownRecord | undefined {
-  const normalized = UserState.normalize(userState as UserState);
-  const pending = asRecord(normalized?.pending);
-  return (
-    asRecord(pending?.evm_txs) ?? asRecord(asRecord(userState)?.pending_txs)
-  );
-}
-
-function getToolArgs(payload: unknown): UnknownRecord {
-  const root = asRecord(payload);
-  const nestedArgs = asRecord(root?.args);
-  return nestedArgs ?? root ?? {};
-}
-
-function parseChainKind(value: unknown): "evm" | "svm" | undefined {
-  return value === "evm" || value === "svm" ? value : undefined;
 }
 
 /**
@@ -169,33 +152,6 @@ export function normalizeSolanaCluster(value: unknown): string | undefined {
       return "solana:testnet";
     default:
       return trimmed;
-  }
-}
-
-export function inferSolanaRequestKind(
-  payload: Record<string, unknown>,
-): NormalizedSolanaWalletRequest["kind"] {
-  const rawKind =
-    typeof payload.kind === "string"
-      ? payload.kind
-      : typeof payload.request_kind === "string"
-        ? payload.request_kind
-        : typeof payload.requestKind === "string"
-          ? payload.requestKind
-          : undefined;
-
-  switch (rawKind) {
-    case "solana_sign_message":
-    case "message_sign":
-      return "solana_sign_message";
-    case "solana_send":
-    case "send_transaction":
-      return "solana_send";
-    case "solana_sign_and_send":
-    case "sign_and_send_transaction":
-      return "solana_sign_and_send";
-    default:
-      return "solana_sign";
   }
 }
 
@@ -226,374 +182,8 @@ function parseCanonicalInteger(
   return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
-function parseTxIds(value: unknown): number[] {
-  if (!Array.isArray(value)) return [];
-  const parsed = value
-    .map((entry) => parsePendingId(entry))
-    .filter((entry): entry is number => typeof entry === "number");
-  const unique = Array.from(new Set(parsed));
-  unique.sort((left, right) => left - right);
-  return unique;
-}
-
-function parsePendingId(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
-    return value;
-  }
-  if (typeof value !== "string") return undefined;
-
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-function parseValue(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(Math.trunc(value));
-  }
-  return undefined;
-}
-
-function parseBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") return value;
-  if (typeof value !== "string") return undefined;
-
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "true" || normalized === "1") return true;
-  if (normalized === "false" || normalized === "0") return false;
-  return undefined;
-}
-
-function parseString(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
 function isHexBytes(value: string): value is Hex {
   return /^0x(?:[0-9a-fA-F]{2})*$/.test(value);
-}
-
-function normalizeAaPreference(
-  value: unknown,
-): WalletTxAaPreference | undefined {
-  if (typeof value !== "string") return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (
-    normalized === "auto" ||
-    normalized === "eip4337" ||
-    normalized === "eip7702" ||
-    normalized === "none"
-  ) {
-    return normalized;
-  }
-  return undefined;
-}
-
-function normalizeAddress(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-
-  try {
-    return getAddress(trimmed);
-  } catch {
-    if (/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
-      return getAddress(trimmed.toLowerCase());
-    }
-    return undefined;
-  }
-}
-
-export function normalizePendingTxData(
-  pendingEntry: UnknownRecord,
-): string | undefined {
-  const data =
-    typeof pendingEntry.data === "string" ? pendingEntry.data : undefined;
-  if (!data) {
-    return undefined;
-  }
-
-  const kind =
-    typeof pendingEntry.kind === "string"
-      ? pendingEntry.kind.toLowerCase()
-      : undefined;
-
-  if (kind === "native_transfer") {
-    return undefined;
-  }
-
-  return data;
-}
-
-// =============================================================================
-// Normalization
-// =============================================================================
-
-/**
- * Normalize a wallet_tx_request payload into a consistent shape.
- * Hard cutover contract: requires `tx_ids`.
- */
-export function normalizeTxPayload(payload: unknown): WalletTxPayload | null {
-  const root = asRecord(payload);
-  const args = getToolArgs(payload);
-  const ctx = asRecord(root?.ctx);
-  const txIds = parseTxIds(args.tx_ids ?? args.txIds);
-  if (txIds.length === 0) return null;
-
-  const to = normalizeAddress(args.to);
-  const value = parseValue(args.value);
-  const data = typeof args.data === "string" ? args.data : undefined;
-  const chainId =
-    parseChainId(args.chainId) ??
-    parseChainId(args.chain_id) ??
-    parseChainId(ctx?.user_chain_id) ??
-    parseChainId(ctx?.userChainId);
-  const requestId =
-    typeof args.tx_id === "string"
-      ? args.tx_id
-      : typeof args.txId === "string"
-        ? args.txId
-        : undefined;
-  const aaPreference =
-    normalizeAaPreference(args.aa_preference ?? args.aaPreference) ?? "auto";
-  const aaStrict = parseBoolean(args.aa_strict ?? args.aaStrict);
-  const txId = txIds.length === 1 ? txIds[0] : undefined;
-
-  return {
-    to,
-    value,
-    data,
-    chainId,
-    txId,
-    txIds,
-    aaPreference,
-    aaStrict,
-    requestId,
-  };
-}
-
-export function hydrateTxPayloadFromUserState(
-  payload: WalletTxPayload,
-  userState: unknown,
-  options?: HydrateTxPayloadOptions,
-): WalletTxPayload {
-  const strict = options?.strict === true;
-  const txIds =
-    Array.isArray(payload.txIds) && payload.txIds.length > 0
-      ? payload.txIds
-      : payload.txId !== undefined
-        ? [payload.txId]
-        : [];
-  if (txIds.length === 0) {
-    if (strict) {
-      throw new Error("pending_tx_not_found");
-    }
-    return payload;
-  }
-
-  const pendingTxsRaw = pendingTxsFromUserState(userState);
-  if (!pendingTxsRaw) {
-    if (strict) {
-      throw new Error("pending_tx_not_found");
-    }
-    return payload;
-  }
-
-  const calls: WalletTxCallPayload[] = [];
-  for (const txId of txIds) {
-    const pendingEntry = asRecord(pendingTxsRaw[String(txId)]);
-    if (!pendingEntry) {
-      if (strict) {
-        throw new Error("pending_tx_not_found");
-      }
-      continue;
-    }
-
-    const to = normalizeAddress(pendingEntry.to);
-    if (!to) {
-      if (strict) {
-        throw new Error("pending_transaction_missing_call_data");
-      }
-      continue;
-    }
-
-    calls.push({
-      txId,
-      to,
-      value: parseValue(pendingEntry.value),
-      data: normalizePendingTxData(pendingEntry),
-      chainId:
-        parseChainId(pendingEntry.chain_id) ??
-        parseChainId(pendingEntry.chainId) ??
-        parseChainId(payload.chainId),
-      from:
-        typeof pendingEntry.from === "string" ? pendingEntry.from : undefined,
-      gas: typeof pendingEntry.gas === "string" ? pendingEntry.gas : undefined,
-      description:
-        typeof pendingEntry.label === "string"
-          ? pendingEntry.label
-          : typeof pendingEntry.description === "string"
-            ? pendingEntry.description
-            : undefined,
-    });
-  }
-  if (calls.length === 0) {
-    if (strict) {
-      throw new Error("pending_tx_not_found");
-    }
-    return payload;
-  }
-  const first = calls[0];
-
-  return {
-    ...payload,
-    txIds,
-    txId: payload.txId ?? first.txId,
-    to: payload.to ?? first.to,
-    value: payload.value ?? first.value,
-    data: payload.data ?? first.data,
-    chainId: payload.chainId ?? first.chainId,
-    calls,
-  };
-}
-
-/**
- * Normalize a legacy internal SVM request into a consistent shape.
- *
- * Accepts the various nesting levels the backend can ship: top-level args,
- * `{ args: { ... } }`, snake_case (`unsigned_tx`, `pending_solana_id`) or
- * camelCase (`unsignedTx`, `pendingSolanaId`). Single source of truth for
- * the SDK's view of the request — both the dispatch path and the
- * `syncWalletRequests` reconstruction loop go through here.
- */
-export function normalizeSolanaSignPayload(
-  payload: unknown,
-): WalletSolanaSignPayload {
-  const args = getToolArgs(payload);
-
-  const unsignedTxRaw = args.unsigned_tx ?? args.unsignedTx;
-  const unsignedTx =
-    typeof unsignedTxRaw === "string" ? unsignedTxRaw : undefined;
-
-  const description =
-    typeof args.description === "string" ? args.description : undefined;
-
-  const cluster = normalizeSolanaCluster(args.cluster);
-
-  const rawPendingIds = args.svm_tx_ids ?? args.svm_ix_ids;
-  const pendingSolanaIds = Array.isArray(rawPendingIds)
-    ? rawPendingIds
-        .map(parsePendingId)
-        .filter((id): id is number => id !== undefined)
-    : undefined;
-  const pendingSolanaId =
-    parsePendingId(args.pendingSolanaId) ??
-    parsePendingId(args.pending_solana_id) ??
-    parsePendingId(args.pendingSvmSigId) ??
-    parsePendingId(args.pending_svm_sig_id) ??
-    pendingSolanaIds?.[0];
-
-  return {
-    unsignedTx,
-    description,
-    cluster,
-    pendingSolanaId,
-    pendingSolanaIds,
-  };
-}
-
-export function normalizeSolanaSignMessagePayload(
-  payload: unknown,
-): WalletSolanaSignMessagePayload {
-  const args = getToolArgs(payload);
-
-  const messageRaw = args.message_base64 ?? args.messageBase64 ?? args.message;
-  const message = typeof messageRaw === "string" ? messageRaw : undefined;
-
-  const description =
-    typeof args.description === "string" ? args.description : undefined;
-
-  const cluster = normalizeSolanaCluster(args.cluster);
-
-  const pendingSolanaId =
-    parsePendingId(args.pendingSolanaId) ??
-    parsePendingId(args.pending_solana_id) ??
-    parsePendingId(args.pendingSvmSigId) ??
-    parsePendingId(args.pending_svm_sig_id);
-
-  return { message, description, cluster, pendingSolanaId };
-}
-
-export function normalizeSolanaWalletRequest(
-  payload: unknown,
-): NormalizedSolanaWalletRequest | null {
-  const root = asRecord(payload);
-  const args = getToolArgs(payload);
-  const solanaRequest = {
-    ...(root ?? {}),
-    ...args,
-  };
-  const chainKind =
-    parseChainKind(args.chain_kind) ??
-    parseChainKind(args.chain_family) ??
-    parseChainKind(root?.chain_kind) ??
-    parseChainKind(root?.chain_family);
-  if (chainKind !== "svm") {
-    return null;
-  }
-
-  const kind = inferSolanaRequestKind(solanaRequest);
-  if (kind === "solana_sign_message") {
-    const normalized = normalizeSolanaSignMessagePayload(payload);
-    return normalized.message ? { kind, payload: normalized } : null;
-  }
-
-  const normalized = normalizeSolanaSignPayload(payload);
-  return normalized.unsignedTx ? { kind, payload: normalized } : null;
-}
-
-/**
- * Normalize an EIP-712 signing request payload.
- */
-export function normalizeEip712Payload(payload: unknown): WalletEip712Payload {
-  const args = getToolArgs(payload);
-  const typedDataRaw =
-    args.typed_data ?? args["712_typed_data"] ?? args.typedData;
-  const nonTypedData = parseString(args.non_typed_data ?? args.nonTypedData);
-  let typedData: WalletEip712Payload["typed_data"] | undefined;
-
-  if (typeof typedDataRaw === "string") {
-    try {
-      const parsed = JSON.parse(typedDataRaw) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        typedData = parsed as WalletEip712Payload["typed_data"];
-      }
-    } catch {
-      typedData = undefined;
-    }
-  } else if (
-    typedDataRaw &&
-    typeof typedDataRaw === "object" &&
-    !Array.isArray(typedDataRaw)
-  ) {
-    typedData = typedDataRaw as WalletEip712Payload["typed_data"];
-  }
-
-  const description =
-    typeof args.description === "string" ? args.description : undefined;
-  const eip712Id =
-    parsePendingId(args.eip712Id) ??
-    parsePendingId(args.pending_eip712_id) ??
-    parsePendingId(args.pendingEip712Id);
-
-  return {
-    typed_data: typedData,
-    non_typed_data: nonTypedData,
-    description,
-    eip712Id,
-  };
 }
 
 /**

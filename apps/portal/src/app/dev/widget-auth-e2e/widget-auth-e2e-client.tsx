@@ -36,7 +36,7 @@ function WidgetAuthE2EPanel() {
 
   const refreshAccount = useCallback(async () => {
     try {
-      const response = await fetch("/api/aomi/account", {
+      const response = await fetch("/v1/account", {
         credentials: "include",
       });
       setAccountSnapshot(await response.json());
@@ -91,10 +91,7 @@ function WidgetAuthE2EPanel() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({
-        walletAddress: testWalletOne.address,
-        chainId: testChainId,
-      }),
+      body: JSON.stringify({}),
     });
     const { nonce } = await readJsonOrThrow<{ nonce: string }>(
       nonceResponse,
@@ -113,8 +110,6 @@ function WidgetAuthE2EPanel() {
       body: JSON.stringify({
         message,
         signature,
-        walletAddress: testWalletOne.address,
-        chainId: testChainId,
       }),
     });
     if (!verifyResponse.ok) {
@@ -129,7 +124,7 @@ function WidgetAuthE2EPanel() {
       throw new Error("Para did not return a credential");
     }
     const exchangePath = walletKit.accountUser
-      ? "/api/aomi/provider/exchange"
+      ? "/v1/account/provider/exchange"
       : "/api/auth/aomi/provider/exchange";
     const response = await fetch(exchangePath, {
       method: "POST",
@@ -147,7 +142,7 @@ function WidgetAuthE2EPanel() {
 
   const linkSecondTestWallet = useCallback(async () => {
     const nonceResponse = await fetch(
-      `/api/aomi/wallets/link?address=${encodeURIComponent(
+      `/v1/account/wallets/link?address=${encodeURIComponent(
         testWalletTwo.address,
       )}&chainId=${encodeURIComponent(String(testChainId))}`,
       {
@@ -165,7 +160,7 @@ function WidgetAuthE2EPanel() {
       nonce,
     });
     const signature = await testWalletTwo.signMessage({ message });
-    const response = await fetch("/api/aomi/wallets/link", {
+    const response = await fetch("/v1/account/wallets/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -273,9 +268,11 @@ function WidgetAuthE2EPanel() {
             disabled={!!pending}
             onClick={() =>
               void run("betterauth signout", async () => {
-                await fetch("/api/aomi/sign-out", {
+                await fetch("/api/auth/sign-out", {
                   method: "POST",
                   credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
                 });
               })
             }

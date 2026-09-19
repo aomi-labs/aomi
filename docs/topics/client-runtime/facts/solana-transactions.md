@@ -13,6 +13,16 @@ sources_of_truth:
 
 # Solana Transactions
 
+For the current Action-based UI/CLI contract and supported adapters, see
+[Wallet routing](../../auth/facts/wallet-kit.md). Auto can select an exact SVM
+account with `--solana-public-key` without possessing its private key. The
+backend checks delegation before execution; sealing a transaction is not AA.
+
+## Historical verification (July 2026)
+
+The evidence below describes the former approval/callback protocol, not a live
+verification of the current Action contract.
+
 The Solana HTTP transaction path was completed and verified locally on
 2026-07-15. This page records its durable client contract, root causes, and
 acceptance evidence.
@@ -98,6 +108,11 @@ passed.
 
 The current portal now exposes the SVM bind challenge/commit ceremony in
 settings and as a contextual recovery action for `signing_unbound_wallet`.
+For authenticated unlinked wallets, direct `wallet` commits now request a live
+signature without that ceremony. The recovery action also recognizes
+`signing_svm_account_link_required_for_hosted`, explaining that linking is
+needed only for hosted signing. External wallets cannot borrow account signing
+or sponsorship, and a denied key stays denied.
 The shared client removes resolved SVM pending state before the next poll and
 always resumes polling after a wallet response.
 

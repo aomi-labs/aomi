@@ -51,7 +51,7 @@ describe("AomiWalletKitContextProvider user sync", () => {
   it("publishes wallet provider and owner/chain, never backend-authority aa/sponsorship", async () => {
     renderWithAdapter(
       connectedAdapter({
-        walletProvider: "baseAccount",
+        sessionProvider: "baseAccount",
         walletKind: "smart-account",
       }),
     );
@@ -77,7 +77,7 @@ describe("AomiWalletKitContextProvider user sync", () => {
   it("clears wallet provider metadata when no verified provider is available", async () => {
     const { rerender } = renderWithAdapter(
       connectedAdapter({
-        walletProvider: "baseAccount",
+        sessionProvider: "baseAccount",
         walletKind: "smart-account",
       }),
     );
@@ -109,7 +109,7 @@ describe("AomiWalletKitContextProvider user sync", () => {
   it("publishes Para as wallet provider and auth method", async () => {
     renderWithAdapter(
       connectedAdapter({
-        walletProvider: "para",
+        sessionProvider: "para",
         walletKind: "eoa",
         authMethod: "google",
       }),

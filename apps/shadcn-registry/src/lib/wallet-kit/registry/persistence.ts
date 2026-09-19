@@ -33,7 +33,6 @@ function isPersistedRegistryV1(value: unknown): value is PersistedRegistryV1 {
 }
 
 function normalizePersisted(value: PersistedRegistryV1): PersistedRegistryV1 {
-  const legacy = value as PersistedRegistryV1 & { paraDetached?: boolean };
   return {
     ...value,
     order: Array.isArray(value.order)
@@ -42,14 +41,13 @@ function normalizePersisted(value: PersistedRegistryV1): PersistedRegistryV1 {
             const family = (item as { family?: unknown } | null)?.family;
             return (
               item &&
-              (family === "evm" || family === "svm" || family === "solana") &&
+              (family === "evm" || family === "svm") &&
               typeof item.stableId === "string" &&
               typeof item.address === "string"
             );
           })
           .map((item) => {
-            const family = item.family as "evm" | "svm" | "solana";
-            const registryFamily = toRegistryFamily(family);
+            const registryFamily = toRegistryFamily(item.family);
             return {
               family: registryFamily,
               stableId: item.stableId,
@@ -61,7 +59,7 @@ function normalizePersisted(value: PersistedRegistryV1): PersistedRegistryV1 {
           })
       : [],
     providerSessionDetached:
-      value.providerSessionDetached ?? legacy.paraDetached ?? false,
+      value.providerSessionDetached ?? false,
   };
 }
 

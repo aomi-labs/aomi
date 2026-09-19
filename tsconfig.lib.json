@@ -15,7 +15,8 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./packages/react/src/*", "./src/*"]
+      "@/*": ["./packages/react/src/*", "./src/*"],
+      "@aomi-labs/client": ["./packages/client/src/index.ts"]
     },
     "baseUrl": "."
   },

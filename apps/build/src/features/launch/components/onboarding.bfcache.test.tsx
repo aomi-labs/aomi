@@ -14,7 +14,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Onboarding } from "./onboarding";
 
 vi.mock("@aomi-labs/widget-lib", () => ({
-  useAomiAuthAdapter: () => ({ identity: {}, isConnected: false }),
+  useAomiWalletKit: () => ({ identity: {}, isConnected: false }),
   Button: ({
     children,
     onClick,

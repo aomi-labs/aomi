@@ -45,7 +45,7 @@ describe("revokeWidgetSession", () => {
       ttlSeconds: 60,
       store,
     });
-    const request = new Request("https://portal.example/api/aomi/sign-out", {
+    const request = new Request("https://portal.example/api/auth/sign-out", {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${session.token}`,
@@ -76,7 +76,7 @@ describe("revokeWidgetSession", () => {
       ttlSeconds: 60,
       store,
     });
-    const request = new Request("https://portal.example/api/aomi/sign-out", {
+    const request = new Request("https://portal.example/api/auth/sign-out", {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${session.token}`,

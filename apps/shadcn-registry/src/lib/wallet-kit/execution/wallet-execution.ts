@@ -197,8 +197,15 @@ export async function executeWalletKitTransaction({
   // fee-injected or dependent batch must not be silently split into
   // sequential sends.
   const requiresAtomicForBatch = isBatch && payload.aaStrict === true;
+  if (
+    payload.aaPreference === "none" &&
+    state.nativeWalletExecution?.sponsorship?.mode === "required"
+  ) {
+    throw new Error("wallet_sponsorship_incompatible_with_prepared_eoa");
+  }
   const nativeWalletExecution = resolveNativeWalletExecutionPolicy({
-    policy: state.nativeWalletExecution,
+    policy:
+      payload.aaPreference === "none" ? undefined : state.nativeWalletExecution,
     chainId: callList[0]?.chainId ?? state.currentChainId ?? 1,
     requiresAtomicForBatch,
   });
@@ -235,7 +242,8 @@ export async function executeWalletKitTransaction({
     execution = await executeWalletCalls({
       callList,
       currentChainId: state.currentChainId,
-      capabilities: state.capabilities,
+      capabilities:
+        payload.aaPreference === "none" ? undefined : state.capabilities,
       localPrivateKey: null,
       nativeWalletExecution,
       sendCallsSyncAsync: sendCallsSyncAsync
@@ -252,6 +260,23 @@ export async function executeWalletKitTransaction({
       chainsById: state.chainsById,
       getPreferredRpcUrl: state.getPreferredRpcUrl ?? getPreferredRpcUrl,
     });
+
+    // `sendTransactionAsync` resolves once the wallet broadcasts. Keep the
+    // request — and therefore the trace's pending commit state — open until
+    // the final sequential leg has an on-chain receipt. Earlier legs are
+    // already confirmed before the next wallet signature is requested.
+    const finalBroadcast = broadcastLegs[broadcastLegs.length - 1];
+    if (finalBroadcast) {
+      const receipt = await waitForReceipt(
+        state,
+        finalBroadcast.chainId,
+        finalBroadcast.hash,
+      );
+      if (receipt.status === "reverted") {
+        revertedLegIndex = broadcastLegs.length - 1;
+        throw new Error("wallet_sequential_transaction_reverted");
+      }
+    }
   } catch (error) {
     // A broadcast leg counts as executed even when we never saw its receipt:
     // a receipt wait can fail on an RPC timeout while the transaction mines

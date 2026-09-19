@@ -93,7 +93,7 @@ describe("three-layer failure pipeline", () => {
       source: "expected",
       response: { status: 401, error: "invalid_wallet_signature" },
       context: {
-        routeFamily: "/api/aomi/wallets/link",
+        routeFamily: "/v1/account/wallets/link",
         operation: "wallet.link",
         method: "POST",
       },
@@ -116,7 +116,7 @@ describe("three-layer failure pipeline", () => {
       "bff.expected_failure",
       expect.objectContaining({
         service: "portal-bff",
-        route_family: "/api/aomi/wallets/link",
+        route_family: "/v1/account/wallets/link",
         operation: "wallet.link",
         diagnostic: "wallet.signature_mismatch",
         expected_address: "0x1234...5678",

@@ -48,10 +48,29 @@ const widgetSessionSchema = z.object({
   expiresAt: z.string().datetime(),
 });
 
+const widgetOAuthBootstrapSchema = z.object({
+  kind: z.literal("widget_oauth_bootstrap"),
+  origin: z.string().url(),
+  userId: z.string().min(1),
+  authMethod: z.string().min(1),
+  providerIdentityId: z.string().min(1).optional(),
+  widgetSessionIdentifier: z.string().min(1),
+  clientId: z.string().min(1),
+  redirectUri: z.string().url(),
+  codeChallenge: z.string().min(43).max(128),
+  resource: z.string().url(),
+  scopes: z.array(z.string().min(1)).min(1),
+  stateDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  channelNonceDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  issuedAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+});
+
 const ticketSchema = z.discriminatedUnion("kind", [
   siweChallengeSchema,
   siwsChallengeSchema,
   widgetSessionSchema,
+  widgetOAuthBootstrapSchema,
 ]);
 
 export type WidgetAuthTicket = z.infer<typeof ticketSchema>;

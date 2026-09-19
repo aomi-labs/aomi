@@ -50,6 +50,15 @@ type LinkIntentResponse = {
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
+function deviceAuthPortalUrl(baseUrl: string): string {
+  const url = new URL(normalizeBaseUrl(baseUrl));
+  if (url.hostname === "api.aomi.dev") url.hostname = "chat.aomi.dev";
+  if (url.hostname === "api-staging.aomi.dev") {
+    url.hostname = "chat-staging.aomi.dev";
+  }
+  return normalizeBaseUrl(url.toString());
+}
+
 export async function signInWithDeviceProvider({
   baseUrl,
   provider,
@@ -59,7 +68,7 @@ export async function signInWithDeviceProvider({
   openBrowser = openUrlInBrowser,
   randomBytes: randomBytesImpl = randomBytes,
 }: DeviceProviderAuthOptions): Promise<DeviceProviderAuthResult> {
-  const portalUrl = normalizeBaseUrl(baseUrl);
+  const portalUrl = deviceAuthPortalUrl(baseUrl);
   const state = base64Url(randomBytesImpl(32));
   const verifier = base64Url(randomBytesImpl(32));
   const codeChallenge = sha256Base64Url(verifier);
@@ -82,7 +91,7 @@ export async function signInWithDeviceProvider({
     const { code } = await callback;
     const exchange = await requestJson<ExchangeResponse>(
       fetchImpl,
-      joinUrl(portalUrl, "/api/aomi/device-auth/exchange"),
+      joinUrl(portalUrl, "/v1/account/device-auth/exchange"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,7 +155,7 @@ export async function getDeviceProviderCredential({
   if (!sessionToken) {
     throw new Error("Device auth provider linking requires an account session");
   }
-  const portalUrl = normalizeBaseUrl(baseUrl);
+  const portalUrl = deviceAuthPortalUrl(baseUrl);
   const state = base64Url(randomBytesImpl(32));
   const verifier = base64Url(randomBytesImpl(32));
   const codeChallenge = sha256Base64Url(verifier);
@@ -158,7 +167,7 @@ export async function getDeviceProviderCredential({
   try {
     const intent = await requestJson<LinkIntentResponse>(
       fetchImpl,
-      joinUrl(portalUrl, "/api/aomi/device-auth/link-intent"),
+      joinUrl(portalUrl, "/v1/account/device-auth/link-intent"),
       {
         method: "POST",
         headers: {
@@ -198,7 +207,7 @@ export async function getDeviceProviderCredential({
     const { code } = await callback;
     const exchange = await requestJson<DeviceProviderCredentialResult>(
       fetchImpl,
-      joinUrl(portalUrl, "/api/aomi/device-auth/exchange"),
+      joinUrl(portalUrl, "/v1/account/device-auth/exchange"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

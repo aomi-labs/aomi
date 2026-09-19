@@ -13,29 +13,21 @@ const EXPIRES_AT_MILLISECONDS_THRESHOLD = 100_000_000_000;
 const MAX_WIDGET_CHALLENGE_LIFETIME_MS = 10 * 60 * 1000;
 const MAX_WIDGET_CHALLENGE_CLOCK_SKEW_MS = 60 * 1000;
 
-export type WidgetAuthSession = {
+export type AccountAuthSession = {
   accessToken: string;
   expiresAt: number;
 };
 
-/**
- * @deprecated Ambiguous with the `WidgetSession` type exported by
- * `@aomi-labs/account`, which describes a different (BFF-side) shape. Prefer
- * {@link WidgetAuthSession}. Retained as an alias for backward compatibility
- * with the published `@aomi-labs/client` API.
- */
-export type WidgetSession = WidgetAuthSession;
-
-export type WidgetAuthAdapter = {
+export type AccountAuthAdapter = {
   getFingerprint(): string | null | Promise<string | null>;
   exchange(input: {
     baseUrl: string;
     fetch: typeof fetch;
-  }): Promise<WidgetAuthSession>;
+  }): Promise<AccountAuthSession>;
   signOut?(): Promise<void>;
 };
 
-export type WidgetSessionProvider = GetAccountBearer & {
+export type AccountSessionProvider = GetAccountBearer & {
   readonly required: true;
   revoke(): Promise<void>;
   signOut(): Promise<void>;
@@ -43,13 +35,13 @@ export type WidgetSessionProvider = GetAccountBearer & {
   subscribe(listener: () => void): () => void;
 };
 
-export type WidgetSessionSigner = {
+export type AccountSessionSigner = {
   address: string;
   chainId: number;
   signMessage(message: string): Promise<string>;
 };
 
-export type SiwsWidgetSessionSigner = {
+export type SiwsAccountSessionSigner = {
   address: string;
   chainId: SiwsChainId;
   signMessage(message: string): Promise<string>;
@@ -68,7 +60,7 @@ export function createProviderCredentialAdapter(input: {
   getCredential(): Promise<ProviderCredential | null>;
   getSubject(): string | null;
   signOut?: () => Promise<void>;
-}): WidgetAuthAdapter {
+}): AccountAuthAdapter {
   let inferredFingerprint: string | null = null;
   let stagedCredential: ProviderCredential | null = null;
 
@@ -109,7 +101,7 @@ export function createProviderCredentialAdapter(input: {
       }
       return exchangeJson(
         fetchImpl,
-        joinUrl(baseUrl, "/api/widget/auth/exchange"),
+        joinUrl(baseUrl, "/api/auth/widget/exchange"),
         {
           provider: input.provider,
           environment: input.environment,
@@ -133,7 +125,7 @@ export function createProviderCredentialAdapter(input: {
  * signer, derive its fingerprint, and format the message — are injected.
  */
 function createSignedChallengeAdapter<
-  S extends WidgetSessionSigner | SiwsWidgetSessionSigner,
+  S extends AccountSessionSigner | SiwsAccountSessionSigner,
   N extends {
     address: string;
     chainId: number | string;
@@ -146,7 +138,7 @@ function createSignedChallengeAdapter<
   normalizeSigner(signer: S): N;
   getFingerprint(signer: N): string;
   buildMessage(input: { signer: N; challenge: Challenge }): string;
-}): WidgetAuthAdapter {
+}): AccountAuthAdapter {
   return {
     getFingerprint: async () =>
       config.getFingerprint(config.normalizeSigner(await config.getSigner())),
@@ -170,12 +162,12 @@ function createSignedChallengeAdapter<
   };
 }
 
-export function createSiweWidgetAuthAdapter(input: {
-  getSigner(): Promise<WidgetSessionSigner>;
-}): WidgetAuthAdapter {
+export function createSiweAccountAuthAdapter(input: {
+  getSigner(): Promise<AccountSessionSigner>;
+}): AccountAuthAdapter {
   return createSignedChallengeAdapter({
-    noncePath: "/api/widget/auth/siwe/nonce",
-    verifyPath: "/api/widget/auth/siwe/verify",
+    noncePath: "/api/auth/widget/siwe/nonce",
+    verifyPath: "/api/auth/widget/siwe/verify",
     getSigner: input.getSigner,
     normalizeSigner: normalizeSiweSigner,
     getFingerprint: (signer) =>
@@ -198,12 +190,12 @@ export function createSiweWidgetAuthAdapter(input: {
   });
 }
 
-export function createSiwsWidgetAuthAdapter(input: {
-  getSigner(): Promise<SiwsWidgetSessionSigner>;
-}): WidgetAuthAdapter {
+export function createSiwsAccountAuthAdapter(input: {
+  getSigner(): Promise<SiwsAccountSessionSigner>;
+}): AccountAuthAdapter {
   return createSignedChallengeAdapter({
-    noncePath: "/api/widget/auth/siws/nonce",
-    verifyPath: "/api/widget/auth/siws/verify",
+    noncePath: "/api/auth/widget/siws/nonce",
+    verifyPath: "/api/auth/widget/siws/verify",
     getSigner: input.getSigner,
     normalizeSigner: (signer) => signer,
     getFingerprint: (signer) => `${signer.chainId}:${signer.address}`,
@@ -220,21 +212,24 @@ export function createSiwsWidgetAuthAdapter(input: {
   });
 }
 
-export function createWidgetSessionProvider(input: {
+export function createAccountSessionProvider(input: {
   baseUrl: string;
-  adapter: WidgetAuthAdapter;
+  adapter: AccountAuthAdapter;
   fetch?: typeof fetch;
   now?: () => number;
   refreshBeforeExpiryMs?: number;
-}): WidgetSessionProvider {
+  /** Optional tab-scoped cache for wallet sessions that cannot refresh silently. */
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
+}): AccountSessionProvider {
   const { adapter } = input;
   const fetchImpl = input.fetch ?? fetch;
   const now = input.now ?? Date.now;
   const refreshBeforeExpiryMs = input.refreshBeforeExpiryMs ?? 60_000;
-  let cached: (WidgetAuthSession & { fingerprint: string }) | null = null;
+  const storageKey = `aomi:widget-session:${input.baseUrl.replace(/\/+$/, "")}`;
+  let cached: (AccountAuthSession & { fingerprint: string }) | null = null;
   let pending: {
     fingerprint: string;
-    promise: Promise<WidgetAuthSession>;
+    promise: Promise<AccountAuthSession>;
   } | null = null;
   let disposed = false;
   // Bumped on every teardown (revoke/signOut/dispose). An exchange captures the
@@ -246,9 +241,10 @@ export function createWidgetSessionProvider(input: {
   // overwrite `cached` with the wrong-identity session.
   let latestFingerprint: string | null = null;
   let nextFingerprintRequestId = 0;
-  let latestResolvedFingerprint:
-    | { requestId: number; fingerprint: string }
-    | null = null;
+  let latestResolvedFingerprint: {
+    requestId: number;
+    fingerprint: string;
+  } | null = null;
   // A generic HTTP 401 does not prove the WST is expired. Both AomiClient and
   // widget-lib's account client retry 401s with `forceRefresh: true`; without a
   // generation guard, a persistent authorization/configuration 401 revokes a
@@ -263,12 +259,67 @@ export function createWidgetSessionProvider(input: {
     for (const listener of listeners) listener();
   };
 
-  const revokeSession = async (session: WidgetAuthSession): Promise<void> => {
-    await fetchImpl(joinUrl(input.baseUrl, "/api/widget/auth/session"), {
+  const revokeSession = async (session: AccountAuthSession): Promise<void> => {
+    await fetchImpl(joinUrl(input.baseUrl, "/api/auth/widget/session"), {
       method: "DELETE",
       credentials: "omit",
       headers: { Authorization: `Bearer ${session.accessToken}` },
     }).catch(() => undefined);
+  };
+
+  const clearStoredSession = () => {
+    try {
+      input.storage?.removeItem(storageKey);
+    } catch {
+      // Browsers can disable storage; the in-memory session still works.
+    }
+  };
+
+  const storeSession = (
+    session: AccountAuthSession & { fingerprint: string },
+  ) => {
+    try {
+      input.storage?.setItem(storageKey, JSON.stringify(session));
+    } catch {
+      // A storage quota or privacy setting must not prevent authentication.
+    }
+  };
+
+  const restoreSession = (fingerprint: string) => {
+    if (!input.storage) return;
+    let stored: (AccountAuthSession & { fingerprint: string }) | null = null;
+    try {
+      const raw = input.storage.getItem(storageKey);
+      if (!raw) return;
+      const value: unknown = JSON.parse(raw);
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        "accessToken" in value &&
+        typeof value.accessToken === "string" &&
+        value.accessToken.startsWith("aomi_wst_") &&
+        "expiresAt" in value &&
+        typeof value.expiresAt === "number" &&
+        Number.isFinite(value.expiresAt) &&
+        "fingerprint" in value &&
+        typeof value.fingerprint === "string"
+      ) {
+        stored = value as AccountAuthSession & { fingerprint: string };
+      }
+    } catch {
+      // Malformed or unavailable tab storage is treated as an empty cache.
+    }
+    if (
+      stored?.fingerprint === fingerprint &&
+      now() < stored.expiresAt * 1000 - refreshBeforeExpiryMs
+    ) {
+      cached = stored;
+      return;
+    }
+    clearStoredSession();
+    if (stored && stored.fingerprint !== fingerprint) {
+      void revokeSession(stored);
+    }
   };
 
   const base = async ({ forceRefresh = false } = {}) => {
@@ -301,6 +352,7 @@ export function createWidgetSessionProvider(input: {
       };
     }
     latestFingerprint = fingerprint;
+    if (!cached) restoreSession(fingerprint);
     if (pending?.fingerprint === fingerprint) {
       return (await pending.promise).accessToken;
     }
@@ -324,17 +376,17 @@ export function createWidgetSessionProvider(input: {
     }
     const stale = cached;
     const retainStaleDuringForcedExchange = Boolean(
-      forceRefresh &&
-        stale?.fingerprint === fingerprint &&
-        now() < refreshAt,
+      forceRefresh && stale?.fingerprint === fingerprint && now() < refreshAt,
     );
     if (retainStaleDuringForcedExchange && stale) {
       // Mark the attempt before prompting. If signing or verification fails,
       // the old cache stays in place and another generic 401 cannot immediately
       // open the same prompt again.
       lastForcedAccessToken = stale.accessToken;
+      clearStoredSession();
     } else if (stale) {
       cached = null;
+      clearStoredSession();
       void revokeSession(stale);
     }
     if (!pending || pending.fingerprint !== fingerprint) {
@@ -355,6 +407,7 @@ export function createWidgetSessionProvider(input: {
             throw new Error("Widget session exchange was superseded");
           }
           cached = { ...session, fingerprint };
+          storeSession(cached);
           lastForcedAccessToken = forcedExchange ? session.accessToken : null;
           if (retainStaleDuringForcedExchange && stale) {
             void revokeSession(stale);
@@ -379,6 +432,7 @@ export function createWidgetSessionProvider(input: {
     const session = cached;
     epoch += 1;
     cached = null;
+    clearStoredSession();
     pending = null;
     latestResolvedFingerprint = null;
     lastForcedAccessToken = null;
@@ -386,7 +440,7 @@ export function createWidgetSessionProvider(input: {
     if (session) await revokeSession(session);
   };
 
-  const provider: WidgetSessionProvider = Object.assign(base, {
+  const provider: AccountSessionProvider = Object.assign(base, {
     required: true as const,
     revoke,
     signOut: async () => {
@@ -445,41 +499,43 @@ type Challenge = {
  * partner hosts (agentic-somm's deleted `assertSiweMessage`) used to carry
  * one-per-host.
  */
-export class WidgetChallengeBindingError extends Error {
+export class AccountChallengeBindingError extends Error {
   constructor(message: string) {
     super(`Widget challenge rejected before signing: ${message}`);
-    this.name = "WidgetChallengeBindingError";
+    this.name = "AccountChallengeBindingError";
   }
 }
 
 function assertChallengeBinding(challenge: Challenge): void {
   if (!challenge.nonce?.trim()) {
-    throw new WidgetChallengeBindingError("challenge has no nonce");
+    throw new AccountChallengeBindingError("challenge has no nonce");
   }
   const now = Date.now();
   const issued = Date.parse(challenge.issuedAt);
   if (Number.isNaN(issued)) {
-    throw new WidgetChallengeBindingError(
+    throw new AccountChallengeBindingError(
       "challenge has no parseable issuedAt",
     );
   }
   if (issued > now + MAX_WIDGET_CHALLENGE_CLOCK_SKEW_MS) {
-    throw new WidgetChallengeBindingError("challenge was issued in the future");
+    throw new AccountChallengeBindingError(
+      "challenge was issued in the future",
+    );
   }
   const expires = Date.parse(challenge.expirationTime);
   if (Number.isNaN(expires)) {
-    throw new WidgetChallengeBindingError(
+    throw new AccountChallengeBindingError(
       "challenge has no parseable expirationTime",
     );
   }
   if (expires <= now) {
-    throw new WidgetChallengeBindingError("challenge is already expired");
+    throw new AccountChallengeBindingError("challenge is already expired");
   }
   if (
     expires <= issued ||
     expires - issued > MAX_WIDGET_CHALLENGE_LIFETIME_MS
   ) {
-    throw new WidgetChallengeBindingError(
+    throw new AccountChallengeBindingError(
       "challenge validity window is not bounded",
     );
   }
@@ -495,13 +551,13 @@ function assertChallengeBinding(challenge: Challenge): void {
   // is CORS-gated to this page's origin, and the Portal echoes the caller's
   // Origin — so in BOTH shapes the challenge must name this page.
   if (challenge.uri !== pageOrigin) {
-    throw new WidgetChallengeBindingError(
+    throw new AccountChallengeBindingError(
       `challenge uri "${challenge.uri}" is not this page's origin "${pageOrigin}"`,
     );
   }
   const pageHost = new URL(pageOrigin).host;
   if (challenge.domain !== pageHost) {
-    throw new WidgetChallengeBindingError(
+    throw new AccountChallengeBindingError(
       `challenge domain "${challenge.domain}" is not this page's host "${pageHost}"`,
     );
   }
@@ -539,7 +595,7 @@ async function exchangeJson(
   fetchImpl: typeof fetch,
   url: string,
   body: unknown,
-): Promise<WidgetAuthSession> {
+): Promise<AccountAuthSession> {
   const response = await fetchImpl(url, requestInit(body));
   if (!response.ok)
     throw new Error(`Widget auth exchange failed: ${response.status}`);
@@ -569,8 +625,8 @@ function requestInit(body: unknown): RequestInit {
 }
 
 function normalizeSiweSigner(
-  signer: WidgetSessionSigner,
-): WidgetSessionSigner & { address: `0x${string}` } {
+  signer: AccountSessionSigner,
+): AccountSessionSigner & { address: `0x${string}` } {
   if (!Number.isInteger(signer.chainId) || signer.chainId <= 0) {
     throw new Error("Widget SIWE signer has no valid chain id");
   }

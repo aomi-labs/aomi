@@ -23,6 +23,9 @@ export type ToolStepInput = {
   toolName: string;
   argsText?: string;
   result?: unknown;
+  /** Earlier tool results in the same trace, used to resolve references such
+   * as commit `tx_ids` back to the staged transaction's network. */
+  relatedResults?: unknown[];
 };
 
 export type FactKind =
@@ -95,6 +98,7 @@ export type ToolContext = {
   parsedArgs: unknown;
   result: unknown;
   resultRecord: Record<string, unknown> | null;
+  relatedResultRecords: Record<string, unknown>[];
 };
 
 export type ToolMatcher = (ctx: ToolContext) => ToolOperation | null;

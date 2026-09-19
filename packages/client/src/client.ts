@@ -1,59 +1,54 @@
+import { SimulationApiError } from "./simulation";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
-  AomiAccessApproval,
   AomiAuthPurpose,
   AomiAuthWalletFamily,
   AomiAppDescriptor,
   AomiBeginAccountAuthResponse,
   AomiClientOptions,
-  AomiCreateApprovalRequest,
-  AomiChatResponse,
+  AomiClearAppSecretsResponse,
   AomiClearSecretsResponse,
-  AomiCreateThreadResponse,
   AomiDeleteByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
-  AomiInterruptResponse,
   AomiListByokKeysResponse,
   AomiListSecretsResponse,
   AomiRequestOptions,
   AomiByokKeyEntry,
   AomiSaveByokKeyResponse,
-  AomiSSEEvent,
   AomiSimulateResponse,
-  AomiStateResponse,
-  AomiSystemEvent,
-  AomiSystemResponse,
-  AomiThread,
+  AomiUserAppSecrets,
   GetAccountBearer,
   Logger,
   AomiHttpMethod,
   AomiPlatformFilter,
   ApplicationId,
 } from "./types";
-import { UserState, type OwnedUserState } from "./user-state";
-import { createSseSubscriber, type SseSubscriber } from "./sse";
 import { normalizeAppDescriptor } from "./app-descriptor";
+import { UserState } from "./user-state";
+import { AgentTransport } from "./agent/transport";
+import { PipelineTransport } from "./pipeline/transport";
+import { AccountTransport } from "./account/credits";
+import type {
+  AomiOAuthTokenProvider,
+  AomiOAuthResource,
+} from "./authorization";
+import {
+  createGuestSessionProvider,
+  type GuestSessionProvider,
+} from "./guest-auth";
+import { wrapFetchWithPaymentChallenges } from "./payment";
 
 // =============================================================================
 // Internal helpers
 // =============================================================================
 
 const SESSION_ID_HEADER = "X-Session-Id";
-// The threads-era backend reads `X-Thread-Id`; older backends read
-// `X-Session-Id`. Both are sent during the migration so routes whose paths
-// didn't change (`/api/thread/chat`, `/api/thread/state`, `/api/thread/updates`) work against
-// either backend.
+// Non-Agent control endpoints still identify their owning session with both
+// headers. Agent v1 carries the session id in its resource path.
 const THREAD_ID_HEADER = "X-Thread-Id";
 const APP_KEY_HEADER = "Aomi-App-Key";
-
-function previewText(value: string, max = 80): string {
-  const singleLine = value.replace(/\s+/g, " ").trim();
-  if (singleLine.length <= max) return singleLine;
-  return `${singleLine.slice(0, max - 1)}…`;
-}
-
 
 function joinApiPath(baseUrl: string, path: string): string {
   const normalizedBase = baseUrl === "/" ? "" : baseUrl.replace(/\/+$/, "");
@@ -131,68 +126,11 @@ function encodeJsonBody(body: unknown): BodyInit | undefined {
   return body === undefined ? undefined : JSON.stringify(body);
 }
 
-// The threads-era backend returns `thread_id`; older backends returned
-// `session_id`. The SDK's public types keep `session_id` as the id field, so
-// normalize at the wire boundary.
-type ThreadWire = {
-  thread_id?: string;
-  session_id?: string;
-  title?: string | null;
-  is_archived?: boolean;
-  last_active_at?: number | string;
-  /** Bound rig slug — present only on the create fast path (`?rig=...`). */
-  rig?: string;
-  /** Bound baml client — present only on the create fast path. */
-  baml?: string;
-};
-
-function normalizeThreadWire(wire: ThreadWire): AomiThread {
-  const { thread_id, session_id, last_active_at, ...rest } = wire;
-  const normalizedLastActiveAt =
-    typeof last_active_at === "number"
-      ? last_active_at
-      : typeof last_active_at === "string"
-        ? Number(last_active_at)
-        : undefined;
-  return {
-    ...rest,
-    session_id: session_id ?? thread_id ?? "",
-    last_active_at:
-      normalizedLastActiveAt === undefined ||
-      Number.isNaN(normalizedLastActiveAt)
-        ? undefined
-        : normalizedLastActiveAt,
-  } as AomiThread;
-}
-
-/**
- * Upstream statuses worth retrying on thread creation. Strictly transient
- * ones only: a 4xx (a 402 quota failure especially, which routes to the
- * payment gate) is a decision, not a hiccup, and must surface immediately.
- */
-const CREATE_THREAD_RETRY_STATUSES = new Set([502, 503, 504]);
-
-/** Backoff between thread-creation attempts. Length sets the retry count. */
-const CREATE_THREAD_RETRY_DELAYS_MS = [400, 1_000, 2_000];
-
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 function withSessionHeader(sessionId: string, init?: HeadersInit): HeadersInit {
   const headers = new Headers(init);
   headers.set(SESSION_ID_HEADER, sessionId);
   headers.set(THREAD_ID_HEADER, sessionId);
   return headers;
-}
-
-async function fetchStateResponse(
-  fetchImpl: typeof fetch,
-  url: string,
-  sessionId: string,
-): Promise<Response> {
-  return fetchImpl(url, {
-    headers: withSessionHeader(sessionId),
-  });
 }
 
 export function wrapFetchWithAccountBearer(
@@ -203,6 +141,18 @@ export function wrapFetchWithAccountBearer(
 
   return async (input, init) => {
     const request = input instanceof Request ? input : undefined;
+    const path = new URL(String(request?.url ?? input), "http://localhost")
+      .pathname;
+    // Ordinary account bearers do not authorize public Agent/Pipeline APIs;
+    // those use OAuth or guest credentials. A required widget session is the
+    // public API credential for a cross-origin widget, however, so it must be
+    // forwarded to these routes as well.
+    if (
+      !getAccountBearer.required &&
+      (path.startsWith("/v1/agent/") || path.startsWith("/v1/pipeline/"))
+    ) {
+      return fetchImpl(request ? request.clone() : input, init);
+    }
     const baseHeaders = new Headers(init?.headers ?? request?.headers);
     const fetchWithBearer = async (forceRefresh: boolean) => {
       const headers = new Headers(baseHeaders);
@@ -231,75 +181,126 @@ export function wrapFetchWithAccountBearer(
   };
 }
 
-function supportsTokenRefreshSubscription(
-  provider: GetAccountBearer | undefined,
-): provider is GetAccountBearer & Required<Pick<GetAccountBearer, "subscribe">> {
-  return typeof provider?.subscribe === "function";
+export function wrapFetchWithPublicApiAuthorization(input: {
+  fetch: typeof fetch;
+  baseUrl: string;
+  oauth?: AomiOAuthTokenProvider;
+  guest?: GuestSessionProvider;
+}): typeof fetch {
+  if (!input.oauth && !input.guest) return input.fetch;
+  return async (requestInput, init) => {
+    const request = requestInput instanceof Request ? requestInput : undefined;
+    const url = new URL(
+      String(request?.url ?? requestInput),
+      absoluteBase(input.baseUrl),
+    );
+    const policy = publicApiPolicy(
+      url,
+      init?.method ?? request?.method ?? "GET",
+      init?.headers ?? request?.headers,
+    );
+    if (!policy) return input.fetch(requestInput, init);
+    const baseHeaders = new Headers(init?.headers ?? request?.headers);
+    const attempt = async (forceRefresh: boolean, dpopNonce?: string) => {
+      const headers = new Headers(baseHeaders);
+      if (input.oauth) {
+        const token = await input.oauth({
+          resource: policy.resource,
+          scopes: policy.scopes,
+          forceRefresh,
+        });
+        if (!token)
+          throw new Error(
+            "No OAuth grant covers this Aomi resource and scope set",
+          );
+        const tokenType = token.tokenType ?? "Bearer";
+        headers.set("authorization", `${tokenType} ${token.accessToken}`);
+        if (tokenType === "DPoP") {
+          if (!token.dpopProof) {
+            throw new Error("DPoP token provider returned no proof signer");
+          }
+          headers.set(
+            "dpop",
+            await token.dpopProof({
+              url: url.toString(),
+              method: policy.method,
+              accessToken: token.accessToken,
+              nonce: dpopNonce,
+            }),
+          );
+        }
+      } else if (input.guest) {
+        const credential = await input.guest({ forceRefresh });
+        if (credential) headers.set("authorization", `Bearer ${credential}`);
+      }
+      return input.fetch(request ? request.clone() : requestInput, {
+        ...init,
+        headers,
+      });
+    };
+    const response = await attempt(false);
+    if (response.status !== 401 && response.status !== 403) return response;
+    if (input.guest && response.status === 403) return response;
+    const dpopNonce = response.headers.get("dpop-nonce") ?? undefined;
+    return attempt(!dpopNonce, dpopNonce);
+  };
 }
 
-async function postState<T>(
-  baseUrl: string,
-  path: string,
-  payload: Record<string, unknown>,
-  sessionId: string,
-  fetchImpl: typeof fetch,
-  apiKey?: string,
-  logger?: Logger,
-): Promise<T> {
-  const query: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    if (value === undefined || value === null) continue;
-    query[key] = typeof value === "string" ? value : String(value);
+function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
+  const origin = url.origin;
+  const payment = new Headers(headers).has("payment-signature")
+    ? ["payments:submit"]
+    : [];
+  if (url.pathname === "/v1/agent" || url.pathname.startsWith("/v1/agent/")) {
+    const scopes =
+      method === "GET"
+        ? ["agent:read"]
+        : /\/actions\/[^/]+\/result$/.test(url.pathname)
+          ? ["agent:actions:resolve"]
+          : ["agent:write"];
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: [...scopes, ...payment],
+      method: method.toUpperCase(),
+    };
   }
-  const url = buildApiUrl(baseUrl, path, query);
-
-  const headers = new Headers(withSessionHeader(sessionId));
-  if (apiKey) {
-    headers.set(APP_KEY_HEADER, apiKey);
+  if (
+    url.pathname === "/v1/pipeline" ||
+    url.pathname.startsWith("/v1/pipeline/")
+  ) {
+    return {
+      resource: `${origin}/v1/pipeline` as AomiOAuthResource,
+      scopes: [
+        method === "GET" ? "pipeline:catalog" : "pipeline:execute",
+        ...payment,
+      ],
+      method: method.toUpperCase(),
+    };
   }
-
-  logger?.debug("[aomi][client] POST start", {
-    path,
-    sessionId,
-    hasApiKey: Boolean(apiKey),
-    queryKeys: Object.keys(query),
-  });
-
-  let pendingWarning: ReturnType<typeof setTimeout> | undefined;
-  if (typeof setTimeout === "function") {
-    pendingWarning = setTimeout(() => {
-      logger?.debug("[aomi][client] POST still pending", {
-        path,
-        sessionId,
-        queryKeys: Object.keys(query),
-      });
-    }, 5000);
+  if (
+    url.pathname === "/v1/account" ||
+    url.pathname.startsWith("/v1/account/")
+  ) {
+    const scope =
+      url.pathname === "/v1/account/statement"
+        ? "account:usage:read"
+        : url.pathname === "/v1/account/credits/top-up"
+          ? "account:credits:topup"
+          : "account:credits:read";
+    return {
+      resource: `${origin}/v1/account` as AomiOAuthResource,
+      scopes: [scope, ...payment],
+      method: method.toUpperCase(),
+    };
   }
+  return null;
+}
 
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      method: "POST",
-      headers,
-    });
-  } finally {
-    if (pendingWarning) {
-      clearTimeout(pendingWarning);
-    }
-  }
-
-  logger?.debug("[aomi][client] POST response", {
-    path,
-    sessionId,
-    status: response.status,
-    ok: response.ok,
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-  }
-
-  return (await response.json()) as T;
+function absoluteBase(baseUrl: string): string {
+  if (/^https?:\/\//.test(baseUrl)) return baseUrl;
+  if (typeof location !== "undefined")
+    return new URL(baseUrl, location.origin).toString();
+  return "http://localhost";
 }
 
 // =============================================================================
@@ -316,89 +317,108 @@ async function postState<T>(
  * backend, so it has to read both — and a browser tab cached across the
  * cutover will hit each of them in turn.
  */
+function appSecretsPath(applicationId: ApplicationId): string {
+  const id = String(applicationId ?? "").trim();
+  if (!id) {
+    throw new Error("applicationId is required for app secrets");
+  }
+  return `/api/account/apps/${encodeURIComponent(id)}/secrets`;
+}
+
+/** Best-effort `{ error }` body reader for user-facing failure messages. */
+async function readErrorDetail(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body?.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
 export function secretNamesFrom(response: AomiListSecretsResponse): string[] {
   if (response.names) return response.names;
   return Object.values(response.by_app ?? {}).flat();
 }
 
 export class AomiClient {
+  readonly agent: AgentTransport;
+  readonly pipeline: PipelineTransport;
+  readonly account: AccountTransport;
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
   private readonly rawFetchImpl: typeof fetch;
   private readonly logger?: Logger;
-  private readonly accountBearer?: GetAccountBearer;
-  private readonly sseSubscriber: SseSubscriber;
+  private readonly hasAccountAuth: boolean;
 
   constructor(options: AomiClientOptions) {
     // Strip trailing slash
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.hasAccountAuth = Boolean(options.getAccountBearer || options.oauth);
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
-    const rawFetchImpl =
-      typeof globalThis.fetch === "function"
-        ? globalThis.fetch.bind(globalThis)
-        : fetchImpl;
-    this.fetchImpl = wrapFetchWithAccountBearer(
-      fetchImpl,
+    // Keep the caller's fetch implementation for tests and browser adapters;
+    // `raw` only bypasses the payment wrapper, it must not bypass auth or the
+    // configured transport itself.
+    const rawFetchImpl = fetchImpl;
+    const guest =
+      options.oauth ||
+      options.guest === false ||
+      (options.getAccountBearer && options.guest === undefined)
+        ? undefined
+        : typeof options.guest === "function"
+          ? options.guest
+          : createGuestSessionProvider({
+              baseUrl: this.baseUrl,
+              fetch: fetchImpl,
+            });
+    const publicApiOauth = options.getAccountBearer?.required
+      ? undefined
+      : options.oauth;
+    const publicApiGuest = options.getAccountBearer?.required
+      ? undefined
+      : guest;
+    const authenticatedFetch = wrapFetchWithAccountBearer(
+      wrapFetchWithPublicApiAuthorization({
+        fetch: fetchImpl,
+        baseUrl: this.baseUrl,
+        oauth: publicApiOauth,
+        guest: publicApiGuest,
+      }),
       options.getAccountBearer,
     );
-    this.rawFetchImpl = wrapFetchWithAccountBearer(
-      rawFetchImpl,
+    const authenticatedRawFetch = wrapFetchWithAccountBearer(
+      wrapFetchWithPublicApiAuthorization({
+        fetch: rawFetchImpl,
+        baseUrl: this.baseUrl,
+        oauth: publicApiOauth,
+        guest: publicApiGuest,
+      }),
       options.getAccountBearer,
     );
+    this.fetchImpl = options.x402
+      ? wrapFetchWithPaymentChallenges(authenticatedFetch, options.x402)
+      : authenticatedFetch;
+    // Raw requests are used for recovery probes. Re-wrapping them in x402
+    // would create a fresh proof for an idempotency key whose original proof
+    // may already have settled.
+    this.rawFetchImpl = authenticatedRawFetch;
     this.logger = options.logger;
-    this.accountBearer = options.getAccountBearer;
-
-    this.sseSubscriber = createSseSubscriber({
-      backendUrl: this.baseUrl,
-      getHeaders: (sessionId) =>
-        withSessionHeader(sessionId, { Accept: "text/event-stream" }),
-      // Keep SSE on the browser-native fetch path. Payment/auth wrappers used
-      // by some web runtimes can delay or buffer streaming responses.
-      fetchImpl: this.rawFetchImpl,
-      logger: this.logger,
-    });
-    this.wireTokenRefreshReconnect();
-    if (
-      options.getAccountBearer?.required === true &&
-      !supportsTokenRefreshSubscription(options.getAccountBearer)
-    ) {
-      // A required bearer without subscribe() means live streams keep running
-      // on a superseded token after every refresh and die silently upstream.
-      // The most common cause is a host wrapping the provider and losing its
-      // methods (Object.assign(fn, { required }) keeps only what was copied).
-      console.warn(
-        "[aomi-client] getAccountBearer.required is set but subscribe() is missing: " +
-          "SSE will not reconnect after token refresh. Pass the WidgetSessionProvider " +
-          "through unwrapped, or preserve its subscribe/dispose/revoke methods.",
-      );
-    }
-  }
-
-  /**
-   * Attach the token-refresh -> SSE-reconnect wiring, idempotently.
-   *
-   * Historically evaluated ONCE in the constructor, which silently dropped
-   * reconnect for a stable bearer whose `subscribe` appears after construction.
-   * Re-attempted lazily on every SSE subscription so that shape is picked up on
-   * the next stream instead of never. Replacing the bearer function itself still
-   * requires a stable host/widget bridge; AomiClient intentionally retains the
-   * source supplied at construction.
-   */
-  private tokenRefreshWired = false;
-  private wireTokenRefreshReconnect(): void {
-    if (this.tokenRefreshWired) return;
-    const bearer = this.accountBearer;
-    if (!supportsTokenRefreshSubscription(bearer)) return;
-    this.tokenRefreshWired = true;
-    bearer.subscribe(() => {
-      this.sseSubscriber.reconnect("account-token-refreshed");
-    });
+    this.agent = new AgentTransport(
+      (method, path, requestOptions) =>
+        this.requestResponse(method, path, requestOptions),
+      options.inferenceFunding,
+    );
+    this.pipeline = new PipelineTransport((method, path, requestOptions) =>
+      this.requestResponse(method, path, requestOptions),
+    );
+    this.account = new AccountTransport((method, path, requestOptions) =>
+      this.requestResponse(method, path, requestOptions),
+    );
   }
 
   // ===========================================================================
-  // Chat & State
+  // Transport
   // ===========================================================================
 
   /**
@@ -410,6 +430,29 @@ export class AomiClient {
     path: string,
     options?: AomiRequestOptions,
   ): Promise<T> {
+    const response = await this.requestResponse(method, path, options);
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `HTTP ${response.status}: ${response.statusText}${body ? `\n${body}` : ""}`,
+      );
+    }
+    if (response.status === 204) return undefined as T;
+    const contentType = response.headers.get("content-type") ?? "";
+    return (
+      contentType.includes("application/json")
+        ? await response.json()
+        : await response.text()
+    ) as T;
+  }
+
+  /** Raw authenticated response transport shared by JSON, SSE, and MCP clients. */
+  async requestResponse(
+    method: AomiHttpMethod,
+    path: string,
+    options?: AomiRequestOptions,
+  ): Promise<Response> {
     const url = buildApiUrl(this.baseUrl, path, normalizeQuery(options?.query));
     const headers = new Headers(options?.headers);
     if (options?.sessionId) {
@@ -430,234 +473,11 @@ export class AomiClient {
         method,
         headers,
         body: encodeJsonBody(options?.body),
+        signal: options?.signal,
       },
     );
 
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `HTTP ${response.status}: ${response.statusText}${body ? `\n${body}` : ""}`,
-      );
-    }
-
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    const contentType = response.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json")) {
-      return (await response.json()) as T;
-    }
-    return (await response.text()) as T;
-  }
-
-  /**
-   * Fetch current session state (messages, processing status, title).
-   */
-  async fetchState(
-    sessionId: string,
-    userState?: OwnedUserState,
-    clientId?: string,
-    options?: { app?: string; applicationId?: ApplicationId },
-  ): Promise<AomiStateResponse> {
-    const normalizedUserState = UserState.normalize(userState);
-    const stateContext = {
-      app: options?.app,
-      application_id: applicationIdParam(options?.applicationId),
-    };
-    const urlWithSyncParams = buildApiUrl(this.baseUrl, "/api/thread/state", {
-      ...stateContext,
-      user_state: normalizedUserState
-        ? JSON.stringify(normalizedUserState)
-        : undefined,
-      client_id: clientId,
-    });
-    const bareUrl = buildApiUrl(
-      this.baseUrl,
-      "/api/thread/state",
-      stateContext,
-    );
-    const shouldRetryWithoutSyncParams =
-      Boolean(normalizedUserState) || Boolean(clientId);
-
-    this.logger?.debug("[aomi][client] GET /api/thread/state start", {
-      sessionId,
-      app: options?.app,
-      applicationId: options?.applicationId,
-      clientId,
-      hasUserState: Boolean(normalizedUserState),
-    });
-
-    let response = await fetchStateResponse(
-      this.rawFetchImpl,
-      urlWithSyncParams,
-      sessionId,
-    );
-
-    if (
-      !response.ok &&
-      shouldRetryWithoutSyncParams &&
-      (response.status === 400 || response.status === 414)
-    ) {
-      this.logger?.debug(
-        "[aomi][client] GET /api/thread/state retrying without sync params",
-        {
-          sessionId,
-          initialStatus: response.status,
-          hadClientId: Boolean(clientId),
-          hadUserState: Boolean(normalizedUserState),
-        },
-      );
-      response = await fetchStateResponse(
-        this.rawFetchImpl,
-        bareUrl,
-        sessionId,
-      );
-    }
-
-    this.logger?.debug("[aomi][client] GET /api/thread/state response", {
-      sessionId,
-      status: response.status,
-      ok: response.ok,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiStateResponse;
-  }
-
-  /**
-   * Send a chat message and return updated session state.
-   */
-  async sendMessage(
-    sessionId: string,
-    message: string,
-    options?: {
-      app?: string;
-      applicationId?: ApplicationId;
-      apiKey?: string;
-      userState?: OwnedUserState;
-      clientId?: string;
-      paymentMethod?: string | null;
-      /** @deprecated Accepted as a no-op for compatibility with client 0.4.3. */
-      turnId?: string;
-    },
-  ): Promise<AomiChatResponse> {
-    const app = options?.app ?? "default";
-    const apiKey = options?.apiKey ?? this.apiKey;
-    const normalizedUserState = UserState.normalize(options?.userState);
-    const url = buildApiUrl(this.baseUrl, "/api/thread/chat", {
-      app,
-      application_id: applicationIdParam(options?.applicationId),
-      message,
-      user_state: normalizedUserState
-        ? JSON.stringify(normalizedUserState)
-        : undefined,
-      client_id: options?.clientId,
-      payment_method: options?.paymentMethod ?? undefined,
-    });
-
-    this.logger?.debug("[aomi][client] POST /api/thread/chat prepared", {
-      sessionId,
-      app,
-      applicationId: options?.applicationId,
-      clientId: options?.clientId,
-      paymentMethod: options?.paymentMethod,
-      hasUserState: Boolean(normalizedUserState),
-      messagePreview: previewText(message),
-    });
-
-    const headers = new Headers(withSessionHeader(sessionId));
-    if (apiKey) {
-      headers.set(APP_KEY_HEADER, apiKey);
-    }
-
-    this.logger?.debug("[aomi][client] POST start", {
-      path: "/api/thread/chat",
-      sessionId,
-      hasApiKey: Boolean(apiKey),
-      url,
-    });
-
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers,
-    });
-
-    this.logger?.debug("[aomi][client] POST response", {
-      path: "/api/thread/chat",
-      sessionId,
-      status: response.status,
-      ok: response.ok,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return (await response.json()) as AomiChatResponse;
-  }
-
-  /**
-   * Send a system-level message (e.g. wallet state changes, context switches).
-   * Pass `app` to preserve the session's active app context (prevents the
-   * backend from resetting to the default app when no app is specified).
-   */
-  async sendSystemMessage(
-    sessionId: string,
-    message: string,
-    options?: { app?: string; applicationId?: ApplicationId },
-  ): Promise<AomiSystemResponse> {
-    const payload: Record<string, unknown> = { message };
-    if (options?.app) {
-      payload.app = options.app;
-    }
-    if (options?.applicationId) {
-      payload.application_id = options.applicationId;
-    }
-    this.logger?.debug("[aomi][client] POST /api/system prepared", {
-      sessionId,
-      app: options?.app,
-      applicationId: options?.applicationId,
-      messagePreview: previewText(message),
-    });
-    return postState<AomiSystemResponse>(
-      this.baseUrl,
-      "/api/system",
-      payload,
-      sessionId,
-      this.fetchImpl,
-      undefined,
-      this.logger,
-    );
-  }
-
-  /**
-   * Interrupt the AI's current response.
-   */
-  async interrupt(
-    sessionId: string,
-    options?: { app?: string; applicationId?: ApplicationId },
-  ): Promise<AomiInterruptResponse> {
-    this.logger?.debug("[aomi][client] POST /api/thread/interrupt prepared", {
-      sessionId,
-      app: options?.app,
-      applicationId: options?.applicationId,
-    });
-    return postState<AomiInterruptResponse>(
-      this.baseUrl,
-      "/api/thread/interrupt",
-      {
-        app: options?.app,
-        application_id: options?.applicationId,
-      },
-      sessionId,
-      this.fetchImpl,
-      undefined,
-      this.logger,
-    );
+    return response;
   }
 
   // ===========================================================================
@@ -775,235 +595,6 @@ export class AomiClient {
   }
 
   // ===========================================================================
-  // SSE (Real-time Updates)
-  // ===========================================================================
-
-  /**
-   * Subscribe to real-time SSE updates for a session.
-   * Automatically reconnects with exponential backoff on disconnects.
-   * Returns an unsubscribe function.
-   */
-  subscribeSSE(
-    sessionId: string,
-    onUpdate: (event: AomiSSEEvent) => void,
-    onError?: (error: unknown) => void,
-    options?: { applicationId?: ApplicationId },
-  ): () => void {
-    // A provider whose subscribe() appeared after construction (late-bound
-    // host bridges) gets wired here, before the stream it must protect.
-    this.wireTokenRefreshReconnect();
-    return this.sseSubscriber.subscribe(sessionId, onUpdate, onError, options);
-  }
-
-  // ===========================================================================
-  // Thread / Session Management
-  // ===========================================================================
-
-  /**
-   * @deprecated Account bootstrap is handled by session create/chat requests and
-   * the account-token exchange. `/api/account` is now an authenticated
-   * profile endpoint, so this legacy helper intentionally does nothing.
-   */
-  async ensureAccount(_sessionId: string, _publicKey: string): Promise<void> {
-    return undefined;
-  }
-
-  /**
-   * List all threads for the authenticated account.
-   */
-  async listThreads(sessionId: string): Promise<AomiThread[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/threads");
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch threads: HTTP ${response.status}`);
-    }
-
-    const threads = (await response.json()) as ThreadWire[];
-    return threads.map(normalizeThreadWire);
-  }
-
-  /**
-   * Get a single thread by ID.
-   */
-  async getThread(sessionId: string): Promise<AomiThread> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/threads/${encodeURIComponent(sessionId)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return normalizeThreadWire((await response.json()) as ThreadWire);
-  }
-
-  /**
-   * Create a new thread. The client generates the session ID.
-   *
-   * Passing `rig` (and optionally `app`/`applicationId`/`platform`/`clientId`)
-   * binds the model selection in the same request — the fast path that saves
-   * the follow-up `setModel` round-trip on a fresh chat.
-   */
-  async createThread(
-    threadId: string,
-    options?: {
-      rig?: string;
-      app?: string;
-      applicationId?: number | string;
-      platform?: string;
-      clientId?: string;
-    },
-  ): Promise<AomiCreateThreadResponse> {
-    const url = buildApiUrl(this.baseUrl, "/api/threads", {
-      rig: options?.rig,
-      app: options?.app,
-      application_id:
-        options?.applicationId === undefined
-          ? undefined
-          : String(options.applicationId),
-      platform: options?.platform,
-      client_id: options?.clientId,
-    });
-    let response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(threadId),
-    });
-
-    // A cold app 503s at the edge until some origin has its artifact loaded —
-    // a warm-up race the very first request of a session is most likely to
-    // lose. Retrying it beats surfacing a hard failure for a state the system
-    // already knows is temporary.
-    for (
-      let attempt = 0;
-      attempt < CREATE_THREAD_RETRY_DELAYS_MS.length &&
-      CREATE_THREAD_RETRY_STATUSES.has(response.status);
-      attempt += 1
-    ) {
-      await delay(CREATE_THREAD_RETRY_DELAYS_MS[attempt]!);
-      response = await this.fetchImpl(url, {
-        method: "POST",
-        headers: withSessionHeader(threadId),
-      });
-    }
-
-    if (!response.ok) {
-      throw new Error(`Failed to create thread: HTTP ${response.status}`);
-    }
-
-    return normalizeThreadWire((await response.json()) as ThreadWire);
-  }
-
-  /**
-   * Delete a thread by ID.
-   */
-  async deleteThread(sessionId: string): Promise<void> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/threads/${encodeURIComponent(sessionId)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "DELETE",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete thread: HTTP ${response.status}`);
-    }
-  }
-
-  /**
-   * Rename a thread.
-   */
-  async renameThread(sessionId: string, newTitle: string): Promise<void> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/threads/${encodeURIComponent(sessionId)}`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "PATCH",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({ title: newTitle }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to rename thread: HTTP ${response.status}`);
-    }
-  }
-
-  /**
-   * Archive a thread.
-   */
-  async archiveThread(sessionId: string): Promise<void> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/threads/${encodeURIComponent(sessionId)}/archive`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to archive thread: HTTP ${response.status}`);
-    }
-  }
-
-  /**
-   * Unarchive a thread.
-   */
-  async unarchiveThread(sessionId: string): Promise<void> {
-    const url = buildApiUrl(
-      this.baseUrl,
-      `/api/threads/${encodeURIComponent(sessionId)}/unarchive`,
-    );
-    const response = await this.fetchImpl(url, {
-      method: "POST",
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to unarchive thread: HTTP ${response.status}`);
-    }
-  }
-
-  // ===========================================================================
-  // System Events
-  // ===========================================================================
-
-  /**
-   * Get system events for a session.
-   */
-  async getSystemEvents(
-    sessionId: string,
-    count?: number,
-    options?: { applicationId?: ApplicationId },
-  ): Promise<AomiSystemEvent[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/thread/events", {
-      count: count !== undefined ? String(count) : undefined,
-      application_id: applicationIdParam(options?.applicationId),
-    });
-    const response = await this.fetchImpl(url, {
-      headers: withSessionHeader(sessionId),
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) return [];
-      throw new Error(`Failed to get system events: HTTP ${response.status}`);
-    }
-
-    return (await response.json()) as AomiSystemEvent[];
-  }
-
-  // ===========================================================================
   // Control API
   // ===========================================================================
 
@@ -1076,6 +667,19 @@ export class AomiClient {
     return (await response.json()) as AomiAccountProfile;
   }
 
+  /** Re-read policy on each new preparation; mode changes and revocations
+   * must not be hidden behind a session-long account cache.
+   */
+  async prepareUserState(
+    sessionId: string,
+    state: UserState,
+  ): Promise<UserState> {
+    if (!this.hasAccountAuth || (!state.evm?.address && !state.svm?.address))
+      return state;
+    const profile = await this.fetchAccountProfile(sessionId);
+    return profile ? UserState.route(state, profile) : state;
+  }
+
   /**
    * Fetch the full account for the authenticated request. Throws on any
    * non-OK response; use `fetchAccountProfile` for the null-on-anonymous
@@ -1092,15 +696,6 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiAccountResponse;
-  }
-
-  async createAccountApproval(
-    request: AomiCreateApprovalRequest,
-  ): Promise<AomiAccessApproval> {
-    return this.request<AomiAccessApproval>("POST", "/api/account/approvals", {
-      body: request,
-      raw: true,
-    });
   }
 
   /**
@@ -1228,7 +823,7 @@ export class AomiClient {
    * List BYOK keys (one per LLM provider) bound to the current account.
    */
   async listByokKeys(sessionId: string): Promise<AomiByokKeyEntry[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/payment");
+    const url = buildApiUrl(this.baseUrl, "/api/account/model-keys");
     const response = await this.fetchImpl(url, {
       headers: withSessionHeader(sessionId),
     });
@@ -1238,7 +833,7 @@ export class AomiClient {
     }
 
     const data = (await response.json()) as AomiListByokKeysResponse;
-    return data.byok ?? [];
+    return data.keys ?? [];
   }
 
   /**
@@ -1250,7 +845,7 @@ export class AomiClient {
     byokKey: string,
     label?: string,
   ): Promise<AomiByokKeyEntry> {
-    const url = joinApiPath(this.baseUrl, "/api/account/payment/byok");
+    const url = joinApiPath(this.baseUrl, "/api/account/model-keys");
     const response = await this.fetchImpl(url, {
       method: "POST",
       headers: withSessionHeader(sessionId, {
@@ -1277,7 +872,7 @@ export class AomiClient {
   async deleteByokKey(sessionId: string, provider: string): Promise<boolean> {
     const url = buildApiUrl(
       this.baseUrl,
-      `/api/account/payment/byok/${encodeURIComponent(provider)}`,
+      `/api/account/model-keys/${encodeURIComponent(provider)}`,
     );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
@@ -1290,6 +885,106 @@ export class AomiClient {
 
     const data = (await response.json()) as AomiDeleteByokKeyResponse;
     return data.deleted;
+  }
+
+  // ===========================================================================
+  // Per-user app secrets (client-supplied API keys)
+  // ===========================================================================
+  //
+  // An app that wraps an account-bound venue (an exchange, a prediction
+  // market) trades the key owner's own account, so each signed-in user
+  // supplies their own keys for it. Account-scoped and durable on the
+  // backend: a key saved here applies to every thread the account runs on
+  // that app from the next turn, on every fleet host. Distinct from
+  // `ingestSecrets`, which is the ephemeral browser-scoped store.
+
+  /**
+   * The slots an app declares with the current account's configuration
+   * state. Never values.
+   */
+  async listAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiUserAppSecrets> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to list app secrets: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /**
+   * Save (upsert) the current account's own values for some of an app's
+   * slots. Slots omitted from `secrets` are left untouched, so one key can
+   * be rotated without re-entering the others.
+   */
+  async saveAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+    secrets: Record<string, string>,
+  ): Promise<AomiUserAppSecrets> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      method: "POST",
+      headers: withSessionHeader(sessionId, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ secrets }),
+    });
+
+    if (!response.ok) {
+      const detail = await readErrorDetail(response);
+      throw new Error(
+        `Failed to save app secrets: HTTP ${response.status}${detail ? ` (${detail})` : ""}`,
+      );
+    }
+
+    return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /** Remove one of the current account's own values for an app. */
+  async deleteAppSecret(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+  ): Promise<AomiDeleteSecretResponse> {
+    const url = joinApiPath(
+      this.baseUrl,
+      `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+    );
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete app secret: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiDeleteSecretResponse;
+  }
+
+  /** Remove every value the current account stored for an app. */
+  async clearAppSecrets(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiClearAppSecretsResponse> {
+    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to clear app secrets: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiClearAppSecretsResponse;
   }
 
   // ===========================================================================
@@ -1342,9 +1037,17 @@ export class AomiClient {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `HTTP ${response.status}: ${response.statusText}${body ? `\n${body}` : ""}`,
+      const body = await response.json().catch(() => null);
+      const detail = body?.error;
+      throw new SimulationApiError(
+        response.status,
+        detail &&
+          typeof detail.code === "string" &&
+          typeof detail.message === "string" &&
+          Array.isArray(detail.partial?.contexts) &&
+          Array.isArray(detail.partial?.steps)
+          ? detail
+          : undefined,
       );
     }
 

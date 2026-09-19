@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Drive one full chat turn against a deployed app and report what came back.
 #
-# Reading thread state alone is not enough to tell a healthy app from a broken
-# one: a thread that was never sent a message looks identical to a thread whose
-# every turn is refused by the provider. So this creates a thread, sends a turn,
-# polls to completion, and then asserts on the result.
+# Starts a typed Agent turn, follows its ordered Event cursor to a terminal
+# lifecycle event, and asserts that the agent produced a message.
 #
 # Usage:
 #   scripts/check-app-turn.sh <app> <application_id> [message] [backend]
@@ -24,7 +22,6 @@ BACKEND="${4:-https://api-staging.aomi.dev}"
 THREAD_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 CLIENT_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 USER_STATE='{"connection":{"is_connected":false},"ext":{"client_type":"web_ui"}}'
-COMMON="app=${APP}&application_id=${APPLICATION_ID}&client_id=${CLIENT_ID}"
 HDR=(-H "X-Thread-Id: ${THREAD_ID}" -H "X-Session-Id: ${THREAD_ID}")
 
 say() { printf '%s\n' "$*" >&2; }
@@ -51,19 +48,26 @@ fi
 rm -f /tmp/aomi-create.$$
 say "  create → 200"
 
-chat_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-  "${BACKEND}/api/thread/chat?${COMMON}&message=$(printf %s "$MESSAGE" | jq -sRr @uri)&user_state=$(printf %s "$USER_STATE" | jq -sRr @uri)" \
+START_FILE="$(mktemp)"
+chat_status="$(curl -s -o "$START_FILE" -w '%{http_code}' -X POST \
+  "${BACKEND}/v1/agent/chat" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: ${CLIENT_ID}" \
+  -d "$(jq -cn --arg sessionId "$THREAD_ID" --arg message "$MESSAGE" --arg app "$APP" --arg clientId "$CLIENT_ID" --argjson applicationId "$APPLICATION_ID" --argjson userState "$USER_STATE" '{sessionId:$sessionId,message:$message,app:$app,applicationId:$applicationId,clientId:$clientId,userState:$userState}')" \
   "${HDR[@]}")"
-say "  chat   → ${chat_status}"
+say "  agent  → ${chat_status}"
 
 STATE_FILE="$(mktemp)"
-trap 'rm -f "$STATE_FILE"' EXIT
+trap 'rm -f "$STATE_FILE" "$START_FILE"' EXIT
+
+cp "$START_FILE" "$STATE_FILE"
+cursor="$(jq -r '.cursor // empty' "$STATE_FILE")"
 
 for _ in $(seq 1 30); do
-  curl -s "${BACKEND}/api/thread/state?${COMMON}&user_state=$(printf %s "$USER_STATE" | jq -sRr @uri)" \
+  curl -s "${BACKEND}/v1/agent/chat/${THREAD_ID}?cursor=${cursor}&wait=2000" \
     "${HDR[@]}" >"$STATE_FILE"
-  if [ "$(jq -r '.is_processing' <"$STATE_FILE")" = "false" ] &&
-    [ "$(jq -r '(.messages | length) > 1 or ((.system_events // []) | length) > 0' <"$STATE_FILE")" = "true" ]; then
+  cursor="$(jq -r '.cursor // empty' "$STATE_FILE")"
+  if jq -e '[.events[]? | select(.type == "turn_state_changed" and (.state == "complete" or .state == "failed" or .state == "interrupted"))] | length > 0' <"$STATE_FILE" >/dev/null; then
     break
   fi
   sleep 2
@@ -71,17 +75,12 @@ done
 
 say ""
 say "── transcript ──"
-jq -r '.messages[]? | "  \(.sender): \(.content | .[0:120])"' <"$STATE_FILE" >&2
-events="$(jq -r '(.system_events // [])[] | tostring' <"$STATE_FILE")"
-if [ -n "$events" ]; then
-  say "── system events ──"
-  printf '  %s\n' "$events" >&2
-fi
+jq -r '.events[]? | select(.type == "message") | "  \(.sender): \(.content | .[0:120])"' <"$STATE_FILE" >&2
 say ""
 
 fail=0
 
-if jq -e '[.messages[]? | select(.sender == "agent" and (.content | length) > 0)] | length > 0' <"$STATE_FILE" >/dev/null; then
+if jq -e '[.events[]? | select(.type == "message" and .sender == "agent" and (.content | length) > 0)] | length > 0' <"$STATE_FILE" >/dev/null; then
   say "PASS: the app answered"
 else
   say "FAIL: no assistant message — the app accepted the turn and said nothing"
@@ -97,7 +96,7 @@ if grep -q 'invalid_function_parameters' "$STATE_FILE"; then
 fi
 
 # A dropped tool is the intended fallback, not a failure: the app still answers.
-if jq -e '[.messages[]? | select(.sender == "notice")] | length > 0' <"$STATE_FILE" >/dev/null; then
+if jq -e '[.events[]? | select(.type == "notice")] | length > 0' <"$STATE_FILE" >/dev/null; then
   say "note: a durable failure notice is present in the transcript"
 fi
 

@@ -8,6 +8,7 @@ import { afterEach, vi } from "vitest";
 // until the first query, so a placeholder is safe for unit tests.
 process.env.DATABASE_URL ??=
   "postgresql://postgres:postgres@127.0.0.1:5432/vitest_placeholder";
+process.env.NODE_ENV = "test";
 process.env.AOMI_CLI_STRICT_EXIT = "1";
 
 afterEach(() => {

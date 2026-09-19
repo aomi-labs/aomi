@@ -16,12 +16,16 @@ export const svmClusterFact = (
   fallback = "mainnet-beta",
 ): ToolFact => {
   const cluster = asString(value) ?? fallback;
+  const normalized = cluster.toLowerCase().replace(/^solana:/, "");
+  const label = normalized.includes("devnet")
+    ? "Solana Devnet"
+    : normalized.includes("testnet")
+      ? "Solana Testnet"
+      : "Solana";
   return {
     kind: "cluster",
     value: cluster,
-    // The network selector already shows Solana / Devnet / Testnet. Keep the
-    // working trace focused on the chain family and use the slot for context.
-    label: "Solana",
+    label,
     source: "result",
   };
 };

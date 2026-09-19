@@ -44,7 +44,7 @@ describe("CLI device provider auth", () => {
     expect(parsed.searchParams.get("link_intent")).toBe("intent-123");
   });
 
-  it("exchanges a loopback callback code for a BetterAuth session", async () => {
+  it("canonicalizes the raw staging API before provider login", async () => {
     const originalFetch = globalThis.fetch;
     const exchangeFetch = vi.fn(
       async (url: string | URL | Request, init?: RequestInit) => {
@@ -52,7 +52,10 @@ describe("CLI device provider auth", () => {
         if (target.startsWith("http://127.0.0.1:")) {
           return originalFetch(url, init);
         }
-        if (target === "https://chat.aomi.dev/api/aomi/device-auth/exchange") {
+        if (
+          target ===
+          "https://chat-staging.aomi.dev/v1/account/device-auth/exchange"
+        ) {
           const body = JSON.parse(String(init?.body));
           expect(body.code).toBe("grant-code");
           expect(body.state).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -67,7 +70,7 @@ describe("CLI device provider auth", () => {
             provider: "para",
           });
         }
-        if (target === "https://chat.aomi.dev/api/aomi/account") {
+        if (target === "https://chat-staging.aomi.dev/v1/account") {
           expect(new Headers(init?.headers).get("Authorization")).toBe(
             "Bearer better-auth-session",
           );
@@ -85,10 +88,11 @@ describe("CLI device provider auth", () => {
 
     try {
       const result = await signInWithDeviceProvider({
-        baseUrl: "https://chat.aomi.dev",
+        baseUrl: "https://api-staging.aomi.dev",
         provider: "para",
         openBrowser: async (url) => {
           const parsed = new URL(url);
+          expect(parsed.origin).toBe("https://chat-staging.aomi.dev");
           expect(parsed.searchParams.get("provider")).toBe("para");
           const redirectUri = parsed.searchParams.get("redirect_uri");
           const state = parsed.searchParams.get("state");
@@ -123,7 +127,7 @@ describe("CLI device provider auth", () => {
           return originalFetch(url, init);
         }
         if (
-          target === "https://chat.aomi.dev/api/aomi/device-auth/link-intent"
+          target === "https://chat.aomi.dev/v1/account/device-auth/link-intent"
         ) {
           const body = JSON.parse(String(init?.body));
           expect(new Headers(init?.headers).get("Authorization")).toBe(
@@ -142,7 +146,9 @@ describe("CLI device provider auth", () => {
             provider: "privy",
           });
         }
-        if (target === "https://chat.aomi.dev/api/aomi/device-auth/exchange") {
+        if (
+          target === "https://chat.aomi.dev/v1/account/device-auth/exchange"
+        ) {
           const body = JSON.parse(String(init?.body));
           expect(body.code).toBe("link-grant-code");
           expect(body.state).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -168,7 +174,7 @@ describe("CLI device provider auth", () => {
 
     try {
       const result = await getDeviceProviderCredential({
-        baseUrl: "https://chat.aomi.dev",
+        baseUrl: "https://api.aomi.dev",
         provider: "privy",
         sessionToken: "current-session",
         openBrowser: async (url) => {

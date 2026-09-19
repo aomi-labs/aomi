@@ -17,6 +17,10 @@ describe("chain icon map", () => {
     expect(Icon?.name).toBe("ArcIcon");
   });
 
+  it("uses the Arc icon for Mainnet", () => {
+    expect(getChainIcon(5042)?.name).toBe("ArcIcon");
+  });
+
   it("uses the monochrome Robinhood icon for chain 4663", () => {
     const Icon = getChainIcon(4663);
 

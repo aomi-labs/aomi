@@ -7,6 +7,13 @@ description: Browse all available UI components from the Aomi registry.
 
 All UI components available through the Aomi shadcn registry. Each component can be installed individually or comes bundled when you install `aomi-frame`.
 
+Use a Radix-based shadcn project. For a new project, initialize it before adding
+Aomi components:
+
+```bash
+npx shadcn@latest init --base radix
+```
+
 ## Aomi Components
 
 These components are maintained by Aomi and include features specific to the platform.
@@ -176,7 +183,8 @@ import { NetworkSelect } from "@/components/control-bar";
 
 ## shadcn Primitives
 
-These standard UI primitives are installed as dependencies. They come from the official shadcn registry.
+These Radix-based UI primitives are installed from Aomi's registry so their APIs
+match the widget components.
 
 | Component | Description |
 | --- | --- |

@@ -42,10 +42,11 @@ tail -f /tmp/aomi-backend.log
 - Uses the local Supabase Postgres exposed on `127.0.0.1:54322`.
 - Ensures `aomi_local` exists.
 - Applies product-mono migrations only if the backend `users` table is missing.
-- Applies `packages/auth/src/db/schema.sql` for `aomi_users`,
-  `aomi_auth_identities`, `aomi_wallets`, and `aomi_account_events`.
-- Runs Better Auth's migration helper so `"user"`, `"session"`, `"account"`,
-  `"verification"`, and `"walletAddress"` exist.
+- Applies the selected backend checkout's migrations for canonical account and
+  wallet tables.
+- Loads `packages/account/src/better-auth/auth.ts` and runs Better Auth's
+  migration helper so `"user"`, `"session"`, `"account"`, `"verification"`,
+  and `"walletAddress"` exist.
 - Overrides the portal runtime `DATABASE_URL` to
   `postgresql://postgres:postgres@127.0.0.1:54322/aomi_local`.
 
@@ -98,6 +99,23 @@ the backend. The backend verifies only; it does not mint this bearer.
 The removed local handoff's HS256 `aomi_session`, `/api/auth/token`, and local
 BetterAuth JWT/JWKS path are no longer part of this stack.
 
+Unified API/MCP development uses Better Auth 1.7 OAuth Provider JWT/JWKS for
+public credentials, but retains the internal Aomi EdDSA trust boundary:
+
+```text
+OAuth/session client -> portal -> aud=aomi-api-server -> aud=aomi-backend
+```
+
+Set `AOMI_AGENT_API_URL` to the local api-server and use the canonical
+`/v1/agent`, `/v1/pipeline`, `/v1/agent/mcp`, and `/v1/pipeline/mcp` resources. The
+new surfaces default on outside production. Production-like local runs can
+exercise independent rollback with `AOMI_OAUTH_ISSUANCE_ENABLED`,
+`AOMI_REST_OAUTH_ENABLED`, `AOMI_AGENT_MCP_OAUTH_ENABLED`,
+`AOMI_PIPELINE_MCP_OAUTH_ENABLED`, `AOMI_LEGACY_SESSION_AUTH_ENABLED`,
+`AOMI_GUEST_AGENT_REST_ENABLED`, and `AOMI_GUEST_PIPELINE_REST_ENABLED`.
+Guest Agent and Pipeline sessions can complete self-custodial work, while
+payment submission and delegated custody remain outside the guest scope ceiling.
+
 ## Product-Mono Notes
 
 The sibling backend needs the same service public key that matches this repo's
@@ -115,10 +133,10 @@ sourced by the shell rather than hand-parsed because values may be quoted.
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/health
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/
-curl -s http://localhost:3000/api/aomi/account
+curl -s http://localhost:3000/v1/account
 ```
 
-Unauthenticated `/api/aomi/account` should return a null account payload, not a
+Unauthenticated `/v1/account` should return a null account payload, not a
 Better Auth `Failed to get session` error. Some proxied backend routes may return
 `401` before login; that is expected.
 

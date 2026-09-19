@@ -40,6 +40,21 @@ function deserializeSolanaTransaction(
   }
 }
 
+async function confirmSubmittedTransaction(
+  connection: SolanaConnection,
+  signature: string,
+): Promise<void> {
+  const confirmation = await connection.confirmTransaction(
+    signature,
+    "confirmed",
+  );
+  if (confirmation.value.err) {
+    throw new Error(
+      `Solana transaction ${signature} failed: ${JSON.stringify(confirmation.value.err)}`,
+    );
+  }
+}
+
 export function buildSvmTransactionMethods(
   wallet: SafeSvmWalletState,
   config: {
@@ -82,6 +97,9 @@ export function buildSvmTransactionMethods(
       : undefined,
     signSolanaMessage: signMessage
       ? async (payload: WalletSolanaSignMessagePayload) => {
+          if (payload.signer && payload.signer !== wallet.publicKey) {
+            throw new Error("The requested Solana wallet is not connected.");
+          }
           if (!payload.message) {
             throw new Error("Missing message payload");
           }
@@ -102,6 +120,7 @@ export function buildSvmTransactionMethods(
             decodeBase64(payload.unsignedTx),
           );
           const signature = await sendTransaction(tx, connection);
+          await confirmSubmittedTransaction(connection, signature);
           return { signature };
         }
       : undefined,
@@ -119,6 +138,7 @@ export function buildSvmTransactionMethods(
               decodeBase64(payload.unsignedTx),
             );
             const signature = await sendTransaction(tx, connection);
+            await confirmSubmittedTransaction(connection, signature);
             return { signature };
           }
         : undefined,

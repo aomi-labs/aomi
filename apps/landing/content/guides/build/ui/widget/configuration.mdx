@@ -227,22 +227,19 @@ function MyComponent() {
 
   // User state
   const user = api.user;
-  api.setUser({ address: "0x...", chainId: 1, isConnected: true });
+  api.setUser({
+    connection: { is_connected: true, provider: "para" },
+    evm: { address: "0x...", chain_id: 1 },
+  });
 
   // Notifications
   api.showNotification({ type: "success", title: "Done!" });
   api.dismissNotification("notification-id");
   api.clearAllNotifications();
 
-  // Events
-  const unsubscribe = api.subscribe("wallet_tx_request", (event) => {
-    console.log(event);
-  });
-  await api.sendSystemCommand({
-    type: "custom:action",
-    sessionId: threadId,
-    payload: { data: "value" },
-  });
+  // Canonical ordered Events and Actions
+  console.log(api.events, api.turnState);
+  await api.executeAction(api.pendingActions[0].id);
 }
 ```
 
@@ -349,8 +346,8 @@ The widget communicates with your backend via these endpoints:
 
 | Endpoint              | Method       | Description            |
 | --------------------- | ------------ | ---------------------- |
-| `/api/thread/chat`    | POST         | Send a message         |
-| `/api/thread/state`   | GET          | Poll for state updates |
+| `/v1/agent/chat`    | POST         | Send a message         |
+| `/v1/agent/chat/{sessionId}`   | GET          | Poll for state updates |
 | `/api/session/models` | GET          | Get available models   |
 | `/api/session/apps`   | GET          | Get authorized apps    |
 | `/api/session/model`  | POST         | Set the active model   |

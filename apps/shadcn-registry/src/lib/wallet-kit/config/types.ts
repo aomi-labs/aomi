@@ -82,6 +82,12 @@ export type EvmWalletsConfig = {
   appName?: string;
   appLogoUrl?: string | null;
   transports?: Record<number, Transport>;
+  /**
+   * Persist the external EVM connector and silently restore it after reload.
+   * Defaults to true. An explicit disconnect remains persisted by the wallet
+   * connector and prevents the next mount from reconnecting it.
+   */
+  persistConnections?: boolean;
 };
 
 export type SvmWalletsConfig = {
@@ -149,6 +155,8 @@ export type AccountConfig =
     };
 
 export type AomiWalletKitProviderProps = {
+  /** Render the loading wallet state without starting SDKs while host config is restored. */
+  initializing?: boolean;
   preset?: "para" | "privy" | "wallets-only" | (string & {});
   providers?: ProvidersConfig;
   auth?: AuthConfig;

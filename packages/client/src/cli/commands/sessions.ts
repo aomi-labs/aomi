@@ -1,7 +1,12 @@
 import { AomiClient } from "../../client";
 import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
-import { RESET, YELLOW, printDataFileLocation } from "../output";
+import {
+  RESET,
+  YELLOW,
+  countToolCalls,
+  printDataFileLocation,
+} from "../output";
 import {
   deleteStoredSession,
   listStoredSessions,
@@ -9,12 +14,7 @@ import {
   type StoredSessionRecord,
 } from "../state";
 import { createCliAuthTokenProvider } from "../auth";
-import { pendingTxsFromBackendUserState } from "../user-state";
-import {
-  estimateTokenCount,
-  printKeyValueTable,
-  printTransactionTable,
-} from "../tables";
+import { estimateTokenCount, printKeyValueTable } from "../tables";
 import type { CliConfig } from "../types";
 
 type RemoteSessionStats = {
@@ -22,7 +22,7 @@ type RemoteSessionStats = {
   messageCount: number;
   tokenCountEstimate: number;
   toolCalls: number;
-  pendingTxs: ReturnType<typeof pendingTxsFromBackendUserState>;
+  pendingActions: number;
 };
 
 async function fetchRemoteSessionStats(
@@ -35,21 +35,22 @@ async function fetchRemoteSessionStats(
   });
 
   try {
-    const apiState = await client.fetchState(
-      record.sessionId,
-      undefined,
-      record.state.clientId,
+    const page = await client.agent.poll(record.sessionId);
+    const messages = page.events.filter((event) => event.type === "message");
+    const title = page.events.findLast(
+      (event) => event.type === "title_changed",
     );
-    const messages = apiState.messages ?? [];
     return {
-      topic: apiState.title ?? "Untitled Session",
+      topic:
+        title?.type === "title_changed"
+          ? (title.title ?? "Untitled Session")
+          : "Untitled Session",
       messageCount: messages.length,
       tokenCountEstimate: estimateTokenCount(messages),
-      toolCalls: messages.filter((msg) => Boolean(msg.tool_result)).length,
-      pendingTxs: pendingTxsFromBackendUserState(
-        apiState.user_state,
-        record.state.pendingTxs ?? [],
-      ),
+      toolCalls: countToolCalls(page.events),
+      pendingActions: page.events.filter(
+        (event) => event.type === "action" && event.state === "pending",
+      ).length,
     };
   } catch {
     return null;
@@ -61,8 +62,6 @@ function printSessionSummary(
   stats: RemoteSessionStats | null,
   isActive: boolean,
 ): void {
-  const pendingTxs = stats?.pendingTxs ?? record.state.pendingTxs ?? [];
-  const signedTxs = record.state.signedTxs ?? [];
   const header = isActive
     ? `🧵 Session id: ${record.sessionId} (session-${record.localId}, active)`
     : `🧵 Session id: ${record.sessionId} (session-${record.localId})`;
@@ -76,15 +75,8 @@ function printSessionSummary(
       stats ? `${stats.tokenCountEstimate} (estimated)` : "n/a",
     ],
     ["🛠 tool calls", stats ? String(stats.toolCalls) : "n/a"],
-    [
-      "💸 transactions",
-      `${pendingTxs.length + signedTxs.length} (${pendingTxs.length} pending, ${signedTxs.length} signed)`,
-    ],
+    ["⚡ pending actions", stats ? String(stats.pendingActions) : "n/a"],
   ]);
-
-  console.log();
-  console.log(`${YELLOW}💾 Transactions metadata (JSON):${RESET}`);
-  printTransactionTable(pendingTxs, signedTxs);
 }
 
 export async function sessionsCommand(_config: CliConfig): Promise<void> {
@@ -143,11 +135,7 @@ export async function resumeSessionCommand(selector: string): Promise<void> {
 
   const session = current.createClientSession();
   try {
-    await session.client.fetchState(
-      selector,
-      undefined,
-      current.ensureClientId(),
-    );
+    await session.client.agent.sessions.get(selector);
   } catch {
     fatal(
       `No account-owned local or remote session found for selector "${selector}".`,

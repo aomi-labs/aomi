@@ -85,7 +85,7 @@ flowchart TB
   subgraph bff["portal BFF · next.js · apps/portal"]
     BA["betterauth<br/>/api/auth/* · siwe · bearer · provider"]
     PX["backend proxy<br/>/api/[...slug] · strip + mint + inject"]
-    TOK["bearer route<br/>/api/aomi/account-bearer · cross-origin seam"]
+    TOK["bearer route<br/>/v1/account/bearer · cross-origin seam"]
   end
   subgraph be["rust backend · axum · product-mono/aomi"]
     AR["authrouter + aomi-service<br/>eddsa verify · per-route"]
@@ -399,7 +399,7 @@ is `null` in same-origin (`createPortalAccountAccessTokenProvider`).
 **Wallet → auth bridge:** wallet connection (wagmi/Privy/Para, tracked in `wallet-kit/registry/*`)
 is orthogonal to backend auth. `account/aomi-backend-runtime.ts` drives sign-in: auto-SIWE
 for a bare wallet, or `providerExchange` (create → `POST /api/auth/aomi/provider/exchange`;
-link → `POST /api/aomi/provider/exchange`). `identity.isConnected` flips true on wallet
+link → `POST /v1/account/provider/exchange`). `identity.isConnected` flips true on wallet
 connect, **before** the `better-auth.session_token` cookie lands — the root cause of the thread-list race
 (fixed with a bounded exponential 401-retry backoff in `user-state-provider.tsx`).
 
@@ -407,7 +407,7 @@ connect, **before** the `better-auth.session_token` cookie lands — the root ca
 - **TS `aomi`** (`@aomi-labs/client`, `bin: aomi`) — remote client, **does SIWE login**
   (`cli/auth.ts`), stores state under `~/.aomi/` (`AOMI_STATE_DIR`). Carries the **BetterAuth
   session token** as `Authorization: Bearer` and lets the BFF proxy mint the EdDSA bearer —
-  it does **not** call `/api/aomi/account-bearer`.
+  it does **not** call `/v1/account/bearer`.
 - **Rust `aomi-cli`** (`product-mono/aomi/bin/cli`) — runs the agent **in-process**, no auth
   (local env signer keys gated by `FULL_TESTNETS`). Same `~/.aomi/` layout, no `auth` field.
 
@@ -431,7 +431,7 @@ Four packages, four boundaries:
 - **`@aomi-labs/service`** — cross-language crypto boundary (TS twin of Rust `aomi-service`;
   only minter/verifier of mesh JWTs; browser-guard for the private key). Pure leaf.
 - **`@aomi-labs/account`** — backend-canonical-identity + transport boundary (who is this
-  user **to the backend** = `users.id`; the proxy + `/api/aomi/account-bearer`). Targets backend DB.
+  user **to the backend** = `users.id`; the proxy + `/v1/account/bearer`). Targets backend DB.
 - **`@aomi-labs/auth`** — BetterAuth session + account-graph + provider-verification boundary
   (who is this user **to us** = `aomi_users.id`; login). Targets auth DB. The former
   deprecated, self-contained `mcp-approvals/` island has been removed.
@@ -467,7 +467,7 @@ flowchart TB
 **`@aomi-labs/service`:** `topology.ts` (mint/verify), `server-only.ts` (browser guard), `index.ts`.
 
 **`@aomi-labs/account`:** `session.ts` (the bridge), `proxy.ts` (strip+mint+inject), `bearer.ts`
-(EdDSA mint, 15m), `token.ts` (`/api/aomi/account-bearer`), `account-graph.ts`
+(EdDSA mint, 15m), `token.ts` (`/v1/account/bearer`), `account-graph.ts`
 (`resolveOrCreateCanonicalUser`), `topology.ts`+`topology-data.ts` (mesh), `db.ts` (backend-DB pool).
 
 **`@aomi-labs/auth` better-auth/:** `auth.ts` (server + plugins), `siwe.ts` (the one true SIWE
@@ -518,7 +518,7 @@ UUID bridge; backend find-only `DbUser::get` (never creates); multi-class routes
 | 🟡 Cleanup | CLI: default `baseUrl` to portal (or add explicit portal flag); friendly `whoami`/`wallet whoami` 401; consider encrypting stored keys | Login silently needs a portal override; keys in plaintext | `packages/client/src/cli` |
 | 🟡 Cleanup | Vestigial: `capability` field (type-only); `AomiAccountCredential` has 4 shapes, only privy+para live; `packages/auth/src/index.ts` exports only `./types` | Low-grade cruft / near-empty package root | `packages/auth/src/types.ts`, `index.ts` |
 | 📘 Docs | Refresh `DOMAIN.md`/`METADATA.md` (endpoints `/api/session/*`; `AomiClient`/`ClientSession` in `@aomi-labs/client`; real cookie name `better-auth.session_token`; no polling/message-controller files) | The "read on session start" docs are stale | `specs/` |
-| ✅ Done | Empty stale scaffolding in portal: `src/app/auth/`, `src/app/auth/privy/`, `src/app/api/mcp-auth/**` | Verified absent in this worktree; live auth routes are `/api/auth/[...all]`, `/api/aomi/*`, and product BFF routes under `/api/bff/*` | `apps/portal/src/app` |
+| ✅ Done | Empty stale scaffolding in portal: `src/app/auth/`, `src/app/auth/privy/`, `src/app/api/mcp-auth/**` | Verified absent in this worktree; live auth routes are `/api/auth/[...all]`, `/v1/account/*`, and product BFF routes under `/api/bff/*` | `apps/portal/src/app` |
 | ✅ Done | Stale content docs: `docs/topics/clients/facts/ts-client.md`, `rust-cli.md`, `docs/topics/auth/facts/*` | Old client docs are absent; auth facts now describe the BetterAuth session -> BFF AccountBearer path and Base Account as compatibility wallet-kit surface | `docs/topics` |
 | 📘 Docs | Remaining optional docs pruning: executed wallet/refactor plan specs can still be deleted or archived after merge if desired | This pass consolidated the local stack docs and fixed dead links/indexes, but did not delete broader wallet-history specs | repo-wide |
 

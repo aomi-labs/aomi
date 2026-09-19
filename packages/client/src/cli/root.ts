@@ -10,6 +10,7 @@ import { accountDef } from "./commands/defs/account";
 import { configDef } from "./commands/defs/config";
 import { secretDef } from "./commands/defs/secret";
 import { deployDef } from "./commands/defs/deploy";
+import { pipelineDef } from "./commands/defs/pipeline";
 import { buildCliConfig, globalArgs } from "./commands/defs/shared";
 import packageJson from "../../package.json";
 
@@ -31,6 +32,7 @@ export const SUBCOMMAND_NAMES = new Set([
   "config",
   "secret",
   "deploy",
+  "pipeline",
 ]);
 
 export function hasRootSubcommand(rawArgs: string[]): boolean {
@@ -96,5 +98,6 @@ export const root = defineCommand({
     config: configDef,
     secret: secretDef,
     deploy: deployDef,
+    pipeline: pipelineDef,
   },
 });

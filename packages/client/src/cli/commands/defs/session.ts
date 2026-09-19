@@ -79,6 +79,15 @@ const sessionEventsDef = defineCommand({
   },
 });
 
+const sessionInterruptDef = defineCommand({
+  meta: { name: "interrupt", description: "Interrupt the active Agent turn" },
+  args: { ...globalArgs },
+  async run({ args }) {
+    const { interruptCommand } = await import("../control");
+    await interruptCommand(buildCliConfig(args));
+  },
+});
+
 const sessionCloseDef = defineCommand({
   meta: { name: "close", description: "Close the current session" },
   args: { ...globalArgs },
@@ -98,6 +107,7 @@ export const sessionDef = defineCommand({
     status: sessionStatusDef,
     log: sessionLogDef,
     events: sessionEventsDef,
+    interrupt: sessionInterruptDef,
     close: sessionCloseDef,
   },
 });

@@ -21,7 +21,7 @@ import type { WalletModalRow } from "./composer/merge-wallet-rows";
 
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 export type WalletFamily = "evm" | "svm";
-export type PublicWalletFamily = WalletFamily | "solana";
+export type PublicWalletFamily = WalletFamily;
 export type SvmCluster = "solana:mainnet" | "solana:devnet" | "solana:testnet";
 
 export type SvmNetworkOption = {
@@ -50,7 +50,7 @@ export type SvmWalletCapabilities = {
 
 export type AomiNetworkTarget =
   | { family: "evm"; chainId: number }
-  | { family: "svm" | "solana"; networkId: string };
+  | { family: "svm"; networkId: string };
 export type AomiWalletKind = "eoa" | "smart-account";
 export type SessionProvider = "para" | "privy" | "custom" | (string & {});
 export type EmbeddedProvider = "para" | "privy" | "aomi" | (string & {});
@@ -63,11 +63,6 @@ export type WalletSource =
   | "embedded"
   | "stored";
 
-export type AomiWalletProvider =
-  | "para"
-  | "privy"
-  | "baseAccount"
-  | (string & {});
 export type AomiLoginMethod =
   | "google"
   | "apple"
@@ -100,26 +95,16 @@ export type AomiSessionIdentity = {
    * Solana wallet under one identity.
    */
   svmAddress?: string;
-  /**
-   * Provider that authenticated the current session. This intentionally does
-   * not reuse `authProvider`, which is a deprecated auth-method alias.
-   */
+  /** Provider that authenticated the current session. */
   sessionProvider?: SessionProvider;
   /** Provider backing the active embedded wallet, when one is in use. */
   embeddedProvider?: EmbeddedProvider;
   /** How the active wallet signs or connects. */
   walletSource?: WalletSource;
-  /** Wallet platform backing this session.
-   * @deprecated use sessionProvider/embeddedProvider; kept for /api/thread/state
-   * compatibility until the backend payload migrates.
-   */
-  walletProvider?: AomiWalletProvider;
   /** Stable subject inside the wallet provider, when exposed. */
   walletProviderSubject?: string;
   /** Auth method used within the wallet platform (Para OAuth, etc). */
   authMethod?: AomiLoginMethod;
-  /** Legacy alias retained while the control-bar migrates to `authMethod`. */
-  authProvider?: AomiLoginMethod;
   /** Verified auth value from the wallet platform, such as email or phone. */
   authValue?: string;
   /** Provider verification timestamp for `authValue`, unix seconds. */
@@ -130,14 +115,6 @@ export type AomiSessionIdentity = {
   svmWalletName?: string;
   svmTransport?: "extension" | "embedded" | "mwa";
   svmCapabilities?: SvmWalletCapabilities;
-  /** @deprecated use svmCluster. */
-  solanaCluster?: SvmCluster;
-  /** @deprecated use svmWalletName. */
-  solanaWalletName?: string;
-  /** @deprecated use svmTransport. */
-  solanaTransport?: "extension" | "embedded" | "mwa";
-  /** @deprecated use svmCapabilities. */
-  solanaCapabilities?: SvmWalletCapabilities;
 };
 
 /**
@@ -208,7 +185,7 @@ export type AomiAccount = {
   /** Human wallet name, e.g. "MetaMask", "Phantom", "Para". */
   walletName?: string;
   /** Provider that owns this account when it is an embedded/provider wallet. */
-  provider?: AomiWalletProvider;
+  provider?: SessionProvider | EmbeddedProvider;
   /** Runtime wallet kind for UI/account-linking classification. */
   walletKind?: "external" | "embedded" | "smart_account";
   /** EVM chain id of this connection, for per-row network labels. */
@@ -241,6 +218,7 @@ export type AomiAccount = {
 
 export type AomiTxResult = {
   txHash: string;
+  txHashes?: string[];
   amount?: string;
   aaRequestedMode?: "4337" | "7702" | "none";
   aaResolvedMode?: "4337" | "7702" | "none";
@@ -266,6 +244,15 @@ export type AomiTransactionExecution = {
 export type AomiAccountCredential =
   import("@aomi-labs/client").ProviderCredential;
 
+export type AomiAccountCredentialOptions = {
+  /**
+   * Ask the provider for a credential now, skipping any transient-failure
+   * backoff the getter keeps for polling callers. One-shot login handoffs
+   * (CLI device auth) set this; widgets that poll on every request must not.
+   */
+  fresh?: boolean;
+};
+
 export type AomiWalletKit = {
   identity: AomiSessionIdentity;
   isReady: boolean;
@@ -289,6 +276,8 @@ export type AomiWalletKit = {
   walletModalRows?: readonly WalletModalRow[];
   accountStatus?: AccountRuntimeStatus;
   accountError?: string;
+  /** The current Portal session is temporary and must not own linked wallets. */
+  accountGuest?: boolean;
   accountUser?: AomiUserRef;
   accountLinkedAccounts?: readonly LinkedAuthAccount[];
   accountWallets?: readonly AccountWallet[];
@@ -361,9 +350,12 @@ export type AomiWalletKit = {
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
   ) => Promise<AomiTxResult>;
+  signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
+  /** Live message-signing capability, not merely a linked account record. */
+  canSignFor?: (family: "evm" | "svm", address: string) => boolean;
   signMessage?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
@@ -378,7 +370,7 @@ export type AomiWalletKit = {
    * deserialization failure, mirroring what wallet adapters do.
    *
    * Optional like `signTypedData` — adapters that don't support Solana
-   * (e.g. base-account) leave it undefined; `RuntimeTxHandler` rejects
+   * (e.g. base-account) leave it undefined; the wallet Action handler rejects
    * the request with a "Solana wallet provider is not ready" error in
    * that case.
    */
@@ -398,7 +390,9 @@ export type AomiWalletKit = {
    * Return an upstream wallet-provider credential that the portal can exchange
    * for a short-lived Aomi bearer.
    */
-  getAccountCredential?: () => Promise<AomiAccountCredential | null>;
+  getAccountCredential?: (
+    options?: AomiAccountCredentialOptions,
+  ) => Promise<AomiAccountCredential | null>;
   getAccountBearer?: import("@aomi-labs/client").GetAccountBearer;
   solanaRpcHttpUrl?: string;
   solanaRpcWsUrl?: string;

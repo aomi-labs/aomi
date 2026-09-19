@@ -51,10 +51,7 @@ export class TypedEventEmitter<
     return unsub;
   }
 
-  emit<K extends keyof EventMap & string>(
-    type: K,
-    payload: EventMap[K],
-  ): void {
+  emit<K extends keyof EventMap & string>(type: K, payload: EventMap[K]): void {
     const typeSet = this.listeners.get(type);
     if (typeSet) {
       for (const handler of typeSet) {
@@ -88,55 +85,4 @@ export class TypedEventEmitter<
   removeAllListeners(): void {
     this.listeners.clear();
   }
-}
-
-// =============================================================================
-// System Event Unwrap
-// =============================================================================
-
-import type { AomiSystemEvent } from "./types";
-import {
-  isInlineCall,
-  isSystemNotice,
-  isSystemError,
-  isAsyncCallback,
-} from "./types";
-
-export type UnwrappedEvent = {
-  type: string;
-  payload: unknown;
-};
-
-export function unwrapSystemEvent(
-  event: AomiSystemEvent,
-): UnwrappedEvent | null {
-  if (isInlineCall(event)) {
-    return {
-      type: event.InlineCall.type,
-      payload: event.InlineCall.payload ?? event.InlineCall,
-    };
-  }
-
-  if (isSystemNotice(event)) {
-    return {
-      type: "system_notice",
-      payload: { message: event.SystemNotice },
-    };
-  }
-
-  if (isSystemError(event)) {
-    return {
-      type: "system_error",
-      payload: { message: event.SystemError },
-    };
-  }
-
-  if (isAsyncCallback(event)) {
-    return {
-      type: "async_callback",
-      payload: event.AsyncCallback,
-    };
-  }
-
-  return null;
 }

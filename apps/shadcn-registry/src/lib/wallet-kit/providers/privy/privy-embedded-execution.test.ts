@@ -142,6 +142,7 @@ describe("embedded EOA execution through the shared executor", () => {
         }),
       sendCallsSyncAsync: undefined,
       capabilities: undefined,
+      waitForTransactionReceipt: async () => ({ status: "success" }),
     });
 
     expect(runtime.sendTransaction).toBeDefined();

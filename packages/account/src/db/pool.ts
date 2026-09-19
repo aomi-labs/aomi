@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 
+import budgets from "./pool-budgets.json";
+
 /**
  * The single Postgres pool for this environment's database: BetterAuth's
  * session tables and the canonical account graph (`users` /
@@ -21,10 +23,72 @@ export type AccountPoolOptions = {
   connectionTimeoutMillis: number;
 };
 
+type PortalBudget = (typeof budgets)["production"]["portal"];
+
+/** A Supabase project ref: 20 lowercase alphanumerics. */
+const PROJECT_REF = /^[a-z0-9]{20}$/;
+
+function supabaseProjectRef(url: URL): string | undefined {
+  const host = url.hostname.toLowerCase();
+  const direct = /^db\.([a-z0-9]{20})\.supabase\.co$/.exec(host);
+  if (direct) return direct[1];
+  if (!host.endsWith(".pooler.supabase.com")) return undefined;
+  const ref = decodeURIComponent(url.username).split(".").pop() ?? "";
+  if (!PROJECT_REF.test(ref)) {
+    throw new Error("Supabase pooler URL must contain a valid project ref");
+  }
+  return ref;
+}
+
+/**
+ * The portal's connection allowance, from the budget product-mono's database
+ * crate owns (synced by `pnpm sync:db-pool-budgets`). The environment is chosen
+ * by the connection string's project ref, the same way the backend chooses
+ * its pools, so the portal can never be sized for the other database. A
+ * hosted project with no budget is configuration drift and fails loudly.
+ */
+const portals = Object.values(budgets).map((environment) => environment.portal);
+
+/**
+ * The allowance for a connection string no budget names (not a Supabase
+ * project): the strictest value of each field across environments, so a later
+ * divergence between the environment blocks can only tighten it.
+ */
+const UNBUDGETED_PORTAL: PortalBudget = {
+  pooler_port: portals[0].pooler_port,
+  max_connections_per_instance: Math.min(
+    ...portals.map((portal) => portal.max_connections_per_instance),
+  ),
+  idle_timeout_ms: Math.min(...portals.map((portal) => portal.idle_timeout_ms)),
+  connection_timeout_ms: Math.min(
+    ...portals.map((portal) => portal.connection_timeout_ms),
+  ),
+};
+
+export function resolvePortalBudget(connectionString: string): PortalBudget {
+  let url: URL | undefined;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    url = undefined;
+  }
+  const ref = url && supabaseProjectRef(url);
+  if (!ref) return UNBUDGETED_PORTAL;
+  const budget = Object.values(budgets).find(
+    (environment) => environment.project_ref === ref,
+  );
+  if (!budget) {
+    throw new Error(
+      `Supabase project ${ref} has no entry in pool-budgets.json`,
+    );
+  }
+  return budget.portal;
+}
+
 /**
  * Supabase's port 5432 pooler is session mode: every warm Vercel function can
- * consume one of its small fixed client allowance. Port 6543 is transaction
- * mode and multiplexes those short serverless queries instead. Preserve all
+ * consume one of its small fixed client allowance. The budget's transaction
+ * pooler port multiplexes those short serverless queries instead. Preserve all
  * credentials and target identity while selecting the serverless-safe mode.
  */
 export function resolveAccountConnectionString(
@@ -39,11 +103,17 @@ export function resolveAccountConnectionString(
   } catch {
     return connectionString;
   }
+  const host = url.hostname.toLowerCase();
+  if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
+    throw new Error(
+      "Vercel account connections must use the Supabase transaction pooler, not a direct database URL",
+    );
+  }
   if (
-    url.hostname.endsWith(".pooler.supabase.com") &&
+    host.endsWith(".pooler.supabase.com") &&
     (url.port === "" || url.port === "5432")
   ) {
-    url.port = "6543";
+    url.port = String(resolvePortalBudget(connectionString).pooler_port);
     return url.toString();
   }
   return connectionString;
@@ -51,17 +121,26 @@ export function resolveAccountConnectionString(
 
 /**
  * Vercel can keep a separate warm function instance for each API route. A
- * transaction pooler is still shared infrastructure, so each instance keeps a
- * single, short-lived client instead of multiplying a larger local pool.
+ * transaction pooler is still shared infrastructure, so each instance keeps
+ * the budget's per-instance cap with short-lived clients instead of
+ * multiplying a larger local pool.
  */
 export function resolveAccountPoolOptions(
   env: NodeJS.ProcessEnv = process.env,
+  connectionString = "",
 ): AccountPoolOptions {
-  const isVercel = Boolean(env.VERCEL);
+  if (!env.VERCEL) {
+    return {
+      max: 4,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+    };
+  }
+  const portal = resolvePortalBudget(connectionString);
   return {
-    max: isVercel ? 1 : 4,
-    idleTimeoutMillis: isVercel ? 5_000 : 30_000,
-    connectionTimeoutMillis: 10_000,
+    max: portal.max_connections_per_instance,
+    idleTimeoutMillis: portal.idle_timeout_ms,
+    connectionTimeoutMillis: portal.connection_timeout_ms,
   };
 }
 
@@ -76,7 +155,7 @@ export function getPool(): Pool {
   cachedPool = new Pool({
     connectionString: resolveAccountConnectionString(connectionString),
     application_name: "aomi-portal",
-    ...resolveAccountPoolOptions(),
+    ...resolveAccountPoolOptions(process.env, connectionString),
   });
   return cachedPool;
 }

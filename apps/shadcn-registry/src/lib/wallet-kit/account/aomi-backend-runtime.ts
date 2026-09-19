@@ -14,8 +14,9 @@ import {
   type AomiBackendNonceResponse,
 } from "./aomi-backend-client";
 import {
-  useWidgetSessionProvider,
+  useAccountSessionProvider,
   widgetCredentialsReady,
+  WalletSignInRequiredError,
   type WidgetAuthConfig,
 } from "./use-widget-session-provider";
 import { utf8ToBase64 } from "./encoding";
@@ -40,7 +41,7 @@ export function useAomiBackendAccountRuntime(input: {
   evm: EvmWalletRuntime;
   svm?: SvmWalletRuntime;
 }): AccountRuntime {
-  const widgetSessionProvider = useWidgetSessionProvider({
+  const accountSessionProvider = useAccountSessionProvider({
     baseUrl: input.baseUrl,
     widgetAuth: input.widgetAuth,
     auth: input.auth,
@@ -51,11 +52,11 @@ export function useAomiBackendAccountRuntime(input: {
     () =>
       createAomiBackendAccountClient({
         baseUrl: input.baseUrl,
-        auth: widgetSessionProvider
-          ? { credentials: "omit", getAuthorization: widgetSessionProvider }
+        auth: accountSessionProvider
+          ? { credentials: "omit", getAuthorization: accountSessionProvider }
           : { credentials: "include" },
       }),
-    [input.baseUrl, widgetSessionProvider],
+    [input.baseUrl, accountSessionProvider],
   );
   const authMessageConfig = useMemo(
     () =>
@@ -107,12 +108,8 @@ export function useAomiBackendAccountRuntime(input: {
     contextKey: string;
     promise: Promise<void>;
   } | null>(null);
-  const siweInFlight = useRef<string | null>(null);
-  const siwsInFlight = useRef<string | null>(null);
   const walletLabelSyncInFlight = useRef<string | null>(null);
   const accountCreateInFlight = useRef<string | null>(null);
-  const signedOutEvmKey = useRef<string | null>(null);
-  const signedOutSvmKey = useRef<string | null>(null);
   const signedOutCredentialKey = useRef<string | null>(null);
   const credentialInFlight = useRef<string | null>(null);
   const credentialExchanged = useRef<string | null>(null);
@@ -164,12 +161,17 @@ export function useAomiBackendAccountRuntime(input: {
         }
         setAccount(next);
         setStatus("ready");
-      } catch {
+      } catch (error) {
         const latest = latestRefreshContext.current;
         if (
           latest.accountClient !== accountClient ||
           latest.refreshContextKey !== refreshContextKey
         ) {
+          return;
+        }
+        if (error instanceof WalletSignInRequiredError) {
+          setAccount(null);
+          setStatus("ready");
           return;
         }
         setStatus("error");
@@ -245,7 +247,7 @@ export function useAomiBackendAccountRuntime(input: {
   ]);
 
   useEffect(() => {
-    if (!account?.user || !activeEvmAddress) return;
+    if (!account?.user || account.guest || !activeEvmAddress) return;
     const brand = brandDisplayName(activeEvmWalletName);
     if (brand === "Wallet") return;
     const wallet = account.wallets.find(
@@ -279,142 +281,6 @@ export function useAomiBackendAccountRuntime(input: {
       !input.enabled ||
       Boolean(input.widgetAuth) ||
       status === "error" ||
-      account === null ||
-      account.user ||
-      !hasAuthMessageConfig(authMessageConfig)
-    ) {
-      return;
-    }
-    if (!activeEvmAddress || !activeEvmChainId || !input.evm.signMessageAsync) {
-      signedOutEvmKey.current = null;
-      return;
-    }
-    const key = `${activeEvmAddress}:${activeEvmChainId}`;
-    const authKey = authSessionKey(input.auth);
-    if (
-      input.auth.status === "authenticated" &&
-      input.auth.getCredential &&
-      providerSessionAttempted.current !== authKey
-    ) {
-      return;
-    }
-    if (signedOutEvmKey.current === key) return;
-    if (siweInFlight.current === key) return;
-    if (accountCreateInFlight.current) return;
-    siweInFlight.current = key;
-    accountCreateInFlight.current = `siwe:${key}`;
-    signInWithActiveEvmWallet({
-      address: activeEvmAddress as `0x${string}`,
-      accountClient,
-      chainId: activeEvmChainId,
-      signMessageAsync: input.evm.signMessageAsync as (args: {
-        message: string;
-      }) => Promise<`0x${string}`>,
-      messageConfig: authMessageConfig,
-    })
-      .then(refresh)
-      .catch(() => {
-        // A rejected/failed auto-SIWE attempt must not block provider-token
-        // sign-in; suppress repeat prompts for this wallet and keep runtime live.
-        signedOutEvmKey.current = key;
-        setStatus("ready");
-        setErrorVersion((version) => version + 1);
-      })
-      .finally(() => {
-        siweInFlight.current = null;
-        if (accountCreateInFlight.current === `siwe:${key}`) {
-          accountCreateInFlight.current = null;
-        }
-      });
-  }, [
-    account,
-    activeEvmAddress,
-    activeEvmChainId,
-    accountClient,
-    authMessageConfig,
-    input.enabled,
-    input.evm.signMessageAsync,
-    refresh,
-    status,
-  ]);
-
-  useEffect(() => {
-    if (
-      !input.enabled ||
-      Boolean(input.widgetAuth) ||
-      status === "error" ||
-      account === null ||
-      account.user ||
-      !hasAuthMessageConfig(authMessageConfig)
-    ) {
-      return;
-    }
-    if (!activeSvmAddress || !activeSvmIsExternal || !signSolanaMessage) {
-      signedOutSvmKey.current = null;
-      return;
-    }
-    const key = `${activeSvmAddress}:${activeSvmCluster}`;
-    const authKey = authSessionKey(input.auth);
-    if (
-      input.auth.status === "authenticated" &&
-      input.auth.getCredential &&
-      providerSessionAttempted.current !== authKey
-    ) {
-      return;
-    }
-    if (signedOutSvmKey.current === key) return;
-    if (siwsInFlight.current === key) return;
-    if (accountCreateInFlight.current) return;
-    siwsInFlight.current = key;
-    accountCreateInFlight.current = `siws:${key}`;
-    authenticateSvmWallet({
-      accountClient,
-      address: activeSvmAddress,
-      chainId: activeSvmCluster,
-      intent: "sign-in",
-      label: buildDefaultWalletLabel({
-        walletName: activeSvmWalletName,
-        existingWallets: [],
-        family: "svm",
-      }),
-      messageConfig: authMessageConfig,
-      signMessage: (message) =>
-        signMessageWithActiveSvm(signSolanaMessage, message, activeSvmCluster),
-    })
-      .then(refresh)
-      .catch(() => {
-        // Match auto-SIWE: one rejected prompt should not loop until the wallet
-        // disconnects or the user explicitly chooses Link again.
-        signedOutSvmKey.current = key;
-        setStatus("ready");
-        setErrorVersion((version) => version + 1);
-      })
-      .finally(() => {
-        siwsInFlight.current = null;
-        if (accountCreateInFlight.current === `siws:${key}`) {
-          accountCreateInFlight.current = null;
-        }
-      });
-  }, [
-    account,
-    accountClient,
-    activeSvmAddress,
-    activeSvmCluster,
-    activeSvmIsExternal,
-    activeSvmWalletName,
-    authMessageConfig,
-    input.auth,
-    input.enabled,
-    refresh,
-    signSolanaMessage,
-    status,
-  ]);
-
-  useEffect(() => {
-    if (
-      !input.enabled ||
-      Boolean(input.widgetAuth) ||
-      status === "error" ||
       input.auth.status !== "authenticated"
     ) {
       return;
@@ -436,7 +302,7 @@ export function useAomiBackendAccountRuntime(input: {
       }
       // Any provider credential is exchangeable, in any order: link to the
       // current account if one exists, otherwise create one. No policy gate.
-      const hasAccount = Boolean(account?.user);
+      const hasAccount = Boolean(account?.user) && account?.guest !== true;
       const attemptKey = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${key}`;
       if (!hasAccount && accountCreateInFlight.current) return;
       const failedAttempt = credentialFailed.current;
@@ -453,6 +319,10 @@ export function useAomiBackendAccountRuntime(input: {
       if (!hasAccount) accountCreateInFlight.current = attemptKey;
       try {
         setAccountError(undefined);
+        // Provider sign-in is an account transition, not a link operation on
+        // the disposable guest. Revoke the guest cookie before the Better Auth
+        // provider endpoint establishes the durable session.
+        if (account?.guest) await accountClient.signOut();
         const result = await accountClient.exchangeProviderCredential(
           credential,
           { hasAccount },
@@ -468,6 +338,10 @@ export function useAomiBackendAccountRuntime(input: {
           error.code === "already_linked_to_another_account"
         ) {
           setAccountError(error.message);
+        } else {
+          setAccountError(
+            "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+          );
         }
         setStatus("ready");
         setErrorVersion((version) => version + 1);
@@ -486,6 +360,7 @@ export function useAomiBackendAccountRuntime(input: {
       cancelled = true;
     };
   }, [
+    account?.guest,
     account?.user,
     accountClient,
     input.auth,
@@ -515,31 +390,32 @@ export function useAomiBackendAccountRuntime(input: {
 
   const wallets = useMemo(
     () =>
-      (account?.wallets ?? []).map((wallet) => {
+      (account?.guest ? [] : (account?.wallets ?? [])).map((wallet) => {
         const key = walletAccountKey(wallet.family, wallet.address);
         return {
           ...normalizeAccountWalletProvider(wallet, liveAccounts),
           capability: liveWalletKeys.has(key) ? "write" : "read",
         } satisfies AccountWallet;
       }),
-    [account?.wallets, liveAccounts, liveWalletKeys],
+    [account?.guest, account?.wallets, liveAccounts, liveWalletKeys],
   );
 
   return {
     status: input.enabled ? status : "disabled",
     error: accountError,
-    user: account?.user ?? undefined,
-    linkedAccounts: account?.linkedAccounts ?? [],
+    guest: account?.guest === true,
+    user: account?.guest ? undefined : (account?.user ?? undefined),
+    linkedAccounts: account?.guest ? [] : (account?.linkedAccounts ?? []),
     wallets,
-    getAccountBearer: widgetSessionProvider,
+    // A connected signer without an account is still a signed-out user.
+    // Keep background chat/catalog loaders on their normal guest path until
+    // explicit linking or a restored session has resolved the account.
+    getAccountBearer:
+      input.widgetAuth?.mode === "wallet" && (!account?.user || account.guest)
+        ? undefined
+        : accountSessionProvider,
     refresh,
     signOut: async () => {
-      if (activeEvmAddress && activeEvmChainId) {
-        signedOutEvmKey.current = `${activeEvmAddress}:${activeEvmChainId}`;
-      }
-      if (activeSvmAddress && activeSvmIsExternal) {
-        signedOutSvmKey.current = `${activeSvmAddress}:${activeSvmCluster}`;
-      }
       if (
         !input.widgetAuth &&
         input.auth.status === "authenticated" &&
@@ -558,14 +434,13 @@ export function useAomiBackendAccountRuntime(input: {
       providerSessionAttempted.current = null;
       credentialFailed.current = null;
       setAccountError(undefined);
-      // Revoke the backend account first (while the WST carrier is still
-      // valid), but always tear down the widget session / provider SDK even if
-      // that first step throws, so a stale WST can't be replayed and the
-      // provider SDK session isn't stranded.
-      try {
+      // Cookie sessions sign out through Better Auth. Widget sessions own
+      // their canonical revocation and provider teardown, avoiding a second
+      // revocation through the retired compatibility facade.
+      if (accountSessionProvider) {
+        await accountSessionProvider.signOut();
+      } else {
         await accountClient.signOut();
-      } finally {
-        await widgetSessionProvider?.signOut();
       }
       setAccount({
         user: null,
@@ -576,12 +451,6 @@ export function useAomiBackendAccountRuntime(input: {
       setStatus("ready");
     },
     deleteAccount: async () => {
-      if (activeEvmAddress && activeEvmChainId) {
-        signedOutEvmKey.current = `${activeEvmAddress}:${activeEvmChainId}`;
-      }
-      if (activeSvmAddress && activeSvmIsExternal) {
-        signedOutSvmKey.current = `${activeSvmAddress}:${activeSvmCluster}`;
-      }
       if (
         !input.widgetAuth &&
         input.auth.status === "authenticated" &&
@@ -606,7 +475,7 @@ export function useAomiBackendAccountRuntime(input: {
       try {
         await accountClient.deleteAccount();
       } finally {
-        await widgetSessionProvider?.signOut();
+        await accountSessionProvider?.signOut();
       }
       setAccount({
         user: null,
@@ -621,6 +490,22 @@ export function useAomiBackendAccountRuntime(input: {
       await refresh();
     },
     linkWallet: async (wallet) => {
+      if (
+        input.widgetAuth?.mode === "wallet" &&
+        (!account?.user || account.guest)
+      ) {
+        const activeAddress =
+          wallet.family === "svm" ? activeSvmAddress : activeEvmAddress;
+        const matches =
+          wallet.family === "svm"
+            ? wallet.address === activeAddress
+            : wallet.address.toLowerCase() === activeAddress?.toLowerCase();
+        if (!matches || !accountSessionProvider)
+          throw new Error("Select this wallet before linking it");
+        await accountSessionProvider.signIn();
+        await refresh();
+        return;
+      }
       if (wallet.family === "svm") {
         if (
           !activeSvmAddress ||
@@ -641,7 +526,10 @@ export function useAomiBackendAccountRuntime(input: {
           accountClient,
           address: wallet.address,
           chainId: activeSvmCluster,
-          intent: account?.user ? "link" : "sign-in",
+          intent: account?.user && !account.guest ? "link" : "sign-in",
+          replaceGuestSession: account?.guest
+            ? () => accountClient.signOut()
+            : undefined,
           label,
           messageConfig: authMessageConfig,
           signMessage: (message) =>
@@ -659,13 +547,16 @@ export function useAomiBackendAccountRuntime(input: {
       }
       const chainId = wallet.chainId ?? activeEvmChainId;
       if (!chainId) throw new Error("Wallet linking requires an EVM chain id");
-      if (!account?.user) {
+      if (!account?.user || account.guest) {
         const accountId = wallet.accountId;
         const signMessageForAccount = input.evm.signMessageForAccount;
         await signInWithEvmWallet({
           accountClient,
           address: wallet.address as `0x${string}`,
           chainId,
+          replaceGuestSession: account?.guest
+            ? () => accountClient.signOut()
+            : undefined,
           signMessage:
             accountId && signMessageForAccount
               ? (message) =>
@@ -876,33 +767,18 @@ async function signMessageWithActiveEvm(
   )({ message })) as `0x${string}`;
 }
 
-async function signInWithActiveEvmWallet(input: {
-  accountClient: ReturnType<typeof createAomiBackendAccountClient>;
-  address: `0x${string}`;
-  chainId: number;
-  signMessageAsync: (args: { message: string }) => Promise<`0x${string}`>;
-  messageConfig: AuthMessageConfig;
-}): Promise<void> {
-  await signInWithEvmWallet({
-    accountClient: input.accountClient,
-    address: input.address,
-    chainId: input.chainId,
-    signMessage: (message) => input.signMessageAsync({ message }),
-    messageConfig: input.messageConfig,
-  });
-}
-
 async function signInWithEvmWallet(input: {
   accountClient: ReturnType<typeof createAomiBackendAccountClient>;
   address: `0x${string}`;
   chainId: number;
   signMessage: (message: string) => Promise<`0x${string}`>;
   messageConfig: AuthMessageConfig;
+  replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
-  const nonceResult = await input.accountClient.createSiweNonce({
-    walletAddress: input.address,
-    chainId: input.chainId,
-  });
+  // A wallet may already own a durable account, so replace the disposable
+  // guest before issuing a sign-in challenge instead of linking the two.
+  await input.replaceGuestSession?.();
+  const nonceResult = await input.accountClient.createSiweNonce();
   const message = buildSiweMessage({
     address: input.address,
     chainId: input.chainId,
@@ -913,8 +789,6 @@ async function signInWithEvmWallet(input: {
   await input.accountClient.verifySiwe({
     message,
     signature,
-    walletAddress: input.address,
-    chainId: input.chainId,
   });
 }
 
@@ -939,7 +813,9 @@ async function authenticateSvmWallet(input: {
   label?: string;
   signMessage: (message: string) => Promise<string>;
   messageConfig: AuthMessageConfig;
+  replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
+  await input.replaceGuestSession?.();
   const nonceResult = await input.accountClient.createSiwsNonce({
     walletAddress: input.address,
     chainId: input.chainId,

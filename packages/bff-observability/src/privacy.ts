@@ -103,6 +103,7 @@ const STATIC_ROUTE_SEGMENTS = new Set([
   "tools",
   "transactions",
   "usage",
+  "v1",
   "verify",
   "wallet",
   "wallets",

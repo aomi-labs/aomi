@@ -1,28 +1,17 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const subscribers = new Map<string, (event: { payload?: unknown }) => void>();
 const sendMessage = vi.fn(async () => undefined);
 const bind = vi.fn(async () => true);
-let usesLegacyBinding = true;
+let requiresBinding = true;
+let events: Array<{
+  type: "tool_complete";
+  sequence: number;
+  result: unknown;
+}> = [];
 
 vi.mock("@aomi-labs/react", () => ({
-  useAomiRuntime: () => ({
-    subscribe: (
-      type: string,
-      callback: (event: { payload?: unknown }) => void,
-    ) => {
-      subscribers.set(type, callback);
-      return () => subscribers.delete(type);
-    },
-    sendMessage,
-  }),
+  useAomiRuntime: () => ({ events, sendMessage }),
 }));
 
 vi.mock("@aomi-labs/widget-lib", () => ({
@@ -33,8 +22,8 @@ vi.mock("./use-svm-wallet-binding", () => ({
   useSvmWalletBinding: () => ({
     bind,
     binding: false,
-    canBind: usesLegacyBinding,
-    usesLegacyBinding,
+    canBind: requiresBinding,
+    requiresBinding,
   }),
 }));
 
@@ -42,36 +31,47 @@ import { SvmWalletBindingGate } from "./svm-wallet-binding-gate";
 
 describe("SvmWalletBindingGate", () => {
   beforeEach(() => {
-    subscribers.clear();
     bind.mockClear();
     sendMessage.mockClear();
-    usesLegacyBinding = true;
+    requiresBinding = true;
+    events = [];
   });
 
-  it("offers binding on the kernel error and retries after success", async () => {
-    render(<SvmWalletBindingGate />);
-    act(() => {
-      subscribers.get("tool_complete")?.({
-        payload: { error: { type: "signing_unbound_wallet" } },
-      });
-    });
+  it("offers binding from the canonical tool event and retries after success", async () => {
+    const view = render(<SvmWalletBindingGate />);
+    events = [
+      {
+        type: "tool_complete",
+        sequence: 1,
+        result: {
+          error: { type: "signing_svm_account_link_required_for_hosted" },
+        },
+      },
+    ];
+    view.rerender(<SvmWalletBindingGate />);
+
     fireEvent.click(
       await screen.findByRole("button", { name: "Bind wallet and retry" }),
     );
+    expect(
+      screen.getByText(/direct wallet transactions do not require linking/i),
+    ).toBeInTheDocument();
     await waitFor(() => expect(bind).toHaveBeenCalledOnce());
     expect(sendMessage).toHaveBeenCalledWith(
       "Retry the previous Solana transaction now that the wallet is bound.",
     );
   });
 
-  it("does not offer the legacy bind ceremony to external Solana wallets", () => {
-    usesLegacyBinding = false;
+  it("does not offer account binding to external Solana wallets", () => {
+    requiresBinding = false;
+    events = [
+      {
+        type: "tool_complete",
+        sequence: 1,
+        result: { error: { type: "signing_unbound_wallet" } },
+      },
+    ];
     render(<SvmWalletBindingGate />);
-    act(() => {
-      subscribers.get("tool_complete")?.({
-        payload: { error: { type: "signing_unbound_wallet" } },
-      });
-    });
     expect(
       screen.queryByRole("button", { name: "Bind wallet and retry" }),
     ).toBeNull();

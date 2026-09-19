@@ -153,7 +153,7 @@ async function signIn(jar) {
     "SIWE response did not confirm a user",
   );
   const graph = await json(
-    await jar.fetch("/api/aomi/account"),
+    await jar.fetch("/v1/account"),
     "canonical account graph",
   );
   const canonicalUserId = graph?.user?.id ?? graph?.user?.user_id;
@@ -334,7 +334,7 @@ function toolJson(result) {
   return parsed;
 }
 
-async function testMcp(accessToken) {
+async function testMcp(accessToken, walletAddress) {
   const initialized = await rpc(accessToken, "/api/mcp", "initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
@@ -374,20 +374,17 @@ async function testMcp(accessToken) {
       name: "aomi_chat",
       arguments: {
         message: "Reply with exactly: MCP chat parity works",
-        app: "default",
-        chain_context: { family: "evm", chain_id: chainId },
+        application: "default",
+        chain_context: { evm: { address: walletAddress, chainId } },
       },
     }),
   );
-  assert(
-    typeof started.session_id === "string",
-    "aomi_chat omitted session id",
-  );
+  assert(typeof started.session === "string", "aomi_chat omitted session id");
   assert(started.cursor, "aomi_chat omitted cursor");
-  console.log(`ok aomi_chat created account session ${started.session_id}`);
+  console.log(`ok aomi_chat created account session ${started.session}`);
 
   let current = started;
-  const deliveredMessages = [...(started.new_messages ?? [])];
+  const deliveredMessages = [...(started.messages ?? [])];
   for (
     let attempt = 0;
     attempt < 45 && current.status === "processing";
@@ -397,12 +394,12 @@ async function testMcp(accessToken) {
     current = toolJson(
       await rpc(accessToken, "/api/mcp", "tools/call", {
         name: "aomi_check",
-        arguments: { session_id: started.session_id, cursor: current.cursor },
+        arguments: { session: started.session, cursor: current.cursor },
       }),
     );
-    deliveredMessages.push(...current.new_messages);
+    deliveredMessages.push(...current.messages);
     console.log(
-      `ok aomi_check ${attempt + 1}: status=${current.status} messages=${current.new_messages.length} activity=${current.activity.length}`,
+      `ok aomi_check ${attempt + 1}: status=${current.status} messages=${current.messages.length} activity=${current.activity.length}`,
     );
   }
   assert(
@@ -431,7 +428,7 @@ async function testMcp(accessToken) {
     }),
   );
   assert(
-    sessions.sessions.some((session) => session.id === started.session_id),
+    sessions.sessions.some((session) => session.id === started.session),
     "new MCP session missing from account thread list",
   );
   console.log("ok aomi_list_sessions includes the new account-owned session");
@@ -441,20 +438,17 @@ async function testMcp(accessToken) {
       name: "aomi_chat",
       arguments: {
         message: "Reply with exactly: resumed",
-        session_id: started.session_id,
-        app: "default",
-        chain_context: { family: "evm", chain_id: chainId },
+        session: started.session,
+        application: "default",
+        chain_context: { evm: { address: walletAddress, chainId } },
       },
     }),
   );
-  assert(
-    resumed.session_id === started.session_id,
-    "resume changed session id",
-  );
+  assert(resumed.session === started.session, "resume changed session id");
   const interrupted = toolJson(
     await rpc(accessToken, "/api/mcp", "tools/call", {
       name: "aomi_interrupt",
-      arguments: { session_id: started.session_id },
+      arguments: { session: started.session },
     }),
   );
   assert(
@@ -462,9 +456,9 @@ async function testMcp(accessToken) {
     "interrupt result missing confirmation",
   );
   console.log("ok existing-session resume and aomi_interrupt");
-  if (walletPrompt) await testPendingWalletRequest(accessToken);
+  if (walletPrompt) await testPendingWalletRequest(accessToken, walletAddress);
   if (checkSession) await checkCompletedSession(accessToken, checkSession);
-  console.log(`MCP_E2E_SESSION=${started.session_id}`);
+  console.log(`MCP_E2E_SESSION=${started.session}`);
 }
 
 async function checkCompletedSession(accessToken, sessionId) {
@@ -474,20 +468,20 @@ async function checkCompletedSession(accessToken, sessionId) {
       await rpc(accessToken, "/api/mcp", "tools/call", {
         name: "aomi_check",
         arguments: {
-          session_id: sessionId,
+          session: sessionId,
           ...(state?.cursor ? { cursor: state.cursor } : {}),
         },
       }),
     );
     console.log(
-      `ok completion aomi_check ${attempt + 1}: status=${state.status} pending=${state.pending_requests.length}`,
+      `ok completion aomi_check ${attempt + 1}: status=${state.status} pending=${state.actions.length}`,
     );
     if (state.status !== "processing") break;
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   assert(state?.status === "complete", `session ended as ${state?.status}`);
   assert(
-    state.pending_requests.length === 0,
+    state.actions.length === 0,
     "completed session retained a pending request",
   );
   console.log(`MCP_E2E_COMPLETED_SESSION=${sessionId}`);
@@ -514,14 +508,14 @@ async function fundLocalWallet(address) {
   console.log("ok local E2E wallet funded");
 }
 
-async function testPendingWalletRequest(accessToken) {
+async function testPendingWalletRequest(accessToken, walletAddress) {
   let state = toolJson(
     await rpc(accessToken, "/api/mcp", "tools/call", {
       name: "aomi_chat",
       arguments: {
         message: walletPrompt,
-        app: "default",
-        chain_context: { family: "evm", chain_id: chainId },
+        application: "default",
+        chain_context: { evm: { address: walletAddress, chainId } },
       },
     }),
   );
@@ -534,31 +528,28 @@ async function testPendingWalletRequest(accessToken) {
     state = toolJson(
       await rpc(accessToken, "/api/mcp", "tools/call", {
         name: "aomi_check",
-        arguments: { session_id: state.session_id, cursor: state.cursor },
+        arguments: { session: state.session, cursor: state.cursor },
       }),
     );
     console.log(
-      `ok wallet aomi_check ${attempt + 1}: status=${state.status} pending=${state.pending_requests.length}`,
+      `ok wallet aomi_check ${attempt + 1}: status=${state.status} pending=${state.actions.length}`,
     );
   }
   assert(
     state.status === "awaiting_user",
     `wallet turn ended as ${state.status}`,
   );
-  assert(
-    state.pending_requests.length > 0,
-    "wallet turn omitted the pending request",
-  );
-  const exposed = JSON.stringify(state.pending_requests);
+  assert(state.actions.length > 0, "wallet turn omitted the pending request");
+  const exposed = JSON.stringify(state.actions);
   assert(!exposed.includes("calldata"), "pending request exposed calldata");
   assert(!exposed.includes("typedData"), "pending request exposed typed data");
-  assert(state.handoff?.portal_url, "pending request omitted portal handoff");
+  assert(state.handoff?.portal, "pending request omitted portal handoff");
   console.log(
     "ok real staged transaction surfaced as a redacted wallet handoff",
   );
-  console.log(`MCP_E2E_WALLET_SESSION=${state.session_id}`);
+  console.log(`MCP_E2E_WALLET_SESSION=${state.session}`);
   console.log(
-    `MCP_E2E_PENDING_REQUESTS=${state.pending_requests
+    `MCP_E2E_PENDING_REQUESTS=${state.actions
       .map((request) => request.id)
       .filter(Boolean)
       .join(",")}`,
@@ -573,4 +564,4 @@ if (browserCookieFile) {
   await writeFile(browserCookieFile, `${jar.header()}\n`, { mode: 0o600 });
   console.log("ok browser cookie handoff written to protected temporary file");
 }
-await testMcp(accessToken);
+await testMcp(accessToken, signedIn.address);

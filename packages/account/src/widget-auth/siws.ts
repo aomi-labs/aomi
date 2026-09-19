@@ -16,7 +16,7 @@ import {
   WidgetAuthError,
   widgetOriginDomain,
 } from "./origin";
-import { issueWidgetSession, type WidgetSession } from "./session";
+import { issueWidgetSession, type AccountSession } from "./session";
 import { widgetAuthStore, type WidgetAuthStore } from "./store";
 
 const SIWS_CHALLENGE_NAMESPACE = "aomi:widget:siws:";
@@ -57,7 +57,7 @@ export async function verifyWidgetSiwsProof(input: {
   chainId: string;
   now?: Date;
   store?: WidgetAuthStore;
-}): Promise<WidgetSession> {
+}): Promise<AccountSession> {
   const origin = requireWidgetOrigin(input.request);
   const address = requireSolanaAddress(input.walletAddress);
   const chainId = requireSiwsCluster(input.chainId);

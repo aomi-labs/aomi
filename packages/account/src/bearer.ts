@@ -1,4 +1,5 @@
 import { portalService } from "./topology";
+import type { DelegatedBearerContext } from "@aomi-labs/service";
 
 /**
  * Mints the **AccountBearer** the Rust backend verifies — the only carrier of
@@ -12,6 +13,7 @@ import { portalService } from "./topology";
  * from the committed `service.portal.toml`. Node runtime only.
  */
 export const AUDIENCE = "aomi-backend";
+export const AGENT_API_AUDIENCE = "aomi-api-server";
 export const ACCOUNT_BEARER_TTL_SECONDS = 15 * 60;
 
 export type MintedBearer = {
@@ -38,6 +40,21 @@ export async function mintAccountBearer(
     subject: canonicalUserId,
     audience: AUDIENCE,
     ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
+  });
+  return { bearer: accessToken, expiresAt };
+}
+
+/** Sign the user assertion accepted only by the public Rust Agent API. */
+export async function mintAgentApiBearer(
+  canonicalUserId: string,
+  delegated?: DelegatedBearerContext,
+): Promise<MintedBearer> {
+  const { accessToken, expiresAt } = await portalService().mint({
+    role: "user",
+    subject: canonicalUserId,
+    audience: AGENT_API_AUDIENCE,
+    ttlSeconds: ACCOUNT_BEARER_TTL_SECONDS,
+    delegated,
   });
   return { bearer: accessToken, expiresAt };
 }

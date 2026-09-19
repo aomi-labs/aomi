@@ -16,67 +16,38 @@ const APP_KEY_HEADER = {
 
 const ENDPOINTS: EndpointDef[] = [
   {
-    label: "Get State",
+    label: "Poll Events",
     method: "GET",
-    path: "/api/thread/state",
+    path: "/v1/agent/chat/{sessionId}",
     description:
-      "Fetch the current session state: messages, system events, title, and processing status.",
+      "Fetch the next ordered EventPage using the session path and optional opaque cursor.",
     params: [
       {
-        key: "user_state",
-        placeholder: '{"chain_id":1,"address":"0x…"}',
+        key: "cursor",
+        placeholder: "opaque cursor from the previous page",
       },
     ],
     headers: [SESSION_HEADER],
   },
   {
-    label: "Chat",
+    label: "Start Turn",
     method: "POST",
-    path: "/api/thread/chat",
+    path: "/v1/agent/chat",
     description:
-      "Send a chat message. Returns updated messages and processing status.",
+      "Submit StartTurnIntent. Returns the first ordered EventPage.",
     params: [
+      { key: "sessionId", placeholder: "session-uuid", required: true },
       { key: "message", placeholder: "Hello!", required: true },
-      { key: "app", placeholder: "default", required: true },
-      { key: "public_key", placeholder: "0x…" },
+      { key: "app", placeholder: "default" },
     ],
     headers: [SESSION_HEADER, APP_KEY_HEADER],
   },
   {
-    label: "System Message",
-    method: "POST",
-    path: "/api/system",
-    description:
-      "Send a system-level message. Returns { res: AomiMessage | null }.",
-    params: [
-      {
-        key: "message",
-        placeholder: "System instruction…",
-        required: true,
-      },
-    ],
-    headers: [SESSION_HEADER],
-  },
-  {
     label: "Interrupt",
     method: "POST",
-    path: "/api/thread/interrupt",
+    path: "/v1/agent/chat/{sessionId}/interrupt",
     description:
-      "Interrupt the current agent processing and return the latest session state.",
-    headers: [SESSION_HEADER],
-  },
-  {
-    label: "System Events",
-    method: "GET",
-    path: "/api/thread/events",
-    description:
-      "Fetch recent system events (InlineCall, SystemNotice, SystemError).",
-    params: [
-      {
-        key: "count",
-        placeholder: "10",
-      },
-    ],
+      "Submit InterruptIntent and receive the resulting EventPage.",
     headers: [SESSION_HEADER],
   },
   {

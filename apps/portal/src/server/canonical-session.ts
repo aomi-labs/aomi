@@ -1,4 +1,4 @@
-import { resolvePortalCanonicalUserId } from "@portal/lib/widget-auth/principal";
+import { resolvePortalCanonicalUserId } from "@portal/server/widget-auth/principal";
 import { resolveE2ECanonicalUserId } from "@portal/server/e2e-wallet";
 
 /**

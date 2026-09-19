@@ -6,7 +6,7 @@ description: Connect wallets, sign transactions, and switch networks.
 # Wallet Integration
 
 Aomi widgets use the Para + wagmi provider tree directly. The registry install
-gives you the wallet UI plus `RuntimeTxHandler`; you provide the Para and wagmi
+gives you the wallet UI plus the activity sidebar review; you provide the Para and wagmi
 providers in your host app.
 
 ## Setup
@@ -132,69 +132,42 @@ The `NetworkSelect` component in the widget (or `getChainInfo` / `SUPPORTED_CHAI
 When the AI assistant determines a transaction is needed, the following flow occurs:
 
 ```
-1. LLM emits wallet_tx_request tool call
-2. Backend sends wallet_tx_request event via SSE
-3. Frontend receives event via useWalletHandler
-4. UI prompts user to review and sign
-5. User signs with their wallet (wagmi)
-6. Frontend sends wallet:tx_complete event back to backend
-7. Backend injects transaction result into LLM context
-8. LLM continues the conversation with the result
+1. A runtime tool emits `Change::RequestAction(ActionRequest)`
+2. The backend atomically appends the durable Action and `AwaitingAction`
+3. `ClientSession` reduces both in the ordered Event snapshot
+4. The UI presents the complete nested request
+5. `ActionHandler` executes through the canonical wallet capabilities
+6. The client submits `Intent::RespondToAction` with ID and revision
+7. The backend appends the next Action revision and resumes the turn
+8. A terminal `TurnStateChangedEvent` completes the flow
 ```
 
 ### In the Widget
 
-The widget includes `RuntimeTxHandler` automatically. When a transaction
-request arrives, it executes through wagmi inside your Para provider tree and
+The widget presents pending wallet requests in its activity sidebar. When a transaction
+Action arrives, it executes through the configured wallet capability and
 prompts the user to sign.
 
 ### In the Headless Library
 
-Handle transaction requests manually:
+Provide wallet capabilities once; `ActionHandler` owns execution attempts and
+submits the typed result. UI code only selects Actions and attempts:
 
 ```tsx
-import { useWalletHandler, useAomiRuntime } from "@aomi-labs/react";
-import { useSendTransaction, useSignTypedData } from "wagmi";
+import { useAomiRuntime } from "@aomi-labs/react";
 
-function WalletRequestHandler() {
-  const { currentThreadId } = useAomiRuntime();
-  const { pendingRequests, startProcessing, resolveRequest, rejectRequest } =
-    useWalletHandler({ sessionId: currentThreadId });
-
-  const { sendTransactionAsync } = useSendTransaction();
-  const { signTypedDataAsync } = useSignTypedData();
-
-  const handleRequest = async (request: WalletRequest) => {
-    startProcessing(request.id);
-
-    try {
-      if (request.kind === "transaction") {
-        const payload = request.payload as WalletTxPayload;
-        const hash = await sendTransactionAsync({
-          to: payload.to,
-          value: BigInt(payload.value ?? "0"),
-          data: payload.data,
-        });
-        resolveRequest(request.id, { txHash: hash });
-      }
-
-      if (request.kind === "eip712_sign") {
-        const payload = request.payload as WalletEip712Payload;
-        const signature = await signTypedDataAsync(payload.typedData);
-        resolveRequest(request.id, { signature });
-      }
-    } catch (error) {
-      rejectRequest(request.id, error.message);
-    }
-  };
+function ActionReview() {
+  const { pendingActions, actionAttempts, executeAction, rejectAction } =
+    useAomiRuntime();
 
   return (
     <div>
-      {pendingRequests.map((req) => (
-        <div key={req.id}>
-          <p>Transaction request: {req.kind}</p>
-          <button onClick={() => handleRequest(req)}>Approve</button>
-          <button onClick={() => rejectRequest(req.id, "User rejected")}>
+      {pendingActions.map((action) => (
+        <div key={`${action.id}:${action.revision}`}>
+          <pre>{JSON.stringify(action.request, null, 2)}</pre>
+          <p>{actionAttempts.get(action.id)?.status}</p>
+          <button onClick={() => executeAction(action.id)}>Continue</button>
+          <button onClick={() => rejectAction(action.id, "User rejected")}>
             Reject
           </button>
         </div>
@@ -227,7 +200,7 @@ function NetworkSwitcher() {
   const handleSwitch = async (chainId: number) => {
     await switchChain({ chainId });
     // The widget auth bridge auto-syncs, but you can also set manually:
-    setUser({ chainId });
+    setUser({ evm: { chain_id: chainId } });
   };
 }
 ```

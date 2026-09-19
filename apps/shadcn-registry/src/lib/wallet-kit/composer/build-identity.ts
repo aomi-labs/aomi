@@ -39,10 +39,6 @@ export function buildWalletKitIdentity({
     svmWalletName: svmIdentity?.walletName,
     svmTransport: svmAddress ? svmTransport : undefined,
     svmCapabilities,
-    solanaCluster: svmIdentity?.cluster,
-    solanaWalletName: svmIdentity?.walletName,
-    solanaTransport: svmAddress ? svmTransport : undefined,
-    solanaCapabilities: svmCapabilities,
   };
 
   if (isBooting) {
@@ -65,10 +61,8 @@ export function buildWalletKitIdentity({
       walletSource:
         walletSource ??
         (address && auth.embeddedProvider ? "embedded" : undefined),
-      walletProvider: auth.legacyWalletProvider,
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
-      authProvider: auth.authMethod,
       authValue: auth.authValue,
       primaryLabel: auth.primaryLabel,
       secondaryLabel:
@@ -89,10 +83,8 @@ export function buildWalletKitIdentity({
       embeddedProvider: auth.embeddedProvider,
       walletSource:
         walletSource ?? (auth.embeddedProvider ? "embedded" : "injected"),
-      walletProvider: auth.legacyWalletProvider,
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod ?? "wagmi",
-      authProvider: auth.authMethod ?? "wagmi",
       authValue: auth.authValue,
       primaryLabel: formatWalletAddress(address) ?? "Connected wallet",
       secondaryLabel:
@@ -112,10 +104,8 @@ export function buildWalletKitIdentity({
       svmAddress,
       sessionProvider: auth.sessionProvider,
       walletSource: "injected",
-      walletProvider: auth.legacyWalletProvider,
       walletProviderSubject: auth.subject,
       authMethod: auth.authMethod,
-      authProvider: auth.authMethod,
       authValue: auth.authValue,
       primaryLabel: formatWalletAddress(svmAddress) ?? "Connected Solana wallet",
       secondaryLabel: "Solana",
@@ -123,10 +113,6 @@ export function buildWalletKitIdentity({
       svmWalletName: svmIdentity?.walletName,
       svmTransport,
       svmCapabilities,
-      solanaCluster: svmIdentity?.cluster,
-      solanaWalletName: svmIdentity?.walletName,
-      solanaTransport: svmTransport,
-      solanaCapabilities: svmCapabilities,
     };
   }
 
@@ -134,12 +120,9 @@ export function buildWalletKitIdentity({
     ...AOMI_SESSION_DISCONNECTED_IDENTITY,
     chainId,
     sessionProvider: auth.sessionProvider,
-    walletProvider: auth.legacyWalletProvider,
     walletProviderSubject: auth.subject,
     authMethod: auth.authMethod,
-    authProvider: auth.authMethod,
     authValue: auth.authValue,
     svmCluster: svmIdentity?.cluster,
-    solanaCluster: svmIdentity?.cluster,
   };
 }

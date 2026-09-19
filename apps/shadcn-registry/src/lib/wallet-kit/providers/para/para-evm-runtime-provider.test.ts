@@ -17,6 +17,10 @@ vi.mock("@getpara/wagmi-v2-connector", () => ({
   paraConnector: mocks.paraConnector,
 }));
 
+vi.mock("./para-auth", () => ({
+  useSafeParaClient: vi.fn(() => null),
+}));
+
 vi.mock("../../catalog/evm-connector-catalog", () => ({
   createAomiEvmConfig: mocks.createAomiEvmConfig,
 }));

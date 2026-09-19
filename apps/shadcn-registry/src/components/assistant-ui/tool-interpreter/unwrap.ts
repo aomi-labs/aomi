@@ -35,15 +35,21 @@ export const unwrapToolStep = ({
   toolName,
   argsText,
   result,
+  relatedResults,
 }: ToolStepInput): ToolContext => {
   const parsedArgs = parseArgsText(argsText);
   const unwrapped =
     typeof result === "string" ? { args: result } : unwrapEnvelope(result);
+  const relatedResultRecords = (relatedResults ?? [])
+    .map(unwrapEnvelope)
+    .map(asRecord)
+    .filter((record): record is Record<string, unknown> => record !== null);
 
   return {
     rawLabel: toolName,
     parsedArgs,
     result: unwrapped,
     resultRecord: asRecord(unwrapped),
+    relatedResultRecords,
   };
 };

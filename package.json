@@ -41,6 +41,13 @@
     "smoke:auth-stack": "node ./scripts/smoke-auth-stack.mjs",
     "dev:telegram": "pnpm --filter telegram dev",
     "dev:telegram:webpack": "pnpm --filter telegram dev:webpack",
+    "example:agent:guest": "pnpm --filter @aomi-labs/example-headless-client agent:guest",
+    "example:pipeline:guest": "pnpm --filter @aomi-labs/example-headless-client pipeline:guest",
+    "example:oauth": "pnpm --filter @aomi-labs/example-headless-client oauth",
+    "example:oauth-token": "pnpm --filter @aomi-labs/example-headless-client oauth:token",
+    "example:walkthrough": "pnpm --filter @aomi-labs/example-headless-client walkthrough",
+    "example:wallet-terminal": "pnpm --filter @aomi-labs/example-headless-client wallet-terminal",
+    "example:account:credits": "pnpm --filter @aomi-labs/example-headless-client account:credits",
     "build:lib": "pnpm run build:client && tsup",
     "build:client": "pnpm --filter @aomi-labs/client build",
     "build:deploy": "pnpm --filter @aomi-labs/deploy build",
@@ -80,6 +87,10 @@
     "test:portal": "pnpm --filter portal test",
     "test:telegram": "pnpm --filter telegram test:unit",
     "test:openapi": "vitest run packages/client/test/backend-openapi.contract.test.ts",
+    "generate:agent-api": "node scripts/generate-agent-api-contract.mjs",
+    "check:agent-api": "node scripts/check-agent-api-contract.mjs",
+    "sync:db-pool-budgets": "node scripts/sync-db-pool-budgets.mjs",
+    "check:db-pool-budgets": "node scripts/sync-db-pool-budgets.mjs --check",
     "test:openapi:live": "node scripts/test-live-backend-openapi.mjs",
     "update:backend-openapi": "node scripts/update-backend-openapi.mjs",
     "check": "pnpm run lint && pnpm run typecheck && pnpm exec vitest run",
@@ -92,7 +103,11 @@
     "repowiki:refresh": "./scripts/repowiki refresh",
     "repowiki:doctor": "./scripts/repowiki doctor",
     "prepublishOnly": "pnpm run build:lib",
-    "deploy:registry": "./scripts/deploy-registry.sh"
+    "deploy:registry": "./scripts/deploy-registry.sh",
+    "test:contracts": "node scripts/check-consumer-compatibility.mjs",
+    "check:frontend-boundaries": "node scripts/check-frontend-boundaries.mjs",
+    "test:browser:guest": "node scripts/test-portal-guest-browser.mjs",
+    "test:browser:contracts": "node scripts/test-browser-contracts.mjs"
   },
   "prettier": {
     "plugins": [

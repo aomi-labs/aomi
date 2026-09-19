@@ -1,17 +1,50 @@
-import { AomiClient } from "../client";
+import { AomiClient, wrapFetchWithPublicApiAuthorization } from "../client";
+import type { AomiOAuthTokenProvider } from "../authorization";
 import type { AomiIngestSecretsResponse } from "../types";
 import type { ClientSession } from "../session";
 import type { CliConfig } from "./types";
-import type { CliSession } from "./cli-session";
+import { CliSession } from "./cli-session";
 import { createCliAuthTokenProvider } from "./auth";
-import { DEFAULT_CLI_BASE_URL } from "./client-factory";
+import {
+  createCliGetAccountBearer,
+  DEFAULT_CLI_BASE_URL,
+} from "./client-factory";
+import { createCliPaymentFetch, type CliPaymentListener } from "./payment";
 import { readState } from "./state";
 
-export function createControlClient(config: CliConfig): AomiClient {
+export function createControlClient(
+  config: CliConfig,
+  options: { payment?: boolean; onPayment?: CliPaymentListener } = {},
+): AomiClient {
+  const cli = CliSession.load();
+  const baseUrl = config.baseUrl ?? DEFAULT_CLI_BASE_URL;
+  const oauth: AomiOAuthTokenProvider | undefined = config.accountBearer
+    ? async ({ resource, scopes }) => ({
+        accessToken: config.accountBearer!,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+        resource,
+        scopes,
+        tokenType: "Bearer",
+      })
+    : cli?.createOAuthProvider(fetch);
+  const authorizedFetch = oauth
+    ? wrapFetchWithPublicApiAuthorization({ fetch, baseUrl, oauth })
+    : fetch;
+  const paymentFetch = options.payment
+    ? createCliPaymentFetch(config, options.onPayment, authorizedFetch)
+    : undefined;
   return new AomiClient({
-    baseUrl: config.baseUrl ?? DEFAULT_CLI_BASE_URL,
+    baseUrl,
     apiKey: config.apiKey,
-    getAccountBearer: createCliAuthTokenProvider(() => readState() ?? {}),
+    fetch: paymentFetch ?? fetch,
+    // Payment settlement retries happen inside the x402 wrapper. Put OAuth
+    // inside that wrapper so a newly-added Payment-Signature is authorized
+    // again with payments:submit instead of reusing the narrower first token.
+    oauth: paymentFetch ? undefined : oauth,
+    guest: oauth ? false : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
+    getAccountBearer:
+      createCliGetAccountBearer(config) ??
+      createCliAuthTokenProvider(() => readState() ?? {}),
   });
 }
 
@@ -45,19 +78,9 @@ export async function applyRequestedModelIfPresent(
     return;
   }
 
-  // Push the model to the backend unless it's already been synced this session.
-  // cli.modelSynced tracks whether we've actually called setModel on the current
-  // backend session. For a brand-new session the backend starts with the app's
-  // default model, so we must push even if cli.model already matches locally.
-  const alreadySynced = cli.modelSynced && requestedModel === cli.model;
-  if (alreadySynced) {
-    return;
-  }
-
-  await session.client.setModel(cli.sessionId, requestedModel, {
-    app: cli.app,
-    applicationId: config.applicationId,
-    apiKey: cli.apiKey,
-  });
+  // ClientSession carries the model on the canonical Agent start request.
+  // Retain this helper only to persist the CLI preference; it must not issue a
+  // second legacy control mutation before chat.
+  void session;
   cli.setModel(requestedModel);
 }

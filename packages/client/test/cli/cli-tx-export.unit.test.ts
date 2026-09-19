@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PendingSolTx, PendingTx } from "../../src/cli/state";
+import type { Action } from "../../src/agent/types";
 
 const SENDER = "0x1111111111111111111111111111111111111111";
 const OTHER_SENDER = "0x9999999999999999999999999999999999999999";
@@ -7,79 +7,81 @@ const FIRST_TO = "0x2222222222222222222222222222222222222222";
 const SECOND_TO = "0x3333333333333333333333333333333333333333";
 
 const mocks = vi.hoisted(() => ({
-  fetchState: vi.fn(),
-  sendSystemMessage: vi.fn(),
+  load: vi.fn(),
+  mergeConfig: vi.fn(),
+  createClientSession: vi.fn(),
+  fetchCurrentState: vi.fn(),
   close: vi.fn(),
-  readState: vi.fn(),
-  writeState: vi.fn(),
-  refreshedPendingTxs: [] as PendingTx[],
-  refreshedPendingSolTxs: [] as PendingSolTx[],
+  pending: vi.fn(),
 }));
 
-vi.mock("../../src/session", () => ({
-  ClientSession: class MockClientSession {
-    client = {
-      fetchState: mocks.fetchState,
-      sendSystemMessage: mocks.sendSystemMessage,
-    };
-
-    resolveUserState = vi.fn();
-    close = mocks.close;
-  },
+vi.mock("../../src/cli/cli-session", () => ({
+  CliSession: { load: mocks.load },
 }));
-
-vi.mock("../../src/cli/state", async () => {
-  const actual = await vi.importActual<typeof import("../../src/cli/state")>(
-    "../../src/cli/state",
-  );
-  return {
-    ...actual,
-    readState: mocks.readState,
-    writeState: mocks.writeState,
-    syncPendingTxsFromUserState: (
-      state: import("../../src/cli/state").CliSessionState,
-    ) => {
-      state.pendingTxs = [...mocks.refreshedPendingTxs];
-      state.pendingSolTxs = [...mocks.refreshedPendingSolTxs];
-      mocks.writeState(state);
-      return {
-        pendingTxs: state.pendingTxs,
-        pendingSolTxs: state.pendingSolTxs,
-      };
-    },
-  };
-});
 
 import { exportCommand } from "../../src/cli/commands/export";
 
-function pendingTx(id: number, overrides: Partial<PendingTx> = {}): PendingTx {
+function action(
+  id: string,
+  overrides: Partial<
+    Extract<Action["request"], { type: "execute_evm" }>["transactions"][number]
+  > = {},
+): Action {
   return {
-    id: `tx-${id}`,
-    kind: "transaction",
-    txId: id,
-    from: SENDER,
-    to: id === 1 ? FIRST_TO : SECOND_TO,
-    value: "0",
-    data: "0x",
-    chainId: 4326,
-    timestamp: id,
-    payload: { txId: id },
-    ...overrides,
+    type: "action",
+    event_id: `event-${id}`,
+    sequence: Number(id.match(/\d+/)?.[0] ?? 1),
+    turn_id: "turn-1",
+    occurred_at: 1,
+    id,
+    revision: 1,
+    state: "pending",
+    request: {
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 4326,
+          from: SENDER,
+          to: id === "action-1" ? FIRST_TO : SECOND_TO,
+          value: "0",
+          data: "0x",
+          label: "Transaction",
+          kind: "transaction",
+          ...overrides,
+        },
+      ],
+      simulation: {
+        status: "passed",
+        balanceChanges: [],
+        warnings: [],
+        fees: [],
+        guards: [],
+        gas: null,
+        logs: [],
+      },
+    },
+    result: null,
+    created_at: 1,
+    expires_at: null,
   };
 }
 
-function state(overrides: Record<string, unknown> = {}) {
+function svmAction(id: string): Action {
   return {
-    sessionId: "session-1",
-    clientId: "client-1",
-    baseUrl: "http://127.0.0.1:8080",
-    app: "default",
-    publicKey: SENDER,
-    chainId: 4326,
-    pendingTxs: [pendingTx(1, { data: "0xdead" })],
-    pendingSolTxs: [],
-    signedTxs: [],
-    ...overrides,
+    ...action(id),
+    request: {
+      type: "execute_svm",
+      transactions: [],
+      simulation: {
+        status: "passed",
+        balanceChanges: [],
+        warnings: [],
+        fees: [],
+        guards: [],
+        gas: null,
+        logs: [],
+      },
+    },
   };
 }
 
@@ -93,13 +95,21 @@ describe("aomi tx export", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.AOMI_CLI_STRICT_EXIT = "1";
-    mocks.refreshedPendingTxs = [
-      pendingTx(1, { data: "0xaabb", value: "0" }),
-      pendingTx(2, { data: undefined, value: "1000" }),
-    ];
-    mocks.refreshedPendingSolTxs = [];
-    mocks.readState.mockReturnValue(state());
-    mocks.fetchState.mockResolvedValue({ user_state: { pending: {} } });
+    mocks.pending.mockReturnValue([
+      action("action-1", { data: "0xaabb" }),
+      action("action-2", { data: undefined, value: "1000" }),
+    ]);
+    mocks.fetchCurrentState.mockResolvedValue(undefined);
+    mocks.createClientSession.mockReturnValue({
+      fetchCurrentState: mocks.fetchCurrentState,
+      actions: { pending: mocks.pending },
+      close: mocks.close,
+    });
+    mocks.load.mockReturnValue({
+      publicKey: SENDER,
+      mergeConfig: mocks.mergeConfig,
+      createClientSession: mocks.createClientSession,
+    });
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -108,23 +118,16 @@ describe("aomi tx export", () => {
     vi.restoreAllMocks();
   });
 
-  it("refreshes state and prints only ordered EIP-5792 JSON", async () => {
+  it("refreshes Actions and prints only ordered EIP-5792 JSON", async () => {
     const stdout = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    await exportCommand(config, ["tx-2", "tx-1"]);
+    await exportCommand(config, ["action-2", "action-1"]);
 
-    expect(mocks.fetchState).toHaveBeenCalledWith(
-      "session-1",
-      undefined,
-      "client-1",
-    );
+    expect(mocks.mergeConfig).toHaveBeenCalledWith(config);
+    expect(mocks.fetchCurrentState).toHaveBeenCalledOnce();
     expect(mocks.close).toHaveBeenCalledOnce();
-    expect(mocks.sendSystemMessage).not.toHaveBeenCalled();
-    expect(log).not.toHaveBeenCalled();
-    expect(stdout).toHaveBeenCalledOnce();
     expect(JSON.parse(stdout.mock.calls[0]?.[0] as string)).toEqual({
       version: "2.0.0",
       from: SENDER,
@@ -137,12 +140,12 @@ describe("aomi tx export", () => {
     });
   });
 
-  it("prints the call array in moss format", async () => {
+  it("prints the MOSS call array", async () => {
     const stdout = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
 
-    await exportCommand(config, ["tx-2", "tx-1"], "moss");
+    await exportCommand(config, ["action-2", "action-1"], "moss");
 
     expect(JSON.parse(stdout.mock.calls[0]?.[0] as string)).toEqual([
       { to: SECOND_TO, data: "0x", value: "0x3e8" },
@@ -150,12 +153,12 @@ describe("aomi tx export", () => {
     ]);
   });
 
-  it("prints a single MetaMask transaction handoff", async () => {
+  it("prints a single MetaMask Agent Wallet handoff", async () => {
     const stdout = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
 
-    await exportCommand(config, ["tx-1"], "metamask");
+    await exportCommand(config, ["action-1"], "metamask");
 
     expect(JSON.parse(stdout.mock.calls[0]?.[0] as string)).toEqual({
       chainId: 4326,
@@ -163,126 +166,84 @@ describe("aomi tx export", () => {
     });
   });
 
-  it("rejects multiple calls and unknown format aliases", async () => {
+  it("rejects MetaMask batches and unknown format aliases", async () => {
     const stdout = vi
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
 
     await expect(
-      exportCommand(config, ["tx-1", "tx-2"], "metamask"),
+      exportCommand(config, ["action-1", "action-2"], "metamask"),
     ).rejects.toMatchObject({ code: 1 });
-    await expect(exportCommand(config, ["tx-1"], "mm")).rejects.toMatchObject({
-      code: 1,
-    });
+    await expect(
+      exportCommand(config, ["action-1"], "mm"),
+    ).rejects.toMatchObject({ code: 1 });
     expect(stdout).not.toHaveBeenCalled();
   });
 
   it("requires selectors and an active session", async () => {
     await expect(exportCommand(config, [])).rejects.toMatchObject({ code: 1 });
-
-    mocks.readState.mockReturnValue(null);
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
+    mocks.load.mockReturnValue(null);
+    await expect(exportCommand(config, ["action-1"])).rejects.toMatchObject({
       code: 1,
     });
   });
 
-  it("rejects duplicate selectors after chain qualification", async () => {
+  it("rejects duplicate, ambiguous, missing, and non-EVM Actions", async () => {
     await expect(
-      exportCommand(config, ["tx-1", "evm:tx-1"]),
+      exportCommand(config, ["action-1", "action-1"]),
+    ).rejects.toMatchObject({ code: 1 });
+    await expect(exportCommand(config, ["action"])).rejects.toMatchObject({
+      code: 1,
+    });
+    await expect(exportCommand(config, ["missing"])).rejects.toMatchObject({
+      code: 1,
+    });
+    mocks.pending.mockReturnValue([svmAction("action-svm")]);
+    await expect(exportCommand(config, ["action-svm"])).rejects.toMatchObject({
+      code: 1,
+    });
+  });
+
+  it("rejects mixed chains and senders", async () => {
+    mocks.pending.mockReturnValue([
+      action("action-1"),
+      action("action-2", { chain_id: 1 }),
+    ]);
+    await expect(
+      exportCommand(config, ["action-1", "action-2"]),
+    ).rejects.toMatchObject({ code: 1 });
+
+    mocks.pending.mockReturnValue([
+      action("action-1"),
+      action("action-2", { from: OTHER_SENDER }),
+    ]);
+    await expect(
+      exportCommand(config, ["action-1", "action-2"]),
     ).rejects.toMatchObject({ code: 1 });
   });
 
-  it("rejects EIP-712 and Solana signing requests", async () => {
-    mocks.refreshedPendingTxs = [
-      pendingTx(1, {
-        kind: "eip712_sign",
-        txId: undefined,
-        eip712Id: 1,
-        to: undefined,
-      }),
-    ];
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
+  it("rejects a session sender mismatch and malformed transaction fields", async () => {
+    mocks.load.mockReturnValue({
+      publicKey: OTHER_SENDER,
+      mergeConfig: mocks.mergeConfig,
+      createClientSession: mocks.createClientSession,
+    });
+    await expect(exportCommand(config, ["action-1"])).rejects.toMatchObject({
       code: 1,
     });
 
-    mocks.refreshedPendingTxs = [];
-    mocks.refreshedPendingSolTxs = [
-      {
-        id: "tx-1",
-        solanaId: 1,
-        unsignedTx: "AA==",
-        timestamp: 1,
-        payload: {},
-      },
-    ];
-    await expect(exportCommand(config, ["svm:tx-1"])).rejects.toMatchObject({
+    mocks.load.mockReturnValue({
+      publicKey: SENDER,
+      mergeConfig: mocks.mergeConfig,
+      createClientSession: mocks.createClientSession,
+    });
+    mocks.pending.mockReturnValue([action("action-1", { data: "0x123" })]);
+    await expect(exportCommand(config, ["action-1"])).rejects.toMatchObject({
       code: 1,
     });
-  });
-
-  it("rejects ambiguous cross-family selectors", async () => {
-    mocks.refreshedPendingSolTxs = [
-      {
-        id: "tx-1",
-        solanaId: 1,
-        unsignedTx: "AA==",
-        timestamp: 1,
-        payload: {},
-      },
-    ];
-
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
+    mocks.pending.mockReturnValue([action("action-1", { value: "wat" })]);
+    await expect(exportCommand(config, ["action-1"])).rejects.toMatchObject({
       code: 1,
     });
-  });
-
-  it("rejects mixed chains and never defaults a missing chain to Ethereum", async () => {
-    mocks.refreshedPendingTxs = [
-      pendingTx(1, { chainId: 1 }),
-      pendingTx(2, { chainId: 10 }),
-    ];
-    await expect(exportCommand(config, ["tx-1", "tx-2"])).rejects.toMatchObject(
-      { code: 1 },
-    );
-
-    mocks.readState.mockReturnValue(state({ chainId: undefined }));
-    mocks.refreshedPendingTxs = [pendingTx(1, { chainId: undefined })];
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
-      code: 1,
-    });
-  });
-
-  it("rejects mixed, missing, and session-mismatched senders", async () => {
-    mocks.readState.mockReturnValue(state({ publicKey: undefined }));
-    mocks.refreshedPendingTxs = [
-      pendingTx(1),
-      pendingTx(2, { from: OTHER_SENDER }),
-    ];
-    await expect(exportCommand(config, ["tx-1", "tx-2"])).rejects.toMatchObject(
-      { code: 1 },
-    );
-
-    mocks.refreshedPendingTxs = [pendingTx(1, { from: undefined })];
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
-      code: 1,
-    });
-
-    mocks.readState.mockReturnValue(state());
-    mocks.refreshedPendingTxs = [pendingTx(1, { from: OTHER_SENDER })];
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
-      code: 1,
-    });
-  });
-
-  it("rejects malformed refreshed calldata before writing stdout", async () => {
-    const stdout = vi
-      .spyOn(process.stdout, "write")
-      .mockImplementation(() => true);
-    mocks.refreshedPendingTxs = [pendingTx(1, { data: "0x123" })];
-
-    await expect(exportCommand(config, ["tx-1"])).rejects.toMatchObject({
-      code: 1,
-    });
-    expect(stdout).not.toHaveBeenCalled();
   });
 });

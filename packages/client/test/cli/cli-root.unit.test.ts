@@ -18,6 +18,13 @@ describe("CLI root subcommand registration", () => {
     expect(Object.keys(root.subCommands ?? {})).toContain("deploy");
     expect(hasRootSubcommand(["deploy", "--project-id", "1"])).toBe(true);
   });
+
+  it("exposes Pipeline discovery and safe execution as a runnable subcommand", () => {
+    expect(Object.keys(root.subCommands ?? {})).toContain("pipeline");
+    expect(
+      hasRootSubcommand(["pipeline", "build", "balance", "--app", "wallet"]),
+    ).toBe(true);
+  });
 });
 
 describe("CLI root dispatch", () => {

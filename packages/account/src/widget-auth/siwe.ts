@@ -12,7 +12,7 @@ import {
   WidgetAuthError,
   widgetOriginDomain,
 } from "./origin";
-import { issueWidgetSession, type WidgetSession } from "./session";
+import { issueWidgetSession, type AccountSession } from "./session";
 import { widgetAuthStore, type WidgetAuthStore } from "./store";
 
 export const WIDGET_SIWE_NONCE_TTL_SECONDS = 5 * 60;
@@ -53,7 +53,7 @@ export async function verifyWidgetSiweProof(input: {
   chainId: number;
   now?: Date;
   store?: WidgetAuthStore;
-}): Promise<WidgetSession> {
+}): Promise<AccountSession> {
   const origin = requireWidgetOrigin(input.request);
   const address = requireAddress(input.walletAddress);
   const chainId = requireChainId(input.chainId);

@@ -10,9 +10,17 @@ export {
   issueWidgetSession,
   resolveWidgetSession,
   revokeWidgetSession,
+  validateWidgetSessionBinding,
+  widgetSessionIdentifierForRequest,
   WIDGET_SESSION_TTL_SECONDS,
-  type WidgetSession,
+  type AccountSession,
 } from "./session";
+export {
+  consumeWidgetOAuthBootstrapTicket,
+  issueWidgetOAuthBootstrapTicket,
+  sha256Hex,
+  WIDGET_OAUTH_BOOTSTRAP_TTL_SECONDS,
+} from "./oauth-bootstrap";
 export {
   createWidgetSiweChallenge,
   verifyWidgetSiweProof,

@@ -1,10 +1,4 @@
-import {
-  asRecord,
-  asString,
-  statusFact,
-  txOutcomeStatus,
-  uniqueFacts,
-} from "../normalize";
+import { asRecord, asString, statusFact, uniqueFacts } from "../normalize";
 import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
 
 const op = (
@@ -74,11 +68,8 @@ export const matchSvmPendingApproval: ToolMatcher = ({
     return null;
   }
 
-  // "pending_approval" is frozen at staging time; the wallet's actual verdict
-  // arrives later via wallet::solana_*_complete and is reconciled onto the
-  // result as `tx_outcome` — prefer it, same contract as the EVM family.
   return op("svm.tx.pending_approval", rawLabel, [
     txCountFact(resultRecord.svm_ix_ids),
-    statusFact(txOutcomeStatus(resultRecord) ?? resultRecord.status),
+    statusFact(resultRecord.status),
   ]);
 };

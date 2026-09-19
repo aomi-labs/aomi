@@ -12,6 +12,7 @@
 // If you need to change behavior, you almost certainly want one of:
 //   ../control/api-key.ts          — apiKey + persistence
 //   ../control/byok.ts             — BYOK keys + secret vault API
+//   ../control/app-secrets.ts      — per-user keys for account-bound apps
 //   ../control/auth-endpoints.ts   — apps + models fetch
 //   ../control/per-thread-control.ts — model/app selection + sync
 //
@@ -33,6 +34,7 @@ import {
 } from "react";
 import type {
   AomiClient,
+  AomiInferenceFundingSource,
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
@@ -60,6 +62,10 @@ import {
   type AuthEndpointsActions,
 } from "../control/auth-endpoints";
 import {
+  useAppSecretsImpl,
+  type AppSecretsActions,
+} from "../control/app-secrets";
+import {
   usePerThreadControlImpl,
   type PerThreadControlActions,
 } from "../control/per-thread-control";
@@ -85,10 +91,10 @@ export type ControlState = ApiKeyState &
 
 export type ControlContextApi = ApiKeyActions &
   ByokActions &
+  AppSecretsActions &
   AuthEndpointsActions &
   PerThreadControlActions & {
     state: ControlState;
-    isProcessing: boolean;
     /** Synchronous getter used by the runtime to read the latest state from a
      *  callback that fires outside render. */
     getControlState: () => ControlState;
@@ -131,16 +137,32 @@ export function useApiKey(): {
 export function useByok(): { state: ByokState; actions: ByokActions } {
   const ctx = useControl();
   return {
-    state: { byokKeys: ctx.state.byokKeys },
+    state: {
+      byokKeys: ctx.state.byokKeys,
+      inferenceFunding: ctx.state.inferenceFunding,
+    },
     actions: {
       setByok: ctx.setByok,
       removeByok: ctx.removeByok,
       getByokKeys: ctx.getByokKeys,
       hasByok: ctx.hasByok,
+      setInferenceFunding: ctx.setInferenceFunding,
       ingestSecrets: ctx.ingestSecrets,
       clearSecrets: ctx.clearSecrets,
       deleteSecret: ctx.deleteSecret,
       listSecrets: ctx.listSecrets,
+    },
+  };
+}
+
+export function useAppSecrets(): { actions: AppSecretsActions } {
+  const ctx = useControl();
+  return {
+    actions: {
+      listAppSecrets: ctx.listAppSecrets,
+      saveAppSecrets: ctx.saveAppSecrets,
+      deleteAppSecret: ctx.deleteAppSecret,
+      clearAppSecrets: ctx.clearAppSecrets,
     },
   };
 }
@@ -167,20 +189,21 @@ export function useAuthEndpoints(): {
 
 export function usePerThreadControl(): {
   actions: PerThreadControlActions;
-  isProcessing: boolean;
 } {
   const ctx = useControl();
   return {
-    isProcessing: ctx.isProcessing,
     actions: {
       getCurrentThreadControl: ctx.getCurrentThreadControl,
+      getCurrentThreadAgentMode: ctx.getCurrentThreadAgentMode,
+      getCurrentThreadTarget: ctx.getCurrentThreadTarget,
       getCurrentThreadApp: ctx.getCurrentThreadApp,
       getCurrentThreadApplicationId: ctx.getCurrentThreadApplicationId,
       getPreferredThreadControl: ctx.getPreferredThreadControl,
       onModelSelect: ctx.onModelSelect,
       onAppSelect: ctx.onAppSelect,
+      onAgentTargetSelect: ctx.onAgentTargetSelect,
+      onAgentModeSelect: ctx.onAgentModeSelect,
       markControlSynced: ctx.markControlSynced,
-      syncCurrentThreadControl: ctx.syncCurrentThreadControl,
     },
   };
 }
@@ -200,6 +223,8 @@ export type ControlContextProviderProps = {
   ) => void;
   appPlatforms?: AomiPlatformFilter;
   applicationId?: ApplicationId;
+  inferenceFunding?: AomiInferenceFundingSource;
+  accountSessionAvailable?: boolean;
 };
 
 export function ControlContextProvider({
@@ -210,6 +235,8 @@ export function ControlContextProvider({
   updateThreadMetadata,
   appPlatforms,
   applicationId,
+  inferenceFunding,
+  accountSessionAvailable = false,
 }: ControlContextProviderProps) {
   // ---------------------------------------------------------------------------
   // Stable refs into the central plumbing (aomiClient, the props that change
@@ -262,7 +289,14 @@ export function ControlContextProvider({
 
   const byok = useByokImpl({
     aomiClientRef,
+    accountClient: accountSessionAvailable ? aomiClient : null,
     clientIdRef,
+    getControlSessionId: getCurrentControlSessionId,
+    initialInferenceFunding: inferenceFunding,
+  });
+
+  const appSecrets = useAppSecretsImpl({
+    aomiClientRef,
     getControlSessionId: getCurrentControlSessionId,
   });
 
@@ -289,10 +323,7 @@ export function ControlContextProvider({
   defaultAppRef.current = authEndpoints.state.defaultApp;
 
   const perThread = usePerThreadControlImpl({
-    aomiClientRef,
     sessionIdRef,
-    apiKeyRef,
-    clientIdRef,
     getThreadMetadataRef,
     updateThreadMetadataRef,
     availableModels: authEndpoints.state.availableModels,
@@ -312,6 +343,7 @@ export function ControlContextProvider({
     apiKey: apiKey.state.apiKey,
     clientId: clientIdRef.current,
     byokKeys: byok.state.byokKeys,
+    inferenceFunding: byok.state.inferenceFunding,
     availableModels: authEndpoints.state.availableModels,
     defaultModel: authEndpoints.state.defaultModel,
     authorizedApps: authEndpoints.state.authorizedApps,
@@ -329,12 +361,12 @@ export function ControlContextProvider({
   // ---------------------------------------------------------------------------
   const api: ControlContextApi = {
     state: aggregateState,
-    isProcessing: perThread.isProcessing,
     getControlState,
     ...apiKey.actions,
     ...byok.actions,
+    ...appSecrets.actions,
     ...authEndpoints.actions,
-    ...perThread.actions,
+    ...perThread,
   };
 
   return (
@@ -342,6 +374,4 @@ export function ControlContextProvider({
   );
 }
 
-// Re-export ThreadControlState for backward compat with code that pulled it
-// from this file.
 export type { ThreadControlState };

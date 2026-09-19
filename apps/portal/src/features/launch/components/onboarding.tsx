@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
-import { useAomiAuthAdapter } from "@aomi-labs/widget-lib";
+import { useAomiWalletKit } from "@aomi-labs/widget-lib";
 import {
   githubAppInstallUrl,
   loadLaunch,
@@ -35,7 +35,7 @@ export function Onboarding({
    */
   sessionInstallationId?: string | null;
 }) {
-  const adapter = useAomiAuthAdapter();
+  const adapter = useAomiWalletKit();
   const actor = adapter.identity.address ?? undefined;
 
   const [state, setState] = useState<LaunchState>(() => {

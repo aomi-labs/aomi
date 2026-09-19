@@ -39,9 +39,9 @@ Each seam is classified:
 | **Bearer mint** | `mintAccountBearer(userId, role?) → {bearer, expiresAt}` — `sub`=canonical UUID, EdDSA, mesh key | BetterAuth JWT plugin (`createAomiBackendJwtOptions`) — `sub`=BetterAuth id, `aomi_user_id`=canonical, JWKS | 🟡 replace-body | **GAP-1**: put canonical UUID in `sub`. **GAP-2**: register your key+`kid` as `aomi-bff` in the mesh tomls. Keep claim set `sub/iss/aud/role/iat/exp`. |
 | **Provider-credential verify** | `verifyProviderCredential(cred) → {provider, token}`; `verifyPrivyToken`, `verifyParaJwt` (`packages/account/src/providers.ts`) | `verifyProviderCredential(cred, opts?)`; `verifyPrivyToken`, `verifyParaJwt` (`@aomi-labs/auth/providers`) | 🟢 literal swap | Same `ProviderTokenCredential` in, `VerifiedProviderToken` out. Exchange reads only `token.subject`. |
 | **SIWE verify** | `verifySiweMessage({message, signature, address, chainId?}) → boolean` (`packages/account/src/siwe.ts`) | `verifySiweMessage({message, signature, address, chainId?}) → boolean` (`@aomi-labs/auth/better-auth/siwe`) | 🟢 literal swap | Identical signature + EOA→EIP-1271/6492 behavior. Copied to match. |
-| **Provider exchange flow** | `createAuthExchangeRoute()` at `/api/bff/auth/exchange` — verify → resolve-or-**create** session → mint | `/api/aomi/provider/exchange` — `exchangeProviderForExistingSession({betterAuthUserId, credential})` — **link** to existing session | 🔴 reframe | Provider-first (ours) vs session-first link (yours). The verify sub-seam above swaps; the flow is rewritten. |
+| **Provider exchange flow** | `createAuthExchangeRoute()` at `/api/bff/auth/exchange` — verify → resolve-or-**create** session → mint | `/v1/account/provider/exchange` — `exchangeProviderForExistingSession({betterAuthUserId, credential})` — **link** to existing session | 🔴 reframe | Provider-first (ours) vs session-first link (yours). The verify sub-seam above swaps; the flow is rewritten. |
 | **SIWE exchange flow** | `createSiweNonceRoute()` + `createSiweExchangeRoute()` (cookie nonce → verify → session) | BetterAuth SIWE plugin (nonce + session) | 🔴 reframe | Delete our two routes; BetterAuth owns nonce + session. `verifySiweMessage` survives. |
-| **Account read** | `/api/account` → proxied to backend | `/api/aomi/account` → local (`accountResponseFromSession`) | 🔴 reframe | Different owner (backend vs BetterAuth). Reconcile path + payload at merge. |
+| **Account read** | `/api/account` → proxied to backend | `/v1/account` → local (`accountResponseFromSession`) | 🔴 reframe | Different owner (backend vs BetterAuth). Reconcile path + payload at merge. |
 | **Session cookie** | `aomi_session` (HS256, `sub`=canonical UUID, httpOnly, 7d) | BetterAuth session (DB-backed + its cookie) | 🟡 replace-body | Replace `session.ts`; keep `getSessionedCanonicalId` (above). |
 | **CLI / headless auth** | `--account-bearer` static paste; `aomi login` prints a backend Privy URL (legacy, dead-ends); talks to the **raw backend**, bypassing the BFF | `bearer()` + `jwt()` plugins: SIWE login → session bearer → `GET /api/auth/token` for the backend JWT | 🔴 today → 🟢 once aligned | Today's CLI is the one client outside the seam. Target = SIWE session + `/token` refresh (see §3). The for-now build is shaped as a literal-swap migration onto your plugins. |
 
@@ -121,7 +121,7 @@ Each seam is classified:
 
 ### 2f. Exchange request/response
 
-| | Ours `/api/bff/auth/exchange` | Yours `/api/aomi/provider/exchange` |
+| | Ours `/api/bff/auth/exchange` | Yours `/v1/account/provider/exchange` |
 |---|---|---|
 | precondition | none (creates the session) | **authenticated BetterAuth session** |
 | request | `{ provider, provider_jwt, key_id? }` | `AomiAccountCredential` = `{ provider, providerToken, tokenKind? }` \| `{ provider:"cookie" }` |

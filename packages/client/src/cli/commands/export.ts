@@ -1,9 +1,9 @@
 import { getAddress, type Address } from "viem";
+
+import type { Action } from "../../agent/types";
 import { CliSession } from "../cli-session";
-import { toEip5792SendCallsParams } from "../eip5792";
+import { toEip5792SendCallsParams, type Eip5792CallInput } from "../eip5792";
 import { fatal } from "../errors";
-import type { PendingTx } from "../state";
-import { pendingTxToCallList } from "../transactions";
 import type { CliConfig } from "../types";
 import {
   formatWalletExport,
@@ -11,120 +11,18 @@ import {
   type WalletExportFormat,
 } from "../wallet-export";
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function normalizeSender(value: string, label: string): Address {
-  try {
-    return getAddress(value);
-  } catch {
-    throw new Error(`${label} is not a valid EVM address.`);
-  }
-}
-
-function resolvePendingEvmTransactions(
-  cli: CliSession,
-  selectors: readonly string[],
-): PendingTx[] {
-  const pending = selectors.map((selector) => {
-    const evm = cli.findPendingTx(selector);
-    const svm = cli.findPendingSolTx(selector);
-
-    if (!selector.includes(":") && evm && svm) {
-      throw new Error(
-        `Transaction "${selector}" is ambiguous. Use the chain-qualified selector shown by \`aomi tx list\`.`,
-      );
-    }
-    if (!evm && svm) {
-      throw new Error(
-        `Transaction "${selector}" is a Solana request; EIP-5792 export supports pending EVM transactions only.`,
-      );
-    }
-    if (!evm) {
-      const available = cli.pendingSelectors().join(", ") || "(none)";
-      throw new Error(
-        `Transaction "${selector}" not found.\nAvailable: ${available}`,
-      );
-    }
-    if (evm.kind !== "transaction") {
-      throw new Error(
-        `Transaction "${selector}" is an EVM signing request; EIP-5792 export supports transaction calls only.`,
-      );
-    }
-    return evm;
-  });
-
-  if (new Set(pending.map((tx) => tx.id)).size !== pending.length) {
-    throw new Error(
-      "Duplicate transaction IDs are not allowed in a single `aomi tx export` call.",
-    );
-  }
-  return pending;
-}
-
-function resolveSender(
-  pending: readonly PendingTx[],
-  sessionSender: string | undefined,
-): Address {
-  const normalizedSessionSender = sessionSender
-    ? normalizeSender(sessionSender, "The active session sender")
-    : undefined;
-  const senders = pending.map((tx) => {
-    const stagedSender = tx.from
-      ? normalizeSender(tx.from, `Transaction "${tx.id}" sender`)
-      : undefined;
-    if (
-      stagedSender &&
-      normalizedSessionSender &&
-      stagedSender.toLowerCase() !== normalizedSessionSender.toLowerCase()
-    ) {
-      throw new Error(
-        `Transaction "${tx.id}" sender ${stagedSender} does not match the active session sender ${normalizedSessionSender}.`,
-      );
-    }
-    const sender = stagedSender ?? normalizedSessionSender;
-    if (!sender) {
-      throw new Error(
-        `Transaction "${tx.id}" has no sender and the active session has no EVM address.`,
-      );
-    }
-    return sender;
-  });
-
-  if (new Set(senders.map((sender) => sender.toLowerCase())).size !== 1) {
-    throw new Error("Selected transactions must use one sender.");
-  }
-  return senders[0];
-}
-
-function resolveChainIds(
-  pending: readonly PendingTx[],
-  sessionChainId: number | undefined,
-): number[] {
-  const chainIds = pending.map((tx) => {
-    const chainId = tx.chainId ?? sessionChainId;
-    if (!Number.isSafeInteger(chainId) || (chainId ?? 0) <= 0) {
-      throw new Error(
-        `Transaction "${tx.id}" has no valid chain ID; export will not default to Ethereum.`,
-      );
-    }
-    return chainId as number;
-  });
-  if (new Set(chainIds).size !== 1) {
-    throw new Error("Selected transactions must use one chain.");
-  }
-  return chainIds;
-}
+type EvmAction = Action & {
+  request: Extract<Action["request"], { type: "execute_evm" }>;
+};
 
 export async function exportCommand(
   config: CliConfig,
-  txIds: string[],
+  selectors: string[],
   rawFormat?: string,
 ): Promise<void> {
-  if (txIds.length === 0) {
+  if (selectors.length === 0) {
     fatal(
-      "Usage: aomi tx export <tx-id> [<tx-id> ...]\nRun `aomi tx list` to see pending transaction IDs.",
+      "Usage: aomi tx export <action-id> [<action-id> ...]\nRun `aomi tx list` to see pending Actions.",
     );
   }
 
@@ -136,39 +34,118 @@ export async function exportCommand(
   }
 
   const cli = CliSession.load();
-  if (!cli) {
-    fatal("No active session. Run `aomi chat` first.");
-  }
-
+  if (!cli) fatal("No active session. Run `aomi chat` first.");
   cli.mergeConfig(config);
   const session = cli.createClientSession(config);
   try {
-    const state = await session.client.fetchState(
-      cli.sessionId,
-      undefined,
-      cli.clientId,
-    );
-    cli.syncPendingFromUserState(state.user_state);
-  } finally {
-    session.close();
-  }
-
-  try {
-    const pending = resolvePendingEvmTransactions(cli, txIds);
-    const sender = resolveSender(pending, cli.publicKey);
-    const chainIds = resolveChainIds(pending, cli.chainId);
-    const calls = pending.flatMap((tx, index) =>
-      pendingTxToCallList({ ...tx, chainId: chainIds[index] }),
-    );
-    const payload = toEip5792SendCallsParams({
-      from: sender,
-      chainId: chainIds[0],
-      calls,
-    });
+    await session.fetchCurrentState();
+    const actions = resolveEvmActions(session.actions.pending(), selectors);
+    const params = toSendCallsParams(actions, cli.publicKey);
     process.stdout.write(
-      `${JSON.stringify(formatWalletExport(payload, format), null, 2)}\n`,
+      `${JSON.stringify(formatWalletExport(params, format), null, 2)}\n`,
     );
   } catch (error) {
     fatal(errorMessage(error));
+  } finally {
+    session.close();
   }
+}
+
+function resolveEvmActions(
+  pending: readonly Action[],
+  selectors: readonly string[],
+): EvmAction[] {
+  const selected = selectors.map((selector) => {
+    const matches = pending.filter(
+      (action) => action.id === selector || action.id.startsWith(selector),
+    );
+    if (matches.length > 1) {
+      throw new Error(`Action selector "${selector}" is ambiguous.`);
+    }
+    const action = matches[0];
+    if (!action) throw new Error(`Pending Action "${selector}" was not found.`);
+    if (action.request.type !== "execute_evm") {
+      throw new Error(`Action "${action.id}" is not an EVM execution Action.`);
+    }
+    return action as EvmAction;
+  });
+
+  if (new Set(selected.map((action) => action.id)).size !== selected.length) {
+    throw new Error(
+      "Duplicate Action IDs are not allowed in a single `aomi tx export` call.",
+    );
+  }
+  return selected;
+}
+
+function toSendCallsParams(
+  actions: readonly EvmAction[],
+  sessionSender: string | undefined,
+) {
+  const transactions = actions.flatMap((action) => action.request.transactions);
+  if (transactions.length === 0) {
+    throw new Error("Selected Actions contain no EVM transactions.");
+  }
+
+  const senders = transactions.map((transaction, index) =>
+    normalizeAddress(transaction.from, `Transaction ${index + 1} sender`),
+  );
+  const sender = senders[0]!;
+  if (new Set(senders.map((value) => value.toLowerCase())).size !== 1) {
+    throw new Error("Selected Actions must use one sender.");
+  }
+  if (sessionSender) {
+    const active = normalizeAddress(sessionSender, "The active session sender");
+    if (active.toLowerCase() !== sender.toLowerCase()) {
+      throw new Error(
+        `Action sender ${sender} does not match the active session sender ${active}.`,
+      );
+    }
+  }
+
+  const chainIds = transactions.map((transaction, index) => {
+    if (
+      !Number.isSafeInteger(transaction.chain_id) ||
+      transaction.chain_id <= 0
+    ) {
+      throw new Error(`Transaction ${index + 1} has an invalid chain ID.`);
+    }
+    return transaction.chain_id;
+  });
+  const chainId = chainIds[0]!;
+  if (new Set(chainIds).size !== 1) {
+    throw new Error("Selected Actions must use one chain.");
+  }
+
+  const calls: Eip5792CallInput[] = transactions.map((transaction, index) => ({
+    chainId: transaction.chain_id,
+    to: transaction.to,
+    data: transaction.data,
+    value: parseValue(transaction.value, index),
+  }));
+  return toEip5792SendCallsParams({ from: sender, chainId, calls });
+}
+
+function normalizeAddress(value: string, label: string): Address {
+  try {
+    return getAddress(value);
+  } catch {
+    throw new Error(`${label} must be a valid EVM address.`);
+  }
+}
+
+function parseValue(value: string | undefined, index: number): bigint {
+  try {
+    const parsed = BigInt(value ?? "0");
+    if (parsed < BigInt(0)) throw new Error();
+    return parsed;
+  } catch {
+    throw new Error(
+      `Transaction ${index + 1} value must be a non-negative integer.`,
+    );
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

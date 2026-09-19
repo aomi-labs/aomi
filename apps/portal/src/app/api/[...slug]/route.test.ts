@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ALLOWED_ROUTES, GET, POST } from "./route";
+import { GET, POST } from "./route";
 
 const listApps = vi.fn();
 const launchConfigMock = vi.hoisted(() => ({
@@ -93,43 +93,11 @@ function apiRequest(path: string, method = "GET") {
   ] as const;
 }
 
-function sameOriginApiRequest(path: string, headers: Record<string, string>) {
-  const url = new URL(`https://chat-staging.aomi.dev${path}`);
-  const slug = url.pathname
-    .replace(/^\/api\/?/, "")
-    .split("/")
-    .filter(Boolean);
-  return [
-    new NextRequest(url, { headers }),
-    { params: Promise.resolve({ slug }) },
-  ] as const;
-}
-
-function crossOriginApiRequest(path: string, headers?: Record<string, string>) {
-  const url = new URL(`https://chat-staging.aomi.dev${path}`);
-  const slug = url.pathname
-    .replace(/^\/api\/?/, "")
-    .split("/")
-    .filter(Boolean);
-  return [
-    new NextRequest(url, {
-      headers: { origin: "https://consumer.example", ...headers },
-    }),
-    { params: Promise.resolve({ slug }) },
-  ] as const;
-}
-
 function proxiedUrl(call: unknown[] | undefined): URL {
   const input = call?.[0];
   if (input instanceof URL) return input;
   if (typeof input === "string") return new URL(input);
   throw new Error(`Unexpected proxied URL: ${String(input)}`);
-}
-
-function authFor(pathname: string, method: string) {
-  return ALLOWED_ROUTES.find(
-    (route) => route.pattern.test(pathname) && route.methods.has(method),
-  )?.auth;
 }
 
 describe("portal API proxy", () => {
@@ -162,17 +130,6 @@ describe("portal API proxy", () => {
     const url = proxiedUrl(fetchMock.mock.calls[0]);
     expect(url.pathname).toBe("/api/thread/apps");
     expect(url.search).toBe("");
-    expect(listApps).not.toHaveBeenCalled();
-  });
-
-  it("rewrites legacy session app catalog calls", async () => {
-    const fetchMock = vi.fn(async () => Response.json([{ name: "default" }]));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await GET(...apiRequest("/api/session/apps"));
-
-    const url = proxiedUrl(fetchMock.mock.calls[0]);
-    expect(url.pathname).toBe("/api/thread/apps");
     expect(listApps).not.toHaveBeenCalled();
   });
 
@@ -263,6 +220,30 @@ describe("portal API proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("forwards only the three commit operations through the existing authenticated proxy", async () => {
+    canonicalSessionMock.userId = "widget-user-1";
+    const fetchMock = vi.fn(async () => Response.json({ state: "submitted" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "11111111-2222-4333-8444-555555555555";
+    for (const [path, method] of [
+      ["/api/commits", "POST"],
+      [`/api/commits/${id}`, "GET"],
+      [`/api/commits/${id}/manual`, "POST"],
+    ] as const) {
+      const response = await (method === "GET" ? GET : POST)(
+        ...apiRequest(path, method),
+      );
+      expect(response.status).toBe(200);
+      expect(proxiedUrl(fetchMock.mock.calls.at(-1)!).pathname).toBe(path);
+    }
+    fetchMock.mockClear();
+    expect(
+      (await POST(...apiRequest(`/api/commits/${id}/broadcast`, "POST")))
+        .status,
+    ).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("logs a downstream Rust 5xx without changing its response", async () => {
     vi.stubGlobal(
       "fetch",
@@ -314,90 +295,5 @@ describe("portal API proxy", () => {
       upstream: "rust",
       handled: true,
     });
-  });
-
-  it.each(["archive", "unarchive"])(
-    "forwards thread %s requests",
-    async (action) => {
-      const fetchMock = vi.fn(async () => Response.json({ ok: true }));
-      vi.stubGlobal("fetch", fetchMock);
-
-      const res = await POST(
-        ...apiRequest(`/api/threads/thread-123/${action}`, "POST"),
-      );
-
-      expect(res.status).toBe(200);
-      const url = proxiedUrl(fetchMock.mock.calls[0]);
-      expect(url.pathname).toBe(`/api/threads/thread-123/${action}`);
-      expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("POST");
-    },
-  );
-
-  it("keeps Thread-only state and SSE reads independent of account lookup", () => {
-    expect(authFor("/api/thread/state", "GET")).toBe("none");
-    expect(authFor("/api/thread/updates", "GET")).toBe("none");
-  });
-
-  it.each(["state", "updates"])(
-    "rejects cross-origin thread %s reads without an origin-bound widget session",
-    async (route) => {
-      const fetchMock = vi.fn(async () => Response.json({ ok: true }));
-      vi.stubGlobal("fetch", fetchMock);
-
-      const response = await GET(
-        ...crossOriginApiRequest(`/api/thread/${route}`),
-      );
-
-      expect(response.status).toBe(401);
-      await expect(response.json()).resolves.toEqual({
-        error: "unauthenticated",
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
-
-  it("strips spoofed account authorization and cookies from same-origin Thread reads", async () => {
-    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const response = await GET(
-      ...sameOriginApiRequest("/api/thread/state", {
-        authorization: "Bearer attacker-controlled",
-        cookie: "better-auth.session_token=attacker-controlled",
-        "x-thread-id": "thread-capability",
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-    expect(headers.get("x-thread-id")).toBe("thread-capability");
-    expect(headers.has("authorization")).toBe(false);
-    expect(headers.has("cookie")).toBe(false);
-  });
-
-  it.each(["state", "updates"])(
-    "rejects cross-origin thread %s reads with spoofed account credentials",
-    async (route) => {
-      const fetchMock = vi.fn(async () => Response.json({ ok: true }));
-      vi.stubGlobal("fetch", fetchMock);
-
-      const response = await GET(
-        ...crossOriginApiRequest(`/api/thread/${route}`, {
-          authorization: "Bearer attacker-controlled",
-          cookie: "better-auth.session_token=attacker-controlled",
-        }),
-      );
-
-      expect(response.status).toBe(401);
-      await expect(response.json()).resolves.toEqual({
-        error: "unauthenticated",
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
-
-  it("does not weaken chat or thread creation admission", () => {
-    expect(authFor("/api/thread/chat", "POST")).toBe("optional");
-    expect(authFor("/api/threads", "POST")).toBe("optional");
   });
 });

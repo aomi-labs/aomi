@@ -2,28 +2,30 @@
 // API Client (re-exported from @aomi-labs/client)
 // =============================================================================
 export { AomiClient } from "@aomi-labs/client";
-export type { AomiClientOptions } from "@aomi-labs/client";
 export type {
+  AgentMode,
+  AgentTarget,
+  AomiClientOptions,
+} from "@aomi-labs/client";
+export type {
+  Action,
+  ActionRequest,
+  ActionResult,
   AomiAppDescriptor,
   AomiPlatformFilter,
-  AomiMessage,
-  AomiChatResponse,
-  AomiCreateThreadResponse,
-  AomiInterruptResponse,
   AomiSecretSlot,
-  AomiSSEEvent,
-  AomiStateResponse,
-  AomiSystemEvent,
-  AomiSystemResponse,
-  AomiThread,
   NativeWalletExecutionPolicy,
   NativeWalletSponsorship,
   SponsorshipPaymasterServiceContext,
   WalletCapabilities,
+  WalletEip712Payload,
+  WalletSolanaSignMessagePayload,
+  WalletSolanaSignPayload,
+  WalletTxPayload,
+  ViemSignMessageArgs,
 } from "@aomi-labs/client";
 export {
   toViemSignTypedDataArgs,
-  hydrateTxPayloadFromUserState,
   toAAWalletCalls,
   toAAWalletCall,
   appendFeeCallToPayload,
@@ -43,7 +45,6 @@ export {
 // =============================================================================
 export { AomiRuntimeProvider } from "./runtime/aomi-runtime";
 export type { AomiRuntimeProviderProps } from "./runtime/aomi-runtime";
-export { RuntimeUserStateProvider } from "./runtime/user-state-provider";
 
 // =============================================================================
 // Unified Runtime API
@@ -54,49 +55,12 @@ export {
   useOptionalAomiRuntime,
 } from "./interface";
 export type { AomiRuntimeApi } from "./interface";
-
-// =============================================================================
-// Event System (follows RUNTIME-ARCH.md)
-// =============================================================================
-export {
-  useEventContext,
-  EventContextProvider,
-} from "./contexts/event-context";
-export type {
-  EventContext,
-  EventContextProviderProps,
-} from "./contexts/event-context";
-
-export type {
-  InboundEvent,
-  SSEStatus,
-  EventSubscriber,
-} from "./contexts/event-context";
+export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 // =============================================================================
 // Handler Hooks
 // =============================================================================
-export { useWalletHandler } from "./handlers/wallet-handler";
-export { useNotificationHandler } from "./handlers/notification-handler";
-export type {
-  WalletRequest,
-  WalletTxPayload,
-  WalletEip712Payload,
-  WalletSignablePayload,
-  WalletSigningPayload,
-  WalletSolanaSignMessagePayload,
-  WalletSolanaSignPayload,
-  WalletRequestKind,
-  WalletRequestStatus,
-  WalletRequestResult,
-  WalletHandlerConfig,
-  WalletHandlerApi,
-  ViemSignMessageArgs,
-} from "./handlers/wallet-handler";
-export type {
-  NotificationHandlerConfig,
-  NotificationApi,
-} from "./handlers/notification-handler";
+export { useActions } from "./actions/use-actions";
 
 // =============================================================================
 // User Context (wallet/user state)
@@ -115,10 +79,7 @@ export type { UserConfig } from "./runtime/utils";
 // =============================================================================
 export {
   useThreadContext,
-  useCurrentThreadMessages,
   useCurrentThreadMetadata,
-  useThreadTaskRuns,
-  useTaskRun,
   ThreadContextProvider,
 } from "./contexts/thread-context";
 export type { ThreadContext } from "./contexts/thread-context";
@@ -126,35 +87,20 @@ export type {
   ModelSelectionMode,
   ThreadMetadata,
   ThreadControlState,
-  ThreadTurnPhase,
+} from "./state/thread-store";
+export {
+  EMPTY_TASK_RUNS,
+  selectTaskRuns,
+  useTaskRun,
+  useThreadTaskRuns,
+} from "./runtime/task-runs";
+export type {
   TaskRunState,
   TaskRunStatus,
   TaskRunStep,
   ThreadTaskRuns,
-} from "./state/thread-store";
-export {
-  initThreadControl,
-  reduceTaskRuns,
-  EMPTY_TASK_RUNS,
-} from "./state/thread-store";
-
-// =============================================================================
-// Orchestrator delegation events (re-exported from @aomi-labs/client)
-// =============================================================================
-export type {
-  AomiTaskEvent,
-  AomiTaskEventType,
-  AomiTaskStartedEvent,
-  AomiTaskActivityEvent,
-  AomiTaskActivityKind,
-  AomiTaskCompletedEvent,
-  AomiTaskStatus,
-} from "@aomi-labs/client";
-export {
-  isAomiTaskEventType,
-  parseAomiTaskEvent,
-  AOMI_TASK_EVENT_TYPES,
-} from "@aomi-labs/client";
+} from "./runtime/task-runs";
+export { initThreadControl } from "./state/thread-store";
 
 // =============================================================================
 // Utilities
@@ -164,12 +110,11 @@ export {
   formatAddress,
   getNetworkName,
   getChainInfo,
-  readTaskPartAgentId,
+  projectAssistantMessages,
   SUPPORTED_CHAINS,
-  type AomiTaskPartMetadata,
   type ChainInfo,
 } from "./runtime/utils";
-export { resolveAutoModel } from "./utils/model-selection";
+export { resolveAutoModel } from "./control/model-selection";
 
 // =============================================================================
 // Notification Context (for toast UI)
@@ -191,6 +136,7 @@ export {
   useControl,
   useApiKey,
   useByok,
+  useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
   ControlContextProvider,

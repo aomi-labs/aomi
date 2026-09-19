@@ -159,7 +159,6 @@ export function AomiPrivyPluginProvider({
       provider: "privy",
       sessionProvider: "privy",
       embeddedProvider: "privy",
-      legacyWalletProvider: "privy",
       providerLabel: "Privy",
       status: !privy.ready
         ? "booting"

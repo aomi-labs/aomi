@@ -1,4 +1,4 @@
-import { generateUUID } from "../utils/uuid";
+import { generateUUID } from "../utils/client-session";
 import type { MutableRefObject } from "react";
 import type { ExternalStoreThreadData } from "@assistant-ui/react";
 
@@ -62,7 +62,6 @@ function buildThreadLists(
 export type ThreadListAdapterConfig = {
   aomiClientRef: MutableRefObject<AomiClient>;
   threadContext: ThreadContext;
-  setIsRunning: (running: boolean) => void;
   isLoading?: boolean;
   getInitialControl?: () => ThreadControlState;
   isRemoteThread?: (threadId: string) => boolean;
@@ -71,35 +70,23 @@ export type ThreadListAdapterConfig = {
 export function buildThreadListAdapter({
   aomiClientRef,
   threadContext,
-  setIsRunning,
   isLoading = false,
   getInitialControl = initThreadControl,
   isRemoteThread = () => true,
 }: ThreadListAdapterConfig) {
   const shouldShowThread = (threadId: string) => {
-    if (isRemoteThread(threadId)) return true;
-
-    return threadContext
-      .getThreadMessages(threadId)
-      .some((message) => message.role === "user");
+    return isRemoteThread(threadId);
   };
   const { regularThreads, archivedThreads } = buildThreadLists(
     threadContext.allThreadsMetadata,
     shouldShowThread,
   );
 
-  /** Remove previous thread if it's local-only and has no messages. */
+  /** Remove the unsent local placeholder before switching elsewhere. */
   const cleanupEmptyLocalThread = () => {
     const prevId = threadContext.currentThreadId;
     if (isRemoteThread(prevId)) return;
-    const msgs = threadContext.getThreadMessages(prevId);
-    if (msgs.length > 0) return;
     threadContext.setThreadMetadata((prev) => {
-      const next = new Map(prev);
-      next.delete(prevId);
-      return next;
-    });
-    threadContext.setThreads((prev) => {
       const next = new Map(prev);
       next.delete(prevId);
       return next;
@@ -114,12 +101,7 @@ export function buildThreadListAdapter({
 
     onSwitchToNewThread: () => {
       const currentThreadId = threadContext.currentThreadId;
-      if (
-        !isRemoteThread(currentThreadId) &&
-        threadContext.getThreadMessages(currentThreadId).length === 0
-      ) {
-        return;
-      }
+      if (!isRemoteThread(currentThreadId)) return;
 
       cleanupEmptyLocalThread();
       const threadId = generateUUID();
@@ -131,9 +113,7 @@ export function buildThreadListAdapter({
           control: getInitialControl(),
         }),
       );
-      threadContext.setThreadMessages(threadId, []);
       threadContext.setCurrentThreadId(threadId);
-      setIsRunning(false);
       threadContext.bumpThreadViewKey();
     },
 
@@ -152,7 +132,9 @@ export function buildThreadListAdapter({
       });
 
       try {
-        await aomiClientRef.current.renameThread(threadId, newTitle);
+        await aomiClientRef.current.agent.sessions.update(threadId, {
+          title: newTitle,
+        });
       } catch (error) {
         console.error("Failed to rename thread:", error);
         threadContext.updateThreadMetadata(threadId, {
@@ -165,7 +147,9 @@ export function buildThreadListAdapter({
       threadContext.updateThreadMetadata(threadId, { status: "archived" });
 
       try {
-        await aomiClientRef.current.archiveThread(threadId);
+        await aomiClientRef.current.agent.sessions.update(threadId, {
+          archived: true,
+        });
       } catch (error) {
         console.error("Failed to archive thread:", error);
         threadContext.updateThreadMetadata(threadId, { status: "regular" });
@@ -176,7 +160,9 @@ export function buildThreadListAdapter({
       threadContext.updateThreadMetadata(threadId, { status: "regular" });
 
       try {
-        await aomiClientRef.current.unarchiveThread(threadId);
+        await aomiClientRef.current.agent.sessions.update(threadId, {
+          archived: false,
+        });
       } catch (error) {
         console.error("Failed to unarchive thread:", error);
         threadContext.updateThreadMetadata(threadId, { status: "archived" });
@@ -185,19 +171,13 @@ export function buildThreadListAdapter({
 
     onDelete: async (threadId: string) => {
       try {
-        await aomiClientRef.current.deleteThread(threadId);
+        await aomiClientRef.current.agent.sessions.delete(threadId);
 
         threadContext.setThreadMetadata((prev) => {
           const next = new Map(prev);
           next.delete(threadId);
           return next;
         });
-        threadContext.setThreads((prev) => {
-          const next = new Map(prev);
-          next.delete(threadId);
-          return next;
-        });
-
         if (threadContext.currentThreadId === threadId) {
           const firstRegularThread = Array.from(
             threadContext.allThreadsMetadata.entries(),
@@ -215,7 +195,6 @@ export function buildThreadListAdapter({
                 control: getInitialControl(),
               }),
             );
-            threadContext.setThreadMessages(defaultId, []);
             threadContext.setCurrentThreadId(defaultId);
           }
         }

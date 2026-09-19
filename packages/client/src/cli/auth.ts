@@ -84,10 +84,7 @@ const AUTH_REFRESH_SKEW_MS = 30 * 1000;
 const SESSION_TOKEN_HEADERS = ["set-auth-token", "x-auth-token", "auth-token"];
 
 export function createCliAuthTokenProvider(
-  readState: () => Pick<
-    CliSessionState,
-    "accountBearer" | "auth" | "sessionCookie"
-  >,
+  readState: () => Pick<CliSessionState, "accountBearer" | "auth">,
   now: () => number = Date.now,
 ): GetAccountBearer {
   return async () => {
@@ -96,7 +93,7 @@ export function createCliAuthTokenProvider(
     if (auth?.sessionToken && auth.expiresAt > now() + AUTH_REFRESH_SKEW_MS) {
       return auth.sessionToken;
     }
-    return state.accountBearer ?? state.sessionCookie;
+    return state.accountBearer;
   };
 }
 
@@ -119,7 +116,7 @@ export async function signInWithCliSiwe({
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ walletAddress: address, chainId }),
+      body: JSON.stringify({}),
     },
   );
   if (!nonceHttpResponse.ok) {
@@ -158,8 +155,6 @@ export async function signInWithCliSiwe({
       body: JSON.stringify({
         message,
         signature,
-        walletAddress: address,
-        chainId,
       }),
     },
   );
@@ -505,7 +500,7 @@ export async function fetchPortalAccount(
   baseUrl: string,
   sessionToken: string,
 ): Promise<PortalAccountResponse | null> {
-  const response = await fetchImpl(joinUrl(baseUrl, "/api/aomi/account"), {
+  const response = await fetchImpl(joinUrl(baseUrl, "/v1/account"), {
     method: "GET",
     credentials: "include",
     headers: {

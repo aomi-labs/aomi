@@ -151,9 +151,9 @@ GET    /api/session/apps
 GET    /api/session/models
 POST   /api/session/model?rig=X&app=Y
 GET    /api/account
-GET    /api/aomi/account-bearer
+GET    /v1/account/bearer
 POST   /api/auth/aomi/provider/exchange
-POST   /api/aomi/provider/exchange
+POST   /v1/account/provider/exchange
 ```
 
 All backend session/thread endpoints carry `X-Session-Id`. Same-origin browser calls rely on the BFF proxy to translate the Better Auth cookie into a backend `AccountBearer`; direct cross-origin calls can opt into `createAccountAccessTokenProvider`.

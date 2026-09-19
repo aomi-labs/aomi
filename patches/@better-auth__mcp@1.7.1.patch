@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 3a0f5cf2b02e4f5fd70608c1c75b2b343151b273..11d34510f6bb5e695d24f0f72406c8562abc034a 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -173,7 +173,7 @@ const mcp = (options) => {
+ 		refreshTokenReuseInterval,
+ 		...oauthOptions,
+ 		resources: appendProtectedResource(oauthOptions.resources, resource),
+-		clientRegistrationDefaultResources: appendResourceIdentifier(oauthOptions.clientRegistrationDefaultResources, resource)
++		clientRegistrationDefaultResources: oauthOptions.clientRegistrationDefaultResources
+ 	});
+ 	const serveProviderDiscovery = provider.onRequest;
+ 	return {

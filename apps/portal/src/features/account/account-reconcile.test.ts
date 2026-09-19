@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { modeHintFor } from "./account-reconcile";
-import { normalizeSignerMode } from "./account-api";
-import type { WalletPolicy } from "./types";
+import { modeHintFor } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-reconcile";
+import { normalizeSignerMode } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-api";
+import type { WalletPolicy } from "../../../../shadcn-registry/src/components/account-shell/features/account/types";
 
 function wallet(overrides: Partial<WalletPolicy>): WalletPolicy {
   return {
@@ -44,13 +44,13 @@ describe("modeHintFor", () => {
 });
 
 describe("normalizeSignerMode", () => {
-  it("maps only the canonical ladder spellings; everything else fail-safes to manual", () => {
+  it("maps only the canonical ladder spellings; everything else fails closed", () => {
     expect(normalizeSignerMode("server_auto")).toBe("auto");
     expect(normalizeSignerMode("client_auto")).toBe("client_auto");
     expect(normalizeSignerMode("denied")).toBe("denied");
     expect(normalizeSignerMode("manual")).toBe("manual");
-    // Pre-rename spellings are not wire values anymore — no aliases.
-    expect(normalizeSignerMode("auto")).toBe("manual");
-    expect(normalizeSignerMode("agent_sync")).toBe("manual");
+    // The canonical account DTO names the server-controlled mode `auto`.
+    expect(normalizeSignerMode("auto")).toBe("auto");
+    expect(normalizeSignerMode("agent_sync")).toBe("denied");
   });
 });

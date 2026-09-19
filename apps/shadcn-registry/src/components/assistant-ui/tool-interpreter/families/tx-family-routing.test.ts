@@ -9,6 +9,7 @@ const contextFor = (result: Record<string, unknown>): ToolContext => ({
   parsedArgs: null,
   result,
   resultRecord: result,
+  relatedResultRecords: [],
 });
 
 describe("transaction family routing", () => {

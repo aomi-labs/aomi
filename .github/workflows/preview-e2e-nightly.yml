@@ -35,7 +35,7 @@ jobs:
         env:
           PORTAL_PREVIEW_URL: https://chat-staging.aomi.dev
           BUILD_PREVIEW_URL: https://build-staging.aomi.dev
-        run: pnpm exec playwright test
+        run: pnpm exec playwright test --project=preview
 
       - name: Upload Playwright diagnostics
         if: always()

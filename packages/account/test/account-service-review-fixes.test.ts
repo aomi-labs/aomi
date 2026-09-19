@@ -119,6 +119,71 @@ describe("getOrCreateAomiUserForBetterAuthSession email atomicity", () => {
   });
 });
 
+describe("Better Auth anonymous account upgrade", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("relinks both Better Auth subjects transactionally to the guest canonical UUID", async () => {
+    primeResolutionMocks();
+    queryMocks.createAomiUser.mockResolvedValue({ id: "guest-canonical" });
+    queryMocks.findSignalOwner
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    const { linkAnonymousCanonicalAccount } =
+      await import("../src/service/account-service");
+    await expect(
+      linkAnonymousCanonicalAccount({
+        anonymousBetterAuthUserId: "ba-guest",
+        newBetterAuthUserId: "ba-verified",
+        newEmail: "verified@example.com",
+        newEmailVerified: true,
+        newName: "Verified User",
+      }),
+    ).resolves.toBe("guest-canonical");
+
+    expect(queryMocks.lockIdentityResolutionKeys).toHaveBeenLastCalledWith(
+      ["identity:better_auth:ba-guest", "identity:better_auth:ba-verified"],
+      tx,
+    );
+    expect(queryMocks.revokeAuthIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "guest-canonical",
+        subject: "ba-guest",
+        db: tx,
+      }),
+    );
+    expect(queryMocks.upsertAuthIdentity).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        userId: "guest-canonical",
+        subject: "ba-verified",
+        email: "verified@example.com",
+        db: tx,
+      }),
+    );
+  });
+
+  it("fails closed when the verified subject already owns another canonical account", async () => {
+    primeResolutionMocks();
+    queryMocks.createAomiUser.mockResolvedValue({ id: "guest-canonical" });
+    queryMocks.findSignalOwner
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce("existing-canonical");
+
+    const { linkAnonymousCanonicalAccount } =
+      await import("../src/service/account-service");
+    await expect(
+      linkAnonymousCanonicalAccount({
+        anonymousBetterAuthUserId: "ba-guest",
+        newBetterAuthUserId: "ba-verified",
+      }),
+    ).rejects.toThrow("anonymous_account_merge_required");
+    expect(queryMocks.revokeAuthIdentity).not.toHaveBeenCalled();
+  });
+});
+
 describe("deactivateAomiAccount last-factor handling", () => {
   afterEach(() => {
     vi.resetModules();

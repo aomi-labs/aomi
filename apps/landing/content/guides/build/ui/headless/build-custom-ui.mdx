@@ -223,25 +223,17 @@ export default function ChatPage() {
 
 ## Handling Streaming Responses
 
-The `isRunning` flag from `useAomiRuntime` is `true` while the assistant is generating. Messages update in real time as tokens stream in, so your `MessageList` component will re-render with updated content automatically.
-
-For more granular streaming control, subscribe to SSE events:
+`isRunning` is derived from the backend `TurnState`. `isSubmitting` covers only
+the interval before the first Event exists. Messages update as `MessageEvent`
+revisions arrive in the same ordered session snapshot.
 
 ```tsx
-import { useEffect } from "react";
-import { useEventContext } from "@aomi-labs/react";
+import { useAomiRuntime } from "@aomi-labs/react";
 
 function StreamMonitor() {
-  const { subscribe, sseStatus } = useEventContext();
-
-  useEffect(() => {
-    const unsub = subscribe("streaming_text", (event) => {
-      console.log("Streaming chunk:", event.payload);
-    });
-    return unsub;
-  }, [subscribe]);
-
-  return <div>SSE: {sseStatus}</div>;
+  const { events, turnState, isSubmitting } = useAomiRuntime();
+  const latest = events.at(-1);
+  return <div>{isSubmitting ? "Submitting" : turnState}: {latest?.type}</div>;
 }
 ```
 

@@ -1,291 +1,246 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mainnet } from "viem/chains";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Action } from "../../src/agent/types";
 
-const MOCK_HASH = "0xabc123";
-const MOCK_ADDRESS = "0x1234567890abcdef1234567890abcdef12345678";
 const PRIVATE_KEY =
-  "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" as const;
+  "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const ORIGINAL_ENV = { ...process.env };
 
-const {
-  sendTransactionMock,
-  waitForReceiptMock,
-  createWalletClientMock,
-  createPublicClientMock,
-} = vi.hoisted(() => ({
-  sendTransactionMock: vi.fn(),
-  waitForReceiptMock: vi.fn(),
-  createWalletClientMock: vi.fn(),
-  createPublicClientMock: vi.fn(),
-}));
-
-vi.mock("viem", async () => {
-  const actual = await vi.importActual<typeof import("viem")>("viem");
+function action(id: string): Action {
   return {
-    ...actual,
-    createWalletClient: createWalletClientMock,
-    createPublicClient: createPublicClientMock,
-    http: vi.fn(() => ({ transport: "http" })),
+    type: "action",
+    event_id: `event-${id}`,
+    sequence: 1,
+    turn_id: "turn-1",
+    occurred_at: 1,
+    id,
+    revision: 1,
+    state: "pending",
+    request: {
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 1,
+          from: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+          to: "0x1111111111111111111111111111111111111111",
+          data: "0x",
+          label: "Transfer",
+          kind: "transfer",
+        },
+      ],
+    },
+    result: null,
+    created_at: 1,
+    expires_at: null,
   };
-});
+}
 
-vi.mock("viem/accounts", async () => {
-  const actual =
-    await vi.importActual<typeof import("viem/accounts")>("viem/accounts");
-  return {
-    ...actual,
-    privateKeyToAccount: vi.fn(() => ({ address: MOCK_ADDRESS })),
-  };
-});
+describe("CLI Action capabilities", () => {
+  let stateDir: string;
 
-import { executeWalletCalls } from "../../src/aa";
-import { toSignedTxMetadata } from "../../src/cli/tables";
-import type { PendingTx } from "../../src/cli/state";
-import {
-  formatSignedTxLine,
-  pendingTxToCallList,
-  toSignedTransactionRecord,
-} from "../../src/cli/transactions";
-
-describe("CLI wallet execution", () => {
   beforeEach(() => {
-    sendTransactionMock.mockReset();
-    waitForReceiptMock.mockReset();
-    createWalletClientMock.mockReset();
-    createPublicClientMock.mockReset();
-
-    sendTransactionMock.mockResolvedValue(MOCK_HASH);
-    waitForReceiptMock.mockResolvedValue({ status: "success" });
-    createWalletClientMock.mockReturnValue({
-      sendTransaction: sendTransactionMock,
-    });
-    createPublicClientMock.mockReturnValue({
-      waitForTransactionReceipt: waitForReceiptMock,
-    });
+    vi.resetModules();
+    process.env = { ...ORIGINAL_ENV };
+    stateDir = mkdtempSync(join(tmpdir(), "aomi-cli-actions-"));
+    process.env.AOMI_STATE_DIR = stateDir;
   });
 
-  it("maps a pending transaction into a single shared executor call", () => {
-    const pendingTx: PendingTx = {
-      id: "tx-1",
-      kind: "transaction",
-      to: "0x1111111111111111111111111111111111111111",
-      value: "42",
-      data: "0xdeadbeef",
-      chainId: 1,
-      timestamp: Date.now(),
-      payload: {},
-    };
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    rmSync(stateDir, { recursive: true, force: true });
+  });
 
-    expect(pendingTxToCallList(pendingTx)).toEqual([
+  it("installs an EVM capability on the session ActionHandler", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const cli = CliSession.create({
+      baseUrl: "https://api.aomi.dev",
+      app: "default",
+      secrets: {},
+      privateKey: PRIVATE_KEY,
+    });
+    const session = cli.createClientSession({ privateKey: PRIVATE_KEY });
+    session.actions.ingest(action("action-1"));
+
+    expect(session.actions.canExecute("action-1")).toBe(true);
+    session.close();
+  });
+
+  it("leaves execution unavailable when no signing key exists", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const cli = CliSession.create({
+      baseUrl: "https://api.aomi.dev",
+      app: "default",
+      secrets: {},
+    });
+    const session = cli.createClientSession();
+    session.actions.ingest(action("action-1"));
+
+    expect(session.actions.canExecute("action-1")).toBe(false);
+    session.close();
+  });
+
+  it("signs the prepared AA personal message bytes once, without broadcasting", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { cliActionCapabilities } =
+      await import("../../src/cli/action-capabilities");
+    const { recoverMessageAddress, isHex } = await import("viem");
+    const cli = CliSession.create({
+      baseUrl: "https://example.test",
+      secrets: {},
+    });
+    const capabilities = cliActionCapabilities(cli, {
+      privateKey: PRIVATE_KEY,
+    });
+    const result = await capabilities.sign!(
       {
-        to: pendingTx.to,
-        value: 42n,
-        data: pendingTx.data,
-        chainId: pendingTx.chainId,
+        type: "sign",
+        requestId: "sign-aa",
+        chainFamily: "evm",
+        executionKind: "erc4337",
+        operationId: "op-1",
+        broadcaster: "hosted",
+        signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+        chainId: 1,
+        description: "AA",
+        payloads: [{ kind: "evm_personal", message: "0x0102" }],
       },
+      new AbortController().signal,
+    );
+    expect(result.status).toBe("signed");
+    if (result.status !== "signed") throw new Error("Expected signature");
+    const signature = result.outputs[0].signature;
+    if (!signature || !isHex(signature))
+      throw new Error("Expected hex signature");
+    expect(
+      await recoverMessageAddress({ message: { raw: "0x0102" }, signature }),
+    ).toBe("0xFCAd0B19bB29D4674531d6f115237E16AfCE377c");
+  });
+
+  it("--eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const cli = CliSession.create({
+      baseUrl: "https://example.test",
+      secrets: {},
+    });
+    const session = cli.createClientSession({ privateKey: PRIVATE_KEY });
+    const ordinary = action("ordinary-1");
+    const permit = action("permit-1");
+    permit.request = {
+      type: "sign",
+      requestId: "sign-permit",
+      chainFamily: "evm",
+      executionKind: "message",
+      signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+      chainId: 1,
+      description: "Permit",
+      payloads: [{ kind: "evm_typed_data", typed_data: {} }],
+    };
+    const solana = action("svm-1");
+    solana.request = {
+      type: "sign",
+      requestId: "sign-svm",
+      chainFamily: "svm",
+      executionKind: "message",
+      signer: "So11111111111111111111111111111111111111112",
+      description: "Solana message",
+      payloads: [{ kind: "svm_message", message_base64: "AA==" }],
+    };
+    const aa = action("aa-1");
+    aa.request = {
+      type: "sign",
+      requestId: "sign-aa",
+      chainFamily: "evm",
+      executionKind: "erc4337",
+      operationId: "op-1",
+      broadcaster: "hosted",
+      signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
+      chainId: 1,
+      description: "AA",
+      payloads: [{ kind: "evm_personal", message: "0x0102" }],
+    };
+    for (const prepared of [ordinary, permit, solana, aa]) {
+      session.actions.ingest(prepared);
+    }
+    vi.spyOn(CliSession, "load").mockReturnValue(cli);
+    vi.spyOn(cli, "createClientSession").mockReturnValue(session);
+    vi.spyOn(session, "fetchCurrentState").mockResolvedValue();
+    vi.spyOn(session.actions, "canExecute").mockReturnValue(true);
+    const execute = vi
+      .spyOn(session.actions, "execute")
+      .mockImplementation(async (id) => ({
+        ...action(id),
+        state: "resolved",
+      }));
+    const close = vi.spyOn(session, "close").mockImplementation(() => {});
+    await signCommand({ secrets: {}, execution: "eoa" }, [
+      "ordinary-1",
+      "permit-1",
+      "svm-1",
     ]);
-  });
-
-  it("routes disabled provider state through the private-key EOA path", async () => {
-    const result = await executeWalletCalls({
-      callList: [
-        {
-          to: "0x1111111111111111111111111111111111111111" as `0x${string}`,
-          value: 5n,
-          chainId: 1,
-        },
-      ],
-      currentChainId: 1,
-      capabilities: undefined,
-      localPrivateKey:
-        "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      sendCallsSyncAsync: vi.fn(),
-      sendTransactionAsync: vi.fn(),
-      switchChainAsync: vi.fn(),
-      chainsById: {
-        [mainnet.id]: mainnet,
-      },
-      getPreferredRpcUrl: () => "https://example-rpc.invalid",
-    });
-
-    expect(createWalletClientMock).toHaveBeenCalledTimes(1);
-    expect(createPublicClientMock).toHaveBeenCalledTimes(1);
-    expect(sendTransactionMock).toHaveBeenCalledTimes(1);
-    expect(waitForReceiptMock).toHaveBeenCalledWith({ hash: MOCK_HASH });
-    expect(result).toMatchObject({
-      txHash: MOCK_HASH,
-      txHashes: [MOCK_HASH],
-      executionKind: "eoa",
-      batched: false,
-      sponsored: false,
-    });
-  });
-
-  it("supports multi-call execution and returns all hashes", async () => {
-    sendTransactionMock
-      .mockResolvedValueOnce("0xaaa111")
-      .mockResolvedValueOnce("0xbbb222");
-
-    const result = await executeWalletCalls({
-      callList: [
-        {
-          to: "0x1111111111111111111111111111111111111111" as `0x${string}`,
-          value: 5n,
-          chainId: 1,
-        },
-        {
-          to: "0x2222222222222222222222222222222222222222" as `0x${string}`,
-          value: 7n,
-          chainId: 1,
-        },
-      ],
-      currentChainId: 1,
-      capabilities: undefined,
-      localPrivateKey: PRIVATE_KEY,
-      sendCallsSyncAsync: vi.fn(),
-      sendTransactionAsync: vi.fn(),
-      switchChainAsync: vi.fn(),
-      chainsById: {
-        [mainnet.id]: mainnet,
-      },
-      getPreferredRpcUrl: () => "https://example-rpc.invalid",
-    });
-
-    expect(sendTransactionMock).toHaveBeenCalledTimes(2);
-    expect(result).toMatchObject({
-      txHash: "0xbbb222",
-      txHashes: ["0xaaa111", "0xbbb222"],
-      executionKind: "eoa",
-      batched: true,
-      sponsored: false,
-    });
-  });
-
-  it("preserves confirmed prefix hashes when a later local-key call fails", async () => {
-    sendTransactionMock.mockResolvedValueOnce("0xaction").mockRejectedValueOnce(
-      Object.assign(new Error("RPC failure\n\nRequest body: 0xsigned"), {
-        details: "in-flight transaction limit reached for delegated accounts",
-      }),
-    );
-
+    expect(execute.mock.calls.map(([id]) => id)).toEqual([
+      "ordinary-1",
+      "permit-1",
+      "svm-1",
+    ]);
     await expect(
-      executeWalletCalls({
-        callList: [
-          {
-            to: "0x1111111111111111111111111111111111111111" as `0x${string}`,
-            value: 1n,
-            chainId: 1,
-          },
-          {
-            to: "0x2222222222222222222222222222222222222222" as `0x${string}`,
-            value: 12_633_000_000n,
-            chainId: 1,
-          },
-        ],
-        currentChainId: 1,
-        capabilities: undefined,
-        localPrivateKey: PRIVATE_KEY,
-        sendCallsSyncAsync: vi.fn(),
-        sendTransactionAsync: vi.fn(),
-        switchChainAsync: vi.fn(),
-        chainsById: { [mainnet.id]: mainnet },
-        getPreferredRpcUrl: () => "https://example-rpc.invalid",
-      }),
-    ).rejects.toMatchObject({
-      name: "PartialWalletExecutionError",
-      partial: {
-        completedTxHashes: ["0xaction"],
-        failedCallIndex: 1,
-        failureReason:
-          "in-flight transaction limit reached for delegated accounts",
-      },
-    });
-
-    expect(waitForReceiptMock).toHaveBeenCalledTimes(1);
-    expect(waitForReceiptMock).toHaveBeenCalledWith({ hash: "0xaction" });
-    expect(sendTransactionMock).toHaveBeenCalledTimes(2);
+      signCommand({ secrets: {}, execution: "eoa" }, ["aa-1"]),
+    ).rejects.toBeInstanceOf(Error);
+    expect(execute).toHaveBeenCalledTimes(3);
+    close.mockRestore();
+    session.close();
   });
 
-  it("persists shared execution metadata onto signed transaction records", () => {
-    const pendingTx: PendingTx = {
-      id: "tx-7",
-      kind: "transaction",
-      to: "0x1111111111111111111111111111111111111111",
-      value: "99",
-      data: undefined,
+  it("rejects obsolete --aa-provider/--aa-mode in both --flag=value and --flag value forms", async () => {
+    const { buildCliConfig } = await import(
+      "../../src/cli/commands/defs/shared"
+    );
+    expect(() => buildCliConfig({ "aa-provider": "alchemy" })).toThrow();
+    expect(() => buildCliConfig({ "aa-provider": true })).toThrow();
+    expect(() => buildCliConfig({ "aa-mode": "7702" })).toThrow();
+    expect(() => buildCliConfig({})).not.toThrow();
+  });
+
+  it("--aa authorizes the existing Hosted AA Action and rejects an ordinary Action", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const cli = CliSession.create({
+      baseUrl: "https://example.test",
+      secrets: {},
+    });
+    const session = cli.createClientSession({ privateKey: PRIVATE_KEY });
+    const prepared = action("aa-1");
+    prepared.request = {
+      type: "sign",
+      requestId: "sign-aa",
+      chainFamily: "evm",
+      executionKind: "erc4337",
+      operationId: "op-1",
+      broadcaster: "hosted",
+      signer: "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c",
       chainId: 1,
-      timestamp: Date.now(),
-      payload: {},
+      description: "AA",
+      payloads: [{ kind: "evm_personal", message: "0x0102" }],
     };
-
-    const record = toSignedTransactionRecord(
-      pendingTx,
-      {
-        txHash: MOCK_HASH,
-        txHashes: [MOCK_HASH],
-        executionKind: "eoa",
-        batched: false,
-        sponsored: false,
-      },
-      MOCK_ADDRESS,
-      1,
-      123,
-    );
-
-    expect(record).toMatchObject({
-      id: "tx-7",
-      kind: "transaction",
-      txHash: MOCK_HASH,
-      txHashes: [MOCK_HASH],
-      executionKind: "eoa",
-      batched: false,
-      sponsored: false,
-      from: MOCK_ADDRESS,
-      to: pendingTx.to,
-      value: pendingTx.value,
-      chainId: 1,
-      timestamp: 123,
-    });
-
-    expect(toSignedTxMetadata(record)).toMatchObject({
-      txHash: MOCK_HASH,
-      txHashes: [MOCK_HASH],
-      executionKind: "eoa",
-      aaProvider: null,
-      aaMode: null,
-      batched: false,
-      sponsored: false,
-    });
-  });
-
-  it("formats signed transaction output with execution metadata", () => {
-    const line = formatSignedTxLine(
-      {
-        id: "tx-9",
-        kind: "transaction",
-        txHash: MOCK_HASH,
-        txHashes: [MOCK_HASH, "0xdef456"],
-        executionKind: "eoa",
-        aaProvider: "alchemy",
-        aaMode: "7702",
-        batched: true,
-        sponsored: true,
-        smartAccount4337: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        Delegation7702: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        to: "0x1111111111111111111111111111111111111111",
-        value: "10",
-        timestamp: 0,
-      },
-      "  ✅",
-    );
-
-    expect(line).toContain("exec: eoa");
-    expect(line).toContain("provider: alchemy");
-    expect(line).toContain("mode: 7702");
-    expect(line).toContain("txs: 2");
-    expect(line).toContain("sponsored");
-    expect(line).toContain("4337: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    expect(line).toContain(
-      "delegation: 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    );
+    session.actions.ingest(prepared);
+    vi.spyOn(CliSession, "load").mockReturnValue(cli);
+    vi.spyOn(cli, "createClientSession").mockReturnValue(session);
+    vi.spyOn(session, "fetchCurrentState").mockResolvedValue();
+    const execute = vi
+      .spyOn(session.actions, "execute")
+      .mockResolvedValue({ ...prepared, state: "resolved" });
+    const close = vi.spyOn(session, "close").mockImplementation(() => {});
+    await signCommand({ secrets: {}, execution: "aa" }, ["aa-1"]);
+    expect(execute).toHaveBeenCalledWith("aa-1");
+    // A new Action cannot be reinterpreted as AA by a signing flag.
+    session.actions.ingest(action("ordinary-1"));
+    await expect(
+      signCommand({ secrets: {}, execution: "aa" }, ["ordinary-1"]),
+    ).rejects.toBeInstanceOf(Error);
+    expect(execute).toHaveBeenCalledTimes(1);
+    close.mockRestore();
+    session.close();
   });
 });

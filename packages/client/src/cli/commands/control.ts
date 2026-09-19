@@ -20,24 +20,25 @@ export async function statusCommand(config: CliConfig): Promise<void> {
 
   const session = cli.createClientSession(config);
   try {
-    const apiState = await session.client.fetchState(
-      cli.sessionId,
-      undefined,
-      cli.clientId,
-    );
+    await session.fetchCurrentState();
+    const snapshot = session.getSnapshot();
     console.log(
       JSON.stringify(
         {
           sessionId: cli.sessionId,
           baseUrl: cli.baseUrl,
-          app: cli.app,
+          mode: cli.agentMode,
+          app: cli.agentMode === "direct" ? (cli.app ?? null) : null,
+          applicationId:
+            cli.agentMode === "direct" ? (cli.applicationId ?? null) : null,
           model: cli.model ?? null,
           chainId: cli.chainId ?? null,
-          isProcessing: apiState.is_processing ?? false,
-          messageCount: apiState.messages?.length ?? 0,
-          title: apiState.title ?? null,
-          pendingTxs: cli.pendingTxs.length,
-          signedTxs: cli.signedTxs.length,
+          turnState: snapshot.turnState ?? null,
+          isSubmitting: snapshot.isSubmitting,
+          messageCount: snapshot.messages.length,
+          title: snapshot.title ?? null,
+          actions: snapshot.actions.length,
+          pendingActions: session.actions.pending().length,
         },
         null,
         2,
@@ -59,8 +60,30 @@ export async function eventsCommand(config: CliConfig): Promise<void> {
 
   const session = cli.createClientSession(config);
   try {
-    const events = await session.client.getSystemEvents(cli.sessionId);
-    console.log(JSON.stringify(events, null, 2));
+    const page = await session.client.agent.poll(cli.sessionId);
+    console.log(JSON.stringify(page.events, null, 2));
+  } finally {
+    session.close();
+  }
+}
+
+export async function interruptCommand(config: CliConfig): Promise<void> {
+  const cli = CliSession.load();
+  if (!cli) {
+    fatal("No active session to interrupt.");
+  }
+  cli.mergeConfig(config);
+
+  const session = cli.createClientSession(config);
+  try {
+    await session.fetchCurrentState();
+    await session.interrupt();
+    if (config.json) {
+      printJson({ sessionId: cli.sessionId, interrupted: true });
+      return;
+    }
+    console.log(`Interrupted session ${cli.sessionId}.`);
+    printDataFileLocation({ verbose: config.verbose });
   } finally {
     session.close();
   }
@@ -69,10 +92,8 @@ export async function eventsCommand(config: CliConfig): Promise<void> {
 export async function appsCommand(config: CliConfig): Promise<void> {
   const client = createControlClient(config);
   const cli = CliSession.load();
-  const sessionId = cli?.sessionId ?? crypto.randomUUID();
-  const apps = await client.getApps(sessionId, {
-    apiKey: config.apiKey ?? cli?.apiKey,
-  });
+  const response = await client.pipeline.apps.list();
+  const apps = response.entries.map((entry) => ({ name: entry.name }));
 
   if (apps.length === 0) {
     if (config.json) {
@@ -83,7 +104,7 @@ export async function appsCommand(config: CliConfig): Promise<void> {
     return;
   }
 
-  const currentApp = cli?.app ?? config.app;
+  const currentApp = cli?.agentMode === "direct" ? cli.app : config.app;
   if (config.json) {
     printJson(
       apps.map((descriptor) => ({
@@ -94,14 +115,9 @@ export async function appsCommand(config: CliConfig): Promise<void> {
     return;
   }
   for (const descriptor of apps) {
-    const name = descriptor.name;
+    const name = String(descriptor.name ?? "");
     const marker = currentApp === name ? "  (current)" : "";
-    const required = (descriptor.secrets ?? [])
-      .filter((s) => s.required)
-      .map((s) => s.name);
-    const requiredSuffix =
-      required.length > 0 ? `  [requires: ${required.join(", ")}]` : "";
-    console.log(`${name}${marker}${requiredSuffix}`);
+    console.log(`${name}${marker}`);
   }
 }
 
@@ -136,10 +152,20 @@ export function currentAppCommand(config: CliConfig = { secrets: {} }): void {
     return;
   }
   if (config.json) {
-    printJson({ active: true, app: cli.app ?? "default" });
+    printJson({
+      active: true,
+      mode: cli.agentMode,
+      app: cli.agentMode === "direct" ? (cli.app ?? null) : null,
+      applicationId:
+        cli.agentMode === "direct" ? (cli.applicationId ?? null) : null,
+    });
     return;
   }
-  console.log(cli.app ?? "(default)");
+  console.log(
+    cli.agentMode === "auto"
+      ? "Auto (no Direct app)"
+      : (cli.app ?? `application ${cli.applicationId}`),
+  );
   printDataFileLocation({ verbose: config.verbose });
 }
 
@@ -230,7 +256,9 @@ export function currentWalletCommand(
   if (state.svmPublicKey) {
     const signerStatus = state.svmPrivateKey ? "saved signer" : "address only";
     const clusterSuffix = state.svmCluster ? `, ${state.svmCluster}` : "";
-    console.log(`Solana: ${state.svmPublicKey} (${signerStatus}${clusterSuffix})`);
+    console.log(
+      `Solana: ${state.svmPublicKey} (${signerStatus}${clusterSuffix})`,
+    );
   }
   printDataFileLocation({ verbose: config.verbose });
 }
@@ -258,10 +286,12 @@ export function setAppCommand(
 
   const cli = CliSession.loadOrCreate({
     ...config,
+    agentMode: "direct",
     app: trimmed,
   });
   cli.mergeConfig({
     ...config,
+    agentMode: "direct",
     app: trimmed,
   });
 
@@ -271,26 +301,35 @@ export function setAppCommand(
   }
 }
 
+export function setAgentModeCommand(
+  config: CliConfig,
+  mode: "auto" | "direct",
+  app?: string,
+  options?: { printLocation?: boolean },
+): void {
+  const selectedApp = app?.trim();
+  const cli = CliSession.loadOrCreate(config);
+  cli.setAgentRouting(mode, selectedApp ? { app: selectedApp } : undefined);
+  console.log(
+    mode === "auto"
+      ? "Mode set to Auto"
+      : `Mode set to Direct (${selectedApp ?? cli.app ?? (cli.applicationId ? `application ${cli.applicationId}` : "default")})`,
+  );
+  if (options?.printLocation !== false) {
+    printDataFileLocation({ verbose: config.verbose });
+  }
+}
+
 export async function setModelCommand(
   config: CliConfig,
   model: string,
   options?: { printLocation?: boolean },
 ): Promise<void> {
   const cli = CliSession.loadOrCreate(config);
-  const session = cli.createClientSession(config);
-  try {
-    await session.client.setModel(cli.sessionId, model, {
-      app: cli.app,
-      applicationId: config.applicationId,
-      apiKey: cli.apiKey,
-    });
-    cli.setModel(model);
-    console.log(`Model set to ${model}`);
-    if (options?.printLocation !== false) {
-      printDataFileLocation({ verbose: config.verbose });
-    }
-  } finally {
-    session.close();
+  cli.setModel(model);
+  console.log(`Model set to ${model}`);
+  if (options?.printLocation !== false) {
+    printDataFileLocation({ verbose: config.verbose });
   }
 }
 

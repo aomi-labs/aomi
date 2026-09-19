@@ -18,7 +18,7 @@ export function requireWidgetOrigin(request: Request): string {
 
 export function observedWidgetOrigin(
   request: Request,
-  nodeEnv = process.env.NODE_ENV,
+  _nodeEnv = process.env.NODE_ENV,
 ): string | null {
   const rawOrigin = request.headers.get("origin");
   if (!rawOrigin || rawOrigin === "null") return null;
@@ -30,11 +30,7 @@ export function observedWidgetOrigin(
   }
   if (origin.origin !== rawOrigin) return null;
   if (origin.protocol === "https:") return origin.origin;
-  if (
-    nodeEnv !== "production" &&
-    origin.protocol === "http:" &&
-    LOCAL_WIDGET_HOSTS.has(origin.hostname)
-  ) {
+  if (origin.protocol === "http:" && LOCAL_WIDGET_HOSTS.has(origin.hostname)) {
     return origin.origin;
   }
   return null;

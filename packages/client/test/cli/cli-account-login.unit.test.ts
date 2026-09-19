@@ -22,6 +22,7 @@ describe("aomi account login", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.doUnmock("../../src/cli/device-auth");
+    vi.doUnmock("../../src/cli/oauth-device-auth");
     process.env = { ...ORIGINAL_ENV };
     stateDir = mkdtempSync(join(tmpdir(), "aomi-cli-login-"));
     process.env.AOMI_STATE_DIR = stateDir;
@@ -33,17 +34,22 @@ describe("aomi account login", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses device provider auth by default", async () => {
-    const deviceLogin = vi.fn(async () => ({
-      provider: "privy" as const,
-      auth: {
-        sessionToken: "better-auth-session",
-        expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
-        betterAuthUserId: "better-auth-user",
-      },
+  it("uses least-privilege OAuth device grants by default", async () => {
+    const oauthLogin = vi.fn(async (input: { resource: string }) => ({
+      clientId: input.resource.endsWith("/v1/agent")
+        ? "agent-client"
+        : "pipeline-client",
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+      expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
+      resource: input.resource,
+      scopes: input.resource.endsWith("/v1/agent")
+        ? ["agent:read", "agent:write", "offline_access"]
+        : ["pipeline:catalog", "offline_access"],
+      tokenType: "Bearer" as const,
     }));
-    vi.doMock("../../src/cli/device-auth", () => ({
-      signInWithDeviceProvider: deviceLogin,
+    vi.doMock("../../src/cli/oauth-device-auth", () => ({
+      signInWithOAuthDevice: oauthLogin,
     }));
     const { accountLoginCommand } =
       await import("../../src/cli/commands/account");
@@ -52,12 +58,26 @@ describe("aomi account login", () => {
 
     await accountLoginCommand(baseConfig);
 
-    expect(deviceLogin).toHaveBeenCalledWith({
-      baseUrl: "http://unit.test",
-      provider: undefined,
-    });
-    expect(readState()?.auth?.sessionToken).toBe("better-auth-session");
-    expect(logSpy).toHaveBeenCalledWith("Signed in with Privy");
+    expect(oauthLogin).toHaveBeenCalledTimes(2);
+    expect(oauthLogin.mock.calls.map(([input]) => input)).toEqual([
+      {
+        baseUrl: "http://unit.test",
+        resource: "http://unit.test/v1/agent",
+        scopes: ["agent:read", "agent:write", "offline_access"],
+      },
+      {
+        baseUrl: "http://unit.test",
+        resource: "http://unit.test/v1/pipeline",
+        scopes: ["pipeline:catalog", "offline_access"],
+      },
+    ]);
+    expect(Object.keys(readState()?.oauthGrants ?? {})).toEqual([
+      "http://unit.test/v1/agent",
+      "http://unit.test/v1/pipeline",
+    ]);
+    expect(logSpy).toHaveBeenCalledWith(
+      "Signed in with OAuth device authorization",
+    );
   });
 
   it("passes an explicit provider to device auth", async () => {
@@ -127,7 +147,7 @@ describe("aomi account login", () => {
           headers: new Headers({ "set-auth-token": "session-123" }),
         } as unknown as Response;
       }
-      if (target.endsWith("/api/aomi/account")) {
+      if (target.endsWith("/v1/account")) {
         return {
           ok: true,
           status: 200,
@@ -168,10 +188,8 @@ describe("aomi account login", () => {
       );
       expect(new Headers(verifyInit.headers).get("Cookie")).toBeNull();
       expect(JSON.parse(verifyInit.body as string)).toEqual({
-        chainId: 1,
         message: expect.stringContaining("Nonce: abc123def456"),
         signature: expect.stringMatching(/^0x/),
-        walletAddress: expect.stringMatching(/^0x/),
       });
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining("Signed in with 0x"),
@@ -225,7 +243,7 @@ describe("aomi account login", () => {
           { headers: { "set-auth-token": "svm-session" } },
         );
       }
-      if (target.endsWith("/api/aomi/account")) {
+      if (target.endsWith("/v1/account")) {
         return Response.json({
           session: {
             betterAuthUserId: "ba-svm-user",

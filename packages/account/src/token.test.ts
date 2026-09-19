@@ -11,7 +11,7 @@ import { createBearerTokenRoute } from "./token";
 const mintMock = vi.mocked(mintAccountBearer);
 
 const fakeRequest = new NextRequest(
-  "https://portal.aomi.dev/api/aomi/account-bearer",
+  "https://portal.aomi.dev/v1/account/bearer",
 );
 
 describe("createBearerTokenRoute", () => {
@@ -61,7 +61,7 @@ describe("createBearerTokenRoute", () => {
       kind: "bearer_mint",
       error: failure,
       method: "GET",
-      pathname: "/api/aomi/account-bearer",
+      pathname: "/v1/account/bearer",
       responseStatus: 500,
     });
   });

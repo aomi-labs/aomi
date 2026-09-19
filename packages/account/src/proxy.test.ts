@@ -251,7 +251,7 @@ describe("createBackendProxy", () => {
     const { GET } = createTestProxy({
       allowedRoutes: [
         {
-          pattern: /^\/api\/thread\/state$/,
+          pattern: /^\/api\/health$/,
           methods: new Set(["GET"]),
           auth: "optional",
         },
@@ -260,7 +260,7 @@ describe("createBackendProxy", () => {
     });
 
     const response = await GET(
-      ...proxyRequest("/api/thread/state", {
+      ...proxyRequest("/api/health", {
         headers: {
           authorization: "Bearer user-supplied",
           cookie: "better-auth.session_token=session",

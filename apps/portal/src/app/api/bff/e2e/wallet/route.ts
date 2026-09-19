@@ -13,9 +13,13 @@ import {
 
 function redirectTarget(request: NextRequest): URL {
   const requested = request.nextUrl.searchParams.get("redirect") ?? "/";
-  const target = new URL(requested, request.nextUrl.origin);
-  if (target.origin !== request.nextUrl.origin) {
-    return new URL("/", request.nextUrl.origin);
+  const host = request.headers.get("host");
+  const origin = host
+    ? `${request.nextUrl.protocol}//${host}`
+    : request.nextUrl.origin;
+  const target = new URL(requested, origin);
+  if (target.origin !== origin) {
+    return new URL("/", origin);
   }
   return target;
 }

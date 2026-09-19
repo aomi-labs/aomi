@@ -1,0 +1,36 @@
+diff --git a/dist/esm/server/web/next-url.js b/dist/esm/server/web/next-url.js
+index 7013ad9e0a6d5a698121d1031d94a58fd8e9c26f..fb38227e129d5c1a82aa682e0db5ca78e1592e34 100644
+--- a/dist/esm/server/web/next-url.js
++++ b/dist/esm/server/web/next-url.js
+@@ -2,9 +2,11 @@ import { detectDomainLocale } from '../../shared/lib/i18n/detect-domain-locale';
+ import { formatNextPathnameInfo } from '../../shared/lib/router/utils/format-next-pathname-info';
+ import { getHostname } from '../../shared/lib/get-hostname';
+ import { getNextPathnameInfo } from '../../shared/lib/router/utils/get-next-pathname-info';
+-const REGEX_LOCALHOST_HOSTNAME = /(?!^https?:\/\/)(127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}|\[::1\]|localhost)/;
++const REGEX_LOCALHOST_HOSTNAME = /^(127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}|\[::1\]|localhost)$/;
+ function parseURL(url, base) {
+-    return new URL(String(url).replace(REGEX_LOCALHOST_HOSTNAME, 'localhost'), base && String(base).replace(REGEX_LOCALHOST_HOSTNAME, 'localhost'));
++    const parsed = new URL(String(url), base && String(base));
++    if (REGEX_LOCALHOST_HOSTNAME.test(parsed.hostname)) parsed.hostname = 'localhost';
++    return parsed;
+ }
+ const Internal = Symbol('NextURLInternal');
+ export class NextURL {
+diff --git a/dist/server/web/next-url.js b/dist/server/web/next-url.js
+index 7405357180e355bb4a1e0130605517b293cfcedd..ad906468691da3fcd631423c9438112887d53e5a 100644
+--- a/dist/server/web/next-url.js
++++ b/dist/server/web/next-url.js
+@@ -12,9 +12,11 @@ const _detectdomainlocale = require("../../shared/lib/i18n/detect-domain-locale"
+ const _formatnextpathnameinfo = require("../../shared/lib/router/utils/format-next-pathname-info");
+ const _gethostname = require("../../shared/lib/get-hostname");
+ const _getnextpathnameinfo = require("../../shared/lib/router/utils/get-next-pathname-info");
+-const REGEX_LOCALHOST_HOSTNAME = /(?!^https?:\/\/)(127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}|\[::1\]|localhost)/;
++const REGEX_LOCALHOST_HOSTNAME = /^(127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}|\[::1\]|localhost)$/;
+ function parseURL(url, base) {
+-    return new URL(String(url).replace(REGEX_LOCALHOST_HOSTNAME, 'localhost'), base && String(base).replace(REGEX_LOCALHOST_HOSTNAME, 'localhost'));
++    const parsed = new URL(String(url), base && String(base));
++    if (REGEX_LOCALHOST_HOSTNAME.test(parsed.hostname)) parsed.hostname = 'localhost';
++    return parsed;
+ }
+ const Internal = Symbol('NextURLInternal');
+ class NextURL {

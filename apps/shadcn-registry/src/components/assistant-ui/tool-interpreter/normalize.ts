@@ -84,6 +84,30 @@ export const chainFactFromRecord = (
   );
 };
 
+/** Resolve an explicit chain name embedded in a model-authored tool topic.
+ * Longest names win, so "Base Sepolia" is not reduced to "Base". Tickers are
+ * intentionally excluded because token symbols such as ETH are ambiguous. */
+export const chainFactFromText = (
+  value: string,
+  source: FactSource = "label",
+): ToolFact | null => {
+  const searchable = ` ${value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()} `;
+  const chains = [...SUPPORTED_CHAINS].sort(
+    (left, right) => right.name.length - left.name.length,
+  );
+  const chain = chains.find((candidate) => {
+    const name = candidate.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    return name.length > 0 && searchable.includes(` ${name} `);
+  });
+  return chain ? chainFact(chain.id, chain.name, source) : null;
+};
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const normalizeAddress = (value: unknown): string | null => {
@@ -135,23 +159,6 @@ export const amountFact = (
   };
 };
 
-/**
- * Async wallet verdict reconciled onto a staged tool result by the runtime
- * (packages/react `collectTxOutcomes`): staged results are frozen at
- * queued/pending_approval, so when `tx_outcome` is present it is the truth —
- * matchers feed it to `statusFact` ahead of the recorded lifecycle, which
- * flips the chip to Success/Failed and (via `isFailedStatus`) the red-X
- * step marker.
- */
-export const txOutcomeStatus = (
-  record: Record<string, unknown>,
-): string | null => {
-  const outcome = record.tx_outcome;
-  if (typeof outcome !== "object" || outcome === null) return null;
-  const status = (outcome as { status?: unknown }).status;
-  return status === "success" || status === "failed" ? status : null;
-};
-
 export const statusFact = (
   value: unknown,
   source: FactSource = "result",
@@ -161,6 +168,9 @@ export const statusFact = (
   const raw = asString(value);
   if (!raw) return null;
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
+  if (normalized === "pending approval") {
+    return { kind: "status", value: "pending_approval", source };
+  }
   if (normalized.includes("pending")) {
     return { kind: "status", value: "pending", source };
   }

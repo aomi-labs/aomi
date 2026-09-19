@@ -96,11 +96,14 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
             : null;
           const betterAuthUser =
             existing?.user ??
-            (await ctx.context.internalAdapter.createUser({
-              email: seed.email,
-              emailVerified: seed.emailVerified,
-              name: seed.name,
-            }));
+            (await ctx.context.internalAdapter.createUser(
+              {
+                email: seed.email,
+                emailVerified: seed.emailVerified,
+                name: seed.name,
+              },
+              { method: "aomi-provider" },
+            ));
           const resolution = await signInWithVerifiedProviderCredential({
             betterAuthUserId: betterAuthUser.id,
             verified,

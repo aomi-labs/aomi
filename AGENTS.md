@@ -1,36 +1,58 @@
 # Repository Guidelines
 
-> Persistent goal: see `GOAL.md` in the repo root. Every session should
-> read it first and update it as work progresses.
-
 ## Project Structure & Module Organization
 
-`src/` holds the publishable widget library: `components/assistant-ui/` for the Aomi frame and chat surfaces, `components/ui/` for shadcn-style primitives, `hooks/` for reusable state, `lib/` for runtime/context helpers, `utils/` for wallet helpers, and `themes/` for CSS token packs that feed the `styles.css` entry point. The demo Next.js app now lives in `apps/landing/` and consumes the built package from `dist/`; use it to validate UI flows before publishing. Static assets shared by the example go in `apps/landing/public/`, while high-level product briefs sit in `specs/`—update both when you introduce new flows.
+Read [frontend invariants](docs/topics/development/facts/frontend-invariants.md)
+before changing public packages, examples, or CI. See
+[development workspace](docs/topics/development/facts/workspace.md) for the layout.
+`packages/client` owns the SDK and CLI; `packages/react` owns React runtime
+integration; `apps/shadcn-registry` owns the published widget and registry.
+`packages/account` owns shared authentication and BFF support. Deployed apps
+live under `apps/`, including Portal, Build, Base, Landing, and Telegram.
+`GOAL.md` is a historical work log, not current routing or normative policy.
 
 ## Build, Test, and Development Commands
 
-- `pnpm run dev` — Next dev server for the root workspace; handy for debugging shared configs.
-- `pnpm run build:lib` — tsup build that emits ESM/CJS bundles and `*.d.ts` files under `dist/`.
-- `pnpm --filter landing dev` — launches the demo at http://localhost:3000 using the last built library.
-- `pnpm run dev:landing:live` — watches `src/` with tsup while running the landing so library updates hot-reload into the demo.
-- `pnpm run lint` — ESLint (with Next + TypeScript rules) across the library and example.
-- `pnpm run prettier:fix` — Prettier with the Tailwind plugin; keeps class orders deterministic before committing.
-- `pnpm run generate:theme -- --name=neon` — scaffolds a new CSS token file under `src/themes/` using the default theme as a starting point; remember to update `src/themes/tokens.config.ts`.
+Use the repository-pinned pnpm version through Corepack. For Aomi local work,
+run heavyweight checks through the managed `aomi-dev exec --repo frontend`
+workflow for the selected workspace.
+
+- `pnpm run build:packages` — build/check shared packages and registry.
+- `pnpm run lint` and `pnpm run typecheck` — workspace lint and library types.
+- `pnpm exec vitest run` — workspace automated tests.
+- `pnpm run test:portal` and `pnpm run test:telegram` — app tests.
+- `pnpm run test:contracts -- --base <trusted-base-sha>` — build and pack the
+  candidate SDK, React runtime, and widget; validate existing consumers from
+  that base outside the workspace. CI supplies the PR base SHA automatically.
+- `pnpm run check:frontend-boundaries` — reject private cross-app UI imports
+  and package dependency-direction violations.
+- `pnpm run typecheck:apps` and `pnpm run build:apps` — deployed app checks.
 
 ## Coding Style & Naming Conventions
 
-The codebase is TypeScript + React 19 on Next 15. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. Components use PascalCase file names (e.g., `AomiFrame.tsx`), hooks start with `use` (e.g., `hooks/useWallet.ts`), and shared contexts sit in `lib/`. Tailwind utility strings should group layout → color → motion classes to minimize churn.
+The codebase is TypeScript + React 19 on Next 16. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. Components use PascalCase file names (e.g., `AomiFrame.tsx`), hooks start with `use` (e.g., `hooks/useWallet.ts`), and shared contexts sit in `lib/`. Tailwind utility strings should group layout → color → motion classes to minimize churn.
 
 ## Testing Guidelines
 
-There is no dedicated automated test suite yet, so treat `pnpm run build:lib` and `pnpm run lint` as the minimum regression gates. Validate UI behavior through the `apps/landing/` app before opening a PR, and capture regressions with story-specific checks or lightweight React Testing Library specs (`*.test.tsx`) colocated with the component whenever you add new logic branches.
+Vitest and Playwright suites already exist. Run the checks relevant to changed
+behavior and report what passed, failed, or was not exercised. For SDK/widget
+changes, run the consumer compatibility check against the trusted base before
+finishing. Never edit an existing consumer to conceal a compatibility failure;
+intentional migrations require frontend-owner review. Browser checks remain a
+separate layer and are not implied by a successful consumer build.
+Portal host composition must use `@aomi-labs/widget-lib/host-composition`;
+do not add relative imports into `apps/shadcn-registry/src` or use its internal
+`@/` aliases from Portal source.
 
 ## Commit & Pull Request Guidelines
 
 Commits follow short, imperative summaries (`Fix linting ci`, `Update packages for …`). Keep bodies optional but include rationale when touching build or security-sensitive files. For pull requests, add: 1) a concise description of the change and linked issue, 2) a checklist of commands you ran (lint, build, demo), and 3) screenshots or short clips for UI-impacting work. Make sure the PR mentions any `specs/` updates so reviewers can cross-check behavior changes.
 
-Before merging, audit every touched workspace against the npm publish workflow. If shipped files from a publishable npm package changed, bump that package's version in the same change (use a patch bump unless the release scope requires otherwise), refresh any affected lockfile or generated artifacts, and verify the package is publishable. Do not defer required npm version bumps until after merge.
+Before merging, audit every touched workspace against the npm publish workflow. If shipped files from a publishable npm package changed, bump that package's version in the same change (use a patch bump unless the release scope requires otherwise), refresh any affected lockfile or generated artifacts, and verify the package is publishable. Client and React `dist/` trees are generated by their deterministic `prepack` hooks and must not be committed; audit the resulting tarballs instead. Do not defer required npm version bumps until after merge.
 
 ## Security & Configuration Tips
 
-Never commit `.env` contents. Local development requires `NEXT_PUBLIC_PROJECT_ID` and `NEXT_PUBLIC_BACKEND_URL` (see README) so be sure to supply mock-safe values when recording demos. Wallet helpers in `utils/wallet.ts` assume checksummed addresses; validate inputs before invoking them, and funnel all network or key-related secrets through the backend instead of embedding them in this repo.
+Never commit `.env` contents. Use the selected app's documented environment
+configuration and disposable test credentials. Keep provider secrets and
+identity verification on the server; consumer compatibility checks require no
+provider credentials or production accounts.

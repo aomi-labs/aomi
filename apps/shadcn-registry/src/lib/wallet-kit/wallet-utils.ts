@@ -19,5 +19,5 @@ export function toRegistryFamily(
   fallback: WalletFamily = "evm",
 ): WalletFamily {
   if (!family) return fallback;
-  return family === "solana" ? "svm" : family;
+  return family;
 }

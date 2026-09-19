@@ -156,7 +156,8 @@ everything except tracing. Rust's ignored live smoke test is in
 
 An implementation session should begin here:
 
-1. Read this document, the repository `AGENTS.md`, and `GOAL.md`.
+1. Read this document, the repository `AGENTS.md`, and the maintained topic
+   docs relevant to the change. `GOAL.md` is historical context only.
 2. Confirm `/Users/kevin/aomi/pg2/aomi` is clean and synchronized with
    `origin/main`; do not discard unrelated user changes.
 3. Create a `codex/bff-sentry-observability` branch unless the task specifies
@@ -531,12 +532,12 @@ Instrument these ownership boundaries:
 - `apps/portal/src/server/bff/failures.ts`
 - `apps/portal/src/server/bff/launch/routes.ts`
 - `apps/portal/src/app/api/[...slug]/route.ts`
-- `apps/portal/src/app/api/aomi/account-bearer/route.ts`
+- `apps/portal/src/app/v1/account/bearer/route.ts`
 - `apps/portal/src/app/api/bff/auth/github/callback/route.ts`
 - `apps/portal/src/app/api/auth/[...all]/route.ts`
 - `apps/portal/src/server/mcp/oauth-redirect.ts`
-- the four `apps/portal/src/app/api/aomi/device-auth/*` routes
-- `apps/portal/src/app/api/mcp/route.ts` and its backend boundary
+- the four `apps/portal/src/app/v1/account/device-auth/*` routes
+- canonical `/v1/agent/mcp` and `/v1/pipeline/mcp` route boundaries
 
 The widget wrapper should capture unknown exceptions centrally while leaving
 its typed validation, credential, and conflict errors ignored.

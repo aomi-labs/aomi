@@ -1,9 +1,9 @@
 // =============================================================================
 // CLI UserState — end-to-end wire shape
 // =============================================================================
-// Drives the real `ClientSession` + `buildCliUserState` + `session.resolveWallet`
-// pipeline (no network — the SSE subscribe is the only client method
-// invoked). Each test asserts the exact UserState shape sent on the wire:
+// Verifies the CLI's canonical UserState source. ClientSession reads this
+// callback only while constructing StartTurnIntent; it never owns or mutates
+// a second wallet state. Each test asserts the exact UserState wire shape:
 // {connection, evm, svm, ext} with AA fields absent (backend authority).
 //
 // Coverage:
@@ -14,36 +14,10 @@
 // packages/react/.../user-context tests) and out of scope here.
 
 import { describe, expect, it } from "vitest";
-import { ClientSession } from "../../src/session";
-import { AomiClient } from "../../src/client";
-import { CLIENT_TYPE_TS_CLI } from "../../src/types";
 import { buildCliUserState } from "../../src/cli/user-state";
 
 const EOA = "0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
 const CHAIN_ID = 1;
-
-function fakeClient(): AomiClient {
-  // ClientSession ctor instance-checks the client and only calls
-  // `subscribeSSE` synchronously; resolveWallet / getUserState don't hit
-  // the network at all. Real instance + stubbed subscribe satisfies the
-  // type guard without leaking any HTTP from these tests.
-  const client = new AomiClient({ baseUrl: "http://test.invalid" });
-  (
-    client as unknown as { subscribeSSE: AomiClient["subscribeSSE"] }
-  ).subscribeSSE = () => () => {};
-  return client;
-}
-
-function makeSession(initialUserState?: ReturnType<typeof buildCliUserState>) {
-  return new ClientSession(fakeClient(), {
-    sessionId: "test-session",
-    clientId: "test-client",
-    app: "default",
-    publicKey: EOA,
-    userState: initialUserState,
-    clientType: CLIENT_TYPE_TS_CLI,
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Connect-time
@@ -57,8 +31,7 @@ function makeSession(initialUserState?: ReturnType<typeof buildCliUserState>) {
 
 describe("CLI UserState — connect-time", () => {
   it("carries address + chain + is_connected + ts_cli client_type, no aa/sponsorship", () => {
-    const session = makeSession(buildCliUserState(EOA, CHAIN_ID));
-    const state = session.getUserState();
+    const state = buildCliUserState(EOA, CHAIN_ID);
 
     expect(state).toEqual({
       evm: { address: EOA, chain_id: CHAIN_ID },
@@ -67,30 +40,5 @@ describe("CLI UserState — connect-time", () => {
     });
     expect(state?.evm).not.toHaveProperty("aa");
     expect(state?.evm).not.toHaveProperty("sponsorship");
-
-    session.close();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Post-tx
-// ---------------------------------------------------------------------------
-
-describe("CLI UserState — post-tx", () => {
-  it("resolveWallet records owner/chain and never writes aa/sponsorship", () => {
-    const session = makeSession(buildCliUserState(EOA, CHAIN_ID));
-
-    session.resolveWallet(EOA, CHAIN_ID);
-
-    const state = session.getUserState();
-    expect(state).toMatchObject({
-      evm: { address: EOA, chain_id: CHAIN_ID },
-      connection: { is_connected: true },
-      ext: { client_type: "ts_cli" },
-    });
-    expect(state?.evm).not.toHaveProperty("aa");
-    expect(state?.evm).not.toHaveProperty("sponsorship");
-
-    session.close();
   });
 });

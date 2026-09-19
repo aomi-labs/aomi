@@ -71,6 +71,8 @@ export type UpdateAccountInput = {
 export type AccountRuntime = {
   status: AccountRuntimeStatus;
   error?: string;
+  /** True when the browser only has Portal's temporary guest session. */
+  guest?: boolean;
   user?: AomiUserRef;
   linkedAccounts: LinkedAuthAccount[];
   wallets: AccountWallet[];

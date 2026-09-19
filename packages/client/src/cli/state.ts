@@ -8,106 +8,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
-import { homedir, tmpdir } from "node:os";
-import {
-  UserState as UserStateHelpers,
-  type UserStateAAMode,
-  type UserState,
-} from "../user-state";
-import {
-  pendingTxsFromBackendUserState,
-  pendingSolTxsFromBackendUserState,
-  walletSnapshotFromUserState,
-} from "./user-state";
-import type { CliAAProvider, CliEmbeddedProvider } from "./types";
-
-export type PendingTx = {
-  id: string;
-  kind: "transaction" | "eip712_sign";
-  txId?: number;
-  eip712Id?: number;
-  from?: string;
-  to?: string;
-  value?: string;
-  data?: string;
-  chainId?: number;
-  description?: string;
-  timestamp: number;
-  payload: Record<string, unknown>;
-};
-
-export type SignedTx = {
-  id: string;
-  kind: "transaction" | "eip712_sign";
-  /** Authoritative backend staging id used to make callback recovery safe. */
-  pendingTxId?: number;
-  txHash?: string;
-  txHashes?: string[];
-  executionKind?: string;
-  aaProvider?: string;
-  aaMode?: string;
-  batched?: boolean;
-  sponsored?: boolean;
-  smartAccount4337?: string;
-  Delegation7702?: string;
-  signature?: string;
-  from?: string;
-  to?: string;
-  value?: string;
-  chainId?: number;
-  description?: string;
-  /** True once the backend acknowledged this confirmed transaction. */
-  backendNotified?: boolean;
-  serviceFeeStatus?: "confirmed" | "failed" | "not_attempted";
-  serviceFeeAmountWei?: string;
-  serviceFeeRecipient?: string;
-  serviceFeeTxHash?: string;
-  serviceFeeError?: string;
-  timestamp: number;
-};
-
-/** Solana wallet request waiting for the local CLI signer. */
-export type PendingSolTx = {
-  id: string;
-  /** Backend-assigned id for the staged Solana sign request. */
-  solanaId: number;
-  /** All staged backend ids covered by this transaction. */
-  solanaIds?: number[];
-  /** Wallet operation requested by the backend. */
-  requestKind?:
-    | "solana_sign"
-    | "solana_sign_message"
-    | "solana_send"
-    | "solana_sign_and_send";
-  /** Base64 unsigned transaction for transaction requests. */
-  unsignedTx?: string;
-  /** Base64 message bytes for `solana_sign_message`. */
-  message?: string;
-  /** CAIP-2 cluster, e.g. "solana:mainnet" / "solana:devnet". */
-  cluster?: string;
-  /** Base58 pubkey the host expects to sign (informational; CLI signs
-   *  with whatever local keypair the user provides). */
-  signer?: string;
-  description?: string;
-  timestamp: number;
-  payload: Record<string, unknown>;
-};
-
-/**
- * Signed Solana record persisted locally for `aomi tx list`. The bound
- * artifact is `signedTx` (base64 of the full signed bytes, ready to
- * splice into a `submit_*` continuation).
- */
-export type SignedSolTx = {
-  id: string;
-  requestKind?: PendingSolTx["requestKind"];
-  signedTx?: string;
-  signer: string;
-  signature?: string;
-  cluster?: string;
-  description?: string;
-  timestamp: number;
-};
+import { homedir } from "node:os";
+import type { CliAgentMode } from "./types";
+import type { AomiOAuthResource } from "../authorization";
 
 export type CliAuthSession = {
   sessionToken: string;
@@ -119,11 +22,23 @@ export type CliAuthSession = {
   betterAuthUserId?: string;
 };
 
+export type CliOAuthGrant = {
+  clientId: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+  resource: AomiOAuthResource;
+  scopes: readonly string[];
+  tokenType?: "Bearer" | "DPoP";
+};
+
 export type CliSessionState = {
   sessionId: string;
   clientId?: string;
   baseUrl: string;
+  agentMode?: CliAgentMode;
   app?: string;
+  applicationId?: string;
   model?: string;
   /** Whether the active model has been pushed to the backend session. */
   modelSynced?: boolean;
@@ -131,13 +46,9 @@ export type CliSessionState = {
   /** Aomi account bearer for authenticated requests. Persisted so a bearer
    * supplied once (via `--account-bearer`) survives across CLI invocations. */
   accountBearer?: string;
-  /** Legacy persisted session token slot. New logins write BetterAuth bearer
-   * sessions to `auth`; this remains for older local state migration. */
-  sessionCookie?: string;
-  /** Deprecated legacy provider-exchange config. */
-  embeddedProvider?: CliEmbeddedProvider;
-  /** Deprecated legacy provider-exchange config. */
-  embeddedProviderToken?: string;
+  /** Better Auth anonymous bearer owning guest Agent sessions. Stored in the
+   * same private state file so a later CLI process can resume that identity. */
+  guestBearer?: string;
   publicKey?: string;
   privateKey?: string;
   /** Solana public key (base58), derived from the Solana keypair when provided. */
@@ -149,50 +60,15 @@ export type CliSessionState = {
    * command. Never printed in output. */
   svmPrivateKey?: string;
   chainId?: number;
-  aaProvider?: CliAAProvider;
-  aaMode?: UserStateAAMode | null;
-  smartAccount?: string | null;
-  pendingTxs?: PendingTx[];
-  pendingSolTxs?: PendingSolTx[];
-  signedTxs?: SignedTx[];
-  signedSolTxs?: SignedSolTx[];
   secretHandles?: Record<string, string>;
   auth?: CliAuthSession;
+  oauthGrants?: Record<string, CliOAuthGrant>;
 };
-
-function getBackendPendingId(
-  tx: Omit<PendingTx, "id"> | PendingTx,
-): number | undefined {
-  return tx.kind === "transaction" ? tx.txId : tx.eip712Id;
-}
-
-export function hasSameBackendPendingId(
-  existing: PendingTx,
-  next: Omit<PendingTx, "id">,
-): boolean {
-  const existingBackendId = getBackendPendingId(existing);
-  const nextBackendId = getBackendPendingId(next);
-
-  return (
-    existing.kind === next.kind &&
-    existingBackendId !== undefined &&
-    nextBackendId !== undefined &&
-    existingBackendId === nextBackendId
-  );
-}
 
 type StoredSessionState = CliSessionState & {
   localId: number;
   createdAt: number;
   updatedAt: number;
-};
-
-type LegacySignedTx = SignedTx & {
-  AAAddress?: string;
-};
-
-type LegacyStoredSessionState = Omit<StoredSessionState, "signedTxs"> & {
-  signedTxs?: LegacySignedTx[];
 };
 
 export type StoredSessionRecord = {
@@ -208,11 +84,6 @@ const SESSION_FILE_PREFIX = "session-";
 const SESSION_FILE_SUFFIX = ".json";
 const STATE_DIR_MODE = 0o700;
 const STATE_FILE_MODE = 0o600;
-
-const LEGACY_STATE_FILE = join(
-  process.env.XDG_RUNTIME_DIR ?? tmpdir(),
-  "aomi-session.json",
-);
 
 export const STATE_ROOT_DIR =
   process.env.AOMI_STATE_DIR ?? join(homedir(), ".aomi");
@@ -248,50 +119,30 @@ function toCliSessionState(stored: StoredSessionState): CliSessionState {
     sessionId: stored.sessionId,
     clientId: stored.clientId,
     baseUrl: stored.baseUrl,
+    agentMode: stored.agentMode,
     app: stored.app,
+    applicationId: stored.applicationId,
     model: stored.model,
     modelSynced: stored.modelSynced,
     apiKey: stored.apiKey,
     accountBearer: stored.accountBearer,
-    sessionCookie: stored.sessionCookie,
-    embeddedProvider: stored.embeddedProvider,
-    embeddedProviderToken: stored.embeddedProviderToken,
+    guestBearer: stored.guestBearer,
     publicKey: stored.publicKey,
     privateKey: stored.privateKey,
     svmPublicKey: stored.svmPublicKey,
     svmCluster: stored.svmCluster,
     svmPrivateKey: stored.svmPrivateKey,
     chainId: stored.chainId,
-    aaProvider: stored.aaProvider,
-    aaMode: stored.aaMode,
-    smartAccount: stored.smartAccount,
-    pendingTxs: stored.pendingTxs,
-    pendingSolTxs: stored.pendingSolTxs,
-    signedTxs: stored.signedTxs,
-    signedSolTxs: stored.signedSolTxs,
     secretHandles: stored.secretHandles,
     auth: stored.auth,
+    oauthGrants: stored.oauthGrants,
   };
-}
-
-function normalizeSignedTx(tx: LegacySignedTx): SignedTx {
-  const { AAAddress: _legacyAAAddress, ...rest } = tx;
-  return {
-    ...rest,
-    smartAccount4337: tx.smartAccount4337 ?? tx.AAAddress,
-  };
-}
-
-function normalizeSignedTxs(
-  signedTxs: LegacyStoredSessionState["signedTxs"],
-): SignedTx[] | undefined {
-  return signedTxs?.map(normalizeSignedTx);
 }
 
 function readStoredSession(path: string): StoredSessionState | null {
   try {
     const raw = readFileSync(path, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<LegacyStoredSessionState>;
+    const parsed = JSON.parse(raw) as Partial<StoredSessionState>;
 
     if (
       typeof parsed.sessionId !== "string" ||
@@ -305,28 +156,29 @@ function readStoredSession(path: string): StoredSessionState | null {
       sessionId: parsed.sessionId,
       clientId: parsed.clientId,
       baseUrl: parsed.baseUrl,
+      agentMode:
+        parsed.agentMode === "auto" || parsed.agentMode === "direct"
+          ? parsed.agentMode
+          : undefined,
       app: parsed.app,
+      applicationId: parsed.applicationId,
       model: parsed.model,
+      modelSynced: parsed.modelSynced,
       apiKey: parsed.apiKey,
       accountBearer: parsed.accountBearer,
-      sessionCookie: parsed.sessionCookie,
-      embeddedProvider: parsed.embeddedProvider,
-      embeddedProviderToken: parsed.embeddedProviderToken,
+      guestBearer:
+        typeof parsed.guestBearer === "string" && parsed.guestBearer
+          ? parsed.guestBearer
+          : undefined,
       publicKey: parsed.publicKey,
       privateKey: parsed.privateKey,
       svmPublicKey: parsed.svmPublicKey,
       svmCluster: parsed.svmCluster,
       svmPrivateKey: parsed.svmPrivateKey,
       chainId: parsed.chainId,
-      aaProvider: parsed.aaProvider,
-      aaMode: parsed.aaMode,
-      smartAccount: parsed.smartAccount,
-      pendingTxs: parsed.pendingTxs,
-      pendingSolTxs: parsed.pendingSolTxs,
-      signedTxs: normalizeSignedTxs(parsed.signedTxs),
-      signedSolTxs: parsed.signedSolTxs,
       secretHandles: parsed.secretHandles,
       auth: normalizeAuthSession(parsed.auth),
+      oauthGrants: normalizeOAuthGrants(parsed.oauthGrants),
       localId:
         typeof parsed.localId === "number" && parsed.localId > 0
           ? parsed.localId
@@ -365,6 +217,37 @@ function normalizeAuthSession(value: unknown): CliAuthSession | undefined {
     chainScope: auth.chainScope,
     betterAuthUserId: auth.betterAuthUserId,
   };
+}
+
+function normalizeOAuthGrants(
+  value: unknown,
+): Record<string, CliOAuthGrant> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const grants: Record<string, CliOAuthGrant> = {};
+  for (const candidate of Object.values(
+    value as Record<string, Partial<CliOAuthGrant>>,
+  )) {
+    if (
+      typeof candidate.clientId !== "string" ||
+      !candidate.clientId ||
+      typeof candidate.accessToken !== "string" ||
+      !candidate.accessToken ||
+      typeof candidate.expiresAt !== "number" ||
+      !Number.isFinite(candidate.expiresAt) ||
+      typeof candidate.resource !== "string" ||
+      !/\/v1\/(agent|pipeline)$/.test(candidate.resource) ||
+      !Array.isArray(candidate.scopes) ||
+      !candidate.scopes.every((scope) => typeof scope === "string") ||
+      (candidate.tokenType !== undefined &&
+        candidate.tokenType !== "Bearer" &&
+        candidate.tokenType !== "DPoP")
+    ) {
+      continue;
+    }
+    const grant = candidate as CliOAuthGrant;
+    grants[grant.resource] = grant;
+  }
+  return Object.keys(grants).length > 0 ? grants : undefined;
 }
 
 function readActiveLocalId(): number | null {
@@ -434,57 +317,6 @@ function getNextLocalId(sessions: StoredSessionState[]): number {
   return maxLocalId + 1;
 }
 
-let _migrationDone = false;
-
-function migrateLegacyStateIfNeeded(): void {
-  if (_migrationDone) return;
-  _migrationDone = true;
-
-  if (!existsSync(LEGACY_STATE_FILE)) return;
-
-  const existing = readAllStoredSessions();
-  if (existing.length > 0) {
-    // Storage already migrated. Keep legacy file untouched.
-    return;
-  }
-
-  try {
-    const raw = readFileSync(LEGACY_STATE_FILE, "utf-8");
-    const legacy = JSON.parse(raw) as Partial<
-      Omit<CliSessionState, "signedTxs"> & { signedTxs?: LegacySignedTx[] }
-    >;
-    if (!legacy.sessionId || !legacy.baseUrl) {
-      return;
-    }
-
-    const now = Date.now();
-    const migrated: StoredSessionState = {
-      ...legacy,
-      sessionId: legacy.sessionId,
-      baseUrl: legacy.baseUrl,
-      signedTxs: normalizeSignedTxs(legacy.signedTxs),
-      localId: 1,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    ensureStorageDirs();
-    const migratedPath = toSessionFilePath(1);
-    writeFileSync(migratedPath, JSON.stringify(migrated, null, 2), {
-      mode: STATE_FILE_MODE,
-    });
-    try {
-      chmodSync(migratedPath, STATE_FILE_MODE);
-    } catch {
-      // Best-effort hardening only.
-    }
-    writeActiveLocalId(1);
-    rmSync(LEGACY_STATE_FILE);
-  } catch {
-    // Best-effort migration only.
-  }
-}
-
 function resolveStoredSession(
   selector: string,
   sessions: StoredSessionState[],
@@ -517,7 +349,6 @@ function toStoredSessionRecord(
 }
 
 export function getActiveStateFilePath(): string | null {
-  migrateLegacyStateIfNeeded();
   const sessions = readAllStoredSessions();
   const activeLocalId = readActiveLocalId();
   if (activeLocalId === null) return null;
@@ -526,12 +357,10 @@ export function getActiveStateFilePath(): string | null {
 }
 
 export function listStoredSessions(): StoredSessionRecord[] {
-  migrateLegacyStateIfNeeded();
   return readAllStoredSessions().map(toStoredSessionRecord);
 }
 
 export function setActiveSession(selector: string): StoredSessionRecord | null {
-  migrateLegacyStateIfNeeded();
   const sessions = readAllStoredSessions();
   const target = resolveStoredSession(selector, sessions);
   if (!target) return null;
@@ -542,7 +371,6 @@ export function setActiveSession(selector: string): StoredSessionRecord | null {
 export function deleteStoredSession(
   selector: string,
 ): StoredSessionRecord | null {
-  migrateLegacyStateIfNeeded();
   const sessions = readAllStoredSessions();
   const target = resolveStoredSession(selector, sessions);
   if (!target) return null;
@@ -568,8 +396,6 @@ export function deleteStoredSession(
 }
 
 export function readState(): CliSessionState | null {
-  migrateLegacyStateIfNeeded();
-
   const sessions = readAllStoredSessions();
   if (sessions.length === 0) return null;
 
@@ -589,20 +415,12 @@ export function readState(): CliSessionState | null {
 }
 
 export function writeState(state: CliSessionState): void {
-  migrateLegacyStateIfNeeded();
   ensureStorageDirs();
 
   const sessions = readAllStoredSessions();
-  const activeLocalId = readActiveLocalId();
-
-  const existingBySessionId = sessions.find(
+  const existing = sessions.find(
     (session) => session.sessionId === state.sessionId,
   );
-  const existingByActive =
-    activeLocalId !== null
-      ? sessions.find((session) => session.localId === activeLocalId)
-      : undefined;
-  const existing = existingBySessionId ?? existingByActive;
 
   const now = Date.now();
   const localId = existing?.localId ?? getNextLocalId(sessions);
@@ -628,175 +446,5 @@ export function writeState(state: CliSessionState): void {
 }
 
 export function clearState(): void {
-  migrateLegacyStateIfNeeded();
   writeActiveLocalId(null);
-}
-
-function getNextTxId(state: CliSessionState): string {
-  const allIds = [
-    ...(state.pendingTxs ?? []),
-    ...(state.pendingSolTxs ?? []),
-    ...(state.signedTxs ?? []),
-    ...(state.signedSolTxs ?? []),
-  ].map((tx) => {
-    const match = tx.id.match(/^tx-(\d+)$/);
-    return match ? parseInt(match[1], 10) : 0;
-  });
-  const max = allIds.length > 0 ? Math.max(...allIds) : 0;
-  return `tx-${max + 1}`;
-}
-
-function toBackendDisplayId(tx: Omit<PendingTx, "id">): string | undefined {
-  const pendingId = getBackendPendingId(tx);
-  return pendingId !== undefined ? `tx-${pendingId}` : undefined;
-}
-
-export function addPendingTx(
-  state: CliSessionState,
-  tx: Omit<PendingTx, "id">,
-): PendingTx | null {
-  if (!state.pendingTxs) state.pendingTxs = [];
-
-  // Requests are only deduped when they carry the same backend staging id.
-  const isDuplicate = state.pendingTxs.some((existing) =>
-    hasSameBackendPendingId(existing, tx),
-  );
-  if (isDuplicate) {
-    return null;
-  }
-
-  const pending: PendingTx = {
-    ...tx,
-    id: toBackendDisplayId(tx) ?? getNextTxId(state),
-  };
-  state.pendingTxs.push(pending);
-  writeState(state);
-  return pending;
-}
-
-export function removePendingTx(
-  state: CliSessionState,
-  id: string,
-): PendingTx | null {
-  if (!state.pendingTxs) return null;
-  const idx = state.pendingTxs.findIndex((tx) => tx.id === id);
-  if (idx === -1) return null;
-  const [removed] = state.pendingTxs.splice(idx, 1);
-  writeState(state);
-  return removed;
-}
-
-export function addSignedTx(state: CliSessionState, tx: SignedTx): void {
-  if (!state.signedTxs) state.signedTxs = [];
-  const index = state.signedTxs.findIndex(
-    (existing) =>
-      (tx.pendingTxId !== undefined &&
-        existing.pendingTxId === tx.pendingTxId &&
-        existing.kind === tx.kind) ||
-      (existing.id === tx.id && existing.kind === tx.kind),
-  );
-  if (index === -1) {
-    state.signedTxs.push(tx);
-  } else {
-    state.signedTxs[index] = { ...state.signedTxs[index], ...tx };
-  }
-  state.pendingTxs = (state.pendingTxs ?? []).filter(
-    (pending) =>
-      !(
-        pending.kind === tx.kind &&
-        ((tx.pendingTxId !== undefined && pending.txId === tx.pendingTxId) ||
-          pending.id === tx.id)
-      ),
-  );
-  writeState(state);
-}
-
-export function hasSameSolanaPendingId(
-  existing: PendingSolTx,
-  next: Omit<PendingSolTx, "id">,
-): boolean {
-  return existing.solanaId === next.solanaId;
-}
-
-export function addPendingSolTx(
-  state: CliSessionState,
-  tx: Omit<PendingSolTx, "id">,
-): PendingSolTx | null {
-  if (!state.pendingSolTxs) state.pendingSolTxs = [];
-
-  const isDuplicate = state.pendingSolTxs.some((existing) =>
-    hasSameSolanaPendingId(existing, tx),
-  );
-  if (isDuplicate) {
-    return null;
-  }
-
-  const pending: PendingSolTx = {
-    ...tx,
-    id: `tx-${tx.solanaId}`,
-  };
-  state.pendingSolTxs.push(pending);
-  writeState(state);
-  return pending;
-}
-
-export function removePendingSolTx(
-  state: CliSessionState,
-  id: string,
-): PendingSolTx | null {
-  if (!state.pendingSolTxs) return null;
-  const idx = state.pendingSolTxs.findIndex((tx) => tx.id === id);
-  if (idx === -1) return null;
-  const [removed] = state.pendingSolTxs.splice(idx, 1);
-  writeState(state);
-  return removed;
-}
-
-export function addSignedSolTx(state: CliSessionState, tx: SignedSolTx): void {
-  if (!state.signedSolTxs) state.signedSolTxs = [];
-  state.signedSolTxs.push(tx);
-  writeState(state);
-}
-
-export type SyncPendingTxsResult = {
-  pendingTxs: PendingTx[];
-  pendingSolTxs: PendingSolTx[];
-};
-
-export function syncPendingTxsFromUserState(
-  state: CliSessionState,
-  userState: UserState | null | undefined,
-): SyncPendingTxsResult {
-  const normalizedUserState = UserStateHelpers.normalize(userState);
-  const walletSnapshot = walletSnapshotFromUserState(normalizedUserState);
-  const isConnected = UserStateHelpers.isConnected(normalizedUserState);
-
-  if (walletSnapshot.publicKey !== undefined) {
-    state.publicKey = walletSnapshot.publicKey;
-  } else if (isConnected === false) {
-    state.publicKey = undefined;
-  }
-
-  if (walletSnapshot.chainId !== undefined) {
-    state.chainId = walletSnapshot.chainId;
-  } else if (isConnected === false) {
-    state.chainId = undefined;
-  }
-
-  // AA mode / smart account are backend authority and no longer round-tripped
-  // through user_state; the CLI keeps its own `--aa` preference locally.
-
-  state.pendingTxs = pendingTxsFromBackendUserState(
-    normalizedUserState,
-    state.pendingTxs ?? [],
-  );
-  state.pendingSolTxs = pendingSolTxsFromBackendUserState(
-    normalizedUserState,
-    state.pendingSolTxs ?? [],
-  );
-  writeState(state);
-  return {
-    pendingTxs: state.pendingTxs,
-    pendingSolTxs: state.pendingSolTxs,
-  };
 }

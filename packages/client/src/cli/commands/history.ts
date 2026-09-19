@@ -2,19 +2,14 @@ import { CliSession } from "../cli-session";
 import {
   CYAN,
   DIM,
-  GREEN,
   RESET,
   YELLOW,
+  countToolCalls,
   formatLogContent,
-  formatToolResultPreview,
   printDataFileLocation,
 } from "../output";
 import { clearState } from "../state";
-import {
-  estimateTokenCount,
-  printKeyValueTable,
-  printTransactionTable,
-} from "../tables";
+import { estimateTokenCount, printKeyValueTable } from "../tables";
 import type { CliConfig } from "../types";
 
 export async function logCommand(config: CliConfig): Promise<void> {
@@ -28,14 +23,13 @@ export async function logCommand(config: CliConfig): Promise<void> {
 
   const session = cli.createClientSession(config);
   try {
-    const apiState = await session.client.fetchState(cli.sessionId, undefined, cli.clientId);
-    cli.syncPendingFromUserState(apiState.user_state);
-    const messages = apiState.messages ?? [];
-    const pendingTxs = [...cli.pendingTxs];
-    const signedTxs = [...cli.signedTxs];
-    const toolCalls = messages.filter((msg) => Boolean(msg.tool_result)).length;
+    await session.fetchCurrentState();
+    const snapshot = session.getSnapshot();
+    const messages = snapshot.messages;
+    const actions = snapshot.actions;
+    const toolCalls = countToolCalls(snapshot.events);
     const tokenCountEstimate = estimateTokenCount(messages);
-    const topic = apiState.title ?? "Untitled Session";
+    const topic = snapshot.title ?? "Untitled Session";
 
     if (messages.length === 0) {
       console.log("No messages in this session.");
@@ -49,25 +43,17 @@ export async function logCommand(config: CliConfig): Promise<void> {
       ["msg count", String(messages.length)],
       ["token count", `${tokenCountEstimate} (estimated)`],
       ["tool calls", String(toolCalls)],
-      [
-        "transactions",
-        `${pendingTxs.length + signedTxs.length} (${pendingTxs.length} pending, ${signedTxs.length} signed)`,
-      ],
+      ["actions", String(actions.length)],
+      ["pending actions", String(session.actions.pending().length)],
     ]);
-
-    console.log("Transactions metadata (JSON):");
-    printTransactionTable(pendingTxs, signedTxs);
 
     console.log("-------------------- Messages --------------------");
     for (const msg of messages) {
       const content = formatLogContent(msg.content);
       let time = "";
-      if (msg.timestamp) {
-        const raw = msg.timestamp;
-        const numeric = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
-        const date = !Number.isNaN(numeric)
-          ? new Date(numeric < 1e12 ? numeric * 1000 : numeric)
-          : new Date(raw);
+      if (msg.occurred_at) {
+        const raw = msg.occurred_at;
+        const date = new Date(raw < 1e12 ? raw * 1000 : raw);
         time = Number.isNaN(date.getTime())
           ? ""
           : `${DIM}${date.toLocaleTimeString()}${RESET} `;
@@ -78,21 +64,12 @@ export async function logCommand(config: CliConfig): Promise<void> {
         if (content) {
           console.log(`${time}${CYAN}👤 You:${RESET} ${content}`);
         }
-      } else if (sender === "agent" || sender === "assistant") {
-        if (msg.tool_result) {
-          const [toolName, result] = msg.tool_result;
-          console.log(
-            `${time}${GREEN}🔧 [${toolName}]${RESET} ${formatToolResultPreview(result)}`,
-          );
-        }
+      } else if (sender === "agent") {
         if (content) {
           console.log(`${time}${CYAN}🤖 Agent:${RESET} ${content}`);
         }
       } else if (sender === "system") {
-        if (
-          content &&
-          !content.startsWith("Response of system endpoint:")
-        ) {
+        if (content && !content.startsWith("Response of system endpoint:")) {
           console.log(`${time}${YELLOW}⚙️  System:${RESET} ${content}`);
         }
       } else {

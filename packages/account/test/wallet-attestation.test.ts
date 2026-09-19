@@ -10,6 +10,7 @@ import {
 import {
   fetchAttestedProviderWallets,
   mergeProviderWalletAttestations,
+  resolveAttestedProviderWallets,
 } from "../src/service/account-service";
 import { setAccountInternalFailureObserver } from "../src/observability";
 
@@ -106,6 +107,71 @@ describe("fetchAttestedProviderWallets", () => {
   });
 });
 
+describe("resolveAttestedProviderWallets", () => {
+  afterEach(() => setAccountInternalFailureObserver(undefined));
+
+  const wallets: AttestedWallet[] = [
+    {
+      provider: "custom",
+      providerWalletId: "w-1",
+      family: "evm",
+      address: EVM,
+      chainScope: null,
+    },
+  ];
+
+  it("reports what the provider attested", async () => {
+    await expect(
+      resolveAttestedProviderWallets({
+        provider: "custom",
+        subject: "provider-user",
+        attesters: { custom: async () => wallets },
+      }),
+    ).resolves.toEqual({ status: "attested", wallets });
+  });
+
+  // "the provider says this user owns no embedded wallet" is an answer, and a
+  // caller that requires a hosted wallet must be able to tell it apart from
+  // "we never got an answer" — the two collapse to `null` in the legacy
+  // `fetchAttestedProviderWallets` contract.
+  it("keeps an empty attestation distinct from no answer", async () => {
+    await expect(
+      resolveAttestedProviderWallets({
+        provider: "custom",
+        subject: "provider-user",
+        attesters: { custom: async () => [] },
+      }),
+    ).resolves.toEqual({ status: "attested", wallets: [] });
+
+    await expect(
+      resolveAttestedProviderWallets({
+        provider: "custom",
+        subject: "provider-user",
+        attesters: {},
+      }),
+    ).resolves.toEqual({ status: "unconfigured" });
+  });
+
+  it("reports a failed provider fetch as unavailable and observes it", async () => {
+    const error = new Error("provider down");
+    const observer = vi.fn();
+    setAccountInternalFailureObserver(observer);
+
+    await expect(
+      resolveAttestedProviderWallets({
+        provider: "custom",
+        subject: "provider-user",
+        attesters: {
+          custom: async () => {
+            throw error;
+          },
+        },
+      }),
+    ).resolves.toEqual({ status: "unavailable", error });
+    expect(observer).toHaveBeenCalledWith({ kind: "provider_wallets", error });
+  });
+});
+
 describe("mergeProviderWalletAttestations", () => {
   it("keeps provider API rows and fills missing token-attested wallets", () => {
     expect(
@@ -166,6 +232,71 @@ describe("mergeProviderWalletAttestations", () => {
         chainScope: null,
       },
     ]);
+  });
+});
+
+describe("the Para attester's lookup key", () => {
+  const paraEnv: AccountAuthEnv = { ...baseEnv, paraApiKey: "para-secret" };
+
+  function stubWalletApi(): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ data: [], pagination: { cursor: null, hasMore: false } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks Para by the verified login handle, not by the token subject", async () => {
+    // Para's `userIdentifierType` enum names login handles only; querying a
+    // Para user id as a CUSTOM_ID matches nothing, which is how a linked Para
+    // identity ended up with no hosted wallet behind it.
+    const fetchMock = stubWalletApi();
+
+    await createDefaultWalletAttesters(paraEnv).para?.({
+      subject: "d5358219-38d3-4650-91a8-e338131d1c5e",
+      email: "alice@example.com",
+      loginIdentifier: { type: "telegram", value: "1234567890" },
+    });
+
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("userIdentifier")).toBe("1234567890");
+    expect(url.searchParams.get("userIdentifierType")).toBe("TELEGRAM");
+  });
+
+  it("falls back to a verified email, then to a CUSTOM_ID subject", async () => {
+    const fetchMock = stubWalletApi();
+    const para = createDefaultWalletAttesters(paraEnv).para;
+
+    await para?.({ subject: "para-user", email: "alice@example.com" });
+    await para?.({ subject: "para-user" });
+
+    const [byEmail, bySubject] = fetchMock.mock.calls.map(
+      (call) => new URL(String(call[0])).searchParams,
+    );
+    expect(byEmail?.get("userIdentifier")).toBe("alice@example.com");
+    expect(byEmail?.get("userIdentifierType")).toBe("EMAIL");
+    expect(bySubject?.get("userIdentifier")).toBe("para-user");
+    expect(bySubject?.get("userIdentifierType")).toBe("CUSTOM_ID");
+  });
+
+  it("answers null — never an empty wallet set — for an unqueryable login", async () => {
+    // An `externalWallet` login has no Para-custodied wallet to attest and no
+    // identifier type that names it. Reporting "no answer" keeps a caller that
+    // requires a hosted wallet from reading this as "the user owns none".
+    const fetchMock = stubWalletApi();
+
+    await expect(
+      createDefaultWalletAttesters(paraEnv).para?.({
+        subject: "para-user",
+        loginIdentifier: {
+          type: "externalWallet",
+          value: "0xaD6b78193b78e23F9aBBB675734f4a2B3559598D",
+        },
+      }),
+    ).resolves.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

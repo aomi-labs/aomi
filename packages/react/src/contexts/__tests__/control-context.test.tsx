@@ -33,6 +33,14 @@ const renderControlContext = (
     getApps: vi.fn(async () => [{ name: "default" }]),
     getModels: vi.fn(async () => []),
     setModel: vi.fn(async () => ({})),
+    listByokKeys: vi.fn(async () => []),
+    saveByokKey: vi.fn(async () => ({
+      provider: "openai",
+      key_prefix: "sk-open",
+      label: null,
+      is_active: true,
+    })),
+    deleteByokKey: vi.fn(async () => true),
     ingestSecrets: vi.fn(async () => ({ handles: {} })),
     deleteSecret: vi.fn(async () => ({ deleted: true })),
     clearSecrets: vi.fn(async () => ({ cleared: true })),
@@ -42,6 +50,7 @@ const renderControlContext = (
 
   const result = render(
     <ControlContextProvider
+      accountSessionAvailable
       aomiClient={aomiClient as never}
       sessionId="session-1"
       getThreadMetadata={(threadId) => threadMetadata.get(threadId)}
@@ -136,9 +145,18 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("sends a targeted backend removal when a BYOK key is deleted", async () => {
-    const deleteSecret = vi.fn(async () => ({ deleted: true }));
-    const { aomiClient, getControl } = renderControlContext({ deleteSecret });
+  it("saves and removes BYOK keys through the account model-key API", async () => {
+    const saveByokKey = vi.fn(async () => ({
+      provider: "openai",
+      key_prefix: "sk-open",
+      label: null,
+      is_active: true,
+    }));
+    const deleteByokKey = vi.fn(async () => true);
+    const { getControl } = renderControlContext({
+      saveByokKey,
+      deleteByokKey,
+    });
 
     await waitFor(() => {
       expect(getControl().state.clientId).toBeTruthy();
@@ -151,9 +169,7 @@ describe("ControlContextProvider", () => {
     });
 
     await waitFor(() => {
-      expect(getControl().state.byokKeys.openai?.apiKey).toBe(
-        "sk-openai-123",
-      );
+      expect(getControl().state.byokKeys.openai?.key_prefix).toBe("sk-open");
     });
 
     await act(async () => {
@@ -161,47 +177,76 @@ describe("ControlContextProvider", () => {
     });
 
     await waitFor(() => {
-      expect(deleteSecret).toHaveBeenCalledWith(
+      expect(deleteByokKey).toHaveBeenCalledWith(
         `control:${clientId}`,
-        clientId,
-        "PROVIDER_KEY:openai",
+        "openai",
       );
     });
 
     expect(getControl().state.byokKeys.openai).toBeUndefined();
-    expect(aomiClient.ingestSecrets).toHaveBeenCalledWith(
+    expect(saveByokKey).toHaveBeenCalledWith(
       `control:${clientId}`,
-      clientId,
-      {
-        "PROVIDER_KEY:openai": "sk-openai-123",
-      },
+      "openai",
+      "sk-openai-123",
+      undefined,
     );
   });
 
-  it("auto-ingests BYOK keys loaded from localStorage on mount", async () => {
+  it("routes per-user app secrets through the control session", async () => {
     globalThis.localStorage.setItem("aomi_client_id", "client-stored");
-    globalThis.localStorage.setItem(
-      "aomi_byok_keys",
-      JSON.stringify({
-        openai: {
-          apiKey: "sk-openai-abc",
-          keyPrefix: "sk-open",
-          label: "Primary",
-        },
-      }),
-    );
+    const listAppSecrets = vi.fn(async () => ({
+      application_id: 42,
+      app: "okx",
+      slots: [],
+    }));
+    const saveAppSecrets = vi.fn(async () => ({
+      application_id: 42,
+      app: "okx",
+      slots: [],
+    }));
+    const deleteAppSecret = vi.fn(async () => ({ deleted: true }));
+    const { getControl } = renderControlContext({
+      listAppSecrets,
+      saveAppSecrets,
+      deleteAppSecret,
+    });
 
-    const ingestSecrets = vi.fn(async () => ({ handles: {} }));
-    renderControlContext({ ingestSecrets });
+    await act(async () => {
+      await getControl().listAppSecrets(42);
+      await getControl().saveAppSecrets(42, { OKX_API_KEY: "key" });
+      expect(await getControl().deleteAppSecret(42, "OKX_API_KEY")).toBe(true);
+    });
+
+    expect(listAppSecrets).toHaveBeenCalledWith("control:client-stored", 42);
+    expect(saveAppSecrets).toHaveBeenCalledWith("control:client-stored", 42, {
+      OKX_API_KEY: "key",
+    });
+    expect(deleteAppSecret).toHaveBeenCalledWith(
+      "control:client-stored",
+      42,
+      "OKX_API_KEY",
+    );
+  });
+
+  it("loads redacted BYOK keys from the account model-key API", async () => {
+    globalThis.localStorage.setItem("aomi_client_id", "client-stored");
+    const listByokKeys = vi.fn(async () => [
+      {
+        provider: "openai",
+        key_prefix: "sk-open",
+        label: "Primary",
+        is_active: true,
+      },
+    ]);
+    const { getControl } = renderControlContext({ listByokKeys });
 
     await waitFor(() => {
-      expect(ingestSecrets).toHaveBeenCalledWith(
-        "control:client-stored",
-        "client-stored",
-        {
-          "PROVIDER_KEY:openai": "sk-openai-abc",
-        },
-      );
+      expect(getControl().state.byokKeys.openai).toEqual({
+        provider: "openai",
+        key_prefix: "sk-open",
+        label: "Primary",
+        is_active: true,
+      });
     });
   });
 
@@ -224,11 +269,15 @@ describe("ControlContextProvider", () => {
       await getControl().onModelSelect("gpt-5", { mode: "manual" });
     });
 
-    expect(setModel).toHaveBeenCalledWith(
-      "session-1",
-      "gpt-5",
-      expect.objectContaining({ app: "default" }),
-    );
+    expect(setModel).not.toHaveBeenCalled();
+    const selectedControl = threadMetadata.get("session-1")?.control;
+    expect(selectedControl).toMatchObject({
+      model: "gpt-5",
+      modelMode: "manual",
+      app: null,
+      controlDirty: true,
+    });
+    expect(selectedControl?.agentMode).not.toBe("direct");
     expect(
       JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
     ).toMatchObject({ mode: "manual", model: "gpt-5" });
@@ -265,18 +314,12 @@ describe("ControlContextProvider", () => {
       });
     });
 
-    await act(async () => {
-      await getControl().syncCurrentThreadControl();
+    expect(setModel).not.toHaveBeenCalled();
+    expect(threadMetadata.get("session-1")?.control).toMatchObject({
+      model: "gpt-4o-mini",
+      modelMode: "auto",
+      controlDirty: true,
     });
-
-    expect(setModel).toHaveBeenCalledWith(
-      "session-1",
-      "gpt-4o-mini",
-      expect.objectContaining({ app: "default" }),
-    );
-    expect(setModel.mock.calls.some(([, model]) => model === "old-model")).toBe(
-      false,
-    );
   });
 
   it("does not seed fresh threads with a stored manual model before models load", async () => {
@@ -300,10 +343,6 @@ describe("ControlContextProvider", () => {
       model: null,
       modelMode: "auto",
       controlDirty: false,
-    });
-
-    await act(async () => {
-      await getControl().syncCurrentThreadControl();
     });
 
     expect(setModel).not.toHaveBeenCalled();
@@ -348,7 +387,7 @@ describe("ControlContextProvider", () => {
     expect(threadMetadata.get("session-1")?.control).toMatchObject({
       model: "gpt-4o-mini",
       modelMode: "auto",
-      controlDirty: false,
+      controlDirty: true,
     });
     expect(
       JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
@@ -390,10 +429,9 @@ describe("ControlContextProvider", () => {
     });
   });
 
-  it("keeps model selection dirty when the app changes during backend sync", async () => {
-    const setModelResult = createDeferred<Record<string, never>>();
+  it("keeps model selection dirty when the app changes before send", async () => {
     const threadMetadata = createThreadMetadata();
-    const setModel = vi.fn(() => setModelResult.promise);
+    const setModel = vi.fn(async () => ({}));
     const { getControl } = renderControlContext(
       {
         getApps: vi.fn(async () => [{ name: "default" }, { name: "docs" }]),
@@ -408,110 +446,51 @@ describe("ControlContextProvider", () => {
       expect(getControl().state.availableModels).toContain("gpt-5");
     });
 
-    let selectionPromise!: Promise<void>;
     await act(async () => {
-      selectionPromise = getControl().onModelSelect("gpt-5", {
+      await getControl().onModelSelect("gpt-5", {
         mode: "manual",
       });
     });
 
-    expect(setModel).toHaveBeenCalledWith(
-      "session-1",
-      "gpt-5",
-      expect.objectContaining({ app: "default" }),
-    );
-
-    await act(async () => {
-      getControl().onAppSelect("docs");
-    });
-
-    await act(async () => {
-      setModelResult.resolve({});
-      await selectionPromise;
-    });
-
-    expect(threadMetadata.get("session-1")?.control).toMatchObject({
-      model: "gpt-5",
-      app: "docs",
-      controlDirty: true,
-    });
-  });
-
-  it("keeps pending thread control dirty when the app changes during sync", async () => {
-    const setModelResult = createDeferred<Record<string, never>>();
-    const threadMetadata = createThreadMetadata();
-    threadMetadata.set("session-1", {
-      ...threadMetadata.get("session-1")!,
-      control: {
-        ...initThreadControl(),
-        model: "gpt-5",
-        modelMode: "manual",
-        controlDirty: true,
-      },
-    });
-
-    const setModel = vi.fn(() => setModelResult.promise);
-    const { getControl } = renderControlContext(
-      {
-        getApps: vi.fn(async () => [{ name: "default" }, { name: "docs" }]),
-        getModels: vi.fn(async () => ["gpt-4o-mini", "gpt-5"]),
-        setModel,
-      },
-      threadMetadata,
-    );
-
-    await waitFor(() => {
-      expect(getControl().state.authorizedApps).toContain("docs");
-    });
-
-    let syncPromise!: Promise<void>;
-    await act(async () => {
-      syncPromise = getControl().syncCurrentThreadControl();
-    });
-
-    expect(setModel).toHaveBeenCalledWith(
-      "session-1",
-      "gpt-5",
-      expect.objectContaining({ app: "default" }),
-    );
-
-    await act(async () => {
-      getControl().onAppSelect("docs");
-    });
-
-    await act(async () => {
-      setModelResult.resolve({});
-      await syncPromise;
-    });
-
-    expect(threadMetadata.get("session-1")?.control).toMatchObject({
-      model: "gpt-5",
-      app: "docs",
-      controlDirty: true,
-    });
-  });
-
-  it("does not update controls while the current thread is processing", async () => {
-    const threadMetadata = createThreadMetadata();
-    threadMetadata.set("session-1", {
-      ...threadMetadata.get("session-1")!,
-      control: {
-        ...initThreadControl(),
-        isProcessing: true,
-      },
-    });
-    const setModel = vi.fn(async () => ({}));
-    const { getControl } = renderControlContext({ setModel }, threadMetadata);
-
-    await act(async () => {
-      await getControl().onModelSelect("gpt-5", { mode: "manual" });
-    });
-
     expect(setModel).not.toHaveBeenCalled();
-    expect(threadMetadata.get("session-1")?.control).toMatchObject({
-      model: null,
-      modelMode: "auto",
-      isProcessing: true,
+
+    await act(async () => {
+      getControl().onAppSelect("docs");
     });
+
+    expect(threadMetadata.get("session-1")?.control).toMatchObject({
+      model: "gpt-5",
+      agentMode: "direct",
+      app: "docs",
+      controlDirty: true,
+    });
+  });
+
+  it("defaults fresh threads to Auto and preserves an id-only Direct target", () => {
+    const threadMetadata = createThreadMetadata();
+    const { getControl } = renderControlContext({}, threadMetadata);
+
+    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
+
+    act(() => {
+      getControl().onAgentTargetSelect({
+        mode: "direct",
+        applicationId: 2936682,
+      });
+    });
+    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("direct");
+    expect(getControl().getCurrentThreadTarget()).toEqual({
+      mode: "direct",
+      applicationId: 2936682,
+    });
+
+    act(() => {
+      getControl().onAgentModeSelect("auto");
+    });
+    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("auto");
+    expect(getControl().getPreferredThreadControl()).toMatchObject({
+      agentMode: "auto",
+    });
+    expect(getControl().getCurrentThreadTarget()).toEqual({ mode: "auto" });
   });
 });

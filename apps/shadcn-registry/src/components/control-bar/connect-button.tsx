@@ -71,7 +71,9 @@ const SingleConnectButton: FC<Omit<ConnectButtonProps, "families">> = ({
   const ticker = identity.chainId
     ? getChainInfo(identity.chainId)?.ticker
     : undefined;
-  const walletProviderLabel = formatWalletProvider(identity.walletProvider);
+  const walletProviderLabel = formatWalletProvider(
+    identity.sessionProvider ?? identity.embeddedProvider,
+  );
   const visibleAddress = identity.address ?? identity.svmAddress;
   const connectedPrimary =
     formatAddress(visibleAddress) ??
@@ -138,6 +140,7 @@ export const ConnectButton: FC<ConnectButtonProps> = ({
       <DualWalletBar
         families={pickerFamilies}
         className={className}
+        disconnectedLabel={connectLabel}
         onConnectionChange={onConnectionChange}
         accountMenu={accountMenu}
       />

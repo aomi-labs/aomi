@@ -39,7 +39,11 @@ function printRootHelp(): void {
   console.log("REPL COMMANDS");
   console.log("");
   console.log("  /heap                        Show REPL help");
-  console.log("  /app <name>                  Switch the active app");
+  console.log("  /mode auto                   Use automatic routing");
+  console.log(
+    "  /mode direct [app]           Route directly (default app if omitted)",
+  );
+  console.log("  /app <name>                  Shorthand for Direct mode");
   console.log("  /model <rig>|list|show       Manage the active model");
   console.log("  /key <provider:key>|show|clear");
   console.log("                               Manage BYOK provider keys");
@@ -56,8 +60,12 @@ function printRootHelp(): void {
     "  --json                       Print machine-readable JSON where supported",
   );
   console.log("  --verbose                    Show extra diagnostics");
-  console.log("  --app <name>                 Active app");
-  console.log("  --application-id <id>        Dynamic app row id");
+  console.log(
+    "  --mode <auto|direct>         Agent routing mode (default: auto)",
+  );
+  console.log("  --app <name>                 Direct app");
+  console.log("  --application-id <id>        Direct hosted app identity");
+  console.log("  --platform <name>            Hosted app discovery platform");
   console.log("  --model <rig>                Active model");
   console.log("  --new-session                Create a fresh active session");
   console.log(
@@ -66,7 +74,7 @@ function printRootHelp(): void {
   console.log("  --public-key <address>       Wallet address for chat context");
   console.log("  --private-key <hex>          Signing key for EVM tx sign");
   console.log(
-    "  --payment-method <method>    Paid chat rail, e.g. coinbase/x402",
+    "  --payment-method <method>    Paid Agent/Pipeline rail, e.g. coinbase/x402",
   );
   console.log(
     "  --solana-private-key <key>   Solana keypair (base58 or JSON byte array)",
@@ -101,12 +109,11 @@ function printRootHelp(): void {
   console.log(
     "  deploy                       Deploy your app (also: deploy status, deploy activate)",
   );
+  console.log(
+    "  pipeline                     Pipeline discovery and Build lifecycle",
+  );
   console.log("");
   console.log("Use aomi <command> --help for command-specific details.");
-  console.log("");
-  console.log(
-    "Deprecated compatibility flags: --embedded-provider, --embedded-provider-token",
-  );
 }
 
 export async function runCli(argv: string[] = process.argv): Promise<void> {

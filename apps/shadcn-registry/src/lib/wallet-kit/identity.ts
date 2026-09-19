@@ -3,8 +3,8 @@
 import type {
   AomiSessionIdentity,
   AomiLoginMethod,
-  AomiWalletProvider,
   AuthProviderId,
+  SessionProvider,
 } from "./types";
 
 export const AOMI_SESSION_DISCONNECTED_IDENTITY: AomiSessionIdentity = {
@@ -14,10 +14,8 @@ export const AOMI_SESSION_DISCONNECTED_IDENTITY: AomiSessionIdentity = {
   walletKind: undefined,
   chainId: undefined,
   svmAddress: undefined,
-  walletProvider: undefined,
   walletProviderSubject: undefined,
   authMethod: undefined,
-  authProvider: undefined,
   authValue: undefined,
   authVerifiedAt: undefined,
 };
@@ -29,10 +27,8 @@ export const AOMI_SESSION_BOOTING_IDENTITY: AomiSessionIdentity = {
   walletKind: undefined,
   chainId: undefined,
   svmAddress: undefined,
-  walletProvider: undefined,
   walletProviderSubject: undefined,
   authMethod: undefined,
-  authProvider: undefined,
   authValue: undefined,
   authVerifiedAt: undefined,
 };
@@ -43,7 +39,7 @@ export function formatWalletAddress(address?: string): string | undefined {
 }
 
 export function formatWalletProvider(
-  provider?: AomiWalletProvider | AuthProviderId,
+  provider?: SessionProvider | AuthProviderId,
 ): string | undefined {
   if (!provider) return undefined;
   const labelMap: Record<string, string> = {

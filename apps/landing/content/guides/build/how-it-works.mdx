@@ -109,7 +109,7 @@ The configured app becomes an **app** -- a self-contained assistant environment 
 
 ```
 App:        "mycoindex"
-Endpoint:   POST /api/thread/chat?app=mycoindex
+Endpoint:   POST /v1/agent/chat?app=mycoindex
 Tools:      GetTokenPrice, ExecuteTrade, GetPortfolio, ListMarkets
 Preamble:   MyCoinDex trading assistant
 Model:      Claude Sonnet (default, switchable)
@@ -141,7 +141,7 @@ sequenceDiagram
     participant Tool as MyCoinDex API
 
     User->>Frontend: "What's my ETH position worth?"
-    Frontend->>Aomi: POST /api/thread/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid<br/>{"text": "What's my ETH position worth?"}
+    Frontend->>Aomi: POST /v1/agent/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid<br/>{"text": "What's my ETH position worth?"}
 
     Aomi->>LLM: Messages + available tools
     LLM-->>Aomi: ToolCall: GetPortfolio(userId)
@@ -170,7 +170,7 @@ sequenceDiagram
 ### Step by Step
 
 1. **User sends a message** via the widget or headless integration.
-2. **Frontend sends HTTP POST** to `/api/thread/chat?app=mycoindex` with the API key and session ID.
+2. **Frontend sends HTTP POST** to `/v1/agent/chat?app=mycoindex` with the API key and session ID.
 3. **Backend validates** the API key and loads the session.
 4. **Backend sends message + history + tools** to the selected LLM.
 5. **LLM decides to call tools** -- requests `GetPortfolio` and `GetTokenPrice`.

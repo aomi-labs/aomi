@@ -14,6 +14,7 @@
 
 # testing
 /coverage
+/output/playwright/
 
 # next.js
 **/.next*/
@@ -51,10 +52,8 @@ apps/landing/public/r/dist
 apps/shadcn-registry/dist
 apps/widget-consumer/dist
 
-# generated package JavaScript bundles
-packages/*/dist/*.js
-packages/*/dist/*.cjs
-packages/*/dist/*.map
+# generated package build output
+packages/*/dist/
 
 # typescript
 *.tsbuildinfo

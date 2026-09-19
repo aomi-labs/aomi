@@ -1,399 +1,123 @@
 ---
-title: Aomi API
-description: HTTP endpoints for communicating with the Aomi backend.
+title: Agent API Reference
+description: Typed Intents and the ordered Event contract.
 ---
 
-# API Reference
+# Agent API Reference
 
-This page documents the HTTP endpoints exposed by the Aomi backend. All endpoints are relative to your backend URL (e.g., `https://api.aomi.dev`).
+The Agent API accepts typed Intents and returns ordered `EventPage`s. Actions
+are durable Events; transaction and signing details exist only inside
+`Action.request`.
 
-## Authentication
+## Start turn
 
-Most endpoints require two headers:
-
-| Header | Description |
-| --- | --- |
-| `X-Session-Id` | UUID identifying the conversation session |
-| `X-API-Key` | Your Aomi API key (required for non-default apps) |
-
-## Endpoints
-
----
-
-### Create Session
-
-Create a new chat session.
-
+```http
+POST /v1/agent/chat
+Content-Type: application/json
+Idempotency-Key: <unique operation key>
 ```
-POST /api/sessions
-```
-
-**Headers:**
-
-| Header | Required | Value |
-| --- | --- | --- |
-| `X-Session-Id` | Yes | UUID for the new session |
-
-**Response:**
 
 ```json
 {
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "created": true
-}
-```
-
----
-
-### Get Session
-
-Fetch details for an existing session.
-
-```
-GET /api/sessions/{id}
-```
-
-**Path Parameters:**
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `id` | string | Session UUID |
-
-**Response:**
-
-```json
-{
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
-  "threads": [
-    {
-      "id": "thread-uuid",
-      "title": "ETH Price Discussion",
-      "created_at": "2025-01-15T10:30:00Z",
-      "updated_at": "2025-01-15T11:00:00Z"
-    }
-  ]
-}
-```
-
----
-
-### Send Message (Chat)
-
-Send a message to the AI assistant. Returns a Server-Sent Events (SSE) stream.
-
-```
-POST /api/thread/chat?app={app}
-```
-
-**Query Parameters:**
-
-| Parameter | Required | Description |
-| --- | --- | --- |
-| `app` | No | Target app (defaults to `default`) |
-
-**Headers:**
-
-| Header | Required | Description |
-| --- | --- | --- |
-| `X-Session-Id` | Yes | Session UUID |
-| `X-API-Key` | For non-default apps | Your API key |
-| `Content-Type` | Yes | `application/json` |
-
-**Request Body:**
-
-```json
-{
-  "text": "What is the current price of ETH?"
-}
-```
-
-**Response:** SSE stream (`text/event-stream`)
-
-```
-data: {"type":"text","content":"The current "}
-
-data: {"type":"text","content":"price of ETH is "}
-
-data: {"type":"tool_call","name":"GetTokenPrice","call_id":"call_1","args":{"symbol":"ETH"}}
-
-data: {"type":"tool_result","call_id":"call_1","name":"GetTokenPrice","result":{"price":3500.00}}
-
-data: {"type":"text","content":"$3,500.00."}
-
-data: {"type":"complete"}
-```
-
-**SSE Event Types:**
-
-| Type | Description | Fields |
-| --- | --- | --- |
-| `text` | Incremental text from the LLM | `content` |
-| `tool_call` | The assistant is calling a tool | `name`, `call_id`, `args` |
-| `tool_result` | Result from a tool execution | `call_id`, `name`, `result` |
-| `async_tool_result` | Result from a multi-step tool | `call_id`, `name`, `result` |
-| `complete` | Response generation finished | -- |
-| `error` | An error occurred | `message` |
-
----
-
-### Get Session State
-
-Get the current state snapshot for a session. Useful for polling session status and receiving pending updates.
-
-```
-GET /api/thread/state?session_id={session_id}
-```
-
-**Query Parameters:**
-
-| Parameter | Required | Description |
-| --- | --- | --- |
-| `session_id` | Yes | Session UUID |
-
-**Response:**
-
-```json
-{
-  "session_id": "550e8400-...",
-  "status": "idle",
-  "messages": [],
-  "user_state": {
-    "address": "0x742d...",
-    "chain_id": 1,
-    "is_connected": true
-  }
-}
-```
-
----
-
-### Interrupt Generation
-
-Cancel an in-progress response generation.
-
-```
-POST /api/thread/interrupt?session_id={session_id}
-```
-
-**Query Parameters:**
-
-| Parameter | Required | Description |
-| --- | --- | --- |
-| `session_id` | Yes | Session UUID |
-
-**Response:**
-
-```json
-{
-  "interrupted": true
-}
-```
-
----
-
-### Subscribe to Updates
-
-Subscribe to real-time updates for a session via SSE. This is a long-lived connection that receives system events, async tool results, and state changes.
-
-```
-GET /api/thread/updates
-```
-
-**Headers:**
-
-| Header | Required | Description |
-| --- | --- | --- |
-| `X-Session-Id` | Yes | Session UUID |
-
-**Response:** SSE stream with system events.
-
----
-
-### Control Actions
-
-Perform control actions on a session (e.g., select a model).
-
-```
-POST /api/control/{action}?session_id={session_id}
-```
-
-**Path Parameters:**
-
-| Parameter | Description |
-| --- | --- |
-| `action` | The control action to perform (e.g., `model`) |
-
-**Query Parameters:**
-
-| Parameter | Required | Description |
-| --- | --- | --- |
-| `session_id` | Yes | Session UUID |
-
-**Request Body:** Varies by action.
-
-For model selection:
-
-```json
-{
-  "model": "claude-sonnet"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-### List Available Models
-
-Get the list of models available for the current session.
-
-```
-GET /api/session/models
-```
-
-**Response:**
-
-```json
-{
-  "models": [
-    {
-      "id": "claude-sonnet",
-      "name": "Claude Sonnet",
-      "provider": "anthropic"
+  "sessionId": "session-uuid",
+  "message": "What is my ETH position worth?",
+  "app": "default",
+  "userState": {
+    "connection": {
+      "is_connected": true,
+      "provider": "para"
     },
-    {
-      "id": "gpt-4o",
-      "name": "GPT-4o",
-      "provider": "openai"
-    }
-  ]
-}
-```
-
----
-
-### List Authorized Apps
-
-Get the apps your API key is authorized to access.
-
-```
-GET /api/session/apps
-```
-
-**Headers:**
-
-| Header | Required | Description |
-| --- | --- | --- |
-| `X-API-Key` | Yes | Your API key |
-
-**Response:**
-
-```json
-{
-  "apps": [
-    {
-      "id": "mycoindex",
-      "name": "MyCoinDex"
-    },
-    {
-      "id": "default",
-      "name": "Default"
-    }
-  ]
-}
-```
-
----
-
-## SSE Stream Format
-
-All SSE responses follow the standard format:
-
-```
-data: {json}\n\n
-```
-
-Each line starts with `data: ` followed by a JSON object and ends with two newlines. The JSON object always contains a `type` field that determines how to process the event.
-
-### Consuming SSE in JavaScript
-
-```ts
-const response = await fetch("/api/thread/chat?app=mycoindex", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-Session-Id": sessionId,
-    "X-API-Key": apiKey,
-  },
-  body: JSON.stringify({ text: "Hello" }),
-});
-
-const reader = response.body!.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-
-  const chunk = decoder.decode(value);
-  const lines = chunk.split("\n");
-
-  for (const line of lines) {
-    if (line.startsWith("data: ")) {
-      const event = JSON.parse(line.slice(6));
-
-      switch (event.type) {
-        case "text":
-          // Append to displayed text
-          appendText(event.content);
-          break;
-        case "tool_call":
-          // Show tool call indicator
-          showToolCall(event.name, event.args);
-          break;
-        case "tool_result":
-          // Show tool result
-          showToolResult(event.call_id, event.result);
-          break;
-        case "complete":
-          // Response finished
-          break;
-        case "error":
-          // Handle error
-          console.error(event.message);
-          break;
-      }
+    "evm": {
+      "address": "0x742d...",
+      "chain_id": 8453
     }
   }
 }
 ```
 
-## Error Responses
-
-All error responses follow this format:
+The response is the first ordered page:
 
 ```json
 {
-  "error": "Description of what went wrong"
+  "session_id": "session-uuid",
+  "cursor": "opaque-cursor",
+  "has_more": false,
+  "events": [
+    {
+      "type": "turn_state_changed",
+      "event_id": "event-uuid",
+      "turn_id": "turn-uuid",
+      "sequence": 1,
+      "occurred_at": 1787184000000,
+      "state": "processing"
+    }
+  ]
 }
 ```
 
-| Status Code | Meaning |
-| --- | --- |
-| `400` | Bad request (missing or invalid parameters) |
-| `401` | Unauthorized (invalid or missing API key) |
-| `403` | Forbidden (API key does not authorize this app) |
-| `404` | Not found (session or resource does not exist) |
-| `500` | Internal server error |
+## Poll Events
 
-## Next Steps
+```http
+GET /v1/agent/chat/{sessionId}?cursor={opaqueCursor}&wait=25000
+```
 
-- [Sessions](/docs/build/services/sessions) -- how sessions and threads are managed.
-- [Apps and Authentication](/docs/build/namespaces) -- API key scoping and auth flow.
-- [Quickstart](/docs/build/quickstart) -- get a working integration in 5 minutes.
+All client-visible messages, lifecycle changes, tools, tasks, notices, errors,
+titles, and Actions share the same monotonically ordered sequence. Do not
+decode or synthesize cursors. On a typed invalid/expired cursor error, retry
+without `cursor` to hydrate from the ledger.
+
+## Respond to an Action
+
+```http
+POST /v1/agent/chat/{sessionId}/actions/{actionId}/result
+Content-Type: application/json
+Idempotency-Key: <unique operation key>
+```
+
+```json
+{
+  "revision": 1,
+  "result": {
+    "status": "rejected",
+    "reason": "Rejected by user"
+  }
+}
+```
+
+The backend validates Action ownership, revision CAS, expiry, idempotency, and
+request/result compatibility before appending the new Action revision and
+resuming the turn.
+
+## Interrupt
+
+```http
+POST /v1/agent/chat/{sessionId}/interrupt
+Content-Type: application/json
+Idempotency-Key: <unique operation key>
+```
+
+```json
+{
+  "turnId": "turn-uuid"
+}
+```
+
+The response is an `EventPage` containing the resulting lifecycle transition.
+
+## Session metadata
+
+```text
+GET    /v1/agent/sessions
+GET    /v1/agent/sessions/{sessionId}
+PATCH  /v1/agent/sessions/{sessionId}
+DELETE /v1/agent/sessions/{sessionId}
+```
+
+These routes own list metadata such as title and archive state. They are not a
+second transcript or lifecycle authority.
+
+## Pipeline
+
+The `/v1/pipeline/*` surface returns the same canonical Actions and concrete
+Events. It does not expose request mirrors, inferred snapshots, or system-event
+projections. Fetch `/openapi.json` for the complete generated schema.

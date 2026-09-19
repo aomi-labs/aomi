@@ -1,15 +1,13 @@
-import type { UserState } from "./user-state";
+import type { AomiOAuthTokenProvider } from "./authorization";
+import type { GuestSessionProvider } from "./guest-auth";
+import type { x402Client, x402HTTPClient } from "@x402/core/client";
+import type { AomiInferenceFundingSource } from "./agent/types";
 
 export { UserState } from "./user-state";
 export type {
-  UserStateAAMode,
-  UserStateAuthMethod,
   UserStateConnection,
   UserStateEvm,
-  UserStatePending,
   UserStateSvm,
-  UserStateWalletProvider,
-  OwnedUserState,
   AomiClientType,
 } from "./user-state";
 export { CLIENT_TYPE_TS_CLI, CLIENT_TYPE_WEB_UI } from "./user-state";
@@ -36,8 +34,16 @@ export type AomiClientOptions = {
   fetch?: typeof fetch;
   /** Default API key for non-default apps */
   apiKey?: string;
+  /** Optional x402 signer used by the bounded payment retry transport. */
+  x402?: x402Client | x402HTTPClient;
+  /** Default inference funding lane used by high-level Agent sessions. */
+  inferenceFunding?: AomiInferenceFundingSource;
   /** Supplies a short-lived Aomi account bearer for REST and SSE requests. */
   getAccountBearer?: GetAccountBearer;
+  /** Resource-bound developer OAuth. Takes precedence over session/guest auth. */
+  oauth?: AomiOAuthTokenProvider;
+  /** Low-friction Better Auth anonymous session for `/v1` calls. Defaults on. */
+  guest?: boolean | GuestSessionProvider;
   /** Optional logger for debug output (default: silent) */
   logger?: Logger;
 };
@@ -57,7 +63,7 @@ export type GetAccountBearer = ((options?: {
    * this to reconnect live SSE streams with the new credential.
    *
    * The property is optional because API-key and cookie-backed integrations do
-   * not own a refreshable account bearer. WidgetSessionProvider always exposes
+   * not own a refreshable account bearer. AccountSessionProvider always exposes
    * it. Wrappers around a widget provider must preserve this subscription or
    * provide their own stable forwarding subscription.
    */
@@ -80,6 +86,8 @@ export type ApplicationId = number | string | null;
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface AomiRequestOptions {
+  /** Cancels the response body as well as the request. */
+  signal?: AbortSignal;
   /** Thread id for thread-scoped routes. Kept as sessionId for SDK compatibility. */
   sessionId?: string;
   /** App key for app-key checked routes; defaults to the client's apiKey. */
@@ -92,74 +100,6 @@ export interface AomiRequestOptions {
   headers?: HeadersInit;
   /** Use the native fetch path instead of a custom payment-aware fetch wrapper. */
   raw?: boolean;
-}
-
-// =============================================================================
-// Base Types
-// =============================================================================
-
-export interface AomiMessage {
-  /**
-   * `notice` is a durable runtime record — today, a turn the provider refused.
-   * Unlike `system`, which the projection drops, a notice is shown to the user
-   * and survives a reload.
-   */
-  sender?: "user" | "agent" | "system" | "notice" | string;
-  /**
-   * Backend-allocated identity for this message, stable across polls and
-   * reloads. Absent on legacy rows the runtime hydrated without one.
-   *
-   * The only sound id for a rendered notice: every failure notice carries the
-   * same copy, so anything derived from content collides across distinct
-   * failures in one thread.
-   */
-  message_key?: string;
-  content?: string;
-  timestamp?: string;
-  is_streaming?: boolean;
-  tool_result?: [string, string] | null;
-  /** Name of the tool this message reports on, when the backend supplies it. */
-  tool_name?: string;
-  /** Arguments the model passed to `tool_name`, as serialized by the backend. */
-  tool_arguments?: unknown;
-}
-
-// =============================================================================
-// API Response Types
-// =============================================================================
-
-/**
- * GET /api/thread/state
- * Fetches current session state including messages and processing status
- */
-export interface AomiStateResponse {
-  messages?: AomiMessage[] | null;
-  system_events?: AomiSystemEvent[] | null;
-  title?: string | null;
-  is_processing?: boolean;
-  user_state?: UserState | null;
-}
-
-/**
- * POST /api/thread/chat
- * Sends a chat message and returns updated session state
- */
-export interface AomiChatResponse {
-  messages?: AomiMessage[] | null;
-  system_events?: AomiSystemEvent[] | null;
-  title?: string | null;
-  is_processing?: boolean;
-  user_state?: UserState | null;
-  /** @deprecated Retained for compatibility with backends that return turn correlation metadata. */
-  turn_id?: string | null;
-}
-
-/**
- * POST /api/system
- * Sends a system message and returns the response message
- */
-export interface AomiSystemResponse {
-  res?: AomiMessage | null;
 }
 
 /**
@@ -176,58 +116,66 @@ export interface AomiSimulateFee {
 }
 
 export interface AomiSimulateResponse {
-  result: {
-    batch_success: boolean;
-    stateful: boolean;
-    from: string;
-    network: string;
-    total_gas?: number;
-    fee?: AomiSimulateFee;
-    steps: Array<{
-      step: number;
-      label: string;
-      success: boolean;
-      result?: string | null;
-      revert_reason?: string | null;
-      gas_used?: number;
-      tx: { to: string; value_wei: string; value_eth: string; data: string };
-    }>;
-  };
+  result: SimReport;
+  fee: AomiSimulateFee | null;
 }
 
-/**
- * POST /api/thread/interrupt
- * Interrupts current processing and returns updated session state
- */
-export type AomiInterruptResponse = AomiChatResponse;
+export interface SimulationCall {
+  to: string;
+  /** Decimal native atomic units; not display units or ERC-20 units. */
+  value: string;
+  data: string;
+  gas_limit: number | null;
+}
 
-/**
- * GET /api/threads
- * Returns array of AomiThread
- */
-export interface AomiThread {
-  thread_id?: string;
-  session_id: string;
-  title: string | null;
-  is_archived?: boolean;
-  last_active_at?: number;
+export interface SimContext {
+  chain_id: number;
+  sender: string;
+  block_number: number;
+  block_hash: string;
+  engine: string;
+  rules: string;
+  balance_overrides: Array<{ address: string; amount: string }>;
+}
+
+export interface SimulationExecution {
+  status:
+    | { kind: "succeeded" | "reverted" | "failed" }
+    | { kind: "halted"; reason: string };
+  return_data: string;
+  gas_used: number;
+  logs: Array<{ address: string; topics: string[]; data: string }>;
+  native_balance: { before: string; after: string } | null;
+}
+
+export interface SimStep {
+  step: number;
+  chain_id: number;
+  label: string;
+  call: SimulationCall;
+  /** null means skipped after an earlier failure, not an unknown execution. */
+  execution: SimulationExecution | null;
+}
+
+export interface SimReport {
+  contexts: SimContext[];
+  steps: SimStep[];
+}
+
+export interface SimulationError {
+  code:
+    | "invalid_input"
+    | "unavailable"
+    | "incomplete"
+    | "fork_drift"
+    | "world_needs_reopen";
+  message: string;
+  /** Diagnostic only: this report must never satisfy a simulation gate. */
+  partial: SimReport;
+  interrupted_step: number | null;
 }
 
 export type AomiAccountResponse = AomiAccountProfile;
-
-/**
- * POST /api/threads
- * Creates a new thread/session
- */
-export interface AomiCreateThreadResponse {
-  thread_id?: string;
-  session_id: string;
-  title?: string | null;
-  /** Bound rig slug — present only when the create carried `rig` (fast path). */
-  rig?: string;
-  /** Bound baml client — present only on the create fast path. */
-  baml?: string;
-}
 
 /**
  * GET /api/account
@@ -237,74 +185,125 @@ export interface AomiCreateThreadResponse {
  */
 export interface AomiUser {
   user_id: string;
-  username?: string | null;
-  apps?: string[];
-  tier?: string;
-  verified_email?: string | null;
-  status?: string;
-  last_seen_at?: number | null;
-  created_at?: number;
-  updated_at?: number;
+  username: string | null;
+  apps: string[];
+  tier: "anon" | "free" | "pro";
+  verified_email: string | null;
+  status: string;
+  last_seen_at: number | null;
+  created_at: number;
+  updated_at: number;
 }
 
-export interface AomiAuthIdentity {
+export type AomiChainKind = "evm" | "svm";
+export type AomiAccountRecordStatus =
+  | "provisioning"
+  | "active"
+  | "expired"
+  | "revoked"
+  | "unavailable";
+
+export interface AomiOnchainAddress {
+  chain: AomiChainKind;
+  address: string;
+}
+
+export interface AomiAuthProvider {
   id: number;
-  application?: string | null;
-  wallet_provider: string;
-  auth_method: string;
-  auth_verified_at?: number | null;
+  provider: string;
+  method: string;
+  verified_at: number | null;
   is_primary: boolean;
   created_at: number;
 }
 
-export interface AomiIdentityWallet {
-  wallet_id?: string | null;
-  address: string;
-  chain_type: string;
-  wallet_provider: string;
+export interface AomiUserAccount {
+  address: AomiOnchainAddress;
+  auth_provider?: string | null;
+  is_primary: boolean;
+  provider_managed: boolean;
 }
 
-export interface AomiUsageStats {
-  period_utc_month?: string;
-  input_tokens: number;
-  output_tokens: number;
-  credit_used: number;
-  credit_paid: number;
+export interface AomiSigningPolicy {
+  address: AomiOnchainAddress;
+  mode: "auto" | "manual" | "client_auto" | "denied";
+  authorization_version: number;
+  last_authorized_at: number | null;
+  last_authorized_by: AomiOnchainAddress | null;
+}
+
+export interface AomiDelegatedAccount {
+  id: number;
+  address: AomiOnchainAddress;
+  delegation_provider: string;
+  kind: string;
+  status: AomiAccountRecordStatus;
+  created_at: number;
+  updated_at: number;
+  expires_at: number | null;
+  revoked_at: number | null;
+  revocation_reason: string | null;
+}
+
+export interface AomiOperatingAccount {
+  id: number;
+  owner: AomiOnchainAddress;
+  operating: AomiOnchainAddress;
+  chain_ref: string;
+  provider: string;
+  kind: string;
+  status: AomiAccountRecordStatus;
+  version: number;
+  created_at: number;
+  updated_at: number;
+}
+
+export type AomiPolicyWindow =
+  | { unit: "slots"; value: number }
+  | { unit: "blocks"; value: number }
+  | { unit: "seconds"; value: number };
+
+export type AomiOnchainPolicyRule =
+  | { type: "allowed_call_target"; target: AomiOnchainAddress }
+  | { type: "lifetime_native_asset_limit"; amount: string }
+  | {
+      type: "recurring_native_asset_limit";
+      amount: string;
+      window: AomiPolicyWindow;
+    };
+
+export interface AomiOnchainPolicy {
+  version: number;
+  rules: AomiOnchainPolicyRule[];
+}
+
+export type AomiProviderBinding = {
+  provider: "swig";
+  binding: { swig_account: AomiOnchainAddress; role_id: number };
+};
+
+export interface AomiOnchainPolicyBinding {
+  id: number;
+  owner: AomiOnchainAddress;
+  delegate: AomiOnchainAddress;
+  operating_account_id: number;
+  policy: AomiOnchainPolicy;
+  provider_binding: AomiProviderBinding;
+  status: AomiAccountRecordStatus;
+  created_at: number;
+  updated_at: number;
+  confirmed_at: number | null;
+  revoked_at: number | null;
 }
 
 export interface AomiAccountProfile {
   user: AomiUser;
-  auth_identities?: AomiAuthIdentity[];
-  identity_wallets?: AomiIdentityWallet[];
-  usage?: AomiUsageStats;
-}
-
-export interface AomiCreateApprovalRequest {
-  auth_identity_id: number;
-  grant_kind: string;
-  secret_handle: string;
-  external_subject?: string | null;
-  display_label?: string | null;
-  scopes?: string[];
-  expires_at?: number | null;
-  metadata?: unknown;
-}
-
-export interface AomiAccessApproval {
-  id: number;
-  user_id: string;
-  auth_identity_id: number;
-  external_subject?: string | null;
-  display_label?: string | null;
-  grant_kind: string;
-  scopes: string[];
-  secret_handle: string;
-  expires_at?: number | null;
-  granted_at: number;
-  revoked_at?: number | null;
-  metadata: unknown;
-  created_at: number;
-  updated_at: number;
+  auth_providers: AomiAuthProvider[];
+  user_accounts: AomiUserAccount[];
+  signing_policies: AomiSigningPolicy[];
+  delegated_accounts: AomiDelegatedAccount[];
+  operating_accounts: AomiOperatingAccount[];
+  onchain_policy_bindings: AomiOnchainPolicyBinding[];
 }
 
 export interface AomiBeginAccountAuthResponse {
@@ -318,10 +317,7 @@ export type AomiAuthWalletFamily = "evm" | "solana";
 /** Provider login intent. Linking ownership never implies delegated signing. */
 export type AomiAuthPurpose = "link_wallet" | "delegate_signing";
 
-/**
- * GET/POST/DELETE /api/account/payment/byok
- * Lists or saves BYOK keys (one per LLM provider) for the account.
- */
+/** GET/POST/DELETE /api/account/model-keys. */
 export interface AomiByokKeyEntry {
   provider: string;
   key_prefix: string;
@@ -330,7 +326,7 @@ export interface AomiByokKeyEntry {
 }
 
 export interface AomiListByokKeysResponse {
-  byok: AomiByokKeyEntry[];
+  keys: AomiByokKeyEntry[];
 }
 
 export interface AomiSaveByokKeyResponse {
@@ -339,199 +335,6 @@ export interface AomiSaveByokKeyResponse {
 
 export interface AomiDeleteByokKeyResponse {
   deleted: boolean;
-}
-
-// =============================================================================
-// SSE Event Types (/api/thread/updates)
-// =============================================================================
-
-/**
- * Base SSE event. Newer backends may include `thread_id`; `session_id` stays
- * optional for SDK compatibility with existing consumers.
- */
-export type AomiSSEEvent = {
-  type:
-    | "title_changed"
-    | "tool_update"
-    | "tool_complete"
-    | "system_notice"
-    | "task_started"
-    | "task_activity"
-    | "task_completed"
-    | string;
-  session_id?: string;
-  thread_id?: string;
-  new_title?: string;
-  [key: string]: unknown;
-};
-
-// =============================================================================
-// Orchestrator delegation events (emitted on the mother thread's event bus)
-// =============================================================================
-
-/** Terminal status reported by `task_completed`. */
-export type AomiTaskStatus =
-  | "completed"
-  | "failed"
-  | "stalled"
-  | "cancelled"
-  | string;
-
-/** Child step flavor reported by `task_activity`. */
-export type AomiTaskActivityKind = "tool_call" | "note";
-
-/** Emitted when the mother dispatches a `task` call, before awaiting the child. */
-export type AomiTaskStartedEvent = {
-  type: "task_started";
-  /** id of the mother's `task` tool call. */
-  call_id: string;
-  /** Stable child handle, e.g. `task-agent:9f2c…`. */
-  agent_id: string;
-  label: string;
-  app?: string | null;
-  resumed?: boolean;
-  session_id?: string;
-  thread_id?: string;
-};
-
-/** Emitted as the mother observes the child transcript grow. */
-export type AomiTaskActivityEvent = {
-  type: "task_activity";
-  call_id: string;
-  agent_id: string;
-  kind: AomiTaskActivityKind;
-  /** Present for `kind: "tool_call"`. */
-  tool_name?: string;
-  /** Present for `kind: "tool_call"`; redacted/truncated by the backend. */
-  args?: unknown;
-  /** Present for `kind: "tool_call"`; redacted/truncated by the backend. */
-  result_preview?: string;
-  /** Present for `kind: "note"`. */
-  text?: string;
-  /** Monotonic per agent — used for ordering and replay dedupe. */
-  child_seq: number;
-  session_id?: string;
-  thread_id?: string;
-};
-
-/** Emitted just before the mother's `task` call returns. */
-export type AomiTaskCompletedEvent = {
-  type: "task_completed";
-  call_id: string;
-  agent_id: string;
-  status: AomiTaskStatus;
-  message?: string;
-  staged_count?: number;
-  /** Number of child steps the backend counted (may exceed observed activity). */
-  steps?: number;
-  duration_ms?: number;
-  session_id?: string;
-  thread_id?: string;
-};
-
-export type AomiTaskEvent =
-  | AomiTaskStartedEvent
-  | AomiTaskActivityEvent
-  | AomiTaskCompletedEvent;
-
-export type AomiTaskEventType = AomiTaskEvent["type"];
-
-export const AOMI_TASK_EVENT_TYPES = [
-  "task_started",
-  "task_activity",
-  "task_completed",
-] as const satisfies readonly AomiTaskEventType[];
-
-export function isAomiTaskEventType(type: string): type is AomiTaskEventType {
-  return (AOMI_TASK_EVENT_TYPES as readonly string[]).includes(type);
-}
-
-const asString = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-/**
- * Narrow a raw SSE payload to a typed task event.
- *
- * Returns `null` when the payload is not a task event or is missing the fields
- * the UI joins on (`agent_id`, plus `child_seq` for activity), so a malformed
- * backend event degrades to "no row" instead of a half-built one.
- */
-export function parseAomiTaskEvent(
-  event: AomiSSEEvent | AomiTaskEvent,
-): AomiTaskEvent | null {
-  const raw = event as Record<string, unknown>;
-  const type = asString(raw.type);
-  if (!type || !isAomiTaskEventType(type)) return null;
-
-  const agentId = asString(raw.agent_id);
-  if (!agentId) return null;
-  const callId = asString(raw.call_id) ?? "";
-
-  if (type === "task_started") {
-    return {
-      type,
-      call_id: callId,
-      agent_id: agentId,
-      label: asString(raw.label) ?? "",
-      app: asString(raw.app) ?? null,
-      resumed: raw.resumed === true,
-      ...(asString(raw.session_id)
-        ? { session_id: raw.session_id as string }
-        : null),
-      ...(asString(raw.thread_id)
-        ? { thread_id: raw.thread_id as string }
-        : null),
-    };
-  }
-
-  if (type === "task_activity") {
-    const childSeq = raw.child_seq;
-    if (typeof childSeq !== "number" || !Number.isFinite(childSeq)) return null;
-    const kind: AomiTaskActivityKind =
-      raw.kind === "note" ? "note" : "tool_call";
-    return {
-      type,
-      call_id: callId,
-      agent_id: agentId,
-      kind,
-      child_seq: childSeq,
-      ...(asString(raw.tool_name)
-        ? { tool_name: raw.tool_name as string }
-        : null),
-      ...(raw.args !== undefined ? { args: raw.args } : null),
-      ...(asString(raw.result_preview)
-        ? { result_preview: raw.result_preview as string }
-        : null),
-      ...(asString(raw.text) ? { text: raw.text as string } : null),
-      ...(asString(raw.session_id)
-        ? { session_id: raw.session_id as string }
-        : null),
-      ...(asString(raw.thread_id)
-        ? { thread_id: raw.thread_id as string }
-        : null),
-    };
-  }
-
-  return {
-    type,
-    call_id: callId,
-    agent_id: agentId,
-    status: asString(raw.status) ?? "completed",
-    ...(asString(raw.message) ? { message: raw.message as string } : null),
-    ...(typeof raw.staged_count === "number"
-      ? { staged_count: raw.staged_count }
-      : null),
-    ...(typeof raw.steps === "number" ? { steps: raw.steps } : null),
-    ...(typeof raw.duration_ms === "number"
-      ? { duration_ms: raw.duration_ms }
-      : null),
-    ...(asString(raw.session_id)
-      ? { session_id: raw.session_id as string }
-      : null),
-    ...(asString(raw.thread_id)
-      ? { thread_id: raw.thread_id as string }
-      : null),
-  };
 }
 
 /**
@@ -577,6 +380,39 @@ export interface AomiListSecretsResponse {
 }
 
 /**
+ * One declared slot of an app together with the signed-in user's own
+ * configuration state. Values never come back from the backend.
+ *
+ * `GET|POST /api/account/apps/:application_id/secrets`
+ */
+export interface AomiUserAppSecretSlot {
+  name: string;
+  description: string;
+  required: boolean;
+  /** The current account stored its own value for this slot. */
+  configured: boolean;
+  /**
+   * The app ships a shared value for this slot (official bundle file or
+   * Build Environment), so a user value is an override rather than a
+   * prerequisite for the app to work.
+   */
+  app_provided: boolean;
+}
+
+/** The per-user key set for one application. */
+export interface AomiUserAppSecrets {
+  application_id: number;
+  app: string;
+  slots: AomiUserAppSecretSlot[];
+}
+
+/** DELETE /api/account/apps/:application_id/secrets */
+export interface AomiClearAppSecretsResponse {
+  cleared: boolean;
+  removed: number;
+}
+
+/**
  * One per-app secret slot declared by a plugin manifest. Surfaced via
  * `AomiAppDescriptor.secrets` so the frontend can render input rows and
  * gate app load on `required` slots being filled.
@@ -597,6 +433,10 @@ export type AomiArtifactStatus = "ready" | "pending" | "fetch_backoff";
  */
 export interface AomiAppDescriptor {
   name: string;
+  /** Backend-owned Library taxonomy. Empty means the "More" fallback. */
+  featureCatalog?: AomiFeatureCategory[];
+  /** Backend-controlled registration metadata used to identify official apps. */
+  metadata?: Record<string, unknown> | null;
   applicationId?: number | string | null;
   platform?: string | null;
   label?: string | null;
@@ -610,54 +450,11 @@ export interface AomiAppDescriptor {
   chainIds?: number[];
 }
 
-export type AomiSSEEventType =
-  | "title_changed"
-  | "tool_update"
-  | "tool_complete"
-  | "system_notice"
-  | AomiTaskEventType;
-
-// =============================================================================
-// System Events (/api/thread/events)
-// =============================================================================
-
-/**
- * Backend SystemEvent enum serializes as tagged JSON:
- * - InlineCall: {"InlineCall": {"type": "wallet_tx_request", "payload": {...}}}
- * - SystemNotice: {"SystemNotice": "message"}
- * - SystemError: {"SystemError": "message"}
- * - AsyncCallback: {"AsyncCallback": {...}} (not sent over HTTP)
- */
-export type AomiSystemEvent =
-  | { InlineCall: { type: string; payload?: unknown; [key: string]: unknown } }
-  | { SystemNotice: string }
-  | { SystemError: string }
-  | { AsyncCallback: Record<string, unknown> };
-
-// =============================================================================
-// Type Guards
-// =============================================================================
-
-export function isInlineCall(
-  event: AomiSystemEvent,
-): event is { InlineCall: { type: string; payload?: unknown } } {
-  return "InlineCall" in event;
-}
-
-export function isSystemNotice(
-  event: AomiSystemEvent,
-): event is { SystemNotice: string } {
-  return "SystemNotice" in event;
-}
-
-export function isSystemError(
-  event: AomiSystemEvent,
-): event is { SystemError: string } {
-  return "SystemError" in event;
-}
-
-export function isAsyncCallback(
-  event: AomiSystemEvent,
-): event is { AsyncCallback: Record<string, unknown> } {
-  return "AsyncCallback" in event;
-}
+export type AomiFeatureCategory =
+  | "lending"
+  | "cross-chain"
+  | "staking"
+  | "trading"
+  | "research"
+  | "wallets"
+  | "developer";

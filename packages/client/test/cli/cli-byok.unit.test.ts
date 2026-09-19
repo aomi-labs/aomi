@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CliExit } from "../../src/cli/errors";
 
 const {
-  fetchStateMock,
   listByokKeysMock,
   saveByokKeyMock,
   deleteByokKeyMock,
   loadOrCreateMock,
   ensureClientIdMock,
 } = vi.hoisted(() => ({
-  fetchStateMock: vi.fn().mockResolvedValue({}),
   listByokKeysMock: vi.fn().mockResolvedValue([]),
   saveByokKeyMock: vi.fn().mockResolvedValue({
     provider: "anthropic",
@@ -24,7 +22,6 @@ const {
 
 vi.mock("../../src/client", () => ({
   AomiClient: vi.fn(() => ({
-    fetchState: fetchStateMock,
     listByokKeys: listByokKeysMock,
     saveByokKey: saveByokKeyMock,
     deleteByokKey: deleteByokKeyMock,
@@ -46,7 +43,6 @@ describe("CLI BYOK-key commands", () => {
       sessionId: "session-1",
       ensureClientId: ensureClientIdMock,
     });
-    fetchStateMock.mockResolvedValue({});
     listByokKeysMock.mockResolvedValue([]);
     saveByokKeyMock.mockResolvedValue({
       provider: "anthropic",
@@ -57,11 +53,9 @@ describe("CLI BYOK-key commands", () => {
     deleteByokKeyMock.mockResolvedValue(true);
   });
 
-  it("saves a BYOK key after binding the client to the session", async () => {
+  it("saves a BYOK key for the active Agent account", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { saveByokKeyCommand } = await import(
-      "../../src/cli/commands/byok"
-    );
+    const { saveByokKeyCommand } = await import("../../src/cli/commands/byok");
 
     await saveByokKeyCommand(
       {
@@ -73,13 +67,14 @@ describe("CLI BYOK-key commands", () => {
       { printLocation: false },
     );
 
-    expect(fetchStateMock).toHaveBeenCalledWith("session-1", undefined, "client-1");
     expect(saveByokKeyMock).toHaveBeenCalledWith(
       "session-1",
       "anthropic",
       "sk-ant-test",
     );
-    expect(logSpy).toHaveBeenCalledWith("BYOK key set for anthropic: sk-ant-...");
+    expect(logSpy).toHaveBeenCalledWith(
+      "BYOK key set for anthropic: sk-ant-...",
+    );
     logSpy.mockRestore();
   });
 
@@ -94,9 +89,7 @@ describe("CLI BYOK-key commands", () => {
       },
     ]);
 
-    const { showByokKeysCommand } = await import(
-      "../../src/cli/commands/byok"
-    );
+    const { showByokKeysCommand } = await import("../../src/cli/commands/byok");
 
     await showByokKeysCommand(
       {
@@ -129,9 +122,8 @@ describe("CLI BYOK-key commands", () => {
       },
     ]);
 
-    const { clearByokKeysCommand } = await import(
-      "../../src/cli/commands/byok"
-    );
+    const { clearByokKeysCommand } =
+      await import("../../src/cli/commands/byok");
 
     await clearByokKeysCommand(
       {
@@ -142,17 +134,21 @@ describe("CLI BYOK-key commands", () => {
       { printLocation: false },
     );
 
-    expect(deleteByokKeyMock).toHaveBeenNthCalledWith(1, "session-1", "anthropic");
+    expect(deleteByokKeyMock).toHaveBeenNthCalledWith(
+      1,
+      "session-1",
+      "anthropic",
+    );
     expect(deleteByokKeyMock).toHaveBeenNthCalledWith(2, "session-1", "openai");
-    expect(logSpy).toHaveBeenCalledWith("BYOK keys cleared. Using system keys.");
+    expect(logSpy).toHaveBeenCalledWith(
+      "BYOK keys cleared. Using system keys.",
+    );
     logSpy.mockRestore();
   });
 
   it("rejects invalid BYOK-key input", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { saveByokKeyCommand } = await import(
-      "../../src/cli/commands/byok"
-    );
+    const { saveByokKeyCommand } = await import("../../src/cli/commands/byok");
 
     await expect(
       saveByokKeyCommand(

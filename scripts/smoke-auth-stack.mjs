@@ -169,10 +169,13 @@ async function signInWithWallet(jar, wallet) {
       chainId,
     }),
   });
-  const body = await readJsonOrThrow(verifyResponse, `${jar.label} SIWE verify`);
+  const body = await readJsonOrThrow(
+    verifyResponse,
+    `${jar.label} SIWE verify`,
+  );
   if (body?.user_id) return body;
   const account = await readJsonOrThrow(
-    await jar.request("/api/aomi/account"),
+    await jar.request("/v1/account"),
     `${jar.label} account graph`,
   );
   return {
@@ -261,7 +264,7 @@ if (!cookieHeader && !sessionBearer) {
 
 const tokenResponse = await check(
   "BFF bearer token",
-  `${portalUrl}/api/aomi/account-bearer`,
+  `${portalUrl}/v1/account/bearer`,
   { headers: authHeaders() },
 );
 if (!tokenResponse.ok) {

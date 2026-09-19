@@ -1,0 +1,5115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aomi Event and Pipeline API",
+    "version": "1.0.0",
+    "description": "Intent enters the runtime; one ordered stream of concrete Events leaves it. Actions are durable Events whose nested ActionRequest requires a client response."
+  },
+  "x-aomi-route-manifest": [
+    "DELETE /v1/agent/sessions/{sessionId}",
+    "GET /.well-known/api-catalog",
+    "GET /health",
+    "GET /openapi.json",
+    "GET /ready",
+    "GET /v1/account/credits",
+    "GET /v1/account/statement",
+    "GET /v1/agent/chat/{sessionId}",
+    "GET /v1/agent/chat/{sessionId}/stream",
+    "GET /v1/agent/sessions",
+    "GET /v1/agent/sessions/{sessionId}",
+    "GET /v1/pipeline",
+    "GET /v1/pipeline/apps",
+    "GET /v1/pipeline/apps/{app}",
+    "GET /v1/pipeline/apps/{app}/operations",
+    "GET /v1/pipeline/apps/{app}/operations/{operation}",
+    "GET /v1/pipeline/core",
+    "GET /v1/pipeline/evm",
+    "GET /v1/pipeline/evm/account",
+    "GET /v1/pipeline/evm/build",
+    "GET /v1/pipeline/evm/commit",
+    "GET /v1/pipeline/evm/context",
+    "GET /v1/pipeline/evm/contract",
+    "GET /v1/pipeline/evm/encode-call",
+    "GET /v1/pipeline/evm/simulate",
+    "GET /v1/pipeline/evm/stage",
+    "GET /v1/pipeline/evm/token-holdings",
+    "GET /v1/pipeline/skills",
+    "GET /v1/pipeline/skills/{skill}",
+    "GET /v1/pipeline/skills/{skill}/SKILL.md",
+    "GET /v1/pipeline/skills/{skill}/operations",
+    "GET /v1/pipeline/skills/{skill}/operations/{operation}",
+    "GET /v1/pipeline/svm",
+    "GET /v1/pipeline/svm/account",
+    "GET /v1/pipeline/svm/build",
+    "GET /v1/pipeline/svm/commit",
+    "GET /v1/pipeline/svm/context",
+    "GET /v1/pipeline/svm/program",
+    "GET /v1/pipeline/svm/simulate",
+    "GET /v1/pipeline/svm/stage",
+    "GET /v1/pipeline/svm/token-holdings",
+    "PATCH /v1/agent/sessions/{sessionId}",
+    "POST /v1/account/credits/top-up",
+    "POST /v1/agent/chat",
+    "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
+    "POST /v1/agent/chat/{sessionId}/interrupt",
+    "POST /v1/agent/mcp",
+    "POST /v1/pipeline/apps/{app}/operations/{operation}",
+    "POST /v1/pipeline/evm/account",
+    "POST /v1/pipeline/evm/build",
+    "POST /v1/pipeline/evm/commit",
+    "POST /v1/pipeline/evm/context",
+    "POST /v1/pipeline/evm/contract",
+    "POST /v1/pipeline/evm/encode-call",
+    "POST /v1/pipeline/evm/simulate",
+    "POST /v1/pipeline/evm/stage",
+    "POST /v1/pipeline/evm/token-holdings",
+    "POST /v1/pipeline/mcp",
+    "POST /v1/pipeline/skills/{skill}/operations/{operation}",
+    "POST /v1/pipeline/svm/account",
+    "POST /v1/pipeline/svm/build",
+    "POST /v1/pipeline/svm/commit",
+    "POST /v1/pipeline/svm/context",
+    "POST /v1/pipeline/svm/program",
+    "POST /v1/pipeline/svm/simulate",
+    "POST /v1/pipeline/svm/stage",
+    "POST /v1/pipeline/svm/token-holdings"
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Process is alive"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready",
+        "responses": {
+          "200": {
+            "description": "Backend dependency is ready"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "responses": {
+          "200": {
+            "description": "This document"
+          }
+        }
+      }
+    },
+    "/v1/account/credits": {
+      "get": {
+        "operationId": "getAccountCredits",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current included allowance, Credit Bank balance, and recent activity"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credits:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/credits/top-up": {
+      "post": {
+        "operationId": "topUpAccountCredits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount_microusd"],
+                "additionalProperties": false,
+                "properties": {
+                  "amount_microusd": {
+                    "type": "integer",
+                    "minimum": 10000,
+                    "maximum": 1000000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Credit Bank position"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credits:topup"]
+          }
+        ]
+      }
+    },
+    "/v1/account/statement": {
+      "get": {
+        "operationId": "getAccountStatement",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Priced usage statement"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:usage:read"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat": {
+      "post": {
+        "operationId": "startTurn",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTurnIntent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordered event page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}": {
+      "get": {
+        "operationId": "pollEvents",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ordered event page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "description": "Cursor expired; retry without a cursor"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}/stream": {
+      "get": {
+        "operationId": "streamAgentChat",
+        "summary": "Live text and durable event pages; reconnect with the last page cursor",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE page (EventPage), message (transient turn_id/revision/message snapshot), resync (replay required)",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}/interrupt": {
+      "post": {
+        "operationId": "interruptTurn",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterruptIntent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordered event page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/chat/{sessionId}/actions/{actionId}/result": {
+      "post": {
+        "operationId": "respondToAction",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          },
+          {
+            "$ref": "#/components/parameters/ActionId"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RespondToActionIntent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resulting Action revision",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["action"],
+                  "properties": {
+                    "action": {
+                      "$ref": "#/components/schemas/Action"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:actions:resolve"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/mcp": {
+      "post": {
+        "operationId": "agentMcp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP JSON-RPC response"
+          },
+          "202": {
+            "description": "Notification accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["mcp:agent"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/sessions": {
+      "get": {
+        "operationId": "listSessions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ]
+      }
+    },
+    "/v1/agent/sessions/{sessionId}": {
+      "get": {
+        "operationId": "getSession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "updateSession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "deleteSession",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["agent:write"]
+          }
+        ]
+      }
+    },
+    "/.well-known/api-catalog": {
+      "get": {
+        "operationId": "apiCatalog",
+        "responses": {
+          "200": {
+            "description": "Public API catalog"
+          }
+        }
+      }
+    },
+    "/v1/pipeline": {
+      "get": {
+        "operationId": "browsePipeline",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/core": {
+      "get": {
+        "operationId": "browsePipelineCore",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm": {
+      "get": {
+        "operationId": "browsePipelineEvm",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm": {
+      "get": {
+        "operationId": "browsePipelineSvm",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/apps": {
+      "get": {
+        "operationId": "browsePipelineApps",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CatalogCursor"
+          },
+          {
+            "$ref": "#/components/parameters/AppPageLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/apps/{app}": {
+      "get": {
+        "operationId": "browsePipelineApp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineApp"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/apps/{app}/operations": {
+      "get": {
+        "operationId": "browsePipelineAppOperations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineApp"
+          },
+          {
+            "$ref": "#/components/parameters/CatalogCursor"
+          },
+          {
+            "$ref": "#/components/parameters/CatalogPageLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/apps/{app}/operations/{operation}": {
+      "get": {
+        "operationId": "describePipelineAppOperation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineApp"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineOperation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "invokePipelineAppOperation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineApp"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineOperation"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PipelineArguments"
+        },
+        "responses": {
+          "200": {
+            "description": "Request-local authoritative operation result"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/skills": {
+      "get": {
+        "operationId": "browsePipelineSkills",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CatalogCursor"
+          },
+          {
+            "$ref": "#/components/parameters/CatalogPageLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/skills/{skill}": {
+      "get": {
+        "operationId": "browsePipelineSkill",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineSkill"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/skills/{skill}/SKILL.md": {
+      "get": {
+        "operationId": "readPipelineSkill",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineSkill"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative skill Markdown",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/skills/{skill}/operations": {
+      "get": {
+        "operationId": "browsePipelineSkillOperations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineSkill"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineDirectory"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/skills/{skill}/operations/{operation}": {
+      "get": {
+        "operationId": "describePipelineSkillOperation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineSkill"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineOperation"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "invokePipelineSkillOperation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PipelineSkill"
+          },
+          {
+            "$ref": "#/components/parameters/PipelineOperation"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/PipelineArguments"
+        },
+        "responses": {
+          "200": {
+            "description": "Skill-scoped request-local operation result"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/mcp": {
+      "post": {
+        "operationId": "pipelineMcp",
+        "description": "Stateless streamable-HTTP MCP JSON-RPC over the same PipelineApiService as REST.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP JSON-RPC response",
+            "headers": {
+              "mcp-protocol-version": {
+                "schema": {
+                  "const": "2025-06-18"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "MCP notification accepted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Payment challenge with transport metadata"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["mcp:pipeline"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/build": {
+      "get": {
+        "operationId": "describeevmbuild",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "buildevmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/stage": {
+      "get": {
+        "operationId": "describeevmstage",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "stageevmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/simulate": {
+      "get": {
+        "operationId": "describeevmsimulate",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "simulateevmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/commit": {
+      "get": {
+        "operationId": "describeevmcommit",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "commitevmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineEvmCommitResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/build": {
+      "get": {
+        "operationId": "describesvmbuild",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "buildsvmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/stage": {
+      "get": {
+        "operationId": "describesvmstage",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "stagesvmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/simulate": {
+      "get": {
+        "operationId": "describesvmsimulate",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "simulatesvmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineBuild"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/commit": {
+      "get": {
+        "operationId": "describesvmcommit",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "commitsvmPipeline",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineLifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Portable chain-specific Build or commit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineSvmCommitResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/account": {
+      "get": {
+        "operationId": "describeEvmAccount",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmAccount",
+        "description": "Read an EVM account's native balance and nonce, optionally with recent transaction history.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmAccountResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/contract": {
+      "get": {
+        "operationId": "describeEvmContract",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmContract",
+        "description": "Retrieve contract metadata: parsed ABI (default) or verified source, following EIP-1967 proxies to the implementation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmContractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmContractResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/token-holdings": {
+      "get": {
+        "operationId": "describeEvmTokenHoldings",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmTokenHoldings",
+        "description": "Read an ERC-20 token balance for a holder. A token filter is required today; unfiltered enumeration is not yet supported on EVM.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmTokenHoldingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmTokenHoldingsResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/context": {
+      "get": {
+        "operationId": "describeEvmContext",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readEvmContext",
+        "description": "Current time and on-chain context for the connected EVM network: chain, block number, gas price, and supported chains.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmContextResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/encode-call": {
+      "get": {
+        "operationId": "describeEvmEncodeCall",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "simulateEvmCall",
+        "description": "Encode calldata from a function signature and simulate the contract call in one step. Simulation only — nothing is signed or broadcast.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineEvmEncodeCallRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineEvmEncodeCallResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/account": {
+      "get": {
+        "operationId": "describeSvmAccount",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmAccount",
+        "description": "Fetch and typed-decode any Solana account: wallet, token account, mint, PDA, or program account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmAccountResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/program": {
+      "get": {
+        "operationId": "describeSvmProgram",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmProgram",
+        "description": "Look up a Solana program by id or fuzzy name; returns metadata and, by default, the full Anchor IDL.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmProgramRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmProgramResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/token-holdings": {
+      "get": {
+        "operationId": "describeSvmTokenHoldings",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmTokenHoldings",
+        "description": "List an owner's SPL token holdings, aggregated per mint, with the underlying token accounts.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmTokenHoldingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmTokenHoldingsResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/svm/context": {
+      "get": {
+        "operationId": "describeSvmContext",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PipelineOperation"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:catalog"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "readSvmContext",
+        "description": "Current time and cluster context for the connected Solana wallet: slot, blockhash, balance, and priority-fee signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelineSvmContextRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["result"],
+                  "properties": {
+                    "result": {
+                      "$ref": "#/components/schemas/PipelineSvmContextResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "SessionId": {
+        "name": "sessionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 160
+        }
+      },
+      "ActionId": {
+        "name": "actionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^act_[A-Za-z0-9_-]+$"
+        }
+      },
+      "PipelineApp": {
+        "name": "app",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "PipelineOperation": {
+        "name": "operation",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "PipelineSkill": {
+        "name": "skill",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "CatalogCursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "AppPageLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 20
+        }
+      },
+      "CatalogPageLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 50
+        }
+      }
+    },
+    "requestBodies": {
+      "PipelineArguments": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Stable public error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "PipelineDirectory": {
+        "description": "Filesystem-like capability directory",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PipelineDirectory"
+            }
+          }
+        }
+      },
+      "PipelineOperation": {
+        "description": "Callable operation descriptor with a Catalog-sourced input schema",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PipelineOperationDescriptor"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "StartTurnIntent": {
+        "type": "object",
+        "required": ["message"],
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": ["string", "null"]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32000
+          },
+          "applicationId": {
+            "type": ["integer", "null"]
+          },
+          "app": {
+            "type": ["string", "null"]
+          },
+          "mode": {
+            "type": ["string", "null"],
+            "enum": ["auto", "direct", null],
+            "description": "Execution policy. Omit for Auto unless app or applicationId selects a Direct target."
+          },
+          "model": {
+            "type": ["string", "null"]
+          },
+          "userState": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UserState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clientId": {
+            "type": ["string", "null"]
+          },
+          "cursor": {
+            "type": ["string", "null"],
+            "description": "The caller's current event cursor. When supplied, the start page carries only events after it instead of the whole history; an expired cursor falls back to the full page rather than failing the accepted turn."
+          }
+        }
+      },
+      "InterruptIntent": {
+        "type": "object",
+        "required": ["turnId"],
+        "additionalProperties": false,
+        "properties": {
+          "turnId": {
+            "type": "string"
+          }
+        }
+      },
+      "RespondToActionIntent": {
+        "type": "object",
+        "required": ["revision", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "result": {
+            "$ref": "#/components/schemas/ActionResult"
+          }
+        }
+      },
+      "UserState": {
+        "type": "object",
+        "description": "Client-owned provider, wallets, preferences, and extension values only.",
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/UserStateConnection"
+          },
+          "evm": {
+            "$ref": "#/components/schemas/UserStateEvm"
+          },
+          "svm": {
+            "$ref": "#/components/schemas/UserStateSvm"
+          },
+          "preferences": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "ext": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UserStateConnection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "is_connected": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": ["string", "null"]
+          },
+          "provider_label": {
+            "type": ["string", "null"]
+          },
+          "auth_method": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "UserStateEvm": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": ["string", "null"]
+          },
+          "chain_id": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "ens_name": {
+            "type": ["string", "null"]
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+          }
+        }
+      },
+      "UserStateSvm": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": ["string", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
+          },
+          "wallet_name": {
+            "type": ["string", "null"]
+          },
+          "transport": {
+            "type": ["string", "null"]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+          }
+        }
+      },
+      "CommitView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "commit_id",
+          "thread_id",
+          "stage_id",
+          "chain_family",
+          "chain_ref",
+          "signer",
+          "broadcaster",
+          "state",
+          "action",
+          "transaction_id",
+          "failure_code"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "signer": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "needs_signature",
+              "awaiting_broadcast",
+              "submitted",
+              "confirmed",
+              "rejected",
+              "failed",
+              "expired"
+            ]
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "payload"],
+                "properties": {
+                  "kind": {
+                    "const": "sign"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "signed_transaction", "transaction_id"],
+                "properties": {
+                  "kind": {
+                    "const": "broadcast"
+                  },
+                  "signed_transaction": {
+                    "type": "string"
+                  },
+                  "transaction_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "SignableCommit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "nonce", "transaction"],
+            "properties": {
+              "kind": {
+                "const": "evm_transaction"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "nonce": {
+                "type": "integer"
+              },
+              "transaction": {
+                "type": "object",
+                "required": [
+                  "to",
+                  "value",
+                  "data",
+                  "gas_limit",
+                  "max_fee_per_gas",
+                  "max_priority_fee_per_gas"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "string"
+                  },
+                  "gas_limit": {
+                    "type": "integer"
+                  },
+                  "max_fee_per_gas": {
+                    "type": "string"
+                  },
+                  "max_priority_fee_per_gas": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "requests"],
+            "properties": {
+              "kind": {
+                "const": "user_operation"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "requests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "message", "raw_payload"],
+                  "properties": {
+                    "kind": {
+                      "const": "personal_sign"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "raw_payload": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "signer", "transaction_base64"],
+            "properties": {
+              "kind": {
+                "const": "svm_transaction"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "transaction_base64": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "EventPage": {
+        "type": "object",
+        "required": ["session_id", "cursor", "events", "has_more"],
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConcreteEvent"
+            }
+          },
+          "has_more": {
+            "type": "boolean"
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitView"
+            }
+          }
+        }
+      },
+      "EventMeta": {
+        "type": "object",
+        "required": ["event_id", "sequence", "turn_id", "occurred_at", "type"],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "turn_id": {
+            "type": ["string", "null"]
+          },
+          "occurred_at": {
+            "type": "integer"
+          },
+          "runtime_sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional runtime ordering hint for reconciling live text; never a durable cursor"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "ConcreteEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/MessageEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStateChangedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolUpdateEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolCompleteEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TaskStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TaskPhaseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TaskActivityEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TaskCompletedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TitleEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ErrorEvent"
+          },
+          {
+            "$ref": "#/components/schemas/Action"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "message": "#/components/schemas/MessageEvent",
+            "turn_state_changed": "#/components/schemas/TurnStateChangedEvent",
+            "tool_update": "#/components/schemas/ToolUpdateEvent",
+            "tool_complete": "#/components/schemas/ToolCompleteEvent",
+            "task_started": "#/components/schemas/TaskStartedEvent",
+            "task_phase": "#/components/schemas/TaskPhaseEvent",
+            "task_activity": "#/components/schemas/TaskActivityEvent",
+            "task_completed": "#/components/schemas/TaskCompletedEvent",
+            "title_changed": "#/components/schemas/TitleEvent",
+            "error": "#/components/schemas/ErrorEvent",
+            "action": "#/components/schemas/Action"
+          }
+        }
+      },
+      "MessageEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "sender", "content"],
+            "properties": {
+              "type": {
+                "const": "message"
+              },
+              "message_key": {
+                "type": ["string", "null"]
+              },
+              "sender": {
+                "enum": ["user", "agent", "system", "notice"]
+              },
+              "content": {
+                "type": "string"
+              },
+              "tool_call_id": {
+                "type": ["string", "null"]
+              },
+              "tool_result": {
+                "type": ["array", "null"],
+                "prefixItems": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "tool_name": {
+                "type": ["string", "null"]
+              },
+              "tool_arguments": {},
+              "is_streaming": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "TurnStateChangedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "state"],
+            "properties": {
+              "type": {
+                "const": "turn_state_changed"
+              },
+              "state": {
+                "enum": [
+                  "processing",
+                  "awaiting_action",
+                  "complete",
+                  "interrupted",
+                  "failed"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ToolUpdateEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "id", "tool_name", "result"],
+            "properties": {
+              "type": {
+                "const": "tool_update"
+              },
+              "id": {
+                "type": "string"
+              },
+              "call_id": {
+                "type": ["string", "null"]
+              },
+              "tool_name": {
+                "type": "string"
+              },
+              "result": {}
+            }
+          }
+        ]
+      },
+      "ToolCompleteEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "id", "tool_name", "result"],
+            "properties": {
+              "type": {
+                "const": "tool_complete"
+              },
+              "id": {
+                "type": "string"
+              },
+              "call_id": {
+                "type": ["string", "null"]
+              },
+              "tool_name": {
+                "type": "string"
+              },
+              "result": {}
+            }
+          }
+        ]
+      },
+      "TaskStartedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "call_id",
+              "agent_id",
+              "label",
+              "app",
+              "resumed"
+            ],
+            "properties": {
+              "type": {
+                "const": "task_started"
+              },
+              "call_id": {
+                "type": "string"
+              },
+              "agent_id": {
+                "type": "string"
+              },
+              "label": {
+                "type": ["string", "null"]
+              },
+              "app": {
+                "type": "string"
+              },
+              "resumed": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "TaskPhaseEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "call_id",
+              "agent_id",
+              "app",
+              "phase",
+              "elapsed_ms",
+              "observed_at_ms"
+            ],
+            "properties": {
+              "type": {
+                "const": "task_phase"
+              },
+              "call_id": {
+                "type": "string"
+              },
+              "agent_id": {
+                "type": "string"
+              },
+              "app": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string"
+              },
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "observed_at_ms": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "TaskActivityEvent": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventMeta"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "call_id",
+                  "agent_id",
+                  "child_seq",
+                  "kind",
+                  "tool_name",
+                  "args",
+                  "result_preview"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "task_activity"
+                  },
+                  "call_id": {
+                    "type": "string"
+                  },
+                  "agent_id": {
+                    "type": "string"
+                  },
+                  "child_seq": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "kind": {
+                    "const": "tool_call"
+                  },
+                  "tool_name": {
+                    "type": "string"
+                  },
+                  "args": {},
+                  "result_preview": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventMeta"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type",
+                  "call_id",
+                  "agent_id",
+                  "child_seq",
+                  "kind",
+                  "text"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "task_activity"
+                  },
+                  "call_id": {
+                    "type": "string"
+                  },
+                  "agent_id": {
+                    "type": "string"
+                  },
+                  "child_seq": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "kind": {
+                    "const": "note"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind"
+        }
+      },
+      "TaskCompletedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "call_id",
+              "agent_id",
+              "status",
+              "message",
+              "staged_count",
+              "steps",
+              "duration_ms"
+            ],
+            "properties": {
+              "type": {
+                "const": "task_completed"
+              },
+              "call_id": {
+                "type": "string"
+              },
+              "agent_id": {
+                "type": "string"
+              },
+              "status": {
+                "enum": ["completed", "failed", "stalled", "cancelled"]
+              },
+              "message": {
+                "type": "string"
+              },
+              "staged_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "steps": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "duration_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "TitleEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "title"],
+            "properties": {
+              "type": {
+                "const": "title_changed"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ErrorEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "message"],
+            "properties": {
+              "type": {
+                "const": "error"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Action": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "id",
+              "revision",
+              "state",
+              "request",
+              "created_at",
+              "expires_at"
+            ],
+            "properties": {
+              "type": {
+                "const": "action"
+              },
+              "id": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "submitted",
+                  "completed",
+                  "rejected",
+                  "expired",
+                  "failed"
+                ]
+              },
+              "request": {
+                "$ref": "#/components/schemas/ActionRequest"
+              },
+              "result": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ActionResult"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "created_at": {
+                "type": "integer"
+              },
+              "expires_at": {
+                "type": ["integer", "null"]
+              }
+            }
+          }
+        ]
+      },
+      "ActionRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type", "transactions", "simulation"],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "execute_evm"
+              },
+              "transactions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/AssembledEvmTransaction"
+                }
+              },
+              "simulation": {
+                "$ref": "#/components/schemas/PipelineSimulation"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["type", "transactions", "simulation"],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "execute_svm"
+              },
+              "transactions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/components/schemas/AssembledSvmTransaction"
+                }
+              },
+              "simulation": {
+                "$ref": "#/components/schemas/PipelineSimulation"
+              }
+            }
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SigningRequest"
+              },
+              {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": {
+                    "const": "sign"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "AssembledEvmTransaction": {
+        "type": "object",
+        "required": ["chain_id", "from", "to", "data", "label", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "gas": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "pending_tx_id": {
+            "type": "integer"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "fee_outcome": {
+            "$ref": "#/components/schemas/FeeOutcome"
+          }
+        }
+      },
+      "AssembledSvmTransaction": {
+        "type": "object",
+        "required": [
+          "payer",
+          "cluster",
+          "version",
+          "instructions",
+          "description",
+          "kind"
+        ],
+        "properties": {
+          "payer": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssembledSvmInstruction"
+            }
+          },
+          "address_lookup_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recent_blockhash": {
+            "type": "string"
+          },
+          "last_valid_block_height": {
+            "type": "integer"
+          },
+          "preserve_blockhash": {
+            "type": "boolean"
+          },
+          "unsigned_transaction_base64": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "signed_transaction_base64": {
+            "type": "string"
+          },
+          "broadcast_commitment": {
+            "type": "string"
+          },
+          "pending_tx_id": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          }
+        }
+      },
+      "SigningCall": {
+        "type": "object",
+        "required": ["to", "value"],
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "data": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "SigningFeeAsset": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "native"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "address"],
+            "properties": {
+              "kind": {
+                "const": "token"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "SigningFee": {
+        "type": "object",
+        "required": ["asset", "amount", "recipient"],
+        "properties": {
+          "policy_version": {
+            "type": "integer"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/SigningFeeAsset"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          }
+        }
+      },
+      "FeeOutcome": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "flat"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "asset", "amount"],
+            "properties": {
+              "kind": {
+                "const": "flow"
+              },
+              "asset": {
+                "$ref": "#/components/schemas/SigningFeeAsset"
+              },
+              "amount": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "SvmAssemblyConfig": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "address_lookup_tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compute_units": {
+            "type": "integer"
+          },
+          "priority_microlamports": {
+            "type": "integer"
+          },
+          "broadcaster": {
+            "enum": ["wallet", "venue", "hosted"]
+          },
+          "commitment": {
+            "type": "string"
+          }
+        }
+      },
+      "AssembledSvmInstruction": {
+        "type": "object",
+        "required": [
+          "payer",
+          "cluster",
+          "program_id",
+          "accounts",
+          "data_base64",
+          "description",
+          "kind"
+        ],
+        "properties": {
+          "payer": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "program_id": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pubkey", "is_signer", "is_writable"],
+              "properties": {
+                "pubkey": {
+                  "type": "string"
+                },
+                "is_signer": {
+                  "type": "boolean"
+                },
+                "is_writable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "data_base64": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "assembly": {
+            "$ref": "#/components/schemas/SvmAssemblyConfig"
+          },
+          "pending_ix_id": {
+            "type": "integer"
+          },
+          "last_batch_status": {
+            "type": "string"
+          },
+          "current_lifecycle": {
+            "type": "string"
+          },
+          "fee_outcome": {
+            "$ref": "#/components/schemas/FeeOutcome"
+          }
+        }
+      },
+      "SigningRequest": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "chainFamily",
+          "executionKind",
+          "signer",
+          "description",
+          "payloads"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "chainFamily": {
+            "enum": ["evm", "svm"]
+          },
+          "executionKind": {
+            "type": "string"
+          },
+          "signer": {
+            "type": "string"
+          },
+          "chainId": {
+            "type": "integer"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "payloads": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/SignablePayload"
+            }
+          },
+          "broadcaster": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "executor": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "callsDigest": {
+            "type": "string"
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SigningCall"
+            }
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SigningFee"
+            }
+          },
+          "sponsorship": {
+            "type": "string",
+            "enum": ["none", "required"]
+          },
+          "maxNetworkFee": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Maximum network cost in native base units, separate from application fees and principal."
+          },
+          "domain": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "requestKind": {
+            "type": "string"
+          }
+        }
+      },
+      "SignablePayload": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind", "message"],
+            "properties": {
+              "kind": {
+                "const": "evm_personal"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "typed_data"],
+            "properties": {
+              "kind": {
+                "const": "evm_typed_data"
+              },
+              "typed_data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "message_base64"],
+            "properties": {
+              "kind": {
+                "const": "svm_message"
+              },
+              "message_base64": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "transaction_base64"],
+            "properties": {
+              "kind": {
+                "const": "svm_transaction"
+              },
+              "transaction_base64": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ActionResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["status", "legs"],
+            "properties": {
+              "status": {
+                "const": "submitted"
+              },
+              "legs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TransactionResult"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["status", "outputs"],
+            "properties": {
+              "status": {
+                "const": "signed"
+              },
+              "outputs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SigningResult"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["status", "reason"],
+            "properties": {
+              "status": {
+                "const": "rejected"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        ],
+        "discriminator": {
+          "propertyName": "status"
+        }
+      },
+      "TransactionResult": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": ["submitted", "rejected", "failed", "skipped"]
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "signedTransactionBase64": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SigningResult": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "signedTransactionBase64": {
+            "type": "string"
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": ["id", "updatedAt", "archived"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": ["string", "null"]
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SessionPage": {
+        "type": "object",
+        "required": ["sessions"],
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Session"
+            }
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "SessionUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": ["string", "null"]
+          },
+          "archived": {
+            "type": ["boolean", "null"]
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {}
+        }
+      },
+      "PipelineEvmAccountRequest": {
+        "type": "object",
+        "required": ["address", "chain_id"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "0x-prefixed EVM address to query."
+          },
+          "chain_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "EVM chain ID (e.g. 1, 137, 42161)."
+          },
+          "include_tx_history": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return recent transactions; the heaviest part of the call."
+          },
+          "history_limit": {
+            "type": ["integer", "null"],
+            "description": "Max transactions when include_tx_history is true (default 100)."
+          },
+          "history_offset": {
+            "type": ["integer", "null"],
+            "description": "Transaction-history pagination offset."
+          }
+        }
+      },
+      "PipelineEvmAccountResult": {
+        "type": "object",
+        "required": [
+          "address",
+          "balance_wei",
+          "balance_native",
+          "native_currency",
+          "nonce"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "balance_wei": {
+            "type": "string"
+          },
+          "balance_native": {
+            "type": "string"
+          },
+          "native_currency": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "integer"
+          },
+          "history_count": {
+            "type": "integer"
+          },
+          "transactions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "execution": {
+            "type": "object",
+            "description": "Present when policy routes the connected owner through an ERC-4337 executor account."
+          }
+        }
+      },
+      "PipelineEvmContractRequest": {
+        "type": "object",
+        "required": ["address"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Contract address. Pass the zero address together with metadata fields to search instead."
+          },
+          "chain_id": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Chain ID; required alongside a concrete address."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["abi", "source"],
+            "default": "abi",
+            "description": "`abi` returns parsed signatures; `source` returns verified Solidity (heavier)."
+          },
+          "auto_resolve_proxy": {
+            "type": "boolean",
+            "default": true,
+            "description": "Follow EIP-1967/OZ proxies through to the implementation's metadata."
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Fuzzy contract-name search."
+          },
+          "symbol": {
+            "type": ["string", "null"],
+            "description": "Token-symbol search."
+          },
+          "protocol": {
+            "type": ["string", "null"],
+            "description": "Fuzzy protocol search."
+          },
+          "contract_type": {
+            "type": ["string", "null"],
+            "description": "Exact contract-type match."
+          },
+          "version": {
+            "type": ["string", "null"],
+            "description": "Exact protocol-version match."
+          }
+        }
+      },
+      "PipelineEvmContractResult": {
+        "type": "object",
+        "required": ["found", "count", "contracts"],
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["address", "chain", "chain_id"],
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "chain": {
+                  "type": "string"
+                },
+                "chain_id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "is_proxy": {
+                  "type": ["boolean", "null"]
+                },
+                "implementation_address": {
+                  "type": ["string", "null"]
+                },
+                "fetched_from_etherscan": {
+                  "type": "boolean"
+                },
+                "abi": {
+                  "description": "Parsed ABI; present in `abi` mode."
+                },
+                "source_code": {
+                  "type": "string",
+                  "description": "Verified source; present in `source` mode."
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineEvmTokenHoldingsRequest": {
+        "type": "object",
+        "required": ["chain_id", "token_address"],
+        "properties": {
+          "chain_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "EVM chain ID to read."
+          },
+          "token_address": {
+            "type": "string",
+            "description": "ERC-20 token contract address. Required — holdings enumeration without a token filter is not yet supported on EVM."
+          },
+          "holder_address": {
+            "type": ["string", "null"],
+            "description": "Holder to read. Defaults to the connected EVM wallet."
+          },
+          "block_tag": {
+            "type": ["string", "null"],
+            "description": "Optional block tag; defaults to latest."
+          }
+        }
+      },
+      "PipelineEvmTokenHoldingsResult": {
+        "type": "object",
+        "required": [
+          "chain_id",
+          "token",
+          "holder",
+          "balance_raw",
+          "balance",
+          "decimals"
+        ],
+        "properties": {
+          "chain_id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string"
+          },
+          "holder": {
+            "type": "string"
+          },
+          "balance_raw": {
+            "type": "string",
+            "description": "Raw base-unit amount; may exceed f64 precision."
+          },
+          "balance": {
+            "type": "string",
+            "description": "Decimal-adjusted numeric string."
+          },
+          "decimals": {
+            "type": "integer"
+          }
+        }
+      },
+      "PipelineEvmContextRequest": {
+        "type": "object",
+        "properties": {},
+        "description": "No parameters; send an empty JSON object."
+      },
+      "PipelineEvmContextResult": {
+        "type": "object",
+        "required": [
+          "current_time_unix",
+          "current_time_iso",
+          "supported_chains"
+        ],
+        "properties": {
+          "chain_name": {
+            "type": "string"
+          },
+          "chain_id": {
+            "type": "integer"
+          },
+          "rpc_endpoint": {
+            "type": "string"
+          },
+          "current_time_unix": {
+            "type": "integer"
+          },
+          "current_time_iso": {
+            "type": "string"
+          },
+          "block_number": {
+            "type": "integer"
+          },
+          "gas_price_wei": {
+            "type": ["string", "null"]
+          },
+          "native_currency": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string"
+              },
+              "internal_decimals": {
+                "type": "integer"
+              },
+              "display_decimals": {
+                "type": "integer"
+              }
+            }
+          },
+          "simulation_warning": {
+            "type": ["string", "null"]
+          },
+          "supported_chains": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "chain_id": {
+                  "type": "integer"
+                },
+                "native_currency": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineEvmEncodeCallRequest": {
+        "type": "object",
+        "required": ["function_signature", "arguments", "to"],
+        "properties": {
+          "function_signature": {
+            "type": "string",
+            "description": "Solidity function signature, e.g. `balanceOf(address)`."
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "ABI arguments as strings; encode nested tuples/arrays as JSON strings."
+          },
+          "to": {
+            "type": "string",
+            "description": "Target contract address or ENS name."
+          },
+          "value": {
+            "type": ["string", "null"],
+            "description": "Native value in wei for payable simulations. Defaults to 0."
+          },
+          "from": {
+            "type": ["string", "null"],
+            "description": "Sender for the simulation. Defaults to the connected wallet's execution account; pass explicitly to dry-run as an arbitrary address."
+          },
+          "chain_id": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "description": "Chain override; defaults to the connected wallet's chain."
+          }
+        }
+      },
+      "PipelineEvmEncodeCallResult": {
+        "type": "string",
+        "description": "Human-readable simulation report: the decoded return value or a state-change preview."
+      },
+      "PipelineSvmAccountRequest": {
+        "type": "object",
+        "required": ["pubkey"],
+        "properties": {
+          "pubkey": {
+            "type": "string",
+            "description": "Base58 Solana account public key."
+          }
+        }
+      },
+      "PipelineSvmAccountResult": {
+        "type": "object",
+        "required": ["pubkey", "cluster", "found"],
+        "properties": {
+          "pubkey": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": "string"
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "lamports": {
+            "type": "integer"
+          },
+          "owner_program_id": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "boolean"
+          },
+          "rent_epoch": {
+            "type": "integer"
+          },
+          "space": {
+            "type": ["integer", "null"]
+          },
+          "decoded": {
+            "description": "Typed decode: user, token_account, mint, program_data, anchor, or a raw base64 fallback."
+          }
+        }
+      },
+      "PipelineSvmProgramRequest": {
+        "type": "object",
+        "properties": {
+          "program_id": {
+            "type": ["string", "null"],
+            "description": "Base58 program id. Pass null for name search."
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Fuzzy program-name search when program_id is absent."
+          },
+          "framework": {
+            "type": ["string", "null"],
+            "enum": ["anchor", "native", null],
+            "description": "Optional framework filter."
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["idl", "metadata"],
+            "default": "idl",
+            "description": "`idl` includes the full IDL JSON; `metadata` omits it."
+          }
+        }
+      },
+      "PipelineSvmProgramResult": {
+        "type": "object",
+        "required": ["found", "count", "programs"],
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["program_id", "cluster"],
+              "properties": {
+                "program_id": {
+                  "type": "string"
+                },
+                "cluster": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "framework": {
+                  "type": ["string", "null"]
+                },
+                "idl_source": {
+                  "type": ["string", "null"]
+                },
+                "description": {
+                  "type": ["string", "null"]
+                },
+                "deployer": {
+                  "type": ["string", "null"]
+                },
+                "upgrade_authority": {
+                  "type": ["string", "null"]
+                },
+                "deployed_slot": {
+                  "type": ["integer", "null"]
+                },
+                "bpf_hash": {
+                  "type": ["string", "null"]
+                },
+                "last_fetched_at": {
+                  "type": ["string", "null"]
+                },
+                "fetched_from_remote": {
+                  "type": "boolean"
+                },
+                "idl": {
+                  "description": "Full IDL JSON; present in `idl` mode, null when unavailable."
+                }
+              }
+            }
+          }
+        }
+      },
+      "PipelineSvmTokenHoldingsRequest": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": ["string", "null"],
+            "description": "Base58 owner. Defaults to the connected SVM wallet."
+          },
+          "mint": {
+            "type": ["string", "null"],
+            "description": "Filter to one SPL mint. Mutually exclusive with program_id."
+          },
+          "program_id": {
+            "type": ["string", "null"],
+            "description": "Token program to scan; defaults to the classic Token Program. Ignored when mint is set."
+          },
+          "include_token_2022": {
+            "type": "boolean",
+            "default": false,
+            "description": "Merge classic and Token-2022 accounts when no mint/program_id filter is set."
+          }
+        }
+      },
+      "PipelineSvmTokenHoldingsResult": {
+        "type": "object",
+        "required": ["cluster", "owner", "holdings", "accounts"],
+        "properties": {
+          "cluster": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "mint": {
+            "type": ["string", "null"]
+          },
+          "program_ids": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "holdings": {
+            "type": "array",
+            "description": "Per-mint aggregation of the raw token accounts.",
+            "items": {
+              "type": "object",
+              "required": [
+                "mint",
+                "amount",
+                "decimals",
+                "ui_amount_string",
+                "token_account_count"
+              ],
+              "properties": {
+                "mint": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "amount": {
+                  "type": "string"
+                },
+                "decimals": {
+                  "type": "integer"
+                },
+                "ui_amount_string": {
+                  "type": "string"
+                },
+                "token_account_count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Underlying RPC token accounts."
+          }
+        }
+      },
+      "PipelineSvmContextRequest": {
+        "type": "object",
+        "properties": {},
+        "description": "No parameters; send an empty JSON object. Requires a connected SVM wallet."
+      },
+      "PipelineSvmContextResult": {
+        "type": "object",
+        "required": [
+          "cluster",
+          "rpc_endpoint",
+          "supported_clusters",
+          "current_time_unix",
+          "current_time_iso",
+          "address"
+        ],
+        "properties": {
+          "cluster": {
+            "type": "string"
+          },
+          "rpc_endpoint": {
+            "type": "string"
+          },
+          "supported_clusters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "current_time_unix": {
+            "type": "integer"
+          },
+          "current_time_iso": {
+            "type": "string"
+          },
+          "current_slot": {
+            "type": ["integer", "null"]
+          },
+          "latest_blockhash": {
+            "type": ["string", "null"]
+          },
+          "last_valid_block_height": {
+            "type": ["integer", "null"]
+          },
+          "address": {
+            "type": "string"
+          },
+          "lamports": {
+            "type": ["integer", "null"]
+          },
+          "recent_prioritization_fee_microlamports": {
+            "type": ["integer", "null"],
+            "description": "Cluster-wide mean priority fee in micro-lamports per compute unit; null when the RPC sample is empty."
+          }
+        }
+      },
+      "PipelineDirectory": {
+        "type": "object",
+        "required": ["kind", "path", "entries"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "directory"
+          },
+          "path": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "kind", "href"],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "href": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "next": {
+            "type": ["string", "null"],
+            "description": "Opaque continuation link for the next deterministic catalog page."
+          }
+        }
+      },
+      "PipelineOperationDescriptor": {
+        "type": "object",
+        "required": ["kind", "name", "method", "href"],
+        "additionalProperties": true,
+        "properties": {
+          "kind": {
+            "const": "operation"
+          },
+          "name": {
+            "type": "string"
+          },
+          "method": {
+            "const": "POST"
+          },
+          "href": {
+            "type": "string"
+          },
+          "inputSchema": {
+            "type": "object"
+          }
+        }
+      },
+      "PipelineLifecycleRequest": {
+        "type": "object",
+        "description": "Build request, explicit stage input, or a complete portable Build envelope depending on the endpoint."
+      },
+      "PipelineBuild": {
+        "type": "object",
+        "required": [
+          "version",
+          "status",
+          "actions",
+          "origin",
+          "expiresAt",
+          "digest",
+          "attestation"
+        ],
+        "properties": {
+          "version": {
+            "const": 2
+          },
+          "status": {
+            "enum": ["staged", "simulated"]
+          },
+          "actions": {
+            "type": "array"
+          },
+          "origin": {
+            "type": "object",
+            "description": "App, skills, and Catalog operations that assembled the actions.",
+            "required": ["app", "operations"],
+            "properties": {
+              "app": {
+                "type": "string"
+              },
+              "skills": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "operations": {
+                "type": "array"
+              }
+            }
+          },
+          "simulation": {
+            "$ref": "#/components/schemas/PipelineSimulation"
+          },
+          "summary": {},
+          "expiresAt": {
+            "type": "integer",
+            "description": "Unix timestamp after which commit is rejected."
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "attestation": {
+            "type": "string",
+            "description": "Server authentication of the Build, its owner, and app scope."
+          }
+        }
+      },
+      "PipelineEvmCommitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "digest", "result", "requests"],
+        "properties": {
+          "status": {
+            "const": "committed"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "result": {},
+          "requests": {
+            "type": "array"
+          }
+        }
+      },
+      "PipelineSvmCommitResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "digest", "results", "requests"],
+        "properties": {
+          "status": {
+            "const": "committed"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "results": {
+            "type": "array"
+          },
+          "requests": {
+            "type": "array"
+          }
+        }
+      },
+      "PipelineSimulation": {
+        "type": "object",
+        "required": [
+          "status",
+          "balanceChanges",
+          "approvals",
+          "fees",
+          "warnings",
+          "guards",
+          "gas",
+          "logs"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": ["passed", "failed"]
+          },
+          "balanceChanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineBalanceChange"
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineApprovalChange"
+            }
+          },
+          "fees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineFeeEstimate"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "guards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineGuardResult"
+            }
+          },
+          "gas": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PipelineGasEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineLog"
+            }
+          }
+        }
+      },
+      "PipelineBalanceChange": {
+        "type": "object",
+        "required": ["asset", "amount"],
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": ["string", "null"]
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "direction": {
+            "enum": ["in", "out", null]
+          },
+          "symbol": {
+            "type": ["string", "null"]
+          },
+          "decimals": {
+            "type": ["integer", "null"]
+          },
+          "chainId": {
+            "type": ["integer", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
+          },
+          "standard": {
+            "enum": [
+              "native",
+              "erc20",
+              "erc721",
+              "erc1155",
+              "erc721_or_erc1155",
+              null
+            ]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "tokenId": {
+            "type": ["string", "null"]
+          },
+          "counterparty": {
+            "type": ["string", "null"]
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      },
+      "PipelineApprovalChange": {
+        "type": "object",
+        "required": ["account", "spender", "asset", "kind", "standard"],
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "spender": {
+            "type": "string"
+          },
+          "asset": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": ["allowance", "token", "operator"]
+          },
+          "amount": {
+            "type": ["string", "null"]
+          },
+          "approved": {
+            "type": ["boolean", "null"]
+          },
+          "unlimited": {
+            "type": ["boolean", "null"]
+          },
+          "tokenId": {
+            "type": ["string", "null"]
+          },
+          "standard": {
+            "enum": [
+              "native",
+              "erc20",
+              "erc721",
+              "erc1155",
+              "erc721_or_erc1155"
+            ]
+          },
+          "symbol": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "decimals": {
+            "type": ["integer", "null"]
+          },
+          "chainId": {
+            "type": ["integer", "null"]
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      },
+      "PipelineFeeEstimate": {
+        "type": "object",
+        "required": ["asset", "amount"],
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": ["string", "null"]
+          },
+          "asset": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": ["string", "null"]
+          },
+          "decimals": {
+            "type": ["integer", "null"]
+          },
+          "chainId": {
+            "type": ["integer", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
+          },
+          "kind": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PipelineGuardResult": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "enum": ["passed", "failed", "warning"]
+          },
+          "message": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PipelineGasEstimate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "units": {
+            "type": ["string", "null"]
+          },
+          "priceWei": {
+            "type": ["string", "null"]
+          },
+          "nativeCost": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PipelineLog": {
+        "type": "object",
+        "required": ["address", "topics", "data"],
+        "additionalProperties": false,
+        "properties": {
+          "chainId": {
+            "type": ["integer", "null"]
+          },
+          "cluster": {
+            "type": ["string", "null"]
+          },
+          "address": {
+            "type": "string"
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "data": {
+            "type": "string"
+          },
+          "step": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "aomiOAuth": {
+        "type": "oauth2",
+        "description": "Better Auth OAuth 2.1 authorization-code/device grants. Access tokens are exact-resource bound; the Portal BFF verifies them and delegates a downscoped internal bearer.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://chat.aomi.dev/api/auth/oauth2/authorize",
+            "tokenUrl": "https://chat.aomi.dev/api/auth/oauth2/token",
+            "scopes": {
+              "agent:read": "Read owned Agent turns and sessions",
+              "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
+              "agent:actions:resolve": "Resolve a durable Agent Action",
+              "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
+              "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
+              "account:credits:read": "Read included allowance and Credit Bank activity",
+              "account:credits:topup": "Buy durable Credit Bank value through x402",
+              "account:usage:read": "Read priced account usage",
+              "mcp:agent": "Use the Agent MCP protected resource",
+              "mcp:pipeline": "Use the Pipeline MCP protected resource",
+              "payments:submit": "Attach a client-held payment signature",
+              "custody:delegate": "Permit separately approved delegated custody"
+            }
+          }
+        },
+        "x-device-authorization-url": "https://chat.aomi.dev/api/auth/device/code",
+        "x-aomi-resources": {
+          "agent": "https://chat.aomi.dev/v1/agent",
+          "pipeline": "https://chat.aomi.dev/v1/pipeline",
+          "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
+          "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
+          "account": "https://chat.aomi.dev/v1/account"
+        }
+      }
+    }
+  }
+}

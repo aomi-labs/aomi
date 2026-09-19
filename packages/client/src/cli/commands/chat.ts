@@ -1,13 +1,12 @@
-import type { WalletEip712Payload, WalletTxPayload } from "../../wallet-utils";
 import { CliSession } from "../cli-session";
 import {
   DIM,
   RESET,
   YELLOW,
-  getMessageToolResults,
   getToolNameFromEvent,
   getToolResultFromEvent,
   isAlwaysVisibleTool,
+  inlineToolResultFromMessage,
   printNewAgentMessages,
   printPaymentEvent,
   printTaskActivity,
@@ -15,8 +14,6 @@ import {
   printTaskStarted,
   printToolComplete,
   printToolResultLine,
-  printToolUpdate,
-  toToolResultKey,
 } from "../output";
 import {
   applyRequestedModelIfPresent,
@@ -24,48 +21,28 @@ import {
 } from "../context";
 import { fatal } from "../errors";
 import type { CliConfig } from "../types";
-import { buildCliUserState } from "../user-state";
-import type { UserStateAAMode } from "../../user-state";
 import { parseSolanaKeypairSecret } from "../solana-signer";
-import { walletRequestToPendingSolTx } from "../transactions";
+import type { ClientSession } from "../../session";
+import type { Event, MessageEvent } from "../../agent/types";
 
-type WalletSnapshot = {
-  publicKey?: string;
-  chainId?: number;
-  aaProvider?: string | null;
-  aaMode?: UserStateAAMode | null;
-  smartAccount?: string | null;
-  svmAddress?: string;
-};
+const STOPPED_TURN_STATES = new Set([
+  "awaiting_action",
+  "complete",
+  "interrupted",
+  "failed",
+]);
 
-function normalizeAddress(address: string | undefined): string | undefined {
-  return address?.toLowerCase();
-}
-
-function extractMentionedTxIds(content: string | undefined): string[] {
-  if (!content) return [];
-  const matches = content.match(/\btx-\d+\b/gi) ?? [];
-  return Array.from(new Set(matches.map((id) => id.toLowerCase()))).sort();
-}
-
-function hasAccountCredential(cli: CliSession): boolean {
-  const state = cli.toState();
-  return Boolean(
-    state.auth?.sessionToken || state.accountBearer || state.sessionCookie,
-  );
-}
-
-async function ensureAccountBoundThread(
-  cli: CliSession,
-  session: ReturnType<CliSession["createClientSession"]>,
-): Promise<void> {
-  if (!hasAccountCredential(cli)) return;
-  try {
-    await session.client.createThread(cli.sessionId);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    fatal(`Failed to create account-bound backend thread: ${detail}`);
-  }
+function waitForTurnStop(session: ClientSession): Promise<void> {
+  return new Promise((resolve) => {
+    const check = () => {
+      const state = session.getSnapshot().turnState;
+      if (!state || !STOPPED_TURN_STATES.has(state)) return;
+      unsubscribe();
+      resolve();
+    };
+    const unsubscribe = session.subscribe(check);
+    check();
+  });
 }
 
 /**
@@ -90,87 +67,18 @@ export function resolveSvmAddressForChat(
   return deriveSvmAddress(solanaPrivateKey) ?? persistedSvmAddress;
 }
 
-export function shouldBroadcastWalletStateChange(
-  config: CliConfig,
-  previous: WalletSnapshot | null,
-  next: WalletSnapshot,
-): boolean {
-  // SVM: always sync when a Solana address is present (previous is forced to
-  // undefined so this always fires for Solana-keyed sessions).
-  if (next.svmAddress) {
-    return previous?.svmAddress !== next.svmAddress;
-  }
-
-  // EVM: sync when publicKey and chainId are known. Don't require privateKey —
-  // wallet state needs to be broadcast even for read-only sessions so the
-  // backend's tools (commit_message etc.) can see the connected wallet.
-  // The privateKey is only needed at sign time (via `aomi tx sign`).
-  if (!next.publicKey || next.chainId === undefined) {
-    return false;
-  }
-
-  return (
-    normalizeAddress(previous?.publicKey) !==
-      normalizeAddress(next.publicKey) ||
-    previous?.chainId !== next.chainId ||
-    previous?.aaProvider !== next.aaProvider ||
-    previous?.aaMode !== next.aaMode ||
-    normalizeAddress(previous?.smartAccount ?? undefined) !==
-      normalizeAddress(next.smartAccount ?? undefined)
-  );
-}
-
-export async function syncWalletStateForChat(
-  config: CliConfig,
-  previous: WalletSnapshot | null,
-  next: WalletSnapshot,
-  cli: CliSession,
-  session: {
-    resolveUserState: (userState: ReturnType<typeof buildCliUserState>) => void;
-    syncUserState: () => Promise<unknown>;
-    client: {
-      sendSystemMessage: (
-        sessionId: string,
-        message: string,
-        options?: { app?: string; applicationId?: string },
-      ) => Promise<unknown>;
-    };
-  },
-): Promise<void> {
-  if (
-    !shouldBroadcastWalletStateChange(config, previous, next) ||
-    (!next.publicKey && !next.svmAddress)
-  ) {
-    return;
-  }
-
-  // Build the canonical nested UserState payload — this is the structure the
-  // Rust backend's UserStateWire deserializer understands.  The flat format
-  // ({ address, isConnected, chainId }) is NOT parsed by the backend and
-  // would silently overwrite the correctly-set user state with an empty one.
-  const userState = buildCliUserState(next.publicKey, next.chainId, {
-    svmAddress: next.svmAddress,
-    // --cluster wins, then the persisted choice, then mainnet — so an
-    // EVM-only command cannot silently reset a persisted devnet/testnet
-    // Solana wallet in the shared default-runtime context.
-    svmCluster: cli.resolvedSvmCluster(config.svmCluster),
-  });
-
-  session.resolveUserState(userState);
-  await session.syncUserState();
-
-  if (!hasAccountCredential(cli)) {
-    return;
-  }
-
-  await session.client.sendSystemMessage(
-    cli.sessionId,
-    JSON.stringify({
-      type: "wallet:state_changed",
-      payload: userState,
-    }),
-    { app: config.app, applicationId: config.applicationId },
-  );
+export function printBoundaryForTurn(
+  events: readonly Event[],
+  messages: readonly MessageEvent[],
+  turnId: string | undefined,
+) {
+  const firstTurnEvent = events.find((event) => event.turn_id === turnId);
+  return {
+    handledSequence: firstTurnEvent ? firstTurnEvent.sequence - 1 : 0,
+    printedAgentCount: messages.filter(
+      (message) => message.sender === "agent" && message.turn_id !== turnId,
+    ).length,
+  };
 }
 
 export async function chatCommand(
@@ -182,231 +90,145 @@ export async function chatCommand(
     fatal("Usage: aomi chat <message>");
   }
 
-  const previousCli = config.freshSession ? null : CliSession.load();
-  const previousWallet = previousCli
-    ? {
-        publicKey: previousCli.publicKey,
-        chainId: previousCli.chainId,
-        aaProvider: previousCli.toState().aaProvider ?? null,
-        aaMode: previousCli.toState().aaMode ?? null,
-        smartAccount: previousCli.toState().smartAccount ?? null,
-        svmAddress: undefined, // force re-sync of SVM state on every chat
-      }
-    : null;
   const cli = CliSession.loadOrCreate(config);
   const session = cli.createClientSession(config, {
     onPayment: printPaymentEvent,
   });
 
-  // Resolve Solana address after session is created/loaded so we pick up the
-  // key persisted by `wallet set --solana` even for `--new-session` flows
-  // (the key is seeded from the previous session into the new one in create()).
-  const resolvedSolanaKey = cli.resolvedSvmPrivateKey(config.solanaPrivateKey);
-  const svmAddress = resolveSvmAddressForChat(
-    cli.svmPublicKey,
-    resolvedSolanaKey,
-  );
-
   try {
-    await ensureAccountBoundThread(cli, session);
     await ingestSecretsForSession(config, cli, session.client);
     await applyRequestedModelIfPresent(config, cli, session);
-    await syncWalletStateForChat(
-      config,
-      previousWallet,
-      {
-        publicKey: cli.publicKey,
-        chainId: cli.chainId,
-        aaProvider: cli.toState().aaProvider ?? config.aaProvider ?? null,
-        aaMode: cli.toState().aaMode ?? null,
-        smartAccount: cli.toState().smartAccount ?? null,
-        svmAddress,
-      },
-      cli,
-      session,
+    const previousActionIds = new Set(
+      session.actions.all().map((action) => action.id),
     );
-
-    const previousPendingIds = new Set([
-      ...cli.pendingTxs.map((tx) => `evm:${tx.id}`),
-      ...cli.pendingSolTxs.map((tx) => `svm:${tx.id}`),
-    ]);
     let printedAgentCount = 0;
-    const seenToolResults = new Set<string>();
-
-    session.on("tool_complete", (event) => {
-      const name = getToolNameFromEvent(event);
-      const result = getToolResultFromEvent(event);
-      const key = toToolResultKey(name, result);
-      seenToolResults.add(key);
-
-      if (verbose || isAlwaysVisibleTool(name)) {
-        printToolComplete(event);
-      }
-    });
-
-    session.on("tool_update", (event) => {
-      if (verbose) {
-        printToolUpdate(event);
-      }
-    });
-
-    if (verbose) {
-      // Orchestrator delegation narration: one row per child agent, its steps
-      // indented under it. `task_completed` carries no label, so remember the
-      // one announced by `task_started` (keyed by agent, parallel-safe).
-      const agentLabels = new Map<string, string>();
-      session.on("task_started", (event) => {
-        agentLabels.set(event.agent_id, event.label || event.agent_id);
-        printTaskStarted(event);
-      });
-      session.on("task_activity", (event) => {
-        printTaskActivity(event);
-      });
-      session.on("task_completed", (event) => {
-        printTaskCompleted(event, agentLabels.get(event.agent_id));
-        agentLabels.delete(event.agent_id);
-      });
-
-      session.on("processing_start", () => {
+    let handledSequence = 0;
+    let thinkingPrinted = false;
+    const agentLabels = new Map<string, string>();
+    // One printed line per (turn, tool) pair, whichever wire shape lands
+    // first. Suppressing by turn alone silently drops a distinct tool's only
+    // trace whenever another tool in the turn used the other shape.
+    const seenToolPairs = new Set<string>();
+    const toolPairKey = (turnId: string, name: string) =>
+      `${turnId}::${name}`;
+    const render = () => {
+      const snapshot = session.getSnapshot();
+      if (
+        verbose &&
+        !thinkingPrinted &&
+        (snapshot.isSubmitting || snapshot.turnState === "processing")
+      ) {
+        thinkingPrinted = true;
         console.log(`${DIM}⏳ Thinking…${RESET}`);
-      });
-      session.on("system_notice", ({ message: msg }) => {
-        console.log(`${YELLOW}📢 ${msg}${RESET}`);
-      });
-      session.on("system_error", ({ message: msg }) => {
-        console.log(`\x1b[31m❌ ${msg}${RESET}`);
-      });
+      }
+      for (const event of snapshot.events) {
+        if (event.sequence <= handledSequence) continue;
+        handledSequence = event.sequence;
+        if (event.type === "tool_complete") {
+          const name = getToolNameFromEvent(event);
+          // Subagent lifecycles print through the task_* lines, not as tools.
+          if (name === "task") continue;
+          const turnId = event.turn_id ?? `event:${event.event_id}`;
+          const pair = toolPairKey(turnId, name);
+          const firstForPair = !seenToolPairs.has(pair);
+          seenToolPairs.add(pair);
+          if (firstForPair && (verbose || isAlwaysVisibleTool(name))) {
+            printToolComplete(event);
+          }
+        } else if (event.type === "message") {
+          const tool = inlineToolResultFromMessage(event);
+          if (tool) {
+            const pair = toolPairKey(tool.turnId, tool.name);
+            const firstForPair = !seenToolPairs.has(pair);
+            seenToolPairs.add(pair);
+            if (firstForPair && (verbose || isAlwaysVisibleTool(tool.name))) {
+              printToolResultLine(tool.name, tool.result);
+            }
+          } else if (verbose && event.sender === "notice") {
+            console.log(`${YELLOW}📢 ${event.content}${RESET}`);
+          }
+        } else if (verbose && event.type === "task_started") {
+          agentLabels.set(event.agent_id, event.label || event.agent_id);
+          printTaskStarted(event);
+        } else if (verbose && event.type === "task_activity") {
+          printTaskActivity(event);
+        } else if (verbose && event.type === "task_completed") {
+          printTaskCompleted(event, agentLabels.get(event.agent_id));
+          agentLabels.delete(event.agent_id);
+        } else if (verbose && event.type === "error") {
+          console.log(`\x1b[31m❌ ${event.message}${RESET}`);
+        }
+      }
+      if (verbose) {
+        printedAgentCount = printNewAgentMessages(
+          snapshot.messages,
+          printedAgentCount,
+        );
+      }
+    };
+    if (verbose) {
+      thinkingPrinted = true;
+      console.log(`${DIM}⏳ Thinking…${RESET}`);
     }
-
     await session.sendAsync(message);
-
-    const allMessages = session.getMessages();
-    let seedIdx = allMessages.length;
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-      if (allMessages[i].sender === "user") {
-        seedIdx = i;
-        break;
-      }
-    }
-
-    printedAgentCount = allMessages
-      .slice(0, seedIdx)
-      .filter(
-        (entry) => entry.sender === "agent" || entry.sender === "assistant",
-      ).length;
-
-    if (verbose) {
-      printedAgentCount = printNewAgentMessages(allMessages, printedAgentCount);
-      session.on("messages", (messages) => {
-        printedAgentCount = printNewAgentMessages(messages, printedAgentCount);
-      });
-    }
-
-    if (session.getIsProcessing()) {
-      await new Promise<void>((resolve) => {
-        // Wait for the backend to finish its turn so ALL system events
-        // (including every wallet request) have been delivered.
-        // `backend_idle` fires when is_processing goes false, even if
-        // there are unresolved local wallet requests.
-        // `processing_end` fires when both backend is idle AND there
-        // are no local wallet requests (e.g. pure-text response).
-        session.on("backend_idle", () => resolve());
-        session.on("processing_end", () => resolve());
-      });
-    }
-    const messageToolResults = getMessageToolResults(
-      session.getMessages(),
-      seedIdx + 1,
+    const boundary = printBoundaryForTurn(
+      session.getSnapshot().events,
+      session.getSnapshot().messages,
+      session.getSnapshot().turnId,
     );
+    handledSequence = boundary.handledSequence;
+    printedAgentCount = boundary.printedAgentCount;
+    const unsubscribe = session.subscribe(render);
+    render();
+    await waitForTurnStop(session);
+    render();
+    unsubscribe();
 
     if (verbose) {
-      for (const tool of messageToolResults) {
-        const key = toToolResultKey(tool.name, tool.result);
-        if (seenToolResults.has(key)) {
-          continue;
-        }
-        printToolResultLine(tool.name, tool.result);
-      }
-    } else {
-      for (const tool of messageToolResults) {
-        const key = toToolResultKey(tool.name, tool.result);
-        if (seenToolResults.has(key)) {
-          continue;
-        }
-        if (isAlwaysVisibleTool(tool.name)) {
-          printToolResultLine(tool.name, tool.result);
-        }
-      }
-    }
-
-    if (verbose) {
-      printedAgentCount = printNewAgentMessages(
-        session.getMessages(),
-        printedAgentCount,
-      );
       console.log(`${DIM}✅ Done${RESET}`);
     }
 
-    cli.syncPendingFromUserState(session.getUserState());
-    for (const request of session.getPendingRequests()) {
-      const pending = walletRequestToPendingSolTx(request);
-      if (pending) cli.addPendingSolTx(pending);
-    }
-    cli.reload();
-    const newPendingTxs = [
-      ...cli.pendingTxs.filter((tx) => !previousPendingIds.has(`evm:${tx.id}`)),
-      ...cli.pendingSolTxs.filter(
-        (tx) => !previousPendingIds.has(`svm:${tx.id}`),
-      ),
-    ];
+    const newActions = session.actions
+      .pending()
+      .filter((action) => !previousActionIds.has(action.id));
 
-    for (const pending of newPendingTxs) {
-      console.log(`⚡ Wallet request queued: ${pending.id}`);
-      if ("kind" in pending && pending.kind === "transaction") {
-        const payload = pending.payload as WalletTxPayload;
-        console.log(`   to:    ${payload.to}`);
-        if (payload.value) console.log(`   value: ${payload.value}`);
-        if (payload.chainId) console.log(`   chain: ${payload.chainId}`);
-      } else if ("kind" in pending && pending.kind === "eip712_sign") {
-        const payload = pending.payload as WalletEip712Payload;
-        if (payload.description) {
-          console.log(`   desc:  ${payload.description}`);
-        }
-        if (payload.non_typed_data) {
-          console.log("   type:  erc191");
+    for (const action of newActions) {
+      console.log(`⚡ Action awaiting response: ${action.id}`);
+      if (action.request.type === "execute_evm") {
+        console.log(
+          `   EVM transactions: ${action.request.transactions.length}`,
+        );
+      } else if (action.request.type === "execute_svm") {
+        console.log(
+          `   SVM transactions: ${action.request.transactions.length}`,
+        );
+      } else {
+        console.log(`   ${action.request.chainFamily.toUpperCase()} signature`);
+        if (action.request.description) {
+          console.log(`   ${action.request.description}`);
         }
       }
     }
 
     if (!verbose) {
       const agentMessages = session
-        .getMessages()
-        .filter(
-          (entry) => entry.sender === "agent" || entry.sender === "assistant",
-        );
+        .getSnapshot()
+        .messages.filter((entry) => entry.sender === "agent");
       const last = agentMessages[agentMessages.length - 1];
 
       if (last?.content) {
         console.log(last.content);
-      } else if (newPendingTxs.length === 0) {
+      } else if (session.getSnapshot().turnState === "interrupted") {
+        console.log("(interrupted)");
+      } else if (newActions.length === 0) {
         console.log("(no response)");
         fatal("Backend returned an empty agent message.");
       }
-
-      if (newPendingTxs.length === 0) {
-        const mentionedTxIds = extractMentionedTxIds(last?.content);
-        if (mentionedTxIds.length > 0) {
-          console.log(
-            `\n${YELLOW}⚠️ Assistant referenced ${mentionedTxIds.join(", ")}, but backend returned no pending wallet requests.${RESET}`,
-          );
-          console.log("   These IDs are not signable from this session.");
-        }
-      }
     }
 
-    if (newPendingTxs.length > 0) {
+    if (newActions.length > 0) {
       console.log(
-        "\nRun `aomi tx list` to see pending transactions, `aomi tx sign <id>` to sign.",
+        "\nRun `aomi tx list` to inspect Actions, `aomi tx sign <action-id>` to execute.",
       );
     }
   } finally {

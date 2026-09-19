@@ -1,0 +1,87 @@
+import { proxyAgentApi } from "@portal/server/agent-api-proxy";
+import {
+  apiAuthError,
+  resolveApiPrincipal,
+} from "@portal/server/oauth/principal";
+import {
+  AGENT_SCOPES,
+  aomiOAuthResources,
+} from "@portal/server/oauth/resources";
+import {
+  applyWidgetCors,
+  widgetCorsPreflight,
+} from "@portal/server/widget-auth/cors";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+async function handle(request: Request): Promise<Response> {
+  const started = performance.now();
+  const resource = aomiOAuthResources().agentRest;
+  try {
+    const requiredScopes = agentRouteScopes(request);
+    const principal = await resolveApiPrincipal({
+      request,
+      resource,
+      requiredScopes,
+      sessionScopes: AGENT_SCOPES.filter((scope) => scope !== "mcp:agent"),
+    });
+    const delegatedScopes = [...requiredScopes];
+    if (
+      requiredScopes.includes("agent:write") &&
+      principal.scopes.includes("custody:delegate")
+    ) {
+      delegatedScopes.push("custody:delegate");
+    }
+    const authMs = performance.now() - started;
+    const response = await proxyAgentApi(request, {
+      ...principal,
+      scopes: delegatedScopes,
+    });
+    response.headers.append(
+      "server-timing",
+      `bff_auth;dur=${authMs.toFixed(1)}`,
+    );
+    return response;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ["invalid_token", "insufficient_scope", "csrf_failed"].includes(
+        error.message,
+      )
+    ) {
+      return apiAuthError(error, resource);
+    }
+    return Response.json(
+      {
+        error: {
+          code: "upstream_unavailable",
+          message: "Agent API unavailable",
+        },
+      },
+      { status: 502 },
+    );
+  }
+}
+
+function agentRouteScopes(request: Request): string[] {
+  if (request.method === "GET") return ["agent:read"];
+  if (/\/actions\/[^/]+\/result$/.test(new URL(request.url).pathname)) {
+    return ["agent:actions:resolve"];
+  }
+  const scopes = ["agent:write"];
+  if (request.headers.has("payment-signature")) scopes.push("payments:submit");
+  return scopes;
+}
+
+async function handleWithCors(request: Request): Promise<Response> {
+  return applyWidgetCors(request, await handle(request));
+}
+
+export const GET = handleWithCors;
+export const POST = handleWithCors;
+export const PATCH = handleWithCors;
+export const DELETE = handleWithCors;
+export const OPTIONS = (request: Request): Response =>
+  widgetCorsPreflight(request, ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]);

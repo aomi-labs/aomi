@@ -3,6 +3,8 @@ import type { SvmCluster } from "../types";
 import type { AccountRuntime, AccountWallet } from "./types";
 
 export type AomiBackendAccountResponse = {
+  /** A temporary Better Auth guest. It is intentionally not an account owner. */
+  guest?: boolean;
   user: AccountRuntime["user"] | null;
   linkedAccounts: AccountRuntime["linkedAccounts"];
   wallets: AccountWallet[];
@@ -78,15 +80,15 @@ export type AomiBackendAccountEndpointConfig = Partial<{
 }>;
 
 const DEFAULT_ENDPOINTS = {
-  accountPath: "/api/aomi/account",
-  signOutPath: "/api/aomi/sign-out",
-  existingSessionProviderExchangePath: "/api/aomi/provider/exchange",
+  accountPath: "/v1/account",
+  signOutPath: "/api/auth/sign-out",
+  existingSessionProviderExchangePath: "/v1/account/provider/exchange",
   newSessionProviderExchangePath: "/api/auth/aomi/provider/exchange",
-  walletLinkPath: "/api/aomi/wallets/link",
+  walletLinkPath: "/v1/account/wallets/link",
   walletPath: (walletId: string) =>
-    `/api/aomi/wallets/${encodeURIComponent(walletId)}`,
+    `/v1/account/wallets/${encodeURIComponent(walletId)}`,
   identityPath: (identityId: string) =>
-    `/api/aomi/identities/${encodeURIComponent(identityId)}`,
+    `/v1/account/identities/${encodeURIComponent(identityId)}`,
   siweNoncePath: "/api/auth/siwe/nonce",
   siweVerifyPath: "/api/auth/siwe/verify",
   siwsNoncePath: "/api/auth/siws/nonce",
@@ -131,7 +133,12 @@ export function createAomiBackendAccountClient(input: {
       request<AomiBackendDeleteAccountResponse>(endpoints.accountPath, {
         method: "DELETE",
       }),
-    signOut: () => requestVoid(endpoints.signOutPath, { method: "POST" }),
+    signOut: () =>
+      requestVoid(endpoints.signOutPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }),
     exchangeProviderCredential: (
       credential: AomiAccountCredential,
       options: { hasAccount: boolean },
@@ -181,18 +188,13 @@ export function createAomiBackendAccountClient(input: {
       requestVoid(endpoints.walletPath(walletId), { method: "DELETE" }),
     unlinkAuthIdentity: (identityId: string) =>
       requestVoid(endpoints.identityPath(identityId), { method: "DELETE" }),
-    createSiweNonce: (body: { walletAddress: string; chainId: number }) =>
+    createSiweNonce: () =>
       request<AomiBackendNonceResponse>(endpoints.siweNoncePath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({}),
       }),
-    verifySiwe: (body: {
-      message: string;
-      signature: string;
-      walletAddress: string;
-      chainId: number;
-    }) =>
+    verifySiwe: (body: { message: string; signature: string }) =>
       requestVoid(endpoints.siweVerifyPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

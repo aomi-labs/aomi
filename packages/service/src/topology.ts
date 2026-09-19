@@ -44,7 +44,26 @@ export type AccountBearerClaims = {
   role: string;
   iat: number;
   exp: number;
+  /** Delegated public capability context. Absent on legacy internal bearers. */
+  scope?: string;
+  resource?: string;
+  client_id?: string;
+  auth_source?: "session" | "oauth" | "legacy_mcp" | "cli_session";
+  principal_class?: "user" | "guest";
+  grant_id?: string;
+  sid?: string;
 };
+
+export type DelegatedBearerContext = Pick<
+  AccountBearerClaims,
+  | "scope"
+  | "resource"
+  | "client_id"
+  | "auth_source"
+  | "principal_class"
+  | "grant_id"
+  | "sid"
+>;
 
 const DEFAULT_TTL_SECONDS = 5 * 60;
 
@@ -134,6 +153,7 @@ export class AomiService {
     subject: string;
     audience: string;
     ttlSeconds?: number;
+    delegated?: DelegatedBearerContext;
   }): Promise<{ accessToken: string; expiresAt: number }> {
     if (!this.self.issues.includes(args.role)) {
       throw new Error(
@@ -148,7 +168,10 @@ export class AomiService {
     const { privateKey, kid } = await this.signingKey();
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = now + (args.ttlSeconds ?? DEFAULT_TTL_SECONDS);
-    const accessToken = await new SignJWT({ role: args.role })
+    const accessToken = await new SignJWT({
+      role: args.role,
+      ...definedDelegatedClaims(args.delegated),
+    })
       .setProtectedHeader({ alg: ALG, kid })
       .setSubject(args.subject)
       .setIssuer(this.self.name)
@@ -210,4 +233,16 @@ export class AomiService {
     }
     return claims;
   }
+}
+
+function definedDelegatedClaims(
+  delegated: DelegatedBearerContext | undefined,
+): Record<string, string> {
+  if (!delegated) return {};
+  return Object.fromEntries(
+    Object.entries(delegated).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && entry[1].length > 0,
+    ),
+  );
 }

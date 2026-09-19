@@ -1,6 +1,6 @@
 import { createBackendProxy, type AllowedRoute } from "@aomi-labs/account";
 import { resolveCanonicalUserId } from "@portal/server/canonical-session";
-import { widgetPreflight, widgetRoute } from "@portal/lib/widget-auth/response";
+import { widgetPreflight, widgetRoute } from "@portal/server/widget-auth/response";
 import type { NextRequest } from "next/server";
 
 // Better Auth owns /api/auth/*. This same-origin BFF supplies the trusted

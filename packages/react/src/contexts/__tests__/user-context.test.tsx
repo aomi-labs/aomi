@@ -28,75 +28,116 @@ function renderHarness() {
 }
 
 describe("ExtUserProvider.setUser", () => {
-  it("wipes wallet identity but preserves the selected chain on disconnect", () => {
+  it("keeps a selected transaction account across a connection-less identity refresh", () => {
+    const ref = renderHarness();
+    act(() => ref.current!.setUser({ connection: { is_connected: false } }));
+    act(() =>
+      ref.current!.setUser({ svm: { address: "Agent", broadcaster: "hosted" } }),
+    );
+    // A refresh that carries no is_connected must not wipe the selection.
+    act(() =>
+      ref.current!.setUser({
+        connection: { provider: null, auth_method: null },
+        evm: { chain_id: 1 },
+      }),
+    );
+    expect(ref.current!.user.svm).toEqual({
+      address: "Agent",
+      broadcaster: "hosted",
+    });
+    // An explicit disconnect still does.
+    act(() => ref.current!.setUser({ connection: { is_connected: false } }));
+    expect(ref.current!.user.svm).toBeUndefined();
+  });
+
+  it("clears previous submitters on EVM and case-sensitive SVM wallet switches", () => {
+    const ref = renderHarness();
+    act(() =>
+      ref.current!.setUser({
+        evm: { address: "0xAlice", broadcaster: "hosted" },
+        svm: { address: "AbC", broadcaster: "venue" },
+      }),
+    );
+    act(() =>
+      ref.current!.setUser({
+        evm: { address: "0xBob" },
+        svm: { address: "abc" },
+      }),
+    );
+    expect(ref.current!.user.evm?.broadcaster).toBeUndefined();
+    expect(ref.current!.user.svm?.broadcaster).toBeUndefined();
+    act(() =>
+      ref.current!.setUser({
+        evm: { address: "0xAgent", broadcaster: "hosted" },
+      }),
+    );
+    expect(ref.current!.user.evm?.broadcaster).toBe("hosted");
+    act(() => ref.current!.setUser({ evm: { broadcaster: undefined } }));
+    expect(ref.current!.user.evm?.broadcaster).toBeUndefined();
+  });
+
+  it("wipes wallet identity and rejects runtime pending state on disconnect", () => {
     const ref = renderHarness();
 
     act(() => {
       ref.current!.setUser({
-        address: "0x1111111111111111111111111111111111111111",
-        chain_id: 8453,
-        is_connected: true,
-        svm_address: "Bv9...",
-        wallet_provider: "baseAccount",
-        auth_method: "wagmi",
-        ens_name: "alice.eth",
-        pending_txs: { "1": { foo: "bar" } },
-        pending_eip712s: { "2": {} },
-        pending_solana_txs: { "3": {} },
+        connection: {
+          is_connected: true,
+          provider: "baseAccount",
+          auth_method: "wagmi",
+        },
+        evm: {
+          address: "0x1111111111111111111111111111111111111111",
+          chain_id: 8453,
+          ens_name: "alice.eth",
+        },
+        svm: { address: "Bv9..." },
       });
     });
 
     act(() => {
-      ref.current!.setUser({ is_connected: false });
+      ref.current!.setUser({ connection: { is_connected: false } });
     });
 
     const u = ref.current!.user;
     expect(UserState.isConnected(u)).toBe(false);
     expect(u.evm).toEqual({ chain_id: 8453 });
     expect(u.svm).toBeUndefined();
-    expect(u.pending).toMatchObject({
-      evm_txs: { "1": { foo: "bar" } },
-      evm_sigs: { "2": {} },
-      svm_ixs: { "3": {} },
-    });
-    expect(UserState.walletProvider(u)).toBeUndefined();
+    expect(u).not.toHaveProperty("pending");
+    expect(UserState.provider(u)).toBeUndefined();
     expect(UserState.authMethod(u)).toBeUndefined();
   });
 
-  it("clears address-scoped fields but preserves pending + identity during an address transition", () => {
+  it("clears address-scoped fields and rejects pending state during an address transition", () => {
     const ref = renderHarness();
 
     act(() => {
       ref.current!.setUser({
-        address: "0x1111111111111111111111111111111111111111",
-        chain_id: 8453,
-        is_connected: true,
-        wallet_provider: "para",
-        ens_name: "alice.eth",
-        pending_txs: { "1": {} },
-        pending_eip712s: { "2": {} },
-        pending_solana_txs: { "3": {} },
+        connection: { is_connected: true, provider: "para" },
+        evm: {
+          address: "0x1111111111111111111111111111111111111111",
+          chain_id: 8453,
+          ens_name: "alice.eth",
+        },
       });
     });
 
     act(() => {
       ref.current!.setUser({
-        address: "0x4444444444444444444444444444444444444444",
+        evm: { address: "0x4444444444444444444444444444444444444444" },
       });
     });
 
     const u = ref.current!.user;
-    expect(UserState.address(u)).toBe("0x4444444444444444444444444444444444444444");
+    expect(UserState.address(u)).toBe(
+      "0x4444444444444444444444444444444444444444",
+    );
     // Identity-static fields persist across the in-place switch.
-    expect(UserState.walletProvider(u)).toBe("para");
+    expect(UserState.provider(u)).toBe("para");
     expect(UserState.chainId(u)).toBe(8453);
     // ens belonged to the prior address and is cleared on the switch.
     expect(UserState.ensName(u)).toBeUndefined();
-    expect(u.pending).toMatchObject({
-      evm_txs: { "1": {} },
-      evm_sigs: { "2": {} },
-      svm_ixs: { "3": {} },
-    });
+    expect(u).not.toHaveProperty("pending");
   });
 
   it("preserves identity fields when the same address re-sets (case-insensitive)", () => {
@@ -104,21 +145,24 @@ describe("ExtUserProvider.setUser", () => {
 
     act(() => {
       ref.current!.setUser({
-        address: "0x1111111111111111111111111111111111111111",
-        chain_id: 8453,
-        is_connected: true,
-        wallet_provider: "para",
+        connection: { is_connected: true, provider: "para" },
+        evm: {
+          address: "0x1111111111111111111111111111111111111111",
+          chain_id: 8453,
+        },
       });
     });
 
     act(() => {
       ref.current!.setUser({
-        address: "0x1111111111111111111111111111111111111111".toUpperCase(),
+        evm: {
+          address: "0x1111111111111111111111111111111111111111".toUpperCase(),
+        },
       });
     });
 
     const u = ref.current!.user;
     expect(UserState.chainId(u)).toBe(8453);
-    expect(UserState.walletProvider(u)).toBe("para");
+    expect(UserState.provider(u)).toBe("para");
   });
 });

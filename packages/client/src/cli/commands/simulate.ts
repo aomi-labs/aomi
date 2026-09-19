@@ -1,4 +1,5 @@
-import { formatEther } from "viem";
+import { summarizeSimulation } from "../../simulation";
+import type { Action } from "../../agent/types";
 import { CliSession } from "../cli-session";
 import { createCliClient } from "../client-factory";
 import { fatal } from "../errors";
@@ -7,109 +8,111 @@ import type { CliConfig } from "../types";
 
 export async function simulateCommand(
   config: CliConfig,
-  txIds: string[],
+  selectors: string[],
 ): Promise<void> {
   const cli = CliSession.load();
-  if (!cli) {
-    fatal("No active session. Run `aomi chat` first.");
-  }
-
-  if (txIds.length === 0) {
+  if (!cli) fatal("No active session. Run `aomi chat` first.");
+  if (selectors.length === 0) {
     fatal(
-      "Usage: aomi tx simulate <tx-id> [<tx-id> ...]\nRun `aomi tx list` to see available IDs.",
+      "Usage: aomi tx simulate <action-id> [<action-id> ...]\nRun `aomi tx list` to see pending Actions.",
     );
   }
 
   const session = cli.createClientSession(config);
+  let actions: Action[];
   try {
-    const apiState = await session.client.fetchState(
-      cli.sessionId,
-      undefined,
-      cli.clientId,
-    );
-    cli.syncPendingFromUserState(apiState.user_state);
+    await session.fetchCurrentState();
+    const pending = session.actions.pending();
+    actions = selectors.map((selector) => resolveAction(pending, selector));
   } finally {
     session.close();
   }
-
-  // Resolve tx IDs to local pending tx payloads.
-  const pendingTxs = txIds.map((txId) => cli.requirePendingTx(txId));
+  const transactions = actions.flatMap((action) => {
+    if (action.request.type !== "execute_evm") {
+      fatal(`Action "${action.id}" is not an EVM execution Action.`);
+    }
+    return action.request.transactions.map((transaction) => ({
+      to: transaction.to,
+      value: transaction.value,
+      data: transaction.data,
+      label: transaction.label,
+      chain_id: transaction.chain_id,
+    }));
+  });
 
   console.log(
-    `${DIM}Simulating ${txIds.length} transaction(s) as atomic batch...${RESET}`,
+    `${DIM}Simulating ${transactions.length} transaction(s) as an atomic batch...${RESET}`,
   );
-
   const client = createCliClient(
+    { ...config, secrets: config.secrets ?? {} },
+    { baseUrl: cli.baseUrl, apiKey: cli.apiKey },
+  );
+  const { result, fee } = await client.simulateBatch(
+    cli.sessionId,
+    transactions,
     {
-      ...config,
-      secrets: config.secrets ?? {},
-    },
-    {
-      baseUrl: cli.baseUrl,
-      apiKey: cli.apiKey,
+      from: cli.publicKey,
+      chainId: cli.chainId,
     },
   );
 
-  const transactions = pendingTxs.map((tx) => ({
-    to: tx.to ?? "",
-    value: tx.value,
-    data: tx.data,
-    label: tx.description ?? tx.id,
-    chain_id: tx.chainId ?? cli.chainId,
-  }));
-
-  const response = await client.simulateBatch(cli.sessionId, transactions, {
-    from: cli.publicKey ?? undefined,
-    chainId: cli.chainId ?? undefined,
-  });
-  const { result } = response;
-
-  // Print header.
-  const modeLabel = result.stateful
-    ? "stateful (Anvil snapshot)"
-    : "stateless (independent eth_call)";
-  console.log(`\nBatch simulation (${modeLabel}):`);
-  console.log(`From: ${result.from} | Network: ${result.network}\n`);
-
-  // Print per-step results.
-  for (const step of result.steps) {
-    const icon = step.success ? `${GREEN}✓${RESET}` : `\x1b[31m✗${RESET}`;
-    const label = step.label || `Step ${step.step}`;
-    const gasInfo = step.gas_used
-      ? ` | gas: ${step.gas_used.toLocaleString()}`
-      : "";
-    console.log(`  ${icon} ${step.step}. ${label}`);
-    console.log(
-      `    ${DIM}to: ${step.tx.to} | value: ${step.tx.value_eth} ETH${gasInfo}${RESET}`,
+  const summary = summarizeSimulation(result);
+  if (!summary)
+    fatal(
+      "Unsupported simulation response; update client and backend together.",
     );
-    if (!step.success && step.revert_reason) {
-      console.log(`    \x1b[31mRevert: ${step.revert_reason}${RESET}`);
+  console.log("\nStateful call simulation:");
+  for (const context of result.contexts) {
+    console.log(
+      `From: ${context.sender} | Chain: ${context.chain_id} | Block: ${context.block_number}`,
+    );
+  }
+  for (const step of result.steps) {
+    const execution = step.execution;
+    const passed = execution?.status.kind === "succeeded";
+    const icon = !execution
+      ? `${DIM}–${RESET}`
+      : passed
+        ? `${GREEN}✓${RESET}`
+        : `\x1b[31m✗${RESET}`;
+    const gas = execution?.gas_used
+      ? ` | gas: ${execution.gas_used.toLocaleString()}`
+      : "";
+    console.log(`  ${icon} ${step.step}. ${step.label || `Step ${step.step}`}`);
+    console.log(
+      `    ${DIM}to: ${step.call.to} | value: ${step.call.value} native atomic units (chain ${step.chain_id})${gas}${RESET}`,
+    );
+    if (!passed) {
+      console.log(`    Status: ${execution?.status.kind ?? "skipped"}`);
+      if (execution?.status.kind === "halted")
+        console.log(`    ${execution.status.reason}`);
+      if (execution?.return_data && execution.return_data !== "0x")
+        console.log(`    Return data: ${execution.return_data}`);
     }
   }
+  if (summary.gas) {
+    console.log(
+      `\n${DIM}Successful-step gas: ${summary.gas.toLocaleString()}${RESET}`,
+    );
+  }
+  if (fee) {
+    const amount = BigInt(fee.amount_wei);
+    console.log(
+      `Service fee: ${amount} native atomic units → ${fee.recipient}`,
+    );
+  }
+  console.log(
+    summary.passed
+      ? `\n${GREEN}All steps passed.${RESET}`
+      : `\n\x1b[31mBatch failed.${RESET}`,
+  );
+}
 
-  // Print gas and fee summary.
-  if (result.total_gas) {
-    console.log(
-      `\n${DIM}Total gas: ${result.total_gas.toLocaleString()}${RESET}`,
-    );
-  }
-  if (result.fee) {
-    const feeWei = BigInt(result.fee.amount_wei);
-    console.log(
-      `Service fee: ${formatEther(feeWei)} ETH (${feeWei} wei) → ${result.fee.recipient}`,
-    );
-  }
-
-  // Print summary.
-  console.log();
-  if (result.batch_success) {
-    console.log(
-      `${GREEN}All steps passed.${RESET} Run \`aomi tx sign ${txIds.join(" ")}\` to execute.`,
-    );
-  } else {
-    const failed = result.steps.find((s) => !s.success);
-    console.log(
-      `\x1b[31mBatch failed at step ${failed?.step ?? "?"}.${RESET} Fix the issue and re-queue, or run \`aomi tx sign\` on the successful prefix.`,
-    );
-  }
+function resolveAction(actions: Action[], selector: string): Action {
+  const matches = actions.filter(
+    (action) => action.id === selector || action.id.startsWith(selector),
+  );
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) fatal(`Action selector "${selector}" is ambiguous.`);
+  fatal(`Pending Action "${selector}" was not found.`);
 }

@@ -7,15 +7,15 @@ export function useWalletActivationGuard(): () => boolean {
   const runtime = useOptionalAomiRuntime();
 
   return useCallback(() => {
-    if (!runtime?.hasBlockingWalletRequests) {
+    if (!runtime?.hasBlockingActions) {
       return true;
     }
 
     runtime.showNotification({
       type: "wallet",
-      title: "Finish the pending wallet request",
+      title: "Finish the pending action",
       message:
-        "Approve or reject the current wallet request before switching wallets or networks.",
+        "Approve or reject the current action before switching wallets or networks.",
     });
     return false;
   }, [runtime]);

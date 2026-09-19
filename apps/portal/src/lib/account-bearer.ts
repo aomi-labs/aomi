@@ -6,7 +6,7 @@ import {
   type AccountBearerProvider,
 } from "@aomi-labs/client";
 import type { AomiWalletKit } from "@aomi-labs/widget-lib";
-import { getBackendUrl } from "./settings-api";
+import { getBackendUrl } from "@aomi-labs/widget-lib/host-composition";
 
 type GetAccountCredential = AomiWalletKit["getAccountCredential"];
 
@@ -19,12 +19,12 @@ type GetAccountCredential = AomiWalletKit["getAccountCredential"];
  * shipped default) the proxy mints the AccountBearer server-side from the
  * `better-auth.session_token` cookie and strips any incoming `Authorization`
  * header, so a client-side token provider is pure dead weight — it just adds
- * latency and spams `/api/aomi/account-bearer` with 401s before sign-in completes.
+ * latency and spams `/v1/account/bearer` with 401s before sign-in completes.
  * There we return `null` and let the session cookie do the work.
  *
  * When the backend is a different origin the browser must carry the bearer
  * itself, so we return a real provider (minting via the same-origin
- * `/api/aomi/account-bearer`, hence `betterAuthToken.baseUrl: ""`).
+ * `/v1/account/bearer`, hence `betterAuthToken.baseUrl: ""`).
  */
 export function createPortalAccountBearerProvider(
   getAccountCredential: GetAccountCredential,

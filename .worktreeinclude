@@ -1,0 +1,4 @@
+# Copy ignored local environment files into Codex-managed worktrees.
+# Tracked examples are checked out by Git instead.
+.env*
+!.env.example

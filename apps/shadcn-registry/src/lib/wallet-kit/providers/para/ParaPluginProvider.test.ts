@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldConnectParaEvmSession } from "./ParaPluginProvider";
+import { shouldConnectParaEvmSession } from "./para-evm-session";
 
 describe("Para embedded EVM connection", () => {
   it("connects wagmi when auth only produced the synthetic Para session", () => {

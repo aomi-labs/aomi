@@ -34,10 +34,7 @@ describe("CLI BetterAuth SIWE auth", () => {
         const url = String(input);
         if (url.endsWith("/api/auth/siwe/nonce")) {
           expect(init?.method).toBe("POST");
-          expect(JSON.parse(String(init?.body))).toEqual({
-            walletAddress: ACCOUNT.address,
-            chainId: 8453,
-          });
+          expect(JSON.parse(String(init?.body))).toEqual({});
           return Response.json(
             {
               nonce: "nonce-123",
@@ -51,8 +48,7 @@ describe("CLI BetterAuth SIWE auth", () => {
           expect(init?.method).toBe("POST");
           expect(new Headers(init?.headers).get("Cookie")).toBeNull();
           const body = JSON.parse(String(init?.body));
-          expect(body.walletAddress).toBe(ACCOUNT.address);
-          expect(body.chainId).toBe(8453);
+          expect(Object.keys(body).sort()).toEqual(["message", "signature"]);
           expect(body.message).toContain("portal.test wants you to sign in");
           expect(body.message).toContain(`\n${ACCOUNT.address}\n`);
           expect(body.message).toContain("Nonce: nonce-123");
@@ -69,7 +65,7 @@ describe("CLI BetterAuth SIWE auth", () => {
             },
           );
         }
-        if (url.endsWith("/api/aomi/account")) {
+        if (url.endsWith("/v1/account")) {
           const headers = new Headers(init?.headers);
           expect(headers.get("Authorization")).toBe(
             "Bearer better-auth-session-token",
@@ -164,7 +160,7 @@ describe("CLI BetterAuth SIWE auth", () => {
             { headers: { "set-auth-token": "siws-session-token" } },
           );
         }
-        if (url.endsWith("/api/aomi/account")) {
+        if (url.endsWith("/v1/account")) {
           expect(new Headers(init?.headers).get("Authorization")).toBe(
             "Bearer siws-session-token",
           );
@@ -213,7 +209,7 @@ describe("CLI BetterAuth SIWE auth", () => {
             { headers: { "set-auth-token": "better-auth-session-token" } },
           );
         }
-        if (url.endsWith("/api/aomi/account")) {
+        if (url.endsWith("/v1/account")) {
           return Response.json({ session: null });
         }
         throw new Error(`Unexpected URL ${url}`);

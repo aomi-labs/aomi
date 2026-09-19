@@ -6,12 +6,11 @@ import {
   type AuthorizationPoster,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { accountScopedFetch } from "@portal/lib/settings-api";
+import { accountScopedFetch } from "@aomi-labs/widget-lib/host-composition";
 
-type WalletRow = {
-  address: string;
-  chain_type: string;
-  signing_mode: string;
+type SigningPolicy = {
+  address: { chain: "evm" | "svm"; address: string };
+  mode: string;
 };
 
 export type SvmBindingState =
@@ -33,13 +32,10 @@ const post: AuthorizationPoster = (path, body) =>
 export function useSvmWalletBinding() {
   const adapter = useAomiWalletKit();
   const svmAddress = adapter.identity.svmAddress;
-  const cluster = adapter.identity.svmCluster ?? adapter.identity.solanaCluster;
-  const capabilities =
-    adapter.identity.svmCapabilities ?? adapter.identity.solanaCapabilities;
+  const cluster = adapter.identity.svmCluster;
+  const capabilities = adapter.identity.svmCapabilities;
   const signSolanaMessage = adapter.signSolanaMessage;
-  const usesLegacyBinding =
-    (adapter.identity.svmTransport ?? adapter.identity.solanaTransport) ===
-    "embedded";
+  const requiresBinding = adapter.identity.svmTransport === "embedded";
   const [state, setState] = useState<SvmBindingState>({ status: "no-wallet" });
   const [binding, setBinding] = useState(false);
 
@@ -50,17 +46,17 @@ export function useSvmWalletBinding() {
     }
     setState({ status: "loading" });
     try {
-      const data = await accountScopedFetch<{ wallets: WalletRow[] }>(
-        "/api/account/wallets",
-      );
-      const row = data.wallets.find(
-        (wallet) =>
-          wallet.chain_type.toLowerCase() === "svm" &&
-          wallet.address === svmAddress,
+      const data = await accountScopedFetch<{
+        signing_policies: SigningPolicy[];
+      }>("/api/account");
+      const row = data.signing_policies.find(
+        (policy) =>
+          policy.address.chain === "svm" &&
+          policy.address.address === svmAddress,
       );
       setState(
         row
-          ? { status: "bound", signingMode: row.signing_mode }
+          ? { status: "bound", signingMode: row.mode }
           : { status: "unbound" },
       );
     } catch (error) {
@@ -76,7 +72,7 @@ export function useSvmWalletBinding() {
   }, [refresh]);
 
   const bind = useCallback(async (): Promise<boolean> => {
-    if (!usesLegacyBinding || !svmAddress || !signSolanaMessage) return false;
+    if (!requiresBinding || !svmAddress || !signSolanaMessage) return false;
     setBinding(true);
     try {
       await ensureSvmWalletBoundVia(post, svmAddress, async (message) => {
@@ -98,14 +94,14 @@ export function useSvmWalletBinding() {
     } finally {
       setBinding(false);
     }
-  }, [cluster, refresh, signSolanaMessage, svmAddress, usesLegacyBinding]);
+  }, [cluster, refresh, signSolanaMessage, svmAddress, requiresBinding]);
 
   return {
     state,
     binding,
-    usesLegacyBinding,
+    requiresBinding,
     canBind: Boolean(
-      usesLegacyBinding &&
+      requiresBinding &&
       svmAddress &&
       signSolanaMessage &&
       (capabilities?.canSignMessage ?? true),

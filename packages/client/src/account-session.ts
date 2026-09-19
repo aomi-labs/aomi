@@ -24,7 +24,7 @@ export type AccountSessionExchangeResponse = {
 };
 
 export type BetterAuthTokenResponse = {
-  /** Aomi AccountBearer shape from /api/aomi/account-bearer. */
+  /** Aomi AccountBearer shape from /v1/account/bearer. */
   bearer?: string;
   expires_at?: number;
   expiresAt?: number;
@@ -61,7 +61,7 @@ const DEFAULT_REFRESH_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
 const FAILURE_COOLDOWN_MS = 30 * 1000;
 const CREDENTIAL_UNAVAILABLE_RETRY_DELAYS_MS = [250, 1_000, 3_000] as const;
 const EXPIRES_AT_MILLISECONDS_THRESHOLD = 100_000_000_000;
-const DEFAULT_BETTER_AUTH_TOKEN_PATH = "/api/aomi/account-bearer";
+const DEFAULT_BETTER_AUTH_TOKEN_PATH = "/v1/account/bearer";
 const DEFAULT_BETTER_AUTH_PROVIDER_EXCHANGE_PATH =
   "/api/auth/aomi/provider/exchange";
 

@@ -12,9 +12,7 @@ function parseByokKeyArg(input: string): { provider: string; byokKey: string } {
   const byokKey = byokKeyPart?.trim();
 
   if (!provider || !byokKey) {
-    fatal(
-      "Invalid format. Use: <provider>:<key> (e.g. anthropic:sk-ant-...)",
-    );
+    fatal("Invalid format. Use: <provider>:<key> (e.g. anthropic:sk-ant-...)");
   }
 
   if (!SUPPORTED_PROVIDERS.has(provider)) {
@@ -34,10 +32,6 @@ async function createByokKeyClient(
     baseUrl: cli.baseUrl,
     apiKey: cli.apiKey,
   });
-
-  // Bind the active session to the stable client id in the backend vault so
-  // BYOK-key endpoints can resolve the right SecretVault namespace.
-  await client.fetchState(cli.sessionId, undefined, cli.ensureClientId());
 
   return { cli, client };
 }

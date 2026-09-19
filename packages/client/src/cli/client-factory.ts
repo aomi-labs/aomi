@@ -28,10 +28,6 @@ export function createCliGetAccountBearer(
   // <BetterAuth session>` (matching BetterAuth's bearer plugin) and the proxy mints the
   // short-lived backend bearer from it per request — no client-side `/token`
   // round-trip or refresh needed (the proxy re-mints on every call).
-  if (config.sessionCookie) {
-    const sessionCookie = config.sessionCookie;
-    return async () => sessionCookie;
-  }
 
   return undefined;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isUnboundWalletError } from "@aomi-labs/client";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@aomi-labs/widget-lib";
@@ -16,36 +16,42 @@ function eventText(payload: unknown): string {
 }
 
 export function SvmWalletBindingGate() {
-  const { subscribe, sendMessage } = useAomiRuntime();
-  const { bind, binding, canBind, usesLegacyBinding } = useSvmWalletBinding();
+  const { events, sendMessage } = useAomiRuntime();
+  const { bind, binding, canBind, requiresBinding } = useSvmWalletBinding();
   const [visible, setVisible] = useState(false);
+  const observedSequence = useRef(0);
 
   useEffect(() => {
-    const detect = (event: { payload?: unknown }) => {
-      if (usesLegacyBinding && isUnboundWalletError(eventText(event.payload))) {
+    for (const event of events) {
+      if (event.sequence <= observedSequence.current) continue;
+      observedSequence.current = event.sequence;
+      const payload =
+        event.type === "error"
+          ? event.message
+          : event.type === "tool_complete"
+            ? event.result
+            : undefined;
+      if (requiresBinding && isUnboundWalletError(eventText(payload))) {
         setVisible(true);
       }
-    };
-    const unsubscribeError = subscribe("system_error", detect);
-    const unsubscribeTool = subscribe("tool_complete", detect);
-    return () => {
-      unsubscribeError();
-      unsubscribeTool();
-    };
-  }, [subscribe, usesLegacyBinding]);
+    }
+  }, [events, requiresBinding]);
 
   useEffect(() => {
-    if (!usesLegacyBinding) setVisible(false);
-  }, [usesLegacyBinding]);
+    if (!requiresBinding) setVisible(false);
+  }, [requiresBinding]);
 
-  if (!usesLegacyBinding || !visible) return null;
+  if (!requiresBinding || !visible) return null;
 
   return (
     <aside className="bg-background border-border absolute bottom-24 right-4 z-50 w-[min(24rem,calc(100%-2rem))] rounded-xl border p-4 shadow-xl">
-      <p className="text-sm font-medium">Bind your Solana wallet to continue</p>
+      <p className="text-sm font-medium">
+        Link your Solana wallet for hosted signing
+      </p>
       <p className="text-muted-foreground mt-1 text-sm">
-        This one-time signature proves the connected wallet belongs to your Aomi
-        account. It does not move funds.
+        Direct wallet transactions do not require linking. This one-time
+        signature links the wallet to your Aomi account so hosted signing can
+        use its account policy; it does not move funds.
       </p>
       <div className="mt-3 flex gap-2">
         <Button

@@ -66,7 +66,7 @@ describe("withDebugLogging", () => {
 describe("applyLockedAppScope", () => {
   it("pins app params on string inputs for send-path routes", async () => {
     const result = await applyLockedAppScope(
-      "http://localhost:3000/api/thread/chat",
+      "http://localhost:3000/v1/agent/chat",
       "my-app",
       "app-123",
     );
@@ -76,7 +76,7 @@ describe("applyLockedAppScope", () => {
   });
 
   it("rewrites Request inputs without losing the buffered body", async () => {
-    const request = new Request("http://localhost:3000/api/thread/chat", {
+    const request = new Request("http://localhost:3000/v1/agent/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: '{"message":"hi"}',
@@ -105,8 +105,12 @@ describe("applyLockedAppScope", () => {
     });
     expect(await applyLockedAppScope(request, "my-app", null)).toBe(request);
     expect(
-      await applyLockedAppScope("http://localhost:3000/api/thread/chat", null, null),
-    ).toBe("http://localhost:3000/api/thread/chat");
+      await applyLockedAppScope(
+        "http://localhost:3000/api/v1/agent/chat",
+        null,
+        null,
+      ),
+    ).toBe("http://localhost:3000/api/v1/agent/chat");
   });
 });
 
@@ -117,5 +121,14 @@ describe("getRequestedAppConfig", () => {
       applicationId: null,
       locked: true,
     });
+  });
+
+  it("accepts an explicit inference funding lane", () => {
+    expect(getRequestedAppConfig("?funding=user_byok").inferenceFunding).toBe(
+      "user_byok",
+    );
+    expect(getRequestedAppConfig("?funding=unknown").inferenceFunding).toBe(
+      undefined,
+    );
   });
 });

@@ -3,10 +3,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  AomiAuthAdapterProvider,
+  AomiWalletKitContextProvider,
   ExtUserProvider,
-  type AomiAuthAdapter,
-  type AomiAuthIdentity,
+  type AomiWalletKit,
+  type AomiSessionIdentity,
 } from "@aomi-labs/widget-lib";
 import type {
   WalletEip712Payload,
@@ -83,8 +83,18 @@ type E2ESolanaResponse =
 const useRealE2EExecution =
   process.env.NEXT_PUBLIC_AOMI_E2E_EXECUTION_MODE === "real";
 
+export function stringifyE2EPayload(value: unknown): string {
+  // viem's EIP-712 payload carries integer fields as bigint. The disposable
+  // browser signer hashes the payload instead of serializing it onto a wire,
+  // so preserve those values losslessly as decimal strings for a stable fake
+  // signature.
+  return JSON.stringify(value, (_key, nested) =>
+    typeof nested === "bigint" ? nested.toString() : nested,
+  );
+}
+
 function fakeTxHash(payload: WalletTxPayload): `0x${string}` {
-  const encoded = JSON.stringify({
+  const encoded = stringifyE2EPayload({
     chainId: payload.chainId,
     calls: payload.calls,
     txId: payload.txId,
@@ -99,7 +109,7 @@ function fakeTxHash(payload: WalletTxPayload): `0x${string}` {
 }
 
 function fakeSignature(payload: WalletEip712Payload): `0x${string}` {
-  const encoded = JSON.stringify(payload);
+  const encoded = stringifyE2EPayload(payload);
   let hash = 0;
   for (let i = 0; i < encoded.length; i += 1) {
     hash = (hash * 31 + encoded.charCodeAt(i)) >>> 0;
@@ -168,8 +178,8 @@ export function E2EWalletProvider({
       }),
     [networks],
   );
-  const adapter = useMemo<AomiAuthAdapter>(() => {
-    const identity: AomiAuthIdentity = {
+  const adapter = useMemo<AomiWalletKit>(() => {
+    const identity: AomiSessionIdentity = {
       status: "connected",
       isConnected: true,
       address: seed.address,
@@ -177,7 +187,6 @@ export function E2EWalletProvider({
       chainId: seed.chainId,
       svmAddress: seed.svmAddress,
       svmCluster: seed.svmCluster,
-      solanaCluster: seed.svmCluster,
       svmWalletName: seed.svmAddress ? "E2E Solana Wallet" : undefined,
       svmTransport: seed.svmAddress ? "embedded" : undefined,
       svmCapabilities: seed.svmAddress
@@ -188,14 +197,13 @@ export function E2EWalletProvider({
             canSignAndSendTransaction: true,
           }
         : undefined,
-      walletProvider: "para",
+      sessionProvider: "para",
       walletProviderSubject: `e2e:${(
         seed.address ??
         seed.svmAddress ??
         "wallet"
       ).toLowerCase()}`,
       authMethod: "email",
-      authProvider: "email",
       authValue: "e2e@aomi.dev",
       authVerifiedAt: Math.floor(Date.now() / 1000),
       primaryLabel: seed.address ? "E2E Wallet" : "E2E Solana Wallet",
@@ -308,9 +316,9 @@ export function E2EWalletProvider({
     <ExtUserProvider>
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          <AomiAuthAdapterProvider value={adapter}>
+          <AomiWalletKitContextProvider value={adapter}>
             {children}
-          </AomiAuthAdapterProvider>
+          </AomiWalletKitContextProvider>
         </WagmiProvider>
       </QueryClientProvider>
     </ExtUserProvider>

@@ -4,12 +4,15 @@
  * cover every reconciliation state in one place, which is useful when
  * iterating on `account-signing.tsx` without a backend.
  */
-import type { DelegationGrant, WalletPolicy } from "./types";
+import type {
+  DelegatedAccountView,
+  WalletPolicy,
+} from "@aomi-labs/widget-lib/host-composition";
 
 /**
  * Wallet ACL fixtures — one row per `public_keys` record. Chosen to exercise
  * every reconciliation state: self-custody, provider-embedded manual,
- * auto reconciled (live grant), and auto drifted (grant expired).
+ * auto reconciled (live delegation), and auto drifted (delegation expired).
  */
 export const seedWalletPolicies: WalletPolicy[] = [
   {
@@ -39,8 +42,8 @@ export const seedWalletPolicies: WalletPolicy[] = [
     address: "8xKn…9QpS",
     linkedVia: "privy",
     desiredMode: "auto",
-    grantActive: true,
-    grantExpiresLabel: "Aug 3, 2026",
+    delegationActive: true,
+    delegationExpiresLabel: "Aug 3, 2026",
     authVersion: 4,
     lastPermit: "you · Jul 20",
   },
@@ -50,8 +53,8 @@ export const seedWalletPolicies: WalletPolicy[] = [
     address: "0x9f2B…A41c",
     linkedVia: "para",
     desiredMode: "auto",
-    grantActive: false,
-    grantExpiresLabel: "expired Jul 18",
+    delegationActive: false,
+    delegationExpiresLabel: "expired Jul 18",
     authVersion: 3,
     lastPermit: "you · Jul 2",
   },
@@ -68,21 +71,31 @@ export const seedWalletPolicies: WalletPolicy[] = [
   },
 ];
 
-export const seedGrants: DelegationGrant[] = [
+export const seedDelegatedAccounts: DelegatedAccountView[] = [
   {
     id: "g-privy",
+    address: {
+      chain: "svm",
+      address: seedWalletPolicies.find((wallet) => wallet.chain === "svm")!
+        .address,
+    },
+    providerKey: "privy",
     provider: "Privy",
     scope: "Solana · 8xKn…9QpS",
     kind: "session delegation",
     status: "active",
-    expiresLabel: "Aug 3, 2026",
   },
   {
     id: "g-para",
+    address: {
+      chain: "evm",
+      address: seedWalletPolicies.find((wallet) => wallet.provider === "para")!
+        .address,
+    },
+    providerKey: "para",
     provider: "Para",
     scope: "Ethereum · 0x9f2B…A41c",
     kind: "session delegation",
     status: "expired",
-    expiresLabel: "Jul 18, 2026",
   },
 ];

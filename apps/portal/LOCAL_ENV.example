@@ -1,7 +1,7 @@
 # Copy these values into apps/portal/.env.local when running the portal against
 # a local product-mono backend.
 BACKEND_URL=http://127.0.0.1:8080
-
+AOMI_AGENT_API_URL=http://127.0.0.1:8082
 # Dev-only BFF signer for the committed `aomi-bff-dev-1` public key.
 # Do not use this key for staging or production.
 PORTAL_SERVICE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n-----END PRIVATE KEY-----"

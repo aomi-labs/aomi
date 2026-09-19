@@ -131,7 +131,7 @@ export type WidgetAuthAdapter = {
 };
 ```
 
-- Provider-credential adapter: wraps any plugin's `AuthRuntime.getCredential` → POST `/api/widget/auth/exchange`. One implementation serves Para, Privy, and any future plugin.
+- Provider-credential adapter: wraps any plugin's `AuthRuntime.getCredential` → POST `/api/auth/widget/exchange`. One implementation serves Para, Privy, and any future plugin.
 - Wallet adapters: SIWE/SIWS challenge flows (port of #355's `packages/client/src/widget-session.ts`, generalized from its SIWE-only shape).
 
 Frontend closed unions to open:
@@ -154,8 +154,8 @@ Corrections and load-bearing facts — do not re-derive:
 6. **The consolidation migration deliberately DROPPED per-app scoping** to make subjects global. Adding `tenant_id` consciously reverses that at the _constraint_ level while keeping resolution global at the _query_ level (per provider policy). Record the reversal in the new migration; do not rewrite the applied one.
 7. **PR #339 is smaller to port than its diff suggests.** Already on main: `provider-exchange.ts`, `account-credentials.ts`, `aomi-backend-client.ts` (`src/lib/wallet-kit/account/`, cookie-only `fetchJson` with `credentials:"include"` at :188-207), the para/privy plugin dirs, `./providers/para` + `./providers/privy` export subpaths (source-level; build is `scripts/build-registry.js` — **there is no tsup on main**; #339's `tsup.config.ts`/package-dist work must be re-evaluated at port time, not assumed). Net-new to port: `aomi-widget.tsx`, `paraAuth()`/`privyAuth()` helpers, `apps/widget-consumer/`.
 8. **PR #355 verified clean end-to-end** (single commit): `aomi_wst_` prefix, SHA-256-hashed storage in `ba_verifications` (zod ticket store, no new schema), 30-min TTL, atomic nonce consume, origin-bound resolution, credentialless CORS with `Vary: Origin`. Its `principal.ts` imports `@portal/lib/aomi-account/canonical-session`, which moved on main to `apps/portal/src/server/canonical-session.ts` (exports `resolveBetterAuthCanonicalUserId`). Its client `widget-session.ts` is SIWE/EOA-only — generalized in Phase 6.
-9. **Portal today**: every `/api/aomi/*` route resolves via BetterAuth cookie (`requireAomiSession`/`getBetterAuthSession` from `lib/aomi-account/session.ts`). Proxy = `createBackendProxy` (`packages/account/src/proxy.ts:238-317`): allowlist → strip `authorization`/`cookie` → `mintAccountBearer(canonicalId)` (EdDSA, `sub`=users.id, `aud:"aomi-backend"`, 15-min TTL, `bearer.ts:8-43`) → forward. No portal-wide CORS today (same-origin only).
-10. **`apps/portal/src/app/api/widget/auth/{exchange,session,siwe/*,siws/*}/` exist as EMPTY untracked scaffold dirs** — the target layout is pre-created (note it already includes `exchange/` and `siws/`, which #355 didn't have); fill them in Phases 4-5.
+9. **Portal today**: every `/v1/account/*` route resolves via BetterAuth cookie (`requireAomiSession`/`getBetterAuthSession` from `lib/aomi-account/session.ts`). Proxy = `createBackendProxy` (`packages/account/src/proxy.ts:238-317`): allowlist → strip `authorization`/`cookie` → `mintAccountBearer(canonicalId)` (EdDSA, `sub`=users.id, `aud:"aomi-backend"`, 15-min TTL, `bearer.ts:8-43`) → forward. No portal-wide CORS today (same-origin only).
+10. **`apps/portal/src/app/api/auth/widget/{exchange,session,siwe/*,siws/*}/` exist as EMPTY untracked scaffold dirs** — the target layout is pre-created (note it already includes `exchange/` and `siws/`, which #355 didn't have); fill them in Phases 4-5.
 11. **Para verifier today is single-tenant**: `env.paraAudience` fallback chain + required `PARA_JWKS_URL` (`account-credentials.ts:134-171`). Para REST secret **`PARA_API_SECRET_KEY`** (`listParaWalletsForUser`) — disabled for widgets in this effort.
 12. **The first real cross-project BETA experiment passed** (two audiences, same `sub`/`data.userId`; `data.wallets` project-specific, `connectedWallets` session-specific). Harness: `apps/landing/app/dev/para-cross-project/` + `apps/landing/app/api/dev/para-jwt-compare/`; never persists raw JWTs.
 
@@ -260,9 +260,9 @@ Port nearly verbatim — it verified clean and is already provider-neutral at th
 - [x] `packages/account/src/widget-auth/{origin.ts, session.ts, store.ts, siwe.ts, index.ts}` (+ `test/widget-auth.test.ts`).
 - [x] `apps/portal/src/lib/widget-auth/{cors.ts, principal.ts, response.ts}`.
 - [x] `packages/client/src/widget-session.ts` (+ unit test) — generalized in Phase 6.
-- [x] `apps/portal/src/app/api/widget/auth/siwe/{nonce,verify}/route.ts`, `session/route.ts`; ADD SIWS parity `siws/{nonce,verify}/route.ts` (main already has SIWS verify machinery in `better-auth/siws.ts`).
+- [x] `apps/portal/src/app/api/auth/widget/siwe/{nonce,verify}/route.ts`, `session/route.ts`; ADD SIWS parity `siws/{nonce,verify}/route.ts` (main already has SIWS verify machinery in `better-auth/siws.ts`).
 - [x] **Port fix**: `principal.ts` import → `apps/portal/src/server/canonical-session.ts` (`resolveBetterAuthCanonicalUserId`).
-- [x] Preserve exactly: `aomi_wst_` + 32 random bytes; SHA-256 identifier in `ba_verifications` (raw token never stored); 30-min TTL; memory-only browser storage; observed-origin binding; explicit revocation (`DELETE /api/widget/auth/session`); `credentials: "omit"`; refresh-before-expiry; single retry after 401; token never forwarded to Rust.
+- [x] Preserve exactly: `aomi_wst_` + 32 random bytes; SHA-256 identifier in `ba_verifications` (raw token never stored); 30-min TTL; memory-only browser storage; observed-origin binding; explicit revocation (`DELETE /api/auth/widget/session`); `credentials: "omit"`; refresh-before-expiry; single retry after 401; token never forwarded to Rust.
 - [x] Extend the ticket (zod union in `store.ts`): `{ kind: "widget_session", sessionId, userId, origin, authMethod: "siwe" | "siws" | <providerId>, providerIdentityId?, issuedAt, expiresAt }` — `authMethod` is an open string, not a Para-shaped enum.
 - [x] Principal union: `better_auth | widget | anonymous`; wire `resolvePortalPrincipal()` into `createBackendProxy({ resolveCanonicalUserId })` in `apps/portal/src/app/api/[...slug]/route.ts:123-138` (BetterAuth first, WST fallback). BFF uses only `principal.userId` to mint the ordinary AccountBearer.
 - [x] Session resolution verifies the user is active. **Decision to lock here: unlinking a provider identity revokes WSTs minted through it (fail closed); account deletion/deactivation invalidates all WSTs.**
@@ -270,10 +270,10 @@ Port nearly verbatim — it verified clean and is already provider-neutral at th
 
 ## Phase 5 — Widget exchange route (generic, registry-driven)
 
-- [x] ADD `apps/portal/src/app/api/widget/auth/exchange/route.ts` (dir pre-scaffolded): `POST` with body `{ provider: string, environment, provider_token, key_id? }`, validated by the union of registered descriptors' `credentialSchema`s.
+- [x] ADD `apps/portal/src/app/api/auth/widget/exchange/route.ts` (dir pre-scaffolded): `POST` with body `{ provider: string, environment, provider_token, key_id? }`, validated by the union of registered descriptors' `credentialSchema`s.
 - [x] Flow: observed HTTP `Origin` (reject missing/`null`/invalid production origins) → body → `getWidgetProvider(provider)` (unknown → 400; `widgetEnabled: false` → `provider_not_enabled`) → `verifyWidgetCredential` → `VerifiedProviderIdentity` → Phase-2 resolver with the descriptor's policy → `issueWidgetSession` (origin-bound) → `{ access_token, token_type: "Bearer", expires_at, user: { id } }`.
 - [x] Default v1 resolution: 0 → create; 1 → use; >1 → hard `identity_conflict`, zero writes. Not `account_link_needed`.
-- [x] Already-authenticated linking uses the Phase-7 `/api/aomi/provider/exchange` route (current principal + verified credential). Phase-8 pre-creation linking, if shipped, uses an explicit resolve-without-create pending-exchange ID.
+- [x] Already-authenticated linking uses the Phase-7 `/v1/account/provider/exchange` route (current principal + verified credential). Phase-8 pre-creation linking, if shipped, uses an explicit resolve-without-create pending-exchange ID.
 - [x] Must NOT: create a BetterAuth cookie; require a BetterAuth user; compare tenant to Aomi's native key; store/log/forward the raw provider token; accept browser-supplied user id or key material; require an Aomi widget key.
 - [x] Shared first-party logic: native provider login → same verify + resolver → BetterAuth session; widget → same verify + resolver → WST. WST never depends on BetterAuth.
 - [x] Follow-up noted (not v1): `device-auth` routes' literal `"privy" | "para"` guards (`grant`, `link-intent`, `link-grant`, `exchange`) move to registry validation.
@@ -312,7 +312,7 @@ Optional and intentionally not shipped in v1. The shipped SIWE/SIWS path support
 
 ## Phase 9 — CORS policies
 
-- [x] Two policies: existing BetterAuth routes retain their configured `trustedOrigins` credential policy; public widget routes reflect a validated HTTPS origin, omit `Allow-Credentials`, allow `Authorization`, and set `Vary: Origin` for `/api/widget/auth/*`, `/api/aomi/*`, and supported BFF routes.
+- [x] Two policies: existing BetterAuth routes retain their configured `trustedOrigins` credential policy; public widget routes reflect a validated HTTPS origin, omit `Allow-Credentials`, allow `Authorization`, and set `Vary: Origin` for `/api/auth/widget/*`, `/v1/account/*`, and supported BFF routes.
 - [x] On public widget origins, reject ambient BetterAuth-cookie auth; require WST bearer for protected behavior. Omitting `Allow-Credentials` alone is not an authorization check.
 - [x] Origin is session binding, not consumer authentication. No origin-registration/allowlist for v1.
 

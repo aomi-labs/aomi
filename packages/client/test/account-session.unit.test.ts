@@ -81,7 +81,7 @@ describe("createAccountBearerProvider", () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe(`${BASE_URL}/api/aomi/account-bearer`);
+    expect(url).toBe(`${BASE_URL}/v1/account/bearer`);
     expect(init).toEqual(
       expect.objectContaining({
         method: "GET",
@@ -127,7 +127,7 @@ describe("createAccountBearerProvider", () => {
     await expect(provider()).resolves.toBe(token);
     expect(getProviderCredential).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://portal.aomi.dev/api/aomi/account-bearer",
+      "https://portal.aomi.dev/v1/account/bearer",
       expect.objectContaining({
         method: "GET",
         credentials: "include",
@@ -179,7 +179,7 @@ describe("createAccountBearerProvider", () => {
     await expect(provider()).resolves.toBe(token);
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
-      "https://portal.aomi.dev/api/aomi/account-bearer",
+      "https://portal.aomi.dev/v1/account/bearer",
       expect.any(Object),
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
@@ -197,7 +197,7 @@ describe("createAccountBearerProvider", () => {
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
       3,
-      "https://portal.aomi.dev/api/aomi/account-bearer",
+      "https://portal.aomi.dev/v1/account/bearer",
       expect.objectContaining({ method: "GET" }),
     );
 
@@ -231,7 +231,7 @@ describe("createAccountBearerProvider", () => {
     expect(getProviderCredential).not.toHaveBeenCalled();
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://portal.aomi.dev/api/aomi/account-bearer",
+      "https://portal.aomi.dev/v1/account/bearer",
       expect.objectContaining({ method: "GET" }),
     );
 

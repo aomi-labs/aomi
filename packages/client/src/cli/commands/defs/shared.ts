@@ -1,39 +1,27 @@
 import type { ArgsDef } from "citty";
 import { privateKeyToAccount } from "viem/accounts";
-import type {
-  CliEmbeddedProvider,
-  CliConfig,
-  CliExecutionMode,
-} from "../../types";
+import { PublicKey } from "@solana/web3.js";
+import { parseSolanaKeypairSecret } from "../../solana-signer";
+import type { CliAgentMode, CliConfig, CliExecutionMode } from "../../types";
 import { fatal } from "../../errors";
 import {
   parseChainId,
   normalizePrivateKey,
-  parseAAProvider,
-  parseAAMode,
   validateSolanaPrivateKey,
   parsePaymentMethod,
+  parseInferenceFunding,
 } from "../../validation";
 
 type SvmCluster = NonNullable<CliConfig["svmCluster"]>;
-
-function parseEmbeddedProvider(
-  raw: string | undefined,
-): CliEmbeddedProvider | undefined {
-  if (!raw) return undefined;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === "para" || normalized === "privy") {
-    return normalized;
-  }
-  fatal(`Unknown --embedded-provider value "${raw}". Use "para" or "privy".`);
-}
 
 /**
  * Normalise the user-facing --cluster value to the CAIP-2 form the backend
  * expects.  Accepts both the friendly short form ("mainnet-beta", "devnet",
  * "testnet") and the canonical CAIP-2 form ("solana:mainnet", etc.).
  */
-export function parseSvmCluster(raw: string | undefined): SvmCluster | undefined {
+export function parseSvmCluster(
+  raw: string | undefined,
+): SvmCluster | undefined {
   if (!raw) return undefined;
   const lower = raw.trim().toLowerCase();
   switch (lower) {
@@ -79,22 +67,22 @@ export const globalArgs = {
     type: "string",
     description: "Aomi account bearer for authenticated REST/SSE requests",
   },
-  "embedded-provider": {
+  mode: {
     type: "string",
-    description:
-      'Deprecated legacy provider exchange config ("para" or "privy")',
-  },
-  "embedded-provider-token": {
-    type: "string",
-    description: "Deprecated legacy provider token; use --account-bearer",
+    description: 'Agent routing mode: "auto" (default) or "direct"',
   },
   app: {
     type: "string",
-    description: 'App (default: "default")',
+    description: "Direct-mode app (also selects Direct when --mode is omitted)",
   },
   "application-id": {
     type: "string",
-    description: "Concrete backend application id for dynamic apps",
+    description: "Direct-mode hosted application identity",
+  },
+  platform: {
+    type: "string",
+    description:
+      "Hosted app platform for discovery; execution returns 501 until Phase 10",
   },
   model: {
     type: "string",
@@ -111,6 +99,11 @@ export const globalArgs = {
   "public-key": {
     type: "string",
     description: "Wallet address (so the agent knows your wallet)",
+  },
+  "solana-public-key": {
+    type: "string",
+    description:
+      "Exact Solana account address; Auto uses its server delegation, not a local private key",
   },
   "private-key": {
     type: "string",
@@ -133,7 +126,12 @@ export const globalArgs = {
   },
   "payment-method": {
     type: "string",
-    description: 'Payment method for paid chat turns, e.g. "coinbase"',
+    description:
+      'Payment method for paid Agent/Pipeline calls, e.g. "coinbase"',
+  },
+  "inference-funding": {
+    type: "string",
+    description: "Use the account's saved BYOK key for inference: user_byok",
   },
 } satisfies ArgsDef;
 
@@ -143,6 +141,15 @@ export const globalArgs = {
 
 function str(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+export function parseAgentMode(
+  raw: string | undefined,
+): CliAgentMode | undefined {
+  if (!raw) return undefined;
+  const mode = raw.trim().toLowerCase();
+  if (mode === "auto" || mode === "direct") return mode;
+  fatal(`Unknown --mode value "${raw}". Use "auto" or "direct".`);
 }
 
 function derivePublicKeyFromPrivateKey(
@@ -166,13 +173,7 @@ function resolveExecution(
     fatal("Choose only one of `--aa` or `--eoa`.");
   }
   if (flagEoa) return "eoa";
-  if (
-    flagAA ||
-    str(args["aa-provider"]) !== undefined ||
-    str(args["aa-mode"]) !== undefined
-  ) {
-    return "aa";
-  }
+  if (flagAA) return "aa";
   return undefined;
 }
 
@@ -196,12 +197,17 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   const derivedPublicKey = derivePublicKeyFromPrivateKey(privateKey);
   const accountBearer =
     str(args["account-bearer"]) ?? process.env.AOMI_ACCOUNT_BEARER;
-  const embeddedProvider = parseEmbeddedProvider(
-    str(args["embedded-provider"]) ?? process.env.AOMI_EMBEDDED_PROVIDER,
+  const requestedMode = parseAgentMode(
+    str(args.mode) ?? process.env.AOMI_AGENT_MODE,
   );
-  const embeddedProviderToken =
-    str(args["embedded-provider-token"]) ??
-    process.env.AOMI_EMBEDDED_PROVIDER_TOKEN;
+  const app = str(args.app) ?? process.env.AOMI_APP;
+  const applicationId =
+    str(args["application-id"]) ?? process.env.AOMI_APPLICATION_ID;
+  if (requestedMode === "auto" && (app || applicationId)) {
+    fatal(
+      "`--mode auto` cannot be combined with `--app` or `--application-id`.",
+    );
+  }
 
   // `--public-key` is an EVM identity. A base58 Solana address here used to be
   // silently rerouted by app-name sniffing; now it is a loud error.
@@ -211,7 +217,7 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
   ) {
     fatal(
       "`--public-key` must be a 0x-prefixed EVM address. " +
-        "For a Solana identity, run `aomi wallet set --solana <key>` or pass `--solana-private-key`.",
+        "For a Solana identity, pass `--solana-public-key` or configure its signing key.",
     );
   }
 
@@ -225,33 +231,33 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     );
   }
 
-  const aaProvider = parseAAProvider(
-    str(args["aa-provider"]) ?? process.env.AOMI_AA_PROVIDER,
-  );
-  const aaMode = parseAAMode(str(args["aa-mode"]) ?? process.env.AOMI_AA_MODE);
-
-  if (execution === "eoa" && (aaProvider || aaMode)) {
-    fatal("`--aa-provider` and `--aa-mode` cannot be used with `--eoa`.");
-  }
-  if (accountBearer && (embeddedProvider || embeddedProviderToken)) {
+  // No longer declared flags; citty still accepts unknown options (and parses
+  // the `--flag value` form as `true`), so reject any presence explicitly.
+  if (args["aa-provider"] !== undefined || args["aa-mode"] !== undefined) {
     fatal(
-      "Choose either `--account-bearer` or the `--embedded-provider` + `--embedded-provider-token` pair.",
+      "AA provider and account implementation are backend application policy, not CLI overrides.",
     );
   }
-  if (embeddedProvider && !embeddedProviderToken) {
-    fatal(
-      "`--embedded-provider-token` is required when `--embedded-provider` is set.",
-    );
-  }
-  if (embeddedProviderToken && !embeddedProvider) {
-    fatal(
-      "`--embedded-provider` is required when `--embedded-provider-token` is set.",
-    );
-  }
-
   const solanaPrivateKey = validateSolanaPrivateKey(
     str(args["solana-private-key"]) ?? process.env.SOLANA_PRIVATE_KEY,
   );
+  let svmPublicKey = str(args["solana-public-key"]);
+  if (svmPublicKey) {
+    try {
+      svmPublicKey = new PublicKey(svmPublicKey.trim()).toBase58();
+    } catch {
+      fatal("`--solana-public-key` must be a valid base58 Solana address.");
+    }
+    if (
+      solanaPrivateKey &&
+      parseSolanaKeypairSecret(solanaPrivateKey).publicKey.toBase58() !==
+        svmPublicKey
+    ) {
+      fatal(
+        "`--solana-public-key` does not match the configured local signing key.",
+      );
+    }
+  }
 
   const svmCluster = parseSvmCluster(
     str(args.cluster) ?? process.env.AOMI_SOLANA_CLUSTER,
@@ -263,11 +269,11 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     json: args.json === true,
     verbose: args.verbose === true,
     accountBearer,
-    embeddedProvider,
-    embeddedProviderToken,
-    app: str(args.app) ?? process.env.AOMI_APP,
-    applicationId:
-      str(args["application-id"]) ?? process.env.AOMI_APPLICATION_ID,
+    agentMode: requestedMode ?? (app || applicationId ? "direct" : undefined),
+    app,
+    applicationId,
+    svmPublicKey,
+    appPlatform: str(args.platform) ?? process.env.AOMI_APP_PLATFORM,
     model: str(args.model) ?? process.env.AOMI_MODEL,
     freshSession: args["new-session"] === true,
     publicKey: configuredPublicKey ?? derivedPublicKey,
@@ -278,10 +284,11 @@ export function buildCliConfig(args: Record<string, unknown>): CliConfig {
     chain: parseChainId(str(args.chain) ?? process.env.AOMI_CHAIN_ID),
     secrets: {},
     execution,
-    aaProvider,
-    aaMode,
     paymentMethod: parsePaymentMethod(
       str(args["payment-method"]) ?? process.env.AOMI_PAYMENT_METHOD,
+    ),
+    inferenceFunding: parseInferenceFunding(
+      str(args["inference-funding"]) ?? process.env.AOMI_INFERENCE_FUNDING,
     ),
   };
 }

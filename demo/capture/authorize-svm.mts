@@ -36,7 +36,9 @@ function arg(flag: string): string {
 function keyFromSolanaJson(path: string) {
   const bytes = Uint8Array.from(JSON.parse(readFileSync(path, "utf8")));
   if (bytes.length !== 64) {
-    throw new Error(`Expected a 64-byte Solana keypair JSON, got ${bytes.length}`);
+    throw new Error(
+      `Expected a 64-byte Solana keypair JSON, got ${bytes.length}`,
+    );
   }
   const pkcs8Prefix = Buffer.from("302e020100300506032b657004220420", "hex");
   return createPrivateKey({
@@ -71,7 +73,7 @@ async function main(): Promise<void> {
 
   // 2. Mint the account bearer through the portal BFF.
   const bearerResponse = await fetch(
-    new URL("/api/aomi/account-bearer", PORTAL_URL),
+    new URL("/v1/account/bearer", PORTAL_URL),
     { headers: { cookie } },
   );
   const { bearer } = (await bearerResponse.json()) as { bearer?: string };
@@ -101,7 +103,11 @@ async function main(): Promise<void> {
       message_base64?: string;
       error?: string;
     };
-    if (!challenge.ok || !challengeBody.permit || !challengeBody.message_base64) {
+    if (
+      !challenge.ok ||
+      !challengeBody.permit ||
+      !challengeBody.message_base64
+    ) {
       if (mode === "bind" && challengeBody.error === "already_bound") {
         console.log("bind: already bound, continuing");
         continue;

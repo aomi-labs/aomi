@@ -13,9 +13,61 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Select affected CI paths
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.select.outputs.packages }}
+      apps: ${{ steps.select.outputs.apps }}
+      portal: ${{ steps.select.outputs.portal }}
+      build: ${{ steps.select.outputs.build }}
+      base: ${{ steps.select.outputs.base }}
+      landing: ${{ steps.select.outputs.landing }}
+      telegram: ${{ steps.select.outputs.telegram }}
+      guest_browser: ${{ steps.select.outputs.guest_browser }}
+      browser_contracts: ${{ steps.select.outputs.browser_contracts }}
+      consumer_compat: ${{ steps.select.outputs.consumer_compat }}
+      workflow_policy: ${{ steps.select.outputs.workflow_policy }}
+      preview: ${{ steps.select.outputs.preview }}
+    steps:
+      - name: Checkout comparison history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select affected checks
+        id: select
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_DIFF_MODE: ${{ github.event_name == 'push' && 'push' || 'pull_request' }}
+          CI_FORCE_FULL: ${{ (github.ref == 'refs/heads/prod' || github.base_ref == 'prod') && '1' || '0' }}
+        run: node .github/scripts/select-ci-paths.mjs
+
   packages:
     name: Packages · lint, types, tests, builds
+    needs: changes
+    if: needs.changes.outputs.packages == 'true'
     runs-on: ubuntu-latest
+    services:
+      auth-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aomi_auth_loopback_test_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AOMI_AUTH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
+      AOMI_TEST_DATABASE_DISPOSABLE: "1"
+      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -32,18 +84,78 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Enforce frontend dependency boundaries
+        run: pnpm run check:frontend-boundaries
+
       - name: Lint and typecheck workspace
         run: pnpm run lint && pnpm run typecheck
 
       - name: Build every publishable package
         run: pnpm run build:packages
 
+      - name: Verify shared account package tarball
+        run: pnpm --filter @aomi-labs/account pack --pack-destination /tmp/aomi-account-pack
+
       - name: Run workspace tests and committed OpenAPI contract
         run: pnpm exec vitest run
 
-  apps:
-    name: Apps · Portal, Build, Base, Landing, Telegram
+  consumer-compat:
+    name: Consumer compatibility · packed SDK and widget
+    needs: changes
+    if: needs.changes.outputs.consumer_compat == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Event payload selects the trusted baseline; PR files cannot move it.
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout candidate and trusted baseline history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify trusted-baseline isolation
+        run: node --test tests/contracts/*.test.mjs
+
+      - name: Check protected consumers against candidate packages
+        run: pnpm run test:contracts
+
+  apps:
+    name: Apps · affected surfaces
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
+    runs-on: ubuntu-latest
+    services:
+      auth-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aomi_auth_loopback_test_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AOMI_AUTH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
+      AOMI_TEST_DATABASE_DISPOSABLE: "1"
+      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -63,20 +175,155 @@ jobs:
       - name: Build package prerequisites
         run: pnpm run build:packages
 
-      - name: Typecheck and test every app
-        run: pnpm run typecheck:apps && pnpm run test:portal && pnpm run test:telegram
-
-      - name: Build every deployed app
+      - name: Check affected apps
         env:
+          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
+          CHECK_BUILD: ${{ needs.changes.outputs.build }}
+          CHECK_BASE: ${{ needs.changes.outputs.base }}
+          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
+          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
+        run: |
+          set -euo pipefail
+          if [ "$CHECK_PORTAL" = true ]; then
+            pnpm run lint:portal
+            pnpm run typecheck:portal
+            pnpm run test:portal
+          fi
+          if [ "$CHECK_BUILD" = true ]; then
+            pnpm run lint:aomi-build
+            pnpm run typecheck:aomi-build
+            pnpm --filter aomi-build test
+          fi
+          if [ "$CHECK_BASE" = true ]; then
+            pnpm run lint:base
+            pnpm run typecheck:base
+          fi
+          if [ "$CHECK_LANDING" = true ]; then
+            pnpm run lint:landing
+            pnpm run typecheck:landing
+          fi
+          if [ "$CHECK_TELEGRAM" = true ]; then
+            pnpm run lint:telegram
+            pnpm run typecheck:telegram
+            pnpm run test:telegram
+          fi
+
+      - name: Build affected apps
+        env:
+          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
+          CHECK_BUILD: ${{ needs.changes.outputs.build }}
+          CHECK_BASE: ${{ needs.changes.outputs.base }}
+          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
+          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/aomi_ci_build
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
           NEXT_PUBLIC_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
           NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
-        run: pnpm run build:apps
+          AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
+        run: |
+          set -euo pipefail
+          if [ "$CHECK_PORTAL" = true ]; then
+            pnpm run build:portal
+          fi
+          if [ "$CHECK_BUILD" = true ]; then
+            pnpm run build:aomi-build
+          fi
+          if [ "$CHECK_BASE" = true ]; then
+            pnpm run build:base
+          fi
+          if [ "$CHECK_LANDING" = true ]; then
+            pnpm run build:landing
+          fi
+          if [ "$CHECK_TELEGRAM" = true ]; then
+            pnpm run build:telegram
+          fi
+
+  guest-browser:
+    name: Guest Chat · deterministic Chromium regression
+    needs: changes
+    if: needs.changes.outputs.guest_browser == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run isolated guest send and recovery regression
+        run: pnpm run test:browser:guest
+
+      - name: Upload sanitized server log and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: guest-browser-${{ github.sha }}
+          path: |
+            output/playwright/guest-regression/
+            output/playwright/test-results/
+            output/playwright/report/
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser-contracts:
+    name: Production Browser Contracts · auth and packaged widget
+    needs: changes
+    if: needs.changes.outputs.browser_contracts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # The immutable consumer comes from the event-selected base, never PR files.
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - name: Checkout candidate and trusted baseline history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run production Portal and immutable packaged-widget contracts
+        run: pnpm run test:browser:contracts
+
+      - name: Upload sanitized browser contract diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-contracts-${{ github.sha }}
+          path: output/playwright/browser-contracts/
+          if-no-files-found: error
+          retention-days: 14
 
   promotion-policy:
     name: Production Promotion Policy
@@ -107,7 +354,10 @@ jobs:
           merge_base="$(git merge-base origin/main origin/prod)"
           merge_base_tree="$(git show -s --format=%T "$merge_base")"
           prod_tree="$(git show -s --format=%T origin/prod)"
-          if ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
+          # Rollback #631 intentionally restored the pre-promotion production tree.
+          # Main keeps the staging changes; this exception expires if prod moves.
+          if [ "$(git rev-parse origin/prod)" != "6da2f909e32528ae083a7a760fcfb4606d18e52f" ] &&
+             ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
             echo "prod contains a tree change that has not been back-merged to main" >&2
             git diff --stat "$merge_base_tree" "$prod_tree"
             exit 1
@@ -156,11 +406,14 @@ jobs:
           merge_base="$(git merge-base HEAD origin/prod)"
           merge_base_tree="$(git show -s --format=%T "$merge_base")"
           prod_tree="$(git show -s --format=%T origin/prod)"
-          git diff --quiet "$merge_base_tree" "$prod_tree" || {
+          # Rollback #631 intentionally restored the pre-promotion production tree.
+          # Main keeps the staging changes; this exception expires if prod moves.
+          if [ "$(git rev-parse origin/prod)" != "6da2f909e32528ae083a7a760fcfb4606d18e52f" ] &&
+             ! git diff --quiet "$merge_base_tree" "$prod_tree"; then
             echo "prod has a tree change absent from main; merge the production hotfix first" >&2
             git diff --stat "$merge_base_tree" "$prod_tree"
             exit 1
-          }
+          fi
 
   live-production-contract:
     name: Production Backend Contract
@@ -190,6 +443,8 @@ jobs:
 
   workflow-policy:
     name: Workflow Security Policy
+    needs: changes
+    if: needs.changes.outputs.workflow_policy == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact source
@@ -216,14 +471,64 @@ jobs:
   all-checks:
     name: Frontend CI Passed
     if: always()
-    needs: [packages, apps, promotion-policy, hotfix-divergence, workflow-policy]
+    needs:
+      [
+        changes,
+        packages,
+        apps,
+        guest-browser,
+        browser-contracts,
+        consumer-compat,
+        promotion-policy,
+        hotfix-divergence,
+        live-production-contract,
+        workflow-policy,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          PACKAGES_SELECTED: ${{ needs.changes.outputs.packages }}
+          PACKAGES_RESULT: ${{ needs.packages.result }}
+          APPS_SELECTED: ${{ needs.changes.outputs.apps }}
+          APPS_RESULT: ${{ needs.apps.result }}
+          GUEST_SELECTED: ${{ needs.changes.outputs.guest_browser }}
+          GUEST_RESULT: ${{ needs.guest-browser.result }}
+          BROWSER_SELECTED: ${{ needs.changes.outputs.browser_contracts }}
+          BROWSER_RESULT: ${{ needs.browser-contracts.result }}
+          CONSUMER_SELECTED: ${{ needs.changes.outputs.consumer_compat }}
+          CONSUMER_RESULT: ${{ needs.consumer-compat.result }}
+          WORKFLOW_SELECTED: ${{ needs.changes.outputs.workflow_policy }}
+          WORKFLOW_RESULT: ${{ needs.workflow-policy.result }}
+          PROMOTION_RESULT: ${{ needs.promotion-policy.result }}
+          HOTFIX_RESULT: ${{ needs.hotfix-divergence.result }}
+          PRODUCTION_CONTRACT_RESULT: ${{ needs.live-production-contract.result }}
+          REQUIRE_PRODUCTION_CONTRACT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/prod') && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          test '${{ needs.packages.result }}' = success
-          test '${{ needs.apps.result }}' = success
-          case '${{ needs.promotion-policy.result }}' in success|skipped) ;; *) exit 1 ;; esac
-          case '${{ needs.hotfix-divergence.result }}' in success|skipped) ;; *) exit 1 ;; esac
-          test '${{ needs.workflow-policy.result }}' = success
+          require_selected() {
+            selected="$1"
+            result="$2"
+            label="$3"
+            if [ "$selected" = true ]; then
+              test "$result" = success || { echo "$label was selected but ended as $result" >&2; exit 1; }
+            else
+              test "$result" = skipped || { echo "$label was not selected but ended as $result" >&2; exit 1; }
+            fi
+          }
+
+          test "$CHANGES_RESULT" = success
+          require_selected "$PACKAGES_SELECTED" "$PACKAGES_RESULT" packages
+          require_selected "$APPS_SELECTED" "$APPS_RESULT" apps
+          require_selected "$GUEST_SELECTED" "$GUEST_RESULT" guest-browser
+          require_selected "$BROWSER_SELECTED" "$BROWSER_RESULT" browser-contracts
+          require_selected "$CONSUMER_SELECTED" "$CONSUMER_RESULT" consumer-compat
+          require_selected "$WORKFLOW_SELECTED" "$WORKFLOW_RESULT" workflow-policy
+          case "$PROMOTION_RESULT" in success|skipped) ;; *) exit 1 ;; esac
+          case "$HOTFIX_RESULT" in success|skipped) ;; *) exit 1 ;; esac
+          if [ "$REQUIRE_PRODUCTION_CONTRACT" = true ]; then
+            test "$PRODUCTION_CONTRACT_RESULT" = success
+          else
+            test "$PRODUCTION_CONTRACT_RESULT" = skipped
+          fi

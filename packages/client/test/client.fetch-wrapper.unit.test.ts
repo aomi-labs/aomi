@@ -74,7 +74,7 @@ describe("wrapFetchWithAccountBearer", () => {
       bearerSource("tok"),
     );
 
-    const request = new Request("http://127.0.0.1:8080/api/thread/chat", {
+    const request = new Request("http://127.0.0.1:8080/api/exec/simulate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: '{"message":"hi"}',
@@ -89,6 +89,49 @@ describe("wrapFetchWithAccountBearer", () => {
     const headers = new Headers(init.headers);
     expect(headers.get("Authorization")).toBe("Bearer tok");
     expect(headers.get("Content-Type")).toBe("application/json");
+  });
+
+  it("never falls back to an account bearer for a public API resource", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const getBearer = bearerSource("account-token");
+    const wrapped = wrapFetchWithAccountBearer(
+      fetchMock as unknown as typeof fetch,
+      getBearer,
+    );
+
+    await wrapped("https://chat.aomi.dev/v1/pipeline/mcp", {
+      method: "POST",
+    });
+
+    expect(getBearer).not.toHaveBeenCalled();
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.has("authorization")).toBe(false);
+  });
+
+  it("sends a required widget session to Agent and Pipeline APIs", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ sessions: [], nextCursor: null }),
+    );
+    const getBearer = bearerSource("widget-session");
+    getBearer.required = true;
+    const guest = vi.fn(async () => "guest-session");
+    const client = new AomiClient({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchMock as unknown as typeof fetch,
+      getAccountBearer: getBearer,
+      guest,
+    });
+
+    await client.agent.sessions.list();
+    await client.requestResponse("GET", "/v1/pipeline/catalog");
+
+    expect(getBearer).toHaveBeenCalledTimes(2);
+    expect(guest).not.toHaveBeenCalled();
+    for (const call of fetchMock.mock.calls) {
+      expect(new Headers(call[1]?.headers).get("authorization")).toBe(
+        "Bearer widget-session",
+      );
+    }
   });
 
   it("simulateBatch delivers its JSON body through the wrapped fetch", async () => {

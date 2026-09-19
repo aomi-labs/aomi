@@ -50,29 +50,6 @@ export class SessionManager {
     }
   }
 
-  closeIdleExcept(
-    activeThreadId: string,
-    onBeforeClose?: (threadId: string) => void,
-  ): string[] {
-    const closedThreadIds: string[] = [];
-
-    for (const [threadId, session] of this.sessions) {
-      if (threadId === activeThreadId) continue;
-      if (session.getIsProcessing()) continue;
-      if (session.getIsPolling()) continue;
-      if (session.getPendingRequests().length > 0) continue;
-
-      closedThreadIds.push(threadId);
-    }
-
-    for (const threadId of closedThreadIds) {
-      onBeforeClose?.(threadId);
-      this.close(threadId);
-    }
-
-    return closedThreadIds;
-  }
-
   closeAll(): void {
     for (const [threadId, session] of this.sessions) {
       session.close();

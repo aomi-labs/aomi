@@ -56,10 +56,16 @@
         Math.max(0, window.scrollY + rect.bottom),
       );
     }, 0);
-    const documentHeight = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight,
-    );
+    const page = Array.from(
+      document.querySelectorAll("#dc-root .landing-page"),
+    ).find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    const pageRect = page?.getBoundingClientRect();
+    const documentHeight = pageRect
+      ? window.scrollY + pageRect.bottom
+      : document.body.scrollHeight;
 
     if (atmosphereStart <= 0 || documentHeight <= window.innerHeight) return;
 

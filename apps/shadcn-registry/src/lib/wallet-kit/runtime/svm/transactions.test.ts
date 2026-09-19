@@ -33,6 +33,21 @@ function wallet(
 }
 
 describe("buildSvmTransactionMethods", () => {
+  it("rejects an exact-signer mismatch before asking the connected wallet to sign", async () => {
+    const signMessage = vi.fn();
+    const execution = buildSvmTransactionMethods(wallet({ signMessage }), {
+      preferDirectSend: false,
+      rpcHttpUrl: "https://solana.example",
+    });
+    await expect(
+      execution.signSolanaMessage!({
+        signer: "AnotherWallet",
+        message: "cGVybWl0",
+      }),
+    ).rejects.toThrow("not connected");
+    expect(signMessage).not.toHaveBeenCalled();
+  });
+
   it("omits direct sign-and-send when preferDirectSend is disabled", () => {
     const execution = buildSvmTransactionMethods(wallet(), {
       preferDirectSend: false,
@@ -65,6 +80,9 @@ describe("buildSvmTransactionMethods", () => {
       preferDirectSend: false,
       rpcHttpUrl: "https://solana.example",
     });
+    const confirmTransaction = vi
+      .spyOn(Connection.prototype, "confirmTransaction")
+      .mockResolvedValue({ context: { slot: 1 }, value: { err: null } });
 
     await execution.sendSolanaTransaction?.({
       unsignedTx: Buffer.from(approved.serialize()).toString("base64"),
@@ -75,5 +93,6 @@ describe("buildSvmTransactionMethods", () => {
     expect((submitted as VersionedTransaction).message.recentBlockhash).toBe(
       approvedBlockhash,
     );
+    expect(confirmTransaction).toHaveBeenCalledWith("signature", "confirmed");
   });
 });

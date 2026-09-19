@@ -72,13 +72,13 @@ The code now implements this separation in the portal and widget layer:
 | BetterAuth mount                  | Shipped at `apps/portal/src/app/api/auth/[...all]/route.ts`.                                                                                       |
 | SIWE sign-in                      | Shipped through BetterAuth SIWE plugin plus widget auto-SIWE flow.                                                                                 |
 | Provider session creation         | Shipped through BetterAuth plugin endpoint `/api/auth/aomi/provider/exchange`.                                                                     |
-| Provider link to existing account | Shipped at `/api/aomi/provider/exchange`.                                                                                                          |
-| Account runtime API               | Shipped at `/api/aomi/account`, `/api/aomi/wallets/*`, `/api/aomi/identities/*`, `/api/aomi/sign-out`.                                             |
+| Provider link to existing account | Shipped at `/v1/account/provider/exchange`.                                                                                                          |
+| Account runtime API               | Shipped at `/v1/account`, `/v1/account/wallets/*`, `/v1/account/identities/*`, `/api/auth/sign-out`.                                             |
 | Account database schema           | Shipped in `packages/auth/src/db/schema.sql`, run lazily by account service calls.                                                                 |
 | `aomi_users.id`                   | Shipped as the portal-side durable user id.                                                                                                        |
 | Linked provider identities        | Shipped in `aomi_auth_identities`.                                                                                                                 |
 | Linked wallets                    | Shipped in `aomi_wallets`, including SIWE external wallets and provider-attested embedded wallets when REST credentials are configured.            |
-| Account deletion/deactivation     | Shipped at `DELETE /api/aomi/account`; soft-deactivates the user, revokes linked identities/wallets, clears the BetterAuth mapping, and signs out. |
+| Account deletion/deactivation     | Shipped at `DELETE /v1/account`; soft-deactivates the user, revokes linked identities/wallets, clears the BetterAuth mapping, and signs out. |
 | Conflict policy                   | Shipped: unclaimed signals link, same-owner signals no-op, other-owner signals return conflict. No merge engine.                                   |
 | MCP approval auth                 | Removed after deprecation. Portal routes and MCP tools do not depend on legacy auth approval subpaths.                                             |
 | BetterAuth backend JWT            | Removed. Backend trust now uses portal-minted EdDSA AccountBearer tokens, not BetterAuth JWT/JWKS.                                                 |
@@ -151,7 +151,7 @@ apps/registry/src/lib/wallet-kit/
   config/AomiWalletKitProvider.tsx          # enables account runtime via provider config
   account/
     types.ts                                # AccountRuntime / AccountWallet types
-    aomi-backend-client.ts                  # fetch client for /api/aomi + /api/auth paths
+    aomi-backend-client.ts                  # fetch client for /v1/account + /api/auth paths
     aomi-backend-runtime.ts                 # auto-SIWE, provider exchange, link/unlink
     disabled-runtime.ts
     use-resolved-account-runtime.ts
@@ -205,11 +205,11 @@ The remaining seam is operational, not a separate auth design:
 
 - Portal/account identity works today.
 - Privy/Para provider credentials create or link Better Auth sessions through
-  `/api/auth/aomi/provider/exchange` and `/api/aomi/provider/exchange`.
+  `/api/auth/aomi/provider/exchange` and `/v1/account/provider/exchange`.
 - Browser and CLI backend calls enter through the portal BFF. The proxy resolves
   the Better Auth session, mirrors the canonical user into the backend DB, and
   mints the backend AccountBearer.
-- Direct cross-origin clients can call `/api/aomi/account-bearer` with a Better Auth
+- Direct cross-origin clients can call `/v1/account/bearer` with a Better Auth
   cookie when they intentionally need a short-lived AccountBearer outside the
   same-origin proxy path.
 
@@ -230,21 +230,21 @@ Mounted by `apps/portal/src/app/api/auth/[...all]/route.ts`.
 
 ### Aomi Account API
 
-Mounted under `apps/portal/src/app/api/aomi/*`.
+Mounted under `apps/portal/src/app/v1/account/*`.
 
 | Route                         | Methods  | Current behavior                                                                                                                                                             |
 | ----------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/aomi/account`           | `GET`    | Return `{ user, linkedAccounts, wallets, session }` for current BetterAuth session, or null account payload if unauthenticated. Also syncs SIWE wallet rows from BetterAuth. |
-| `/api/aomi/account`           | `PATCH`  | Update `displayName` and/or `avatarUrl` for the current Aomi user.                                                                                                           |
-| `/api/aomi/account`           | `DELETE` | Deactivate the current Aomi user, revoke all active provider identities and wallets so they can be linked again elsewhere, clear the BetterAuth user mapping, and sign out.  |
-| `/api/aomi/provider/exchange` | `POST`   | Verify a Privy/Para credential and link it into the existing BetterAuth session's Aomi account. Returns `409` on cross-account signal conflicts.                             |
-| `/api/aomi/wallets/link`      | `GET`    | Return HMAC wallet-link nonce for an authenticated Aomi account, EVM address, and chain id.                                                                                  |
-| `/api/aomi/wallets/link`      | `POST`   | Verify nonce + SIWE-style wallet-link signature, then upsert an external EVM wallet. Returns `409` on cross-account wallet conflicts.                                        |
-| `/api/aomi/wallets/[id]`      | `PATCH`  | Rename wallet label.                                                                                                                                                         |
-| `/api/aomi/wallets/[id]`      | `DELETE` | Soft-revoke wallet. Blocks non-embedded wallet unlink only when the total login-factor count is `<= 1`; also detaches BetterAuth SIWE wallet/account rows for SIWE wallets.  |
-| `/api/aomi/identities/[id]`   | `PATCH`  | Rename provider identity display label unless protected.                                                                                                                     |
-| `/api/aomi/identities/[id]`   | `DELETE` | Soft-revoke provider identity unless protected or last login factor.                                                                                                         |
-| `/api/aomi/sign-out`          | `POST`   | Proxy to BetterAuth `/api/auth/sign-out`.                                                                                                                                    |
+| `/v1/account`           | `GET`    | Return `{ user, linkedAccounts, wallets, session }` for current BetterAuth session, or null account payload if unauthenticated. Also syncs SIWE wallet rows from BetterAuth. |
+| `/v1/account`           | `PATCH`  | Update `displayName` and/or `avatarUrl` for the current Aomi user.                                                                                                           |
+| `/v1/account`           | `DELETE` | Deactivate the current Aomi user, revoke all active provider identities and wallets so they can be linked again elsewhere, clear the BetterAuth user mapping, and sign out.  |
+| `/v1/account/provider/exchange` | `POST`   | Verify a Privy/Para credential and link it into the existing BetterAuth session's Aomi account. Returns `409` on cross-account signal conflicts.                             |
+| `/v1/account/wallets/link`      | `GET`    | Return HMAC wallet-link nonce for an authenticated Aomi account, EVM address, and chain id.                                                                                  |
+| `/v1/account/wallets/link`      | `POST`   | Verify nonce + SIWE-style wallet-link signature, then upsert an external EVM wallet. Returns `409` on cross-account wallet conflicts.                                        |
+| `/v1/account/wallets/[id]`      | `PATCH`  | Rename wallet label.                                                                                                                                                         |
+| `/v1/account/wallets/[id]`      | `DELETE` | Soft-revoke wallet. Blocks non-embedded wallet unlink only when the total login-factor count is `<= 1`; also detaches BetterAuth SIWE wallet/account rows for SIWE wallets.  |
+| `/v1/account/identities/[id]`   | `PATCH`  | Rename provider identity display label unless protected.                                                                                                                     |
+| `/v1/account/identities/[id]`   | `DELETE` | Soft-revoke provider identity unless protected or last login factor.                                                                                                         |
+| `/api/auth/sign-out`          | `POST`   | Proxy to BetterAuth `/api/auth/sign-out`.                                                                                                                                    |
 
 Protected identities today:
 
@@ -290,7 +290,7 @@ sequenceDiagram
   Kit->>Auth: POST /api/auth/siwe/verify
   Auth->>DB: create BetterAuth user/session/walletAddress
   Auth-->>Kit: session cookie
-  Kit->>Account: GET /api/aomi/account
+  Kit->>Account: GET /v1/account
   Account->>DB: get/create aomi_users; mirror SIWE wallet
   Account-->>Kit: account runtime payload
 ```
@@ -332,7 +332,7 @@ sequenceDiagram
 sequenceDiagram
   participant Provider as Privy / Para
   participant Kit as Widget account runtime
-  participant API as /api/aomi/provider/exchange
+  participant API as /v1/account/provider/exchange
   participant Account as Aomi account service
   participant DB as Postgres
 
@@ -354,7 +354,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Kit as Widget account runtime
-  participant API as /api/aomi/wallets/link
+  participant API as /v1/account/wallets/link
   participant Wallet as Target EVM wallet
   participant Account as Aomi account service
   participant DB as Postgres
@@ -395,7 +395,7 @@ The BFF-facing bridge is `@aomi-labs/account`, not a BetterAuth JWT plugin.
   Auth session to a canonical Aomi user and backend `users.id`.
 - `packages/account/src/proxy.ts` strips client credentials, mints an EdDSA
   `AccountBearer`, and forwards trusted backend requests.
-- `packages/account/src/token.ts` backs `/api/aomi/account-bearer` for explicit
+- `packages/account/src/token.ts` backs `/v1/account/bearer` for explicit
   cross-origin clients.
 - `packages/client/src/account-session.ts` can use that BFF token route when a
   consumer is intentionally calling the backend directly. The CLI does not need
@@ -646,7 +646,7 @@ getAccountCredential
 Account runtime behavior in
 `apps/registry/src/lib/wallet-kit/account/aomi-backend-runtime.ts`:
 
-- Fetches `/api/aomi/account` on mount/refresh.
+- Fetches `/v1/account` on mount/refresh.
 - Auto-SIWE signs with an active EVM wallet when there is no account user.
 - Exchanges provider credentials in create-session mode if no account exists.
 - Exchanges provider credentials in link mode if an account already exists.
@@ -656,7 +656,7 @@ Account runtime behavior in
   - `write` when the wallet address is live in the current EVM/SVM runtime.
   - `read` when it is linked but not currently connected.
 - Builds wallet-link messages client-side and submits nonce/message/signature to
-  `/api/aomi/wallets/link`.
+  `/v1/account/wallets/link`.
 - Labels newly linked wallets with a brand-based default such as `MetaMask 1`.
 
 ---
@@ -681,7 +681,7 @@ requests carry the Better Auth cookie to the portal, and the BFF proxy mints the
 backend AccountBearer server-side.
 
 `createAccountAccessTokenProvider()` remains for explicit cross-origin clients
-that need `/api/aomi/account-bearer`; it is not the normal portal widget path.
+that need `/v1/account/bearer`; it is not the normal portal widget path.
 
 ---
 
@@ -724,7 +724,7 @@ Do not confuse this with widget user auth:
 
 | System                   | Answers                       | Routes / package surface                          |
 | ------------------------ | ----------------------------- | ------------------------------------------------- |
-| Widget account auth      | Who is this user?             | `/api/auth/*`, `/api/aomi/*`, `@aomi-labs/auth/*` |
+| Widget account auth      | Who is this user?             | `/api/auth/*`, `/v1/account/*`, `@aomi-labs/auth/*` |
 | Active MCP runtime       | What tools can this MCP call? | `/api/mcp/[transport]`, `@aomi-labs/mcp-core`     |
 | Removed MCP approvals    | May app X use provider Y?     | Removed package surface                           |
 
@@ -854,13 +854,13 @@ These are the places where the old plan no longer matched the code:
    identity-only in v1.
 5. There are two provider-exchange paths:
    `/api/auth/aomi/provider/exchange` creates a BetterAuth session, while
-   `/api/aomi/provider/exchange` links into an existing session.
+   `/v1/account/provider/exchange` links into an existing session.
 6. `packages/auth/src/service/siwe-mirror.ts` was removed; SIWE mirroring
    happens through `syncSiweWalletsForUser()` in `account-service.ts`.
 7. The BFF proxy is the Rust-facing auth boundary and injects portal-minted
    AccountBearer tokens, not BetterAuth JWTs.
 8. The old BetterAuth JWT/JWKS client support was removed; cross-origin clients
-   use `/api/aomi/account-bearer` when needed.
+   use `/v1/account/bearer` when needed.
 9. MCP approval auth was deprecated, unmounted, and then removed from
    `@aomi-labs/auth`.
 10. The current account runtime computes linked wallet capability from live

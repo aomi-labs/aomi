@@ -47,7 +47,7 @@ jobs:
             fi
             sleep 15
           done
-          pnpm exec playwright test
+          pnpm exec playwright test --project=preview
 
       - name: Upload production diagnostics
         if: always()

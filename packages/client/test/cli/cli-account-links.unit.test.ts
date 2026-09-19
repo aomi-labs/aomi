@@ -87,7 +87,7 @@ describe("aomi account link management", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        expect(String(input)).toBe("https://portal.test/api/aomi/account");
+        expect(String(input)).toBe("https://portal.test/v1/account");
         expect(new Headers(init?.headers).get("Authorization")).toBe(
           "Bearer session-token",
         );
@@ -143,7 +143,7 @@ describe("aomi account link management", () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.startsWith("https://portal.test/api/aomi/wallets/link?")) {
+        if (url.startsWith("https://portal.test/v1/account/wallets/link?")) {
           expect(new Headers(init?.headers).get("Authorization")).toBe(
             "Bearer session-token",
           );
@@ -153,7 +153,7 @@ describe("aomi account link management", () => {
             uri: "https://portal.test",
           });
         }
-        if (url === "https://portal.test/api/aomi/wallets/link") {
+        if (url === "https://portal.test/v1/account/wallets/link") {
           const body = JSON.parse(String(init?.body));
           expect(body.family).toBe("evm");
           expect(body.address).toMatch(/^0x/i);
@@ -224,7 +224,7 @@ describe("aomi account link management", () => {
           expect(Buffer.from(body.signature, "base64")).toHaveLength(64);
           return Response.json({ status: "linked", success: true });
         }
-        if (url === "https://portal.test/api/aomi/account") {
+        if (url === "https://portal.test/v1/account") {
           return Response.json(accountGraph);
         }
         throw new Error(`unexpected URL ${url}`);
@@ -293,7 +293,7 @@ describe("aomi account link management", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         calls.push(`${init?.method ?? "GET"} ${String(input)}`);
-        if (String(input) === "https://portal.test/api/aomi/account") {
+        if (String(input) === "https://portal.test/v1/account") {
           return Response.json(accountGraph);
         }
         return Response.json(
@@ -313,10 +313,10 @@ describe("aomi account link management", () => {
     await accountUnlinkCommand(baseConfig, "wallet:wallet-siwe", { yes: true });
 
     expect(calls).toContain(
-      "PATCH https://portal.test/api/aomi/identities/identity-privy",
+      "PATCH https://portal.test/v1/account/identities/identity-privy",
     );
     expect(calls).toContain(
-      "DELETE https://portal.test/api/aomi/wallets/wallet-siwe",
+      "DELETE https://portal.test/v1/account/wallets/wallet-siwe",
     );
   });
 
@@ -329,7 +329,7 @@ describe("aomi account link management", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        expect(String(input)).toBe("https://portal.test/api/aomi/account");
+        expect(String(input)).toBe("https://portal.test/v1/account");
         expect(init?.method).toBe("DELETE");
         return Response.json({
           status: "deactivated",

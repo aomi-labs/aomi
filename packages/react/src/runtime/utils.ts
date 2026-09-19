@@ -2,13 +2,20 @@ import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
   SUPPORTED_CHAINS as CLIENT_SUPPORTED_CHAINS,
-  type AomiMessage,
   type ChainInfo,
+  type Event,
+  type MessageEvent,
+  type ToolCompleteEvent,
+  type ToolUpdateEvent,
   type UserState,
 } from "@aomi-labs/client";
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  extractCapabilityHints,
+  stripCapabilityHints,
+} from "./capability-hints";
 
 /**
  * Utility function to merge Tailwind CSS classes with conflict resolution.
@@ -47,170 +54,14 @@ type MessageContentPart =
     ? U
     : never;
 
-/**
- * The backend transcribes every system-endpoint callback verbatim as
- * `Response of system endpoint: {raw json}` (runtime `thread.rs`). That line
- * exists for the MODEL — it is how wallet callbacks reach the next turn — and
- * was never meant for humans; the CLI has filtered it from display since day
- * one (`cli/commands/history.ts`). Without this guard the web thread renders
- * the raw JSON as an assistant bubble.
- */
-const SYSTEM_ENDPOINT_ECHO_PREFIX = "Response of system endpoint:";
-
-/** Final outcome of a staged tx, mined from wallet completion callbacks. */
-export type TxOutcome = {
-  status: "success" | "failed";
-  txHash?: string;
-  error?: string;
-};
-
-/**
- * Staged-tx outcomes, keyed per VM. EVM `pending_tx_ids` and SVM
- * `pending_solana_id` are independent counters that can collide numerically,
- * so they get separate maps — a failed EVM tx-1 must never paint a Solana
- * step red.
- */
-export type TxOutcomes = {
-  evm: ReadonlyMap<number, TxOutcome>;
-  svm: ReadonlyMap<number, TxOutcome>;
-  /**
-   * SVM outcomes keyed by the unsigned tx blob. The staged tool envelope
-   * (`policy/svm.rs wallet_pending`) does NOT carry `pending_solana_id` —
-   * that id exists only between the wallet request and its callback — but
-   * BOTH the envelope and the callback echo `unsigned_tx`, so the blob is
-   * the join key that actually reaches the trace step.
-   */
-  svmByTx: ReadonlyMap<string, TxOutcome>;
-};
-
-/**
- * The Solana wallet flow reports through four `wallet::solana_*_complete`
- * event types (packages/client `session/wallet.ts`), with statuses
- * `signed`/`submitted` on the happy path and `rejected`/`failed` otherwise —
- * unlike EVM's single `wallet:tx_complete` with `success`/`failed`.
- */
-const SVM_COMPLETE_TYPES = new Set([
-  "wallet::solana_sign_complete",
-  "wallet::solana_send_complete",
-  "wallet::solana_sign_and_send_complete",
-]);
-
-/**
- * Mine the transcript's system-endpoint echoes for staged-tx outcomes.
- *
- * A staged tool step is recorded once (`current_lifecycle: "queued"` on EVM,
- * `status: "pending_approval"` on SVM) and never updated — the actual result
- * arrives later as a wallet callback that only the model was meant to read.
- * Without reconciling the two, the trace shows "Execute ✓ / Queued" forever,
- * even when execution failed. The echo messages are hidden from display (see
- * the prefix guard above), but they are still the single durable record of
- * what happened — including after a reload, when no client-side wallet state
- * survives.
- *
- * Later callbacks win: a re-staged tx gets a fresh pending id, so collisions
- * only occur when the same id genuinely reports twice.
- */
-export function collectTxOutcomes(
-  messages: readonly AomiMessage[],
-): TxOutcomes | null {
-  let evm: Map<number, TxOutcome> | null = null;
-  let svm: Map<number, TxOutcome> | null = null;
-  let svmByTx: Map<string, TxOutcome> | null = null;
-  for (const msg of messages) {
-    if (
-      msg.sender !== "system" ||
-      !msg.content?.startsWith(SYSTEM_ENDPOINT_ECHO_PREFIX)
-    ) {
-      continue;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(
-        msg.content.slice(SYSTEM_ENDPOINT_ECHO_PREFIX.length),
-      );
-    } catch {
-      continue;
-    }
-    if (typeof parsed !== "object" || parsed === null) continue;
-    const type = (parsed as { type?: unknown }).type;
-    const payload = (parsed as { payload?: unknown }).payload;
-    if (typeof payload !== "object" || payload === null) continue;
-
-    if (type === "wallet:tx_complete") {
-      const { status, txHash, error, pending_tx_ids } = payload as {
-        status?: unknown;
-        txHash?: unknown;
-        error?: unknown;
-        pending_tx_ids?: unknown;
-      };
-      if (status !== "success" && status !== "failed") continue;
-      if (!Array.isArray(pending_tx_ids)) continue;
-      for (const id of pending_tx_ids) {
-        if (typeof id !== "number" || !Number.isInteger(id)) continue;
-        evm ??= new Map();
-        evm.set(id, {
-          status,
-          ...(typeof txHash === "string" && txHash && { txHash }),
-          ...(typeof error === "string" && error && { error }),
-        });
-      }
-      continue;
-    }
-
-    if (typeof type === "string" && SVM_COMPLETE_TYPES.has(type)) {
-      const { status, signature, error, pending_solana_id, unsigned_tx } =
-        payload as {
-          status?: unknown;
-          signature?: unknown;
-          error?: unknown;
-          pending_solana_id?: unknown;
-          unsigned_tx?: unknown;
-        };
-      const mapped =
-        status === "signed" || status === "submitted"
-          ? ("success" as const)
-          : status === "rejected" || status === "failed"
-            ? ("failed" as const)
-            : null;
-      if (mapped === null) continue;
-      const outcome: TxOutcome = {
-        status: mapped,
-        ...(typeof signature === "string" &&
-          signature && { txHash: signature }),
-        ...(typeof error === "string" && error && { error }),
-      };
-      if (
-        typeof pending_solana_id === "number" &&
-        Number.isInteger(pending_solana_id)
-      ) {
-        svm ??= new Map();
-        svm.set(pending_solana_id, outcome);
-      }
-      if (typeof unsigned_tx === "string" && unsigned_tx) {
-        svmByTx ??= new Map();
-        svmByTx.set(unsigned_tx, outcome);
-      }
-    }
-  }
-  if (!evm && !svm && !svmByTx) return null;
-  return {
-    evm: evm ?? new Map(),
-    svm: svm ?? new Map(),
-    svmByTx: svmByTx ?? new Map(),
-  };
-}
+const userMessageId = (ordinal: number) => `aomi-user-${ordinal}`;
 
 export function toInboundMessage(
-  msg: AomiMessage,
-  txOutcomes?: TxOutcomes | null,
+  msg: MessageEvent,
   /** Position in the raw list, the id fallback for a notice with no key. */
   rawIndex = 0,
 ): ThreadMessageLike | null {
-  // System records exist in the transcript for model/runtime coordination, not
-  // as chat turns. Live notices are presented through the event notification
-  // path, while transaction-completion echoes are still consumed above by
-  // `collectTxOutcomes`. Keeping an otherwise-hidden system message here would
-  // split the surrounding assistant fragments into two message identities.
+  // Internal system records are not client-visible chat turns.
   if (msg.sender === "system") {
     return null;
   }
@@ -233,7 +84,7 @@ export function toInboundMessage(
     };
   }
 
-  return buildInboundMessage(msg, txOutcomes);
+  return buildInboundMessage(msg);
 }
 
 /**
@@ -242,118 +93,23 @@ export function toInboundMessage(
  * Prefers the backend's own `message_key`, which is unique per failure. Content
  * cannot serve here — every notice carries identical copy, so two failed turns
  * in one thread would render under the same id. The index fallback covers
- * legacy rows with no key; it is still position-stable within a projection,
- * which is what keeps the card from remounting on every poll.
+ * rows with no key; it is still position-stable within a projection.
  */
-function noticeMessageId(msg: AomiMessage, index: number): string {
+function noticeMessageId(msg: MessageEvent, index: number): string {
   return `aomi-notice-${msg.message_key ?? `idx-${index}`}`;
 }
 
-/**
- * UI-only join key attached to a completed `task` tool-call part. The trace uses
- * it to pair the transcript part with the live `TaskRunState` sidecar (see
- * `state/thread-store.ts`). Survives `fromThreadMessageLike` because unknown
- * tool-call properties are spread through unchanged.
- */
-export type AomiTaskPartMetadata = { agentId: string };
-
-const TASK_TOOL_NAME = "task";
-
-/** Read `metadata.custom.aomiTask.agentId` off a tool-call part, if present. */
-export function readTaskPartAgentId(part: unknown): string | undefined {
-  const custom = (
-    part as
-      | { metadata?: { custom?: { aomiTask?: { agentId?: unknown } } } }
-      | undefined
-  )?.metadata?.custom?.aomiTask?.agentId;
-  return typeof custom === "string" && custom.length > 0 ? custom : undefined;
-}
-
-const asPlainObject = (value: unknown): Record<string, unknown> | undefined =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-
-/** The `task` tool returns `{agent_id, status, staged_count}` (public projection). */
-const readTaskAgentId = (result: unknown): string | undefined => {
-  const agentId = asPlainObject(result)?.agent_id;
-  return typeof agentId === "string" && agentId.length > 0
-    ? agentId
-    : undefined;
-};
-
-function buildInboundMessage(
-  msg: AomiMessage,
-  txOutcomes?: TxOutcomes | null,
-): ThreadMessageLike | null {
+function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
   const content: MessageContentPart[] = [];
   const role: ThreadMessageLike["role"] =
     msg.sender === "user" ? "user" : "assistant";
 
-  if (msg.content && msg.content.trim().length > 0) {
-    content.push({ type: "text" as const, text: msg.content });
-  }
-
-  const [topic, toolContent] = parseToolResult(msg.tool_result) ?? [];
-  // `tool_name` is the tool the backend actually ran; `tool_result[0]` is only
-  // a display topic. Prefer the former when the backend supplies it.
-  const toolName = msg.tool_name?.trim() || topic;
-  if (toolName && toolContent) {
-    const result = (() => {
-      try {
-        return JSON.parse(toolContent);
-      } catch {
-        return { args: toolContent };
-      }
-    })();
-    const agentId =
-      toolName === TASK_TOOL_NAME ? readTaskAgentId(result) : undefined;
-
-    content.push({
-      type: "tool-call" as const,
-      toolCallId: `tool_${Date.now()}`,
-      toolName,
-      args: asPlainObject(msg.tool_arguments),
-      result: (() => {
-        const parsed: unknown = result;
-        // Reconcile the step with its async outcome: a staged tx records
-        // `current_lifecycle: "queued"` and is never touched again, so the
-        // trace would show Queued/✓ forever. The interpreter reads
-        // `tx_outcome` to flip the chip (and the red-X marker) instead.
-        if (
-          txOutcomes &&
-          typeof parsed === "object" &&
-          parsed !== null &&
-          !Array.isArray(parsed)
-        ) {
-          const record = parsed as {
-            pending_tx_id?: unknown;
-            pending_solana_id?: unknown;
-            unsigned_tx?: unknown;
-          };
-          const outcome =
-            typeof record.pending_tx_id === "number"
-              ? txOutcomes.evm.get(record.pending_tx_id)
-              : typeof record.pending_solana_id === "number"
-                ? txOutcomes.svm.get(record.pending_solana_id)
-                : typeof record.unsigned_tx === "string"
-                  ? txOutcomes.svmByTx.get(record.unsigned_tx)
-                  : undefined;
-          if (outcome) {
-            return { ...record, tx_outcome: outcome };
-          }
-        }
-        return parsed;
-      })(),
-      // Only `task` calls carry the sidecar join key.
-      ...(agentId
-        ? {
-            metadata: {
-              custom: { aomiTask: { agentId } satisfies AomiTaskPartMetadata },
-            },
-          }
-        : null),
-    } as MessageContentPart);
+  const messageText =
+    role === "user" ? stripCapabilityHints(msg.content ?? "") : msg.content;
+  const capabilityHints =
+    role === "user" ? extractCapabilityHints(msg.content ?? "") : [];
+  if (messageText && messageText.trim().length > 0) {
+    content.push({ type: "text" as const, text: messageText });
   }
 
   if (content.length === 0 && role === "assistant" && !msg.is_streaming) {
@@ -361,25 +117,275 @@ function buildInboundMessage(
   }
 
   const threadMessage = {
+    // A stable id keeps assistant-ui from assigning positional ids that
+    // shift (and re-key the row) when earlier projections change shape.
+    id: msg.message_key ?? msg.event_id,
     role,
     content: content as ThreadMessageLike["content"],
-    ...(msg.timestamp && { createdAt: new Date(msg.timestamp) }),
+    createdAt: new Date(parseTimestamp(msg.occurred_at)),
+    ...(capabilityHints.length > 0
+      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+      : {}),
   } satisfies ThreadMessageLike;
 
   return threadMessage;
 }
 
-function parseToolResult(
-  toolResult: AomiMessage["tool_result"],
-): [string, string] | null {
-  if (!toolResult) return null;
+type AssistantProjection = {
+  message: ThreadMessageLike;
+  parts: MessageContentPart[];
+  textParts: Map<string, number>;
+  toolParts: Map<string, number>;
+};
 
-  if (Array.isArray(toolResult) && toolResult.length === 2) {
-    const [topic, content] = toolResult;
-    return [String(topic), String(content ?? "")];
+/** Insert a part once per key, replacing it in place on re-delivery. */
+const upsertPart = (
+  projection: AssistantProjection,
+  registry: Map<string, number>,
+  key: string,
+  part: MessageContentPart,
+) => {
+  const index = registry.get(key);
+  if (index === undefined) {
+    registry.set(key, projection.parts.length);
+    projection.parts.push(part);
+  } else {
+    projection.parts[index] = part;
+  }
+};
+
+const toolPart = (
+  event: ToolUpdateEvent | ToolCompleteEvent,
+): MessageContentPart =>
+  ({
+    type: "tool-call",
+    toolCallId: event.call_id ?? event.id,
+    toolName: event.tool_name,
+    args: undefined,
+    result: event.result,
+  }) as MessageContentPart;
+
+/**
+ * The backend's event ledger bridges INLINE (sync-executed) tool steps as agent
+ * `message` events carrying a `[topic, payload]` tuple in `tool_result`
+ * (declared on the client's MessageEvent shape). Until the recorder emits
+ * real tool_update/tool_complete events for inline tools, this is the only
+ * wire shape those steps arrive in; drop it and every trace renders as an
+ * empty "Working" shell.
+ */
+const inlineToolResult = (event: MessageEvent) => {
+  // Declared on the type, but the wire is untrusted — validate before use.
+  const raw: unknown = event.tool_result;
+  if (!Array.isArray(raw) || raw.length < 2) return null;
+  const [topic, payload] = raw;
+  if (typeof topic !== "string" || typeof payload !== "string") return null;
+  return {
+    topic,
+    payload,
+    toolName:
+      typeof event.tool_name === "string" && event.tool_name.length > 0
+        ? event.tool_name
+        : topic,
+    args: event.tool_arguments,
+  };
+};
+
+const inlineToolPart = (
+  tool: NonNullable<ReturnType<typeof inlineToolResult>>,
+  key: string,
+  toolCallId?: string | null,
+): MessageContentPart => {
+  let result: unknown = tool.payload;
+  try {
+    result = JSON.parse(tool.payload);
+  } catch {
+    // Non-JSON payloads render verbatim.
+  }
+  return {
+    type: "tool-call",
+    toolCallId: toolCallId ?? `inline:${key}`,
+    toolName: tool.toolName,
+    args: tool.args,
+    result,
+  } as MessageContentPart;
+};
+
+/**
+ * Pure Assistant UI projection over the canonical ordered event ledger.
+ * Messages and tool parts are grouped by backend turn identity; no transcript
+ * or lifecycle state is stored outside ClientSession.
+ */
+export function projectAssistantMessages(
+  events: readonly Event[],
+): ThreadMessageLike[] {
+  const output: Array<ThreadMessageLike | AssistantProjection> = [];
+  const assistantTurns = new Map<string, AssistantProjection>();
+  const standaloneMessages = new Map<string, number>();
+  let userMessageOrdinal = 0;
+  let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
+  const turnKeys = events.map((event) => {
+    if (event.type === "message" && event.sender === "user") {
+      legacyTurnKey = `legacy:${event.event_id}`;
+    }
+    return event.turn_id ?? legacyTurnKey;
+  });
+  // Inline results only ever arrive as `tool_result` message events, so an
+  // inline part may be suppressed only when the SAME tool also produced a
+  // typed completion in the turn — suppressing per turn would drop a sync
+  // tool's only trace whenever any other tool in the turn completed typed.
+  const typedToolKey = (turn: string, toolName: string) =>
+    `${turn}::${toolName}`;
+  const typedToolCompletions = new Set(
+    events.flatMap((event, index) =>
+      event.type === "tool_complete" && event.tool_name !== "task"
+        ? [typedToolKey(turnKeys[index]!, event.tool_name)]
+        : [],
+    ),
+  );
+
+  const assistantTurn = (event: Event, index: number): AssistantProjection => {
+    const key = turnKeys[index]!;
+    const existing = assistantTurns.get(key);
+    if (existing) return existing;
+    const projection: AssistantProjection = {
+      message: {
+        id: `turn:${key}`,
+        role: "assistant",
+        content: [],
+        createdAt: new Date(parseTimestamp(event.occurred_at)),
+      },
+      parts: [],
+      textParts: new Map(),
+      toolParts: new Map(),
+    };
+    assistantTurns.set(key, projection);
+    output.push(projection);
+    return projection;
+  };
+
+  for (const [index, event] of events.entries()) {
+    if (event.type === "message") {
+      if (event.sender === "system") continue;
+      if (event.sender === "agent") {
+        const projection = assistantTurn(event, index);
+        const key = event.message_key ?? event.event_id;
+        const toolResult = inlineToolResult(event);
+        if (toolResult) {
+          if (
+            !typedToolCompletions.has(
+              typedToolKey(turnKeys[index]!, toolResult.toolName),
+            )
+          ) {
+            upsertPart(
+              projection,
+              projection.toolParts,
+              key,
+              inlineToolPart(toolResult, key, event.tool_call_id),
+            );
+          }
+        } else {
+          upsertPart(projection, projection.textParts, key, {
+            type: "text",
+            text: event.content,
+          } as MessageContentPart);
+        }
+        continue;
+      }
+
+      let projected = toInboundMessage(event, output.length);
+      if (!projected) continue;
+      const key = event.message_key ?? event.event_id;
+      const existingIndex = standaloneMessages.get(key);
+      if (existingIndex === undefined) {
+        if (projected.role === "user") {
+          projected = { ...projected, id: userMessageId(userMessageOrdinal++) };
+        }
+        standaloneMessages.set(key, output.length);
+        output.push(projected);
+      } else {
+        const previous = output[existingIndex];
+        output[existingIndex] =
+          projected.role === "user" && previous && !("parts" in previous)
+            ? { ...projected, id: previous.id }
+            : projected;
+      }
+      continue;
+    }
+
+    if (
+      (event.type === "tool_update" || event.type === "tool_complete") &&
+      event.tool_name !== "task"
+    ) {
+      const projection = assistantTurn(event, index);
+      upsertPart(
+        projection,
+        projection.toolParts,
+        event.call_id ?? event.id,
+        toolPart(event),
+      );
+    }
   }
 
-  return null;
+  return output
+    .map((entry) => {
+      if (!("parts" in entry)) return entry;
+      return {
+        ...entry.message,
+        content: entry.parts as ThreadMessageLike["content"],
+      };
+    })
+    .filter(
+      (message) =>
+        typeof message.content === "string" || message.content.length > 0,
+    );
+}
+
+/**
+ * Project the external-store snapshot, including the user message that has
+ * been submitted but has not reached the event ledger yet.
+ *
+ * User ids are ordinal because the ledger is append-only. This gives the
+ * optimistic row and its eventual server row the same identity, so
+ * assistant-ui updates the row instead of retaining both as sibling branches.
+ */
+export function projectRuntimeMessages(
+  events: readonly Event[],
+  pendingUserMessage?: string,
+  liveMessages: readonly MessageEvent[] = [],
+): ThreadMessageLike[] {
+  const visible = [...events];
+  for (const message of liveMessages) {
+    let index = visible.findIndex((event) => {
+      const runtimeSequence = event.runtime_sequence;
+      if (
+        event.turn_id === message.turn_id &&
+        runtimeSequence !== undefined &&
+        message.runtime_sequence !== undefined
+      )
+        return runtimeSequence > message.runtime_sequence;
+      return event.sequence > message.sequence;
+    });
+    if (index < 0) index = visible.length;
+    visible.splice(index, 0, message);
+  }
+  const projected = projectAssistantMessages(visible);
+  if (pendingUserMessage === undefined) return projected;
+
+  const userMessageOrdinal = projected.reduce(
+    (count, message) => count + Number(message.role === "user"),
+    0,
+  );
+  const capabilityHints = extractCapabilityHints(pendingUserMessage);
+  projected.push({
+    id: userMessageId(userMessageOrdinal),
+    role: "user",
+    content: [{ type: "text", text: stripCapabilityHints(pendingUserMessage) }],
+    createdAt: new Date(),
+    ...(capabilityHints.length > 0
+      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+      : {}),
+  });
+  return projected;
 }
 
 // ==================== Wallet Utilities ====================
@@ -421,6 +427,8 @@ export const getNetworkName = (
       return "monad-testnet";
     case 4326:
       return "megaeth";
+    case 5042:
+      return "arc";
     case 5042002:
       return "arc-testnet";
     case 1337:

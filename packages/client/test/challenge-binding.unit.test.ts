@@ -13,8 +13,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createSiweWidgetAuthAdapter,
-  WidgetChallengeBindingError,
+  createSiweAccountAuthAdapter,
+  AccountChallengeBindingError,
 } from "../src/widget-session";
 
 const PAGE_ORIGIN = "https://agentic.somm.finance";
@@ -53,7 +53,7 @@ const signer = {
 };
 
 function adapter() {
-  return createSiweWidgetAuthAdapter({ getSigner: async () => signer });
+  return createSiweAccountAuthAdapter({ getSigner: async () => signer });
 }
 
 beforeEach(() => {
@@ -92,7 +92,7 @@ describe("widget challenge binding", () => {
         baseUrl: "",
         fetch: fetchReturning(challengeResponse(overrides)),
       }),
-    ).rejects.toBeInstanceOf(WidgetChallengeBindingError);
+    ).rejects.toBeInstanceOf(AccountChallengeBindingError);
     // The wallet prompt must never have appeared.
     expect(signer.signMessage).not.toHaveBeenCalled();
   });
@@ -112,7 +112,7 @@ describe("widget challenge binding", () => {
         baseUrl: "https://chat.aomi.dev",
         fetch: fetchReturning(challengeResponse({ nonce: "" })),
       }),
-    ).rejects.toBeInstanceOf(WidgetChallengeBindingError);
+    ).rejects.toBeInstanceOf(AccountChallengeBindingError);
     expect(signer.signMessage).not.toHaveBeenCalled();
   });
 });

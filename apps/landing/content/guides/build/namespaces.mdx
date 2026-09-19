@@ -56,7 +56,7 @@ API keys are issued by Aomi and scoped to one or more Apps.
 Include the API key in the `X-API-Key` header on every request. The `app` query parameter specifies which App to use:
 
 ```bash
-curl -X POST https://api.aomi.dev/api/thread/chat?app=mycoindex \
+curl -X POST https://api.aomi.dev/v1/agent/chat?app=mycoindex \
   -H "X-API-Key: sk-mcd-a1b2c3d4e5f6" \
   -H "X-Session-Id: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
@@ -87,7 +87,7 @@ sequenceDiagram
     participant Backend as Aomi Backend
     participant DB as Database
 
-    Client->>Backend: POST /api/thread/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid
+    Client->>Backend: POST /v1/agent/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid
 
     Backend->>DB: Lookup API key
     DB-->>Backend: Key record (authorized Apps)

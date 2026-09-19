@@ -562,7 +562,7 @@ export const pricingLinks = [
 export const navGroups = [
   { label: "Products", items: products },
   { label: "Solutions", items: solutions },
-  { label: "Resource", items: resources },
+  { label: "Resources", items: resources },
   { label: "Developers", items: developers },
   { label: "Pricing", items: pricingLinks },
 ] as const;

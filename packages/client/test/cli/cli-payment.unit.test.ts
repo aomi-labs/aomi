@@ -5,13 +5,13 @@ import { printPaymentEvent } from "../../src/cli/output";
 describe("CLI payment output", () => {
   it("prints the requested x402 amount, network, and recipient", () => {
     const lines: string[] = [];
-    const originalLog = console.log;
-    console.log = (line: string) => lines.push(line);
+    const originalError = console.error;
+    console.error = (line: string) => lines.push(line);
 
     try {
       printPaymentEvent({
         type: "required",
-        url: "http://unit.test/api/thread/chat",
+        url: "http://unit.test/v1/agent/chat",
         requirement: {
           amount: "25000",
           network: "eip155:84532",
@@ -19,7 +19,7 @@ describe("CLI payment output", () => {
         },
       });
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
     }
 
     expect(lines[0]).toContain("x402 payment required");
@@ -32,18 +32,18 @@ describe("CLI payment output", () => {
 
   it("prints the settlement receipt when x402 payment clears", () => {
     const lines: string[] = [];
-    const originalLog = console.log;
-    console.log = (line: string) => lines.push(line);
+    const originalError = console.error;
+    console.error = (line: string) => lines.push(line);
 
     try {
       printPaymentEvent({
         type: "settled",
-        url: "http://unit.test/api/thread/chat",
+        url: "http://unit.test/v1/agent/chat",
         status: 200,
         receiptId: "0xreceipt",
       });
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
     }
 
     expect(lines[0]).toContain("x402 payment settled: 0xreceipt");
@@ -51,19 +51,19 @@ describe("CLI payment output", () => {
 
   it("prints the x402 rejection reason when the server supplies one", () => {
     const lines: string[] = [];
-    const originalLog = console.log;
-    console.log = (line: string) => lines.push(line);
+    const originalError = console.error;
+    console.error = (line: string) => lines.push(line);
 
     try {
       printPaymentEvent({
         type: "rejected",
-        url: "http://unit.test/api/thread/chat",
+        url: "http://unit.test/v1/agent/chat",
         status: 402,
         reason:
           "submitted payment requirements did not match the requested price",
       });
     } finally {
-      console.log = originalLog;
+      console.error = originalError;
     }
 
     expect(lines[0]).toContain("submitted payment requirements did not match");

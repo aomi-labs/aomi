@@ -264,7 +264,7 @@ flowchart TB
     end
 
     subgraph "Runtime"
-        REQ[POST /api/thread/chat?app=mycoindex] --> LOOKUP[Lookup app]
+        REQ[POST /v1/agent/chat?app=mycoindex] --> LOOKUP[Lookup app]
         LOOKUP --> APP2[MyCoinDexApp.process_message]
         APP2 --> RESPONSE[SSE Stream]
     end

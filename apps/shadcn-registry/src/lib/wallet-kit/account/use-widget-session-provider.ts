@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import {
   createProviderCredentialAdapter,
-  createSiweWidgetAuthAdapter,
-  createSiwsWidgetAuthAdapter,
-  createWidgetSessionProvider,
-  type WidgetAuthAdapter,
-  type WidgetSessionProvider,
+  createSiweAccountAuthAdapter,
+  createSiwsAccountAuthAdapter,
+  createAccountSessionProvider,
+  type AccountAuthAdapter,
+  type AccountSessionProvider,
 } from "@aomi-labs/client";
 import type { AuthRuntime, SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
@@ -16,10 +16,20 @@ import { utf8ToBase64 } from "./encoding";
 
 export type { WidgetAuthConfig };
 
+export class WalletSignInRequiredError extends Error {
+  constructor() {
+    super("Link your wallet to sign in to Aomi");
+    this.name = "WalletSignInRequiredError";
+  }
+}
+type WalletSessionProvider = AccountSessionProvider & {
+  signIn: () => Promise<string | null>;
+};
+
 /**
  * Single predicate both layers consult to decide whether the widget currently
  * has a usable credential source to mint its own backend session. Keeping the
- * provider-build guard (`useWidgetSessionProvider`) and the signed-out gate
+ * provider-build guard (`useAccountSessionProvider`) and the signed-out gate
  * (`useAomiBackendAccountRuntime`) on the same rule stops them from disagreeing
  * — e.g. an authenticated-but-credential-less provider state that would
  * otherwise fall back to cross-origin cookie mode and 401.
@@ -53,13 +63,13 @@ export function widgetCredentialsReady(input: {
  * provider reads current signers without being rebuilt on every render; it is
  * only rebuilt when a flat identity/config primitive changes.
  */
-export function useWidgetSessionProvider(input: {
+export function useAccountSessionProvider(input: {
   baseUrl?: string;
   widgetAuth?: WidgetAuthConfig;
   auth: AuthRuntime;
   evm: EvmWalletRuntime;
   svm?: SvmWalletRuntime;
-}): WidgetSessionProvider | undefined {
+}): WalletSessionProvider | undefined {
   const { baseUrl, widgetAuth, auth, evm, svm } = input;
   const authStatus = auth.status;
   const authSubject = auth.subject;
@@ -78,6 +88,8 @@ export function useWidgetSessionProvider(input: {
         svm,
       })
     : false;
+  const credentialsReadyRef = useRef(credentialsReady);
+  credentialsReadyRef.current = credentialsReady;
 
   const authRef = useRef(auth);
   const evmRef = useRef(evm);
@@ -86,7 +98,7 @@ export function useWidgetSessionProvider(input: {
   evmRef.current = evm;
   svmRef.current = svm;
 
-  const widgetSessionProvider = useMemo(() => {
+  const accountSessionProvider = useMemo(() => {
     if (!widgetAuth || !baseUrl) return undefined;
     // Do not publish a required bearer source until the configured auth mode
     // can actually mint one. This applies equally to provider and wallet mode:
@@ -94,7 +106,8 @@ export function useWidgetSessionProvider(input: {
     // not only the account runtime, so returning a throwing wallet adapter here
     // would still turn the default signed-out widget boot into an auth error.
     if (!credentialsReady) return undefined;
-    let adapter: WidgetAuthAdapter;
+    let adapter: AccountAuthAdapter;
+    let authorizedFingerprint: string | null = null;
     if (widgetAuth.mode === "provider") {
       // Provider SDKs briefly report a connected account before their
       // exchangeable credential is ready. Do not expose a required bearer
@@ -110,20 +123,16 @@ export function useWidgetSessionProvider(input: {
         signOut: async () => authRef.current.logout?.(),
       });
     } else {
-      // SIWE/SIWS wallet mode has no silent refresh: the widget session
-      // provider re-runs the adapter's getFingerprint/exchange to renew, which
-      // re-prompts the wallet to sign roughly every 29 min (the WST lifetime
-      // minus the refresh window). The fingerprint also includes chainId, so
-      // switching chains changes the identity and forces a fresh re-sign. Both
-      // are currently intended: wallet mode has no offline key to refresh with.
-      const currentWalletAdapter = (): WidgetAuthAdapter => {
+      // Restore an unexpired tab session silently. A new or expired session
+      // may exchange only while the user explicitly links this exact signer.
+      const currentWalletAdapter = (): AccountAuthAdapter => {
         const evmRuntime = evmRef.current;
         const connection = evmRuntime.activeEvmConnection;
         const evmAddress = connection?.address;
         const evmChainId = connection?.chainId;
         const evmSignMessage = evmRuntime.signMessageAsync;
         if (evmAddress && evmChainId && evmSignMessage) {
-          return createSiweWidgetAuthAdapter({
+          return createSiweAccountAuthAdapter({
             getSigner: async () => ({
               address: evmAddress,
               chainId: evmChainId,
@@ -136,7 +145,7 @@ export function useWidgetSessionProvider(input: {
         const svmAddress = identity?.address;
         const signMessage = svmRuntime?.execution.signSolanaMessage;
         if (svmAddress && signMessage) {
-          return createSiwsWidgetAuthAdapter({
+          return createSiwsAccountAuthAdapter({
             getSigner: async () => ({
               address: svmAddress,
               chainId:
@@ -160,10 +169,39 @@ export function useWidgetSessionProvider(input: {
       };
       adapter = {
         getFingerprint: () => currentWalletAdapter().getFingerprint(),
-        exchange: (options) => currentWalletAdapter().exchange(options),
+        exchange: async (options) => {
+          const current = currentWalletAdapter();
+          if ((await current.getFingerprint()) !== authorizedFingerprint)
+            throw new WalletSignInRequiredError();
+          return current.exchange(options);
+        },
       };
     }
-    return createWidgetSessionProvider({ baseUrl, adapter });
+    // A wallet cannot renew silently, so retain its short-lived, origin-bound
+    // widget session for this tab across page reloads. Provider credentials can
+    // renew without another wallet prompt and stay memory-only.
+    let storage: Storage | undefined;
+    if (widgetAuth.mode === "wallet" && typeof window !== "undefined") {
+      try {
+        storage = window.sessionStorage;
+      } catch {
+        // Private browsing can deny storage access; in-memory auth still works.
+      }
+    }
+    const session = createAccountSessionProvider({
+      baseUrl,
+      adapter,
+      storage,
+    }) as WalletSessionProvider;
+    session.signIn = async () => {
+      authorizedFingerprint = await adapter.getFingerprint();
+      try {
+        return (await session()) ?? null;
+      } finally {
+        authorizedFingerprint = null;
+      }
+    };
+    return session;
     // Refs supply live auth/evm/svm; the provider is only rebuilt when a flat
     // identity/config primitive below changes.
   }, [
@@ -178,9 +216,16 @@ export function useWidgetSessionProvider(input: {
   ]);
 
   useEffect(
-    () => () => widgetSessionProvider?.dispose(),
-    [widgetSessionProvider],
+    () => () => {
+      // A page unload preserves the tab cache. Losing the connected signer or
+      // provider credential is an explicit auth boundary and clears it.
+      if (!credentialsReadyRef.current) {
+        void accountSessionProvider?.revoke();
+      }
+      accountSessionProvider?.dispose();
+    },
+    [accountSessionProvider],
   );
 
-  return widgetSessionProvider;
+  return accountSessionProvider;
 }

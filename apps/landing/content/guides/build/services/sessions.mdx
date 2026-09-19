@@ -1,221 +1,88 @@
 ---
 title: Sessions
-description: How chat sessions are created, managed, and persisted.
+description: Ordered Agent Events, lifecycle, and thread persistence.
 ---
 
 # Sessions
 
-A session is a conversation thread with message history. This page covers how sessions are created, loaded, persisted, and managed.
-
-## Overview
-
-```mermaid
-flowchart TB
-    subgraph "Session"
-        ID[Session ID<br/>UUID]
-        MSGS[Messages<br/>Conversation history]
-        USER[User State<br/>Wallet, chain, connection]
-        STATUS[Processing Status<br/>Idle / Processing / Interrupted]
-    end
-
-    subgraph "Threads"
-        T1[Thread 1: ETH Trading]
-        T2[Thread 2: Portfolio Review]
-        T3[Thread 3: Market Analysis]
-    end
-
-    ID --> T1
-    ID --> T2
-    ID --> T3
-```
-
-## Session Creation
-
-Sessions are created by the client. The client generates a UUID and sends it as the `X-Session-Id` header.
-
-```ts
-const sessionId = crypto.randomUUID();
-
-const response = await fetch("/api/thread/chat?app=mycoindex", {
-  method: "POST",
-  headers: {
-    "X-Session-Id": sessionId,
-    "X-API-Key": "sk-mcd-...",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ text: "Hello" }),
-});
-```
-
-If no session exists for that ID, the backend creates one automatically on the first request.
-
-## Session Loading: Three-Tier Strategy
-
-When a request arrives, the backend loads the session using a three-tier approach:
-
-```mermaid
-flowchart TD
-    REQ[Incoming Request<br/>X-Session-Id: uuid] --> MEM{In memory cache?}
-
-    MEM -->|Yes| USE[Use cached session]
-    MEM -->|No| DB{In database?}
-
-    DB -->|Yes| LOAD[Load from PostgreSQL]
-    DB -->|No| CREATE[Create new session]
-
-    LOAD --> CACHE[Cache in memory]
-    CREATE --> CACHE
-    CACHE --> USE
-```
-
-1. **Memory cache** -- the session is already active in the server's memory. This is the fastest path and handles the common case where a user is mid-conversation.
-2. **Database** -- the session was previously persisted to PostgreSQL. It is loaded and cached in memory.
-3. **Create new** -- no prior session exists. A fresh session is created and cached.
-
-## Message Persistence
-
-Messages are persisted to PostgreSQL as they are exchanged. This ensures conversation history survives server restarts and enables users to resume conversations.
-
-Each message record includes:
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `id` | UUID | Unique message identifier |
-| `session_id` | UUID | Parent session |
-| `thread_id` | UUID | Parent thread |
-| `role` | string | `user`, `assistant`, or `system` |
-| `content` | text | Message text content |
-| `tool_calls` | JSON | Tool calls made by the assistant (if any) |
-| `tool_results` | JSON | Results from tool execution (if any) |
-| `created_at` | timestamp | When the message was created |
-
-## Wallet Binding
-
-Sessions can optionally be associated with a wallet address (public key). This enables wallet-aware behavior:
+A session is one durable ordered Event ledger. The client chooses a session ID,
+submits typed Intents, and advances through the ledger with an opaque cursor.
+Messages, tool/task updates, titles, lifecycle transitions, errors, and Actions
+share that one order.
 
 ```mermaid
 flowchart LR
-    subgraph "User"
-        WALLET[Wallet<br/>0x742d35Cc...]
-    end
-
-    subgraph "Session"
-        BIND[Wallet Binding]
-        TOOLS[Tool Context]
-        HISTORY[Persistent History]
-    end
-
-    WALLET --> BIND
-    BIND --> TOOLS
-    BIND --> HISTORY
+    I[Client Intent] --> C[TurnCoordinator]
+    C --> L[(Session Event ledger)]
+    L --> P[EventPage + opaque cursor]
+    P --> S[ClientSession snapshot]
+    S --> UI[React selectors and Assistant UI]
 ```
 
-- **Tool context** -- tools like `GetPortfolio` can automatically scope queries to the connected wallet.
-- **Persistent history** -- conversations tied to a public key persist across sessions and devices.
-- **Cross-session continuity** -- the assistant remembers previous interactions when the same wallet reconnects.
+## Start a turn
 
-Wallet binding is optional. Sessions work without a wallet for non-Web3 use cases.
+```ts
+const sessionId = crypto.randomUUID();
+const page = await fetch("/v1/agent/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Idempotency-Key": crypto.randomUUID(),
+  },
+  body: JSON.stringify({
+    sessionId,
+    message: "Hello",
+    app: "mycoindex",
+    userState: { connection: { is_connected: false } },
+  }),
+}).then((response) => response.json());
+```
 
-## Thread Management
+`UserState` contains client facts only: connection provider, EVM/SVM wallet
+identity, preferences, and extensions. Pending execution, leases, lifecycle,
+and transaction authority are not client state.
 
-Within a session, users can create multiple **threads** -- separate conversation topics with independent message histories.
+## Follow the Event cursor
 
-### Operations
+```ts
+let cursor = page.cursor;
 
-| Operation | API Call | Description |
-| --- | --- | --- |
-| **Create** | `POST /api/sessions` | Start a new thread |
-| **List** | `GET /api/sessions/{id}` | List all threads in a session |
-| **Switch** | Client-side | Change the active thread (update `X-Session-Id`) |
-| **Rename** | `PATCH /api/sessions/{id}` | Update a thread's title |
-| **Delete** | `DELETE /api/sessions/{id}` | Remove a thread and its messages |
+while (true) {
+  const next = await fetch(
+    `/v1/agent/chat/${sessionId}?cursor=${encodeURIComponent(cursor)}&wait=25000`,
+  ).then((response) => response.json());
 
-### Using the Widget
+  cursor = next.cursor;
+  render(next.events);
 
-The widget's sidebar provides a thread management UI out of the box:
-
-- Click **New Thread** to start a new conversation.
-- Click a thread in the sidebar to switch to it.
-- Right-click or use the menu to rename or delete threads.
-
-### Using the Headless Lib
-
-With `@aomi-labs/react`, manage threads programmatically:
-
-```tsx
-import { useRuntimeActions, useThreadContext } from "@aomi-labs/react";
-
-function ThreadManager() {
-  const { currentThreadId } = useThreadContext();
-  const { createThread, deleteThread, selectThread, renameThread } =
-    useRuntimeActions();
-
-  return (
-    <div>
-      <p>Current thread: {currentThreadId}</p>
-      <button onClick={() => createThread()}>New Thread</button>
-      <button onClick={() => renameThread(currentThreadId, "My Topic")}>
-        Rename
-      </button>
-    </div>
-  );
+  if (
+    next.events.some(
+      (event) =>
+        event.type === "turn_state_changed" &&
+        ["complete", "interrupted", "failed"].includes(event.state),
+    )
+  ) break;
 }
 ```
 
-## Session State
+Do not infer lifecycle from timers, message presence, or Actions. The latest
+`turn_state_changed` Event is authoritative. An invalid or expired cursor
+returns a typed cursor error; recover by polling without a cursor.
 
-The full session state includes:
+## Actions
 
-```ts
-type SessionState = {
-  // Conversation
-  messages: Message[];
-  threads: ThreadMetadata[];
-  currentThreadId: string;
+An Action is a durable Event. Its nested `request` contains the complete EVM,
+SVM, or signing payload. Submit the result with the Action ID and revision;
+the backend validates ownership, compatibility, revision CAS, and idempotency
+before resuming the turn.
 
-  // User state
-  userState: {
-    address: string | null; // Wallet address
-    chainId: number | null; // Connected chain
-    isConnected: boolean; // Wallet connection status
-  };
+## Thread management
 
-  // Processing
-  status: "idle" | "processing" | "interrupted";
-  isGenerating: boolean;
-};
-```
+The React thread store owns only selection, list metadata, persistence keys,
+and drafts. Each thread keeps its own `ClientSession` snapshot and opaque
+cursor, so switching away and back does not rebuild or duplicate Events.
 
-### Polling State
+## Next steps
 
-Use the state endpoint to poll for the current session state:
-
-```ts
-const state = await fetch(
-  `/api/thread/state?session_id=${sessionId}`
-).then((r) => r.json());
-
-console.log(state.status); // "idle" | "processing"
-console.log(state.userState.address); // "0x742d..." or null
-```
-
-### Real-Time Updates
-
-For real-time updates without polling, subscribe to the SSE updates endpoint:
-
-```ts
-const events = new EventSource(
-  `/api/thread/updates?session_id=${sessionId}`,
-);
-
-events.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  // Handle state update
-};
-```
-
-## Next Steps
-
-- [API Reference](/docs/build/services/api-reference) -- full endpoint documentation for session operations.
-- [Apps and Authentication](/docs/build/namespaces) -- how sessions relate to apps and API keys.
-- [Configuration](/docs/build/ui/widget/configuration) -- customize session behavior and thread management in the widget.
+- [API Reference](/guides/build/services/api-reference)
+- [Headless React hooks](/guides/build/ui/headless/hooks)

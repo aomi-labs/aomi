@@ -5,9 +5,9 @@ import {
   createDefaultProviderCredentialVerifiers,
   paraTokenWalletAttestations,
   providerSessionUserSeed,
-  privyTokenWalletAttestations,
   verifyProviderCredential,
 } from "../src/providers/account-credentials";
+import { privyTokenWalletAttestations } from "../src/providers/wallet-attestation";
 import { readAccountAuthEnv } from "../src/better-auth/env";
 import type { AccountAuthEnv } from "../src/better-auth/env";
 

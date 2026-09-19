@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/client",
-  "version": "0.6.3",
+  "version": "0.9.0",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -28,7 +28,9 @@
   ],
   "scripts": {
     "build": "tsup",
-    "clean:dist": "rm -rf dist"
+    "clean:dist": "rm -rf dist",
+    "prepack": "pnpm run build",
+    "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "devDependencies": {
     "fast-check": "^4.8.0"
@@ -40,6 +42,7 @@
     "@x402/fetch": "^2.10.0",
     "bs58": "^6.0.0",
     "citty": "^0.2.2",
+    "jose": "^6.2.3",
     "tweetnacl": "^1.0.3",
     "viem": "^2.47.11"
   }

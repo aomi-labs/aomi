@@ -10,7 +10,7 @@ import {
 export const WIDGET_SESSION_TTL_SECONDS = 30 * 60;
 const WIDGET_TOKEN_PREFIX = "aomi_wst_";
 
-export type WidgetSession = {
+export type AccountSession = {
   token: string;
   tokenType: "Bearer";
   expiresAt: number;
@@ -25,7 +25,7 @@ export async function issueWidgetSession(input: {
   now?: Date;
   ttlSeconds?: number;
   store?: WidgetAuthStore;
-}): Promise<WidgetSession> {
+}): Promise<AccountSession> {
   const now = input.now ?? new Date();
   const expiresAt = new Date(
     now.getTime() + (input.ttlSeconds ?? WIDGET_SESSION_TTL_SECONDS) * 1000,
@@ -114,6 +114,41 @@ export async function revokeWidgetSession(input: {
 
 export function hasWidgetSessionBearer(request: Request): boolean {
   return widgetBearerToken(request) !== null;
+}
+
+export function widgetSessionIdentifierForRequest(
+  request: Request,
+): string | null {
+  const token = widgetBearerToken(request);
+  return token ? sessionIdentifier(token) : null;
+}
+
+/** Revalidates the WST row captured by a bootstrap ticket without exposing the
+ * bearer token. This closes the window where a revoked WST could otherwise be
+ * exchanged after the widget issued an OAuth bootstrap ticket. */
+export async function validateWidgetSessionBinding(input: {
+  identifier: string;
+  origin: string;
+  userId: string;
+  authMethod: string;
+  providerIdentityId?: string;
+  now?: Date;
+  store?: WidgetAuthStore;
+}): Promise<boolean> {
+  const ticket = await (input.store ?? widgetAuthStore).read({
+    identifier: input.identifier,
+    now: input.now ?? new Date(),
+  });
+  if (
+    ticket?.kind !== "widget_session" ||
+    ticket.origin !== input.origin ||
+    ticket.userId !== input.userId ||
+    ticket.authMethod !== input.authMethod ||
+    ticket.providerIdentityId !== input.providerIdentityId
+  ) {
+    return false;
+  }
+  return Boolean(await findAomiUserById(ticket.userId));
 }
 
 function widgetBearerToken(request: Request): string | null {

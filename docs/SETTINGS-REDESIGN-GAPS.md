@@ -15,8 +15,8 @@ avatars, inline status, radio signing modes, grant revoke inside expanded rows).
 
 | Was | Now |
 |---|---|
-| Wallet rows from `seedWalletPolicies` | `GET /api/account/wallets` — `signing_mode`, `authorization_version`, `last_authorized_at/by`, `can_use_auto`, `provider_managed`. `linkedVia` is *derived*: `wallet_provider` privy/para, else siwe/siws by chain |
-| Grants from `seedGrants` | `GET /api/account/grants` — provider, key scope, derived `active`/`expired`/`revoked` |
+| Wallet rows from `seedWalletPolicies` | `GET /api/account` — `user_accounts` supplies ownership/provider metadata and `signing_policies` supplies durable permitted behavior. Auto availability is derived by joining an auto policy to an active exact-address delegation. |
+| Grants from `seedGrants` | `GET /api/account` — `delegated_accounts` supplies provider, exact-address scope, and explicit lifecycle status. |
 | Mode change simulated in local state | Real permit ceremony: `challenge` → `signTypedData` (EVM) / `signSolanaMessage` (SVM) → `commit`, then a refetch. **Nothing is optimistic** — the row flips only on the committed backend value |
 | Revoke / "stop all" mutated local state | `DELETE /api/account/providers/:provider/grant`, per provider identity (that's the revocation unit — it clears the identity's vault secrets) |
 | Endpoint-only layout (cards, grants section, status band) | Mock layout: custody groups in one bordered container per group, `WalletPolicyRow` + `SigningModeList`, attention strip, flat "Revoke all", unbound → **Activate** (bind) |

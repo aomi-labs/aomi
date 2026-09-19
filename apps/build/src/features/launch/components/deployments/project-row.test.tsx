@@ -53,7 +53,9 @@ describe("ProjectRow", () => {
     expect(screen.queryByText(/live app/i)).not.toBeInTheDocument();
   });
 
-  it("shows Live deployment when the source is live", () => {
+  // Index rows never run the runtime probe, so they say Activated even when
+  // the Manager's own flag claims loaded.
+  it("shows Activated for a live source without a runtime probe", () => {
     render(
       <ProjectRow
         source={{
@@ -74,7 +76,7 @@ describe("ProjectRow", () => {
       />,
     );
 
-    expect(screen.getByText("Live deployment")).toBeInTheDocument();
+    expect(screen.getByText("Activated")).toBeInTheDocument();
     expect(screen.getByText("playground-example")).toBeInTheDocument();
   });
 

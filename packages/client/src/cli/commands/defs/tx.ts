@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import { globalArgs, buildCliConfig, getPositionals } from "./shared";
 
 const txListDef = defineCommand({
-  meta: { name: "list", description: "List pending and signed transactions" },
+  meta: { name: "list", description: "List session Actions" },
   args: { ...globalArgs },
   async run({ args }) {
     const { txCommand } = await import("../wallet");
@@ -13,13 +13,13 @@ const txListDef = defineCommand({
 const txSimulateDef = defineCommand({
   meta: {
     name: "simulate",
-    description: "Simulate a batch of pending transactions",
+    description: "Simulate EVM execution Actions",
   },
   args: {
     ...globalArgs,
     txIds: {
       type: "positional",
-      description: "Transaction IDs to simulate",
+      description: "Action IDs to simulate",
       required: false,
     },
   },
@@ -33,7 +33,7 @@ const txSimulateDef = defineCommand({
 const txExportDef = defineCommand({
   meta: {
     name: "export",
-    description: "Export pending EVM calls for an external wallet",
+    description: "Export pending EVM Actions for an external wallet",
   },
   args: {
     ...globalArgs,
@@ -43,7 +43,7 @@ const txExportDef = defineCommand({
     },
     txIds: {
       type: "positional",
-      description: "Pending EVM transaction IDs to export",
+      description: "Pending EVM Action IDs to export",
       required: false,
     },
   },
@@ -58,31 +58,22 @@ const txExportDef = defineCommand({
 });
 
 const txSignDef = defineCommand({
-  meta: { name: "sign", description: "Sign and submit pending transactions" },
+  meta: { name: "sign", description: "Execute pending Actions" },
   args: {
     ...globalArgs,
     eoa: {
       type: "boolean",
       description:
-        "Plain EOA execution (the default; local signing is always EOA)",
+        "Require an ordinary EVM Action; never rewrite a prepared AA operation",
     },
     aa: {
       type: "boolean",
       description:
-        "Request AA execution — errors: AA now runs in the backend lane",
-    },
-    "aa-provider": {
-      type: "string",
-      description:
-        "AA provider preference synced to user_state: alchemy | pimlico",
-    },
-    "aa-mode": {
-      type: "string",
-      description: "AA mode preference synced to user_state: 4337 | 7702",
+        "Require a backend-prepared AA owner authorization; backend submits",
     },
     txIds: {
       type: "positional",
-      description: "Transaction IDs to sign",
+      description: "Action IDs to execute",
       required: false,
     },
   },

@@ -8,7 +8,7 @@ sources_of_truth:
   - package.json
   - pnpm-workspace.yaml
   - apps/landing/package.json
-  - apps/registry/package.json
+  - apps/shadcn-registry/package.json
   - packages/client/package.json
   - packages/react/package.json
 ---
@@ -22,7 +22,7 @@ sources_of_truth:
 - The root package drives shared scripts for building, linting, typechecking, and running app surfaces.
 - `packages/react` publishes `@aomi-labs/react`, the headless runtime and context layer.
 - `packages/client` publishes `@aomi-labs/client`, the platform-agnostic client plus the `aomi` CLI binary.
-- `apps/registry` publishes `@aomi-labs/widget-lib`, the UI layer and shadcn-style registry surface.
+- `apps/shadcn-registry` publishes `@aomi-labs/widget-lib`, the UI layer and shadcn-style registry surface.
 - `apps/landing`, `apps/base`, `apps/portal`, and `apps/telegram` are validation and integration apps that consume the workspace packages.
 
 ## Common Build Flows
@@ -44,3 +44,4 @@ sources_of_truth:
 - [client-runtime/facts/react-runtime.md](../../client-runtime/facts/react-runtime.md)
 - [client-runtime/facts/transport-client.md](../../client-runtime/facts/transport-client.md)
 - [apps/facts/app-surfaces.md](../../apps/facts/app-surfaces.md)
+- [frontend-invariants.md](frontend-invariants.md) — protected consumer compatibility and CI ownership.

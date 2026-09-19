@@ -1,15 +1,25 @@
-import { sdkCompatibility } from "../sdk-compatibility";
+import {
+  sdkCompatibility,
+  type ProjectSdk,
+  type SdkCompatibility,
+} from "../sdk-compatibility";
 
-export function SdkBadge({
-  stamped,
-  required,
-  label,
-}: {
-  stamped?: string | null;
-  required?: string | null;
-  label?: string | null;
-}) {
-  const compatibility = sdkCompatibility(stamped, required);
+type SdkBadgeProps =
+  /** A project's shared SDK story: the index row and the project page pass
+   *  the same object, so the badge can never read differently between them. */
+  | { sdk: ProjectSdk }
+  /** A bare stamp, for deployment rows and the backend-requirement badge. */
+  | { stamped?: string | null; required?: string | null; label?: string | null };
+
+export function SdkBadge(props: SdkBadgeProps) {
+  const compatibility: SdkCompatibility =
+    "sdk" in props
+      ? props.sdk.compatibility
+      : sdkCompatibility(props.stamped, props.required);
+  const text =
+    "sdk" in props
+      ? props.sdk.label
+      : (props.label ?? props.stamped ?? "SDK unknown");
   const state =
     compatibility === "current"
       ? "ok"
@@ -28,7 +38,7 @@ export function SdkBadge({
       data-state={state}
       className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-[0.05em] whitespace-nowrap ${tone}`}
     >
-      {label ?? stamped ?? "SDK unknown"}
+      {text}
     </span>
   );
 }

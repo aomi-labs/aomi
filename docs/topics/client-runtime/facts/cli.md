@@ -30,6 +30,18 @@ The `aomi` terminal client is published from `@aomi-labs/client` and shares its 
 - Interactive mode exposes slash-style helpers such as `/app`, `/model`, and `/key`.
 - The root help path is intentionally explicit about backend URL, API key, app, model, chain, and wallet options.
 
+## OAuth account session
+
+- `aomi account login` dynamically registers a public PKCE client, obtains
+  Agent and Pipeline device grants, opens the shared portal approval page, and
+  polls the Better Auth device endpoint using the server-provided interval.
+- The state file keeps access/refresh expiry and exact resource/scope binding.
+  Refresh rotation is serialized and replaced atomically; logout calls the
+  official revocation endpoint before clearing local grants.
+- `--legacy` retains the old account-session ceremony during the measured
+  compatibility window. `AOMI_CLI_OAUTH_DEFAULT_ENABLED` reverses the default
+  without changing server issuance or REST/MCP routing.
+
 ## Role In The Repo
 
 - The CLI is the terminal-facing consumer of the same backend contracts used by the runtime and widget.

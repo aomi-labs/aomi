@@ -4,12 +4,135 @@
 
 export { AomiClient, secretNamesFrom } from "./client";
 export {
+  AccountCreditsTransport,
+  AccountTransport,
+  MAX_CREDIT_TOP_UP,
+  MICROUSD_PER_CREDIT,
+  MIN_CREDIT_TOP_UP,
+} from "./account/credits";
+export type {
+  AomiCreditActivity,
+  AomiCreditListOptions,
+  AomiCreditPaymentReceipt,
+  AomiCreditPosition,
+  AomiCreditTopUpOptions,
+  AomiCreditTopUpResult,
+} from "./account/credits";
+export { AomiCreditApiError } from "./account/credits";
+export { AgentApiError, AgentTransport } from "./agent/transport";
+export {
+  EvmPipelineTransport,
+  PipelineApiError,
+  PipelineAppsTransport,
+  PipelineOperationTransport,
+  PipelineSkillTransport,
+  PipelineSkillsTransport,
+  PipelineTransport,
+  SvmPipelineTransport,
+} from "./pipeline/transport";
+export {
+  PipelineSchemaError,
+  validatePipelineArguments,
+} from "./pipeline/schema";
+export type {
+  EvmCall,
+  EvmCallInput,
+  EvmCommitResult,
+  EvmDirectInput,
+  EvmPresentedAction,
+  EvmSimulatedBuild,
+  EvmStageActionInput,
+  EvmStageInput,
+  EvmStagedAction,
+  EvmStagedBuild,
+  PipelineActionSummary,
+  PipelineApprovalChange,
+  PipelineApprovalKind,
+  PipelineAssetStandard,
+  PipelineBalanceChange,
+  PipelineCommitOptions,
+  PipelineBuildOrigin,
+  PipelineBuildProvenance,
+  PipelineExecutionScope,
+  PipelineDirectory,
+  PipelineDirectoryEntry,
+  PipelineDirectoryEntryKind,
+  PipelineFeeEstimate,
+  PipelineFilesystemResource,
+  PipelineGasEstimate,
+  PipelineGuardResult,
+  PipelineInvokeOptions,
+  PipelineMutationOptions,
+  PipelineJsonSchema,
+  PipelineLog,
+  PipelineOperationBuildInput,
+  PipelineOperationDescriptor,
+  PipelineOperationInvocation,
+  PipelineSimulation,
+  PipelineSimulationStatus,
+  AssembledSvmInstruction,
+  SvmAccountMeta,
+  SvmAssembledAccountMeta,
+  SvmBuildAction,
+  SvmCommitResult,
+  SvmDirectInput,
+  SvmInstruction,
+  SvmInstructionBatch,
+  SvmPresentedAction,
+  SvmSimulatedBuild,
+  SvmStageInput,
+  SvmStagedAction,
+  SvmStagedBuild,
+  SvmTransaction,
+} from "./pipeline/types";
+export type {
+  Action,
+  AgentMode,
+  AgentTarget,
+  ActionRequest,
+  ActionResult,
+  ErrorEvent,
+  Event,
+  EventPage,
+  InterruptIntent,
+  MessageEvent,
+  RespondToActionIntent,
+  Session as AgentSession,
+  SessionPage,
+  StartTurnIntent,
+  AomiInferenceFundingSource,
+  TaskActivityEvent,
+  TaskCompletedEvent,
+  TaskPhaseEvent,
+  TaskStartedEvent,
+  TitleEvent,
+  ToolCompleteEvent,
+  ToolUpdateEvent,
+  TurnState,
+  TurnStateChangedEvent,
+} from "./agent/types";
+export { ActionHandler } from "./actions";
+export type {
+  ActionAttempt,
+  ActionAttemptState,
+  ActionCapabilities,
+  ActionCapability,
+  ActionHandlerEvents,
+  ActionResponder,
+  ActionResultFor,
+  ActionType,
+} from "./actions";
+export {
   authorizationChallenge,
   authorizationCommit,
   ensureSvmWalletBound,
   ensureSvmWalletBoundVia,
   isUnboundWalletError,
   posterFromClient,
+  createAomiOAuthGrantManager,
+  createMemoryOAuthGrantStore,
+  createOAuthTokenProvider,
+  AomiOAuthError,
 } from "./authorization";
 export type {
   AomiAuthorizationChallenge,
@@ -17,14 +140,72 @@ export type {
   AomiAuthorizationState,
   AomiEnsureBoundResult,
   AuthorizationPoster,
+  AomiOAuthResource,
+  AomiOAuthGrant,
+  AomiOAuthGrantManager,
+  AomiOAuthGrantStore,
+  AomiOAuthTokenProvider,
+  AomiOAuthTokenRequest,
+  AomiOAuthTokenSet,
 } from "./authorization";
+export {
+  acquireAomiBrowserGrant,
+  acquireAomiDeviceGrant,
+  createAomiBrowserGrantManager,
+  createAomiDeviceGrantManager,
+  discoverAomiAuthorizationServer,
+  refreshAomiOAuthGrant,
+  revokeAomiOAuthGrant,
+} from "./oauth";
+export type {
+  AomiAuthorizationServerMetadata,
+  AomiBrowserGrantOptions,
+  AomiDeviceVerification,
+} from "./oauth";
+export { createGuestSessionProvider } from "./guest-auth";
+export type { GuestSessionProvider } from "./guest-auth";
 export {
   AccountCredentialUnavailableError,
   createAccountBearerProvider,
 } from "./account-session";
+
+// =============================================================================
+// High-level product SDK
+// =============================================================================
+
+export { Aomi } from "./sdk/aomi";
+export type { AomiOptions } from "./sdk/aomi";
+export { oauth } from "./sdk/auth";
+export type {
+  AomiAuthController,
+  AomiAuthLoginOptions,
+  AomiAuthMode,
+  AomiAuthStatus,
+  AomiAuthStrategy,
+  AomiAuthTarget,
+  AomiBrowserOAuthOptions,
+  AomiDeviceOAuthOptions,
+  AomiOAuthStrategy,
+} from "./sdk/auth";
+export { AomiAgent, AgentRun } from "./sdk/agent";
+export type {
+  AgentRunEventMap,
+  AgentRunOptions,
+  AgentRunResult,
+} from "./sdk/agent";
+export { EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./sdk/build";
+export {
+  AomiEvmPipeline,
+  AomiPipeline,
+  AomiPipelineOperationScope,
+  AomiPipelineSkillScope,
+  AomiSvmPipeline,
+} from "./sdk/pipeline";
+export type { AomiOperationBuildOptions } from "./sdk/pipeline";
 export { buildSiwsMessage } from "./siws";
 export type { SiwsChainId, SiwsIntent } from "./siws";
 export {
+  createEvmPaymentClient,
   handlePaymentChallenges,
   wrapFetchWithPaymentChallenges,
 } from "./payment";
@@ -43,6 +224,7 @@ export type {
 
 export type {
   AomiAppDescriptor,
+  AomiFeatureCategory,
   AomiArtifactStatus,
   AomiPlatformFilter,
   ApplicationId,
@@ -50,66 +232,66 @@ export type {
   AomiRequestQueryValue,
   AomiClientOptions,
   AomiHttpMethod,
-  AomiAccessApproval,
   AomiAccountProfile,
+  AomiAccountRecordStatus,
+  AomiAuthProvider,
   AomiAuthPurpose,
-  AomiAuthIdentity,
-  AomiCreateApprovalRequest,
-  AomiIdentityWallet,
-  AomiUsageStats,
+  AomiChainKind,
+  AomiDelegatedAccount,
+  AomiOnchainAddress,
+  AomiOnchainPolicy,
+  AomiOnchainPolicyBinding,
+  AomiOnchainPolicyRule,
+  AomiOperatingAccount,
+  AomiPolicyWindow,
+  AomiProviderBinding,
+  AomiSigningPolicy,
   AomiUser,
+  AomiUserAccount,
   GetAccountBearer,
-  AomiMessage,
   AomiWalletFamily,
-  AomiChatResponse,
   AomiClearSecretsResponse,
-  AomiCreateThreadResponse,
   AomiAccountResponse,
+  AomiByokKeyEntry,
+  AomiClearAppSecretsResponse,
+  AomiUserAppSecretSlot,
+  AomiUserAppSecrets,
+  AomiListByokKeysResponse,
+  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
-  AomiInterruptResponse,
   AomiListSecretsResponse,
   AomiSecretSlot,
   AomiSimulateFee,
   AomiSimulateResponse,
-  AomiSSEEvent,
-  AomiSSEEventType,
-  AomiTaskActivityEvent,
-  AomiTaskActivityKind,
-  AomiTaskCompletedEvent,
-  AomiTaskEvent,
-  AomiTaskEventType,
-  AomiTaskStartedEvent,
-  AomiTaskStatus,
-  AomiStateResponse,
-  AomiSystemEvent,
-  AomiSystemResponse,
-  AomiThread,
+  SimulationCall,
+  SimContext,
+  SimulationExecution,
+  SimStep,
+  SimReport,
+  SimulationError,
   Logger,
 } from "./types";
 export {
   createProviderCredentialAdapter,
-  createSiweWidgetAuthAdapter,
-  WidgetChallengeBindingError,
-  createSiwsWidgetAuthAdapter,
-  createWidgetSessionProvider,
+  createSiweAccountAuthAdapter,
+  AccountChallengeBindingError,
+  createSiwsAccountAuthAdapter,
+  createAccountSessionProvider,
   type ProviderCredential,
-  type SiwsWidgetSessionSigner,
-  type WidgetAuthAdapter,
-  type WidgetAuthSession,
-  type WidgetSession,
-  type WidgetSessionProvider,
-  type WidgetSessionSigner,
+  type SiwsAccountSessionSigner,
+  type AccountAuthAdapter,
+  type AccountAuthSession,
+  type AccountSessionProvider,
+  type AccountSessionSigner,
 } from "./widget-session";
-export { normalizeAppDescriptor, appIdentityKey } from "./app-descriptor";
+export {
+  normalizeAppDescriptor,
+  appIdentityKey,
+  isOfficialAppDescriptor,
+} from "./app-descriptor";
 export { safeEnv } from "./internal/env";
-export type {
-  AomiClientType,
-  UserStateAAMode,
-  UserStateAuthMethod,
-  UserStateWalletProvider,
-  OwnedUserState,
-} from "./user-state";
+export type { AomiClientType } from "./user-state";
 
 // =============================================================================
 // Type Guards
@@ -120,16 +302,6 @@ export {
   CLIENT_TYPE_TS_CLI,
   CLIENT_TYPE_WEB_UI,
 } from "./user-state";
-export {
-  isAsyncCallback,
-  isInlineCall,
-  isSystemError,
-  isSystemNotice,
-  isAomiTaskEventType,
-  parseAomiTaskEvent,
-  AOMI_TASK_EVENT_TYPES,
-} from "./types";
-
 // =============================================================================
 // Session (high-level orchestrated client)
 // =============================================================================
@@ -138,13 +310,9 @@ export { ClientSession as Session, aaModeFromExecutionKind } from "./session";
 
 export type {
   SessionOptions,
-  SessionEventMap,
+  SessionRuntimeOptions,
+  SessionSnapshot,
   SendResult,
-  WalletRequest,
-  WalletSignablePayload,
-  WalletSigningPayload,
-  WalletRequestKind,
-  WalletRequestResult,
 } from "./session";
 
 // =============================================================================
@@ -152,19 +320,12 @@ export type {
 // =============================================================================
 
 export { TypedEventEmitter } from "./event";
-export { unwrapSystemEvent, type UnwrappedEvent } from "./event";
 
 // =============================================================================
 // Wallet Utilities
 // =============================================================================
 
 export {
-  normalizeTxPayload,
-  hydrateTxPayloadFromUserState,
-  normalizeEip712Payload,
-  normalizeSolanaSignPayload,
-  normalizeSolanaSignMessagePayload,
-  normalizeSolanaWalletRequest,
   normalizeSolanaCluster,
   toViemSignMessageArgs,
   toViemSignTypedDataArgs,
@@ -172,13 +333,21 @@ export {
   toAAWalletCall,
   parseChainId,
 } from "./wallet-utils";
+export { walletCapabilities } from "./wallet/capabilities";
+export { walletUserState } from "./wallet/user-state";
+export type {
+  EvmWallet,
+  EvmWalletCall,
+  SvmWallet,
+  Wallets,
+  WalletTransactionResult,
+} from "./wallet/types";
 
 export type {
   WalletTxPayload,
   WalletTxCallPayload,
   WalletTxAaPreference,
   WalletEip712Payload,
-  NormalizedSolanaWalletRequest,
   WalletSolanaSignPayload,
   WalletSolanaSignMessagePayload,
   ViemSignMessageArgs,
@@ -195,6 +364,7 @@ export {
   CHAINS_BY_ID,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_IDS,
+  arc,
   arcTestnet,
   monad,
   monadTestnet,
@@ -233,3 +403,5 @@ export type {
   ExecuteWalletCallsParams,
   NormalizedSimulatedFee,
 } from "./aa";
+export { summarizeSimulation, SimulationApiError } from "./simulation";
+export * from "./commits";

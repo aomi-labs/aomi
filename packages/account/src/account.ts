@@ -6,15 +6,19 @@ export {
   ensureAccountSchema,
   deactivateAomiAccount,
   fetchAttestedProviderWallets,
+  findAomiUserForTelegram,
   claimTelegramSessionOwner,
   getAccountResponseForBetterAuthSession,
   getAccountResponseForWidgetSession,
   getOrCreateAomiUserForSiwe,
   getOrCreateAomiUserForSiws,
   getOrCreateAomiUserForBetterAuthSession,
+  linkAnonymousCanonicalAccount,
   linkProviderIdentity,
+  mergeProviderWalletAttestations,
   renameAuthIdentity,
   renameWallet,
+  resolveAttestedProviderWallets,
   resolveSignal,
   syncProviderAttestedWallets,
   syncProviderWallets,
@@ -25,6 +29,7 @@ export {
   unlinkWallet,
   updateAccountProfile,
   upsertVerifiedWallet,
+  type AttestedProviderWallets,
   type DeactivateAomiAccountResult,
 } from "./service/account-service";
 
@@ -37,8 +42,10 @@ export {
   providerSessionUserSeed,
   signInWithVerifiedProviderCredential,
   signInWithVerifiedProviderIdentity,
+  signInWithTelegramProviderIdentity,
   verifyProviderCredential,
   type ProviderExchangeResult,
+  type TelegramProviderSignInResult,
 } from "./service/provider-exchange";
 export {
   attachVerifiedProviderIdentityToUser,
@@ -68,6 +75,7 @@ export {
 export type {
   AttestedWallet,
   AttestedWalletProvider,
+  ProviderLoginIdentifier,
   WalletAttestationLogger,
   WalletAttester,
   WalletAttesterRegistry,

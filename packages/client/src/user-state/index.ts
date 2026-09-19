@@ -1,9 +1,6 @@
 import * as accessors from "./accessors";
-import {
-  normalizeUserState,
-  reconcileUserState,
-  toOwnedUserState,
-} from "./normalize";
+import type { components } from "../generated/agent-v1/types";
+import type { AomiAccountProfile, AomiOnchainAddress } from "../types";
 
 /**
  * Client-side user state synced with the backend.
@@ -14,84 +11,12 @@ import {
  * are deliberately NOT part of this wire shape. The client never sends or stores
  * them here.
  */
-export type UserStateAAMode = "none" | "4337" | "7702";
-export type UserStateWalletProvider = "para" | "privy" | "baseAccount";
-export type UserStateAuthMethod =
-  | "google"
-  | "apple"
-  | "facebook"
-  | "x"
-  | "discord"
-  | "github"
-  | "farcaster"
-  | "telegram"
-  | "email"
-  | "phone"
-  | "wagmi";
+type Schemas = components["schemas"];
 
-/** Session-level connection facts shared across chain families. */
-export interface UserStateConnection extends Record<string, unknown> {
-  is_connected?: boolean | null;
-  provider?: UserStateWalletProvider | null;
-  provider_label?: string | null;
-  wallet_provider_subject?: string | null;
-  auth_method?: UserStateAuthMethod | null;
-  auth_value?: string | null;
-  auth_verified_at?: number | string | null;
-}
-
-/** EVM-family wallet block (`evm`). */
-export interface UserStateEvm extends Record<string, unknown> {
-  address?: string | null;
-  chain_id?: number | string | null;
-  ens_name?: string | null;
-}
-
-/** Solana-family wallet block (`svm`). */
-export interface UserStateSvm extends Record<string, unknown> {
-  address?: string | null;
-  cluster?: string | null;
-  wallet_name?: string | null;
-  transport?: string | null;
-  /** Wallet-Standard capability identifiers, e.g. `"can_sign_message"`. */
-  capabilities?: string[] | null;
-}
-
-/**
- * Backend-pushed in-flight wallet requests, chain-bucketed. Shape is owned by
- * the backend; parsed by helpers like `pendingTxsFromBackendUserState`. The
- * client forwards them transparently via reconciliation.
- */
-export interface UserStatePending extends Record<string, unknown> {
-  evm_txs?: Record<string, unknown> | null;
-  evm_sigs?: Record<string, unknown> | null;
-  svm_ixs?: Record<string, unknown> | null;
-  svm_sigs?: Record<string, unknown> | null;
-}
-
-/**
- * Client-side user state, canonicalized to the backend's nested snake_case
- * wire shape. EVM and Solana identities are independent blocks (`evm` / `svm`)
- * so a single session can carry both families at once. `normalize` accepts the
- * backend's nested camelCase responses and legacy flat host input, and emits
- * this canonical shape.
- */
-export interface UserState extends Record<string, unknown> {
-  connection?: UserStateConnection | null;
-  evm?: UserStateEvm | null;
-  svm?: UserStateSvm | null;
-  pending?: UserStatePending | null;
-  ext?: Record<string, unknown> | null;
-  preferences?: Record<string, unknown> | null;
-}
-
-/**
- * The subset of `UserState` the client OWNS and may send to the backend.
- * `pending` is backend-authority in-flight state; the client receives it but
- * never echoes it back. Use {@link toOwnedUserState} to project a stored
- * `UserState` down to this shape at the send boundary.
- */
-export type OwnedUserState = Omit<UserState, "pending">;
+export type UserState = Schemas["UserState"];
+export type UserStateConnection = Schemas["UserStateConnection"];
+export type UserStateEvm = Schemas["UserStateEvm"];
+export type UserStateSvm = Schemas["UserStateSvm"];
 
 /**
  * Known client surfaces that may want backend-specific UX strategies.
@@ -103,19 +28,68 @@ export const CLIENT_TYPE_TS_CLI: AomiClientType = "ts_cli";
 export const CLIENT_TYPE_WEB_UI: AomiClientType = "web_ui";
 
 export namespace UserState {
-  export const normalize = normalizeUserState;
-  export const reconcile = reconcileUserState;
-  export const toOwned = toOwnedUserState;
+  /** Display labels and provider names are not wallet identities. */
+  export function sameAddress(
+    left: AomiOnchainAddress,
+    right: AomiOnchainAddress,
+  ): boolean {
+    return (
+      left.chain === right.chain &&
+      (left.chain === "evm"
+        ? left.address.toLowerCase() === right.address.toLowerCase()
+        : left.address === right.address)
+    );
+  }
+
+  /** Choose the submitter before assembly, without changing the selected account.
+   *
+   * This only selects; it never blocks a turn. Auto with a live delegation
+   * defaults to Hosted. Explicit selections are preserved in every mode;
+   * this boundary cannot distinguish an intentional route from a stale one.
+   * Every rejection (locked wallet, missing delegation, Auto × Wallet, unknown mode) is left
+   * for the backend commit gate, which is authoritative and only fires when a
+   * transaction is actually prepared.
+   */
+  export function route(
+    state: UserState,
+    profile: AomiAccountProfile,
+    now = Date.now(),
+  ): UserState {
+    const next = { ...state };
+    for (const chain of ["evm", "svm"] as const) {
+      const wallet = state[chain];
+      if (!wallet?.address) continue;
+      const address = { chain, address: wallet.address };
+      const policy = profile.signing_policies.find((row) =>
+        sameAddress(row.address, address),
+      );
+      if (!policy) continue; // Guest/unbound wallets still face the backend gate.
+      if (policy.mode !== "auto") continue;
+      if (wallet.broadcaster === "wallet") continue; // Backend rejects Auto × Wallet.
+      const owner = profile.user_accounts.find((row) =>
+        sameAddress(row.address, address),
+      );
+      const delegation = profile.delegated_accounts.some(
+        (row) =>
+          sameAddress(row.address, address) &&
+          row.delegation_provider === owner?.auth_provider &&
+          row.status === "active" &&
+          row.revoked_at === null &&
+          (row.expires_at === null || row.expires_at * 1000 > now),
+      );
+      if (!delegation) continue; // Backend gate reports the missing delegation.
+      next[chain] = { ...wallet, broadcaster: wallet.broadcaster ?? "hosted" };
+    }
+    return next;
+  }
+
   export const address = accessors.address;
   export const evmAddress = accessors.evmAddress;
   export const svmAddress = accessors.svmAddress;
   export const chainId = accessors.chainId;
   export const ensName = accessors.ensName;
   export const isConnected = accessors.isConnected;
-  export const walletProvider = accessors.walletProvider;
-  export const walletProviderSubject = accessors.walletProviderSubject;
+  export const provider = accessors.provider;
   export const authMethod = accessors.authMethod;
-  export const authValue = accessors.authValue;
-  export const authVerifiedAt = accessors.authVerifiedAt;
   export const withExt = accessors.withExt;
 }

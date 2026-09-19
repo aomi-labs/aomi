@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/service",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AOMI service topology: parse the service mesh and mint/verify AccountBearers. The TS twin of the Rust aomi-service crate. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",

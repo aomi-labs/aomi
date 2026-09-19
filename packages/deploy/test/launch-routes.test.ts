@@ -624,47 +624,123 @@ describe("createLaunchRoutes projects", () => {
 });
 
 describe("createLaunchRoutes runtime apps", () => {
-  it("returns one project's live runtime statuses", async () => {
-    session.mockResolvedValueOnce({ githubUserId: "42", githubLogin: "alice" });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(ownedProjects(99))
-      .mockResolvedValueOnce(
-        Response.json({
-          project: { id: 99, platform_name: "community", apps: [] },
-          platform: "community",
-          apps: [
-            {
+  it.each([
+    { failure: 404, status: 200 },
+    { failure: 503, status: 503 },
+    { failure: 401, status: 401 },
+    { failure: "connection", status: 502 },
+  ])(
+    "preserves runtime probe failure semantics ($failure)",
+    async ({ failure, status }) => {
+      session.mockResolvedValueOnce({
+        githubUserId: "42",
+        githubLogin: "alice",
+      });
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(ownedProjects(99))
+        .mockResolvedValueOnce(
+          Response.json({
+            project: { id: 99 },
+            platform: "community",
+            apps: [
+              {
+                id: 5,
+                name: "bot",
+                is_active: true,
+                loaded: true,
+                app_release_tag: "release-2",
+              },
+            ],
+          }),
+        );
+      if (typeof failure === "number") {
+        fetchMock.mockResolvedValueOnce(
+          Response.json({ error: "probe unavailable" }, { status: failure }),
+        );
+      } else {
+        fetchMock.mockRejectedValueOnce(new TypeError("connection lost"));
+      }
+      vi.stubGlobal("fetch", fetchMock);
+
+      const res = await routes().apps(readReq("apps", "projectId=99"));
+
+      expect(res.status).toBe(status);
+      const body = await res.json();
+      if (failure === 404) {
+        expect(body).toMatchObject({
+          state: "pending",
+          apps: [{ id: 5, loaded: false }],
+        });
+      } else {
+        expect(body.error).toBeTruthy();
+        expect(body.apps).toBeUndefined();
+      }
+    },
+  );
+
+  it.each([
+    { ready: true, project: 99, release: "release-2", live: true },
+    { ready: false, project: 99, release: "release-2", live: false },
+    { ready: true, project: 100, release: "release-2", live: false },
+    { ready: true, project: 99, release: "old-release", live: false },
+  ])(
+    "uses actual readiness for the exact owned release ($ready, $project, $release)",
+    async ({ ready, project, release, live }) => {
+      session.mockResolvedValueOnce({
+        githubUserId: "42",
+        githubLogin: "alice",
+      });
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(ownedProjects(99))
+        .mockResolvedValueOnce(
+          Response.json({
+            project: { id: 99, platform_name: "community", apps: [] },
+            platform: "community",
+            apps: [
+              {
+                id: 5,
+                name: "bot",
+                is_active: true,
+                loaded: true,
+                app_release_tag: "release-2",
+              },
+            ],
+          }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            app: {
               id: 5,
-              name: "bot",
-              is_active: true,
-              loaded: true,
-              app_release_tag: "release-2",
+              project_id: project,
+              app_release_tag: release,
+              artifact_ready: ready,
             },
-          ],
-        }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+          }),
+        );
+      vi.stubGlobal("fetch", fetchMock);
 
-    const res = await routes().apps(readReq("apps", "projectId=99"));
+      const res = await routes().apps(readReq("apps", "projectId=99"));
 
-    expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({
-      ok: true,
-      projectId: 99,
-      state: "live",
-      apps: [
-        {
-          id: 5,
-          name: "bot",
-          is_active: true,
-          loaded: true,
-          app_release_tag: "release-2",
-        },
-      ],
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        ok: true,
+        projectId: 99,
+        state: live ? "live" : "pending",
+        apps: [
+          {
+            id: 5,
+            name: "bot",
+            is_active: true,
+            loaded: live,
+            app_release_tag: "release-2",
+          },
+        ],
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    },
+  );
 
   it("rejects an invalid project id before backend calls", async () => {
     session.mockResolvedValueOnce({ githubUserId: "42", githubLogin: "alice" });
@@ -732,7 +808,9 @@ describe("createLaunchRoutes activation security", () => {
       .mockResolvedValueOnce(activationProjectWithRepo("aomi-labs/community"))
       .mockResolvedValueOnce(Response.json({ by_app: {} }))
       .mockResolvedValueOnce(Response.json({ assets: [] }))
-      .mockResolvedValueOnce(Response.json({ error: "release not found" }, { status: 404 }));
+      .mockResolvedValueOnce(
+        Response.json({ error: "release not found" }, { status: 404 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await routes().activate(

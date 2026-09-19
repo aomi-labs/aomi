@@ -30,12 +30,8 @@ export function formatWalletExport(
   params: Eip5792SendCallsParams,
   format: WalletExportFormat,
 ): WalletExport {
-  if (format === "eip5792") {
-    return params;
-  }
-  if (format === "moss") {
-    return params.calls;
-  }
+  if (format === "eip5792") return params;
+  if (format === "moss") return params.calls;
   if (params.calls.length !== 1) {
     throw new Error(
       "The metamask format supports exactly one call. Export one transaction at a time, or use the eip5792 or moss format for multiple calls.",

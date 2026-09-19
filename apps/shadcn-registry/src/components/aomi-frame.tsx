@@ -12,21 +12,25 @@ import {
   cn,
   useAomiRuntime,
   type AomiClientOptions,
+  type AgentTarget,
+  type AomiInferenceFundingSource,
 } from "@aomi-labs/react";
 import { Thread } from "@/components/assistant-ui/thread";
 import {
   ThreadListSidebar,
   type SidebarProduct,
 } from "@/components/assistant-ui/threadlist-sidebar";
-import { RuntimeTxHandler } from "@/components/runtime-tx-handler";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { NotificationToaster } from "@/components/ui/notification";
 import { ControlBar, type ControlBarProps } from "@/components/control-bar";
 import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
+import { ActivityPanelProvider } from "@/components/activity-sidebar/activity-panel-context";
 import { safeEnv } from "../lib/wallet-kit/env";
+import { useActionCapabilities } from "../lib/wallet-kit";
 
 // =============================================================================
 // Composer Control Context - signals Thread to show inline controls
@@ -57,6 +61,8 @@ type RootProps = {
   walletPosition?: "header" | "footer" | null;
   /** Which wallet families to show as dual slots (omit for single-family mode) */
   walletFamilies?: Array<"evm" | "solana">;
+  /** Host-specific label for the anonymous wallet/account entry point. */
+  walletConnectLabel?: string;
   /** Optional account menu on the sidebar wallet chip (portal supplies live data). */
   walletAccountMenu?: WalletAccountMenuOptions;
   /** Products in the sidebar wordmark dropdown. Pass `null` for a plain wordmark. */
@@ -71,8 +77,12 @@ type RootProps = {
   backendUrl?: string;
   /** Concrete hosted application used to isolate runtime and persisted threads. */
   applicationId?: number | string | null;
+  /** Optional host-fixed execution target. */
+  agentTarget?: AgentTarget;
   /** Optional runtime client overrides. */
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
+  /** Explicit inference funding lane for Agent turns. */
+  inferenceFunding?: AomiInferenceFundingSource;
   /** Whether an account session can load thread history without a wallet. */
   accountSessionAvailable?: boolean;
   /** Persist the active materialized thread in localStorage. Defaults to true. */
@@ -124,6 +134,7 @@ const Root: FC<RootProps> = ({
   style,
   walletPosition = "footer",
   walletFamilies,
+  walletConnectLabel,
   walletAccountMenu,
   products,
   currentProductId,
@@ -131,7 +142,9 @@ const Root: FC<RootProps> = ({
   defaultSidebarOpen = true,
   backendUrl,
   applicationId,
+  agentTarget,
   clientOptions,
+  inferenceFunding,
   accountSessionAvailable,
   persistThread,
   threadPersistenceKey,
@@ -143,44 +156,51 @@ const Root: FC<RootProps> = ({
     safeEnv(() => process.env.NEXT_PUBLIC_BACKEND_URL) ??
     "http://127.0.0.1:8080";
   const frameStyle: CSSProperties = { width, height, ...style };
+  const actions = useActionCapabilities();
 
   return (
     <AomiRuntimeProvider
       backendUrl={resolvedBackendUrl}
+      actions={actions}
       applicationId={applicationId}
+      agentTarget={agentTarget}
       clientOptions={clientOptions}
+      inferenceFunding={inferenceFunding}
       accountSessionAvailable={accountSessionAvailable}
       persistThread={persistThread}
       threadPersistenceKey={threadPersistenceKey}
       threadPersistenceScope={threadPersistenceScope}
       initialThreadId={initialThreadId}
     >
-      <SidebarProvider
-        defaultOpen={defaultSidebarOpen}
-        className="min-h-0! h-full"
-      >
-        <div
-          className={cn(
-            "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
-            className,
-          )}
-          style={frameStyle}
+      <ActivityPanelProvider>
+        <SidebarProvider
+          defaultOpen={defaultSidebarOpen}
+          className="min-h-0! h-full"
         >
-          {showSidebar && (
-            <ThreadListSidebar
-              walletPosition={walletPosition}
-              walletFamilies={walletFamilies}
-              walletAccountMenu={walletAccountMenu}
-              products={products}
-              currentProductId={currentProductId}
-            />
-          )}
-          <SidebarInset className="relative flex min-h-0 flex-col">
-            {children}
-          </SidebarInset>
-          <RuntimeTxHandler />
-        </div>
-      </SidebarProvider>
+          <div
+            className={cn(
+              "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
+              className,
+            )}
+            style={frameStyle}
+          >
+            {showSidebar && (
+              <ThreadListSidebar
+                walletPosition={walletPosition}
+                walletFamilies={walletFamilies}
+                walletConnectLabel={walletConnectLabel}
+                walletAccountMenu={walletAccountMenu}
+                products={products}
+                currentProductId={currentProductId}
+              />
+            )}
+            <SidebarInset className="@container relative flex min-h-0 flex-col">
+              {children}
+            </SidebarInset>
+          </div>
+        </SidebarProvider>
+        <NotificationToaster />
+      </ActivityPanelProvider>
     </AomiRuntimeProvider>
   );
 };
@@ -279,15 +299,14 @@ const DefaultLayout: FC<DefaultLayoutProps> = ({
       showSidebar={showSidebar}
       {...props}
     >
-      <Header
+      <Header showSidebarTrigger={showSidebar} />
+      <Composer
         withControl
-        showSidebarTrigger={showSidebar}
         controlBarProps={{
           hideWallet: hideWalletInControlBar,
           hideNetwork: false,
         }}
       />
-      <Composer />
     </Root>
   );
 };

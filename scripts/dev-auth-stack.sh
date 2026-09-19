@@ -290,16 +290,22 @@ smoke_chat() {
     "$PORTAL_URL/api/threads" | grep -q '^200$'
   echo "200"
 
-  printf "  chat pong: "
-  curl --max-time 30 -s -o /tmp/aomi-dev-stack-chat.json -w "%{http_code}\n" \
+  printf "  agent pong: "
+  curl --max-time 30 -s -o /tmp/aomi-dev-stack-agent.json -w "%{http_code}\n" \
     -X POST \
-    -H "X-Thread-Id: $thread_id" \
-    "$PORTAL_URL/api/thread/chat?app=default&message=Say%20only%20pong&client_id=dev-stack-smoke" | grep -q '^200$'
+    -H "Content-Type: application/json" \
+    -H "Idempotency-Key: dev-stack-$thread_id" \
+    -d "{\"sessionId\":\"$thread_id\",\"message\":\"Say only pong\",\"app\":\"default\",\"clientId\":\"dev-stack-smoke\",\"userState\":{\"connection\":{\"is_connected\":false}}}" \
+    "$PORTAL_URL/api/v1/agent/chat" | grep -q '^200$'
+
+  local cursor
+  cursor="$(jq -r '.cursor // empty' /tmp/aomi-dev-stack-agent.json)"
 
   for _ in $(seq 1 18); do
-    body="$(curl -s -H "X-Thread-Id: $thread_id" "$PORTAL_URL/api/thread/state")"
-    if printf "%s" "$body" | grep -q '"is_processing":false'; then
-      if printf "%s" "$body" | grep -q '"content":"pong"'; then
+    body="$(curl -s "$PORTAL_URL/api/v1/agent/chat/$thread_id?cursor=$cursor&wait=5000")"
+    cursor="$(printf "%s" "$body" | jq -r '.cursor // empty')"
+    if printf "%s" "$body" | jq -e '[.events[]? | select(.type == "turn_state_changed" and (.state == "complete" or .state == "failed" or .state == "interrupted"))] | length > 0' >/dev/null; then
+      if printf "%s" "$body" | jq -e '[.events[]? | select(.type == "message" and (.content | ascii_downcase | contains("pong")))] | length > 0' >/dev/null; then
         echo "200 pong"
         return 0
       fi

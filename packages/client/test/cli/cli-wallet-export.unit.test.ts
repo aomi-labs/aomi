@@ -20,7 +20,7 @@ const params: Eip5792SendCallsParams = {
 };
 
 describe("wallet export formats", () => {
-  it("defaults to eip5792 and accepts the documented format names", () => {
+  it("defaults to eip5792 and accepts the documented names", () => {
     expect(parseWalletExportFormat(undefined)).toBe("eip5792");
     expect(parseWalletExportFormat(" EIP5792 ")).toBe("eip5792");
     expect(parseWalletExportFormat("moss")).toBe("moss");
@@ -37,11 +37,11 @@ describe("wallet export formats", () => {
     expect(formatWalletExport(params, "eip5792")).toBe(params);
   });
 
-  it("emits only the ordered call array for MOSS", () => {
+  it("emits the ordered call array for MOSS", () => {
     expect(formatWalletExport(params, "moss")).toEqual(params.calls);
   });
 
-  it("emits MetaMask's numeric chain argument and raw transaction payload", () => {
+  it("emits MetaMask's numeric chain and raw transaction payload", () => {
     expect(formatWalletExport(params, "metamask")).toEqual({
       chainId: 4326,
       payload: params.calls[0],

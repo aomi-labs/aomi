@@ -5,5 +5,10 @@
 // docs/topics/account-authentication/facts/service-identity.md.
 
 export { AomiService, parseTopology } from "./topology";
-export type { ServiceNode, Topology, AccountBearerClaims } from "./topology";
+export type {
+  ServiceNode,
+  Topology,
+  AccountBearerClaims,
+  DelegatedBearerContext,
+} from "./topology";
 export { assertServerOnly } from "./server-only";
