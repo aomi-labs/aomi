@@ -205,8 +205,8 @@ describe("operating wallet", () => {
       "guest",
     ]);
     expect(state.wallets.map((wallet) => actionKinds(wallet.actions))).toEqual([
-      ["select", "disconnect"],
-      ["disconnect"],
+      ["select", "link", "disconnect"],
+      ["link", "disconnect"],
     ]);
   });
 });

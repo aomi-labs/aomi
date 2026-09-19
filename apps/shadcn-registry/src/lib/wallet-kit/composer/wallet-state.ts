@@ -230,6 +230,9 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     const actions: WalletAction[] = [];
     if (row.state === "ready" || row.state === "guest") {
       if (!isOperating) actions.push({ kind: "select", walletKey: row.key });
+      if (row.state === "guest" && row.connectionId) {
+        actions.push({ kind: "link", connectionId: row.connectionId });
+      }
       const connection = row.connectionId ? connected.get(row.key) : undefined;
       if (connection?.providerActions?.length) {
         for (const action of connection.providerActions) {
