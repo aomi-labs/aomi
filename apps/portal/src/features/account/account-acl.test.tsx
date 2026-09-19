@@ -11,6 +11,7 @@ import {
 import { AccountSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-settings";
 import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
+import type { WalletRow } from "../../../../shadcn-registry/src/lib/wallet-kit/composer/wallet-state";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -20,9 +21,6 @@ const PRIVY_SVM = "8xKnQm4kZ7wRt2YbNc5vHj3PqLsDgFxA6eU9QpS1TzWv";
 const walletKit = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   connectSocial: vi.fn(async () => undefined),
-  canSignFor: undefined as
-    | undefined
-    | ((chain: string, address: string) => boolean),
   signTypedData: vi.fn(async () => ({ signature: "0xsignature" })),
   signSolanaMessage: vi.fn(async () => ({ signature: "c2ln" })),
   openAccountUI: vi.fn(async () => undefined),
@@ -39,7 +37,43 @@ const walletKit = vi.hoisted(() => ({
     walletName?: string;
     active: boolean;
   }>,
+  wallets: [] as WalletRow[],
 }));
+
+function readyWallets(): WalletRow[] {
+  return [
+    {
+      key: `evm:${CONNECTED_EVM.toLowerCase()}`,
+      family: "evm",
+      address: CONNECTED_EVM.toLowerCase(),
+      kind: "external",
+      walletName: "Para",
+      provider: "para",
+      connectionId: "para-evm",
+      linkedWalletId: "linked-evm",
+      state: "ready",
+      connected: true,
+      linked: true,
+      operating: true,
+      actions: [],
+    },
+    {
+      key: `svm:${PRIVY_SVM}`,
+      family: "svm",
+      address: PRIVY_SVM,
+      kind: "embedded",
+      walletName: "Privy",
+      provider: "privy",
+      connectionId: "privy-svm",
+      linkedWalletId: "linked-svm",
+      state: "ready",
+      connected: true,
+      linked: true,
+      operating: true,
+      actions: [],
+    },
+  ];
+}
 
 const privyDelegation = vi.hoisted(() => ({ start: vi.fn() }));
 
@@ -219,14 +253,14 @@ describe("account ACL wiring", () => {
   beforeEach(() => {
     walletKit.connect.mockClear();
     walletKit.connectSocial.mockClear();
-    walletKit.canSignFor = undefined;
     walletKit.identity = {
       address: CONNECTED_EVM,
-      svmAddress: undefined,
+      svmAddress: PRIVY_SVM,
       sessionProvider: undefined,
       embeddedProvider: undefined,
     };
     walletKit.accounts = [];
+    walletKit.wallets = readyWallets();
     walletKit.signTypedData.mockClear();
     walletKit.signSolanaMessage.mockClear();
     runtime.setUser.mockClear();
@@ -247,7 +281,6 @@ describe("account ACL wiring", () => {
   it.each(["evm", "svm"])(
     "reviews the unsigned %s payload before requesting a signature",
     async (chain) => {
-      walletKit.canSignFor = () => true;
       const { calls } = installFetchRecorder(
         chain === "svm"
           ? {
@@ -293,28 +326,19 @@ describe("account ACL wiring", () => {
     },
   );
 
-  it("authorizes the exact connected Para wallet without changing the globally selected wallet", async () => {
+  it("refuses to authorize a wallet that is not the operating wallet", async () => {
     walletKit.identity.address = "0x1111111111111111111111111111111111111111";
-    walletKit.canSignFor = (chain, address) =>
-      chain === "evm" && address === CONNECTED_EVM.toLowerCase();
+    walletKit.wallets[0] = { ...walletKit.wallets[0], operating: false };
     installFetchRecorder();
     await renderAcl();
     await click(await findWalletRow());
     await click(screen.getByText("Auto-approve"));
     const authorize = screen.getByText("Review change");
-    expect(authorize.hasAttribute("disabled")).toBe(false);
-    await click(authorize);
-    await click(screen.getByRole("button", { name: "Sign to approve" }));
-    expect(walletKit.signTypedData).toHaveBeenCalledWith(
-      expect.objectContaining({
-        signer: CONNECTED_EVM.toLowerCase(),
-      }),
-    );
+    expect(authorize.hasAttribute("disabled")).toBe(true);
+    expect(walletKit.signTypedData).not.toHaveBeenCalled();
   });
 
   it("authorizes a connected Para Solana wallet without an extension signer", async () => {
-    walletKit.canSignFor = (chain, address) =>
-      chain === "svm" && address === PRIVY_SVM;
     walletKit.signSolanaMessage.mockClear();
     const { calls } = installFetchRecorder({
       "/api/account/authorization/challenge": () =>
@@ -344,7 +368,6 @@ describe("account ACL wiring", () => {
   it.each(["evm", "svm"])(
     "does not commit a policy when %s signing fails after confirmation",
     async (chain) => {
-      walletKit.canSignFor = () => true;
       const sign =
         chain === "evm" ? walletKit.signTypedData : walletKit.signSolanaMessage;
       sign.mockRejectedValueOnce(new Error("Wallet signing cancelled"));
@@ -382,6 +405,24 @@ describe("account ACL wiring", () => {
     async (chain, provider, selectedProvider) => {
       walletKit.identity.address = "";
       walletKit.identity.embeddedProvider = selectedProvider;
+      const address = chain === "evm" ? CONNECTED_EVM.toLowerCase() : PRIVY_SVM;
+      const key = `${chain}:${address}`;
+      walletKit.wallets = [
+        {
+          key,
+          family: chain,
+          address,
+          kind: "embedded",
+          provider,
+          linkedWalletId: `linked-${chain}`,
+          state: "offline",
+          reason: "disconnected",
+          connected: false,
+          linked: true,
+          operating: false,
+          actions: [{ kind: "connect", walletKey: key, provider }],
+        },
+      ];
       const chooseProvider = vi.fn(async () => undefined);
       installFetchRecorder({
         "/api/account": () =>
@@ -675,11 +716,12 @@ describe("account ACL wiring", () => {
     expect(walletKit.signTypedData).toHaveBeenCalledOnce();
   });
 
-  it("blocks a loosening permit when the wallet itself isn't connected", async () => {
+  it("blocks a loosening permit when the wallet is not operating", async () => {
     walletKit.identity = {
-      address: "0xSomeOtherWallet",
+      address: undefined,
       svmAddress: undefined,
     };
+    walletKit.wallets[0] = { ...walletKit.wallets[0]!, operating: false };
     const { calls } = installFetchRecorder();
 
     await renderAcl();
@@ -689,7 +731,7 @@ describe("account ACL wiring", () => {
     await click(await screen.findByText("Auto-approve"));
 
     expect(
-      screen.getByText("Connect this wallet itself to widen what it may sign."),
+      screen.getByText("Connect a Ethereum wallet to sign this authorization."),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Review change/ }),
@@ -741,6 +783,24 @@ describe("account ACL wiring", () => {
         address: UNBOUND,
         walletName: "Rabby",
         active: false,
+      },
+    ];
+    walletKit.wallets = [
+      {
+        key: `evm:${UNBOUND.toLowerCase()}`,
+        family: "evm",
+        address: UNBOUND,
+        kind: "external",
+        walletName: "Rabby",
+        connectionId: "rabby",
+        state: "unlinked",
+        connected: true,
+        linked: false,
+        operating: false,
+        actions: [
+          { kind: "link", connectionId: "rabby" },
+          { kind: "disconnect", connectionId: "rabby" },
+        ],
       },
     ];
     const { calls } = installFetchRecorder({
@@ -801,6 +861,13 @@ describe("account ACL wiring", () => {
       sessionProvider: "privy",
       embeddedProvider: "privy",
     };
+    walletKit.wallets = [
+      {
+        ...readyWallets()[0],
+        kind: "embedded",
+        provider: "privy",
+      },
+    ];
     const { calls } = installFetchRecorder({
       "/api/delegation/privy/begin": () =>
         Response.json({

@@ -1,37 +1,61 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AccountManagement } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management";
-import type { UnifiedAccountWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
+import type { ManagedWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
 
-const connectedWallet: UnifiedAccountWallet = {
+const connectedWallet: ManagedWallet = {
   key: "evm:0xda65",
   family: "evm",
   address: "0xda65",
+  kind: "external",
   walletName: "Rabby",
+  state: "ready",
   connected: true,
   linked: true,
-  active: true,
+  operating: true,
+  connectionId: "rabby",
+  linkedWalletId: "wallet-1",
+  actions: [
+    { kind: "disconnect", connectionId: "rabby" },
+    { kind: "unlink", linkedWalletId: "wallet-1" },
+  ],
 };
 
-const linkedWallet: UnifiedAccountWallet = {
+const linkedWallet: ManagedWallet = {
   key: "evm:0xe9ba",
   family: "evm",
   address: "0xe9ba",
+  kind: "external",
   walletName: "MetaMask 1",
+  state: "offline",
+  reason: "disconnected",
   connected: false,
   linked: true,
-  active: false,
-  accountWalletId: "wallet-2",
+  operating: false,
+  linkedWalletId: "wallet-2",
+  actions: [
+    { kind: "connect", walletKey: "evm:0xe9ba" },
+    { kind: "unlink", linkedWalletId: "wallet-2" },
+  ],
 };
 
-const inactiveWallet: UnifiedAccountWallet = {
+const inactiveWallet: ManagedWallet = {
   key: "evm:0xc0ff",
   family: "evm",
   address: "0xc0ff",
+  kind: "external",
   walletName: "Coinbase Wallet",
+  state: "ready",
   connected: true,
   linked: true,
-  active: false,
+  operating: false,
+  connectionId: "coinbase",
+  linkedWalletId: "wallet-3",
+  actions: [
+    { kind: "select", walletKey: "evm:0xc0ff" },
+    { kind: "disconnect", connectionId: "coinbase" },
+    { kind: "unlink", linkedWalletId: "wallet-3" },
+  ],
 };
 
 describe("AccountManagement wallet actions", () => {

@@ -7,10 +7,7 @@ import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { ChevronRight, Shield, UserRound } from "lucide-react";
 import { countDriftedWallets } from "../account/wallet-attention";
 import { useAccountAcl } from "../account/use-account-acl";
-import {
-  buildUnifiedAccountWallets,
-  walletConnectionSummary,
-} from "../account/wallet-management-model";
+import { walletConnectionSummary } from "../account/wallet-management-model";
 import { useAccountOverview } from "../../lib/account-overview";
 import { useSettings, type ColorMode } from "../../lib/use-settings";
 import {
@@ -67,15 +64,7 @@ export function GeneralSettings({
   const walletAttentionCount =
     acl.status === "ready" ? countDriftedWallets(acl.wallets) : 0;
 
-  const wallets = useMemo(
-    () =>
-      buildUnifiedAccountWallets({
-        accounts: adapter.accounts ?? [],
-        linkedWallets: adapter.accountWallets ?? [],
-        policies: acl.wallets,
-      }),
-    [acl.wallets, adapter.accountWallets, adapter.accounts],
-  );
+  const wallets = adapter.wallets;
   const connectedWallets = wallets.filter((wallet) => wallet.connected).length;
   const linkedWallets = wallets.filter((wallet) => wallet.linked).length;
   const linkedWalletStatus = walletConnectionSummary(wallets);
