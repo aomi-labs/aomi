@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="665" viewBox="0 0 1100 665" role="img" aria-labelledby="title desc">
+  <title id="title">Four veto points and their limits</title>
+  <desc id="desc">The runtime checks proposed tool actions but is application-controlled. The wallet checks signing requests but only for governed keys. The contract enforces authority onchain but only through covered paths. The builder checks candidate effects but only on its inclusion route.</desc>
+  <defs><style>.bg{fill:#f8f9fb}.ink{fill:#18202a}.muted{fill:#586675}.rule{stroke:#d9dfe7;stroke-width:1}.head{font:700 14px Arial,sans-serif;letter-spacing:.07em}.stage{font:700 19px Arial,sans-serif}.body{font:15px Arial,sans-serif}.small{font:14px Arial,sans-serif}.n{font:700 14px Arial,sans-serif}</style></defs>
+  <rect class="bg" width="1100" height="665" rx="20"/>
+  <text class="head muted" x="45" y="54">ENFORCEMENT MAP</text>
+  <text class="stage ink" x="45" y="90">The same transaction crosses different authorities.</text>
+  <rect fill="#edf1f5" x="30" y="125" width="1040" height="58" rx="7"/>
+  <text class="head muted" x="48" y="160">VETO</text>
+  <text class="head muted" x="292" y="160">INSPECTS</text>
+  <text class="head muted" x="540" y="160">ADMINISTERED BY</text>
+  <text class="head muted" x="790" y="160">IMPORTANT ESCAPE</text>
+  <g>
+    <rect fill="#d6e9f8" x="45" y="203" width="40" height="40" rx="20"/><text class="n" fill="#285c87" x="55" y="228">0.5</text>
+    <text class="stage ink" x="100" y="220">Runtime</text><text class="small muted" x="100" y="243">during build</text>
+    <text class="body ink" x="292" y="220">Tool call, staged bytes,</text><text class="body ink" x="292" y="243">simulation result</text>
+    <text class="body ink" x="540" y="220">Agent application</text><text class="small muted" x="540" y="243">and its operators</text>
+    <text class="body ink" x="790" y="220">Uncovered direct tool</text><text class="body ink" x="790" y="243">or signing route</text>
+    <line class="rule" x1="45" x2="1055" y1="268" y2="268"/>
+    <rect fill="#f7dce7" x="45" y="292" width="40" height="40" rx="20"/><text class="n" fill="#8d4763" x="60" y="317">1</text>
+    <text class="stage ink" x="100" y="309">Wallet</text><text class="small muted" x="100" y="332">before signature</text>
+    <text class="body ink" x="292" y="309">Signing request</text><text class="body ink" x="292" y="332">and provider policy</text>
+    <text class="body ink" x="540" y="309">Keyholder / quorum</text><text class="small muted" x="540" y="332">if independent of app</text>
+    <text class="body ink" x="790" y="309">Other signer, key, chain,</text><text class="body ink" x="790" y="332">or existing allowance</text>
+    <line class="rule" x1="45" x2="1055" y1="357" y2="357"/>
+    <rect fill="#f7dce7" x="45" y="381" width="40" height="40" rx="20"/><text class="n" fill="#8d4763" x="60" y="406">2</text>
+    <text class="stage ink" x="100" y="398">Contract</text><text class="small muted" x="100" y="421">during execution</text>
+    <text class="body ink" x="292" y="398">Call authority and</text><text class="body ink" x="292" y="421">sometimes post-state</text>
+    <text class="body ink" x="540" y="398">Code, owners, modules,</text><text class="small muted" x="540" y="421">upgrade process</text>
+    <text class="body ink" x="790" y="398">Root owner or alternate</text><text class="body ink" x="790" y="421">account execution path</text>
+    <line class="rule" x1="45" x2="1055" y1="446" y2="446"/>
+    <rect fill="#f7dce7" x="45" y="470" width="40" height="40" rx="20"/><text class="n" fill="#8d4763" x="60" y="495">3</text>
+    <text class="stage ink" x="100" y="487">Builder</text><text class="small muted" x="100" y="510">before inclusion</text>
+    <text class="body ink" x="292" y="487">Candidate transaction</text><text class="body ink" x="292" y="510">and state transition</text>
+    <text class="body ink" x="540" y="487">Assertion author and</text><text class="small muted" x="540" y="510">integrated operator</text>
+    <text class="body ink" x="790" y="487">Non-integrated builder</text><text class="body ink" x="790" y="510">or forced-inclusion path</text>
+  </g>
+  <rect fill="#e7eef4" x="45" y="556" width="1010" height="70" rx="8"/>
+  <text class="head muted" x="64" y="584">READ THIS AS A COVERAGE MAP, NOT A SCORECARD</text>
+  <text class="body ink" x="64" y="609">An independent veto exists only where the same action is compelled to traverse it.</text>
+</svg>

@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="780" viewBox="0 0 1100 780" role="img" aria-labelledby="title desc">
+  <title id="title">Where the four gates sit</title>
+  <desc id="desc">Nested regions show the runtime inside the application, the wallet provider beside it, and the chain beyond. Gate 0.5 guards tool calls inside the runtime, Gate 1 is signing policy at the wallet boundary, Gate 2 is a mandate enforced by the smart account or protocol, and Gate 3 is an assertion evaluated by the builder before inclusion.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8f9fb}
+      .region{fill:#fff;stroke:#c9d2dc;stroke-width:1.5}
+      .region-dash{fill:#fff;stroke:#aab6c3;stroke-width:1.5;stroke-dasharray:6 5}
+      .runtime{fill:#f3f7fb;stroke:#b8cfdf;stroke-width:1.5}
+      .chain{fill:#fbf3f6;stroke:#e0a9bd;stroke-width:1.5}
+      .card{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}
+      .fork{fill:#fff;stroke:#8b9cac;stroke-width:1.5;stroke-dasharray:4 3}
+      .tx{fill:#dfeee3;stroke:#5f8f6e;stroke-width:1.5}
+      .gate{fill:#fbe9f0;stroke:#dc739b;stroke-width:2}
+      .dark{fill:#18202a}.muted{fill:#586675}.pink{fill:#9a4d6b}.blue{fill:#285c87}
+      .label{font:700 13px Arial,sans-serif;letter-spacing:.09em}
+      .stage{font:700 25px Arial,sans-serif}
+      .name{font:700 17px Arial,sans-serif}
+      .small{font:13px Arial,sans-serif}
+      .mono{font:14px "Courier New",monospace}
+      .gatenum{font:700 14px Arial,sans-serif;letter-spacing:.06em}
+      .note{font:italic 14px Arial,sans-serif}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#778696"/></marker>
+    <marker id="arrowpink" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#c0567f"/></marker>
+  </defs>
+  <rect class="bg" width="1100" height="780" rx="20"/>
+  <text class="label muted" x="50" y="56">GATE ARCHITECTURE</text>
+  <text class="stage dark" x="50" y="94">Four places a transaction can be refused, from the model outward.</text>
+
+  <!-- APPLICATION region: x 50..600 -->
+  <rect class="region" x="50" y="130" width="550" height="600" rx="22"/>
+  <text class="label muted" x="74" y="160">APPLICATION · AOMI HOSTED SERVICE</text>
+  <text class="small muted" x="74" y="180">Operator controls the runtime and the signing route.</text>
+
+  <!-- RUNTIME region: x 74..576, y 200..490 -->
+  <rect class="runtime" x="74" y="200" width="502" height="290" rx="18"/>
+  <text class="label blue" x="96" y="228">RUNTIME</text>
+
+  <!-- model -->
+  <rect class="card" x="96" y="246" width="150" height="54" rx="10"/>
+  <text class="name dark" x="118" y="272">Model</text>
+  <text class="small muted" x="118" y="290">builds the tx</text>
+
+  <!-- eth_call loop -->
+  <path d="M144 300 V342" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M196 342 V300" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="mono muted" x="136" y="326" text-anchor="end">eth_call</text>
+  <text class="mono muted" x="204" y="326">results</text>
+
+  <!-- chain forks -->
+  <g transform="translate(96 348)">
+    <rect class="fork" width="40" height="26" rx="6"/><rect class="fork" x="50" width="40" height="26" rx="6"/><rect class="fork" x="100" width="40" height="26" rx="6"/>
+    <rect class="fork" y="34" width="40" height="26" rx="6"/><rect class="fork" x="50" y="34" width="40" height="26" rx="6"/><rect class="fork" x="100" y="34" width="40" height="26" rx="6"/>
+    <path d="M40 13H50M90 13H100M40 47H50M90 47H100" stroke="#8b9cac" stroke-width="1.5"/>
+  </g>
+  <text class="name dark" x="96" y="434">Chain forks</text>
+  <text class="small muted" x="96" y="454">Simulation is the back-pressure</text>
+  <text class="small muted" x="96" y="471">that makes the built tx correct.</text>
+
+  <!-- Gate 0.5: centre x 430 -->
+  <g transform="translate(430 292)">
+    <rect class="gate" x="-40" y="-40" width="80" height="80" rx="12" transform="rotate(45)"/>
+    <text class="gatenum pink" text-anchor="middle" y="6">0.5</text>
+  </g>
+  <text class="name dark" x="430" y="376" text-anchor="middle">Guards · skills · tool hooks</text>
+  <text class="small muted" x="430" y="398" text-anchor="middle">Refuse a tool call before it executes.</text>
+  <text class="small muted" x="430" y="415" text-anchor="middle">Chain, target, selector, spender limits.</text>
+  <text class="small muted" x="430" y="432" text-anchor="middle">Application-controlled.</text>
+
+  <!-- staged txs flow down, centre x 325 -->
+  <path d="M325 490 V528" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <g transform="translate(268 534)">
+    <rect class="tx" width="34" height="20" rx="4"/><rect class="tx" x="40" width="34" height="20" rx="4"/><rect class="tx" x="80" width="34" height="20" rx="4"/>
+  </g>
+  <text class="small muted" x="325" y="572" text-anchor="middle">staged, simulated tx</text>
+
+  <!-- Policy engine: x 210..440 -->
+  <path d="M325 578 V608" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect class="card" x="210" y="614" width="230" height="92" rx="12"/>
+  <text class="name dark" x="232" y="642">Policy engine</text>
+  <text class="small muted" x="232" y="664">Per wallet: manual, auto or bypass.</text>
+  <text class="small muted" x="232" y="681">Read-only threads and unbound</text>
+  <text class="small muted" x="232" y="698">wallets are denied here.</text>
+
+  <!-- Gate 1 sits in the gap between application (600) and wallet (700) -->
+  <path d="M440 660 H604" stroke="#778696" stroke-width="2"/>
+  <g transform="translate(650 660)">
+    <rect class="gate" x="-30" y="-30" width="60" height="60" rx="10" transform="rotate(45)"/>
+    <text class="gatenum pink" text-anchor="middle" y="5">1</text>
+  </g>
+  <path d="M694 660 H726" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- WALLET PROVIDER region: x 700..1050, y 500..730 -->
+  <rect class="region-dash" x="700" y="500" width="350" height="230" rx="18"/>
+  <text class="label muted" x="724" y="528">WALLET PROVIDER</text>
+  <text class="small muted" x="724" y="548">Keys and signing policy held outside Aomi.</text>
+  <rect class="card" x="724" y="562" width="302" height="62" rx="10"/>
+  <text class="name dark" x="744" y="588">Signing policy · enclave</text>
+  <text class="small muted" x="744" y="608">Privy · Para · Turnkey · CDP · Fireblocks</text>
+  <text class="small muted" x="724" y="648">Independent only if the application cannot</text>
+  <text class="small muted" x="724" y="665">edit the policy or reach the key by another</text>
+  <text class="small muted" x="724" y="682">route.</text>
+  <text class="small pink" x="724" y="710">Refuses to sign.</text>
+
+  <!-- signed tx up to chain -->
+  <path d="M875 500 V452" stroke="#c0567f" stroke-width="2" marker-end="url(#arrowpink)"/>
+  <text class="small muted" x="888" y="480">signed tx</text>
+
+  <!-- CHAIN region: x 700..1050, y 130..446 -->
+  <rect class="chain" x="700" y="130" width="350" height="316" rx="18"/>
+  <text class="label pink" x="724" y="158">CHAIN · SETTLEMENT DOMAIN</text>
+
+  <!-- Gate 3 builder (entrance), diamond centre x 762 -->
+  <g transform="translate(762 398)">
+    <rect class="gate" x="-28" y="-28" width="56" height="56" rx="10" transform="rotate(45)"/>
+    <text class="gatenum pink" text-anchor="middle" y="5">3</text>
+  </g>
+  <rect class="card" x="810" y="368" width="226" height="60" rx="10"/>
+  <text class="name dark" x="826" y="392">Builder · sequencer</text>
+  <text class="small muted" x="826" y="412">Assertion on candidate post-state.</text>
+
+  <path d="M918 368 V320" stroke="#c0567f" stroke-width="2" marker-end="url(#arrowpink)"/>
+  <text class="small muted" x="906" y="348" text-anchor="end">simulated for inclusion</text>
+
+  <!-- Gate 2 smart account -->
+  <g transform="translate(762 288)">
+    <rect class="gate" x="-28" y="-28" width="56" height="56" rx="10" transform="rotate(45)"/>
+    <text class="gatenum pink" text-anchor="middle" y="5">2</text>
+  </g>
+  <rect class="card" x="810" y="258" width="226" height="60" rx="10"/>
+  <text class="name dark" x="826" y="282">Smart account · protocol</text>
+  <text class="small muted" x="826" y="302">Mandate reverts a violating call.</text>
+
+  <path d="M918 258 V214" stroke="#c0567f" stroke-width="2" marker-end="url(#arrowpink)"/>
+  <text class="small muted" x="906" y="240" text-anchor="end">executes</text>
+
+  <!-- Block -->
+  <rect class="card" x="810" y="178" width="226" height="36" rx="10"/>
+  <text class="name dark" x="826" y="202">Block · receipt</text>
+
+  <!-- footnote -->
+  <text class="note muted" x="50" y="762">A gate counts only where it can refuse. Each region is administered by a different party; a rule the application can edit is not a boundary.</text>
+</svg>
