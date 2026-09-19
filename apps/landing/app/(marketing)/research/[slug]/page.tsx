@@ -11,6 +11,7 @@ import {
 } from "@/lib/research";
 import styles from "../../longform.module.css";
 import { ExecutionHarnessesResearch } from "./execution-harnesses-research";
+import { ThreeGatesResearch } from "./three-gates-research";
 
 function textFromChildren(children: ReactNode): string {
   return Children.toArray(children)
@@ -173,6 +174,10 @@ export default async function ResearchPostPage({
 
   if (post.format === "execution-harnesses") {
     return <ExecutionHarnessesResearch post={post} />;
+  }
+
+  if (post.format === "three-gates") {
+    return <ThreeGatesResearch post={post} />;
   }
 
   const components: Components =

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="720" viewBox="0 0 1100 720" role="img" aria-labelledby="title desc">
+  <title id="title">Same task, two worlds</title>
+  <desc id="desc">Two columns run the same instruction, approve 500 USDC for the Uniswap router. On the left a frontier model with no harness performs eight steps by hand, four of which can be silently wrong until a revert on the live chain. On the right a small model on an integrated runtime emits one typed tool call and the harness encodes, simulates in a sandbox, runs guards and stages; the first error signal arrives before anything is signed.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8f9fb}
+      .col{fill:#fff;stroke:#c9d2dc;stroke-width:1.5}
+      .colblue{fill:#f3f7fb;stroke:#b8cfdf;stroke-width:1.5}
+      .step{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}
+      .risk{fill:#fbe9f0;stroke:#dc739b;stroke-width:1.5}
+      .harness{fill:#e8f1fa;stroke:#77a6d2;stroke-width:1.5}
+      .model{fill:#fff;stroke:#77a6d2;stroke-width:1.5}
+      .signal{fill:#fbe9f0;stroke:#dc739b;stroke-width:2}
+      .signalok{fill:#dfeee3;stroke:#5f8f6e;stroke-width:2}
+      .dark{fill:#18202a}.muted{fill:#586675}.pink{fill:#9a4d6b}.blue{fill:#285c87}.green{fill:#2f6a44}
+      .label{font:700 13px Arial,sans-serif;letter-spacing:.09em}
+      .stage{font:700 25px Arial,sans-serif}
+      .name{font:700 15px Arial,sans-serif}
+      .small{font:13px Arial,sans-serif}
+      .mono{font:13px "Courier New",monospace}
+      .monob{font:700 13px "Courier New",monospace}
+      .note{font:italic 14px Arial,sans-serif}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#778696"/></marker>
+  </defs>
+  <rect class="bg" width="1100" height="720" rx="20"/>
+  <text class="label muted" x="50" y="56">SAME TASK, TWO WORLDS</text>
+  <text class="stage dark" x="50" y="94">“Approve 500 USDC for the Uniswap router.”</text>
+
+  <!-- LEFT column -->
+  <rect class="col" x="50" y="124" width="500" height="470" rx="18"/>
+  <text class="label muted" x="74" y="152">FRONTIER MODEL · NO HARNESS</text>
+  <text class="small muted" x="74" y="172">Every step is the model's own work.</text>
+
+  <g transform="translate(74 190)">
+    <rect class="risk" width="452" height="34" rx="8"/><text class="name dark" x="14" y="22">1  Find the USDC contract address</text><text class="small pink" x="438" y="22" text-anchor="end">wrong chain, wrong token</text>
+    <rect class="step" y="42" width="452" height="34" rx="8"/><text class="name dark" x="14" y="64">2  Fetch the ABI</text>
+    <rect class="step" y="84" width="452" height="34" rx="8"/><text class="name dark" x="14" y="106">3  Compute the selector</text><text class="mono muted" x="438" y="106" text-anchor="end">keccak256(sig)[:4]</text>
+    <rect class="risk" y="126" width="452" height="34" rx="8"/><text class="name dark" x="14" y="148">4  ABI-encode spender and amount</text><text class="small pink" x="438" y="148" text-anchor="end">decimals, padding</text>
+    <rect class="risk" y="168" width="452" height="34" rx="8"/><text class="name dark" x="14" y="190">5  Set gas, nonce, chain id</text><text class="small pink" x="438" y="190" text-anchor="end">under-gas, stale nonce</text>
+    <rect class="step" y="210" width="452" height="34" rx="8"/><text class="name dark" x="14" y="232">6  Sign</text>
+    <rect class="risk" y="252" width="452" height="34" rx="8"/><text class="name dark" x="14" y="274">7  Broadcast to the live chain</text><text class="small pink" x="438" y="274" text-anchor="end">fee is spent here</text>
+    <rect class="step" y="294" width="452" height="34" rx="8"/><text class="name dark" x="14" y="316">8  Read the revert</text><text class="mono muted" x="438" y="316" text-anchor="end">"execution reverted"</text>
+  </g>
+  <rect class="signal" x="74" y="536" width="452" height="40" rx="10"/>
+  <text class="name pink" x="300" y="561" text-anchor="middle">First error signal: step 8, on the live chain, after paying</text>
+
+  <!-- RIGHT column -->
+  <rect class="colblue" x="574" y="124" width="476" height="470" rx="18"/>
+  <text class="label blue" x="598" y="152">SMALL MODEL · INTEGRATED HARNESS</text>
+  <text class="small muted" x="598" y="172">The model writes one typed call. The harness does the rest.</text>
+
+  <rect class="model" x="598" y="190" width="428" height="112" rx="10"/>
+  <text class="label blue" x="614" y="212">MODEL EMITS</text>
+  <text class="monob dark" x="614" y="236">stage_tx {</text>
+  <text class="mono dark" x="630" y="254">to: USDC, signature: "approve(address,uint256)",</text>
+  <text class="mono dark" x="630" y="272">args: [router, "500000000"], kind: erc20_approve</text>
+  <text class="monob dark" x="614" y="292">}</text>
+
+  <path d="M812 302 V322" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect class="harness" x="598" y="326" width="428" height="196" rx="10"/>
+  <text class="label blue" x="614" y="348">HARNESS DOES</text>
+  <g transform="translate(614 360)">
+    <text class="small dark" y="18">Resolve ABI from cache or fetch, follow proxies</text>
+    <text class="small dark" y="40">Compute selector, ABI-encode words, inject from and chain id</text>
+    <text class="small dark" y="62">Execute on a forked chain</text><text class="mono green" x="396" y="62" text-anchor="end">revert → readable error</text>
+    <text class="small dark" y="84">Run guards on the simulation</text><text class="mono green" x="396" y="84" text-anchor="end">target, spender, selector</text>
+    <text class="small dark" y="106">Stage into the pending queue</text><text class="mono muted" x="396" y="106" text-anchor="end">nothing signed yet</text>
+    <text class="small dark" y="128">Return a typed error on bad arguments</text><text class="mono green" x="396" y="128" text-anchor="end">tool failure → retry</text>
+    <text class="small dark" y="150">Skills supply addresses and protocol procedure</text>
+  </g>
+  <rect class="signalok" x="598" y="536" width="428" height="40" rx="10"/>
+  <text class="name green" x="812" y="561" text-anchor="middle">First error signal: in the loop, before signing, no fee paid</text>
+
+  <text class="note muted" x="50" y="632">Pink steps are where an honest mistake stays invisible until the chain rejects it. The harness moves every one of them</text>
+  <text class="note muted" x="50" y="652">behind a tool the model cannot get subtly wrong, and puts the first failure signal before authorization instead of after.</text>
+  <text class="small muted" x="50" y="690">Right column reflects our own runtime as documented in AomiBench v0.1, Section 2.3 and Section 4.</text>
+</svg>
