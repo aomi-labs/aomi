@@ -296,6 +296,35 @@ export interface AomiOnchainPolicyBinding {
   revoked_at: number | null;
 }
 
+export interface AomiOnchainPolicyProviderCtx {
+  provider: string;
+  chain_ref: string;
+  targets: Record<string, AomiOnchainAddress>;
+  slot_windows: number[];
+  binding: AomiOnchainPolicyBinding | null;
+  chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
+  remaining_native_amount: string | null;
+}
+
+export interface AomiBindOnchainPolicy {
+  binding_id: number | null;
+  owner: AomiOnchainAddress;
+  delegate: AomiOnchainAddress;
+  chain_ref: string;
+  policy: AomiOnchainPolicy;
+  transaction_signature: string | null;
+}
+
+export interface AomiPreparedOnchainPolicy {
+  operation: "attach" | "update" | "current" | "revoke";
+  policy_hash: string | null;
+  operating_address: AomiOnchainAddress;
+  provider_account: AomiOnchainAddress;
+  unsigned_transaction_base64: string | null;
+  last_valid_block_height: number | null;
+  binding: AomiOnchainPolicyBinding | null;
+}
+
 export interface AomiAccountProfile {
   user: AomiUser;
   auth_providers: AomiAuthProvider[];
