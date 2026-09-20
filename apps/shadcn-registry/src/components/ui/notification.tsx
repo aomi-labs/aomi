@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { toast } from "sonner";
 
 import { useNotification } from "@aomi-labs/react";
@@ -34,6 +34,12 @@ export function NotificationToaster() {
   return (
     <Toaster
       position="top-right"
+      style={{ "--width": "352px" } as CSSProperties}
+      toastOptions={{
+        classNames: {
+          toast: "w-full !border-0 !bg-transparent !p-0 !shadow-none",
+        },
+      }}
       offset={{ top: 72, right: 16 }}
       mobileOffset={{ top: 68, right: 16, left: 16 }}
     />
@@ -54,9 +60,9 @@ function showToast(
 
   toast.custom(
     () => (
-      <div className="border-aomi-border bg-aomi-surface-2 text-aomi-fg group relative flex w-[22rem] max-w-[calc(100vw-2rem)] items-start gap-2.5 rounded-2xl border p-3.5 shadow-2xl">
+      <div className="border-aomi-border bg-aomi-surface text-aomi-fg group relative flex w-full min-w-0 items-start gap-2.5 rounded-xl border p-3 shadow-lg">
         <NotificationIcon type={notification.type} />
-        <div className="min-w-0 flex-1 pt-0.5 text-left">
+        <div className="min-w-0 flex-1 break-words pt-1 text-left">
           <div className="pr-7 text-sm font-semibold leading-5">
             {notification.title}
           </div>
@@ -70,7 +76,7 @@ function showToast(
         <button
           type="button"
           aria-label="Close notification"
-          className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg absolute right-2.5 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm opacity-70 transition-colors group-hover:opacity-100"
+          className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg focus-visible:ring-aomi-accent absolute right-2.5 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm opacity-70 transition-colors focus-visible:outline-none focus-visible:ring-2 group-hover:opacity-100"
           onClick={() => {
             dismissNotification(notification.id);
             toast.dismiss(notification.id);
