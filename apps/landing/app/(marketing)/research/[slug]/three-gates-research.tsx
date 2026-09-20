@@ -10,12 +10,27 @@ type Props = { post: ResearchPost & { body: string } };
 const sections = [
   ["intent-build-sign-settle", "Intent → build → sign → settle"],
   ["the-risk-landscape-attacks-vs-defects", "The risk landscape: attacks vs defects"],
-  ["where-the-gates-sit", "Where the gates sit"],
-  ["gate-0-5-guardrails-during-building", "0.5 / Guardrails during building"],
-  ["gate-1-the-wallet-that-can-refuse-to-sign", "1 / The wallet that can refuse to sign"],
-  ["gate-2-mandates-enforced-onchain", "2 / Mandates enforced onchain"],
-  ["gate-3-assertions-at-the-builder-boundary", "3 / Assertions at the builder boundary"],
-  ["designing-the-composite-not-collecting-logos", "Designing the composite"],
+  ["a-gate-is-defined-by-its-enforcement-point", "The enforcement map"],
+  [
+    "gate-0-5-runtime-controls-remain-inside-the-application-boundary",
+    "0.5 / Runtime controls",
+  ],
+  [
+    "gate-1-wallet-custody-becomes-a-gate-only-with-independent-policy",
+    "1 / Independent wallet policy",
+  ],
+  [
+    "gate-2-onchain-mandates-govern-only-the-execution-paths-they-cover",
+    "2 / Onchain mandates",
+  ],
+  [
+    "gate-3-builder-assertions-are-final-but-path-dependent",
+    "3 / Builder assertions",
+  ],
+  [
+    "the-gates-must-evaluate-the-same-transaction",
+    "Composing the architecture",
+  ],
   ["conclusion", "Conclusion"],
   ["method-and-scope", "Method and scope"],
 ] as const;
@@ -114,32 +129,36 @@ export function ThreeGatesResearch({ post }: Props) {
         <div className={styles.summary}>
           <span>Abstract</span>
           <p>
-            An agent can build a valid transaction from a false account of the
-            user&apos;s intent or the state of the chain, or simply build the
-            wrong one. We separate those two families of loss, adversarial
-            attacks and capability defects, and argue that only the first is
-            addressed by gates while the second is decided by model and harness.
-            Benchmark evidence from coding agents and from our own onchain suite
-            shows the second family is where most day-to-day loss sits.
-            We then trace a transaction through four places it can be refused: a runtime guard while it is
-            built, a wallet policy at signing, a mandate enforced by the smart
-            account or protocol, and an assertion evaluated by the builder
-            before inclusion. For each gate we ask what it can reject, who can
-            change the rule, which route bypasses it and how it fails when its
-            evaluator is down.
+            Agentic finance relies on multiple security controls between user
+            authorization and onchain settlement. Two failure classes define
+            the problem. Adversarial attacks corrupt intent, observed state or
+            transaction handling. Capability defects produce incorrect
+            transactions without hostile input. Gates can constrain unsafe
+            outcomes from either class, while the model and execution harness
+            determine how often capability defects occur. This article traces a
+            transaction through a preliminary runtime guard and three settlement
+            gates. It compares leading implementations by enforcement scope,
+            governing authority, bypass paths and failure posture.
           </p>
-          <p>
-            We then survey the vendors now competing at each gate: MCP-boundary
-            controls from AWS, Permit, Cloudflare and Lakera; signing policy at
-            Privy, Turnkey, Coinbase CDP and Fireblocks; session and permission
-            modules from ZeroDev, Biconomy, Rhinestone, Safe, Zodiac and
-            EIP-7702; and pre-inclusion assertions from Phylax, Forta, BlockSec
-            and Hypernative. We classify each by enforcement location and rule
-            ownership rather than by marketing category. We build one of the
-            runtimes discussed and hold it to the same questions. We close with a
-            composite design: an action envelope that binds one action across
-            all four gates, and a bypass test plan for any claimed coverage.
-          </p>
+          <span className={styles.findingsLabel}>Key findings</span>
+          <ul>
+            <li>
+              Runtime controls improve transaction construction and enforce local
+              policy, but remain inside the application trust boundary.
+            </li>
+            <li>
+              A wallet becomes an independent gate only when the application
+              cannot relax its policy or bypass its signing route.
+            </li>
+            <li>
+              Onchain mandates provide authoritative enforcement only for the
+              account and execution paths they govern.
+            </li>
+            <li>
+              Builder assertions provide a final pre-inclusion decision, but
+              their protection depends on the integrated builder path.
+            </li>
+          </ul>
         </div>
 
         <nav className={styles.contents} aria-label="Article sections">
