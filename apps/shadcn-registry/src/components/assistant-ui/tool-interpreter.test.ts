@@ -679,6 +679,30 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).not.toContain("Success");
   });
 
+  it.each([
+    ["aerodrome", "Aerodrome"],
+    ["uniswap_v4", "Uniswap V4"],
+  ])(
+    "identifies %s preparation without implying execution",
+    (protocol, label) => {
+      const step = interpretToolStep({
+        toolName: "Prepare swap",
+        result: {
+          protocol,
+          chain_id: 5042,
+          status: "prepared",
+          token: { symbol: "USDC", decimals: 6 },
+          amount: { raw: "1000000", display: "1 USDC" },
+        },
+      });
+      expect(labelsFor(step.chips)).toContain(label);
+      expect(labelsFor(step.chips)).toContain("Arc");
+      expect(labelsFor(step.chips)).toContain("1 USDC");
+      expect(labelsFor(step.chips)).toContain("Prepared");
+      expect(labelsFor(step.chips)).not.toContain("Success");
+    },
+  );
+
   it("shows Arc ERC-20 USDC approvals in six-decimal units", () => {
     const step = interpretToolStep({
       toolName: "Approve USDC spend",

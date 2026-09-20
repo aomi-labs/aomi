@@ -17,6 +17,8 @@ export const matchProtocol: ToolMatcher = ({ rawLabel, resultRecord }) => {
     asString(resultRecord.protocol) ?? asString(resultRecord.source);
   const labels: Record<string, string> = {
     aave_v4: "Aave V4",
+    aerodrome: "Aerodrome",
+    uniswap_v4: "Uniswap V4",
     morpho: "Morpho",
     circle_gateway: "Circle Gateway",
     cctp_v2: "Circle CCTP",
