@@ -95,15 +95,13 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit account" }));
     const input = screen.getByRole("textbox", {
       name: "Account display name",
     });
     expect(input).toHaveValue("Aron");
     expect(screen.queryByText("Account name")).toBeNull();
-    expect(
-      screen.getByText("3 linked wallets · 1 not connected on this device"),
-    ).toBeTruthy();
+    expect(screen.getByText("0 providers · 3 linked wallets")).toBeTruthy();
 
     fireEvent.change(input, { target: { value: "Aron Aomi" } });
     await act(async () => {
@@ -129,7 +127,7 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit account" }));
     fireEvent.change(
       screen.getByRole("textbox", { name: "Account display name" }),
       { target: { value: "Temporary" } },
@@ -170,22 +168,12 @@ describe("AccountManagement wallet actions", () => {
     expect(connect.querySelector("svg")).toBeTruthy();
     expect(disconnect.querySelector("svg")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Use" })).toBeNull();
-    expect(
-      screen.getByText("3 linked wallets · 1 not connected on this device"),
-    ).toBeTruthy();
+    expect(screen.getByText("0 providers · 3 linked wallets")).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
     const selectWallet = screen.getByRole("button", {
-      name: "Make Coinbase Wallet active",
+      name: /0xc0ff Coinbase/,
     });
-    expect(
-      document.querySelector('[data-wallet-state="active"]')?.className,
-    ).toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).not.toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).toContain("hover:bg-aomi-hover");
 
     fireEvent.click(connect);
     fireEvent.click(disconnect);

@@ -5,6 +5,7 @@ import type { ManagedWallet } from "../wallet-management-model";
 
 export function WalletRow({
   wallet,
+  view = "active",
   pending,
   onLink,
   onConnect,
@@ -13,6 +14,7 @@ export function WalletRow({
   onUnlink,
 }: {
   wallet: ManagedWallet;
+  view?: "linked" | "active";
   pending: string | null;
   onLink?: (wallet: ManagedWallet) => Promise<void>;
   onConnect?: (wallet: ManagedWallet) => Promise<void>;
@@ -20,15 +22,15 @@ export function WalletRow({
   onDisconnect?: (wallet: ManagedWallet) => Promise<void>;
   onUnlink?: (wallet: ManagedWallet) => Promise<void>;
 }) {
-  const title =
-    wallet.walletName ??
-    wallet.label ??
-    (wallet.provider ? titleCase(wallet.provider) : undefined) ??
-    (wallet.family === "evm" ? "Ethereum wallet" : "Solana wallet");
+  const provider =
+    wallet.provider ?? wallet.walletName ?? wallet.label ?? "Wallet";
+  const title = shortenAddress(wallet.address);
   const busy = pending?.endsWith(wallet.key) ?? false;
   const hasAction = (kind: ManagedWallet["actions"][number]["kind"]) =>
     wallet.actions.some((action) => action.kind === kind);
-  const selectable = Boolean(hasAction("select") && onSelect);
+  const selectable = Boolean(
+    view === "active" && hasAction("select") && onSelect,
+  );
   const stateDetail =
     wallet.state === "mismatch"
       ? "This provider wallet does not match the wallet linked to your account."
@@ -50,16 +52,15 @@ export function WalletRow({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate text-[13px] font-medium">{title}</span>
-          {wallet.connected ? (
-            <StatusBadge label="Connected" tone="connected" />
+          {view === "active" ? (
+            <StatusBadge label={titleCase(provider)} tone="provider" />
           ) : null}
-          {wallet.linked ? <StatusBadge label="Linked" tone="linked" /> : null}
-          {wallet.operating ? (
-            <StatusBadge label="Active" tone="active" />
+          {view === "active" && wallet.linked ? (
+            <StatusBadge label="Linked" tone="linked" />
           ) : null}
         </div>
-        <span className="text-aomi-muted block truncate font-mono text-[11px]">
-          {shortenAddress(wallet.address)} ·{" "}
+        <span className="text-aomi-muted block truncate text-[11px]">
+          {view === "linked" ? `${titleCase(provider)} · ` : ""}
           {wallet.family === "evm" ? "Ethereum" : "Solana"}
         </span>
         {stateDetail ? (
@@ -89,19 +90,11 @@ export function WalletRow({
               : "linked"
       }
       className={`relative flex items-stretch transition-colors ${
-        wallet.operating
-          ? "bg-aomi-success/[0.045]"
-          : selectable
-            ? "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset"
-            : ""
+        selectable
+          ? "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset"
+          : ""
       }`}
     >
-      {wallet.operating ? (
-        <span
-          className="bg-aomi-success absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full shadow-[0_0_12px_rgba(16,185,129,0.45)]"
-          aria-hidden="true"
-        />
-      ) : null}
       {selectable ? (
         <button
           type="button"
@@ -121,7 +114,11 @@ export function WalletRow({
         {busy ? (
           <Loader2 className="text-aomi-muted size-4 animate-spin" />
         ) : null}
-        {!busy && hasAction("link") && onLink && wallet.kind === "external" ? (
+        {!busy &&
+        view === "active" &&
+        hasAction("link") &&
+        onLink &&
+        wallet.kind === "external" ? (
           <TextButton onClick={() => void onLink(wallet)}>
             <Link2 size={13} />
             Link
@@ -135,7 +132,10 @@ export function WalletRow({
             {hasAction("reauthenticate") ? "Sign in again" : "Connect"}
           </TextButton>
         ) : null}
-        {!busy && hasAction("disconnect") && onDisconnect ? (
+        {!busy &&
+        view === "active" &&
+        hasAction("disconnect") &&
+        onDisconnect ? (
           <TextButton onClick={() => void onDisconnect(wallet)}>
             <Unplug size={14} />
             Disconnect
@@ -203,14 +203,16 @@ export function StatusBadge({
   tone,
 }: {
   label: string;
-  tone: "connected" | "linked" | "active";
+  tone: "connected" | "linked" | "active" | "provider";
 }) {
   const toneClass =
     tone === "active"
       ? "bg-aomi-success/10 text-aomi-success ring-aomi-success/20 ring-1 ring-inset"
       : tone === "connected"
         ? "bg-sky-500/10 text-sky-700 ring-1 ring-inset ring-sky-500/15 dark:text-sky-300"
-        : "bg-aomi-surface-2 text-aomi-muted";
+        : tone === "provider"
+          ? "border-aomi-border text-aomi-muted border"
+          : "bg-aomi-surface-2 text-aomi-muted";
   return (
     <span
       className={`${toneClass} rounded-full px-1.5 py-0.5 text-[10px] font-medium`}

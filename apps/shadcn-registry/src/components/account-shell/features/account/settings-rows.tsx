@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { CircleHelp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../../ui/tooltip";
 
 export const settingsPanelClass =
   "border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border";
@@ -6,22 +8,48 @@ export const settingsPanelClass =
 export function SettingsSectionHeading({
   title,
   detail,
+  hint,
   action,
 }: {
   title: string;
   detail?: string;
+  hint?: string;
   action?: ReactNode;
 }) {
   return (
     <div className="flex min-h-8 items-center justify-between gap-3 px-0.5">
-      <div className="flex min-w-0 items-baseline gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <h3 className="truncate text-[13px] font-semibold">{title}</h3>
+        {hint ? <SettingsHint label={title} text={hint} /> : null}
         {detail ? (
           <span className="text-aomi-muted truncate text-[12px]">{detail}</span>
         ) : null}
       </div>
       {action}
     </div>
+  );
+}
+
+export function SettingsHint({ label, text }: { label: string; text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`About ${label}`}
+          className="border-aomi-border text-aomi-muted hover:text-aomi-fg flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors"
+        >
+          <CircleHelp size={12} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        className="bg-aomi-fg text-aomi-bg max-w-64 text-pretty"
+      >
+        {text}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
