@@ -4,6 +4,7 @@ import { useState, type ComponentType } from "react";
 import {
   ChartNoAxesCombined,
   Settings2,
+  ShieldCheck,
   SlidersHorizontal,
   UserRound,
   X,
@@ -13,13 +14,14 @@ import { ModalBackdrop } from "../../../ui/modal-backdrop";
 import { GeneralSettings } from "../../features/general";
 import { AccountSettings } from "../../features/account";
 import { UsageSettings } from "../../features/usage";
+import { PolicySettings } from "../../features/policy";
 import { directoryModalType } from "../shell/directory-modal-type";
 import {
   useAomiSession,
   type AomiSessionStatus,
 } from "../providers/aomi-session-bridge";
 
-export type SettingsTab = "general" | "account" | "usage";
+export type SettingsTab = "general" | "account" | "policy" | "usage";
 
 const NAV: {
   id: SettingsTab;
@@ -38,6 +40,12 @@ const NAV: {
     label: "Account",
     description: "Wallets, sign-in methods, and signing",
     Icon: UserRound,
+  },
+  {
+    id: "policy",
+    label: "Policy",
+    description: "On-chain permissions for delegated agents",
+    Icon: ShieldCheck,
   },
   {
     id: "usage",
@@ -199,6 +207,13 @@ export function SettingsModal({
           <>
             {errorBanner}
             <UsageSettings />
+          </>
+        );
+      case "policy":
+        return (
+          <>
+            {errorBanner}
+            <PolicySettings />
           </>
         );
     }

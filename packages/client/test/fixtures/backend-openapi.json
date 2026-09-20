@@ -347,46 +347,65 @@
         ]
       }
     },
+    "/api/commits": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/manual": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
     "/api/widget/v1/aa-accounts/{chain_id}": {
       "put": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": [],
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
-      }
-    },
-    "/api/widget/v1/aa-operations/{operation_id}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": [],
-            "threadId": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account",
-          "thread"
-        ]
-      }
-    },
-    "/api/widget/v1/signing-requests": {
-      "get": {
         "responses": {
           "200": {
             "description": "OK"
@@ -1645,7 +1664,24 @@
         ]
       }
     },
-    "/api/account/onchain-policies/{provider}/attach/prepare": {
+    "/api/account/onchain-policies/{provider}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/onchain-policies/{provider}/prepare": {
       "post": {
         "responses": {
           "200": {
@@ -1662,7 +1698,7 @@
         ]
       }
     },
-    "/api/account/onchain-policies/{provider}/attach/confirm": {
+    "/api/account/onchain-policies/{provider}/confirm": {
       "post": {
         "responses": {
           "200": {
@@ -1679,7 +1715,7 @@
         ]
       }
     },
-    "/api/account/onchain-policies/{provider}/revoke/prepare": {
+    "/api/account/onchain-policies/{provider}/{binding_id}/revoke/prepare": {
       "post": {
         "responses": {
           "200": {
@@ -1696,7 +1732,7 @@
         ]
       }
     },
-    "/api/account/onchain-policies/{provider}/revoke/confirm": {
+    "/api/account/onchain-policies/{provider}/{binding_id}/revoke/confirm": {
       "post": {
         "responses": {
           "200": {
