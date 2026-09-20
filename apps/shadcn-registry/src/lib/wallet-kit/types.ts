@@ -9,6 +9,7 @@ import type {
 } from "@aomi-labs/react";
 import type {
   AccountRuntimeStatus,
+  AccountConflict,
   AccountWallet,
   AomiUserRef,
   LinkWalletInput,
@@ -276,6 +277,7 @@ export type AomiWalletKit = {
   wallets: readonly WalletRow[];
   accountStatus?: AccountRuntimeStatus;
   accountError?: string;
+  accountConflict?: AccountConflict;
   /** The current Portal session is temporary and must not own linked wallets. */
   accountGuest?: boolean;
   accountUser?: AomiUserRef;

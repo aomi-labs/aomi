@@ -49,14 +49,14 @@ describe("createAomiBackendAccountClient", () => {
         { hasAccount: true },
       ),
     ).rejects.toThrow(
-      "This wallet or sign-in method is already linked to another Aomi account.",
+      "This wallet or sign-in method belongs to another Aomi account.",
     );
   });
 
   it.each([
-    ["wallet", "This wallet address is already linked"],
-    ["identity", "This sign-in method is already linked"],
-    ["email", "This email is already linked"],
+    ["wallet", "This wallet belongs to another Aomi account"],
+    ["identity", "This sign-in method belongs to another Aomi account"],
+    ["email", "This email belongs to another Aomi account"],
   ])("names the %s that actually collided", async (signalType, expected) => {
     const fetchImpl = vi.fn(async () => ({
       ok: false,

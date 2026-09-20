@@ -37,9 +37,10 @@ vi.mock("./aomi-backend-client", () => ({
     constructor(
       readonly status: number,
       readonly code: string | null,
+      readonly signalType: "wallet" | "identity" | "email" | null = null,
     ) {
       super(
-        "This wallet or sign-in method is already linked to another Aomi account. Sign in to that account, unlink it there, then return here and link it.",
+        "This wallet or sign-in method belongs to another Aomi account. Sign in another way to open that account.",
       );
       this.name = "AomiAccountRequestError";
     }
@@ -435,12 +436,10 @@ describe("useAomiBackendAccountRuntime", () => {
           status: "authenticated",
           provider: "para",
           subject: "para-user",
-          getCredential: vi
-            .fn()
-            .mockResolvedValue({
-              provider: "para",
-              providerToken: "provider-session",
-            }),
+          getCredential: vi.fn().mockResolvedValue({
+            provider: "para",
+            providerToken: "provider-session",
+          }),
         } as never,
         evm: { accounts: () => [] } as never,
       }),
@@ -459,7 +458,11 @@ describe("useAomiBackendAccountRuntime", () => {
       providerToken: "provider-session",
     };
     mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
-      new AomiAccountRequestError(409, "already_linked_to_another_account"),
+      new AomiAccountRequestError(
+        409,
+        "already_linked_to_another_account",
+        "wallet",
+      ),
     );
 
     const { result } = renderHook(() =>
@@ -477,10 +480,13 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() =>
-      expect(result.current.error).toContain(
-        "already linked to another Aomi account",
-      ),
+      expect(result.current.error).toContain("belongs to another Aomi account"),
     );
+    expect(result.current.conflict).toEqual({
+      code: "already_linked_to_another_account",
+      signalType: "wallet",
+      provider: "para",
+    });
     expect(result.current.user).toBeUndefined();
   });
 

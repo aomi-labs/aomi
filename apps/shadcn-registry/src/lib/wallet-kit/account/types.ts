@@ -4,6 +4,14 @@ import type { WalletFamily } from "../types";
 
 export type AccountRuntimeStatus = "disabled" | "loading" | "ready" | "error";
 
+export type AccountConflictSignal = "wallet" | "identity" | "email";
+
+export type AccountConflict = {
+  code: "already_linked_to_another_account";
+  signalType: AccountConflictSignal | null;
+  provider: string;
+};
+
 export type AomiUserRef = {
   id: string;
   displayName?: string;
@@ -71,6 +79,7 @@ export type UpdateAccountInput = {
 export type AccountRuntime = {
   status: AccountRuntimeStatus;
   error?: string;
+  conflict?: AccountConflict;
   /** True when the browser only has Portal's temporary guest session. */
   guest?: boolean;
   user?: AomiUserRef;
