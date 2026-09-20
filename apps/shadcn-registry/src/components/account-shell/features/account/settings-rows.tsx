@@ -47,11 +47,11 @@ export function SettingRow({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="text-[14px] font-medium leading-snug [overflow-wrap:anywhere]">
+          <div className="text-[14px] font-medium leading-snug [overflow-wrap:anywhere] sm:truncate sm:leading-none">
             {title}
           </div>
           <span
-            className={`text-aomi-muted text-[12px] leading-snug [overflow-wrap:anywhere] ${descMono ? "font-mono" : ""}`}
+            className={`text-aomi-muted text-[12px] leading-snug [overflow-wrap:anywhere] sm:truncate ${descMono ? "font-mono" : ""}`}
           >
             {desc}
           </span>
