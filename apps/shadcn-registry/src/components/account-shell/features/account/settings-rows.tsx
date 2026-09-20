@@ -42,16 +42,16 @@ export function SettingRow({
 }) {
   return (
     <div
-      className={`flex items-center justify-between gap-3 sm:gap-4 ${leading ? "min-h-12 py-3" : "py-3.5 sm:py-4"} ${className}`}
+      className={`flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap sm:gap-4 ${leading ? "min-h-12 py-3" : "py-3.5 sm:py-4"} ${className}`}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {leading}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="truncate text-[14px] font-medium leading-none">
+          <div className="text-[14px] font-medium leading-snug [overflow-wrap:anywhere] sm:truncate sm:leading-none">
             {title}
           </div>
           <span
-            className={`text-aomi-muted truncate text-[12px] leading-snug ${descMono ? "font-mono" : ""}`}
+            className={`text-aomi-muted text-[12px] leading-snug [overflow-wrap:anywhere] sm:truncate ${descMono ? "font-mono" : ""}`}
           >
             {desc}
           </span>

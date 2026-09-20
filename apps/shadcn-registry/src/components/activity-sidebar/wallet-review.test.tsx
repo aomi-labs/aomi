@@ -113,6 +113,10 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
     expect(runtime.executeAction).not.toHaveBeenCalled();
+    expect(screen.queryByText("Simulate")).not.toBeInTheDocument();
+    for (const label of ["Stage", "Commit", "Signed"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
     expect(screen.getByText("hosted")).toBeInTheDocument();
     expect(screen.getByText("Sponsorship required")).toBeInTheDocument();
     expect(screen.getByText("123456 native base units")).toBeInTheDocument();

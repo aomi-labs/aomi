@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { AomiWalletKit } from "@/lib/wallet-kit";
+import { ConnectButton } from "./connect-button";
 import { DualWalletBar } from "./dual-wallet-bar";
 
 const openPicker = vi.fn();
@@ -394,4 +395,19 @@ describe("DualWalletBar account menu", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     warn.mockRestore();
   });
+});
+
+it("keeps the account menu available without wallet picker rows", () => {
+  const rows = adapterState.current.walletModalRows;
+  adapterState.current.walletModalRows = [];
+  const onManageAccount = vi.fn();
+  try {
+    render(<ConnectButton accountMenu={{ enabled: true, onManageAccount }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.click(screen.getByText("Manage account"));
+    expect(onManageAccount).toHaveBeenCalledOnce();
+    expect(openPicker).not.toHaveBeenCalled();
+  } finally {
+    adapterState.current.walletModalRows = rows;
+  }
 });

@@ -52,6 +52,7 @@ import {
 } from "@aomi-labs/react";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
+import { AssistantMessageRow } from "./assistant-message-row";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
 import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
@@ -553,14 +554,7 @@ const AssistantMessage: FC = () => {
         )}
         data-role="assistant"
       >
-        <div className="aui-assistant-message-row flex w-full gap-3 px-3">
-          {!showFinishedEmptyMessage && (
-            <AomiMark
-              size={26}
-              className="text-aomi-fg mt-0.5 shrink-0"
-              aria-hidden
-            />
-          )}
+        <AssistantMessageRow showMark={!showFinishedEmptyMessage}>
           <div className="aui-assistant-message-col min-w-0 flex-1">
             {!showFinishedEmptyMessage && isNotice && (
               <div
@@ -609,7 +603,7 @@ const AssistantMessage: FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </AssistantMessageRow>
       </div>
     </MessagePrimitive.Root>
   );
@@ -666,11 +660,11 @@ const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
       <div
-        className="aui-user-message-root animate-in fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 py-4 duration-150 ease-out first:mt-3 last:mb-5 [&:where(>*)]:col-start-2"
+        className="aui-user-message-root animate-in fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(28px,1fr)_minmax(0,auto)] gap-y-2 px-2 py-4 duration-150 ease-out first:mt-3 last:mb-5 md:grid-cols-[minmax(72px,1fr)_minmax(0,auto)] [&:where(>*)]:col-start-2"
         data-role="user"
       >
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0 max-w-[32rem] justify-self-end">
-          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg break-words rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px]">
+          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px] [overflow-wrap:anywhere]">
             {isEmpty ? (
               <Skeleton className="aui-user-message-content-skeleton h-4 w-28 rounded-full" />
             ) : (

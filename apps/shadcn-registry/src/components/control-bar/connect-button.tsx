@@ -136,7 +136,7 @@ export const ConnectButton: FC<ConnectButtonProps> = ({
     (adapter.canConnect || adapter.wallets.length > 0),
   );
 
-  if (shouldUsePicker) {
+  if (accountMenu?.enabled || shouldUsePicker) {
     return (
       <DualWalletBar
         families={pickerFamilies}

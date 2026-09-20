@@ -757,12 +757,10 @@ export const AssistantTurnParts: FC = () => {
   const pending = delegations.filter(
     (run) => !run.callId || !represented.has(run.callId),
   );
-  // A live trailing text part may still be followed by another tool. Once the
-  // turn completes, only text after its final tool is the public answer.
-  const traceEnd =
-    live && (lastToolIndex >= 0 || pending.length > 0)
-      ? parts.length
-      : lastToolIndex + 1;
+  // Any live text, including the first part, may still precede a tool call.
+  // Completion is the boundary that identifies the final answer; until then
+  // keep prose in the trace rather than moving it back when a tool arrives.
+  const traceEnd = live ? parts.length : lastToolIndex + 1;
   const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
   const answerParts = parts
     .slice(traceEnd)

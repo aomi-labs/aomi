@@ -161,6 +161,9 @@ export function TransactionCard({
     !rejected &&
     !terminal &&
     (active || tx.action?.state === "pending");
+  const phases = ["Stage", "Simulate", "Commit", "Signed"]
+    .map((name, index) => ({ name, index }))
+    .filter(({ index }) => tx.kind !== "signature" || index !== 1);
   return (
     <div
       className={cn(
@@ -197,10 +200,13 @@ export function TransactionCard({
           </span>
         </div>
         <div
-          className="mt-2.5 grid grid-cols-4 gap-1.5"
+          className={cn(
+            "mt-2.5 grid gap-1.5",
+            tx.kind === "signature" ? "grid-cols-3" : "grid-cols-4",
+          )}
           aria-label={`Transaction preparation: ${tx.stage}; signing: ${rejected ? "rejected" : signed ? "signed" : "not signed"}`}
         >
-          {["Stage", "Simulate", "Commit", "Signed"].map((name, index) => (
+          {phases.map(({ name, index }) => (
             <div
               key={name}
               title={
@@ -244,11 +250,9 @@ export function TransactionCard({
                   "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
                   (index === 1 && failed) || (index === 3 && rejected)
                     ? "bg-aomi-danger"
-                    : index === 1 && tx.kind === "signature"
-                      ? "bg-aomi-border"
-                      : index <= step || (index === 3 && signed)
-                        ? "bg-aomi-accent"
-                        : "bg-aomi-border",
+                    : index <= step || (index === 3 && signed)
+                      ? "bg-aomi-accent"
+                      : "bg-aomi-border",
                 )}
               />
               <span className="text-aomi-muted mt-1.5 block text-[10px] leading-3">

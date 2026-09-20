@@ -7,15 +7,10 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import type {
-  AgentSession,
-  AomiClient,
-  UserState,
-} from "@aomi-labs/client";
+import type { AgentSession, AomiClient, UserState } from "@aomi-labs/client";
 import { UserState as UserStateHelpers } from "@aomi-labs/client";
 
 import { useControl, type ControlState } from "../contexts/control-context";
-import { useNotification } from "../contexts/notification-context";
 import type { ThreadContext } from "../contexts/thread-context";
 import { useThreadContext } from "../contexts/thread-context";
 import { useUser } from "../contexts/ext-user-context";
@@ -100,67 +95,6 @@ type ThreadListContext = {
   user: UserState;
 };
 
-function stableStateString(state: UserState): string {
-  return JSON.stringify(state ?? {});
-}
-
-function useWalletStateNotifications(user: UserState) {
-  const { showNotification } = useNotification();
-  const walletSnapshot = useCallback(
-    (nextUser: UserState) => ({
-      connection: {
-        // Serialize exactly the backend ProviderState. FE-local and account
-        // identity fields are deliberately not forwarded here.
-        is_connected: UserStateHelpers.isConnected(nextUser) ?? false,
-        provider: UserStateHelpers.provider(nextUser) ?? undefined,
-        provider_label:
-          typeof nextUser.connection?.provider_label === "string"
-            ? nextUser.connection.provider_label
-            : undefined,
-        auth_method: UserStateHelpers.authMethod(nextUser) ?? undefined,
-      },
-      evm: {
-        address: UserStateHelpers.address(nextUser),
-        chain_id: UserStateHelpers.chainId(nextUser),
-        ens_name:
-          typeof nextUser.evm?.ens_name === "string"
-            ? nextUser.evm.ens_name
-            : undefined,
-      },
-      svm: {
-        address: UserStateHelpers.svmAddress(nextUser),
-        cluster: nextUser.svm?.cluster,
-        wallet_name: nextUser.svm?.wallet_name,
-        transport: nextUser.svm?.transport,
-        capabilities: nextUser.svm?.capabilities,
-      },
-    }),
-    [],
-  );
-
-  const lastWalletStateRef = useRef(walletSnapshot(user));
-
-  useEffect(() => {
-    const nextWalletState = walletSnapshot(user);
-    const prevWalletState = lastWalletStateRef.current;
-    if (
-      stableStateString(prevWalletState as UserState) ===
-      stableStateString(nextWalletState as UserState)
-    ) {
-      return;
-    }
-    lastWalletStateRef.current = nextWalletState;
-    const wasConnected = prevWalletState.connection.is_connected;
-    const isConnected = nextWalletState.connection.is_connected;
-    if (wasConnected !== isConnected) {
-      showNotification({
-        type: "wallet",
-        title: isConnected ? "Wallet connected" : "Wallet disconnected",
-      });
-    }
-  }, [showNotification, user, walletSnapshot]);
-}
-
 function useRemoteThreadListSync(
   context: ThreadListContext,
   sessions: RuntimeSessionBridge,
@@ -240,9 +174,7 @@ function useRemoteThreadListSync(
         void Promise.all(
           prefetchThreadIds.map(async (threadId) => {
             if (cancelled || !remoteThreadIdsRef.current.has(threadId)) return;
-            if (
-              sessionManager.get(threadId)?.getSnapshot().messages.length
-            ) {
+            if (sessionManager.get(threadId)?.getSnapshot().messages.length) {
               return;
             }
 
@@ -488,7 +420,6 @@ export function useThreadListSync({
     setIsThreadLoading,
   };
 
-  useWalletStateNotifications(user);
   return useRemoteThreadListSync(
     context,
     sessions,

@@ -240,8 +240,8 @@ export function SettingsModal({
         >
           <X className="size-3.5" />
         </button>
-        <div className="grid h-full min-h-0 md:grid-cols-[185px_minmax(0,1fr)]">
-          <aside className="border-aomi-border bg-aomi-bg/40 min-h-0 border-r p-3">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[185px_minmax(0,1fr)] md:grid-rows-1">
+          <aside className="border-aomi-border bg-aomi-bg/40 min-h-0 min-w-0 border-b p-3 md:border-b-0 md:border-r">
             <div className="flex items-center gap-2 px-2.5 py-3">
               <Settings2 className="text-aomi-accent size-4" />
               <h1
@@ -251,7 +251,10 @@ export function SettingsModal({
                 Settings
               </h1>
             </div>
-            <nav className="mt-3 space-y-0.5" aria-label="Settings sections">
+            <nav
+              className="mt-2 flex gap-1 overflow-x-auto md:mt-3 md:block md:space-y-0.5"
+              aria-label="Settings sections"
+            >
               {NAV.filter((item) => !accountOnly || item.id === "account").map(
                 ({ id, label, Icon }) => {
                   const active = id === tab;
@@ -261,14 +264,14 @@ export function SettingsModal({
                       type="button"
                       onClick={() => setTab(id)}
                       aria-pressed={active}
-                      className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 transition-colors ${directoryModalType.navigation} ${
+                      className={`flex h-9 w-auto shrink-0 items-center gap-2.5 rounded-lg px-2.5 transition-colors md:w-full ${directoryModalType.navigation} ${
                         active
                           ? "bg-aomi-surface-2 font-medium"
                           : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg"
                       }`}
                     >
                       <Icon className="size-4" />
-                      <span className="min-w-0 flex-1 truncate text-left">
+                      <span className="min-w-0 flex-1 whitespace-nowrap text-left">
                         {label}
                       </span>
                     </button>
@@ -279,7 +282,7 @@ export function SettingsModal({
           </aside>
 
           <section className="flex min-h-0 min-w-0 flex-col">
-            <header className="border-aomi-border flex min-h-[74px] items-center border-b px-6 py-4">
+            <header className="border-aomi-border flex min-h-[74px] items-center border-b px-4 py-3 md:px-6 md:py-4">
               <div className="min-w-0">
                 <h2 className={directoryModalType.pageTitle}>
                   {activeNav.label}

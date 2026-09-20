@@ -13,7 +13,7 @@ export function SearchField({
   searchRef: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted flex h-10 min-w-0 items-center gap-2.5 rounded-xl border px-3.5">
+    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted flex h-10 min-w-0 shrink-0 items-center gap-2.5 rounded-xl border px-3.5">
       <Search className="text-aomi-muted size-4 shrink-0" />
       <input
         ref={searchRef}
@@ -21,7 +21,7 @@ export function SearchField({
         onChange={(event) => onQueryChange(event.target.value)}
         aria-label="Search library"
         placeholder="Search apps and skills"
-        className="placeholder:text-aomi-muted min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+        className="placeholder:text-aomi-muted min-w-0 flex-1 bg-transparent text-base outline-none md:text-[14px]"
       />
       {query ? (
         <button
@@ -59,14 +59,16 @@ export function SidebarButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 transition-colors ${directoryModalType.navigation} ${
+      className={`flex h-9 w-auto shrink-0 items-center gap-2.5 rounded-lg px-2.5 transition-colors md:w-full ${directoryModalType.navigation} ${
         active
           ? "bg-aomi-surface-2 font-medium"
           : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg"
       }`}
     >
-      <Icon className="size-4" />
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <Icon className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 whitespace-nowrap text-left">
+        {label}
+      </span>
       {count !== undefined ? (
         <span className="font-mono text-[10px]">{count}</span>
       ) : null}
