@@ -2752,5 +2752,5 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
 
 - Added structured Aave V4, Morpho and Circle protocol result chips, including bridge direction and distinct preparation/attestation statuses.
 - Bound Arc USDC approval display to its six-decimal ERC-20 contract; added Aave V4 and Circle Gateway skill icons.
-- Registered the new interpreter source in the distributable registry and bumped widget-lib to 3.0.1.
+- Registered the new interpreter source in the distributable registry and bumped widget-lib to 3.0.2 after syncing the concurrent main release.
 - Focused interpreter/icon tests and trusted-base packed-consumer builds passed. No public API changed; no hosted browser or real-wallet execution is implied by package validation.
