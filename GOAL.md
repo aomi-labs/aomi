@@ -1,3 +1,7 @@
+# Arc protocol support planning — 2026-09-20
+
+Explored Arc mainnet support in the paired `arc-protocol-support-plan` worktrees. Product implementation has not started. Backend-owned plan: `../product-mono/docs/plans/2026-09-20-arc-protocol-support.md`. Existing Arc wallet, chain, icon and explorer support will be reused; proposed frontend work focuses on USDC units, protocol result presentation and authenticated staging verification.
+
 # Current work
 
 **COMMIT SERVICE CLIENT CUTOVER 2026-09-17** — Isolated
@@ -2743,3 +2747,10 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
 - Bumped the account package patch version for its shipped budget JSON.
 - Local managed builds are blocked by disk headroom; PR CI is the test gate.
 - Scope is main only. This work does not promote production or publish npm.
+
+## 2026-09-20 — Arc protocol presentation
+
+- Added structured Aave V4, Morpho and Circle protocol result chips, including bridge direction and distinct preparation/attestation statuses.
+- Bound Arc USDC approval display to its six-decimal ERC-20 contract; added Aave V4 and Circle Gateway skill icons.
+- Registered the new interpreter source in the distributable registry and bumped widget-lib to 3.0.1.
+- Focused interpreter/icon tests and trusted-base packed-consumer builds passed. No public API changed; no hosted browser or real-wallet execution is implied by package validation.

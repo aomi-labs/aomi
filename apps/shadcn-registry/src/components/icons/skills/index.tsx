@@ -380,6 +380,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   dummy: FlaskConicalIcon,
   krexa: KrexaSkillIcon,
   aave: AaveSkillIcon,
+  aave_v4: AaveSkillIcon,
   across: AcrossSkillIcon,
   aerodrome: AerodromeSkillIcon,
   arbitrum_bridge: ArbitrumBridgeSkillIcon,
@@ -388,6 +389,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   convex: ConvexSkillIcon,
   curve: CurveSkillIcon,
   cctp: CctpSkillIcon,
+  circle_gateway: CctpSkillIcon,
   // Common ERC-20 exposes standard token operations, so reuse the same coin
   // mark shown for unknown ERC-20 assets in transaction and trace UI.
   common_erc20: CoinsIcon,

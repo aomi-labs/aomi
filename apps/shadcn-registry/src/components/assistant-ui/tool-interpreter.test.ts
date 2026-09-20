@@ -593,6 +593,132 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
+  it("distinguishes Aave V4 market preparation from execution", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Aave supply",
+      result: {
+        protocol: "aave_v4",
+        chain_id: 5042,
+        status: "prepared",
+        spoke: { name: "forex" },
+        reserve: { symbol: "USDC" },
+        tx: { value: "0", input: "0x1234" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Aave V4");
+    expect(labelsFor(step.chips)).toContain("Forex market");
+    expect(labelsFor(step.chips)).toContain("Prepared");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the Morpho vault version's name and own chain", () => {
+    const step = interpretToolStep({
+      toolName: "Read Morpho vault",
+      result: {
+        source: "morpho",
+        vault: {
+          name: "Arc USDC Prime",
+          version: "v2",
+          chain_id: 5042,
+          asset: { symbol: "USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Arc USDC Prime");
+    expect(labelsFor(step.chips)).toContain("Morpho");
+  });
+
+  it("shows Circle Gateway deposit amounts without implying a completed bridge", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Gateway deposit",
+      result: {
+        protocol: "circle_gateway",
+        chain: { chain_id: 5042 },
+        token: { symbol: "USDC", decimals: 6 },
+        amount: { raw: "10000000", display: "10 USDC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Circle Gateway");
+    expect(labelsFor(step.chips)).toContain("10 USDC");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the CCTP route and attestation readiness separately from settlement", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare CCTP transfer",
+      result: {
+        protocol: "cctp_v2",
+        source: { chain_id: 8453 },
+        destination: { chain_id: 5042 },
+        status: "attestation_ready",
+        amount: { display: "10 USDC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Base → Arc");
+    expect(labelsFor(step.chips)).toContain("Attestation ready");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the cached Gateway transfer summary before wallet approval", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Gateway transfer",
+      result: {
+        protocol: "circle_gateway",
+        summary: {
+          source: { chain_id: 1 },
+          destination: { chain_id: 5042 },
+          amount: { raw: "10000000", display: "10 USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Ethereum → Arc");
+    expect(labelsFor(step.chips)).toContain("10 USDC");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows Arc ERC-20 USDC approvals in six-decimal units", () => {
+    const step = interpretToolStep({
+      toolName: "Approve USDC spend",
+      result: {
+        success: true,
+        tx: {
+          to: "0x3600000000000000000000000000000000000000",
+          input: `0x095ea7b3${"0".repeat(24)}a4072583658fae592a3506a42431cb6316a8d40b${"0".repeat(58)}989680`,
+          chain_id: 5042,
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC",
+      "0xa407...d40b",
+      "10 USDC",
+    ]);
+  });
+
+  it("preserves Arc swap amounts without treating USDC as ETH", () => {
+    const step = interpretToolStep({
+      toolName: "Quote Arc swap",
+      result: {
+        quote_id: "lifi_arc",
+        chain_id: 5042,
+        from_token: { symbol: "USDC", decimals: 6, is_native: false },
+        to_token: { symbol: "EURC", decimals: 6 },
+        from_amount: { raw: "10000000", display: "10 USDC" },
+        estimate: { to_amount_display: "8.68248 EURC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC -> EURC",
+      "10 USDC",
+      "8.68248 EURC",
+    ]);
+  });
+
   it("normalizes approval units only for a verified chain and token contract", () => {
     const step = interpretToolStep({
       toolName: "Approve token spend",

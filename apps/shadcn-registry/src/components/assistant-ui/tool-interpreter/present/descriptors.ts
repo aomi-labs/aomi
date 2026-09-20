@@ -34,6 +34,18 @@ const stagedActionIcon = (operation: ToolOperation): LucideIcon => {
 };
 
 const descriptorById: Record<string, Descriptor> = {
+  "protocol.result": {
+    title: "label",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "sourceHost" },
+      { kind: "decoded" },
+      { kind: "token" },
+      { kind: "amount" },
+      { kind: "status" },
+    ],
+  },
   "evm.account.native_balance": {
     title: "label",
     icon: SHAPE_ICONS.nativeBalance,
