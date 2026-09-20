@@ -250,11 +250,9 @@ export function TransactionCard({
                   "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
                   (index === 1 && failed) || (index === 3 && rejected)
                     ? "bg-aomi-danger"
-                    : index === 1 && tx.kind === "signature"
-                      ? "bg-aomi-border"
-                      : index <= step || (index === 3 && signed)
-                        ? "bg-aomi-accent"
-                        : "bg-aomi-border",
+                    : index <= step || (index === 3 && signed)
+                      ? "bg-aomi-accent"
+                      : "bg-aomi-border",
                 )}
               />
               <span className="text-aomi-muted mt-1.5 block text-[10px] leading-3">

@@ -261,7 +261,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               searchRef={searchRef}
             />
             {actionError ? (
-              <p className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs">
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs"
+              >
                 {actionError}
               </p>
             ) : null}
@@ -351,6 +354,14 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               <ArrowLeft className="size-4" />
               Back to library
             </button>
+            {actionError && mobileDetailOpen ? (
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mx-4 mt-3 rounded-xl px-3 py-2 text-xs md:hidden"
+              >
+                {actionError}
+              </p>
+            ) : null}
             <LibraryDetailPanel
               selection={activeSelection}
               installed={selectedInstalled}

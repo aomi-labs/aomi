@@ -241,10 +241,6 @@ function isExpectedWalletCancellation(error: unknown): boolean {
   return false;
 }
 
-function toPublicFamily(family: WalletFamily): WalletFamily {
-  return family;
-}
-
 export function WalletPicker() {
   const { open, closePicker } = useWalletPicker();
   const adapter = useAomiWalletKit();
@@ -252,6 +248,7 @@ export function WalletPicker() {
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
   const autoLinkAttempted = useRef(new Set<string>());
   // Which screen of the push-nav modal is showing. The account view slides in
   // from the right over the wallet manager.
@@ -402,7 +399,7 @@ export function WalletPicker() {
               await adapter.connectSocial(row.id);
               return;
             }
-            await adapter.connect({ family: toPublicFamily(row.family) });
+            await adapter.connect({ family: row.family });
             return;
           }
           if (row.family === "svm") {
@@ -649,7 +646,7 @@ export function WalletPicker() {
     if (action.kind === "manage") {
       void runAction(actionKey, async () => {
         await adapter.openAccountUI?.({
-          family: toPublicFamily(account.family),
+          family: account.family,
         });
         closePicker();
       });
@@ -891,6 +888,17 @@ export function WalletPicker() {
         {/* Register above the mobile sidebar's dismiss/focus layer. Keep external
             wallet-provider dialogs usable while their connection is pending. */}
         <Dialog.Content
+          onOpenAutoFocus={() => {
+            openerRef.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (openerRef.current?.isConnected) openerRef.current.focus();
+            openerRef.current = null;
+          }}
           aria-modal="true"
           aria-describedby={undefined}
           onInteractOutside={(event) => event.preventDefault()}

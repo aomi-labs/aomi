@@ -336,6 +336,25 @@ function openAddWallets() {
 }
 
 describe("WalletPicker", () => {
+  it("returns keyboard focus to the host opener after closing", async () => {
+    renderPicker(makeAdapter(), false, false);
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    try {
+      opener.focus();
+      await act(async () => requestWalletPickerOpen());
+      expect(screen.getByRole("dialog")).toContainElement(
+        document.activeElement as HTMLElement,
+      );
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "Close", exact: true }).at(-1)!,
+      );
+      await waitFor(() => expect(opener).toHaveFocus());
+    } finally {
+      opener.remove();
+    }
+  });
+
   it("opens from a host-owned surface request", async () => {
     renderPicker(makeAdapter(), false, false);
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -1143,9 +1162,7 @@ describe("WalletPicker", () => {
     );
 
     expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Link wallet" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Link wallet" })).toBeEnabled();
   });
 
   it("keeps a dual-chain wallet connectable on both families", () => {

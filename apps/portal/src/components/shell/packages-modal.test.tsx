@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 
 import {
@@ -146,6 +147,23 @@ async function renderModal() {
 }
 
 describe("packages modal wiring", () => {
+  it("shows failed mutations beside the mobile detail controls", async () => {
+    installFetchRecorder();
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Uniswap details"));
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({ error: "Could not save apps" }, { status: 500 }),
+    );
+    fireEvent.click(screen.getByLabelText("Remove Uniswap"));
+    const detailView = screen.getByRole("button", {
+      name: "Back to library",
+    }).parentElement!;
+    expect(await within(detailView).findByRole("alert")).toHaveTextContent(
+      /.+/,
+    );
+    expect(screen.getByLabelText("Remove Uniswap")).toBeEnabled();
+  });
+
   beforeEach(() => {
     seedAccountOverview({
       user: { user_id: "acct-1", apps: ["default", "uniswap"] },
