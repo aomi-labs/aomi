@@ -30,9 +30,7 @@ export interface EvmWallet {
     chainId?: number;
   }) => Promise<string | { signature: string }>;
   signTypedData?: (input: {
-    /** The complete signing domain lives in typedData.domain, unchanged. */
     typedData: Record<string, unknown>;
-    /** @deprecated Signing capabilities do not select an execution network. */
     chainId?: number;
   }) => Promise<string | { signature: string }>;
   switchChain?: (chainId: number) => Promise<unknown>;

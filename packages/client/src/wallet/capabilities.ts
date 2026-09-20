@@ -145,18 +145,17 @@ function sign(wallets: Wallets) {
       if (wallet.address.toLowerCase() !== request.signer.toLowerCase()) {
         throw new Error("The active EVM wallet is not the requested signer");
       }
+      if (request.chainId && chainId(wallet) !== request.chainId) {
+        if (!wallet.switchChain) {
+          throw new Error(
+            `EVM wallet cannot switch to chain ${request.chainId}`,
+          );
+        }
+        await wallet.switchChain(request.chainId);
+      }
       for (const [index, payload] of request.payloads.entries()) {
         assertActive(signal);
         if (payload.kind === "evm_personal") {
-          if (request.chainId && chainId(wallet) !== request.chainId) {
-            if (!wallet.switchChain) {
-              throw new Error(
-                `EVM wallet cannot switch to chain ${request.chainId}`,
-              );
-            }
-            await wallet.switchChain(request.chainId);
-            assertActive(signal);
-          }
           if (!wallet.signMessage)
             throw new Error("EVM wallet cannot sign messages");
           outputs.push({
@@ -176,9 +175,8 @@ function sign(wallets: Wallets) {
             id: `payload_${index + 1}`,
             signature: signature(
               await wallet.signTypedData({
-                // EIP-712 domain.chainId identifies the signed domain, not
-                // a network to select (e.g. Hyperliquid's Exchange domain).
                 typedData: payload.typed_data,
+                chainId: request.chainId,
               }),
             ),
           });

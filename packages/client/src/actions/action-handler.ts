@@ -110,7 +110,6 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
     return Boolean(
       action &&
       action.state === "pending" &&
-      !isExpired(action) &&
       canExecute(action, this.capabilities),
     );
   }
@@ -122,7 +121,6 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
       return this.sendResult(this.pendingAction(id), current);
 
     const action = this.pendingAction(id);
-    assertNotExpired(action);
     const attempt: Attempt = {
       actionId: action.id,
       revision: action.revision,
@@ -208,28 +206,15 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
 
   private respondWithResult(action: Action, attempt: Attempt): Promise<Action> {
     if (!attempt.result) throw new Error(`Action "${action.id}" has no result`);
-    if (
-      attempt.controller.signal.aborted ||
-      this.actions.get(action.id)?.revision !== attempt.revision
-    ) {
-      throw new Error(
-        "Action changed while awaiting the wallet; review the current request",
-      );
-    }
-    // A signature can still be withheld before broadcasting. Already submitted
-    // transactions must retain their receipt even if their approval expired.
-    if (attempt.result.status === "signed") assertNotExpired(action);
     attempt.state = "responding";
     attempt.error = undefined;
     this.emit("attempt_changed", publicAttempt(attempt));
 
-    return this.respond(action, attempt.result, attempt.idempotencyKey).then(
-      (next) => {
-        this.ingest(next);
-        this.emit("resolved", next);
-        return next;
-      },
-    );
+    return this.respond(action, attempt.result, attempt.idempotencyKey).then((next) => {
+      this.ingest(next);
+      this.emit("resolved", next);
+      return next;
+    });
   }
 
   private track(
@@ -269,28 +254,4 @@ function publicAttempt(attempt: Attempt): ActionAttempt {
     state: attempt.state,
     ...(attempt.error === undefined ? {} : { error: attempt.error }),
   };
-}
-
-function isExpired(action: Action): boolean {
-  const requestExpiry =
-    action.request.type === "sign" ? action.request.expiresAt : undefined;
-  const expiresAt =
-    requestExpiry === undefined
-      ? undefined
-      : /^\d+$/.test(requestExpiry)
-        ? Number(requestExpiry) * 1000
-        : Date.parse(requestExpiry);
-  return (
-    (action.expires_at !== null && action.expires_at * 1000 <= Date.now()) ||
-    (expiresAt !== undefined &&
-      (!Number.isFinite(expiresAt) || expiresAt <= Date.now()))
-  );
-}
-
-function assertNotExpired(action: Action): void {
-  if (isExpired(action)) {
-    throw new Error(
-      "This Action expired. Prepare a new request and review it before approving.",
-    );
-  }
 }
