@@ -11,12 +11,14 @@ import {
 
 const BUILT_IN_SKILL_IDS = [
   "aave",
+  "aave_v4",
   "across",
   "aerodrome",
   "arbitrum_bridge",
   "avantis",
   "base_native",
   "cctp",
+  "circle_gateway",
   "common_erc20",
   "compound",
   "convex",
@@ -153,6 +155,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(42);
+    expect(manifestIds).toHaveLength(44);
   });
 });
