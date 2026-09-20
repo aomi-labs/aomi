@@ -236,14 +236,17 @@ export type {
   AomiAccountRecordStatus,
   AomiAuthProvider,
   AomiAuthPurpose,
+  AomiBindOnchainPolicy,
   AomiChainKind,
   AomiDelegatedAccount,
   AomiOnchainAddress,
   AomiOnchainPolicy,
   AomiOnchainPolicyBinding,
+  AomiOnchainPolicyProviderCtx,
   AomiOnchainPolicyRule,
   AomiOperatingAccount,
   AomiPolicyWindow,
+  AomiPreparedOnchainPolicy,
   AomiProviderBinding,
   AomiSigningPolicy,
   AomiUser,
@@ -404,3 +407,4 @@ export type {
   NormalizedSimulatedFee,
 } from "./aa";
 export { summarizeSimulation, SimulationApiError } from "./simulation";
+export * from "./commits";

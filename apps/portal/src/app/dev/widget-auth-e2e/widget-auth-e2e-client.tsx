@@ -79,7 +79,7 @@ function WidgetAuthE2EPanel() {
       linkedAccounts: walletKit.accountLinkedAccounts,
       accountWallets: walletKit.accountWallets,
       accounts: walletKit.accounts,
-      walletModalRows: walletKit.walletModalRows,
+      wallets: walletKit.wallets,
     }),
     [walletKit],
   );

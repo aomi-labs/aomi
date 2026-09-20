@@ -42,6 +42,7 @@ import {
   useWalletActivationGuard,
 } from "../../lib/wallet-kit";
 import type { AomiWalletKit, WalletFamily } from "../../lib/wallet-kit/types";
+import type { WalletAction as WalletRowAction } from "../../lib/wallet-kit/composer/wallet-state";
 import { ModalBackdrop } from "../ui/modal-backdrop";
 import { WalletIconSlot } from "./wallet-icon-slot";
 import {
@@ -50,15 +51,12 @@ import {
 } from "./wallet-picker-context";
 import {
   buildAccountAccessEntries,
-  buildConnectedEntries,
-  connectedLinkState,
   familyLabel,
   familyRank,
   isProviderAuthProvider,
   providerBackedAccountProvider,
   providerBackedWalletTitle,
   sameWalletAddress,
-  type ConnectedEntry,
   type LinkedAccountRow,
   type LinkedWalletRow,
   type ProviderAccountAccessGroup,
@@ -78,11 +76,20 @@ type ProviderAccountUnlinkInput = {
 
 type SupportedEvmChain = { id: number; name: string };
 type ConnectedActionRef = {
-  action: WalletModalRow["actions"][number];
+  action: WalletRowAction;
   account: WalletModalRow;
 };
 
-type WalletAction = WalletModalRow & {
+type WalletAction = {
+  id: string;
+  provider?: string;
+  label: string;
+  family: WalletFamily;
+  kind: "evm" | "solana" | "walletconnect" | "social";
+  source: "option";
+  status: "installed" | "available" | "qr" | "unavailable";
+  actions: Array<{ kind: "connect" | "authenticate"; label: string }>;
+  iconUrl?: string;
   actionKey: string;
   connect: () => Promise<void>;
   ready?: boolean;
@@ -143,18 +150,6 @@ function isGenericBrowserWallet(
   const connectorId = normalizeWalletOptionId(wallet.provider ?? "");
   return (
     label === "browserwallet" || id === "injected" || connectorId === "injected"
-  );
-}
-
-function buildConnectedWalletRows(
-  walletRows: readonly WalletModalRow[],
-  identity: AomiWalletKit["identity"],
-): WalletModalRow[] {
-  if (!identity.isConnected) return [];
-  return walletRows.filter(
-    (row) =>
-      row.source === "live" &&
-      (row.status === "active" || row.status === "connected"),
   );
 }
 
@@ -303,10 +298,10 @@ export function WalletPicker() {
     [canActivateWallet],
   );
 
-  const walletRows = adapter.walletModalRows ?? [];
+  const walletRows = adapter.wallets;
   const connectedAccounts = useMemo(
-    () => buildConnectedWalletRows(walletRows, identity),
-    [identity, walletRows],
+    () => walletRows.filter((row) => row.connected),
+    [walletRows],
   );
   const canManageAccounts = Boolean(
     adapter.openAccountUI && adapter.canOpenAccountUI,
@@ -323,23 +318,15 @@ export function WalletPicker() {
       return;
     }
     const target = connectedAccounts.find(
-      (account) =>
-        !account.linked &&
-        Boolean(account.address) &&
-        (account.family === "evm" ||
-          (account.family === "svm" &&
-            account.walletKind !== "embedded" &&
-            account.walletKind !== "smart_account")),
+      (account) => account.state === "unlinked" && account.kind === "external",
     );
     if (!target?.address) return;
-    const key = `${target.family}:${target.id}:${
-      target.family === "evm" ? target.address.toLowerCase() : target.address
-    }`;
+    const key = target.key;
     if (autoLinkAttempted.current.has(key)) return;
     autoLinkAttempted.current.add(key);
-    void runAction(`link:${target.id}`, () =>
+    void runAction(`link:${target.connectionId}`, () =>
       adapter.linkWallet!({
-        accountId: target.id,
+        accountId: target.connectionId,
         family: target.family,
         address: target.address!,
         chainId: target.chainId,
@@ -357,61 +344,83 @@ export function WalletPicker() {
   ]);
 
   const walletActions = useMemo<WalletAction[]>(() => {
-    const optionRows = walletRows
-      .filter(
-        (row) =>
-          (row.source === "option" ||
-            (row.source === "stored" &&
-              row.actions.some((action) => action.kind === "authenticate"))) &&
-          row.actions.some(
-            (action) =>
-              action.kind === "connect" || action.kind === "authenticate",
-          ),
-      )
-      .map((row): WalletAction => {
-        const action = row.actions.find(
-          (candidate) =>
-            candidate.kind === "connect" || candidate.kind === "authenticate",
-        );
-        return {
-          ...row,
-          ready: row.status !== "unavailable",
-          description:
-            row.kind === "social"
-              ? "Fast account sign-in"
-              : row.family === "svm"
-                ? "Connect a Solana wallet"
-                : "Connect an Ethereum wallet",
-          actionKey: `${action?.kind ?? "connect"}:${row.family}:${row.id}`,
-          connect: async () => {
-            if (action?.kind === "authenticate") {
-              if (adapter.connectSocial && row.kind === "social") {
-                await adapter.connectSocial(row.id);
-                return;
-              }
-              await adapter.connect({ family: toPublicFamily(row.family) });
-              return;
-            }
-            if (row.source === "stored") {
-              await adapter.connect({ family: toPublicFamily(row.family) });
-              return;
-            }
-            if (row.family === "svm") {
-              if (adapter.connectSolanaWallet) {
-                await adapter.connectSolanaWallet(row.id);
-                return;
-              }
-              await adapter.connect({ family: "svm" });
-              return;
-            }
-            if (adapter.connectEvmWallet) {
-              await adapter.connectEvmWallet(row.id);
-              return;
-            }
-            await adapter.connect({ family: "evm" });
+    const optionRows = [
+      ...(adapter.evmWallets ?? []).map((option) => ({
+        ...option,
+        family: "evm" as const,
+        status:
+          option.status === "unavailable"
+            ? ("unavailable" as const)
+            : ("available" as const),
+      })),
+      ...(adapter.solanaWallets ?? []).map((option) => ({
+        id: option.name,
+        label: option.name,
+        family: "svm" as const,
+        kind: "solana" as const,
+        status: option.ready
+          ? ("available" as const)
+          : ("unavailable" as const),
+        iconUrl: option.iconUrl,
+      })),
+      ...(adapter.socialLoginOptions ?? []).map((option) => ({
+        ...option,
+        family: "evm" as const,
+        status:
+          option.status === "unavailable"
+            ? ("unavailable" as const)
+            : ("available" as const),
+      })),
+    ].map((row): WalletAction => {
+      const authenticate = row.kind === "social";
+      return {
+        id: row.id,
+        provider: "connectorId" in row ? row.connectorId : undefined,
+        label: row.label,
+        family: row.family,
+        kind: row.kind,
+        source: "option",
+        status: row.status,
+        actions: [
+          {
+            kind: authenticate ? "authenticate" : "connect",
+            label: authenticate ? "Sign in" : "Connect",
           },
-        };
-      });
+        ],
+        iconUrl: row.iconUrl,
+        ready: row.status !== "unavailable",
+        description:
+          row.kind === "social"
+            ? "Fast account sign-in"
+            : row.family === "svm"
+              ? "Connect a Solana wallet"
+              : "Connect an Ethereum wallet",
+        actionKey: `${authenticate ? "authenticate" : "connect"}:${row.family}:${row.id}`,
+        connect: async () => {
+          if (authenticate) {
+            if (adapter.connectSocial && row.kind === "social") {
+              await adapter.connectSocial(row.id);
+              return;
+            }
+            await adapter.connect({ family: toPublicFamily(row.family) });
+            return;
+          }
+          if (row.family === "svm") {
+            if (adapter.connectSolanaWallet) {
+              await adapter.connectSolanaWallet(row.id);
+              return;
+            }
+            await adapter.connect({ family: "svm" });
+            return;
+          }
+          if (adapter.connectEvmWallet) {
+            await adapter.connectEvmWallet(row.id);
+            return;
+          }
+          await adapter.connect({ family: "evm" });
+        },
+      };
+    });
     const browserWallet = optionRows.find(isGenericBrowserWallet);
     const walletRowsWithoutBrowser = optionRows.filter(
       (wallet) => !isGenericBrowserWallet(wallet),
@@ -462,7 +471,9 @@ export function WalletPicker() {
     adapter.connectEvmWallet,
     adapter.connectSolanaWallet,
     adapter.connectSocial,
-    walletRows,
+    adapter.evmWallets,
+    adapter.solanaWallets,
+    adapter.socialLoginOptions,
   ]);
 
   // Brands already connected, scoped by family. A connected EVM Phantom should
@@ -634,7 +645,7 @@ export function WalletPicker() {
     });
 
   const runConnectedAction = ({ action, account }: ConnectedActionRef) => {
-    const actionKey = `${action.kind}:${account.id}`;
+    const actionKey = `${action.kind}:${account.connectionId ?? account.key}`;
     if (action.kind === "manage") {
       void runAction(actionKey, async () => {
         await adapter.openAccountUI?.({
@@ -645,12 +656,11 @@ export function WalletPicker() {
       return;
     }
     if (action.kind === "link") {
-      if (!account.address) return;
       void runAction(actionKey, async () => {
         await adapter.linkWallet!({
-          accountId: account.id,
+          accountId: account.connectionId,
           family: account.family,
-          address: account.address!,
+          address: account.address,
           chainId: account.chainId,
         });
         closePicker();
@@ -673,7 +683,7 @@ export function WalletPicker() {
   const disconnectConnectedAccount = (account: WalletModalRow) =>
     adapter.disconnect!({
       ...(account.family === "evm"
-        ? { accountId: account.id }
+        ? { accountId: account.connectionId }
         : { family: "svm" as const }),
     });
 
@@ -700,12 +710,10 @@ export function WalletPicker() {
     const addressText =
       account.label ?? formatWalletAddress(account.address ?? "") ?? "";
 
-    const active = account.status === "active";
-    const selectable =
-      account.family === "evm" &&
-      account.status !== "active" &&
-      account.source === "live" &&
-      account.capability !== "read";
+    const active = account.operating;
+    const selectable = account.actions.some(
+      (action) => action.kind === "select",
+    );
 
     const actions: ConnectedActionRef[] = [];
     for (const action of filterRowActions(account)) {
@@ -713,22 +721,19 @@ export function WalletPicker() {
     }
 
     const providerHint =
-      account.linkedVia &&
-      account.linkedVia !== "challenge" &&
-      account.linkedVia !== "import" &&
-      account.linkedVia !== "observed"
-        ? account.linkedVia
-        : provider !== null
-          ? provider
-          : account.manageable
-            ? (identity.embeddedProvider ?? identity.sessionProvider)
-            : undefined;
+      provider !== null
+        ? provider
+        : account.manageable
+          ? (identity.embeddedProvider ?? identity.sessionProvider)
+          : undefined;
 
     return (
       <ConnectedWalletRow
-        key={`row:${account.family}:${account.id}:${account.address ?? ""}`}
+        key={`row:${account.key}`}
         title={title}
-        iconId={provider !== null ? provider : account.id}
+        iconId={
+          provider !== null ? provider : (account.connectionId ?? account.key)
+        }
         iconLabel={title}
         iconProvider={provider ?? providerHint}
         family={account.family}
@@ -736,14 +741,14 @@ export function WalletPicker() {
         addressText={addressText}
         detail={detail}
         active={active}
-        selectKey={selectable ? `select:${account.id}` : undefined}
+        selectKey={selectable ? `select:${account.connectionId}` : undefined}
         pending={pending}
         onSelect={
           selectable
             ? () =>
                 void runAction(
-                  `select:${account.id}`,
-                  () => adapter.selectAccount(account.id),
+                  `select:${account.connectionId}`,
+                  () => adapter.selectAccount(account.connectionId!),
                   true,
                 )
             : undefined
@@ -949,7 +954,7 @@ export function WalletPicker() {
                         canDisconnect={Boolean(adapter.disconnect)}
                         onDisconnect={() =>
                           void runAction(
-                            `disconnect:${finishAccount.id}`,
+                            `disconnect:${finishAccount.connectionId ?? finishAccount.key}`,
                             () => disconnectConnectedAccount(finishAccount),
                             true,
                           )
@@ -1132,14 +1137,7 @@ function filterQuickSignInOptions(
   options: readonly WalletAction[],
   authProvider?: string,
 ): WalletAction[] {
-  const providerAuthOptions = new Set(
-    options
-      .filter((option) => option.kind === "social")
-      .map((option) => quickSignInProvider(option, authProvider))
-      .filter((provider): provider is string => provider !== null),
-  );
   const seenSocialProviders = new Set<string>();
-  const seenStoredProviders = new Set<string>();
 
   return options.filter((option) => {
     const provider = quickSignInProvider(option, authProvider);
@@ -1148,19 +1146,6 @@ function filterQuickSignInOptions(
       seenSocialProviders.add(provider);
       return true;
     }
-    const storedProviderAuth =
-      option.source === "stored" &&
-      provider !== null &&
-      option.actions.some((action) => action.kind === "authenticate");
-
-    if (!storedProviderAuth) return true;
-    // A configured social option is the canonical provider entry. Stored
-    // embedded wallets from that provider are account data, not extra sign-in
-    // buttons, and belong in the host's account settings surface.
-    if (providerAuthOptions.size > 0) return false;
-    if (providerAuthOptions.has(provider)) return false;
-    if (seenStoredProviders.has(provider)) return false;
-    seenStoredProviders.add(provider);
     return true;
   });
 }
@@ -1300,7 +1285,6 @@ function AccountManagerPanel({
         ? walletSummary
         : (subtitle ?? walletSummary);
   const visibleLinkedAccounts = linkedAccounts.filter(isVisibleLinkedAccount);
-  const connectedEntries = buildConnectedEntries(connectedAccounts, wallets);
   const { providerAccounts, standaloneAccounts, standaloneWallets } =
     buildAccountAccessEntries(visibleLinkedAccounts, wallets);
   const hasAccountAccess =
@@ -1467,7 +1451,7 @@ function AccountManagerPanel({
 
         <section className="flex flex-col gap-1.5">
           <SectionLabel>Connected now</SectionLabel>
-          {connectedEntries.map((entry) => (
+          {connectedAccounts.map((entry) => (
             <ConnectedWalletSummaryRow
               key={entry.key}
               entry={entry}
@@ -1999,7 +1983,7 @@ function ConnectedWalletSummaryRow({
   entry,
   supportedEvmChains,
 }: {
-  entry: ConnectedEntry;
+  entry: WalletModalRow;
   supportedEvmChains: readonly SupportedEvmChain[];
 }) {
   const address = formatWalletAddress(entry.address);
@@ -2007,19 +1991,25 @@ function ConnectedWalletSummaryRow({
     entry.family === "evm"
       ? networkNameForChain(entry.chainId, supportedEvmChains)
       : "Solana";
-  const linkState = connectedLinkState(entry);
+  const linkState = entry.linked
+    ? "Linked"
+    : entry.family === "evm"
+      ? "Verify to link"
+      : "Connected only";
+  const provider = providerBackedAccountProvider(entry);
+  const title = providerBackedWalletTitle(entry);
   return (
     <div className="border-border/70 bg-card flex items-center gap-3 rounded-2xl border px-3 py-2.5">
       <WalletIconSlot
-        id={entry.iconId}
-        label={entry.iconLabel}
-        provider={entry.iconProvider}
+        id={provider ?? entry.connectionId ?? entry.key}
+        label={title}
+        provider={provider ?? entry.provider}
         className="!bg-transparent"
       />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="text-foreground truncate text-sm font-medium">
-            {entry.title}
+            {title}
           </span>
           <ChainTag family={entry.family} capability={entry.capability} />
         </span>
@@ -2179,7 +2169,8 @@ function FinishSignInPanel({
         networkNameForChain(identity.chainId, supportedEvmChains) ??
         "Ethereum")
       : "Solana";
-  const actionKey = linkAction ? `${linkAction.kind}:${account.id}` : undefined;
+  const rowId = account.connectionId ?? account.key;
+  const actionKey = linkAction ? `${linkAction.kind}:${rowId}` : undefined;
   const busy = actionKey != null && pending === actionKey;
 
   return (
@@ -2188,7 +2179,7 @@ function FinishSignInPanel({
       <div className="border-aomi-border bg-aomi-bg/20 overflow-hidden rounded-[14px] border">
         <div className="flex items-center gap-3 px-3 py-3">
           <WalletIconSlot
-            id={provider ?? account.id}
+            id={provider ?? rowId}
             label={title}
             provider={provider ?? account.provider}
             className="!bg-transparent"
@@ -2214,7 +2205,7 @@ function FinishSignInPanel({
               icon={LogOutIcon}
               ariaLabel={`Disconnect ${familyLabel(account.family)} wallet`}
               disabled={pending !== null}
-              loading={pending === `disconnect:${account.id}`}
+              loading={pending === `disconnect:${rowId}`}
               onClick={onDisconnect}
             />
           ) : null}
@@ -2337,13 +2328,14 @@ function ConnectedWalletRow({
         {actions.map(({ action, account }) =>
           action.kind === "link" ? (
             <button
-              key={`${action.kind}:${account.id}`}
+              key={`${action.kind}:${account.connectionId ?? account.key}`}
               type="button"
               disabled={pending !== null}
               onClick={() => onAction({ action, account })}
               className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors disabled:opacity-50"
             >
-              {pending === `${action.kind}:${account.id}` ? (
+              {pending ===
+              `${action.kind}:${account.connectionId ?? account.key}` ? (
                 <Loader2Icon className="size-3.5 animate-spin" />
               ) : (
                 <LinkIcon className="size-3.5" />
@@ -2352,7 +2344,7 @@ function ConnectedWalletRow({
             </button>
           ) : (
             <RowIconButton
-              key={`${action.kind}:${account.id}`}
+              key={`${action.kind}:${account.connectionId ?? account.key}`}
               icon={action.kind === "manage" ? Settings2Icon : LogOutIcon}
               ariaLabel={
                 action.kind === "manage"
@@ -2362,7 +2354,10 @@ function ConnectedWalletRow({
                     : `Disconnect ${familyLabel(account.family)} wallet`
               }
               disabled={pending !== null}
-              loading={pending === `${action.kind}:${account.id}`}
+              loading={
+                pending ===
+                `${action.kind}:${account.connectionId ?? account.key}`
+              }
               onClick={() => onAction({ action, account })}
             />
           ),

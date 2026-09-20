@@ -83,6 +83,7 @@ export type SvmWalletRuntime = WalletRuntime<"svm"> & {
 };
 
 export type EvmExecutionRuntime = {
+  signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   sendTransaction?: (
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,

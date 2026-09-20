@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="690" viewBox="0 0 1100 690" role="img" aria-labelledby="title desc">
+  <title id="title">Safe Guard checks around smart-account execution</title>
+  <desc id="desc">An agent or session account requests execution from a Safe Smart Account. The Safe calls an installed Guard before execution. The Guard can permit the request or revert it. If permitted, the Safe calls the target contract and then invokes the Guard again to check the final state. Both checks are part of the smart-account execution path and can revert the transaction.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8f9fb}.panel{fill:#fff;stroke:#c9d2dc;stroke-width:1.5}.safe{fill:#f3f7fb;stroke:#8eb5d1;stroke-width:1.8}.guard{fill:#edf5fb;stroke:#285c87;stroke-width:1.8}.card{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}.state{fill:#dceaf5;stroke:#7da6c4;stroke-width:1.5}.logic{fill:#e1efe5;stroke:#6f9a7a;stroke-width:1.5}.deny{fill:#f8e6ed;stroke:#ca7897;stroke-width:1.5}.ink{fill:#18202a}.muted{fill:#586675}.blue{fill:#285c87}.pink{fill:#9a4d6b}.green{fill:#4f795b}.label{font:700 13px Arial,sans-serif;letter-spacing:.09em}.stage{font:700 25px Arial,sans-serif}.name{font:700 17px Arial,sans-serif}.body{font:15px Arial,sans-serif}.small{font:13px Arial,sans-serif}.mono{font:14px "Courier New",monospace}.note{font:italic 14px Arial,sans-serif}.step{font:700 13px Arial,sans-serif}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#778696"/></marker>
+    <marker id="arrowblue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#285c87"/></marker>
+    <marker id="arrowgreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#5f8f6e"/></marker>
+  </defs>
+
+  <rect class="bg" width="1100" height="690" rx="20"/>
+  <text class="label muted" x="46" y="52">SAFE REFERENCE ARCHITECTURE · GATE 2</text>
+  <text class="stage ink" x="46" y="88">A Safe Guard checks the transaction before and after execution.</text>
+
+  <!-- Requester and target sit outside the account. -->
+  <rect class="panel" x="46" y="188" width="222" height="108" rx="14"/>
+  <text class="label muted" x="68" y="217">REQUESTER</text>
+  <text class="name ink" x="68" y="248">Agent or session account</text>
+  <text class="small muted" x="68" y="273">holds delegated authority</text>
+
+  <rect class="panel" x="46" y="410" width="222" height="108" rx="14"/>
+  <text class="label muted" x="68" y="439">TARGET</text>
+  <text class="name ink" x="68" y="470">Contract or EOA</text>
+  <text class="small muted" x="68" y="495">receives the covered call</text>
+
+  <!-- Safe account. -->
+  <rect class="safe" x="340" y="150" width="332" height="404" rx="18"/>
+  <text class="label blue" x="362" y="180">SAFE SMART ACCOUNT</text>
+  <rect class="logic" x="362" y="207" width="288" height="76" rx="12"/>
+  <text class="name ink" x="506" y="239" text-anchor="middle">Safe account logic</text>
+  <text class="small green" x="506" y="262" text-anchor="middle">authorizes and executes</text>
+
+  <rect class="state" x="362" y="305" width="288" height="106" rx="12"/>
+  <text class="name ink" x="506" y="336" text-anchor="middle">Safe account state</text>
+  <text class="body muted" x="506" y="363" text-anchor="middle">owners · threshold · modules</text>
+  <text class="body muted" x="506" y="387" text-anchor="middle">installed Guard · nonce</text>
+
+  <rect class="deny" x="362" y="443" width="288" height="74" rx="12"/>
+  <text class="name pink" x="506" y="471" text-anchor="middle">Any failed check reverts</text>
+  <text class="small muted" x="506" y="494" text-anchor="middle">the covered Safe transaction</text>
+
+  <!-- Guard contract. -->
+  <rect class="guard" x="760" y="150" width="294" height="404" rx="18"/>
+  <text class="label blue" x="782" y="180">INSTALLED GUARD CONTRACT</text>
+  <rect class="card" x="782" y="207" width="250" height="92" rx="12"/>
+  <text class="name ink" x="907" y="237" text-anchor="middle">Pre-execution check</text>
+  <text class="small muted" x="907" y="261" text-anchor="middle">transaction parameters</text>
+  <text class="small muted" x="907" y="280" text-anchor="middle">caller · target · value · calldata</text>
+
+  <rect class="card" x="782" y="323" width="250" height="92" rx="12"/>
+  <text class="name ink" x="907" y="353" text-anchor="middle">Post-execution check</text>
+  <text class="small muted" x="907" y="377" text-anchor="middle">success and final state</text>
+  <text class="small muted" x="907" y="396" text-anchor="middle">after the external call</text>
+
+  <rect class="state" x="782" y="439" width="250" height="78" rx="12"/>
+  <text class="name ink" x="907" y="470" text-anchor="middle">Guard state</text>
+  <text class="small muted" x="907" y="493" text-anchor="middle">limits · allowlists · invariants</text>
+
+  <!-- Execution sequence. -->
+  <path d="M268 242 H334" stroke="#285c87" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+  <text class="step blue" x="301" y="226" text-anchor="middle">1</text>
+  <text class="mono muted" x="301" y="266" text-anchor="middle">execTransaction</text>
+
+  <path d="M672 238 H754" stroke="#285c87" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+  <text class="step blue" x="713" y="221" text-anchor="middle">2</text>
+  <text class="mono muted" x="713" y="262" text-anchor="middle">checkTransaction</text>
+
+  <path d="M760 295 H678" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="small muted" x="719" y="317" text-anchor="middle">permit or revert</text>
+
+  <path d="M340 456 H274" stroke="#5f8f6e" stroke-width="2.5" marker-end="url(#arrowgreen)"/>
+  <text class="step green" x="307" y="440" text-anchor="middle">3</text>
+  <text class="small muted" x="307" y="480" text-anchor="middle">external call</text>
+
+  <path d="M672 368 H754" stroke="#285c87" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+  <text class="step blue" x="713" y="352" text-anchor="middle">4</text>
+  <text class="mono muted" x="713" y="392" text-anchor="middle">checkAfterExecution</text>
+
+  <!-- Architectural conclusion. -->
+  <rect class="card" x="46" y="590" width="1008" height="58" rx="10"/>
+  <text class="label muted" x="68" y="615">THE MANDATE IS PART OF THE SMART-ACCOUNT PATH</text>
+  <text class="body ink" x="68" y="638">It governs only calls routed through this Safe and its installed Guard. Owner, module and recovery paths must be tested separately.</text>
+  <text class="note muted" x="46" y="674">Adapted from the Safe Guards architecture. A broken Guard can also deny service to the account.</text>
+</svg>

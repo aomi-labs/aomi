@@ -10,10 +10,21 @@ export type ResearchPost = {
   tag: string;
   subtitle: string;
   fileName?: string;
-  format?: "markdown" | "execution-harnesses";
+  format?: "markdown" | "execution-harnesses" | "three-gates";
 };
 
 export const researchPosts: ResearchPost[] = [
+  {
+    slug: "three-gates-onchain",
+    title: "Enabling Agentic Finance: Three Gates from Intent to Settlement",
+    date: "September 18, 2026",
+    isoDate: "2026-09-18",
+    tag: "research",
+    subtitle:
+      "How the runtime, wallet, smart contract and block builder can constrain agent-built transactions.",
+    fileName: "three-gates-onchain.md",
+    format: "three-gates",
+  },
   {
     slug: "execution-harnesses-agentic-payments",
     title: "The State of Execution Harnesses for Agentic Payments",
@@ -88,8 +99,13 @@ function renderMissingFigureImages(body: string) {
   );
 }
 
-function prepareResearchMarkdown(body: string) {
-  return renderMissingFigureImages(renderPendingFigureComments(body))
+function prepareResearchMarkdown(body: string, slug: string) {
+  const prepared =
+    slug === "aomibench-v0-1"
+      ? renderMissingFigureImages(renderPendingFigureComments(body))
+      : body;
+
+  return prepared
     .replace(/^<!--[\s\S]*?-->\s*/, "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .trim();
@@ -114,6 +130,6 @@ export async function readResearchPost(slug: string) {
 
   return {
     ...post,
-    body: prepareResearchMarkdown(body),
+    body: prepareResearchMarkdown(body, slug),
   };
 }

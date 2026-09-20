@@ -2663,6 +2663,209 @@
           }
         }
       },
+      "CommitView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "commit_id",
+          "thread_id",
+          "stage_id",
+          "chain_family",
+          "chain_ref",
+          "signer",
+          "broadcaster",
+          "state",
+          "action",
+          "transaction_id",
+          "failure_code"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "signer": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "needs_signature",
+              "awaiting_broadcast",
+              "submitted",
+              "confirmed",
+              "rejected",
+              "failed",
+              "expired"
+            ]
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "payload"],
+                "properties": {
+                  "kind": {
+                    "const": "sign"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "signed_transaction", "transaction_id"],
+                "properties": {
+                  "kind": {
+                    "const": "broadcast"
+                  },
+                  "signed_transaction": {
+                    "type": "string"
+                  },
+                  "transaction_id": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "SignableCommit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "nonce", "transaction"],
+            "properties": {
+              "kind": {
+                "const": "evm_transaction"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "nonce": {
+                "type": "integer"
+              },
+              "transaction": {
+                "type": "object",
+                "required": [
+                  "to",
+                  "value",
+                  "data",
+                  "gas_limit",
+                  "max_fee_per_gas",
+                  "max_priority_fee_per_gas"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "string"
+                  },
+                  "gas_limit": {
+                    "type": "integer"
+                  },
+                  "max_fee_per_gas": {
+                    "type": "string"
+                  },
+                  "max_priority_fee_per_gas": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "requests"],
+            "properties": {
+              "kind": {
+                "const": "user_operation"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "requests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "message", "raw_payload"],
+                  "properties": {
+                    "kind": {
+                      "const": "personal_sign"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "raw_payload": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "signer", "transaction_base64"],
+            "properties": {
+              "kind": {
+                "const": "svm_transaction"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "transaction_base64": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "EventPage": {
         "type": "object",
         "required": ["session_id", "cursor", "events", "has_more"],
@@ -2682,6 +2885,12 @@
           },
           "has_more": {
             "type": "boolean"
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitView"
+            }
           }
         }
       },

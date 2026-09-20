@@ -9,6 +9,7 @@ import type {
 import type { ActionAttempt, ActionCapabilities } from "../actions";
 import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
+import type { CommitView, CommitCapabilities } from "../commits";
 
 export type SendResult = {
   messages: readonly MessageEvent[];
@@ -25,6 +26,7 @@ export type SessionSnapshot = Readonly<{
   /** Provisional display only; never advances the durable cursor. */
   liveMessages?: readonly MessageEvent[];
   actions: readonly Action[];
+  commits: readonly CommitView[];
   title?: string;
   isStreaming: boolean;
   isSubmitting: boolean;
@@ -46,6 +48,7 @@ export type SessionSnapshot = Readonly<{
 }>;
 
 export type SessionOptions = {
+  commits?: CommitCapabilities;
   sessionId?: string;
   /** Typed execution target. Omission is Auto. */
   target?: AgentTarget;
@@ -63,6 +66,7 @@ export type SessionOptions = {
 };
 
 export type SessionRuntimeOptions = {
+  commits?: CommitCapabilities;
   target?: AgentTarget;
   /** @deprecated Legacy Direct app selection. */
   app?: string;

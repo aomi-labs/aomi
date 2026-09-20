@@ -52,6 +52,7 @@ const turbopackAliases: Record<string, string> = {
 };
 
 const nextConfig: NextConfig = {
+  distDir: process.env.NEXT_DIST_DIR || undefined,
   reactStrictMode: false,
   experimental: {
     externalDir: true,

@@ -36,7 +36,7 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
 });
 
 const adapterState: {
-  current: Pick<AomiWalletKit, "identity" | "accounts" | "walletModalRows"> & {
+  current: Pick<AomiWalletKit, "identity" | "accounts" | "wallets"> & {
     selectAccount: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
     signOutAccount: ReturnType<typeof vi.fn>;
@@ -60,16 +60,7 @@ const adapterState: {
         active: true as boolean,
       },
     ],
-    walletModalRows: [
-      {
-        id: "metamask",
-        label: "MetaMask",
-        family: "evm" as const,
-        source: "live" as const,
-        status: "active" as const,
-        actions: [],
-      },
-    ],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     signOutAccount: vi.fn(async () => undefined),

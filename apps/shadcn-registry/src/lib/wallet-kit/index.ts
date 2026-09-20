@@ -32,6 +32,11 @@ export type {
   AomiUserRef,
   LinkedAuthAccount,
 } from "./account/types";
+export type {
+  WalletAction,
+  WalletRow,
+  WalletState,
+} from "./composer/wallet-state";
 export {
   AOMI_SESSION_BOOTING_IDENTITY,
   AOMI_SESSION_DISCONNECTED_IDENTITY,

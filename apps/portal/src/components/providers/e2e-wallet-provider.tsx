@@ -247,6 +247,55 @@ export function E2EWalletProvider({
             ]
           : []),
       ],
+      wallets: [
+        ...(seed.address
+          ? [
+              {
+                key: `evm:${seed.address.toLowerCase()}`,
+                family: "evm" as const,
+                address: seed.address,
+                kind: "external" as const,
+                chainId: seed.chainId,
+                walletName: "E2E Wallet",
+                label: "E2E Wallet",
+                connectionId: `e2e:${seed.address.toLowerCase()}`,
+                state: "guest" as const,
+                connected: true,
+                linked: false,
+                operating: true,
+                actions: [
+                  {
+                    kind: "disconnect" as const,
+                    connectionId: `e2e:${seed.address.toLowerCase()}`,
+                  },
+                ],
+              },
+            ]
+          : []),
+        ...(seed.svmAddress
+          ? [
+              {
+                key: `svm:${seed.svmAddress}`,
+                family: "svm" as const,
+                address: seed.svmAddress,
+                kind: "external" as const,
+                walletName: "E2E Solana Wallet",
+                label: "E2E Solana Wallet",
+                connectionId: `e2e:${seed.svmAddress}`,
+                state: "guest" as const,
+                connected: true,
+                linked: false,
+                operating: true,
+                actions: [
+                  {
+                    kind: "disconnect" as const,
+                    connectionId: `e2e:${seed.svmAddress}`,
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
       selectAccount: async () => undefined,
       connect: async () => undefined,
       openAccountUI: async () => undefined,

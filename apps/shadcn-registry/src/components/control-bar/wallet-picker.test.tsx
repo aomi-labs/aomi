@@ -14,6 +14,7 @@ import {
 } from "@testing-library/react";
 import { AomiRuntimeApiProvider, ExtUserProvider } from "@aomi-labs/react";
 import type { AomiWalletKit } from "@/lib/wallet-kit";
+import type { WalletRow } from "@/lib/wallet-kit/composer/wallet-state";
 import { AomiWalletKitContextProvider } from "@/lib/wallet-kit";
 import { AomiWalletNetworkPreferencesProvider } from "@/lib/wallet-kit/network-preferences";
 import { registerWalletProvider } from "@/lib/wallet-kit/providers/plugin-registry";
@@ -54,7 +55,78 @@ const solanaNetworks = [
   },
 ] as const;
 
-function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
+type LegacyWalletRow = {
+  id: string;
+  family: "evm" | "svm";
+  address?: string;
+  chainId?: number;
+  label: string;
+  walletName?: string;
+  kind?: string;
+  walletKind?: "external" | "embedded" | "smart_account";
+  source: "live" | "stored" | "option";
+  status: "active" | "connected" | "stored" | "available" | "unavailable";
+  provider?: string;
+  linked?: boolean;
+  linkedVia?: string;
+  capability?: "read" | "write";
+  manageable?: boolean;
+  actions: Array<{ kind: string; label: string }>;
+};
+
+function canonicalTestRows(rows: readonly LegacyWalletRow[]): WalletRow[] {
+  return rows
+    .filter(
+      (row): row is LegacyWalletRow & { address: string } =>
+        row.source !== "option" && Boolean(row.address),
+    )
+    .map((row) => {
+      const key = `${row.family}:${row.family === "evm" ? row.address.toLowerCase() : row.address}`;
+      const connected = row.source === "live";
+      const linked = Boolean(row.linked || row.source === "stored");
+      return {
+        key,
+        family: row.family,
+        address: row.address,
+        kind: row.walletKind === "embedded" ? "embedded" : "external",
+        provider: row.provider,
+        chainId: row.chainId,
+        walletName: row.walletName,
+        label: row.label,
+        capability: row.capability,
+        manageable: row.manageable,
+        connectionId: connected ? row.id : undefined,
+        linkedWalletId: linked ? row.id : undefined,
+        state: connected ? (linked ? "ready" : "unlinked") : "offline",
+        ...(connected || linked ? {} : { reason: "disconnected" as const }),
+        ...(connected ? {} : { reason: "disconnected" as const }),
+        connected,
+        linked,
+        operating: row.status === "active",
+        actions: [
+          ...(!row.status.includes("active") && connected
+            ? [{ kind: "select" as const, walletKey: key }]
+            : []),
+          ...row.actions.flatMap<WalletRow["actions"][number]>((action) => {
+            if (action.kind === "link")
+              return [{ kind: "link" as const, connectionId: row.id }];
+            if (action.kind === "disconnect")
+              return [{ kind: "disconnect" as const, connectionId: row.id }];
+            if (action.kind === "manage" || action.kind === "signout")
+              return [{ kind: action.kind }];
+            return [];
+          }),
+        ],
+      } as WalletRow;
+    });
+}
+
+function makeAdapter(
+  overrides: Partial<AomiWalletKit> & {
+    walletModalRows?: readonly LegacyWalletRow[];
+  } = {},
+): AomiWalletKit {
+  const { walletModalRows, ...adapterOverrides } = overrides;
   const adapter: AomiWalletKit = {
     identity: {
       status: "connected",
@@ -89,6 +161,7 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
         active: true,
       },
     ],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     connect: vi.fn(async () => undefined),
     evmWallets: [
@@ -135,82 +208,72 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
     disconnect: vi.fn(async () => undefined),
     openAccountUI: vi.fn(async () => undefined),
     supportedNetworks: { evm: evmChains, solana: solanaNetworks },
-    ...overrides,
+    ...adapterOverrides,
   };
-  if (!overrides.walletModalRows) {
-    adapter.walletModalRows = [
-      ...adapter.accounts.map((account) => ({
-        id: account.id,
-        family: account.family,
-        address: account.address,
-        chainId: account.chainId,
-        label: account.label ?? account.address,
-        walletName: account.walletName,
-        source: "live" as const,
-        status: account.active ? ("active" as const) : ("connected" as const),
-        linkedVia: account.linkedVia,
-        manageable: account.manageable,
-        actions: account.actions?.map((action) => ({
-          kind: action.kind,
-          label:
-            action.label ??
-            (action.kind === "manage"
-              ? "Manage"
-              : action.kind === "signout"
-                ? "Sign out"
-                : "Disconnect"),
-        })) ?? [
-          account.manageable
-            ? ({ kind: "manage" as const, label: "Manage" } as const)
-            : ({
-                kind: "disconnect" as const,
-                label: "Disconnect",
-              } as const),
-        ],
-      })),
-      ...(adapter.evmWallets ?? []).map((wallet) => ({
-        id: wallet.id,
-        family: wallet.family === "svm" ? ("svm" as const) : ("evm" as const),
-        label: wallet.label,
-        walletName: wallet.label,
-        iconUrl: wallet.iconUrl,
-        kind: wallet.kind,
-        source: "option" as const,
-        status:
-          wallet.status === "unavailable"
-            ? ("unavailable" as const)
-            : ("available" as const),
-        provider: wallet.connectorId,
-        actions: [{ kind: "connect" as const, label: "Connect" }],
-      })),
-      ...(adapter.solanaWallets ?? []).map((wallet) => ({
-        id: wallet.name,
-        family: "svm" as const,
-        label: wallet.name,
-        walletName: wallet.name,
-        iconUrl: wallet.iconUrl,
-        kind: "solana" as const,
-        source: "option" as const,
-        status:
-          wallet.ready === false
-            ? ("unavailable" as const)
-            : ("available" as const),
-        actions: [{ kind: "connect" as const, label: "Connect" }],
-      })),
-      ...(adapter.socialLoginOptions ?? []).map((option) => ({
-        id: option.id,
-        family: "evm" as const,
-        label: option.label,
-        walletName: option.label,
-        kind: "social" as const,
-        source: "option" as const,
-        status:
-          option.status === "unavailable"
-            ? ("unavailable" as const)
-            : ("available" as const),
-        actions: [{ kind: "authenticate" as const, label: "Sign in" }],
-      })),
-    ];
+  adapter.wallets = walletModalRows
+    ? canonicalTestRows(walletModalRows)
+    : canonicalTestRows(
+        adapter.accounts.map((account) => ({
+          id: account.id,
+          family: account.family,
+          address: account.address,
+          chainId: account.chainId,
+          label: account.label ?? account.address,
+          walletName: account.walletName,
+          source: "live" as const,
+          status: account.active ? ("active" as const) : ("connected" as const),
+          linkedVia: account.linkedVia,
+          manageable: account.manageable,
+          actions: account.actions?.map((action) => ({
+            kind: action.kind,
+            label:
+              action.label ??
+              (action.kind === "manage"
+                ? "Manage"
+                : action.kind === "signout"
+                  ? "Sign out"
+                  : "Disconnect"),
+          })) ?? [
+            account.manageable
+              ? ({ kind: "manage" as const, label: "Manage" } as const)
+              : ({
+                  kind: "disconnect" as const,
+                  label: "Disconnect",
+                } as const),
+          ],
+        })),
+      );
+  if (walletModalRows) {
+    const options = walletModalRows.filter((row) => row.source === "option");
+    const social = options.filter((row) => row.kind === "social");
+    const walletOptions = options.filter((row) => row.kind !== "social");
+    if (social.length) {
+      adapter.socialLoginOptions = social.map((row) => ({
+        id: row.id,
+        label: row.label,
+        family: row.family,
+        kind: "social",
+        status: row.status === "unavailable" ? "unavailable" : "available",
+      }));
+    }
+    if (walletOptions.length) {
+      adapter.evmWallets = walletOptions
+        .filter((row) => row.family === "evm")
+        .map((row) => ({
+          id: row.id,
+          label: row.label,
+          family: "evm",
+          kind: row.kind === "walletconnect" ? "walletconnect" : "evm",
+          status: row.status === "unavailable" ? "unavailable" : "available",
+        }));
+      adapter.solanaWallets = walletOptions
+        .filter((row) => row.family === "svm")
+        .map((row) => ({
+          name: row.label,
+          ready: row.status !== "unavailable",
+          installed: row.status !== "unavailable",
+        }));
+    }
   }
   return adapter;
 }
@@ -415,7 +478,7 @@ describe("WalletPicker", () => {
 
   it("keeps linked wallet records out of the add-wallet picker", async () => {
     const connectEvmWallet = vi.fn(async () => undefined);
-    const walletModalRows: NonNullable<AomiWalletKit["walletModalRows"]> = [
+    const walletModalRows: LegacyWalletRow[] = [
       {
         id: "para-evm",
         family: "evm",
@@ -1036,6 +1099,53 @@ describe("WalletPicker", () => {
       await Promise.resolve();
     });
     expect(linkWallet).not.toHaveBeenCalled();
+  });
+
+  it("shows a connected unlinked wallet when no operating wallet exists", () => {
+    renderPicker(
+      makeAdapter({
+        identity: { status: "disconnected", isConnected: false },
+        accountUser: { id: "user-1", displayName: "Ada Account" },
+        accountWallets: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            kind: "external",
+            linkedVia: "siwe",
+          },
+        ],
+        linkWallet: vi.fn(async () => undefined),
+        walletModalRows: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            walletName: "MetaMask",
+            label: "0xAAAAAAAA",
+            source: "stored",
+            status: "stored",
+            linked: true,
+            actions: [],
+          },
+          {
+            id: "mm-2",
+            family: "evm",
+            address: "0xBBBBBBBB",
+            walletName: "MetaMask",
+            label: "0xBBBBBBBB",
+            source: "live",
+            status: "connected",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Link wallet" }),
+    ).toBeEnabled();
   });
 
   it("keeps a dual-chain wallet connectable on both families", () => {

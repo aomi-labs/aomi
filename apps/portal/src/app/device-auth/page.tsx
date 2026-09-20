@@ -11,7 +11,7 @@ export default function DeviceAuthPage() {
   );
 }
 
-export function DeviceAuthShell({ status }: { status: string }) {
+function DeviceAuthShell({ status }: { status: string }) {
   return (
     <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
       <section className="w-full max-w-sm">
