@@ -60,6 +60,10 @@ packageExtensions:
   "@getpara/react-sdk-lite@2.19.0":
     dependencies:
       "@getpara/shared": "1.14.0"
+  # The 2.24.0 connector still imports EventEmitter without declaring it.
+  "@getpara/wagmi-v2-connector@2.24.0":
+    dependencies:
+      eventemitter3: "5.0.1"
   "@getpara/wagmi-v2-connector@2.19.0":
     dependencies:
       eventemitter3: "5.0.1"

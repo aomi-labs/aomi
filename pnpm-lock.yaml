@@ -11,7 +11,7 @@ overrides:
   '@types/react': 19.2.14
   '@types/react-dom': 19.2.3
 
-packageExtensionsChecksum: sha256-MTZU5Mdlc17FuOaKBIHt0kHrKQFyqLAK4fcOR932MMY=
+packageExtensionsChecksum: sha256-VymsTr/dSKFS0ijmJqY7S+P+J2E+BUJLSHAi8GyUgIU=
 
 patchedDependencies:
   '@better-auth/mcp@1.7.1':
@@ -21196,6 +21196,7 @@ snapshots:
       '@getpara/viem-v2-integration': 2.24.0(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@getpara/web-sdk': 2.24.0(@farcaster/miniapp-sdk@0.1.10(bufferutil@4.1.0)(encoding@0.1.13)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@wagmi/core': 3.0.1(@tanstack/query-core@5.101.2)(@types/react@19.2.14)(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.7))(viem@2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
+      eventemitter3: 5.0.1
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
       viem: 2.47.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
