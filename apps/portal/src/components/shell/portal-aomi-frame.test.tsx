@@ -129,6 +129,7 @@ vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
 
 describe("PortalAomiFrame account bootstrap", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     frameInstances.next = 0;
     backendUrlState.current = "https://api.example.test";
@@ -162,6 +163,156 @@ describe("PortalAomiFrame account bootstrap", () => {
       "true",
     );
     expect(document.querySelector('main[aria-busy="true"]')).toBeNull();
+  });
+
+  it("renders the welcome shell while account initialization is pending", () => {
+    render(<PortalAomiFrame />);
+    expect(
+      screen.getByRole("heading", { name: "What should happen on-chain?" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+  });
+
+  it("offers recovery when account initialization never settles", async () => {
+    vi.useFakeTimers();
+    render(<PortalAomiFrame />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+  });
+
+  it("does not mount a stale guest runtime while sign-out is being checked", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "account-a" },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    const view = render(<PortalAomiFrame />);
+    expect(screen.getByTestId("aomi-frame")).toBeVisible();
+    walletKitState.current = { accountStatus: "ready" };
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(screen.getByTestId("portal-startup-shell")).toBeVisible();
+    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+  });
+
+  it("keeps the shell visible during a slow guest lookup, then restores guest history", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = { accountStatus: "ready" };
+    let resolve!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done;
+          }),
+      ),
+    );
+    render(<PortalAomiFrame />);
+    expect(screen.getByTestId("portal-startup-shell")).toBeVisible();
+    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+    await act(async () =>
+      resolve(Response.json({ user: { id: "guest-1", isAnonymous: true } })),
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-account-session-available",
+      "true",
+    );
+  });
+
+  it("times out a hung lookup and retries without silently creating a new guest", async () => {
+    vi.useFakeTimers();
+    backendUrlState.current = "/";
+    walletKitState.current = { accountStatus: "ready" };
+    let lateResponse!: (response: Response) => void;
+    const fetchSession = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((done) => {
+            lateResponse = done;
+          }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ user: { id: "guest-2", isAnonymous: true } }),
+      );
+    vi.stubGlobal("fetch", fetchSession);
+    render(<PortalAomiFrame />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+    expect(fetchSession.mock.calls[0][1].signal.aborted).toBe(true);
+    await act(async () =>
+      screen.getByRole("button", { name: "Retry" }).click(),
+    );
+    const instance = screen.getByTestId("aomi-frame").dataset.instance;
+    await act(async () =>
+      lateResponse(
+        Response.json({ user: { id: "stale-guest", isAnonymous: true } }),
+      ),
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-instance",
+      instance,
+    );
+    expect(fetchSession).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([503, 401])(
+    "shows recovery instead of admitting a guest after HTTP %s",
+    async (status) => {
+      backendUrlState.current = "/";
+      walletKitState.current = { accountStatus: "ready" };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(Response.json({}, { status })),
+      );
+      render(<PortalAomiFrame />);
+      expect(
+        await screen.findByRole("button", { name: "Retry" }),
+      ).toBeVisible();
+      expect(screen.queryByTestId("aomi-frame")).toBeNull();
+    },
+  );
+
+  it("ignores a pending guest response after sign-in changes the principal", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = { accountStatus: "ready" };
+    let resolve!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done;
+          }),
+      ),
+    );
+    const view = render(<PortalAomiFrame />);
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "account-new" },
+    };
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    const instance = screen.getByTestId("aomi-frame").dataset.instance;
+    await act(async () =>
+      resolve(
+        Response.json({ user: { id: "stale-guest", isAnonymous: true } }),
+      ),
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-instance",
+      instance,
+    );
   });
 
   it("mounts settings inside the frame so it can read the Aomi runtime", async () => {
@@ -229,6 +380,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(fetch).toHaveBeenCalledWith("/api/auth/get-session", {
       credentials: "same-origin",
       cache: "no-store",
+      signal: expect.any(AbortSignal),
     });
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-persist-thread",
