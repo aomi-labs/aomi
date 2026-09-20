@@ -101,6 +101,22 @@
   margin-top: 16px;
 }
 
+.summary .findingsLabel {
+  display: block;
+  margin-top: 23px;
+}
+
+.summary ul {
+  margin: 12px 0 0;
+  padding-left: 21px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.summary li + li {
+  margin-top: 8px;
+}
+
 .contents {
   max-width: 806px;
   display: grid;
