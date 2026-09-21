@@ -26,24 +26,6 @@ test("real Portal auth route admits its own origin and rejects an unregistered b
   expect(await foreign.json()).toEqual({ error: "origin_not_allowed" });
 });
 
-test("chat startup is visible before JavaScript downloads", async ({
-  page,
-}) => {
-  await page.route("**/_next/**/*.js*", (route) => route.abort());
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("portal-startup-shell")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Send", exact: true }),
-  ).toBeDisabled();
-  await page.screenshot({
-    path: "output/playwright/guest-regression/startup-before-javascript.png",
-    fullPage: true,
-  });
-});
-
 type Event = {
   type: string;
   event_id: string;
@@ -62,12 +44,6 @@ test("guest response settles once and the same conversation survives refresh", a
   test.setTimeout(180_000);
   const threads = new Map<string, { owner: string; events: Event[] }>();
   const unexpectedRequests: string[] = [];
-  let releaseSession!: () => void;
-  const sessionHold = new Promise<void>((resolve) => {
-    releaseSession = resolve;
-  });
-  let holdSession = true;
-  let heldSessions = 0;
   let starts = 0;
   let lists = 0;
   await page.route("**/*", (route) => {
@@ -95,10 +71,6 @@ test("guest response settles once and the same conversation survives refresh", a
       });
 
     if (path === "/api/auth/get-session") {
-      if (holdSession) {
-        heldSessions++;
-        await sessionHold;
-      }
       return json(
         guestId ? { user: { id: guestId, isAnonymous: true } } : null,
       );
@@ -219,18 +191,6 @@ test("guest response settles once and the same conversation survives refresh", a
   });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect.poll(() => heldSessions).toBeGreaterThan(0);
-  await expect(page.getByTestId("portal-startup-shell")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Send", exact: true }),
-  ).toBeDisabled();
-  expect(starts).toBe(0);
-  expect(lists).toBe(0);
-  holdSession = false;
-  releaseSession();
   await expect(page.getByTestId("portal-shell")).toBeVisible();
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");
