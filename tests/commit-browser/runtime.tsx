@@ -16,6 +16,3 @@ export function useAomiRuntime() {
 export function cn(...inputs: Parameters<typeof clsx>) {
   return twMerge(clsx(...inputs));
 }
-export function getChainInfo(_chainId: number | undefined) {
-  return undefined;
-}
