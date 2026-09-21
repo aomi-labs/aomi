@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildSiwsMessage } from "@aomi-labs/client";
+import {
+  buildSiwsMessage,
+  withBrowserSessionTransition,
+} from "@aomi-labs/client";
 import type { AuthRuntime, SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import { brandDisplayName } from "../runtime/evm/brands";
@@ -775,20 +778,22 @@ async function signInWithEvmWallet(input: {
   messageConfig: AuthMessageConfig;
   replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
-  // A wallet may already own a durable account, so replace the disposable
-  // guest before issuing a sign-in challenge instead of linking the two.
-  await input.replaceGuestSession?.();
-  const nonceResult = await input.accountClient.createSiweNonce();
-  const message = buildSiweMessage({
-    address: input.address,
-    chainId: input.chainId,
-    nonce: nonceResult.nonce,
-    ...messageConfigFromNonce(nonceResult, input.messageConfig),
-  });
-  const signature = await input.signMessage(message);
-  await input.accountClient.verifySiwe({
-    message,
-    signature,
+  await withBrowserSessionTransition(async () => {
+    // A wallet may already own a durable account, so replace the disposable
+    // guest before issuing a sign-in challenge instead of linking the two.
+    await input.replaceGuestSession?.();
+    const nonceResult = await input.accountClient.createSiweNonce();
+    const message = buildSiweMessage({
+      address: input.address,
+      chainId: input.chainId,
+      nonce: nonceResult.nonce,
+      ...messageConfigFromNonce(nonceResult, input.messageConfig),
+    });
+    const signature = await input.signMessage(message);
+    await input.accountClient.verifySiwe({
+      message,
+      signature,
+    });
   });
 }
 
@@ -815,27 +820,29 @@ async function authenticateSvmWallet(input: {
   messageConfig: AuthMessageConfig;
   replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
-  await input.replaceGuestSession?.();
-  const nonceResult = await input.accountClient.createSiwsNonce({
-    walletAddress: input.address,
-    chainId: input.chainId,
-    intent: input.intent,
-  });
-  const message = buildSiwsMessage({
-    address: input.address,
-    chainId: input.chainId,
-    nonce: nonceResult.nonce,
-    intent: input.intent,
-    ...messageConfigFromNonce(nonceResult, input.messageConfig),
-  });
-  const signature = await input.signMessage(message);
-  await input.accountClient.verifySiws({
-    message,
-    signature,
-    walletAddress: input.address,
-    chainId: input.chainId,
-    intent: input.intent,
-    label: input.label,
+  await withBrowserSessionTransition(async () => {
+    await input.replaceGuestSession?.();
+    const nonceResult = await input.accountClient.createSiwsNonce({
+      walletAddress: input.address,
+      chainId: input.chainId,
+      intent: input.intent,
+    });
+    const message = buildSiwsMessage({
+      address: input.address,
+      chainId: input.chainId,
+      nonce: nonceResult.nonce,
+      intent: input.intent,
+      ...messageConfigFromNonce(nonceResult, input.messageConfig),
+    });
+    const signature = await input.signMessage(message);
+    await input.accountClient.verifySiws({
+      message,
+      signature,
+      walletAddress: input.address,
+      chainId: input.chainId,
+      intent: input.intent,
+      label: input.label,
+    });
   });
 }
 
