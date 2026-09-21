@@ -2,6 +2,7 @@ import {
   isOfficialAppDescriptor,
   type AomiAppDescriptor,
   type AomiFeatureCategory,
+  type AomiSecretSlot,
 } from "@aomi-labs/client";
 import { resolveAppIdentity } from "../../../../lib/apps/app-identity";
 
@@ -33,6 +34,8 @@ export interface CatalogPackage {
   pinned?: boolean;
   /** Exact EVM chains declared by the official release. */
   chainIds: number[];
+  /** Credential slots each signed-in user supplies for this app. */
+  secrets: AomiSecretSlot[];
 }
 
 export const ARC_TESTNET_CHAIN_ID = 5_042_002;
@@ -188,5 +191,6 @@ export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
       visibility === "personal" ? "Your packages" : (decor.category ?? "More"),
     pinned: PINNED_APPS.has(identity.brandId),
     chainIds: app.chainIds ?? [],
+    secrets: (app.secrets ?? []).filter((slot) => slot.user_own),
   };
 }

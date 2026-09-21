@@ -17,7 +17,11 @@ import {
   usePortalWalletAccountMenu,
   type SettingsTab,
 } from "@aomi-labs/widget-lib/host-composition";
-import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
+import {
+  useAomiRuntime,
+  useControl,
+  usePerThreadControl,
+} from "@aomi-labs/react";
 import { PortalStartupShell } from "./portal-startup-shell";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import {
@@ -36,6 +40,64 @@ function directTarget(
   return Number.isSafeInteger(parsed) && parsed > 0
     ? { app, applicationId: parsed }
     : { app };
+}
+
+function PortalComposer({
+  enabledApps,
+  lockedTarget,
+}: {
+  enabledApps: readonly string[];
+  lockedTarget?: DirectRoutingApp;
+}) {
+  const { state } = useControl();
+  const directApps = useMemo<DirectRoutingApp[]>(
+    () =>
+      enabledApps
+        .filter((app) => app !== "orchestrator" && app !== "auto")
+        .flatMap((app) => {
+          const hosted = state.appDescriptors
+            .filter((descriptor) => descriptor.name === app)
+            .flatMap((descriptor) => {
+              const applicationId = Number(descriptor.applicationId);
+              return Number.isSafeInteger(applicationId) && applicationId > 0
+                ? [{ app, applicationId }]
+                : [];
+            });
+          return hosted.length > 0 ? hosted : [{ app }];
+        }),
+    [enabledApps, state.appDescriptors],
+  );
+  const routing = useMemo<AomiRoutingConfig>(
+    () =>
+      lockedTarget
+        ? {
+            targets: [{ mode: "direct", apps: [lockedTarget] }],
+            defaultMode: "direct",
+            showFixedControls: true,
+          }
+        : {
+            targets: [
+              { mode: "auto" },
+              ...(directApps.length > 0
+                ? [{ mode: "direct" as const, apps: directApps }]
+                : []),
+            ],
+            defaultMode: "auto",
+          },
+    [directApps, lockedTarget],
+  );
+
+  return (
+    <AomiFrame.Composer
+      withControl
+      controlBarProps={{
+        hideApiKey: true,
+        routing,
+        enabledAppIds: enabledApps,
+        hideNetwork: true,
+      }}
+    />
+  );
 }
 
 function RequestedAppBootstrap({
@@ -223,32 +285,6 @@ export function PortalAomiFrame() {
       lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
     [lockedApp, lockedApplicationId],
   );
-  const directApps = useMemo(
-    () =>
-      enabledApps
-        .filter((app) => app !== "orchestrator" && app !== "auto")
-        .map((app) => ({ app })),
-    [enabledApps],
-  );
-  const routing = useMemo<AomiRoutingConfig>(
-    () =>
-      lockedTarget
-        ? {
-            targets: [{ mode: "direct", apps: [lockedTarget] }],
-            defaultMode: "direct",
-            showFixedControls: true,
-          }
-        : {
-            targets: [
-              { mode: "auto" },
-              ...(directApps.length > 0
-                ? [{ mode: "direct" as const, apps: directApps }]
-                : []),
-            ],
-            defaultMode: "auto",
-          },
-    [directApps, lockedTarget],
-  );
   const clientOptions = usePortalClientOptions(lockedApp, lockedApplicationId);
   const backendUrl = getBackendUrl();
   // Settings and the packages catalog are siblings of the frame so their
@@ -342,15 +378,7 @@ export function PortalAomiFrame() {
             onOpenPackages={() => setOverlay("packages")}
           />
         </AomiFrame.Header>
-        <AomiFrame.Composer
-          withControl
-          controlBarProps={{
-            hideApiKey: true,
-            routing,
-            enabledAppIds: enabledApps,
-            hideNetwork: true,
-          }}
-        />
+        <PortalComposer enabledApps={enabledApps} lockedTarget={lockedTarget} />
         <SvmWalletBindingGate />
         {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one

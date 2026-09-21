@@ -6,6 +6,8 @@
 import {
   normalizeAppDescriptor,
   type AomiAppDescriptor,
+  type AomiDeleteSecretResponse,
+  type AomiUserAppSecrets,
 } from "@aomi-labs/client";
 import type { ShellRequest } from "../../transport";
 import { accountScopedFetch } from "../../lib/settings-api";
@@ -31,4 +33,37 @@ export async function setInstalledApps(
     body: JSON.stringify({ apps }),
   });
   return response.apps;
+}
+
+function appSecretsPath(applicationId: number | string): string {
+  return `/api/account/apps/${encodeURIComponent(String(applicationId))}/secrets`;
+}
+
+export function fetchAppSecrets(
+  applicationId: number | string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiUserAppSecrets> {
+  return request(appSecretsPath(applicationId));
+}
+
+export function saveAppSecrets(
+  applicationId: number | string,
+  secrets: Record<string, string>,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiUserAppSecrets> {
+  return request(appSecretsPath(applicationId), {
+    method: "POST",
+    body: JSON.stringify({ secrets }),
+  });
+}
+
+export function removeAppSecret(
+  applicationId: number | string,
+  name: string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiDeleteSecretResponse> {
+  return request(
+    `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
 }

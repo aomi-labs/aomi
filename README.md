@@ -377,7 +377,8 @@ aomi tx simulate tx-1 tx-2
 aomi tx sign tx-1 tx-2 --private-key 0xYourPrivateKey --rpc-url https://eth.llamarpc.com
 aomi session list|new|resume|delete|status|log|events|close
 aomi model list|set|current
-aomi app list|current
+aomi app list|available|add|remove|current
+aomi app credentials status|set|replace|remove
 aomi chain list
 aomi secret add NAME=value
 ```

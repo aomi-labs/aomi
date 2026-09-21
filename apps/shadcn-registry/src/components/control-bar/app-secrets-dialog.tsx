@@ -52,10 +52,10 @@ function selectedDescriptor(
   );
 }
 
-/** A required slot is satisfied by the user's own value or the app's. */
+/** A required user-owned slot is satisfied only by the user's saved value. */
 function missingRequired(slots: AomiUserAppSecretSlot[]): string[] {
   return slots
-    .filter((slot) => slot.required && !slot.configured && !slot.app_provided)
+    .filter((slot) => slot.required && !slot.configured)
     .map((slot) => slot.name);
 }
 
@@ -84,7 +84,7 @@ export const AppSecretsDialog: FC<AppSecretsDialogProps> = ({ className }) => {
     () => selectedDescriptor(state.appDescriptors, app, applicationId),
     [state.appDescriptors, app, applicationId],
   );
-  const declared = descriptor?.secrets ?? [];
+  const declared = (descriptor?.secrets ?? []).filter((slot) => slot.user_own);
   const active =
     Boolean(descriptor) && declared.length > 0 && applicationId != null;
 
@@ -112,6 +112,8 @@ export const AppSecretsDialog: FC<AppSecretsDialogProps> = ({ className }) => {
   // Refetch whenever the selected app changes so the dot is right before
   // the dialog is ever opened.
   useEffect(() => {
+    setDrafts({});
+    setShowValues(false);
     if (!active) {
       setStatus(null);
       setError(null);
@@ -123,6 +125,7 @@ export const AppSecretsDialog: FC<AppSecretsDialogProps> = ({ className }) => {
   useEffect(() => {
     if (open) {
       setDrafts({});
+      setShowValues(false);
       void refresh();
     }
   }, [open, refresh]);
@@ -178,9 +181,17 @@ export const AppSecretsDialog: FC<AppSecretsDialogProps> = ({ className }) => {
   };
 
   const label = descriptor?.label ?? app;
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setDrafts({});
+      setShowValues(false);
+      setError(null);
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           variant="ghost"
@@ -210,9 +221,9 @@ export const AppSecretsDialog: FC<AppSecretsDialogProps> = ({ className }) => {
         <DialogHeader>
           <DialogTitle>{label} API keys</DialogTitle>
           <DialogDescription>
-            Your own keys for {label}. They are stored encrypted for your
-            account and used only on your threads; the app trades your account,
-            never a shared one. Values are never shown again after saving.
+            Your own credentials for {label}. They are stored encrypted for
+            your account and used only on your threads. Values are never shown
+            again after saving.
           </DialogDescription>
         </DialogHeader>
 

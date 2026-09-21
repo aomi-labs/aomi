@@ -2,10 +2,9 @@
 // useAppSecrets — the signed-in user's own keys for an app
 // =============================================================================
 //
-// An app that wraps an account-bound venue (an exchange, a prediction market)
-// trades the key owner's own account. The backend therefore keeps a per-user,
-// per-application key set (`/api/account/apps/:id/secrets`) and layers it
-// over the app's shared environment on that user's threads.
+// Apps can ask each signed-in user for their own credentials. The backend keeps
+// those values in a per-user, per-application key set
+// (`/api/account/apps/:id/secrets`) and injects them only for that user's runs.
 //
 // This is deliberately NOT part of `useByok`: that hook is the ephemeral,
 // browser-scoped vault (`ingestSecrets`), while these keys are account-scoped

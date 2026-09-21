@@ -73,17 +73,20 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
 
   const mutateInstalled = useCallback(
     async (packageId: string, next: string[]) => {
-      if (!installedReady || !accountUserId || mutationInFlight.current) return;
+      if (!installedReady || !accountUserId || mutationInFlight.current)
+        return false;
       mutationInFlight.current = true;
       setBusyId(packageId);
       setActionError(null);
       try {
         const apps = await setInstalledApps(next, transport.json);
         updateAccountApps(accountUserId, apps);
+        return true;
       } catch (cause) {
         setActionError(
           cause instanceof Error ? cause.message : "Couldn’t update apps",
         );
+        return false;
       } finally {
         mutationInFlight.current = false;
         setBusyId(null);
@@ -93,7 +96,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   );
 
   const install = (packageId: string) => {
-    void mutateInstalled(packageId, [
+    return mutateInstalled(packageId, [
       ...[...installedIds].filter((id) => id !== packageId),
       packageId,
     ]);
@@ -326,7 +329,13 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                           setMobileDetailOpen(true);
                         }}
                         onInstall={() =>
-                          entry.kind === "app" && install(entry.item.id)
+                          entry.kind === "app" && entry.item.secrets.length > 0
+                            ? (() => {
+                                setSelectedKey(selectionKey(entry));
+                                setMobileDetailOpen(true);
+                              })()
+                            : entry.kind === "app" &&
+                              void install(entry.item.id)
                         }
                         onTry={() =>
                           entry.kind === "skill" && trySkill(entry.item)
@@ -363,6 +372,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               </p>
             ) : null}
             <LibraryDetailPanel
+              key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${mobileDetailOpen}`}
               selection={activeSelection}
               installed={selectedInstalled}
               installedReady={installedReady}
@@ -371,6 +381,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 busyId === activeSelection.item.id
               }
               activeChainId={activeChainId}
+              accountUserId={accountUserId}
               onInstall={install}
               onUninstall={uninstall}
               onTrySkill={trySkill}

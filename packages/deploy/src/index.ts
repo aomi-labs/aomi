@@ -11,7 +11,7 @@ export {
   ACTIVATION_REQUEST_EMBED_COLOR,
 } from "./activation-request";
 
-export { missingRequiredSecrets } from "./secrets";
+export { builderSecretSlots, missingRequiredSecrets } from "./secrets";
 
 export {
   DeployError,

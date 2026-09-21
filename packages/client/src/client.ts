@@ -17,6 +17,7 @@ import type {
   AomiRequestOptions,
   AomiByokKeyEntry,
   AomiSaveByokKeyResponse,
+  AomiSetAccountAppsResponse,
   AomiSimulateResponse,
   AomiUserAppSecrets,
   GetAccountBearer,
@@ -698,6 +699,70 @@ export class AomiClient {
     return (await response.json()) as AomiAccountResponse;
   }
 
+  /** List the full app catalog available to the signed-in account. */
+  async listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]> {
+    const url = buildApiUrl(this.baseUrl, "/api/account/apps");
+    const response = await this.fetchImpl(url, {
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to list account apps: HTTP ${response.status}`);
+    }
+
+    const data = (await response.json()) as unknown;
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((item) => normalizeAppDescriptor(item))
+      .filter((item): item is AomiAppDescriptor => item !== null);
+  }
+
+  /** Replace the signed-in account's installed app list. */
+  async setAccountApps(
+    sessionId: string,
+    apps: string[],
+  ): Promise<AomiSetAccountAppsResponse> {
+    const url = buildApiUrl(this.baseUrl, "/api/account/apps");
+    const response = await this.fetchImpl(url, {
+      method: "PUT",
+      headers: withSessionHeader(sessionId, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ apps }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update account apps: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiSetAccountAppsResponse;
+  }
+
+  /** Install one app without requiring callers to replace the whole list. */
+  async addAccountApp(
+    sessionId: string,
+    app: string,
+  ): Promise<AomiSetAccountAppsResponse> {
+    const account = await this.getAccount(sessionId);
+    return account.user.apps.includes(app)
+      ? { apps: account.user.apps }
+      : this.setAccountApps(sessionId, [...account.user.apps, app]);
+  }
+
+  /** Uninstall one app without requiring callers to replace the whole list. */
+  async removeAccountApp(
+    sessionId: string,
+    app: string,
+  ): Promise<AomiSetAccountAppsResponse> {
+    const account = await this.getAccount(sessionId);
+    return account.user.apps.includes(app)
+      ? this.setAccountApps(
+          sessionId,
+          account.user.apps.filter((candidate) => candidate !== app),
+        )
+      : { apps: account.user.apps };
+  }
+
   /**
    * Mint a Privy browser auth URL bound to the current backend session.
    */
@@ -891,12 +956,10 @@ export class AomiClient {
   // Per-user app secrets (client-supplied API keys)
   // ===========================================================================
   //
-  // An app that wraps an account-bound venue (an exchange, a prediction
-  // market) trades the key owner's own account, so each signed-in user
-  // supplies their own keys for it. Account-scoped and durable on the
-  // backend: a key saved here applies to every thread the account runs on
-  // that app from the next turn, on every fleet host. Distinct from
-  // `ingestSecrets`, which is the ephemeral browser-scoped store.
+  // Apps can ask each signed-in user for their own credentials. These values
+  // are account-scoped and durable on the backend, and are resolved for every
+  // dynamic invocation of that app. Distinct from `ingestSecrets`, which is
+  // the ephemeral browser-scoped store.
 
   /**
    * The slots an app declares with the current account's configuration
@@ -916,6 +979,14 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /** Read per-user credential status for one canonical application ID. */
+  getAppCredentialsStatus(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiUserAppSecrets> {
+    return this.listAppSecrets(sessionId, applicationId);
   }
 
   /**
@@ -947,6 +1018,26 @@ export class AomiClient {
     return (await response.json()) as AomiUserAppSecrets;
   }
 
+  /** Save one declared per-user credential. The value is never returned. */
+  setAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+    value: string,
+  ): Promise<AomiUserAppSecrets> {
+    return this.saveAppSecrets(sessionId, applicationId, { [name]: value });
+  }
+
+  /** Replace one saved credential. The backend uses the same secure upsert. */
+  replaceAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+    value: string,
+  ): Promise<AomiUserAppSecrets> {
+    return this.setAppCredential(sessionId, applicationId, name, value);
+  }
+
   /** Remove one of the current account's own values for an app. */
   async deleteAppSecret(
     sessionId: string,
@@ -967,6 +1058,15 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiDeleteSecretResponse;
+  }
+
+  /** Remove one saved per-user credential by canonical application ID. */
+  removeAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+  ): Promise<AomiDeleteSecretResponse> {
+    return this.deleteAppSecret(sessionId, applicationId, name);
   }
 
   /** Remove every value the current account stored for an app. */

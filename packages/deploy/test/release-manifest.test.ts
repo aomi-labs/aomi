@@ -36,7 +36,12 @@ describe("fetchReleaseSecretSlots", () => {
               file: "libbinance.dylib",
               sha256: "x",
               secrets: [
-                { name: "BINANCE_API_KEY", description: "d", required: true },
+                {
+                  name: "BINANCE_API_KEY",
+                  description: "d",
+                  required: true,
+                  user_own: true,
+                },
               ],
             },
           },
@@ -51,7 +56,14 @@ describe("fetchReleaseSecretSlots", () => {
       fetchImpl,
     });
 
-    expect(slots.binance.map((s) => s.name)).toEqual(["BINANCE_API_KEY"]);
+    expect(slots.binance).toEqual([
+      {
+        name: "BINANCE_API_KEY",
+        description: "d",
+        required: true,
+        user_own: true,
+      },
+    ]);
   });
 
   it("returns {} when the release has no manifest.json (older releases)", async () => {
@@ -191,6 +203,12 @@ describe("missingSecretsForActivation", () => {
                     name: "BINANCE_SECRET_KEY",
                     description: "d",
                     required: true,
+                  },
+                  {
+                    name: "BINANCE_USER_KEY",
+                    description: "User trading key",
+                    required: true,
+                    user_own: true,
                   },
                 ],
               },

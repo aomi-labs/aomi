@@ -1211,6 +1211,7 @@ describe("BackendClient projects", () => {
                 name: "DEMO_KEY",
                 description: "Credential",
                 required: true,
+                user_own: true,
               },
             ],
           },
@@ -1233,7 +1234,12 @@ describe("BackendClient projects", () => {
         demo: {
           applicationId: 77,
           slots: [
-            { name: "DEMO_KEY", description: "Credential", required: true },
+            {
+              name: "DEMO_KEY",
+              description: "Credential",
+              required: true,
+              user_own: true,
+            },
           ],
         },
       },

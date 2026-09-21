@@ -344,7 +344,16 @@ export class BackendClient extends BackendPlatformClient {
                 return typeof name === "string" &&
                   typeof description === "string" &&
                   typeof requiredFlag === "boolean"
-                  ? [{ name, description, required: requiredFlag }]
+                  ? [
+                      {
+                        name,
+                        description,
+                        required: requiredFlag,
+                        ...(rawSlot.user_own === true
+                          ? { user_own: true }
+                          : {}),
+                      },
+                    ]
                   : [];
               }),
             },

@@ -418,6 +418,8 @@ export interface AomiUserAppSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** This slot accepts a value owned by the signed-in user. */
+  user_own: boolean;
   /** The current account stored its own value for this slot. */
   configured: boolean;
   /**
@@ -433,6 +435,15 @@ export interface AomiUserAppSecrets {
   application_id: number;
   app: string;
   slots: AomiUserAppSecretSlot[];
+  /** Every required user-owned slot currently has a saved value. */
+  ready: boolean;
+  /** Required slot names that still need a value. Values are never returned. */
+  missing_required: string[];
+}
+
+/** PUT /api/account/apps */
+export interface AomiSetAccountAppsResponse {
+  apps: string[];
 }
 
 /** DELETE /api/account/apps/:application_id/secrets */
@@ -450,6 +461,8 @@ export interface AomiSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** Whether each signed-in user supplies their own value. Defaults to false. */
+  user_own: boolean;
 }
 
 /** Hosted application artifact availability reported by the backend catalog. */

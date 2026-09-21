@@ -12,7 +12,11 @@ import {
   missingSecretsForActivation,
   RequiredSecretsCheckError,
 } from "@aomi-labs/deploy/bff";
-import { BackendError, missingRequiredSecrets } from "@aomi-labs/deploy";
+import {
+  BackendError,
+  builderSecretSlots,
+  missingRequiredSecrets,
+} from "@aomi-labs/deploy";
 import { deploymentTargets } from "@aomi-labs/deploy/launch";
 import {
   isValidDeploymentId,
@@ -1189,7 +1193,7 @@ export async function requiredSecretsRoute(req: Request) {
             app,
             {
               applicationId,
-              slots,
+              slots: builderSecretSlots(slots),
               missing: missingRequiredSecrets(slots, configuredKeys).map(
                 (slot) => slot.name,
               ),

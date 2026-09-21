@@ -24,6 +24,27 @@ import {
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
+const VENUE_SECRETS = [
+  {
+    name: "VENUE_API_KEY",
+    description: "Personal trading API key",
+    required: true,
+    user_own: true,
+  },
+  {
+    name: "VENUE_SUBACCOUNT",
+    description: "Optional subaccount name",
+    required: false,
+    user_own: true,
+  },
+  {
+    name: "SHARED_ENDPOINT",
+    description: "Configured by the app",
+    required: true,
+    user_own: false,
+  },
+];
+
 /** `GET /api/account/apps` wire rows (backend `AppSpec`, snake_case). */
 const CATALOG = [
   { name: "default" },
@@ -64,6 +85,13 @@ const CATALOG = [
     application_id: 9,
     label: "Treasury Ops",
   },
+  {
+    name: "venue",
+    is_public: true,
+    application_id: 12,
+    label: "Venue",
+    secrets: VENUE_SECRETS,
+  },
 ];
 
 function installFetchRecorder(
@@ -79,6 +107,7 @@ function installFetchRecorder(
   const calls: FetchCall[] = [];
   const catalog = [...CATALOG, ...extraApps];
   let installed = ["default", "uniswap"];
+  let venueConfigured = false;
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       calls.push({ input, init });
@@ -93,6 +122,48 @@ function installFetchRecorder(
       if (url.pathname === "/api/account/apps" && method === "PUT") {
         installed = (JSON.parse(String(init?.body)) as { apps: string[] }).apps;
         return Response.json({ apps: installed });
+      }
+      if (url.pathname === "/api/account/apps/12/secrets" && method === "GET") {
+        return Response.json({
+          application_id: 12,
+          app: "venue",
+          ready: venueConfigured,
+          missing_required: venueConfigured ? [] : ["VENUE_API_KEY"],
+          slots: VENUE_SECRETS.filter((slot) => slot.user_own).map((slot) => ({
+            ...slot,
+            configured: slot.name === "VENUE_API_KEY" && venueConfigured,
+            app_provided: false,
+          })),
+        });
+      }
+      if (
+        url.pathname === "/api/account/apps/12/secrets" &&
+        method === "POST"
+      ) {
+        const secrets = (
+          JSON.parse(String(init?.body)) as {
+            secrets: Record<string, string>;
+          }
+        ).secrets;
+        venueConfigured = Boolean(secrets.VENUE_API_KEY) || venueConfigured;
+        return Response.json({
+          application_id: 12,
+          app: "venue",
+          ready: venueConfigured,
+          missing_required: venueConfigured ? [] : ["VENUE_API_KEY"],
+          slots: VENUE_SECRETS.filter((slot) => slot.user_own).map((slot) => ({
+            ...slot,
+            configured: Boolean(secrets[slot.name]),
+            app_provided: false,
+          })),
+        });
+      }
+      if (
+        url.pathname === "/api/account/apps/12/secrets/VENUE_API_KEY" &&
+        method === "DELETE"
+      ) {
+        venueConfigured = false;
+        return Response.json({ deleted: true });
       }
       if (url.pathname === "/api/resource/skills" && method === "GET") {
         return Response.json({
@@ -192,6 +263,12 @@ describe("packages modal wiring", () => {
     expect(
       screen.getByRole("button", { name: "Add Uniswap", exact: true }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Open Venue details"));
+    expect(
+      screen.getByText("Sign in to save credentials and add this app."),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("VENUE_API_KEY")).toBeDisabled();
+    expect(paths(calls)).not.toContain("GET /api/account/apps/12/secrets");
     expect(paths(calls)).not.toContain("PUT /api/account/apps");
   });
 
@@ -409,6 +486,114 @@ describe("packages modal wiring", () => {
       apps: ["default", "uniswap", "treasury-ops"],
     });
     expect(paths(calls)).toContain("PUT /api/account/apps");
+  });
+
+  it("saves required user credentials before adding an app", async () => {
+    const { calls } = installFetchRecorder();
+    await renderModal();
+
+    fireEvent.click(screen.getByLabelText("Set up Venue"));
+    expect(await screen.findByText("Personal trading API key")).toBeTruthy();
+    expect(screen.getByText("Optional subaccount name")).toBeTruthy();
+    expect(screen.queryByText("Configured by the app")).toBeNull();
+    expect(screen.getByLabelText("VENUE_API_KEY")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(screen.getByLabelText("Add Venue")).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("VENUE_API_KEY"), {
+      target: { value: " secret-value " },
+    });
+    fireEvent.click(screen.getByText("Save & add app"));
+
+    await waitFor(() => {
+      expect(paths(calls)).toContain("POST /api/account/apps/12/secrets");
+      expect(paths(calls)).toContain("PUT /api/account/apps");
+    });
+    const save = calls.find(
+      (call) =>
+        call.init?.method === "POST" &&
+        call.input.toString().includes("/api/account/apps/12/secrets"),
+    );
+    expect(JSON.parse(String(save?.init?.body))).toEqual({
+      secrets: { VENUE_API_KEY: "secret-value" },
+    });
+    expect(screen.queryByDisplayValue("secret-value")).toBeNull();
+    expect(screen.getByLabelText("Remove Venue")).toBeTruthy();
+  });
+
+  it("discards unsaved credentials when setup is cancelled", async () => {
+    installFetchRecorder();
+    await renderModal();
+
+    fireEvent.click(screen.getByLabelText("Set up Venue"));
+    fireEvent.change(await screen.findByLabelText("VENUE_API_KEY"), {
+      target: { value: "never-persist-this-draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Back to library" }));
+    fireEvent.click(screen.getByLabelText("Open Venue details"));
+
+    expect(await screen.findByLabelText("VENUE_API_KEY")).toHaveValue("");
+  });
+
+  it("shows saved status and supports replacing and removing without revealing values", async () => {
+    seedAccountOverview({
+      user: { user_id: "acct-1", apps: ["default", "uniswap", "venue"] },
+    });
+    const { calls } = installFetchRecorder();
+    await renderModal();
+    fireEvent.click(screen.getByLabelText("Open Venue details"));
+
+    fireEvent.change(await screen.findByLabelText("VENUE_API_KEY"), {
+      target: { value: "replacement" },
+    });
+    fireEvent.click(screen.getByText("Save changes"));
+    await waitFor(() =>
+      expect(paths(calls)).toContain("POST /api/account/apps/12/secrets"),
+    );
+    expect(screen.queryByDisplayValue("replacement")).toBeNull();
+    expect(await screen.findByText("Required · Saved")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Remove VENUE_API_KEY"));
+    await waitFor(() =>
+      expect(paths(calls)).toContain(
+        "DELETE /api/account/apps/12/secrets/VENUE_API_KEY",
+      ),
+    );
+    expect(await screen.findByText("Setup required")).toBeTruthy();
+  });
+
+  it("keeps save failures actionable and retries a failed status read", async () => {
+    installFetchRecorder();
+    await renderModal();
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("temporary failure", { status: 503 }),
+    );
+    fireEvent.click(screen.getByLabelText("Open Venue details"));
+    expect(
+      await screen.findByText("Couldn’t load your saved credentials."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(await screen.findByText("Setup required")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("VENUE_API_KEY"), {
+      target: { value: "secret-value" },
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response("temporary failure", { status: 503 }),
+    );
+    fireEvent.click(screen.getByText("Save & add app"));
+
+    expect(
+      await screen.findByText("Couldn’t save credentials. Try again."),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Add every required credential before activating this app.",
+      ),
+    ).toBeNull();
   });
 
   it("blocks replacement until the installed-app baseline is available", async () => {
