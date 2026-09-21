@@ -295,7 +295,7 @@ export function AppGroup({
         {showModels &&
           app.model.byModel.map((row) => (
             <ModelRow
-              key={`${row.provider ?? "unknown"}:${row.model}:${row.paymentMethod ?? "legacy"}`}
+              key={`${row.provider ?? "unknown"}:${row.model}:${row.paymentMethod ?? "fixture"}`}
               app={app}
               row={row}
             />
@@ -322,10 +322,7 @@ export function SettingsChip({ app }: { app: AppUsageEntry }) {
       .map((row) => row.paymentMethod)
       .filter((method): method is string => Boolean(method)),
   );
-  if (
-    [...paymentMethods].some((method) => method.endsWith("byok")) &&
-    paymentMethods.size > 1
-  ) {
+  if ([...paymentMethods].some(isOwnKeyFunding) && paymentMethods.size > 1) {
     return <Chip>mixed billing</Chip>;
   }
   if (app.settings.appByok) return <Chip>app key · model free</Chip>;
@@ -359,7 +356,9 @@ export function ModelRow({
   app: AppUsageEntry;
   row: AppModelRow;
 }) {
-  const isByok = row.paymentMethod?.endsWith("byok") ?? app.settings.appByok;
+  const isByok = row.paymentMethod
+    ? isOwnKeyFunding(row.paymentMethod)
+    : app.settings.appByok;
   const hasMarkup = !isByok && row.baseUsd !== row.chargedUsd;
 
   return (
@@ -400,6 +399,10 @@ export function ModelRow({
       )}
     </>
   );
+}
+
+function isOwnKeyFunding(funding: string): boolean {
+  return funding === "user_key" || funding === "application_key";
 }
 
 export function ToolRow({ item }: { item: AppToolItem }) {

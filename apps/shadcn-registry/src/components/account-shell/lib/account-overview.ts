@@ -10,7 +10,10 @@
  */
 
 import { useEffect, useSyncExternalStore } from "react";
-import { MICROUSD_PER_CREDIT } from "@aomi-labs/client";
+import {
+  MICROUSD_PER_CREDIT,
+  type AomiCreditPosition,
+} from "@aomi-labs/client";
 import { settingsApiFetch } from "./settings-api";
 import { useShellTransport, type ShellRequest } from "../transport";
 
@@ -33,30 +36,21 @@ export type CreditAllowance = {
   included: number;
 };
 
-/** Treat account-credit responses as untrusted across rolling deployments. */
 export function creditAllowanceFromPosition(
-  position: unknown,
+  position: Partial<AomiCreditPosition> | null | undefined,
 ): CreditAllowance | null {
-  if (!position || typeof position !== "object") return null;
-  const record = position as Record<string, unknown>;
-  const included = record.included;
-  const legacy =
-    included && typeof included === "object"
-      ? (included as Record<string, unknown>)
-      : undefined;
-  const used = record.included_used ?? legacy?.used_microusd;
-  const limit = record.included_limit ?? legacy?.limit_microusd;
+  if (!position) return null;
+  const included = position.included;
   if (
-    typeof used !== "number" ||
-    !Number.isFinite(used) ||
-    typeof limit !== "number" ||
-    !Number.isFinite(limit)
+    !included ||
+    !Number.isFinite(included.used_microusd) ||
+    !Number.isFinite(included.limit_microusd)
   ) {
     return null;
   }
   return {
-    used: used / MICROUSD_PER_CREDIT,
-    included: limit / MICROUSD_PER_CREDIT,
+    used: included.used_microusd / MICROUSD_PER_CREDIT,
+    included: included.limit_microusd / MICROUSD_PER_CREDIT,
   };
 }
 
@@ -174,7 +168,7 @@ export function useAccountOverview(): AccountOverview | null {
   }, [data, store]);
   return data;
 }
-/** Shared allowance line — matches mock sidebar/menu and Usage tab copy. */
+/** Shared allowance line for the account menu and Usage surfaces. */
 export function formatAllowanceSummary(used: number, included: number): string {
   const remaining = Math.max(0, included - used);
   return `${remaining.toLocaleString()} left · ${used.toLocaleString()}/${included.toLocaleString()} used`;

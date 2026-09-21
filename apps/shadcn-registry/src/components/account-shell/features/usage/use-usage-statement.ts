@@ -6,11 +6,9 @@ import { useShellTransport } from "../../transport";
 import type { MonthlyStatement } from "./types";
 import {
   currentMonthKey,
-  fetchModelStatement,
   fetchCreditAllowance,
+  fetchMonthlyStatement,
   recentMonthKeys,
-  toMonthlyStatement,
-  type WireModelStatement,
 } from "./statement-api";
 
 export type StatementStatus = "loading" | "ready" | "error";
@@ -19,16 +17,15 @@ export type AllowanceStatus = "idle" | "loading" | "ready" | "error";
 /**
  * Real statement months, fetched per month key on demand and cached for the
  * session. The current month loads immediately; the picker's other months
- * load when selected. The allowance meter comes from the profile's embedded
- * monthly credit position, so it's only exact for the current month — for
- * past months the credits meter is hidden rather than shown wrong.
+ * load when selected. The allowance meter comes from the current account
+ * credit position, so past months hide it rather than showing today's value.
  */
 export function useUsageStatement(monthCount = 6) {
   const { json: request } = useShellTransport();
   const monthKeys = useMemo(() => recentMonthKeys(monthCount), [monthCount]);
   const [selectedKey, setSelectedKey] = useState(() => currentMonthKey());
-  const [wireMonths, setWireMonths] = useState<
-    Record<string, WireModelStatement>
+  const [statements, setStatements] = useState<
+    Record<string, MonthlyStatement>
   >({});
   const [status, setStatus] = useState<StatementStatus>("loading");
   const [error, setError] = useState<string | undefined>();
@@ -42,17 +39,18 @@ export function useUsageStatement(monthCount = 6) {
   const inflight = useRef<Set<string>>(new Set());
   const allowanceInflight = useRef(false);
 
-  const allowance = creditAllowance;
-  const months = useMemo<Record<string, MonthlyStatement>>(
-    () =>
-      Object.fromEntries(
-        Object.entries(wireMonths).map(([monthKey, wire]) => [
-          monthKey,
-          toMonthlyStatement(wire, monthKey, allowance),
-        ]),
-      ),
-    [allowance, wireMonths],
-  );
+  const month = useMemo(() => {
+    const statement = statements[selectedKey];
+    return statement
+      ? {
+          ...statement,
+          payment: {
+            ...statement.payment,
+            allowanceCredits: creditAllowance,
+          },
+        }
+      : null;
+  }, [creditAllowance, selectedKey, statements]);
 
   const loadAllowance = useCallback(async () => {
     if (allowanceInflight.current) return;
@@ -77,10 +75,10 @@ export function useUsageStatement(monthCount = 6) {
       setStatus("loading");
       if (monthKey === currentMonthKey()) void loadAllowance();
       try {
-        const wire = await fetchModelStatement(monthKey, request);
-        setWireMonths((cache) => ({
+        const statement = await fetchMonthlyStatement(monthKey, request);
+        setStatements((cache) => ({
           ...cache,
-          [monthKey]: wire,
+          [monthKey]: statement,
         }));
         setStatus("ready");
         setError(undefined);
@@ -95,12 +93,12 @@ export function useUsageStatement(monthCount = 6) {
   );
 
   useEffect(() => {
-    if (!wireMonths[selectedKey]) {
+    if (!statements[selectedKey]) {
       void loadStatement(selectedKey);
     } else {
       setStatus("ready");
     }
-  }, [selectedKey, wireMonths, loadStatement]);
+  }, [selectedKey, statements, loadStatement]);
 
   const selectMonth = useCallback((monthKey: string) => {
     setSelectedKey(monthKey);
@@ -112,7 +110,7 @@ export function useUsageStatement(monthCount = 6) {
     monthKeys,
     selectedKey,
     selectMonth,
-    month: months[selectedKey] ?? null,
+    month,
     isCurrentMonth: selectedKey === currentMonthKey(),
     allowanceStatus,
     allowanceError,

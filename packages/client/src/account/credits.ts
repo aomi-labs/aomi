@@ -100,7 +100,7 @@ export class AccountCreditsTransport {
     const response = await this.requestResponse("GET", this.basePath, {
       query: { limit, before_id: options.beforeId },
     });
-    return parseAomiCreditPosition(
+    return creditPositionFromResponse(
       await responseJson<unknown>(response, "fetch account credits"),
     );
   }
@@ -130,7 +130,7 @@ export class AccountCreditsTransport {
         body: { amount_microusd: amountMicrousd },
       },
     );
-    const result = parseAomiCreditPosition(
+    const result = creditPositionFromResponse(
       await responseJson<unknown>(response, "top up account credits"),
     );
     const receipt = paymentReceiptFrom(response);
@@ -138,17 +138,10 @@ export class AccountCreditsTransport {
   }
 }
 
-/**
- * Normalize account-credit responses across the payment-service cutover.
- *
- * The public client model remains nested so existing consumers do not need to
- * migrate in lockstep with the backend's flat `UserCredits` wire contract.
- */
-export function parseAomiCreditPosition(value: unknown): AomiCreditPosition {
+/** Translate the current `UserCredits` wire contract to the public SDK model. */
+function creditPositionFromResponse(value: unknown): AomiCreditPosition {
   const position = objectValue(value, "account credits");
-  const legacyIncluded = optionalObject(position.included);
-  const legacyBank = optionalObject(position.bank);
-  const records = position.records ?? position.entries;
+  const records = position.records;
   if (!Array.isArray(records)) {
     throw invalidCreditResponse("records must be an array");
   }
@@ -159,26 +152,17 @@ export function parseAomiCreditPosition(value: unknown): AomiCreditPosition {
       "period_utc_month",
     ),
     included: {
-      limit_microusd: numberValue(
-        position.included_limit ?? legacyIncluded?.limit_microusd,
-        "included_limit",
-      ),
-      used_microusd: numberValue(
-        position.included_used ?? legacyIncluded?.used_microusd,
-        "included_used",
-      ),
+      limit_microusd: numberValue(position.included_limit, "included_limit"),
+      used_microusd: numberValue(position.included_used, "included_used"),
       remaining_microusd: numberValue(
-        position.included_remaining ?? legacyIncluded?.remaining_microusd,
+        position.included_remaining,
         "included_remaining",
       ),
     },
     bank: {
-      balance_microusd: numberValue(
-        position.balance ?? legacyBank?.balance_microusd,
-        "balance",
-      ),
+      balance_microusd: numberValue(position.balance, "balance"),
       outstanding_debt_microusd: numberValue(
-        position.outstanding_debt ?? legacyBank?.outstanding_debt_microusd,
+        position.outstanding_debt,
         "outstanding_debt",
       ),
     },
@@ -192,16 +176,13 @@ export function parseAomiCreditPosition(value: unknown): AomiCreditPosition {
 
 function parseCreditActivity(value: unknown): AomiCreditActivity {
   const record = objectValue(value, "credit record");
-  const kind = stringValue(record.kind ?? record.entry_kind, "record.kind");
+  const kind = stringValue(record.kind, "record.kind");
   if (kind !== "purchase" && kind !== "usage_debit") {
     throw invalidCreditResponse(`unsupported record kind: ${kind}`);
   }
   return {
     id: numberValue(record.id, "record.id"),
-    amount_microusd: numberValue(
-      record.amount ?? record.amount_microusd,
-      "record.amount",
-    ),
+    amount_microusd: numberValue(record.amount, "record.amount"),
     entry_kind: kind,
     payment_method: nullableStringValue(
       record.payment_method,

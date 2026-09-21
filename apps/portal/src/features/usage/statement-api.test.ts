@@ -2,11 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
 
 import {
-  fetchModelStatement,
+  fetchMonthlyStatement,
   monthRange,
   recentMonthKeys,
-  toMonthlyStatement,
-  type WireModelStatement,
 } from "../../../../shadcn-registry/src/components/account-shell/features/usage/statement-api";
 
 vi.mock(
@@ -15,88 +13,6 @@ vi.mock(
 );
 
 const fetchMock = vi.mocked(accountScopedFetch);
-
-const WIRE: WireModelStatement = {
-  period_utc_from: "2026-07-01",
-  period_utc_to: "2026-07-31",
-  apps: [
-    {
-      app: "default",
-      turns: 12,
-      input_tokens: 4000,
-      output_tokens: 900,
-      credits_used: 120,
-      usd: 1.2,
-      by_model: [
-        {
-          model: "claude-sonnet-5",
-          provider: "anthropic",
-          payment_method: "null",
-          turns: 10,
-          input_tokens: 3600,
-          output_tokens: 700,
-          credits_used: 100,
-          usd: 1.0,
-        },
-        {
-          model: "claude-haiku-4-5",
-          provider: "anthropic",
-          payment_method: "coinbase",
-          turns: 2,
-          input_tokens: 400,
-          output_tokens: 200,
-          credits_used: 20,
-          usd: 0.2,
-        },
-      ],
-    },
-    {
-      app: "uniswap",
-      turns: 3,
-      input_tokens: 800,
-      output_tokens: 150,
-      credits_used: 30,
-      usd: 0.3,
-      by_model: [
-        {
-          model: "claude-sonnet-5",
-          provider: "anthropic",
-          payment_method: "byok",
-          turns: 3,
-          input_tokens: 800,
-          output_tokens: 150,
-          credits_used: 30,
-          usd: 0.3,
-        },
-      ],
-    },
-  ],
-  payment: [
-    {
-      method: "included",
-      credits_used: 100,
-      usd: 1.0,
-      paid_credits: 0,
-      paid_usd: 0,
-    },
-    {
-      method: "credit_bank",
-      credits_used: 20,
-      usd: 0.2,
-      paid_credits: 20,
-      paid_usd: 0.2,
-    },
-    {
-      method: "byok",
-      credits_used: 30,
-      usd: 0.3,
-      paid_credits: 0,
-      paid_usd: 0,
-    },
-  ],
-  total_credits_used: 150,
-  total_usd: 1.5,
-};
 
 describe("statement adapter", () => {
   beforeEach(() => fetchMock.mockReset());
@@ -121,11 +37,63 @@ describe("statement adapter", () => {
     expect(keys).toEqual(["2026-01", "2025-12", "2025-11"]);
   });
 
-  it("maps the wire statement onto MonthlyStatement with tool/outcome absent", () => {
-    const month = toMonthlyStatement(WIRE, "2026-07", {
-      included: 500,
-      used: 120,
-    });
+  it("maps current usage charges directly onto the shared statement model", async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        entries: [
+          {
+            usage_event_id: "usage-1",
+            execution_id: "operation-1",
+            application_id: null,
+            provider: "anthropic",
+            model: "claude-sonnet-5",
+            input_tokens: 3600,
+            output_tokens: 700,
+            funding: { kind: "platform", application_id: null },
+            gross: 1_000_000,
+            included: 1_000_000,
+            credits: 0,
+            details: {},
+            occurred_at: 1,
+          },
+          {
+            usage_event_id: "usage-2",
+            execution_id: "operation-2",
+            application_id: null,
+            provider: "anthropic",
+            model: "claude-haiku-4-5",
+            input_tokens: 400,
+            output_tokens: 200,
+            funding: { kind: "platform", application_id: null },
+            gross: 200_000,
+            included: 0,
+            credits: 200_000,
+            details: {},
+            occurred_at: 2,
+          },
+          {
+            usage_event_id: "usage-3",
+            execution_id: "operation-3",
+            application_id: 7,
+            provider: "anthropic",
+            model: "claude-sonnet-5",
+            input_tokens: 800,
+            output_tokens: 150,
+            funding: { kind: "application_key", application_id: 7 },
+            gross: 300_000,
+            included: 0,
+            credits: 0,
+            details: {},
+            occurred_at: 3,
+          },
+        ],
+        next_cursor: null,
+      })
+      .mockResolvedValueOnce([
+        { name: "uniswap", application_id: 7, is_public: true },
+      ]);
+
+    const month = await fetchMonthlyStatement("2026-07");
 
     expect(month.period.periodLabel).toBe("July 2026");
     expect(month.summary.totalUsd).toBeCloseTo(1.5);
@@ -142,7 +110,7 @@ describe("statement adapter", () => {
 
     const core = month.apps.find((a) => a.id === "default");
     expect(core?.model.byModel).toHaveLength(2);
-    expect(core?.model.turns).toBe(12);
+    expect(core?.model.turns).toBe(2);
     expect(core?.settings.appByok).toBe(false);
 
     // An app whose every line is BYOK is marked as paying with its own key.
@@ -154,13 +122,8 @@ describe("statement adapter", () => {
     // Payment strip reports account funding buckets, not inference key ownership.
     expect(month.payment.allowanceAppliedUsd).toBeCloseTo(1.0);
     expect(month.payment.creditBankAppliedUsd).toBeCloseTo(0.2);
-    expect(month.payment.settledVia).toBe(
-      "monthly allowance + Credit Bank + your own key",
-    );
-    expect(month.payment.allowanceCredits).toEqual({
-      included: 500,
-      used: 120,
-    });
+    expect(month.payment.settledVia).toBe("monthly allowance + Credit Bank");
+    expect(month.payment.allowanceCredits).toEqual({ included: 0, used: 0 });
   });
 
   it("paginates every row in the requested month and preserves funding buckets", async () => {
@@ -196,59 +159,55 @@ describe("statement adapter", () => {
         { name: "uniswap", application_id: 7, is_public: true },
       ]);
 
-    const statement = await fetchModelStatement("2026-08");
+    const statement = await fetchMonthlyStatement("2026-08");
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
     expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
     expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
     expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/account/apps");
-    expect(statement.apps[0]?.app).toBe("uniswap");
-    expect(statement.apps[0]?.turns).toBe(250);
-    expect(statement.total_credits_used).toBe(250);
-    expect(statement.payment).toMatchObject([
-      { method: "included", credits_used: 125 },
-      { method: "credit_bank", credits_used: 125 },
-    ]);
+    expect(statement.apps[0]?.name).toBe("uniswap");
+    expect(statement.apps[0]?.model.turns).toBe(250);
+    expect(statement.summary.totalUsd).toBe(2.5);
+    expect(statement.payment).toMatchObject({
+      allowanceAppliedUsd: 1.25,
+      creditBankAppliedUsd: 1.25,
+    });
   });
 
-  it("keeps provider and payment method on otherwise-identical model rows", () => {
-    const mixed: WireModelStatement = {
-      ...WIRE,
-      apps: [
-        {
-          ...WIRE.apps[0],
-          by_model: [
-            {
-              ...WIRE.apps[0].by_model[0],
-              model: "claude-sonnet-5",
-              payment_method: "null",
-            },
-            {
-              ...WIRE.apps[0].by_model[0],
-              model: "claude-sonnet-5",
-              payment_method: "byok",
-            },
-          ],
-        },
-      ],
-    };
-
-    const month = toMonthlyStatement(mixed, "2026-07", {
-      included: 500,
-      used: 120,
+  it("keeps current funding kinds on otherwise-identical model rows", async () => {
+    const row = (funding: "platform" | "user_key") => ({
+      usage_event_id: `usage-${funding}`,
+      execution_id: `operation-${funding}`,
+      application_id: null,
+      provider: "anthropic",
+      model: "claude-sonnet-5",
+      input_tokens: 10,
+      output_tokens: 5,
+      funding: { kind: funding, application_id: null },
+      gross: 10_000,
+      included: funding === "platform" ? 10_000 : 0,
+      credits: 0,
+      details: {},
+      occurred_at: 1,
     });
+    fetchMock.mockResolvedValueOnce({
+      entries: [row("platform"), row("user_key")],
+      next_cursor: null,
+    });
+
+    const month = await fetchMonthlyStatement("2026-07");
 
     expect(month.apps[0]?.model.byModel).toMatchObject([
       {
         model: "claude-sonnet-5",
         provider: "anthropic",
-        paymentMethod: "null",
+        paymentMethod: "platform",
       },
       {
         model: "claude-sonnet-5",
         provider: "anthropic",
-        paymentMethod: "byok",
+        paymentMethod: "user_key",
         note: "paid by your own key",
       },
     ]);

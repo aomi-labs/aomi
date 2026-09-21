@@ -276,4 +276,16 @@ describe("account credits", () => {
       ],
     });
   });
+
+  it("rejects the retired nested backend response", async () => {
+    const client = new AomiClient({
+      baseUrl: "https://api.test",
+      fetch: vi.fn(async () => Response.json(position)) as typeof fetch,
+      guest: false,
+    });
+
+    await expect(client.account.credits.get()).rejects.toThrow(
+      "records must be an array",
+    );
+  });
 });

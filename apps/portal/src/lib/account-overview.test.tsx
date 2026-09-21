@@ -65,39 +65,39 @@ describe("account overview store", () => {
 });
 
 describe("formatAllowanceSummary", () => {
-  it("matches mock sidebar allowance copy", () => {
+  it("formats the sidebar allowance copy", () => {
     expect(formatAllowanceSummary(80, 500)).toBe("420 left · 80/500 used");
   });
 });
 
 describe("creditAllowanceFromPosition", () => {
-  it("normalizes a complete credit position", () => {
+  it("derives the allowance from the validated SDK position", () => {
     expect(
       creditAllowanceFromPosition({
+        period_utc_month: "2026-09-01",
         included: {
           used_microusd: 120_000,
           limit_microusd: 1_000_000,
+          remaining_microusd: 880_000,
         },
+        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        entries: [],
+        next_before_id: null,
       }),
     ).toEqual({ used: 12, included: 100 });
   });
 
-  it("normalizes the flat payment-service credit position", () => {
-    expect(
-      creditAllowanceFromPosition({
-        included_used: 120_000,
-        included_limit: 1_000_000,
-      }),
-    ).toEqual({ used: 12, included: 100 });
+  it("returns no allowance before the SDK position is available", () => {
+    expect(creditAllowanceFromPosition(null)).toBe(null);
   });
 
-  it("rejects a partial rolling-deployment response without throwing", () => {
-    expect(creditAllowanceFromPosition({ period_utc_month: "2026-09" })).toBe(
-      null,
-    );
+  it("returns no allowance for a partial runtime position", () => {
     expect(
       creditAllowanceFromPosition({
-        included: { used_microusd: 120_000 },
+        period_utc_month: "2026-09-01",
+        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        entries: [],
+        next_before_id: null,
       }),
     ).toBe(null);
   });
