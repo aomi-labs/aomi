@@ -17,6 +17,12 @@ export type WalletTransactionResult =
 
 export interface EvmWallet {
   address: string;
+  sendPreparedTransaction?: (
+    payload: Extract<
+      import("../commits").SignableCommit,
+      { kind: "evm_transaction" }
+    >,
+  ) => Promise<string>;
   signTransaction?: (
     payload: Extract<
       import("../commits").SignableCommit,

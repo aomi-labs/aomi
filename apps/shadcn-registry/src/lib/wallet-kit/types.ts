@@ -350,6 +350,7 @@ export type AomiWalletKit = {
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
   ) => Promise<AomiTxResult>;
+  sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
   signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   signTypedData?: (
     payload: WalletEip712Payload,

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aomi transaction review visual fixture</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        src: url("/__geist.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: block;
+      }
+      html,
+      body {
+        margin: 0;
+        min-width: 100%;
+        min-height: 100%;
+      }
+      body {
+        display: grid;
+        place-items: start center;
+        background: #f4f4f5;
+        font-family: "Geist", system-ui, sans-serif;
+      }
+      .aui-activity-sidebar {
+        width: 352px !important;
+        opacity: 1 !important;
+      }
+      @media (max-width: 600px) {
+        [data-testid="transaction-review-fixture"] {
+          display: block;
+          height: 844px;
+          width: 100%;
+        }
+        #fixture-chat {
+          display: none;
+        }
+        #sidebar-fixture-mount {
+          height: 844px;
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

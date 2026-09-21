@@ -1,10 +1,17 @@
 import { vi } from "vitest";
-import type { Action, Event } from "@aomi-labs/client";
+import type {
+  Action,
+  CommitController,
+  CommitView,
+  Event,
+} from "@aomi-labs/client";
 
 const runtime = vi.hoisted(() => ({
   pendingActions: [] as Action[],
   actionAttempts: new Map(),
   events: [] as Event[],
+  commits: [] as CommitView[],
+  commitController: undefined as CommitController | undefined,
   isRunning: false,
   turnState: undefined as string | undefined,
   executeAction: vi.fn(),

@@ -45,6 +45,40 @@ export function buildEvmExecutionRuntime(
 
   return {
     ...runtime,
+    sendPreparedEvmTransaction:
+      runtime.sendPreparedEvmTransaction ??
+      (sendTransactionAsync
+        ? async (payload) => {
+            const client = (
+              runtime.activeConnector
+                ? await runtime.getWalletClientFor({
+                    connector: runtime.activeConnector,
+                  })
+                : runtime.walletClient
+            ) as WalletClient | undefined;
+            if (
+              !client?.account ||
+              client.account.address.toLowerCase() !==
+                payload.signer.toLowerCase()
+            )
+              throw new Error("Expected signing wallet is not active");
+            const chain = runtime.chainsById[payload.chain_id];
+            if (!chain) throw new Error("Commit chain is not configured");
+            const tx = payload.transaction;
+            return client.sendTransaction({
+              account: client.account,
+              chain,
+              type: "eip1559",
+              nonce: payload.nonce,
+              to: tx.to as `0x${string}`,
+              data: tx.data as `0x${string}`,
+              value: BigInt(tx.value),
+              gas: BigInt(tx.gas_limit),
+              maxFeePerGas: BigInt(tx.max_fee_per_gas),
+              maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas),
+            });
+          }
+        : undefined),
     signEvmTransaction:
       runtime.signEvmTransaction ??
       (async (payload) => {

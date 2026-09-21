@@ -12,6 +12,8 @@ import {
   walletCapabilities,
   commitCapabilities,
   type CommitCapabilities,
+  type CommitRecoveryRecord,
+  type CommitRecoveryStore,
   type ActionCapabilities,
   type EvmWallet,
   type SvmWallet,
@@ -26,12 +28,53 @@ export function useCommitCapabilities(): CommitCapabilities {
   const wallet = useAomiWalletKit();
   return useMemo(
     () =>
-      commitCapabilities({
-        ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
-        ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
-      }),
+      commitCapabilities(
+        {
+          ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
+          ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
+        },
+        browserCommitRecoveryStore(),
+      ),
     [wallet],
   );
+}
+
+function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
+  if (typeof window === "undefined") return undefined;
+  const key = (threadId: string, commitId: string) =>
+    `aomi:commit-recovery:${encodeURIComponent(threadId)}:${encodeURIComponent(commitId)}`;
+  return {
+    load(threadId, commitId) {
+      try {
+        const value = window.localStorage.getItem(key(threadId, commitId));
+        if (!value) return undefined;
+        const record = JSON.parse(value) as Partial<CommitRecoveryRecord>;
+        return typeof record.clientRequestId === "string"
+          ? {
+              clientRequestId: record.clientRequestId,
+              ...(typeof record.attemptId === "string"
+                ? { attemptId: record.attemptId }
+                : {}),
+              ...(typeof record.transactionId === "string"
+                ? { transactionId: record.transactionId }
+                : {}),
+              ...(record.rejected === true ? { rejected: true as const } : {}),
+            }
+          : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    save(threadId, commitId, record) {
+      window.localStorage.setItem(
+        key(threadId, commitId),
+        JSON.stringify(record),
+      );
+    },
+    remove(threadId, commitId) {
+      window.localStorage.removeItem(key(threadId, commitId));
+    },
+  };
 }
 
 /** Adapts wallet-kit methods into the wallet subroutines used by ActionHandler. */
@@ -78,6 +121,7 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
 
   return {
     address,
+    sendPreparedTransaction: wallet.sendPreparedEvmTransaction,
     signTransaction: wallet.signEvmTransaction,
     broadcastTransaction: async (bytes, chainId) => {
       const chain = wallet.supportedChains?.find(

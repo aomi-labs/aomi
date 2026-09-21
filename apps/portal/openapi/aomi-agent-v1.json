@@ -943,6 +943,24 @@
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
+          },
+          {
+            "name": "application_id",
+            "in": "query",
+            "description": "Numeric registered application identity, required for hosted apps; used for admission funding and source-bound backend resolution.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "description": "Optional platform hint; must match the registered application.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -2663,6 +2681,211 @@
           }
         }
       },
+      "CommitSourceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "chain_family",
+          "chain_ref",
+          "stage_id",
+          "source_id"
+        ],
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CommitReviewSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "revision", "digest", "request", "legs"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "digest": {
+            "type": "string"
+          },
+          "request": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "CommitBatchMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batch_id",
+          "index",
+          "ordered_stage_ids",
+          "ordered_commit_ids",
+          "sources",
+          "predecessor_commit_id",
+          "review_digest"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ordered_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ordered_commit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitSourceRef"
+            }
+          },
+          "predecessor_commit_id": {
+            "type": ["string", "null"]
+          },
+          "review_digest": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitWalletAttemptStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["attempt_id", "state", "transaction_id", "failure_code"],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CommitWalletAttemptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "review_digest", "client_request_id"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "review_digest": {
+            "type": "string"
+          },
+          "client_request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitWalletAttemptView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "commit_id",
+          "state",
+          "request",
+          "may_invoke_wallet"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "request": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SignableCommit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "may_invoke_wallet": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CommitWalletAttemptOutcome": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "transaction_id"],
+            "properties": {
+              "kind": {
+                "const": "transaction"
+              },
+              "transaction_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "rejected"
+              }
+            }
+          }
+        ]
+      },
       "CommitView": {
         "type": "object",
         "additionalProperties": false,
@@ -2678,7 +2901,10 @@
           "state",
           "action",
           "transaction_id",
-          "failure_code"
+          "failure_code",
+          "batch",
+          "review",
+          "wallet_attempt"
         ],
         "properties": {
           "version": {
@@ -2727,6 +2953,36 @@
           "failure_code": {
             "type": ["string", "null"]
           },
+          "batch": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitBatchMember"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitReviewSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet_attempt": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitWalletAttemptStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "action": {
             "oneOf": [
               {
@@ -2757,6 +3013,22 @@
                     "type": "string"
                   },
                   "transaction_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "payload", "review_digest"],
+                "properties": {
+                  "kind": {
+                    "const": "start_wallet_send"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  },
+                  "review_digest": {
                     "type": "string"
                   }
                 }
