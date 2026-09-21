@@ -191,6 +191,88 @@ function isValidProjectId(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
+const RESERVED_TELEGRAM_COMMANDS = new Set([
+  "start",
+  "help",
+  "wallet",
+  "transactions",
+  "sign",
+  "thread",
+  "model",
+  "app",
+  "signing",
+]);
+
+function tenantTelegramConfig(body: {
+  tenantBaseUrl?: unknown;
+  commands?: unknown;
+}):
+  | { tenantBaseUrl?: string; commands?: string[] }
+  | { response: NextResponse } {
+  if (body.tenantBaseUrl === undefined && body.commands === undefined)
+    return {};
+  if (typeof body.tenantBaseUrl !== "string" || !Array.isArray(body.commands)) {
+    return {
+      response: NextResponse.json(
+        { error: "invalid tenant command config" },
+        { status: 400 },
+      ),
+    };
+  }
+  const tenantBaseUrl = body.tenantBaseUrl.trim().replace(/\/+$/, "");
+  const commands = body.commands.map((command) =>
+    typeof command === "string"
+      ? command.trim().replace(/^\/+/, "").toLowerCase()
+      : "",
+  );
+  if (
+    commands.length > 32 ||
+    new Set(commands).size !== commands.length ||
+    commands.some(
+      (command) =>
+        !/^[a-z0-9_]{1,32}$/.test(command) ||
+        RESERVED_TELEGRAM_COMMANDS.has(command),
+    )
+  ) {
+    return {
+      response: NextResponse.json(
+        { error: "invalid custom commands" },
+        { status: 400 },
+      ),
+    };
+  }
+  if (!tenantBaseUrl) {
+    return commands.length === 0
+      ? { tenantBaseUrl: "", commands }
+      : {
+          response: NextResponse.json(
+            { error: "custom commands require a tenant Mini App URL" },
+            { status: 400 },
+          ),
+        };
+  }
+  try {
+    const url = new URL(tenantBaseUrl);
+    const local = url.protocol === "http:" && url.hostname === "localhost";
+    if (
+      (url.protocol !== "https:" && !local) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      throw new Error("invalid URL");
+    return { tenantBaseUrl, commands };
+  } catch {
+    return {
+      response: NextResponse.json(
+        { error: "invalid tenant Mini App URL" },
+        { status: 400 },
+      ),
+    };
+  }
+}
+
 function pageLimit(params: URLSearchParams, fallback: number, max: number) {
   const value = Number(params.get("limit") ?? String(fallback));
   return Number.isSafeInteger(value) && value > 0
@@ -442,20 +524,24 @@ async function operateSession(
       platform,
       client,
       projects: () =>
-        readCache.projects.get([session.githubUserId, null, visibilityGrant ?? ""], () =>
-          client.listUserProjects({
-            githubUserId: session.githubUserId,
-            platform: undefined,
-            ...(visibilityGrant ? { visibilityGrant } : {}),
-          }),
+        readCache.projects.get(
+          [session.githubUserId, null, visibilityGrant ?? ""],
+          () =>
+            client.listUserProjects({
+              githubUserId: session.githubUserId,
+              platform: undefined,
+              ...(visibilityGrant ? { visibilityGrant } : {}),
+            }),
         ),
       platformProjects: () =>
-        readCache.projects.get([session.githubUserId, platform, visibilityGrant ?? ""], () =>
-          client.listUserProjects({
-            githubUserId: session.githubUserId,
-            platform,
-            ...(visibilityGrant ? { visibilityGrant } : {}),
-          }),
+        readCache.projects.get(
+          [session.githubUserId, platform, visibilityGrant ?? ""],
+          () =>
+            client.listUserProjects({
+              githubUserId: session.githubUserId,
+              platform,
+              ...(visibilityGrant ? { visibilityGrant } : {}),
+            }),
         ),
     };
   } catch (err) {
@@ -600,6 +686,8 @@ export async function operateBotsCreateRoute(req: Request) {
     credential?: unknown;
     label?: unknown;
     threadMode?: unknown;
+    tenantBaseUrl?: unknown;
+    commands?: unknown;
   };
   if (
     !Array.isArray(body.applicationIds) ||
@@ -612,6 +700,8 @@ export async function operateBotsCreateRoute(req: Request) {
       { status: 400 },
     );
   }
+  const telegram = tenantTelegramConfig(body);
+  if ("response" in telegram) return telegram.response;
   if (typeof body.credential !== "string" || !body.credential.trim()) {
     return NextResponse.json(
       { error: "missing `credential`" },
@@ -650,6 +740,7 @@ export async function operateBotsCreateRoute(req: Request) {
       label: typeof body.label === "string" ? body.label : undefined,
       threadMode:
         typeof body.threadMode === "string" ? body.threadMode : undefined,
+      ...telegram,
     });
     return NextResponse.json({ bot }, { status: 201 });
   } catch (err) {
@@ -689,6 +780,8 @@ export async function operateBotsUpdateRoute(req: Request) {
     applicationIds?: unknown;
     primaryApplicationId?: unknown;
     threadMode?: unknown;
+    tenantBaseUrl?: unknown;
+    commands?: unknown;
   };
   if (
     typeof body.botId !== "string" ||
@@ -702,6 +795,8 @@ export async function operateBotsUpdateRoute(req: Request) {
       { status: 400 },
     );
   }
+  const telegram = tenantTelegramConfig(body);
+  if ("response" in telegram) return telegram.response;
   // Optional settings patch: omitted leaves the stored value unchanged.
   if (
     body.threadMode !== undefined &&
@@ -741,6 +836,7 @@ export async function operateBotsUpdateRoute(req: Request) {
       applicationIds,
       primaryApplicationId: body.primaryApplicationId,
       threadMode: body.threadMode,
+      ...telegram,
     });
     return NextResponse.json({ bot });
   } catch (err) {

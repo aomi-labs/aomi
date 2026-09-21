@@ -58,6 +58,8 @@ type BotApp = {
   name: string;
   label: string;
   isPrimary: boolean;
+  tenantBaseUrl?: string | null;
+  commands?: string[];
 };
 
 type BotsPayload = {
@@ -75,6 +77,13 @@ type Draft = {
   selected: number[];
   primary: number | null;
 };
+
+function commandList(value: string): string[] {
+  return value
+    .split(/[\s,]+/)
+    .map((command) => command.trim().replace(/^\/+/, "").toLowerCase())
+    .filter(Boolean);
+}
 
 function projectLabel(project: BotProject) {
   return (
@@ -405,6 +414,54 @@ function ProviderRail({
 
 // ── bot card ────────────────────────────────────────────────────────────────
 
+function TenantCommandFields({
+  baseUrl,
+  commands,
+  onBaseUrlChange,
+  onCommandsChange,
+  disabled,
+}: {
+  baseUrl: string;
+  commands: string;
+  onBaseUrlChange: (value: string) => void;
+  onCommandsChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <label className="block space-y-2 text-xs">
+        <span className="text-dim block text-[13px]">Tenant Mini App URL</span>
+        <input
+          type="url"
+          value={baseUrl}
+          onChange={(event) => onBaseUrlChange(event.target.value)}
+          placeholder="https://api.world.inc/mini-app"
+          disabled={disabled}
+          className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+        />
+        <span className="text-dim block text-[11px]">
+          Opens the Mini App; Aomi also posts custom commands to this URL.
+        </span>
+      </label>
+      <label className="block space-y-2 text-xs">
+        <span className="text-dim block text-[13px]">Custom commands</span>
+        <input
+          type="text"
+          value={commands}
+          onChange={(event) => onCommandsChange(event.target.value)}
+          placeholder="b, p, r, chart"
+          disabled={disabled}
+          className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+        />
+        <span className="text-dim block text-[11px]">
+          Read-only commands handled by the selected primary app, without an
+          agent turn.
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: string }) {
   const active = status === "active";
   return (
@@ -437,7 +494,12 @@ function BotCard({
   editing: boolean;
   onBeginEdit: () => void;
   onCancel: () => void;
-  onSave: (draft: Draft, threadMode: string) => Promise<void>;
+  onSave: (
+    draft: Draft,
+    threadMode: string,
+    tenantBaseUrl: string,
+    commands: string[],
+  ) => Promise<void>;
   onRemove: () => void;
   removing: boolean;
 }) {
@@ -454,6 +516,13 @@ function BotCard({
   );
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [draftThreadMode, setDraftThreadMode] = useState(bot.threadMode);
+  const primaryApp = mapped.find((app) => app.isPrimary) ?? mapped[0];
+  const [tenantBaseUrl, setTenantBaseUrl] = useState(
+    primaryApp?.tenantBaseUrl ?? "",
+  );
+  const [commands, setCommands] = useState(
+    (primaryApp?.commands ?? []).join(", "),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -472,6 +541,7 @@ function BotCard({
     draft.selected.length > 0 &&
     draft.primary !== null &&
     !ghostStillSelected &&
+    (commandList(commands).length === 0 || tenantBaseUrl.trim().length > 0) &&
     !saving;
 
   const displayName = displayBotName(bot);
@@ -549,6 +619,15 @@ function BotCard({
             ghostApps={ghostApps}
             disabled={saving}
           />
+          <div className="mt-5">
+            <TenantCommandFields
+              baseUrl={tenantBaseUrl}
+              commands={commands}
+              onBaseUrlChange={setTenantBaseUrl}
+              onCommandsChange={setCommands}
+              disabled={saving}
+            />
+          </div>
           <div className="mt-6 flex items-center justify-between gap-4">
             <span className="text-dim text-xs">
               {draft.selected.length}{" "}
@@ -565,6 +644,8 @@ function BotCard({
                 onClick={() => {
                   setDraft(initialDraft);
                   setDraftThreadMode(bot.threadMode);
+                  setTenantBaseUrl(primaryApp?.tenantBaseUrl ?? "");
+                  setCommands((primaryApp?.commands ?? []).join(", "));
                   setError(null);
                   onCancel();
                 }}
@@ -578,7 +659,12 @@ function BotCard({
                 onClick={() => {
                   setSaving(true);
                   setError(null);
-                  onSave(draft, draftThreadMode)
+                  onSave(
+                    draft,
+                    draftThreadMode,
+                    tenantBaseUrl.trim(),
+                    commandList(commands),
+                  )
                     .catch((err: unknown) => {
                       setError(
                         err instanceof Error
@@ -616,6 +702,14 @@ function BotCard({
               ) : null}
             </span>
           ))}
+          {primaryApp?.tenantBaseUrl ? (
+            <span className="text-dim w-full truncate pt-1 font-mono text-[11px]">
+              {primaryApp.tenantBaseUrl}
+              {(primaryApp.commands ?? []).length
+                ? ` · ${(primaryApp.commands ?? []).map((command) => `/${command}`).join(" ")}`
+                : ""}
+            </span>
+          ) : null}
         </div>
       )}
     </div>
@@ -636,12 +730,16 @@ function AddBotCard({
     token: string;
     threadMode: string;
     draft: Draft;
+    tenantBaseUrl: string;
+    commands: string[];
   }) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
   const [threadMode, setThreadMode] = useState("single");
   const [draft, setDraft] = useState<Draft>({ selected: [], primary: null });
+  const [tenantBaseUrl, setTenantBaseUrl] = useState("");
+  const [commands, setCommands] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -649,7 +747,8 @@ function AddBotCard({
     !busy &&
     token.trim().length > 0 &&
     draft.selected.length > 0 &&
-    draft.primary !== null;
+    draft.primary !== null &&
+    (commandList(commands).length === 0 || tenantBaseUrl.trim().length > 0);
 
   return (
     <div className="border-border-hover bg-surface-1 rounded-md border">
@@ -686,6 +785,13 @@ function AddBotCard({
             />
           </label>
         </div>
+        <TenantCommandFields
+          baseUrl={tenantBaseUrl}
+          commands={commands}
+          onBaseUrlChange={setTenantBaseUrl}
+          onCommandsChange={setCommands}
+          disabled={busy}
+        />
         <div className="space-y-3">
           <div className="flex justify-end">
             <ThreadModeControl
@@ -718,7 +824,14 @@ function AddBotCard({
             onClick={() => {
               setBusy(true);
               setError(null);
-              onRegister({ label: label.trim(), token, threadMode, draft })
+              onRegister({
+                label: label.trim(),
+                token,
+                threadMode,
+                draft,
+                tenantBaseUrl: tenantBaseUrl.trim(),
+                commands: commandList(commands),
+              })
                 .catch((err: unknown) => {
                   setError(
                     err instanceof Error
@@ -788,6 +901,8 @@ export function BotsView() {
       token: string;
       threadMode: string;
       draft: Draft;
+      tenantBaseUrl: string;
+      commands: string[];
     }) => {
       const res = await fetch(botsUrl(), {
         method: "POST",
@@ -798,6 +913,8 @@ export function BotsView() {
           threadMode: input.threadMode,
           applicationIds: input.draft.selected,
           primaryApplicationId: input.draft.primary,
+          tenantBaseUrl: input.tenantBaseUrl || undefined,
+          commands: input.tenantBaseUrl ? input.commands : undefined,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -818,7 +935,13 @@ export function BotsView() {
   );
 
   const handleSaveApps = useCallback(
-    async (bot: Bot, draft: Draft, threadMode: string) => {
+    async (
+      bot: Bot,
+      draft: Draft,
+      threadMode: string,
+      tenantBaseUrl: string,
+      commands: string[],
+    ) => {
       const res = await fetch(botsUrl(), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -827,6 +950,8 @@ export function BotsView() {
           applicationIds: draft.selected,
           primaryApplicationId: draft.primary,
           threadMode,
+          tenantBaseUrl,
+          commands,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -933,8 +1058,8 @@ export function BotsView() {
               editing={editingId === bot.id}
               onBeginEdit={() => setEditingId(bot.id)}
               onCancel={() => setEditingId(null)}
-              onSave={(draft, threadMode) =>
-                handleSaveApps(bot, draft, threadMode)
+              onSave={(draft, threadMode, tenantBaseUrl, commands) =>
+                handleSaveApps(bot, draft, threadMode, tenantBaseUrl, commands)
               }
               onRemove={() => void handleRemove(bot)}
               removing={removingId === bot.id}

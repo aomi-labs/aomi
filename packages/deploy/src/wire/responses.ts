@@ -260,6 +260,13 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
       label: String(app.label ?? app.name ?? ""),
       platform: app.platform ?? null,
       isPrimary: Boolean(app.is_primary ?? app.isPrimary),
+      tenantBaseUrl: app.tenant_base_url ?? app.tenantBaseUrl ?? null,
+      commands: Array.isArray(app.commands)
+        ? app.commands.filter(
+            (command: unknown): command is string =>
+              typeof command === "string",
+          )
+        : [],
     })),
     platformBotId: String(b.platform_bot_id ?? b.platformBotId ?? ""),
     platformUsername: b.platform_username ?? b.platformUsername ?? null,

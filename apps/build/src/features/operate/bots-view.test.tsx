@@ -126,7 +126,9 @@ describe("BotsView", () => {
       .mockResolvedValue(Response.json({ bot: BOT }));
     render(<BotsView />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /change apps/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
     await screen.findByRole("button", { name: /change apps/i });
 
@@ -189,6 +191,49 @@ describe("BotsView", () => {
       applicationIds: [11],
       primaryApplicationId: 11,
       threadMode: "multi",
+    });
+    fetchSpy.mockRestore();
+  });
+
+  it("edits the primary app tenant URL and custom commands", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    const configuredBot = {
+      ...BOT,
+      apps: [
+        {
+          ...BOT.apps[0],
+          tenantBaseUrl: "https://api.world.inc/mini-app",
+          commands: ["b", "p"],
+        },
+      ],
+    };
+    mockedOperateFetch.mockResolvedValue({
+      projects: PROJECTS,
+      bots: [configuredBot],
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ bot: configuredBot }));
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/tenant mini app url/i), {
+      target: { value: "https://api.world.inc/mini-app-v2" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("b, p, r, chart"), {
+      target: { value: "/B, r chart" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }));
+
+    await screen.findByRole("button", { name: /change apps/i });
+    const [, patchInit] = fetchSpy.mock.calls.find(
+      ([, init]) => init?.method === "PATCH",
+    )!;
+    expect(JSON.parse(String(patchInit?.body))).toMatchObject({
+      tenantBaseUrl: "https://api.world.inc/mini-app-v2",
+      commands: ["b", "r", "chart"],
     });
     fetchSpy.mockRestore();
   });

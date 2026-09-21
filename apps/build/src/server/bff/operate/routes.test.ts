@@ -300,6 +300,8 @@ describe("operateBotsCreateRoute", () => {
         primaryApplicationId: 7,
         credential: "secret-token",
         label: "My Bot",
+        tenantBaseUrl: "https://api.world.inc/mini-app/",
+        commands: ["/B", "p"],
       }),
     );
     expect(res.status).toBe(201);
@@ -314,8 +316,37 @@ describe("operateBotsCreateRoute", () => {
         botPlatform: "telegram",
         credential: "secret-token",
         label: "My Bot",
+        tenantBaseUrl: "https://api.world.inc/mini-app",
+        commands: ["b", "p"],
       }),
     );
+  });
+
+  it("rejects unsafe tenant URLs and reserved commands", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+    let res = await operateBotsCreateRoute(
+      postJson({
+        applicationIds: [7],
+        primaryApplicationId: 7,
+        credential: "secret-token",
+        tenantBaseUrl: "http://api.world.inc/mini-app",
+        commands: ["b"],
+      }),
+    );
+    expect(res.status).toBe(400);
+
+    res = await operateBotsCreateRoute(
+      postJson({
+        applicationIds: [7],
+        primaryApplicationId: 7,
+        credential: "secret-token",
+        tenantBaseUrl: "https://api.world.inc/mini-app",
+        commands: ["sign"],
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(client.createUserBot).not.toHaveBeenCalled();
   });
 
   it("never logs or echoes the credential value on failure paths", async () => {

@@ -842,6 +842,8 @@ export interface BotRegistrationApp {
   label: string;
   platform: string | null;
   isPrimary: boolean;
+  tenantBaseUrl: string | null;
+  commands: string[];
 }
 
 export interface BuilderBotsInput extends BearerOverride {
@@ -855,6 +857,8 @@ export interface CreateUserBotInput extends BuilderBotsInput {
   credential: string;
   label?: string;
   threadMode?: string;
+  tenantBaseUrl?: string;
+  commands?: string[];
 }
 
 export interface UpdateUserBotInput extends BuilderBotsInput {
@@ -865,6 +869,9 @@ export interface UpdateUserBotInput extends BuilderBotsInput {
   label?: string;
   /** Omitted = unchanged; "single" | "multi". */
   threadMode?: string;
+  /** Omitted = unchanged; blank plus an empty command list clears the config. */
+  tenantBaseUrl?: string;
+  commands?: string[];
 }
 
 export interface DeleteUserBotInput extends BuilderBotsInput {
