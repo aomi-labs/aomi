@@ -11,6 +11,7 @@ import { ActionHandler } from "../actions";
 import {
   CommitController,
   isTerminalCommit,
+  type CommitReview,
   type CommitView,
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
@@ -425,7 +426,10 @@ export class ClientSession {
               try {
                 const result = JSON.parse(event.tool_result[1]) as {
                   commits?: CommitView[];
+                  reviews?: Record<string, CommitReview>;
                 };
+                for (const [id, review] of Object.entries(result.reviews ?? {}))
+                  this.commits.ingestReview(id, review);
                 for (const view of result.commits ?? [])
                   this.commits.ingest(view);
               } catch {

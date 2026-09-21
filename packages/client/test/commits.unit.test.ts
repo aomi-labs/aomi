@@ -46,6 +46,39 @@ const submitted: CommitView = {
 };
 
 describe("Commit view surfaces", () => {
+  it("republishes when a review arrives after its view", () => {
+    const controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      unsigned.thread_id,
+    );
+    // An event page delivers the view before the tool result that carries
+    // the review, and an equal-version view is never re-stored.
+    controller.ingest(unsigned);
+    const listener = vi.fn();
+    controller.subscribe(listener);
+    const review = {
+      type: "execute_evm" as const,
+      transactions: [],
+      simulation: {
+        status: "passed" as const,
+        balanceChanges: [],
+        approvals: [],
+        fees: [],
+        gas: null,
+        guards: [],
+        logs: [],
+        warnings: [],
+      },
+    };
+    controller.ingestReview(unsigned.commit_id, review);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(controller.review(unsigned.commit_id)).toBe(review);
+    controller.ingestReview(unsigned.commit_id, { ...review });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(controller.review(unsigned.commit_id)).toBe(review);
+    controller.close();
+  });
+
   it("reconciles a lost external broadcast response without submitting twice", async () => {
     const request = vi.fn(async (method: string) =>
       method === "GET" ? signed : submitted,

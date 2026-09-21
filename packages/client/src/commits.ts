@@ -1,6 +1,7 @@
 import type { AomiClient } from "./client";
 import type { Wallets } from "./wallet/types";
 import type { components } from "./generated/agent-v1/types";
+import type { ActionRequest } from "./agent/types";
 
 export type CommitView = components["schemas"]["CommitView"];
 export type CommitState = CommitView["state"];
@@ -10,6 +11,12 @@ export type EvmCommitTransaction = Extract<
   SignableCommit,
   { kind: "evm_transaction" }
 >["transaction"];
+/** Simulated effects of one commit, in the vocabulary the wallet review
+ * already renders. Commit Service views carry the signable, never its effects. */
+export type CommitReview = Extract<
+  ActionRequest,
+  { type: "execute_evm" | "execute_svm" }
+>;
 export type CommitManual =
   | { kind: "signed"; payloads: string[] }
   | { kind: "broadcast"; transaction_id: string }
@@ -102,6 +109,7 @@ export function commitCapabilities(wallets: Wallets): CommitCapabilities {
  * reconnects, lost responses, signing and external submissions. */
 export class CommitController {
   private views = new Map<string, CommitView>();
+  private reviews = new Map<string, CommitReview>();
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<string, Promise<CommitView>>();
@@ -119,6 +127,7 @@ export class CommitController {
     private capabilities: CommitCapabilities = {},
   ) {}
   all = (): readonly CommitView[] => this.snapshot;
+  review = (id: string): CommitReview | undefined => this.reviews.get(id);
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => {
@@ -150,6 +159,13 @@ export class CommitController {
     if (existing && existing.version >= view.version) return;
     this.store(view);
     this.schedule();
+  }
+  /** The tool result carrying a review can replay after its view already
+   * arrived on an event page, so a new review republishes the snapshot. */
+  ingestReview(id: string, review: CommitReview): void {
+    if (this.closed || this.reviews.has(id)) return;
+    this.reviews.set(id, review);
+    this.changed();
   }
   canExecute(view: CommitView): boolean {
     return view.action?.kind === "sign"
