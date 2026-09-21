@@ -100,7 +100,9 @@ export class AccountCreditsTransport {
     const response = await this.requestResponse("GET", this.basePath, {
       query: { limit, before_id: options.beforeId },
     });
-    return responseJson<AomiCreditPosition>(response, "fetch account credits");
+    return parseAomiCreditPosition(
+      await responseJson<unknown>(response, "fetch account credits"),
+    );
   }
 
   async topUp(options: AomiCreditTopUpOptions): Promise<AomiCreditTopUpResult> {
@@ -128,13 +130,138 @@ export class AccountCreditsTransport {
         body: { amount_microusd: amountMicrousd },
       },
     );
-    const result = await responseJson<AomiCreditPosition>(
-      response,
-      "top up account credits",
+    const result = parseAomiCreditPosition(
+      await responseJson<unknown>(response, "top up account credits"),
     );
     const receipt = paymentReceiptFrom(response);
     return receipt ? { ...result, receipt } : result;
   }
+}
+
+/**
+ * Normalize account-credit responses across the payment-service cutover.
+ *
+ * The public client model remains nested so existing consumers do not need to
+ * migrate in lockstep with the backend's flat `UserCredits` wire contract.
+ */
+export function parseAomiCreditPosition(value: unknown): AomiCreditPosition {
+  const position = objectValue(value, "account credits");
+  const legacyIncluded = optionalObject(position.included);
+  const legacyBank = optionalObject(position.bank);
+  const records = position.records ?? position.entries;
+  if (!Array.isArray(records)) {
+    throw invalidCreditResponse("records must be an array");
+  }
+
+  return {
+    period_utc_month: stringValue(
+      position.period_utc_month,
+      "period_utc_month",
+    ),
+    included: {
+      limit_microusd: numberValue(
+        position.included_limit ?? legacyIncluded?.limit_microusd,
+        "included_limit",
+      ),
+      used_microusd: numberValue(
+        position.included_used ?? legacyIncluded?.used_microusd,
+        "included_used",
+      ),
+      remaining_microusd: numberValue(
+        position.included_remaining ?? legacyIncluded?.remaining_microusd,
+        "included_remaining",
+      ),
+    },
+    bank: {
+      balance_microusd: numberValue(
+        position.balance ?? legacyBank?.balance_microusd,
+        "balance",
+      ),
+      outstanding_debt_microusd: numberValue(
+        position.outstanding_debt ?? legacyBank?.outstanding_debt_microusd,
+        "outstanding_debt",
+      ),
+    },
+    entries: records.map(parseCreditActivity),
+    next_before_id: nullableNumberValue(
+      position.next_before_id,
+      "next_before_id",
+    ),
+  };
+}
+
+function parseCreditActivity(value: unknown): AomiCreditActivity {
+  const record = objectValue(value, "credit record");
+  const kind = stringValue(record.kind ?? record.entry_kind, "record.kind");
+  if (kind !== "purchase" && kind !== "usage_debit") {
+    throw invalidCreditResponse(`unsupported record kind: ${kind}`);
+  }
+  return {
+    id: numberValue(record.id, "record.id"),
+    amount_microusd: numberValue(
+      record.amount ?? record.amount_microusd,
+      "record.amount",
+    ),
+    entry_kind: kind,
+    payment_method: nullableStringValue(
+      record.payment_method,
+      "record.payment_method",
+    ),
+    payment_provider: nullableStringValue(
+      record.payment_provider,
+      "record.payment_provider",
+    ),
+    external_payment_reference: nullableStringValue(
+      record.external_payment_reference,
+      "record.external_payment_reference",
+    ),
+    application_id: nullableNumberValue(
+      record.application_id,
+      "record.application_id",
+    ),
+    metadata: optionalObject(record.metadata) ?? {},
+    created_at: numberValue(record.created_at, "record.created_at"),
+  };
+}
+
+function objectValue(value: unknown, field: string): Record<string, unknown> {
+  const object = optionalObject(value);
+  if (!object) throw invalidCreditResponse(`${field} must be an object`);
+  return object;
+}
+
+function optionalObject(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function stringValue(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw invalidCreditResponse(`${field} must be a string`);
+  }
+  return value;
+}
+
+function nullableStringValue(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  return stringValue(value, field);
+}
+
+function numberValue(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw invalidCreditResponse(`${field} must be a safe integer`);
+  }
+  return value;
+}
+
+function nullableNumberValue(value: unknown, field: string): number | null {
+  if (value === null || value === undefined) return null;
+  return numberValue(value, field);
+}
+
+function invalidCreditResponse(detail: string): TypeError {
+  return new TypeError(`Invalid account credits response: ${detail}`);
 }
 
 export class AccountTransport {

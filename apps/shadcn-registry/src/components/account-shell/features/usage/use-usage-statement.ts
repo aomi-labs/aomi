@@ -14,6 +14,7 @@ import {
 } from "./statement-api";
 
 export type StatementStatus = "loading" | "ready" | "error";
+export type AllowanceStatus = "idle" | "loading" | "ready" | "error";
 
 /**
  * Real statement months, fetched per month key on demand and cached for the
@@ -31,11 +32,15 @@ export function useUsageStatement(monthCount = 6) {
   >({});
   const [status, setStatus] = useState<StatementStatus>("loading");
   const [error, setError] = useState<string | undefined>();
+  const [allowanceStatus, setAllowanceStatus] =
+    useState<AllowanceStatus>("idle");
+  const [allowanceError, setAllowanceError] = useState<string | undefined>();
   const [creditAllowance, setCreditAllowance] = useState({
     included: 0,
     used: 0,
   });
   const inflight = useRef<Set<string>>(new Set());
+  const allowanceInflight = useRef(false);
 
   const allowance = creditAllowance;
   const months = useMemo<Record<string, MonthlyStatement>>(
@@ -49,19 +54,30 @@ export function useUsageStatement(monthCount = 6) {
     [allowance, wireMonths],
   );
 
-  const load = useCallback(
+  const loadAllowance = useCallback(async () => {
+    if (allowanceInflight.current) return;
+    allowanceInflight.current = true;
+    setAllowanceStatus("loading");
+    try {
+      setCreditAllowance(await fetchCreditAllowance(request));
+      setAllowanceStatus("ready");
+      setAllowanceError(undefined);
+    } catch (cause) {
+      setAllowanceStatus("error");
+      setAllowanceError(explainAccountError(cause));
+    } finally {
+      allowanceInflight.current = false;
+    }
+  }, [request]);
+
+  const loadStatement = useCallback(
     async (monthKey: string) => {
       if (inflight.current.has(monthKey)) return;
       inflight.current.add(monthKey);
       setStatus("loading");
+      if (monthKey === currentMonthKey()) void loadAllowance();
       try {
-        const [wire, credits] = await Promise.all([
-          fetchModelStatement(monthKey, request),
-          monthKey === currentMonthKey()
-            ? fetchCreditAllowance(request)
-            : Promise.resolve(null),
-        ]);
-        if (credits) setCreditAllowance(credits);
+        const wire = await fetchModelStatement(monthKey, request);
         setWireMonths((cache) => ({
           ...cache,
           [monthKey]: wire,
@@ -75,16 +91,16 @@ export function useUsageStatement(monthCount = 6) {
         inflight.current.delete(monthKey);
       }
     },
-    [request],
+    [loadAllowance, request],
   );
 
   useEffect(() => {
     if (!wireMonths[selectedKey]) {
-      void load(selectedKey);
+      void loadStatement(selectedKey);
     } else {
       setStatus("ready");
     }
-  }, [selectedKey, wireMonths, load]);
+  }, [selectedKey, wireMonths, loadStatement]);
 
   const selectMonth = useCallback((monthKey: string) => {
     setSelectedKey(monthKey);
@@ -98,6 +114,9 @@ export function useUsageStatement(monthCount = 6) {
     selectMonth,
     month: months[selectedKey] ?? null,
     isCurrentMonth: selectedKey === currentMonthKey(),
-    retry: () => void load(selectedKey),
+    allowanceStatus,
+    allowanceError,
+    retryAllowance: () => void loadAllowance(),
+    retry: () => void loadStatement(selectedKey),
   };
 }

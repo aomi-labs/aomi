@@ -9,6 +9,7 @@ export {
   MAX_CREDIT_TOP_UP,
   MICROUSD_PER_CREDIT,
   MIN_CREDIT_TOP_UP,
+  parseAomiCreditPosition,
 } from "./account/credits";
 export type {
   AomiCreditActivity,

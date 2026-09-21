@@ -166,16 +166,17 @@ describe("statement adapter", () => {
   it("paginates every row in the requested month and preserves funding buckets", async () => {
     const row = (index: number) => ({
       usage_event_id: `usage-${index}`,
-      operation_id: `operation-${index}`,
-      application: "default",
+      execution_id: `operation-${index}`,
+      application_id: 7,
       provider: "openai",
       model: "gpt-test",
       input_tokens: 10,
       output_tokens: 5,
-      inference_funding_source: "platform" as const,
-      gross_charge_microusd: 10_000,
-      included_applied_microusd: index < 125 ? 10_000 : 0,
-      bank_debit_microusd: index < 125 ? 0 : 10_000,
+      funding: { kind: "platform", application_id: 7 },
+      gross: 10_000,
+      included: index < 125 ? 10_000 : 0,
+      credits: index < 125 ? 0 : 10_000,
+      details: {},
       occurred_at: 1_785_542_400 + index,
     });
     fetchMock
@@ -190,14 +191,19 @@ describe("statement adapter", () => {
       .mockResolvedValueOnce({
         entries: Array.from({ length: 50 }, (_, index) => row(index + 200)),
         next_cursor: null,
-      });
+      })
+      .mockResolvedValueOnce([
+        { name: "uniswap", application_id: 7, is_public: true },
+      ]);
 
     const statement = await fetchModelStatement("2026-08");
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("from=1785542400");
     expect(fetchMock.mock.calls[1]?.[0]).toContain("cursor=page-2");
     expect(fetchMock.mock.calls[2]?.[0]).toContain("cursor=page-3");
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/api/account/apps");
+    expect(statement.apps[0]?.app).toBe("uniswap");
     expect(statement.apps[0]?.turns).toBe(250);
     expect(statement.total_credits_used).toBe(250);
     expect(statement.payment).toMatchObject([

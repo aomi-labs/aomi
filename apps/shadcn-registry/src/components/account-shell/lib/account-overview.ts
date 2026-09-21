@@ -38,12 +38,14 @@ export function creditAllowanceFromPosition(
   position: unknown,
 ): CreditAllowance | null {
   if (!position || typeof position !== "object") return null;
-  const included = (position as { included?: unknown }).included;
-  if (!included || typeof included !== "object") return null;
-  const { used_microusd: used, limit_microusd: limit } = included as {
-    used_microusd?: unknown;
-    limit_microusd?: unknown;
-  };
+  const record = position as Record<string, unknown>;
+  const included = record.included;
+  const legacy =
+    included && typeof included === "object"
+      ? (included as Record<string, unknown>)
+      : undefined;
+  const used = record.included_used ?? legacy?.used_microusd;
+  const limit = record.included_limit ?? legacy?.limit_microusd;
   if (
     typeof used !== "number" ||
     !Number.isFinite(used) ||

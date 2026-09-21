@@ -647,45 +647,78 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
 export function AllowanceSettlementSection({
   month,
   showAllowance = true,
+  allowanceStatus = "ready",
+  allowanceError,
+  onRetryAllowance,
   children,
 }: {
   month: MonthlyStatement;
   /** Hide when viewing a past month — profile credits only match the current month. */
   showAllowance?: boolean;
+  allowanceStatus?: "idle" | "loading" | "ready" | "error";
+  allowanceError?: string;
+  onRetryAllowance?: () => void;
   children?: ReactNode;
 }) {
   const { payment } = month;
   const { over, hasAllowance, creditsPct } = monthActivityStats(month);
 
-  if (!showAllowance || !hasAllowance) return null;
+  if (!showAllowance && !children) return null;
 
   return (
     <section className="flex flex-col gap-2.5">
       <SectionHeading title="Allowance & settlement" />
       <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
-        <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
-          <span className="text-aomi-fg text-[13px] font-medium">
-            Monthly credits
-          </span>
-          <span className="text-aomi-muted text-[13px] tabular-nums">
-            {payment.allowanceCredits.used.toLocaleString()} /{" "}
-            {payment.allowanceCredits.included.toLocaleString()} used
-          </span>
-        </div>
-        <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
-          <Meter pct={creditsPct} over={over} />
-          <span className="text-aomi-muted text-[12px] leading-snug">
-            Paid via {payment.settledVia}.{" "}
-            {over
-              ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
-                  payment.allowanceAppliedUsd,
-                )} monthly allowance.`
-              : `Compute fully covered by your allowance (${usd(
-                  payment.allowanceAppliedUsd,
-                )} applied).`}{" "}
-            On-chain fees {payment.onchainNote}.
-          </span>
-        </div>
+        {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
+          <>
+            <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
+              <span className="text-aomi-fg text-[13px] font-medium">
+                Monthly credits
+              </span>
+              <span className="text-aomi-muted text-[13px] tabular-nums">
+                {payment.allowanceCredits.used.toLocaleString()} /{" "}
+                {payment.allowanceCredits.included.toLocaleString()} used
+              </span>
+            </div>
+            <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
+              <Meter pct={creditsPct} over={over} />
+              <span className="text-aomi-muted text-[12px] leading-snug">
+                Paid via {payment.settledVia}.{" "}
+                {over
+                  ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
+                      payment.allowanceAppliedUsd,
+                    )} monthly allowance.`
+                  : `Compute fully covered by your allowance (${usd(
+                      payment.allowanceAppliedUsd,
+                    )} applied).`}{" "}
+                On-chain fees {payment.onchainNote}.
+              </span>
+            </div>
+          </>
+        ) : showAllowance ? (
+          <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
+            <span className="text-aomi-fg text-[13px] font-medium">
+              Monthly credits
+            </span>
+            <span className="text-aomi-muted text-[12px]">
+              {allowanceStatus === "loading" || allowanceStatus === "idle"
+                ? "Loading…"
+                : hasAllowance
+                  ? `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
+                  : "Unavailable"}
+              {allowanceStatus === "error" && onRetryAllowance ? (
+                <button
+                  type="button"
+                  title={allowanceError}
+                  onClick={onRetryAllowance}
+                  className="hover:text-aomi-fg ml-2 underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
         {children}
       </div>
     </section>

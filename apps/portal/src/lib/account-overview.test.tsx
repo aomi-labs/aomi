@@ -82,6 +82,15 @@ describe("creditAllowanceFromPosition", () => {
     ).toEqual({ used: 12, included: 100 });
   });
 
+  it("normalizes the flat payment-service credit position", () => {
+    expect(
+      creditAllowanceFromPosition({
+        included_used: 120_000,
+        included_limit: 1_000_000,
+      }),
+    ).toEqual({ used: 12, included: 100 });
+  });
+
   it("rejects a partial rolling-deployment response without throwing", () => {
     expect(creditAllowanceFromPosition({ period_utc_month: "2026-09" })).toBe(
       null,

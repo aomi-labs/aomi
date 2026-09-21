@@ -2,14 +2,28 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AomiClient } from "../src";
 
-const position = {
+const wirePosition = {
   period_utc_month: "2026-09-01",
+  included_limit: 50_000_000,
+  included_used: 5_250_000,
+  included_remaining: 44_750_000,
+  balance: 1_500_000,
+  outstanding_debt: 0,
+  records: [],
+  next_before_id: null,
+};
+
+const position = {
+  period_utc_month: wirePosition.period_utc_month,
   included: {
-    limit_microusd: 50_000_000,
-    used_microusd: 5_250_000,
-    remaining_microusd: 44_750_000,
+    limit_microusd: wirePosition.included_limit,
+    used_microusd: wirePosition.included_used,
+    remaining_microusd: wirePosition.included_remaining,
   },
-  bank: { balance_microusd: 1_500_000, outstanding_debt_microusd: 0 },
+  bank: {
+    balance_microusd: wirePosition.balance,
+    outstanding_debt_microusd: wirePosition.outstanding_debt,
+  },
   entries: [],
   next_before_id: null,
 };
@@ -60,7 +74,7 @@ describe("account credits", () => {
   });
 
   it("reads a paginated credit position through the account transport", async () => {
-    const fetchImpl = vi.fn(async () => Response.json(position));
+    const fetchImpl = vi.fn(async () => Response.json(wirePosition));
     const client = new AomiClient({
       baseUrl: "https://api.test",
       fetch: fetchImpl as typeof fetch,
@@ -88,7 +102,7 @@ describe("account credits", () => {
         expect(request.headers.get("idempotency-key")).toBe("topup-1");
         expect(request.headers.get("x-aomi-csrf")).toBe("1");
         expect(await request.json()).toEqual({ amount_microusd: 1_250_000 });
-        return Response.json(position, {
+        return Response.json(wirePosition, {
           headers: { "payment-response": paymentResponse },
         });
       },
@@ -145,7 +159,7 @@ describe("account credits", () => {
           headers: { "content-type": "application/json" },
         }),
       )
-      .mockResolvedValueOnce(Response.json(position));
+      .mockResolvedValueOnce(Response.json(wirePosition));
     const client = new AomiClient({
       baseUrl: "https://api.test",
       fetch: fetchImpl as typeof fetch,
@@ -223,5 +237,43 @@ describe("account credits", () => {
     await expect(client.account.credits.get()).rejects.toThrow(
       "HTTP 503\nPayment is still confirming",
     );
+  });
+
+  it("maps current credit records while retaining the public client shape", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        ...wirePosition,
+        records: [
+          {
+            id: 12,
+            amount: 2_500_000,
+            kind: "purchase",
+            payment_method: "x402",
+            payment_provider: "coinbase",
+            external_payment_reference: "0xtx",
+            application_id: null,
+            metadata: { payment_network: "eip155:8453" },
+            created_at: 1_800_000_000,
+          },
+        ],
+      }),
+    );
+    const client = new AomiClient({
+      baseUrl: "https://api.test",
+      fetch: fetchImpl as typeof fetch,
+      guest: false,
+    });
+
+    await expect(client.account.credits.get()).resolves.toMatchObject({
+      bank: { balance_microusd: 1_500_000 },
+      entries: [
+        {
+          id: 12,
+          amount_microusd: 2_500_000,
+          entry_kind: "purchase",
+          payment_method: "x402",
+        },
+      ],
+    });
   });
 });
