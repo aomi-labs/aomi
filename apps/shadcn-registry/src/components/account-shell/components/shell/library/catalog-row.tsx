@@ -37,7 +37,6 @@ function AppAction({
   onInstall: () => void;
 }) {
   const available = isPackageAvailableOnChain(app, activeChainId);
-  const needsSetup = app.secrets.length > 0;
   if (installed) {
     return (
       <span className="text-aomi-muted flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 text-[12px] font-medium">
@@ -52,7 +51,7 @@ function AppAction({
       disabled={disabled || !available}
       aria-label={
         available
-          ? `${needsSetup ? "Set up" : "Add"} ${app.name}`
+          ? `Add ${app.name} from catalog`
           : `Switch network to add ${app.name}`
       }
       className="border-aomi-border hover:bg-aomi-hover flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors disabled:opacity-40"
@@ -61,7 +60,7 @@ function AppAction({
         <Loader2 className="size-3.5 animate-spin" />
       ) : (
         <>
-          <Plus className="size-3.5" /> {needsSetup ? "Set up" : "Add"}
+          <Plus className="size-3.5" /> Add
         </>
       )}
     </button>

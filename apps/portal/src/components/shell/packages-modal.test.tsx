@@ -317,7 +317,10 @@ describe("packages modal wiring", () => {
       screen.queryByRole("button", { name: "Open Treasury Ops details" }),
     ).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Add Uniswap", exact: true }),
+      screen.getByRole("button", {
+        name: "Add Uniswap from catalog",
+        exact: true,
+      }),
     ).toBeDisabled();
     fireEvent.click(screen.getByLabelText("Open Venue details"));
     expect(
@@ -541,7 +544,7 @@ describe("packages modal wiring", () => {
 
     await renderModal();
     await act(async () => {
-      fireEvent.click(screen.getByLabelText("Add Treasury Ops"));
+      fireEvent.click(screen.getByLabelText("Add Treasury Ops from catalog"));
     });
 
     expect(paths(calls)).toContain("POST /api/account/apps/9");
@@ -551,7 +554,7 @@ describe("packages modal wiring", () => {
     const { calls } = installFetchRecorder();
     await renderModal();
 
-    fireEvent.click(screen.getByLabelText("Set up Venue"));
+    fireEvent.click(screen.getByLabelText("Add Venue from catalog"));
     expect(await screen.findByText("Personal trading API key")).toBeTruthy();
     expect(screen.getByText("Optional subaccount name")).toBeTruthy();
     expect(screen.queryByText("Configured by the app")).toBeNull();
@@ -586,7 +589,7 @@ describe("packages modal wiring", () => {
     installFetchRecorder();
     await renderModal();
 
-    fireEvent.click(screen.getByLabelText("Set up Venue"));
+    fireEvent.click(screen.getByLabelText("Add Venue from catalog"));
     fireEvent.change(await screen.findByLabelText("VENUE_API_KEY"), {
       target: { value: "never-persist-this-draft" },
     });
@@ -658,7 +661,7 @@ describe("packages modal wiring", () => {
     await renderModal();
 
     const install = screen.getByLabelText(
-      "Add Treasury Ops",
+      "Add Treasury Ops from catalog",
     ) as HTMLButtonElement;
     expect(install.disabled).toBe(false);
     fireEvent.click(install);
@@ -705,7 +708,7 @@ describe("packages modal wiring", () => {
       }),
     );
     const view = await renderModal();
-    fireEvent.click(screen.getByLabelText("Add Treasury Ops"));
+    fireEvent.click(screen.getByLabelText("Add Treasury Ops from catalog"));
     expect(finishMutation).toBeTypeOf("function");
     view.unmount();
     seedAccountOverview(null);
