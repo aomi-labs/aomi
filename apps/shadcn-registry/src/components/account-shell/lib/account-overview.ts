@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useSyncExternalStore } from "react";
+import { MICROUSD_PER_CREDIT } from "@aomi-labs/client";
 import { settingsApiFetch } from "./settings-api";
 import { useShellTransport, type ShellRequest } from "../transport";
 
@@ -26,6 +27,36 @@ export type AccountProfile = {
 export type AccountOverview = {
   user: AccountProfile;
 };
+
+export type CreditAllowance = {
+  used: number;
+  included: number;
+};
+
+/** Treat account-credit responses as untrusted across rolling deployments. */
+export function creditAllowanceFromPosition(
+  position: unknown,
+): CreditAllowance | null {
+  if (!position || typeof position !== "object") return null;
+  const included = (position as { included?: unknown }).included;
+  if (!included || typeof included !== "object") return null;
+  const { used_microusd: used, limit_microusd: limit } = included as {
+    used_microusd?: unknown;
+    limit_microusd?: unknown;
+  };
+  if (
+    typeof used !== "number" ||
+    !Number.isFinite(used) ||
+    typeof limit !== "number" ||
+    !Number.isFinite(limit)
+  ) {
+    return null;
+  }
+  return {
+    used: used / MICROUSD_PER_CREDIT,
+    included: limit / MICROUSD_PER_CREDIT,
+  };
+}
 
 function createOverviewStore(fetchOverview: ShellRequest) {
   let current: AccountOverview | null = null;

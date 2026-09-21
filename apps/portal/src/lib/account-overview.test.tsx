@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 
 import {
+  creditAllowanceFromPosition,
   formatAllowanceSummary,
   scopeAccountOverviewToUser,
   seedAccountOverview,
@@ -66,5 +67,29 @@ describe("account overview store", () => {
 describe("formatAllowanceSummary", () => {
   it("matches mock sidebar allowance copy", () => {
     expect(formatAllowanceSummary(80, 500)).toBe("420 left · 80/500 used");
+  });
+});
+
+describe("creditAllowanceFromPosition", () => {
+  it("normalizes a complete credit position", () => {
+    expect(
+      creditAllowanceFromPosition({
+        included: {
+          used_microusd: 120_000,
+          limit_microusd: 1_000_000,
+        },
+      }),
+    ).toEqual({ used: 12, included: 100 });
+  });
+
+  it("rejects a partial rolling-deployment response without throwing", () => {
+    expect(creditAllowanceFromPosition({ period_utc_month: "2026-09" })).toBe(
+      null,
+    );
+    expect(
+      creditAllowanceFromPosition({
+        included: { used_microusd: 120_000 },
+      }),
+    ).toBe(null);
   });
 });
