@@ -126,6 +126,54 @@ describe("Commit wallet and signing surface", () => {
     },
   );
 
+  it("leads with simulated wallet effects and keeps the exact request behind a disclosure", () => {
+    fixture.capabilities = {};
+    fixture.controller = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      "thread",
+    );
+    const signer = "0x1111111111111111111111111111111111111111";
+    fixture.controller.ingest({
+      ...pending,
+      chain_family: "evm",
+      chain_ref: "1",
+      signer,
+    });
+    render(<CommitReview />);
+    expect(screen.queryByTestId("asset-effect")).toBeNull();
+    act(() =>
+      fixture.controller!.ingestReview(pending.commit_id, {
+        type: "execute_evm",
+        transactions: [],
+        simulation: {
+          status: "passed",
+          balanceChanges: [
+            {
+              account: signer,
+              asset: "native",
+              amount: "1000000000000000000",
+              direction: "out",
+              symbol: "ETH",
+              decimals: 18,
+              chainId: 1,
+            },
+          ],
+          approvals: [],
+          fees: [],
+          gas: { units: "56241", priceWei: null, nativeCost: null },
+          guards: [],
+          logs: [],
+          warnings: [],
+        },
+      }),
+    );
+    expect(screen.getByTestId("asset-effect")).toHaveTextContent("ETH");
+    expect(
+      screen.getByText(/Estimated gas · 56,241 units/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Exact request")).toBeInTheDocument();
+  });
+
   it("rejects without asking a wallet to sign", async () => {
     const sign = vi.fn();
     fixture.capabilities = { sign };
