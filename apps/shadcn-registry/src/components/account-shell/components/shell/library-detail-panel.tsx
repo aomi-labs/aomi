@@ -3,10 +3,8 @@ import { useShellTransport } from "../../transport";
 
 import {
   createElement,
-  useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,11 +19,11 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
-import type {
-  AomiUserAppSecretSlot,
-  AomiUserAppSecrets,
-} from "@aomi-labs/client";
 import { getChainIcon, getSkillIcon } from "../../../icons";
+import {
+  appSecretsReady,
+  useAppSecretsState,
+} from "../../../app-secrets/use-app-secrets-state";
 import {
   fetchSkillDetail,
   skillLabel,
@@ -144,13 +142,6 @@ function DetailSection({
   );
 }
 
-function secretStatusReady(status: AomiUserAppSecrets): boolean {
-  return (
-    status.ready ??
-    status.slots.every((slot) => !slot.required || slot.configured)
-  );
-}
-
 function AppSecretSetup({
   app,
   accountUserId,
@@ -167,132 +158,58 @@ function AppSecretSetup({
   onInstall: () => Promise<boolean>;
 }) {
   const { json: request } = useShellTransport();
-  const [status, setStatus] = useState<AomiUserAppSecrets | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [busyName, setBusyName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const applicationId = app.applicationId;
   const scope = `${accountUserId ?? "signed-out"}:${String(applicationId ?? "")}`;
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
-
-  const refresh = useCallback(async () => {
-    if (applicationId == null || !accountUserId) return null;
-    const requestScope = `${accountUserId}:${String(applicationId)}`;
-    const next = await fetchAppSecrets(applicationId, request);
-    if (scopeRef.current === requestScope) setStatus(next);
-    return next;
-  }, [accountUserId, applicationId, request]);
-
-  useEffect(() => {
-    let current = true;
-    setDrafts({});
-    setStatus(null);
-    setError(null);
-    setBusyName(null);
-    if (applicationId == null || !accountUserId) {
-      setLoading(false);
-      return () => {
-        current = false;
-      };
-    }
-    setLoading(true);
-    fetchAppSecrets(applicationId, request)
-      .then((next) => {
-        if (current) setStatus(next);
-      })
-      .catch(() => {
-        if (current) setError("Couldn’t load your saved credentials.");
-      })
-      .finally(() => {
-        if (current) setLoading(false);
-      });
-    return () => {
-      current = false;
-    };
-  }, [accountUserId, applicationId, request]);
-
-  const slots = useMemo<AomiUserAppSecretSlot[]>(() => {
-    if (status) return status.slots.filter((slot) => slot.user_own !== false);
-    return app.secrets.map((slot) => ({
-      ...slot,
-      configured: false,
-      app_provided: false,
-    }));
-  }, [app.secrets, status]);
-  const pending = Object.fromEntries(
-    Object.entries(drafts)
-      .map(([name, value]) => [name, value.trim()])
-      .filter((entry) => entry[1].length > 0),
+  const operations = useMemo(
+    () => ({
+      list: (id: number | string) => fetchAppSecrets(id, request),
+      save: (id: number | string, secrets: Record<string, string>) =>
+        saveAppSecrets(id, secrets, request),
+      remove: (id: number | string, name: string) =>
+        removeAppSecret(id, name, request),
+    }),
+    [request],
   );
-  const hasPending = Object.keys(pending).length > 0;
+  const secretState = useAppSecretsState({
+    scopeKey: scope,
+    applicationId,
+    enabled: Boolean(accountUserId && applicationId != null),
+    declaredSlots: app.secrets,
+    operations,
+  });
+  const {
+    status,
+    slots,
+    drafts,
+    setDraft,
+    hasPending,
+    loading,
+    busyName,
+    error,
+    setError,
+  } = secretState;
+  const declaredNames = useMemo(
+    () => new Set(app.secrets.map((slot) => slot.name)),
+    [app.secrets],
+  );
   const draftReady = slots.every(
     (slot) =>
       !slot.required || slot.configured || Boolean(drafts[slot.name]?.trim()),
   );
-  const ready = status ? secretStatusReady(status) : false;
-  const busy = appBusy || busyName !== null;
-
-  const save = async (): Promise<AomiUserAppSecrets | null> => {
-    if (applicationId == null || !hasPending) return status;
-    const requestScope = scope;
-    setBusyName("save");
-    setError(null);
-    try {
-      const next = await saveAppSecrets(applicationId, pending, request);
-      if (scopeRef.current !== requestScope) return null;
-      setStatus(next);
-      setDrafts({});
-      return next;
-    } catch {
-      if (scopeRef.current === requestScope)
-        setError("Couldn’t save credentials. Try again.");
-      return null;
-    } finally {
-      if (scopeRef.current === requestScope) setBusyName(null);
-    }
-  };
+  const ready = status ? appSecretsReady(status) : false;
+  const busy = appBusy || secretState.busy;
 
   const activate = async () => {
-    const next = hasPending ? await save() : status;
+    const next = hasPending ? await secretState.save() : status;
     if (hasPending && !next) return;
-    if (!next || !secretStatusReady(next)) {
+    if (!next || !appSecretsReady(next)) {
       setError("Add every required credential before activating this app.");
       return;
     }
     await onInstall();
   };
 
-  const remove = async (name: string) => {
-    if (applicationId == null) return;
-    const requestScope = scope;
-    setBusyName(name);
-    setError(null);
-    try {
-      await removeAppSecret(applicationId, name, request);
-      await refresh();
-    } catch {
-      if (scopeRef.current === requestScope)
-        setError("Couldn’t remove the saved credential. Try again.");
-    } finally {
-      if (scopeRef.current === requestScope) setBusyName(null);
-    }
-  };
-
-  const retry = async () => {
-    const requestScope = scope;
-    setLoading(true);
-    setError(null);
-    try {
-      await refresh();
-    } catch {
-      if (scopeRef.current === requestScope)
-        setError("Couldn’t load your saved credentials.");
-    } finally {
-      if (scopeRef.current === requestScope) setLoading(false);
-    }
-  };
+  if (!loading && slots.length === 0) return null;
 
   return (
     <DetailSection title="Setup">
@@ -329,7 +246,7 @@ function AppSecretSetup({
             {accountUserId && status === null ? (
               <button
                 type="button"
-                onClick={() => void retry()}
+                onClick={() => void secretState.retry()}
                 disabled={loading}
                 className="text-aomi-fg shrink-0 font-medium disabled:opacity-50"
               >
@@ -339,71 +256,79 @@ function AppSecretSetup({
           </div>
         ) : null}
 
-        {slots.map((slot) => (
-          <div key={slot.name} className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <label
-                htmlFor={`library-secret-${app.id}-${slot.name}`}
-                className="min-w-0 truncate font-mono text-[11px] font-medium"
-              >
-                {slot.name}
-              </label>
-              <span className="text-aomi-muted shrink-0 text-[10px]">
-                {slot.configured
-                  ? `${slot.required ? "Required" : "Optional"} · Saved`
-                  : slot.required
-                    ? "Required"
-                    : "Optional"}
-              </span>
-            </div>
-            {slot.description ? (
-              <p className="text-aomi-muted text-[11px] leading-4">
-                {slot.description}
-              </p>
-            ) : null}
-            <div className="flex gap-1.5">
-              <input
-                id={`library-secret-${app.id}-${slot.name}`}
-                aria-label={slot.name}
-                type="password"
-                autoComplete="new-password"
-                value={drafts[slot.name] ?? ""}
-                placeholder={
-                  slot.configured ? "Enter replacement" : "Enter value"
-                }
-                disabled={busy || !accountUserId}
-                onChange={(event) =>
-                  setDrafts((current) => ({
-                    ...current,
-                    [slot.name]: event.target.value,
-                  }))
-                }
-                className="border-aomi-border bg-aomi-bg placeholder:text-aomi-muted min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[12px] outline-none focus:border-current disabled:opacity-50"
-              />
-              {slot.configured ? (
-                <button
-                  type="button"
-                  aria-label={`Remove ${slot.name}`}
-                  title={`Remove ${slot.name}`}
-                  disabled={busy}
-                  onClick={() => void remove(slot.name)}
-                  className="border-aomi-border text-aomi-muted hover:bg-aomi-hover hover:text-aomi-danger flex size-9 shrink-0 items-center justify-center rounded-lg border disabled:opacity-50"
+        {slots.map((slot) => {
+          const obsolete = !declaredNames.has(slot.name);
+          return (
+            <div key={slot.name} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor={`library-secret-${app.id}-${slot.name}`}
+                  className="min-w-0 truncate font-mono text-[11px] font-medium"
                 >
-                  {busyName === slot.name ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="size-3.5" />
-                  )}
-                </button>
+                  {slot.name}
+                </label>
+                <span className="text-aomi-muted shrink-0 text-[10px]">
+                  {obsolete
+                    ? "No longer used · Saved"
+                    : slot.configured
+                      ? `${slot.required ? "Required" : "Optional"} · Saved`
+                      : slot.required
+                        ? "Required"
+                        : "Optional"}
+                </span>
+              </div>
+              {slot.description ? (
+                <p className="text-aomi-muted text-[11px] leading-4">
+                  {slot.description}
+                </p>
               ) : null}
+              <div className="flex gap-1.5">
+                {!obsolete ? (
+                  <input
+                    id={`library-secret-${app.id}-${slot.name}`}
+                    aria-label={slot.name}
+                    type="password"
+                    autoComplete="new-password"
+                    value={drafts[slot.name] ?? ""}
+                    placeholder={
+                      slot.configured ? "Enter replacement" : "Enter value"
+                    }
+                    disabled={busy || !accountUserId}
+                    onChange={(event) =>
+                      setDraft(slot.name, event.target.value)
+                    }
+                    className="border-aomi-border bg-aomi-bg placeholder:text-aomi-muted min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[12px] outline-none focus:border-current disabled:opacity-50"
+                  />
+                ) : (
+                  <p className="text-aomi-muted min-w-0 flex-1 py-2 text-[11px]">
+                    This saved credential can only be removed.
+                  </p>
+                )}
+                {slot.configured ? (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${slot.name}`}
+                    title={`Remove ${slot.name}`}
+                    disabled={busy}
+                    onClick={() => void secretState.remove(slot.name)}
+                    className="border-aomi-border text-aomi-muted hover:bg-aomi-hover hover:text-aomi-danger flex size-9 shrink-0 items-center justify-center rounded-lg border disabled:opacity-50"
+                  >
+                    {busyName === slot.name ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-3.5" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {installed ? (
           <button
             type="button"
-            onClick={() => void save()}
+            onClick={() => void secretState.save()}
             disabled={busy || !hasPending}
             className="bg-aomi-fg text-aomi-bg flex h-9 w-full items-center justify-center rounded-lg text-[12px] font-medium disabled:opacity-40"
           >
@@ -517,7 +442,8 @@ function AppDetails({
           ) : null}
         </DetailSection>
 
-        {app.secrets.length > 0 ? (
+        {app.secrets.length > 0 ||
+        (accountUserId && app.applicationId != null) ? (
           <AppSecretSetup
             app={app}
             accountUserId={accountUserId}
@@ -709,8 +635,8 @@ export function LibraryDetailPanel({
   busy: boolean;
   activeChainId?: number;
   accountUserId?: string;
-  onInstall: (id: string) => Promise<boolean>;
-  onUninstall: (id: string) => void;
+  onInstall: (app: CatalogPackage) => Promise<boolean>;
+  onUninstall: (app: CatalogPackage) => void;
   onTrySkill: (skill: SkillSummary) => void;
 }) {
   return (
@@ -735,8 +661,8 @@ export function LibraryDetailPanel({
             busy={busy}
             activeChainId={activeChainId}
             accountUserId={accountUserId}
-            onInstall={() => onInstall(selection.item.id)}
-            onUninstall={() => onUninstall(selection.item.id)}
+            onInstall={() => onInstall(selection.item)}
+            onUninstall={() => onUninstall(selection.item)}
           />
         ) : (
           <SkillDetails

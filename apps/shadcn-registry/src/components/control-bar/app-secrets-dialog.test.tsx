@@ -41,6 +41,12 @@ const control = vi.hoisted(() => ({
           },
         ],
       },
+      {
+        name: "retired-secrets",
+        applicationId: 43,
+        label: "Retired secrets",
+        secrets: [],
+      },
     ],
   },
   getCurrentThreadApp: vi.fn(() => "okx"),
@@ -214,6 +220,52 @@ describe("AppSecretsDialog", () => {
         "data-app-secrets-state",
         "missing",
       ),
+    );
+  });
+
+  it("keeps obsolete stored credentials visible for removal", async () => {
+    control.getCurrentThreadApp.mockReturnValue("retired-secrets");
+    control.getCurrentThreadApplicationId.mockReturnValue(43);
+    control.listAppSecrets
+      .mockResolvedValueOnce({
+        application_id: 43,
+        app: "retired-secrets",
+        ready: true,
+        missing_required: [],
+        slots: [
+          {
+            name: "LEGACY_KEY",
+            description: "Removed from the current manifest",
+            required: false,
+            user_own: true,
+            configured: true,
+            app_provided: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        application_id: 43,
+        app: "retired-secrets",
+        ready: true,
+        missing_required: [],
+        slots: [],
+      });
+
+    render(<AppSecretsDialog />);
+
+    expect(
+      await screen.findByText("This saved credential can only be removed."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("LEGACY_KEY")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Remove LEGACY_KEY"));
+
+    await waitFor(() =>
+      expect(control.deleteAppSecret).toHaveBeenCalledWith(43, "LEGACY_KEY"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("This saved credential can only be removed."),
+      ).toBeNull(),
     );
   });
 

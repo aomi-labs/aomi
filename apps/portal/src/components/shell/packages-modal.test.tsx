@@ -103,11 +103,14 @@ function installFetchRecorder(
     metadata: { registered_via: string };
     feature_catalog: string[];
   }> = [],
+  initiallyInstalled: number[] = [7],
 ) {
   const calls: FetchCall[] = [];
   const catalog = [...CATALOG, ...extraApps];
-  let installed = ["default", "uniswap"];
+  const installed = new Set(initiallyInstalled);
   let venueConfigured = false;
+  let failNextVenueRead = false;
+  let failNextVenueSave = false;
   const fetchMock = vi.fn(
     async (input: string | URL | Request, init?: RequestInit) => {
       calls.push({ input, init });
@@ -117,13 +120,21 @@ function installFetchRecorder(
         return Response.json(catalog.filter((app) => app.is_public !== false));
       }
       if (url.pathname === "/api/account/apps" && method === "GET") {
-        return Response.json(catalog);
-      }
-      if (url.pathname === "/api/account/apps" && method === "PUT") {
-        installed = (JSON.parse(String(init?.body)) as { apps: string[] }).apps;
-        return Response.json({ apps: installed });
+        return Response.json(
+          catalog.map((app) => ({
+            ...app,
+            is_installed:
+              "application_id" in app && app.application_id != null
+                ? installed.has(app.application_id)
+                : false,
+          })),
+        );
       }
       if (url.pathname === "/api/account/apps/12/secrets" && method === "GET") {
+        if (failNextVenueRead) {
+          failNextVenueRead = false;
+          return new Response("temporary failure", { status: 503 });
+        }
         return Response.json({
           application_id: 12,
           app: "venue",
@@ -140,6 +151,10 @@ function installFetchRecorder(
         url.pathname === "/api/account/apps/12/secrets" &&
         method === "POST"
       ) {
+        if (failNextVenueSave) {
+          failNextVenueSave = false;
+          return new Response("temporary failure", { status: 503 });
+        }
         const secrets = (
           JSON.parse(String(init?.body)) as {
             secrets: Record<string, string>;
@@ -164,6 +179,35 @@ function installFetchRecorder(
       ) {
         venueConfigured = false;
         return Response.json({ deleted: true });
+      }
+      const appMutation = url.pathname.match(/^\/api\/account\/apps\/(\d+)$/);
+      if (appMutation && (method === "POST" || method === "DELETE")) {
+        const applicationId = Number(appMutation[1]);
+        const app = catalog.find(
+          (candidate) =>
+            "application_id" in candidate &&
+            candidate.application_id === applicationId,
+        );
+        if (!app) return new Response("Not found", { status: 404 });
+        if (method === "POST") installed.add(applicationId);
+        else installed.delete(applicationId);
+        return Response.json({
+          application_id: applicationId,
+          app: app.name,
+          installed: method === "POST",
+          apps: [
+            "default",
+            ...new Set(
+              catalog
+                .filter(
+                  (candidate) =>
+                    "application_id" in candidate &&
+                    installed.has(candidate.application_id),
+                )
+                .map((candidate) => candidate.name),
+            ),
+          ],
+        });
       }
       if (url.pathname === "/api/resource/skills" && method === "GET") {
         return Response.json({
@@ -199,7 +243,15 @@ function installFetchRecorder(
     },
   );
   vi.stubGlobal("fetch", fetchMock);
-  return { calls };
+  return {
+    calls,
+    failNextVenueRead: () => {
+      failNextVenueRead = true;
+    },
+    failNextVenueSave: () => {
+      failNextVenueSave = true;
+    },
+  };
 }
 
 const paths = (calls: FetchCall[]) =>
@@ -237,7 +289,11 @@ describe("packages modal wiring", () => {
 
   beforeEach(() => {
     seedAccountOverview({
-      user: { user_id: "acct-1", apps: ["default", "uniswap"] },
+      user: {
+        user_id: "acct-1",
+        apps: ["default", "uniswap"],
+        application_ids: [7],
+      },
     });
   });
 
@@ -269,7 +325,7 @@ describe("packages modal wiring", () => {
     ).toBeTruthy();
     expect(screen.getByLabelText("VENUE_API_KEY")).toBeDisabled();
     expect(paths(calls)).not.toContain("GET /api/account/apps/12/secrets");
-    expect(paths(calls)).not.toContain("PUT /api/account/apps");
+    expect(paths(calls)).not.toContain("POST /api/account/apps/12");
   });
 
   it("loads the catalog from the account apps route", async () => {
@@ -342,7 +398,7 @@ describe("packages modal wiring", () => {
   });
 
   it("keeps same-name community rows stable across tabs and global search", async () => {
-    installFetchRecorder([
+    const { calls } = installFetchRecorder([
       {
         name: "dune",
         is_public: true,
@@ -378,6 +434,15 @@ describe("packages modal wiring", () => {
     expect(screen.getByLabelText("Open My Dune details")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Open My Dune details"));
     expect(screen.getByLabelText("My Dune details")).toBeTruthy();
+    const install = screen
+      .getAllByLabelText("Add My Dune")
+      .find((button) => !(button as HTMLButtonElement).disabled);
+    expect(install).toBeTruthy();
+    fireEvent.click(install!);
+    await waitFor(() =>
+      expect(paths(calls)).toContain("POST /api/account/apps/41"),
+    );
+    expect(paths(calls)).not.toContain("POST /api/account/apps/40");
   });
 
   it("puts token operations in Tokens & wallets before broad research matches", () => {
@@ -451,7 +516,7 @@ describe("packages modal wiring", () => {
     });
   });
 
-  it("uninstalls by PUTting the replaced list", async () => {
+  it("uninstalls by exact application ID", async () => {
     const { calls } = installFetchRecorder();
 
     const view = await renderModal();
@@ -462,10 +527,8 @@ describe("packages modal wiring", () => {
       fireEvent.click(screen.getByLabelText("Remove Uniswap"));
     });
 
-    const put = calls.find((c) => c.init?.method === "PUT");
-    expect(put).toBeTruthy();
-    expect(JSON.parse(String(put?.init?.body))).toEqual({ apps: ["default"] });
-    // The row flips from the PUT response, not optimistically.
+    expect(paths(calls)).toContain("DELETE /api/account/apps/7");
+    // The row flips from the server response, not optimistically.
     expect(screen.queryByLabelText("Remove Uniswap")).toBeNull();
 
     view.unmount();
@@ -473,7 +536,7 @@ describe("packages modal wiring", () => {
     expect(screen.queryByLabelText("Remove Uniswap")).toBeNull();
   });
 
-  it("installs a personal app through the same replace", async () => {
+  it("installs a personal app by exact application ID", async () => {
     const { calls } = installFetchRecorder();
 
     await renderModal();
@@ -481,11 +544,7 @@ describe("packages modal wiring", () => {
       fireEvent.click(screen.getByLabelText("Add Treasury Ops"));
     });
 
-    const put = calls.find((c) => c.init?.method === "PUT");
-    expect(JSON.parse(String(put?.init?.body))).toEqual({
-      apps: ["default", "uniswap", "treasury-ops"],
-    });
-    expect(paths(calls)).toContain("PUT /api/account/apps");
+    expect(paths(calls)).toContain("POST /api/account/apps/9");
   });
 
   it("saves required user credentials before adding an app", async () => {
@@ -509,7 +568,7 @@ describe("packages modal wiring", () => {
 
     await waitFor(() => {
       expect(paths(calls)).toContain("POST /api/account/apps/12/secrets");
-      expect(paths(calls)).toContain("PUT /api/account/apps");
+      expect(paths(calls)).toContain("POST /api/account/apps/12");
     });
     const save = calls.find(
       (call) =>
@@ -541,7 +600,7 @@ describe("packages modal wiring", () => {
     seedAccountOverview({
       user: { user_id: "acct-1", apps: ["default", "uniswap", "venue"] },
     });
-    const { calls } = installFetchRecorder();
+    const { calls } = installFetchRecorder([], [7, 12]);
     await renderModal();
     fireEvent.click(screen.getByLabelText("Open Venue details"));
 
@@ -565,30 +624,26 @@ describe("packages modal wiring", () => {
   });
 
   it("keeps save failures actionable and retries a failed status read", async () => {
-    installFetchRecorder();
+    const { failNextVenueRead, failNextVenueSave } = installFetchRecorder();
     await renderModal();
 
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("temporary failure", { status: 503 }),
-    );
+    failNextVenueRead();
     fireEvent.click(screen.getByLabelText("Open Venue details"));
-    expect(
-      await screen.findByText("Couldn’t load your saved credentials."),
-    ).toBeTruthy();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /temporary failure/i,
+    );
     fireEvent.click(screen.getByText("Retry"));
     expect(await screen.findByText("Setup required")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("VENUE_API_KEY"), {
       target: { value: "secret-value" },
     });
-    vi.mocked(fetch).mockResolvedValueOnce(
-      new Response("temporary failure", { status: 503 }),
-    );
+    failNextVenueSave();
     fireEvent.click(screen.getByText("Save & add app"));
 
-    expect(
-      await screen.findByText("Couldn’t save credentials. Try again."),
-    ).toBeTruthy();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /temporary failure/i,
+    );
     expect(
       screen.queryByText(
         "Add every required credential before activating this app.",
@@ -596,7 +651,7 @@ describe("packages modal wiring", () => {
     ).toBeNull();
   });
 
-  it("blocks replacement until the installed-app baseline is available", async () => {
+  it("uses the server catalog as the installed-app baseline", async () => {
     seedAccountOverview({ user: { user_id: "acct-1" } });
     const { calls } = installFetchRecorder();
 
@@ -605,13 +660,17 @@ describe("packages modal wiring", () => {
     const install = screen.getByLabelText(
       "Add Treasury Ops",
     ) as HTMLButtonElement;
-    expect(install.disabled).toBe(true);
+    expect(install.disabled).toBe(false);
     fireEvent.click(install);
-    expect(paths(calls)).not.toContain("PUT /api/account/apps");
+    expect(paths(calls)).toContain("POST /api/account/apps/9");
 
     await act(async () => {
       seedAccountOverview({
-        user: { user_id: "acct-1", apps: ["default", "uniswap"] },
+        user: {
+          user_id: "acct-1",
+          apps: ["default", "uniswap"],
+          application_ids: [7],
+        },
       });
     });
     fireEvent.click(screen.getByLabelText("Open Uniswap details"));
@@ -621,17 +680,24 @@ describe("packages modal wiring", () => {
   });
 
   it("ignores a pending install response after sign-out and modal unmount", async () => {
-    let finishPut: ((response: Response) => void) | undefined;
+    let finishMutation: ((response: Response) => void) | undefined;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const path = new URL(input.toString(), "https://portal.test").pathname;
-        if (path === "/api/account/apps" && init?.method === "PUT") {
+        if (path === "/api/account/apps/9" && init?.method === "POST") {
           return new Promise<Response>((resolve) => {
-            finishPut = resolve;
+            finishMutation = resolve;
           });
         }
-        if (path === "/api/account/apps") return Response.json(CATALOG);
+        if (path === "/api/account/apps") {
+          return Response.json(
+            CATALOG.map((app) => ({
+              ...app,
+              is_installed: "application_id" in app && app.application_id === 7,
+            })),
+          );
+        }
         if (path === "/api/resource/skills") {
           return Response.json({ skills: [] });
         }
@@ -640,13 +706,18 @@ describe("packages modal wiring", () => {
     );
     const view = await renderModal();
     fireEvent.click(screen.getByLabelText("Add Treasury Ops"));
-    expect(finishPut).toBeTypeOf("function");
+    expect(finishMutation).toBeTypeOf("function");
     view.unmount();
     seedAccountOverview(null);
 
     await act(async () => {
-      finishPut?.(
-        Response.json({ apps: ["default", "uniswap", "treasury-ops"] }),
+      finishMutation?.(
+        Response.json({
+          application_id: 9,
+          app: "treasury-ops",
+          installed: true,
+          apps: ["default", "uniswap", "treasury-ops"],
+        }),
       );
     });
     function AccountIdentity() {
@@ -657,20 +728,28 @@ describe("packages modal wiring", () => {
     expect(screen.queryByText("acct-1")).toBeNull();
   });
 
-  it("serializes full-set replacements", async () => {
+  it("serializes exact app mutations", async () => {
     const calls: FetchCall[] = [];
-    let finishPut: ((response: Response) => void) | undefined;
+    let finishMutation: ((response: Response) => void) | undefined;
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         calls.push({ input, init });
         const url = new URL(input.toString(), "https://portal.test");
         if (url.pathname === "/api/account/apps" && !init?.method) {
-          return Response.json(CATALOG);
+          return Response.json(
+            CATALOG.map((app) => ({
+              ...app,
+              is_installed: "application_id" in app && app.application_id === 7,
+            })),
+          );
         }
-        if (url.pathname === "/api/account/apps" && init?.method === "PUT") {
+        if (
+          url.pathname === "/api/account/apps/7" &&
+          init?.method === "DELETE"
+        ) {
           return new Promise<Response>((resolve) => {
-            finishPut = resolve;
+            finishMutation = resolve;
           });
         }
         if (url.pathname === "/api/resource/skills") {
@@ -687,11 +766,18 @@ describe("packages modal wiring", () => {
     fireEvent.click(remove);
 
     expect(
-      paths(calls).filter((path) => path === "PUT /api/account/apps"),
+      paths(calls).filter((path) => path === "DELETE /api/account/apps/7"),
     ).toHaveLength(1);
 
     await act(async () => {
-      finishPut?.(Response.json({ apps: ["default"] }));
+      finishMutation?.(
+        Response.json({
+          application_id: 7,
+          app: "uniswap",
+          installed: false,
+          apps: ["default"],
+        }),
+      );
     });
   });
 });

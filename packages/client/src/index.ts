@@ -259,7 +259,7 @@ export type {
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
-  AomiSetAccountAppsResponse,
+  AomiAccountAppMutationResponse,
   AomiListByokKeysResponse,
   AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,

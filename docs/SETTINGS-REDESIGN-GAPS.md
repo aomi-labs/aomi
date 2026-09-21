@@ -78,11 +78,11 @@ Still open here (all blocked on ledger writers, not on FE/endpoint work):
 ## Packages modal — **wired 2026-07-26**
 
 Catalog from `GET /api/account/apps` (real `AppSpec[]`); installed state from
-the profile's `user.apps`; install/remove via the new `PUT /api/account/apps`
-(full-replace of `users.applications`; backend validates names against the
-account's own visible catalog, so a bearer can't self-grant an unseen app).
-Not optimistic — rows flip on the PUT response. `"default"` is pinned ("Built
-in", not removable). Brand decoration (icons/colors/categories/copy) is a
+each row's `is_installed`; install/remove via
+`POST|DELETE /api/account/apps/:application_id`. These mutations target one
+canonical row, so same-named apps and concurrent changes stay independent.
+Not optimistic — rows flip on the mutation response. `"default"` is pinned
+("Built in", not removable). Brand decoration (icons/colors/categories/copy) is a
 client-side `DECOR` map keyed by app name until `AppSpec.metadata` carries
 display fields; undecorated apps render a neutral monogram under "More".
 

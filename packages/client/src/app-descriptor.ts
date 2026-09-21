@@ -104,6 +104,11 @@ export function normalizeAppDescriptor(
   } else if (typeof raw.is_public === "boolean") {
     descriptor.isPublic = raw.is_public;
   }
+  if (typeof raw.isInstalled === "boolean") {
+    descriptor.isInstalled = raw.isInstalled;
+  } else if (typeof raw.is_installed === "boolean") {
+    descriptor.isInstalled = raw.is_installed;
+  }
   if (typeof raw.artifactReady === "boolean") {
     descriptor.artifactReady = raw.artifactReady;
   } else if (typeof raw.artifact_ready === "boolean") {
@@ -143,6 +148,7 @@ export function normalizeAppDescriptor(
     "app_release_tag",
     "is_active",
     "is_public",
+    "is_installed",
     "artifact_ready",
     "artifact_status",
     "chain_ids",

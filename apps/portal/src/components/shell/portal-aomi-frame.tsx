@@ -44,28 +44,41 @@ function directTarget(
 
 function PortalComposer({
   enabledApps,
+  enabledApplicationIds,
   lockedTarget,
 }: {
   enabledApps: readonly string[];
+  enabledApplicationIds: readonly number[];
   lockedTarget?: DirectRoutingApp;
 }) {
   const { state } = useControl();
+  const installedIds = useMemo(
+    () => new Set(enabledApplicationIds),
+    [enabledApplicationIds],
+  );
   const directApps = useMemo<DirectRoutingApp[]>(
     () =>
       enabledApps
         .filter((app) => app !== "orchestrator" && app !== "auto")
         .flatMap((app) => {
-          const hosted = state.appDescriptors
-            .filter((descriptor) => descriptor.name === app)
-            .flatMap((descriptor) => {
-              const applicationId = Number(descriptor.applicationId);
-              return Number.isSafeInteger(applicationId) && applicationId > 0
-                ? [{ app, applicationId }]
-                : [];
-            });
-          return hosted.length > 0 ? hosted : [{ app }];
+          const matching = state.appDescriptors.filter(
+            (descriptor) => descriptor.name === app,
+          );
+          const hosted = matching.flatMap((descriptor) => {
+            const applicationId = Number(descriptor.applicationId);
+            return Number.isSafeInteger(applicationId) &&
+              applicationId > 0 &&
+              installedIds.has(applicationId)
+              ? [{ app, applicationId }]
+              : [];
+          });
+          const hasHostedIdentity = matching.some((descriptor) => {
+            const applicationId = Number(descriptor.applicationId);
+            return Number.isSafeInteger(applicationId) && applicationId > 0;
+          });
+          return hosted.length > 0 || hasHostedIdentity ? hosted : [{ app }];
         }),
-    [enabledApps, state.appDescriptors],
+    [enabledApps, installedIds, state.appDescriptors],
   );
   const routing = useMemo<AomiRoutingConfig>(
     () =>
@@ -269,6 +282,7 @@ export function PortalAomiFrame() {
   const lockedApp = requestedApp.locked ? requestedApp.app : null;
   const lockedApplicationId = lockedApp ? requestedApp.applicationId : null;
   const enabledApps = accountOverview?.user.apps ?? DEFAULT_ENABLED_APPS;
+  const enabledApplicationIds = accountOverview?.user.application_ids ?? [];
   const lockedTarget = useMemo(
     () =>
       lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
@@ -361,7 +375,11 @@ export function PortalAomiFrame() {
             onOpenPackages={() => setOverlay("packages")}
           />
         </AomiFrame.Header>
-        <PortalComposer enabledApps={enabledApps} lockedTarget={lockedTarget} />
+        <PortalComposer
+          enabledApps={enabledApps}
+          enabledApplicationIds={enabledApplicationIds}
+          lockedTarget={lockedTarget}
+        />
         <SvmWalletBindingGate />
         {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one

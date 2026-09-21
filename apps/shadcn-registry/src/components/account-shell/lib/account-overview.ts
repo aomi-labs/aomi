@@ -25,6 +25,8 @@ export type AccountProfile = {
   created_at?: number;
   /** The account's installed apps (`users.applications`). */
   apps?: string[];
+  /** Exact installed hosted application rows. */
+  application_ids?: number[];
 };
 
 export type AccountOverview = {
@@ -76,9 +78,20 @@ function createOverviewStore(fetchOverview: ShellRequest) {
   }
 
   /** Apply an installed-app response only to the account that requested it. */
-  function updateAccountApps(userId: string, apps: string[]): void {
+  function updateAccountApps(
+    userId: string,
+    apps: string[],
+    applicationIds?: number[],
+  ): void {
     if (current?.user.user_id !== userId) return;
-    seedAccountOverview({ ...current, user: { ...current.user, apps } });
+    seedAccountOverview({
+      ...current,
+      user: {
+        ...current.user,
+        apps,
+        application_ids: applicationIds ?? current.user.application_ids,
+      },
+    });
   }
 
   /** Drop a snapshot that belongs to a different authenticated account. */

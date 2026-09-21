@@ -103,34 +103,46 @@ describe("AomiClient per-user app credentials", () => {
           {
             name: "venue",
             application_id: 42,
+            is_installed: true,
             secrets: [],
           },
         ]),
       )
-      .mockResolvedValueOnce(Response.json({ user: { apps: ["default"] } }))
-      .mockResolvedValueOnce(Response.json({ apps: ["default", "venue"] }))
       .mockResolvedValueOnce(
-        Response.json({ user: { apps: ["default", "venue"] } }),
+        Response.json({
+          application_id: 42,
+          app: "venue",
+          installed: true,
+          apps: ["default", "venue"],
+        }),
       )
-      .mockResolvedValueOnce(Response.json({ apps: ["default"] }));
+      .mockResolvedValueOnce(
+        Response.json({
+          application_id: 42,
+          app: "venue",
+          installed: false,
+          apps: ["default"],
+        }),
+      );
 
     const api = client();
     await expect(api.listAccountApps("thread-1")).resolves.toMatchObject([
-      { name: "venue", applicationId: 42 },
+      { name: "venue", applicationId: 42, isInstalled: true },
     ]);
-    await expect(api.addAccountApp("thread-1", "venue")).resolves.toEqual({
-      apps: ["default", "venue"],
+    await expect(api.addAccountApp("thread-1", 42)).resolves.toMatchObject({
+      application_id: 42,
+      installed: true,
     });
-    await expect(api.removeAccountApp("thread-1", "venue")).resolves.toEqual({
-      apps: ["default"],
+    await expect(api.removeAccountApp("thread-1", 42)).resolves.toMatchObject({
+      application_id: 42,
+      installed: false,
     });
 
-    const writes = fetchMock.mock.calls.filter(
-      ([, init]) => init?.method === "PUT",
-    );
-    expect(writes.map(([, init]) => JSON.parse(String(init?.body)))).toEqual([
-      { apps: ["default", "venue"] },
-      { apps: ["default"] },
+    expect(
+      fetchMock.mock.calls.slice(1).map(([url, init]) => [url, init?.method]),
+    ).toEqual([
+      ["https://api.example/api/account/apps/42", "POST"],
+      ["https://api.example/api/account/apps/42", "DELETE"],
     ]);
   });
 

@@ -68,19 +68,16 @@ function requireApplicationId(app: AomiAppDescriptor): number | string {
 
 export async function accountAppsCommand(config: CliConfig): Promise<void> {
   const context = commandContext(config);
-  const [catalog, account] = await Promise.all([
-    context.client.listAccountApps(context.sessionId),
-    context.client.getAccount(context.sessionId),
-  ]);
-  const installed = new Set(account.user.apps);
+  const catalog = await context.client.listAccountApps(context.sessionId);
   const rows = catalog.map((app) => ({
     name: app.name,
     applicationId: appId(app),
-    installed: installed.has(app.name),
+    installed: app.isInstalled === true,
     current:
       context.agentMode === "direct" &&
-      (context.app === app.name ||
-        String(context.applicationId ?? "") === String(appId(app) ?? "")),
+      (context.applicationId != null && appId(app) != null
+        ? String(context.applicationId) === String(appId(app))
+        : context.applicationId == null && context.app === app.name),
   }));
 
   if (config.json) {
@@ -106,11 +103,12 @@ async function updateInstalledApp(
 ): Promise<void> {
   const context = commandContext(config);
   const app = await resolveAccountApp(context, selector);
+  const applicationId = requireApplicationId(app);
   const result = install
-    ? await context.client.addAccountApp(context.sessionId, app.name)
-    : await context.client.removeAccountApp(context.sessionId, app.name);
+    ? await context.client.addAccountApp(context.sessionId, applicationId)
+    : await context.client.removeAccountApp(context.sessionId, applicationId);
   if (config.json) {
-    printJson({ app: app.name, installed: install, apps: result.apps });
+    printJson(result);
     return;
   }
   console.log(`${app.name} ${install ? "added" : "removed"}.`);

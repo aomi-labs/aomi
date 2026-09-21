@@ -17,7 +17,7 @@ import type {
   AomiRequestOptions,
   AomiByokKeyEntry,
   AomiSaveByokKeyResponse,
-  AomiSetAccountAppsResponse,
+  AomiAccountAppMutationResponse,
   AomiSimulateResponse,
   AomiUserAppSecrets,
   GetAccountBearer,
@@ -717,50 +717,48 @@ export class AomiClient {
       .filter((item): item is AomiAppDescriptor => item !== null);
   }
 
-  /** Replace the signed-in account's installed app list. */
-  async setAccountApps(
+  /** Atomically install one exact application row. */
+  async addAccountApp(
     sessionId: string,
-    apps: string[],
-  ): Promise<AomiSetAccountAppsResponse> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/apps");
+    applicationId: ApplicationId,
+  ): Promise<AomiAccountAppMutationResponse> {
+    const url = buildApiUrl(
+      this.baseUrl,
+      `/api/account/apps/${encodeURIComponent(String(applicationId))}`,
+    );
     const response = await this.fetchImpl(url, {
-      method: "PUT",
-      headers: withSessionHeader(sessionId, {
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({ apps }),
+      method: "POST",
+      headers: withSessionHeader(sessionId),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to update account apps: HTTP ${response.status}`);
+      throw new Error(`Failed to install account app: HTTP ${response.status}`);
     }
 
-    return (await response.json()) as AomiSetAccountAppsResponse;
+    return (await response.json()) as AomiAccountAppMutationResponse;
   }
 
-  /** Install one app without requiring callers to replace the whole list. */
-  async addAccountApp(
-    sessionId: string,
-    app: string,
-  ): Promise<AomiSetAccountAppsResponse> {
-    const account = await this.getAccount(sessionId);
-    return account.user.apps.includes(app)
-      ? { apps: account.user.apps }
-      : this.setAccountApps(sessionId, [...account.user.apps, app]);
-  }
-
-  /** Uninstall one app without requiring callers to replace the whole list. */
+  /** Atomically uninstall one exact application row. */
   async removeAccountApp(
     sessionId: string,
-    app: string,
-  ): Promise<AomiSetAccountAppsResponse> {
-    const account = await this.getAccount(sessionId);
-    return account.user.apps.includes(app)
-      ? this.setAccountApps(
-          sessionId,
-          account.user.apps.filter((candidate) => candidate !== app),
-        )
-      : { apps: account.user.apps };
+    applicationId: ApplicationId,
+  ): Promise<AomiAccountAppMutationResponse> {
+    const url = buildApiUrl(
+      this.baseUrl,
+      `/api/account/apps/${encodeURIComponent(String(applicationId))}`,
+    );
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to uninstall account app: HTTP ${response.status}`,
+      );
+    }
+
+    return (await response.json()) as AomiAccountAppMutationResponse;
   }
 
   /**

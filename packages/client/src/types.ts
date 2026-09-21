@@ -187,6 +187,8 @@ export interface AomiUser {
   user_id: string;
   username: string | null;
   apps: string[];
+  /** Exact hosted application rows installed by this account. */
+  application_ids?: number[];
   tier: "anon" | "free" | "pro";
   verified_email: string | null;
   status: string;
@@ -441,8 +443,12 @@ export interface AomiUserAppSecrets {
   missing_required: string[];
 }
 
-/** PUT /api/account/apps */
-export interface AomiSetAccountAppsResponse {
+/** POST|DELETE /api/account/apps/:application_id */
+export interface AomiAccountAppMutationResponse {
+  application_id: number;
+  app: string;
+  installed: boolean;
+  /** Legacy runtime-name projection after the atomic mutation. */
   apps: string[];
 }
 
@@ -485,6 +491,8 @@ export interface AomiAppDescriptor {
   appReleaseTag?: string | null;
   isActive?: boolean | null;
   isPublic?: boolean | null;
+  /** Exact installed state for this application row. */
+  isInstalled?: boolean | null;
   artifactReady?: boolean | null;
   artifactStatus?: AomiArtifactStatus | null;
   secrets?: AomiSecretSlot[];

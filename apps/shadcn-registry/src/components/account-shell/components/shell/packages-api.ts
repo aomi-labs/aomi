@@ -5,6 +5,7 @@
 
 import {
   normalizeAppDescriptor,
+  type AomiAccountAppMutationResponse,
   type AomiAppDescriptor,
   type AomiDeleteSecretResponse,
   type AomiUserAppSecrets,
@@ -24,15 +25,26 @@ export async function fetchAppCatalog(
     .filter((app): app is AomiAppDescriptor => app !== null);
 }
 
-export async function setInstalledApps(
-  apps: string[],
+function appInstallPath(applicationId: number | string): string {
+  return `/api/account/apps/${encodeURIComponent(String(applicationId))}`;
+}
+
+export async function installApp(
+  applicationId: number | string,
   request: ShellRequest = accountScopedFetch,
-): Promise<string[]> {
-  const response = await request<{ apps: string[] }>("/api/account/apps", {
-    method: "PUT",
-    body: JSON.stringify({ apps }),
+): Promise<AomiAccountAppMutationResponse> {
+  return request(appInstallPath(applicationId), {
+    method: "POST",
   });
-  return response.apps;
+}
+
+export async function uninstallApp(
+  applicationId: number | string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiAccountAppMutationResponse> {
+  return request(appInstallPath(applicationId), {
+    method: "DELETE",
+  });
 }
 
 function appSecretsPath(applicationId: number | string): string {

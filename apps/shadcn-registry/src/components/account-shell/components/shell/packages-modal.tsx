@@ -15,8 +15,12 @@ import {
   useAccountOverview,
 } from "../../lib/account-overview";
 import { LibraryDetailPanel } from "./library-detail-panel";
-import { PINNED_APPS } from "./packages-catalog";
-import { setInstalledApps } from "./packages-api";
+import {
+  packageIdentityKey,
+  PINNED_APPS,
+  type CatalogPackage,
+} from "./packages-catalog";
+import { installApp, uninstallApp } from "./packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
 import { directoryModalType } from "./directory-modal-type";
 import {
@@ -63,24 +67,40 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const accountUserId = account?.user.user_id;
-  const installedBaseline = account?.user.apps ?? null;
-  const installedReady = installedBaseline !== null;
+  const installedReady = catalog !== null && accountUserId != null;
   const installedIds = useMemo(() => {
-    const ids = new Set(installedBaseline ?? []);
-    for (const pinned of PINNED_APPS) ids.add(pinned);
+    const ids = new Set(
+      (catalog ?? [])
+        .filter((app) => app.installed || app.pinned)
+        .map(packageIdentityKey),
+    );
+    for (const pinned of PINNED_APPS) ids.add(`name:${pinned}`);
     return ids;
-  }, [installedBaseline]);
+  }, [catalog]);
 
   const mutateInstalled = useCallback(
-    async (packageId: string, next: string[]) => {
+    async (app: CatalogPackage, install: boolean) => {
       if (!installedReady || !accountUserId || mutationInFlight.current)
         return false;
+      if (app.applicationId == null) {
+        setActionError("This app does not expose an installable identity.");
+        return false;
+      }
+      const packageId = packageIdentityKey(app);
       mutationInFlight.current = true;
       setBusyId(packageId);
       setActionError(null);
       try {
-        const apps = await setInstalledApps(next, transport.json);
-        updateAccountApps(accountUserId, apps);
+        const result = install
+          ? await installApp(app.applicationId, transport.json)
+          : await uninstallApp(app.applicationId, transport.json);
+        const previousIds = account?.user.application_ids ?? [];
+        const applicationId = Number(result.application_id);
+        const applicationIds = install
+          ? [...new Set([...previousIds, applicationId])]
+          : previousIds.filter((id) => id !== applicationId);
+        updateAccountApps(accountUserId, result.apps, applicationIds);
+        retryApps();
         return true;
       } catch (cause) {
         setActionError(
@@ -92,20 +112,21 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         setBusyId(null);
       }
     },
-    [accountUserId, installedReady, transport, updateAccountApps],
+    [
+      account?.user.application_ids,
+      accountUserId,
+      installedReady,
+      retryApps,
+      transport,
+      updateAccountApps,
+    ],
   );
 
-  const install = (packageId: string) => {
-    return mutateInstalled(packageId, [
-      ...[...installedIds].filter((id) => id !== packageId),
-      packageId,
-    ]);
+  const install = (app: CatalogPackage) => {
+    return mutateInstalled(app, true);
   };
-  const uninstall = (packageId: string) => {
-    void mutateInstalled(
-      packageId,
-      [...installedIds].filter((id) => id !== packageId),
-    );
+  const uninstall = (app: CatalogPackage) => {
+    void mutateInstalled(app, false);
   };
   const trySkill = (skill: SkillSummary) => {
     requestCapabilityMention({ kind: "skill", id: skill.id });
@@ -151,7 +172,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   }, [view, query]);
   const selectedInstalled =
     activeSelection?.kind === "app" &&
-    installedIds.has(activeSelection.item.id);
+    installedIds.has(packageIdentityKey(activeSelection.item));
   const waiting =
     view === "apps" || view === "installed"
       ? catalog === null
@@ -217,8 +238,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                     item.id === "discover"
                       ? allEntries.length
                       : item.id === "installed"
-                        ? appEntries.filter((entry) =>
-                            installedIds.has(entry.item.id),
+                        ? appEntries.filter(
+                            (entry) =>
+                              entry.kind === "app" &&
+                              installedIds.has(packageIdentityKey(entry.item)),
                           ).length
                         : item.id === "apps"
                           ? appEntries.length
@@ -319,9 +342,12 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                         }
                         installed={
                           entry.kind === "app" &&
-                          installedIds.has(entry.item.id)
+                          installedIds.has(packageIdentityKey(entry.item))
                         }
-                        busy={entry.kind === "app" && busyId === entry.item.id}
+                        busy={
+                          entry.kind === "app" &&
+                          busyId === packageIdentityKey(entry.item)
+                        }
                         disabled={!installedReady || busyId !== null}
                         activeChainId={activeChainId}
                         onSelect={() => {
@@ -334,8 +360,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                                 setSelectedKey(selectionKey(entry));
                                 setMobileDetailOpen(true);
                               })()
-                            : entry.kind === "app" &&
-                              void install(entry.item.id)
+                            : entry.kind === "app" && void install(entry.item)
                         }
                         onTry={() =>
                           entry.kind === "skill" && trySkill(entry.item)
@@ -378,7 +403,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               installedReady={installedReady}
               busy={
                 activeSelection?.kind === "app" &&
-                busyId === activeSelection.item.id
+                busyId === packageIdentityKey(activeSelection.item)
               }
               activeChainId={activeChainId}
               accountUserId={accountUserId}

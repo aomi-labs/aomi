@@ -373,7 +373,11 @@ describe("PortalAomiFrame account bootstrap", () => {
       accountUser: { id: "acct-a" },
     };
     accountOverviewState.current = {
-      user: { user_id: "acct-a", apps: ["default", "credential-demo"] },
+      user: {
+        user_id: "acct-a",
+        apps: ["default", "credential-demo"],
+        application_ids: [16],
+      },
     };
     controlState.appDescriptors = [
       { name: "default", applicationId: null },

@@ -761,6 +761,15 @@
                             "type": "string"
                           }
                         },
+                        "application_ids": {
+                          "description": "Exact hosted applications installed by this account. `apps` remains\nthe legacy runtime-name projection for compatibility.",
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "format": "int64"
+                          },
+                          "default": []
+                        },
                         "tier": {
                           "oneOf": [
                             {
@@ -918,12 +927,13 @@
                             ]
                           },
                           "mode": {
+                            "description": "Durable signing authority. Client automation never grants server custody.",
                             "type": "string",
                             "enum": [
-                              "auto",
+                              "denied",
                               "manual",
                               "client_auto",
-                              "denied"
+                              "auto"
                             ]
                           },
                           "authorization_version": {
@@ -1498,8 +1508,25 @@
         "x-aomi-auth": [
           "account"
         ]
+      }
+    },
+    "/api/account/apps/{application_id}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
       },
-      "put": {
+      "delete": {
         "responses": {
           "200": {
             "description": "OK"
@@ -2340,6 +2367,17 @@
       }
     },
     "/api/bots/telegram/{webhook_secret}": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": []
+      }
+    },
+    "/api/bots/telegram/{webhook_secret}/binding": {
       "post": {
         "responses": {
           "200": {

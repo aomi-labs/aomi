@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   listAccountApps: vi.fn(),
-  getAccount: vi.fn(),
   addAccountApp: vi.fn(),
   removeAccountApp: vi.fn(),
   getAppCredentialsStatus: vi.fn(),
@@ -39,6 +38,7 @@ const catalog = [
     name: "venue",
     label: "Venue",
     applicationId: 42,
+    isInstalled: true,
     secrets: [
       {
         name: "VENUE_KEY",
@@ -75,11 +75,18 @@ describe("CLI account app commands", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.listAccountApps.mockResolvedValue(catalog);
-    mocks.getAccount.mockResolvedValue({
-      user: { apps: ["default", "venue"] },
+    mocks.addAccountApp.mockResolvedValue({
+      application_id: 42,
+      app: "venue",
+      installed: true,
+      apps: ["default", "venue"],
     });
-    mocks.addAccountApp.mockResolvedValue({ apps: ["default", "venue"] });
-    mocks.removeAccountApp.mockResolvedValue({ apps: ["default"] });
+    mocks.removeAccountApp.mockResolvedValue({
+      application_id: 42,
+      app: "venue",
+      installed: false,
+      apps: ["default"],
+    });
     mocks.getAppCredentialsStatus.mockResolvedValue(missing);
     mocks.setAppCredential.mockResolvedValue(ready);
     mocks.replaceAppCredential.mockResolvedValue(ready);
@@ -94,8 +101,8 @@ describe("CLI account app commands", () => {
     await removeAccountAppCommand({ secrets: {} }, "42");
 
     expect(log).toHaveBeenCalledWith("venue  id=42  installed");
-    expect(mocks.addAccountApp).toHaveBeenCalledWith("session-1", "venue");
-    expect(mocks.removeAccountApp).toHaveBeenCalledWith("session-1", "venue");
+    expect(mocks.addAccountApp).toHaveBeenCalledWith("session-1", 42);
+    expect(mocks.removeAccountApp).toHaveBeenCalledWith("session-1", 42);
     log.mockRestore();
   });
 
