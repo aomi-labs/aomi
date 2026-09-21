@@ -4,6 +4,48 @@ import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
 
 describe("buildEvmExecutionRuntime", () => {
+  it("checks the signer and selects the configured chain before an attempt", async () => {
+    const address = "0x2222222222222222222222222222222222222222";
+    const switchChainAsync = vi.fn().mockResolvedValue(undefined);
+    const evm = {
+      activeConnector: { id: "wallet" },
+      activeEvmConnection: { chainId: 1 },
+      chainsById: { [arbitrum.id]: arbitrum },
+      getWalletClientFor: vi.fn().mockResolvedValue({ account: { address } }),
+      sendTransactionAsync: vi.fn(),
+      switchChainAsync,
+    } as unknown as EvmWalletRuntime;
+    const payload = {
+      kind: "evm_transaction" as const,
+      chain_id: arbitrum.id,
+      signer: address,
+      nonce: 7,
+      transaction: {
+        to: "0x1111111111111111111111111111111111111111",
+        value: "0",
+        data: "0x",
+        gas_limit: 21_000,
+        max_fee_per_gas: "2",
+        max_priority_fee_per_gas: "1",
+      },
+    };
+
+    await expect(
+      buildEvmExecutionRuntime(evm).preparePreparedEvmTransaction?.(payload),
+    ).resolves.toBeUndefined();
+    expect(switchChainAsync).toHaveBeenCalledWith({
+      chainId: arbitrum.id,
+      connector: evm.activeConnector,
+    });
+
+    evm.getWalletClientFor = vi.fn().mockResolvedValue({
+      account: { address: "0x3333333333333333333333333333333333333333" },
+    });
+    await expect(
+      buildEvmExecutionRuntime(evm).preparePreparedEvmTransaction?.(payload),
+    ).rejects.toThrow("Expected signing wallet is not active");
+  });
+
   it("sends a prepared EVM commit through the wallet with its reserved envelope", async () => {
     const address = "0x2222222222222222222222222222222222222222";
     const sendTransaction = vi.fn().mockResolvedValue("0xhash");
@@ -48,15 +90,15 @@ describe("buildEvmExecutionRuntime", () => {
     });
   });
 
-  it("does not advertise prepared wallet sends without provider send support", () => {
+  it("does not advertise prepared sends for embedded providers without a wallet client", () => {
     const evm = {
       chainsById: {},
       getWalletClientFor: vi.fn(),
-      sendTransactionAsync: undefined,
+      sendTransactionAsync: vi.fn(),
     } as unknown as EvmWalletRuntime;
-    expect(
-      buildEvmExecutionRuntime(evm).sendPreparedEvmTransaction,
-    ).toBeUndefined();
+    const runtime = buildEvmExecutionRuntime(evm);
+    expect(runtime.preparePreparedEvmTransaction).toBeUndefined();
+    expect(runtime.sendPreparedEvmTransaction).toBeUndefined();
   });
 
   it("pins typed-data signing to the selected address, not the connector's first account", async () => {

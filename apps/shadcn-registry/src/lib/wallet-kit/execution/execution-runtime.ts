@@ -42,28 +42,56 @@ export function buildEvmExecutionRuntime(
   const sendTransactionAsync = runtime.sendTransactionAsync;
   const signTypedDataAsync = runtime.signTypedDataAsync;
   const switchChainAsync = runtime.switchChainAsync;
+  const hasPreparedWalletClient = Boolean(
+    runtime.activeConnector || runtime.walletClient,
+  );
+  const preparedClient = async (
+    payload: Parameters<
+      NonNullable<
+        import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"]
+      >
+    >[0],
+  ) => {
+    const client = (
+      runtime.activeConnector
+        ? await runtime.getWalletClientFor({
+            connector: runtime.activeConnector,
+          })
+        : runtime.walletClient
+    ) as WalletClient | undefined;
+    if (
+      !client?.account ||
+      client.account.address.toLowerCase() !== payload.signer.toLowerCase()
+    )
+      throw new Error("Expected signing wallet is not active");
+    const chain = runtime.chainsById[payload.chain_id];
+    if (!chain) throw new Error("Commit chain is not configured");
+    return { client, chain };
+  };
 
   return {
     ...runtime,
+    preparePreparedEvmTransaction:
+      runtime.preparePreparedEvmTransaction ??
+      (sendTransactionAsync && hasPreparedWalletClient
+        ? async (payload) => {
+            await preparedClient(payload);
+            if (runtime.currentChainId === payload.chain_id) return;
+            if (!switchChainAsync)
+              throw new Error(
+                `EVM wallet cannot switch to chain ${payload.chain_id}`,
+              );
+            await switchChainAsync({
+              chainId: payload.chain_id,
+              connector: runtime.activeConnector,
+            });
+          }
+        : undefined),
     sendPreparedEvmTransaction:
       runtime.sendPreparedEvmTransaction ??
-      (sendTransactionAsync
+      (sendTransactionAsync && hasPreparedWalletClient
         ? async (payload) => {
-            const client = (
-              runtime.activeConnector
-                ? await runtime.getWalletClientFor({
-                    connector: runtime.activeConnector,
-                  })
-                : runtime.walletClient
-            ) as WalletClient | undefined;
-            if (
-              !client?.account ||
-              client.account.address.toLowerCase() !==
-                payload.signer.toLowerCase()
-            )
-              throw new Error("Expected signing wallet is not active");
-            const chain = runtime.chainsById[payload.chain_id];
-            if (!chain) throw new Error("Commit chain is not configured");
+            const { client, chain } = await preparedClient(payload);
             const tx = payload.transaction;
             return client.sendTransaction({
               account: client.account,

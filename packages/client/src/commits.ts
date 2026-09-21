@@ -2,6 +2,14 @@ import type { AomiClient } from "./client";
 import type { Wallets } from "./wallet/types";
 import type { components } from "./generated/agent-v1/types";
 import type { ActionRequest } from "./agent/types";
+import {
+  PipelineSchemaError,
+  validatePipelineArguments,
+} from "./pipeline/schema";
+import {
+  actionRequestSchema,
+  agentSchemas,
+} from "./generated/agent-v1/schemas";
 
 export type CommitView = components["schemas"]["CommitView"];
 export type CommitState = CommitView["state"];
@@ -17,12 +25,9 @@ export type EvmCommitTransaction = Extract<
   SignableCommit,
   { kind: "evm_transaction" }
 >["transaction"];
-/** Simulated effects of one commit, in the vocabulary the wallet review
- * already renders. Commit Service views carry the signable, never its effects. */
-export type CommitReview = Extract<
-  ActionRequest,
-  { type: "execute_evm" | "execute_svm" }
->;
+type EvmSignableCommit = Extract<SignableCommit, { kind: "evm_transaction" }>;
+/** A commit review in the Action vocabulary rendered by TransactionReview. */
+export type CommitReview = ActionRequest;
 export type CommitManual =
   | { kind: "signed"; payloads: string[] }
   | { kind: "broadcast"; transaction_id: string }
@@ -45,7 +50,7 @@ export type CommitRecoveryStore = {
   ) => void;
   remove: (threadId: string, commitId: string) => void;
 };
-/** Sign only. Submission always uses the bytes returned by Commit Service. */
+/** Wallet operations available to the durable Commit lifecycle. */
 export type CommitCapabilities = {
   sign?: (commit: CommitView, payload: SignableCommit) => Promise<string[]>;
   walletBroadcast?: (
@@ -57,44 +62,72 @@ export type CommitCapabilities = {
     commit: CommitView,
     payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
   ) => Promise<string>;
+  walletSendPreflight?: (
+    commit: CommitView,
+    payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
+  ) => Promise<void>;
   recovery?: CommitRecoveryStore;
 };
+const COMMIT_CAPABILITY_KEYS = [
+  "sign",
+  "walletBroadcast",
+  "venueBroadcast",
+  "walletSend",
+  "walletSendPreflight",
+  "recovery",
+] as const satisfies readonly (keyof CommitCapabilities)[];
 export const isTerminalCommit = (view: CommitView): boolean =>
   ["confirmed", "rejected", "failed", "expired"].includes(view.state);
 
 function commitReview(value: unknown): CommitReview | undefined {
-  if (!isRecord(value)) return undefined;
-  if (value.type !== "execute_evm" && value.type !== "execute_svm")
-    return undefined;
-  if (!isRecordArray(value.transactions) || !isRecord(value.simulation))
-    return undefined;
-  const simulation = value.simulation;
-  if (
-    (simulation.status !== "passed" && simulation.status !== "failed") ||
-    !isRecordArray(simulation.balanceChanges) ||
-    !isRecordArray(simulation.approvals) ||
-    !isRecordArray(simulation.fees) ||
-    !isRecordArray(simulation.guards) ||
-    !isRecordArray(simulation.logs) ||
-    !isStringArray(simulation.warnings) ||
-    (simulation.gas !== null && !isRecord(simulation.gas))
-  )
-    return undefined;
-  return value as CommitReview;
+  try {
+    assertActionRequest(value);
+  } catch (error) {
+    if (error instanceof PipelineSchemaError) return undefined;
+    throw error;
+  }
+  return value.type === "execute_evm" || value.type === "execute_svm"
+    ? value
+    : undefined;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+function assertActionRequest(value: unknown): asserts value is ActionRequest {
+  validatePipelineArguments(value, actionRequestSchema, agentSchemas);
 }
 
-function isRecordArray(value: unknown): value is Record<string, unknown>[] {
-  return Array.isArray(value) && value.every(isRecord);
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
+/** Compatibility presentation for commits admitted before typed SVM reviews
+ * were persisted. Remove after every readable SVM commit carries review data. */
+function legacySvmReview(
+  view: CommitView | undefined,
+): CommitReview | undefined {
+  if (view?.chain_family !== "svm" || view.review) return undefined;
+  const action = view.action;
+  const broadcasting = action?.kind === "broadcast";
+  const payloads =
+    action?.kind === "sign" && action.payload.kind === "svm_transaction"
+      ? [
+          {
+            kind: "svm_transaction" as const,
+            transaction_base64: action.payload.transaction_base64,
+          },
+        ]
+      : broadcasting
+        ? []
+        : undefined;
+  if (!payloads) return undefined;
+  return {
+    type: "sign",
+    requestId: view.commit_id,
+    chainFamily: "svm",
+    executionKind: "transaction",
+    signer: view.signer,
+    cluster: view.chain_ref,
+    description: broadcasting
+      ? "Submit signed Solana transaction"
+      : "Review Solana transaction",
+    payloads,
+    broadcaster: view.broadcaster,
+  };
 }
 
 function isExplicitWalletRejection(error: unknown): boolean {
@@ -115,16 +148,23 @@ export function commitCapabilities(
 ): CommitCapabilities {
   const evm = wallets.evm;
   const sendPrepared = evm?.sendPreparedTransaction;
+  const preparePrepared = evm?.preparePreparedTransaction;
   return {
     recovery,
-    ...(evm && sendPrepared
+    ...(evm && sendPrepared && preparePrepared
       ? {
+          async walletSendPreflight(commit, payload) {
+            if (commit.chain_family !== "evm")
+              throw new Error("External wallet send requires an EVM commit");
+            if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
+              throw new Error("Connect the expected signing wallet");
+            await preparePrepared(payload);
+          },
           async walletSend(commit, payload) {
             if (commit.chain_family !== "evm")
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
-            await evm.switchChain?.(payload.chain_id);
             return sendPrepared(payload);
           },
         }
@@ -203,12 +243,16 @@ export function commitCapabilities(
  * reconnects, lost responses, signing and external submissions. */
 export class CommitController {
   private views = new Map<string, CommitView>();
+  /** Compatibility reviews cover tool-result races and historical SVM rows.
+   * Remove this map once every readable CommitView has a durable review. */
   private reviews = new Map<string, CommitReview>();
+  private synthesizedReviews = new Set<string>();
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<string, Promise<CommitView>>();
   private pending = new Map<string, CommitManual>();
   private timer?: ReturnType<typeof setTimeout>;
+  private capabilityChangeScheduled = false;
   private closed = false;
   private walletCapabilities: Pick<
     CommitCapabilities,
@@ -221,8 +265,10 @@ export class CommitController {
     private capabilities: CommitCapabilities = {},
   ) {}
   all = (): readonly CommitView[] => this.snapshot;
-  review = (id: string): CommitReview | undefined =>
-    commitReview(this.views.get(id)?.review?.request) ?? this.reviews.get(id);
+  review = (id: string): CommitReview | undefined => {
+    const view = this.views.get(id);
+    return commitReview(view?.review?.request) ?? this.reviews.get(id);
+  };
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => {
@@ -230,14 +276,32 @@ export class CommitController {
     };
   };
   setCapabilities(capabilities: CommitCapabilities): void {
+    const availabilityChanged = !sameCapabilityAvailability(
+      this.capabilities,
+      capabilities,
+      COMMIT_CAPABILITY_KEYS,
+    );
     this.capabilities = capabilities;
-    this.changed();
+    if (availabilityChanged) this.scheduleCapabilityChange();
   }
   setWalletCapabilities(
     capabilities: Pick<CommitCapabilities, "sign" | "walletBroadcast">,
   ): void {
+    const availabilityChanged = !sameCapabilityAvailability(
+      this.walletCapabilities,
+      capabilities,
+      ["sign", "walletBroadcast"],
+    );
     this.walletCapabilities = capabilities;
-    this.changed();
+    if (availabilityChanged) this.scheduleCapabilityChange();
+  }
+  private scheduleCapabilityChange(): void {
+    if (this.capabilityChangeScheduled) return;
+    this.capabilityChangeScheduled = true;
+    queueMicrotask(() => {
+      this.capabilityChangeScheduled = false;
+      this.changed();
+    });
   }
   private changed(): void {
     if (this.closed) return;
@@ -258,8 +322,13 @@ export class CommitController {
   /** The tool result carrying a review can replay after its view already
    * arrived on an event page, so a new review republishes the snapshot. */
   ingestReview(id: string, review: CommitReview): void {
-    if (this.closed || this.reviews.has(id)) return;
+    if (
+      this.closed ||
+      (this.reviews.has(id) && !this.synthesizedReviews.has(id))
+    )
+      return;
     this.reviews.set(id, review);
+    this.synthesizedReviews.delete(id);
     this.changed();
   }
   canExecute(view: CommitView): boolean {
@@ -276,7 +345,10 @@ export class CommitController {
       return true;
     switch (view.action?.kind) {
       case "sign":
-        return Boolean(this.available.sign);
+        return Boolean(
+          (this.browserSendSelection(view) && this.canStartWalletSend()) ||
+          this.available.sign,
+        );
       case "broadcast":
         return Boolean(
           view.broadcaster === "wallet"
@@ -286,10 +358,8 @@ export class CommitController {
               : undefined,
         );
       case "start_wallet_send":
-        return Boolean(
-          view.action.payload.kind === "evm_transaction" &&
-          this.available.walletSend &&
-          this.capabilities.recovery,
+        return (
+          Boolean(this.browserSendSelection(view)) && this.canStartWalletSend()
         );
       default:
         return false;
@@ -330,6 +400,11 @@ export class CommitController {
     if (current && current.version > view.version) return current;
     if (this.closed) return view;
     this.views.set(view.commit_id, view);
+    const compatibilityReview = legacySvmReview(view);
+    if (compatibilityReview && !this.reviews.has(view.commit_id)) {
+      this.reviews.set(view.commit_id, compatibilityReview);
+      this.synthesizedReviews.add(view.commit_id);
+    }
     this.snapshot = [...this.views.values()];
     this.listeners.forEach((listener) => listener());
     return view;
@@ -357,7 +432,10 @@ export class CommitController {
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     const pending = this.pending.get(id);
     if (pending) view = await this.manual(id, pending);
-    if (view.action?.kind === "sign") {
+    const browserSend = this.browserSendSelection(view);
+    if (browserSend && this.canStartWalletSend()) {
+      view = await this.startWalletSend(view, browserSend);
+    } else if (view.action?.kind === "sign") {
       const sign = this.available.sign;
       if (!sign)
         throw new Error("This wallet does not support sign-only commits");
@@ -384,9 +462,6 @@ export class CommitController {
         throw new Error("Broadcaster returned a different transaction");
       view = await this.manual(id, { kind: "broadcast", transaction_id: hash });
     }
-    if (view.action?.kind === "start_wallet_send") {
-      view = await this.startWalletSend(view);
-    }
     return view;
   }
   private async recoverWalletOutcome(view: CommitView): Promise<CommitView> {
@@ -410,16 +485,39 @@ export class CommitController {
         : { kind: "rejected" },
     );
   }
-  private async startWalletSend(view: CommitView): Promise<CommitView> {
+  private canStartWalletSend(): boolean {
+    return Boolean(
+      this.available.walletSend &&
+      this.available.walletSendPreflight &&
+      this.capabilities.recovery,
+    );
+  }
+  private browserSendSelection(
+    view: CommitView,
+  ): { payload: EvmSignableCommit; reviewDigest: string } | undefined {
     const action = view.action;
     if (
-      action?.kind !== "start_wallet_send" ||
-      action.payload.kind !== "evm_transaction"
+      action?.kind === "start_wallet_send" &&
+      action.payload.kind === "evm_transaction"
     )
-      return view;
+      return { payload: action.payload, reviewDigest: action.review_digest };
+    if (
+      action?.kind !== "sign" ||
+      action.payload.kind !== "evm_transaction" ||
+      !view.supported_transports?.includes("browser_send") ||
+      !view.review?.digest
+    )
+      return undefined;
+    return { payload: action.payload, reviewDigest: view.review.digest };
+  }
+  private async startWalletSend(
+    view: CommitView,
+    selection: { payload: EvmSignableCommit; reviewDigest: string },
+  ): Promise<CommitView> {
     const send = this.available.walletSend;
+    const preflight = this.available.walletSendPreflight;
     const recovery = this.capabilities.recovery;
-    if (!send || !recovery)
+    if (!send || !preflight || !recovery)
       throw new Error("This wallet does not support durable prepared sends");
     let record = recovery.load(this.threadId, view.commit_id);
     if (record?.attemptId) {
@@ -433,6 +531,7 @@ export class CommitController {
         );
       throw new Error("Wallet send outcome is being reconciled");
     }
+    await preflight(view, selection.payload);
     record ??= { clientRequestId: crypto.randomUUID() };
     recovery.save(this.threadId, view.commit_id, record);
     const attempt = await this.client.request<CommitWalletAttemptView>(
@@ -442,13 +541,16 @@ export class CommitController {
         sessionId: this.threadId,
         body: {
           version: view.version,
-          review_digest: action.review_digest,
+          review_digest: selection.reviewDigest,
           client_request_id: record.clientRequestId,
+          transport: "browser_send",
         } satisfies CommitWalletAttemptRequest,
       },
     );
     if (attempt.commit_id !== view.commit_id)
       throw new Error("Wallet attempt response identity mismatch");
+    if (attempt.transport !== "browser_send")
+      throw new Error("Wallet attempt transport mismatch");
     record = { ...record, attemptId: attempt.attempt_id };
     recovery.save(this.threadId, view.commit_id, record);
     if (!attempt.may_invoke_wallet || !attempt.request)
@@ -507,4 +609,12 @@ export class CommitController {
       ).finally(() => this.schedule());
     }, 1000);
   }
+}
+
+function sameCapabilityAvailability(
+  left: CommitCapabilities,
+  right: CommitCapabilities,
+  keys: readonly (keyof CommitCapabilities)[],
+): boolean {
+  return keys.every((key) => Boolean(left[key]) === Boolean(right[key]));
 }

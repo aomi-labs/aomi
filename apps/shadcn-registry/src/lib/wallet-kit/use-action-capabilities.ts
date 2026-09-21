@@ -121,6 +121,7 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
 
   return {
     address,
+    preparePreparedTransaction: wallet.preparePreparedEvmTransaction,
     sendPreparedTransaction: wallet.sendPreparedEvmTransaction,
     signTransaction: wallet.signEvmTransaction,
     broadcastTransaction: async (bytes, chainId) => {

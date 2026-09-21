@@ -2728,14 +2728,12 @@
             "type": "string"
           },
           "request": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/ActionRequest"
           },
           "legs": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/ActionRequest"
             }
           }
         }
@@ -2789,10 +2787,19 @@
       "CommitWalletAttemptStatus": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["attempt_id", "state", "transaction_id", "failure_code"],
+        "required": [
+          "attempt_id",
+          "transport",
+          "state",
+          "transaction_id",
+          "failure_code"
+        ],
         "properties": {
           "attempt_id": {
             "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
           },
           "state": {
             "type": "string",
@@ -2806,10 +2813,19 @@
           }
         }
       },
+      "CommitTransport": {
+        "type": "string",
+        "enum": ["sign_and_broadcast", "browser_send"]
+      },
       "CommitWalletAttemptRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["version", "review_digest", "client_request_id"],
+        "required": [
+          "version",
+          "review_digest",
+          "client_request_id",
+          "transport"
+        ],
         "properties": {
           "version": {
             "type": "integer",
@@ -2820,6 +2836,9 @@
           },
           "client_request_id": {
             "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
           }
         }
       },
@@ -2829,6 +2848,7 @@
         "required": [
           "attempt_id",
           "commit_id",
+          "transport",
           "state",
           "request",
           "may_invoke_wallet"
@@ -2839,6 +2859,9 @@
           },
           "commit_id": {
             "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
           },
           "state": {
             "type": "string",
@@ -2947,6 +2970,13 @@
               "expired"
             ]
           },
+          "supported_transports": {
+            "type": "array",
+            "description": "Additive capability advertisement. Absence on an older cached view means the legacy sign-and-broadcast route.",
+            "items": {
+              "$ref": "#/components/schemas/CommitTransport"
+            }
+          },
           "transaction_id": {
             "type": ["string", "null"]
           },
@@ -3019,6 +3049,8 @@
               },
               {
                 "type": "object",
+                "description": "Historical cached-view compatibility; new views use sign plus supported_transports.",
+                "deprecated": true,
                 "additionalProperties": false,
                 "required": ["kind", "payload", "review_digest"],
                 "properties": {

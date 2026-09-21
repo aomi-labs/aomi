@@ -199,6 +199,7 @@ function commit(index: number, action: CommitView["action"]): CommitView {
     signer,
     broadcaster: "wallet",
     state: "needs_signature",
+    supported_transports: ["sign_and_broadcast", "browser_send"],
     transaction_id: null,
     failure_code: null,
     batch: {
@@ -232,8 +233,7 @@ function commit(index: number, action: CommitView["action"]): CommitView {
 
 export const durableCommits: CommitView[] = [
   commit(0, {
-    kind: "start_wallet_send",
-    review_digest: "review-1",
+    kind: "sign",
     payload: {
       kind: "evm_transaction",
       chain_id: 8453,
@@ -262,6 +262,7 @@ export const recoveryCommits: CommitView[] = durableCommits.map(
           failure_code: "commit_wallet_transaction_mismatch",
           wallet_attempt: {
             attempt_id: "attempt-1",
+            transport: "browser_send",
             state: "mismatched",
             transaction_id: "0xdeadbeef",
             failure_code: "commit_wallet_transaction_mismatch",

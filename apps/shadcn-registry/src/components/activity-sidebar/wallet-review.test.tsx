@@ -87,6 +87,7 @@ describe("WalletReview", () => {
       signer: "0x1111111111111111111111111111111111111111",
       broadcaster: "wallet",
       state: "needs_signature",
+      supported_transports: ["sign_and_broadcast", "browser_send"],
       transaction_id: null,
       failure_code: null,
       batch: {
@@ -117,8 +118,7 @@ describe("WalletReview", () => {
       action:
         index === 0
           ? {
-              kind: "start_wallet_send",
-              review_digest: "review-1",
+              kind: "sign",
               payload: {
                 kind: "evm_transaction",
                 chain_id: 8453,
@@ -186,6 +186,7 @@ describe("WalletReview", () => {
         action: null,
         wallet_attempt: {
           attempt_id: "attempt-1",
+          transport: "browser_send",
           state: "mismatched",
           transaction_id: "0xdeadbeef",
           failure_code: "transaction_mismatch",
@@ -224,6 +225,7 @@ describe("WalletReview", () => {
       signer: request.transactions[0].from,
       broadcaster: "wallet",
       state: "needs_signature",
+      supported_transports: ["sign_and_broadcast", "browser_send"],
       transaction_id: null,
       failure_code: null,
       batch: null,
@@ -236,8 +238,7 @@ describe("WalletReview", () => {
       },
       wallet_attempt: null,
       action: {
-        kind: "start_wallet_send",
-        review_digest: "review-1",
+        kind: "sign",
         payload: {
           kind: "evm_transaction",
           chain_id: 8453,
@@ -256,6 +257,7 @@ describe("WalletReview", () => {
     };
     const walletAttempt = {
       attempt_id: "attempt-1",
+      transport: "browser_send",
       state: "awaiting_wallet" as const,
       transaction_id: null,
       failure_code: null,
@@ -304,12 +306,11 @@ describe("WalletReview", () => {
       if (path.endsWith("/wallet-attempts"))
         return {
           attempt_id: "attempt-1",
+          transport: "browser_send",
           commit_id: initial.commit_id,
           state: "awaiting_wallet",
           request:
-            initial.action?.kind === "start_wallet_send"
-              ? initial.action.payload
-              : null,
+            initial.action?.kind === "sign" ? initial.action.payload : null,
           may_invoke_wallet: true,
         };
       reports += 1;
@@ -320,7 +321,7 @@ describe("WalletReview", () => {
     const controller = new CommitController(
       { request: requestApi } as never,
       initial.thread_id,
-      { recovery, walletSend },
+      { recovery, walletSend, walletSendPreflight: vi.fn() },
     );
     controller.ingest(initial);
     runtime.commitController = controller;
@@ -366,7 +367,7 @@ describe("WalletReview", () => {
     const mismatchController = new CommitController(
       { request: requestApi } as never,
       initial.thread_id,
-      { recovery, walletSend },
+      { recovery, walletSend, walletSendPreflight: vi.fn() },
     );
     mismatchController.ingest(mismatched);
     runtime.commitController = mismatchController;
@@ -382,6 +383,130 @@ describe("WalletReview", () => {
     expect(reports).toBe(2);
     expect(walletSend).toHaveBeenCalledTimes(1);
     mismatchController.close();
+  });
+
+  it("renders and approves a reviewless durable Solana commit", async () => {
+    const commit: CommitView = {
+      version: 1,
+      commit_id: "commit-svm",
+      thread_id: "thread-1",
+      stage_id: "svm:7",
+      chain_family: "svm",
+      chain_ref: "devnet",
+      signer: "payer-address",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: null,
+      wallet_attempt: null,
+      action: {
+        kind: "sign",
+        payload: {
+          kind: "svm_transaction",
+          signer: "payer-address",
+          transaction_base64: "AQID",
+        },
+      },
+    };
+    const submitted: CommitView = {
+      ...commit,
+      version: 2,
+      state: "submitted",
+      action: null,
+      transaction_id: "solana-signature",
+    };
+    const request = vi.fn(async (method: string) =>
+      method === "GET" ? commit : submitted,
+    );
+    const sign = vi.fn().mockResolvedValue(["signed-transaction"]);
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { sign },
+    );
+    controller.ingest(commit);
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+
+    render(<ActivitySidebar />);
+
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "Review Solana transaction",
+    );
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "devnet",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(sign).toHaveBeenCalledWith(commit, commit.action?.payload),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "POST",
+      "/api/commits/commit-svm/manual",
+      expect.objectContaining({
+        body: { kind: "signed", payloads: ["signed-transaction"] },
+      }),
+    );
+    controller.close();
+  });
+
+  it("resumes a reviewless Solana commit awaiting broadcast", async () => {
+    const commit: CommitView = {
+      version: 2,
+      commit_id: "commit-svm-broadcast",
+      thread_id: "thread-1",
+      stage_id: "svm:8",
+      chain_family: "svm",
+      chain_ref: "devnet",
+      signer: "payer-address",
+      broadcaster: "wallet",
+      state: "awaiting_broadcast",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: null,
+      wallet_attempt: null,
+      action: {
+        kind: "broadcast",
+        signed_transaction: "signed-transaction",
+        transaction_id: "solana-signature",
+      },
+    };
+    const submitted: CommitView = {
+      ...commit,
+      version: 3,
+      state: "submitted",
+      action: null,
+      transaction_id: "solana-signature",
+    };
+    const request = vi.fn(async (method: string) =>
+      method === "GET" ? commit : submitted,
+    );
+    const walletBroadcast = vi.fn().mockResolvedValue("solana-signature");
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { walletBroadcast },
+    );
+    controller.ingest(commit);
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+
+    render(<ActivitySidebar />);
+
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "Submit signed Solana transaction",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(walletBroadcast).toHaveBeenCalledWith(
+        commit,
+        "signed-transaction",
+      ),
+    );
+    controller.close();
   });
 
   afterEach(cleanup);

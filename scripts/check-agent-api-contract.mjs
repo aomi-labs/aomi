@@ -9,6 +9,10 @@ const rustRepo = resolve(
 );
 const source = join(root, "apps/portal/openapi/aomi-agent-v1.json");
 const generated = join(root, "packages/client/src/generated/agent-v1/types.ts");
+const generatedSchemas = join(
+  root,
+  "packages/client/src/generated/agent-v1/schemas.ts",
+);
 const artifact = process.env.AOMI_AGENT_OPENAPI_FILE;
 const serialized = artifact
   ? readFileSync(resolve(artifact), "utf8")
@@ -27,6 +31,16 @@ const firstLine = readFileSync(generated, "utf8").split("\n", 1)[0];
 if (firstLine !== `// Rust Agent contract SHA256: ${expected}`) {
   console.error(
     "Generated Agent API types are stale. Run `pnpm generate:agent-api`.",
+  );
+  process.exit(1);
+}
+const schemaFirstLine = readFileSync(generatedSchemas, "utf8").split(
+  "\n",
+  1,
+)[0];
+if (schemaFirstLine !== `// Rust Agent contract SHA256: ${expected}`) {
+  console.error(
+    "Generated Agent API runtime schemas are stale. Run `pnpm generate:agent-api`.",
   );
   process.exit(1);
 }
