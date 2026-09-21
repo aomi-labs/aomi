@@ -18,6 +18,7 @@ import {
   type SettingsTab,
 } from "@aomi-labs/widget-lib/host-composition";
 import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
+import { PortalStartupShell } from "./portal-startup-shell";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
@@ -144,8 +145,18 @@ export function PortalAomiFrame() {
     checked: boolean;
     userId: string | null;
   }>({ checked: false, userId: null });
+  const [guestAccountScope, setGuestAccountScope] = useState(accountUserId);
+  const [sessionError, setSessionError] = useState(false);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
+  if (guestAccountScope !== accountUserId) {
+    // Never mount a new principal with the previous account's guest result.
+    setGuestAccountScope(accountUserId);
+    setGuestSession({ checked: false, userId: null });
+    setSessionError(false);
+  }
   useEffect(() => {
     if (accountStatus === "loading") return;
+    setSessionError(false);
     if (accountUserId) {
       setGuestSession({ checked: true, userId: null });
       return;
@@ -159,12 +170,19 @@ export function PortalAomiFrame() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      cancelled = true;
+      controller.abort();
+      setSessionError(true);
+    }, 8_000);
     void fetch("/api/auth/get-session", {
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok) return null;
+        if (!response.ok) throw new Error("Session lookup failed");
         const session = (await response.json()) as {
           user?: { id?: unknown; isAnonymous?: unknown };
         } | null;
@@ -173,14 +191,19 @@ export function PortalAomiFrame() {
           ? session.user.id
           : null;
       })
-      .catch(() => null)
       .then((userId) => {
         if (!cancelled) setGuestSession({ checked: true, userId });
-      });
+      })
+      .catch(() => {
+        if (!cancelled) setSessionError(true);
+      })
+      .finally(() => clearTimeout(timer));
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [accountStatus, accountUserId]);
+  }, [accountStatus, accountUserId, sessionAttempt]);
   const principalId =
     accountUserId ??
     (guestSession.userId ? `guest:${guestSession.userId}` : null);
@@ -261,9 +284,17 @@ export function PortalAomiFrame() {
 
   if (!hasResolvedInitialAccount || !guestSession.checked) {
     return (
-      <main
-        aria-busy="true"
-        className="bg-background relative h-full w-full overflow-hidden"
+      <PortalStartupShell
+        key={sessionAttempt}
+        failed={sessionError}
+        onRetry={() => {
+          if (!hasResolvedInitialAccount) {
+            window.location.reload();
+            return;
+          }
+          setSessionError(false);
+          setSessionAttempt((attempt) => attempt + 1);
+        }}
       />
     );
   }
