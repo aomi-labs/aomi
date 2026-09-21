@@ -22,7 +22,6 @@ import {
   useControl,
   usePerThreadControl,
 } from "@aomi-labs/react";
-import { PortalStartupShell } from "./portal-startup-shell";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
@@ -31,6 +30,7 @@ import {
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
+const GUEST_SESSION_TIMEOUT_MS = 8_000;
 
 function directTarget(
   app: string,
@@ -207,18 +207,8 @@ export function PortalAomiFrame() {
     checked: boolean;
     userId: string | null;
   }>({ checked: false, userId: null });
-  const [guestAccountScope, setGuestAccountScope] = useState(accountUserId);
-  const [sessionError, setSessionError] = useState(false);
-  const [sessionAttempt, setSessionAttempt] = useState(0);
-  if (guestAccountScope !== accountUserId) {
-    // Never mount a new principal with the previous account's guest result.
-    setGuestAccountScope(accountUserId);
-    setGuestSession({ checked: false, userId: null });
-    setSessionError(false);
-  }
   useEffect(() => {
     if (accountStatus === "loading") return;
-    setSessionError(false);
     if (accountUserId) {
       setGuestSession({ checked: true, userId: null });
       return;
@@ -233,18 +223,17 @@ export function PortalAomiFrame() {
     }
     let cancelled = false;
     const controller = new AbortController();
-    const timer = setTimeout(() => {
-      cancelled = true;
+    const timeout = window.setTimeout(() => {
       controller.abort();
-      setSessionError(true);
-    }, 8_000);
+      if (!cancelled) setGuestSession({ checked: true, userId: null });
+    }, GUEST_SESSION_TIMEOUT_MS);
     void fetch("/api/auth/get-session", {
       credentials: "same-origin",
       cache: "no-store",
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Session lookup failed");
+        if (!response.ok) return null;
         const session = (await response.json()) as {
           user?: { id?: unknown; isAnonymous?: unknown };
         } | null;
@@ -253,19 +242,19 @@ export function PortalAomiFrame() {
           ? session.user.id
           : null;
       })
+      .catch(() => null)
       .then((userId) => {
-        if (!cancelled) setGuestSession({ checked: true, userId });
-      })
-      .catch(() => {
-        if (!cancelled) setSessionError(true);
-      })
-      .finally(() => clearTimeout(timer));
+        if (!cancelled) {
+          window.clearTimeout(timeout);
+          setGuestSession({ checked: true, userId });
+        }
+      });
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [accountStatus, accountUserId, sessionAttempt]);
+  }, [accountStatus, accountUserId]);
   const principalId =
     accountUserId ??
     (guestSession.userId ? `guest:${guestSession.userId}` : null);
@@ -318,26 +307,20 @@ export function PortalAomiFrame() {
     });
   }
 
-  if (!hasResolvedInitialAccount || !guestSession.checked) {
+  if (!hasResolvedInitialAccount) {
     return (
-      <PortalStartupShell
-        key={sessionAttempt}
-        failed={sessionError}
-        onRetry={() => {
-          if (!hasResolvedInitialAccount) {
-            window.location.reload();
-            return;
-          }
-          setSessionError(false);
-          setSessionAttempt((attempt) => attempt + 1);
-        }}
+      <main
+        aria-busy="true"
+        className="bg-background relative h-full w-full overflow-hidden"
       />
     );
   }
 
   return (
     <main
+      aria-busy={!guestSession.checked}
       data-testid="portal-shell"
+      inert={!guestSession.checked}
       className="bg-background relative h-full w-full overflow-hidden"
     >
       <AomiFrame.Root

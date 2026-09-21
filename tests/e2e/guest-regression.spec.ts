@@ -26,24 +26,6 @@ test("real Portal auth route admits its own origin and rejects an unregistered b
   expect(await foreign.json()).toEqual({ error: "origin_not_allowed" });
 });
 
-test("chat startup is visible before JavaScript downloads", async ({
-  page,
-}) => {
-  await page.route("**/_next/**/*.js*", (route) => route.abort());
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("portal-startup-shell")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Send", exact: true }),
-  ).toBeDisabled();
-  await page.screenshot({
-    path: "output/playwright/guest-regression/startup-before-javascript.png",
-    fullPage: true,
-  });
-});
-
 type Event = {
   type: string;
   event_id: string;
@@ -219,19 +201,15 @@ test("guest response settles once and the same conversation survives refresh", a
   });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  const portalShell = page.getByTestId("portal-shell");
   await expect.poll(() => heldSessions).toBeGreaterThan(0);
-  await expect(page.getByTestId("portal-startup-shell")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Send", exact: true }),
-  ).toBeDisabled();
+  await expect(portalShell).toBeVisible();
+  await expect(portalShell).toHaveAttribute("inert", "");
   expect(starts).toBe(0);
   expect(lists).toBe(0);
   holdSession = false;
   releaseSession();
-  await expect(page.getByTestId("portal-shell")).toBeVisible();
+  await expect(portalShell).not.toHaveAttribute("inert");
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");
   await input.pressSequentially(userMessage);

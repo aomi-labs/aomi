@@ -10,6 +10,10 @@
  */
 
 import { useEffect, useSyncExternalStore } from "react";
+import {
+  MICROUSD_PER_CREDIT,
+  type AomiCreditPosition,
+} from "@aomi-labs/client";
 import { settingsApiFetch } from "./settings-api";
 import { useShellTransport, type ShellRequest } from "../transport";
 
@@ -26,6 +30,29 @@ export type AccountProfile = {
 export type AccountOverview = {
   user: AccountProfile;
 };
+
+export type CreditAllowance = {
+  used: number;
+  included: number;
+};
+
+export function creditAllowanceFromPosition(
+  position: Partial<AomiCreditPosition> | null | undefined,
+): CreditAllowance | null {
+  if (!position) return null;
+  const included = position.included;
+  if (
+    !included ||
+    !Number.isFinite(included.used_microusd) ||
+    !Number.isFinite(included.limit_microusd)
+  ) {
+    return null;
+  }
+  return {
+    used: included.used_microusd / MICROUSD_PER_CREDIT,
+    included: included.limit_microusd / MICROUSD_PER_CREDIT,
+  };
+}
 
 function createOverviewStore(fetchOverview: ShellRequest) {
   let current: AccountOverview | null = null;
@@ -141,7 +168,7 @@ export function useAccountOverview(): AccountOverview | null {
   }, [data, store]);
   return data;
 }
-/** Shared allowance line — matches mock sidebar/menu and Usage tab copy. */
+/** Shared allowance line for the account menu and Usage surfaces. */
 export function formatAllowanceSummary(used: number, included: number): string {
   const remaining = Math.max(0, included - used);
   return `${remaining.toLocaleString()} left · ${used.toLocaleString()}/${included.toLocaleString()} used`;
