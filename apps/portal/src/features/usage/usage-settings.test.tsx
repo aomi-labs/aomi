@@ -14,16 +14,17 @@ const STATEMENT = {
   entries: [
     {
       usage_event_id: "usage-1",
-      operation_id: "operation-1",
-      application: "default",
+      execution_id: "operation-1",
+      application_id: null,
       provider: "anthropic",
       model: "claude-sonnet-5",
       input_tokens: 2_000,
       output_tokens: 400,
-      inference_funding_source: "platform",
-      gross_charge_microusd: 800_000,
-      included_applied_microusd: 800_000,
-      bank_debit_microusd: 0,
+      funding: { kind: "platform", application_id: null },
+      gross: 800_000,
+      included: 800_000,
+      credits: 0,
+      details: {},
       occurred_at: Math.floor(Date.now() / 1_000),
     },
   ],
@@ -32,13 +33,12 @@ const STATEMENT = {
 
 const CREDITS = {
   period_utc_month: "2026-09-01",
-  included: {
-    limit_microusd: 5_000_000,
-    used_microusd: 800_000,
-    remaining_microusd: 4_200_000,
-  },
-  bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
-  entries: [],
+  included_limit: 5_000_000,
+  included_used: 800_000,
+  included_remaining: 4_200_000,
+  balance: 0,
+  outstanding_debt: 0,
+  records: [],
   next_before_id: null,
 };
 
@@ -95,11 +95,9 @@ describe("usage settings wiring", () => {
         if (url.pathname === "/v1/account/credits") {
           return Response.json({
             ...CREDITS,
-            included: {
-              limit_microusd: 50_000_000,
-              used_microusd: 12_500_000,
-              remaining_microusd: 37_500_000,
-            },
+            included_limit: 50_000_000,
+            included_used: 12_500_000,
+            included_remaining: 37_500_000,
           });
         }
         return new Response("unexpected", { status: 500 });
@@ -142,5 +140,31 @@ describe("usage settings wiring", () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/widget_auth_failed/)).toBeNull();
+  });
+
+  it("keeps spend and Credit Bank visible when allowance loading fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input.toString(), "https://portal.test");
+        if (url.pathname === "/v1/account/statement") {
+          return Response.json(STATEMENT);
+        }
+        if (url.pathname === "/v1/account/credits") {
+          return new Response("credits unavailable", { status: 503 });
+        }
+        return new Response("unexpected", { status: 500 });
+      }),
+    );
+
+    await act(async () => {
+      render(<UsageSettings />);
+    });
+
+    expect(await screen.findByText("Spend breakdown")).toBeTruthy();
+    expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Credit Bank")).toBeTruthy();
+    expect(screen.getByText("Unavailable")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 });

@@ -44,6 +44,12 @@ test("guest response settles once and the same conversation survives refresh", a
   test.setTimeout(180_000);
   const threads = new Map<string, { owner: string; events: Event[] }>();
   const unexpectedRequests: string[] = [];
+  let releaseSession!: () => void;
+  const sessionHold = new Promise<void>((resolve) => {
+    releaseSession = resolve;
+  });
+  let holdSession = true;
+  let heldSessions = 0;
   let starts = 0;
   let lists = 0;
   await page.route("**/*", (route) => {
@@ -71,6 +77,10 @@ test("guest response settles once and the same conversation survives refresh", a
       });
 
     if (path === "/api/auth/get-session") {
+      if (holdSession) {
+        heldSessions++;
+        await sessionHold;
+      }
       return json(
         guestId ? { user: { id: guestId, isAnonymous: true } } : null,
       );
@@ -191,7 +201,15 @@ test("guest response settles once and the same conversation survives refresh", a
   });
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("portal-shell")).toBeVisible();
+  const portalShell = page.getByTestId("portal-shell");
+  await expect.poll(() => heldSessions).toBeGreaterThan(0);
+  await expect(portalShell).toBeVisible();
+  await expect(portalShell).toHaveAttribute("inert", "");
+  expect(starts).toBe(0);
+  expect(lists).toBe(0);
+  holdSession = false;
+  releaseSession();
+  await expect(portalShell).not.toHaveAttribute("inert");
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");
   await input.pressSequentially(userMessage);

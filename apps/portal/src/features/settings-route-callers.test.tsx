@@ -18,23 +18,16 @@ const widgetMock = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   openAccountUI: vi.fn(async () => undefined),
 }));
+const runtimeMock = vi.hoisted(() => ({
+  creditsGet: vi.fn(),
+}));
 
 vi.mock("@aomi-labs/react", () => ({
   getChainInfo: () => ({ ticker: "ETH" }),
   useAomiRuntime: () => ({
     account: {
       credits: {
-        get: vi.fn(async () => ({
-          period_utc_month: "2026-07",
-          included: {
-            limit_microusd: 100 * 10_000,
-            used_microusd: 12 * 10_000,
-            remaining_microusd: 88 * 10_000,
-          },
-          bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
-          entries: [],
-          next_before_id: null,
-        })),
+        get: runtimeMock.creditsGet,
       },
     },
   }),
@@ -268,6 +261,18 @@ function installFetchRecorder() {
 describe("settings route callers", () => {
   beforeEach(() => {
     widgetMock.getAccountCredential.mockClear();
+    runtimeMock.creditsGet.mockReset();
+    runtimeMock.creditsGet.mockResolvedValue({
+      period_utc_month: "2026-07",
+      included: {
+        limit_microusd: 100 * 10_000,
+        used_microusd: 12 * 10_000,
+        remaining_microusd: 88 * 10_000,
+      },
+      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      entries: [],
+      next_before_id: null,
+    });
     localStorage.clear();
     // jsdom has no matchMedia; useSettings consults it for the "auto" theme.
     vi.stubGlobal(
@@ -306,6 +311,23 @@ describe("settings route callers", () => {
     expect(screen.getByText("Pro")).toBeTruthy();
     expect(screen.getByText(/88 remaining/)).toBeTruthy();
     expect(screen.getByText(/12 \/ 100 used/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
+  });
+
+  it("keeps General settings usable when credits omit the allowance", async () => {
+    runtimeMock.creditsGet.mockResolvedValue({
+      period_utc_month: "2026-07",
+      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      entries: [],
+      next_before_id: null,
+    });
+    installFetchRecorder();
+
+    render(<GeneralSettings />);
+
+    expect(await screen.findByText("Aron")).toBeTruthy();
+    expect(screen.getByText("Pro")).toBeTruthy();
+    expect(screen.queryByText(/remaining/)).toBeNull();
     expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
   });
 });

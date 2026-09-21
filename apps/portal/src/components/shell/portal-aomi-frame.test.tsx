@@ -129,6 +129,7 @@ vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
 
 describe("PortalAomiFrame account bootstrap", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     frameInstances.next = 0;
     backendUrlState.current = "https://api.example.test";
@@ -204,6 +205,78 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
+  it("shows the real Chat frame while guest identity is still resolving", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    let resolveSession!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveSession = resolve;
+          }),
+      ),
+    );
+
+    render(<PortalAomiFrame />);
+
+    expect(screen.getByTestId("portal-shell")).toBeVisible();
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-account-session-available",
+      "false",
+    );
+
+    resolveSession(
+      Response.json({ user: { id: "guest-1", isAnonymous: true } }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert"),
+    );
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-account-session-available",
+      "true",
+    );
+  });
+
+  it("unblocks the real Chat frame when guest lookup times out", async () => {
+    vi.useFakeTimers();
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+
+    render(<PortalAomiFrame />);
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
   it("loads guest-owned threads only after Better Auth confirms this browser's anonymous session", async () => {
     backendUrlState.current = "/";
     walletKitState.current = {
@@ -226,10 +299,14 @@ describe("PortalAomiFrame account bootstrap", () => {
         "true",
       ),
     );
-    expect(fetch).toHaveBeenCalledWith("/api/auth/get-session", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/get-session",
+      expect.objectContaining({
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
+    );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-persist-thread",
       "false",

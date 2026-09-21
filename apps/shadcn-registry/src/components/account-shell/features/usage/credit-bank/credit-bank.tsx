@@ -442,10 +442,7 @@ function formatCreditDate(timestamp: number): string {
 
 function creditReceiptUrl(entry: AomiCreditActivity): string | null {
   const provider = entry.payment_provider?.toLowerCase();
-  const legacyMethod = entry.payment_method?.toLowerCase();
-  if (provider !== "coinbase" && legacyMethod !== "coinbase") {
-    return null;
-  }
+  if (provider !== "coinbase") return null;
   if (
     !entry.external_payment_reference ||
     !/^0x[0-9a-f]{64}$/i.test(entry.external_payment_reference)
@@ -476,10 +473,7 @@ function explorerForPaymentNetwork(network: string): string | null {
 }
 
 function creditPaymentLabel(entry: AomiCreditActivity): string {
-  if (
-    entry.payment_provider?.toLowerCase() === "coinbase" ||
-    entry.payment_method?.toLowerCase() === "coinbase"
-  ) {
+  if (entry.payment_provider?.toLowerCase() === "coinbase") {
     return "Coinbase x402";
   }
   return entry.payment_provider ?? entry.payment_method ?? "Wallet payment";
