@@ -133,26 +133,36 @@ export function TransactionCard({
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
     : (tx.cluster ?? "Solana");
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
+  const commitSigned =
+    tx.commit?.state === "awaiting_broadcast" ||
+    tx.commit?.state === "submitted" ||
+    tx.commit?.state === "confirmed";
   const result = tx.action?.result;
   const leg =
     result?.status === "submitted"
       ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
       : undefined;
   const signed =
+    commitSigned ||
     leg?.status === "submitted" ||
     (result?.status === "signed" && result.outputs.length > 0);
   const rejected =
+    tx.commit?.state === "rejected" ||
     leg?.status === "rejected" ||
     result?.status === "rejected" ||
     tx.action?.state === "rejected";
   const failed =
+    tx.commit?.state === "failed" ||
+    tx.commit?.state === "expired" ||
     tx.stage === "simulation-failed" ||
     (tx.action?.request.type !== "sign" &&
       (tx.action?.request.simulation.status === "failed" ||
         tx.action?.request.simulation.guards.some(
           (guard) => guard.status === "failed",
         )));
-  const terminal = tx.action && tx.action.state !== "pending";
+  const terminal = tx.commit
+    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
+    : tx.action && tx.action.state !== "pending";
   const animating =
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
@@ -160,7 +170,7 @@ export function TransactionCard({
     !signed &&
     !rejected &&
     !terminal &&
-    (active || tx.action?.state === "pending");
+    (active || tx.commit != null || tx.action?.state === "pending");
   const phases = ["Stage", "Simulate", "Commit", "Signed"]
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);

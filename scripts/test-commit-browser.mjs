@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Invoked by the Rust local-chain gate. The signer is a deterministic stand-in;
-// CommitReview, CommitController, Commit Service and both chains are real.
+// Invoked by the Rust local-chain gate. CommitController, Commit Service and
+// both chains are real. This small driver supplies the explicit user gesture
+// required by attended sign and broadcast routes.
 import { createRequire } from "node:module";
 const localRequire = createRequire(import.meta.url);
 const { createServer } = await import(
@@ -24,7 +25,6 @@ assert.equal(new URL(fixture.service_url).hostname, "127.0.0.1");
 const root = fileURLToPath(new URL("../", import.meta.url));
 const artifacts = resolve(root, "output/playwright/commits");
 await mkdir(artifacts, { recursive: true });
-const shim = resolve(root, "tests/commit-browser/runtime.tsx");
 let signs = 0,
   sends = 0;
 const server = await createServer({
@@ -69,19 +69,6 @@ const server = await createServer({
       },
     },
   ],
-  resolve: {
-    alias: [
-      { find: "@aomi-labs/react", replacement: shim },
-      {
-        find: "../../lib/wallet-kit/use-action-capabilities",
-        replacement: shim,
-      },
-      {
-        find: "@aomi-labs/client",
-        replacement: resolve(root, "packages/client/src/commits.ts"),
-      },
-    ],
-  },
   server: { host: "127.0.0.1", port: 0, fs: { allow: [root] } },
 });
 let browser;
@@ -159,10 +146,6 @@ try {
       ? 0
       : 1,
   );
-  await page.screenshot({
-    path: resolve(artifacts, fixture.view.thread_id + ".png"),
-    fullPage: true,
-  });
   console.log(
     JSON.stringify({
       thread: fixture.view.thread_id,

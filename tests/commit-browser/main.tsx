@@ -1,9 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { CommitController } from "../../packages/client/src/commits";
 import type { AomiClient } from "../../packages/client/src/client";
-import { CommitReview } from "../../apps/shadcn-registry/src/components/activity-sidebar/commit-review";
-import { install } from "./runtime";
+import { install, useAomiRuntime } from "./runtime";
 
 const fixture = await fetch("/__fixture").then((response) => response.json());
 const request = async (
@@ -34,16 +33,54 @@ const controller = new CommitController(
   { request } as unknown as AomiClient,
   fixture.view.thread_id,
   {
+    ...capabilities,
     venueBroadcast: capabilities.walletBroadcast,
   },
 );
-install(controller, capabilities);
+install(controller);
 controller.ingest(fixture.view);
+
+function CommitDriver() {
+  const { commits, commitController } = useAomiRuntime();
+  const [error, setError] = useState<string>();
+  const commit = commits[0];
+  if (!commit) return null;
+  const label =
+    commit.action?.kind === "sign"
+      ? "Sign"
+      : commit.action?.kind === "broadcast"
+        ? "Broadcast"
+        : "Continue";
+  return (
+    <article data-commit-id={commit.commit_id}>
+      <p role="status">{commit.state}</p>
+      {commit.action && (
+        <button
+          type="button"
+          onClick={() => {
+            setError(undefined);
+            void commitController
+              .execute(commit.commit_id)
+              .catch((failure) =>
+                setError(
+                  failure instanceof Error ? failure.message : "Commit failed",
+                ),
+              );
+          }}
+        >
+          {label}
+        </button>
+      )}
+      {error && <p role="alert">{error}</p>}
+    </article>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <main>
       <h1>Commit integration fixture</h1>
-      <CommitReview />
+      <CommitDriver />
     </main>
   </React.StrictMode>,
 );
