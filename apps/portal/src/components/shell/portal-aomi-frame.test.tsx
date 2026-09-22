@@ -36,9 +36,19 @@ const runtimeState = vi.hoisted(() => ({
     createThread: vi.fn(async () => "thread-new"),
   },
 }));
+const controlState = vi.hoisted(() => ({
+  appDescriptors: [] as Array<{
+    name: string;
+    applicationId?: number | string | null;
+  }>,
+}));
+const accountOverviewState = vi.hoisted(() => ({
+  current: null as null | { user: { user_id: string; apps?: string[] } },
+}));
 
 vi.mock("@aomi-labs/react", () => ({
   useAomiRuntime: () => runtimeState.current,
+  useControl: () => ({ state: controlState }),
   usePerThreadControl: () => ({ actions: { onAppSelect: vi.fn() } }),
 }));
 
@@ -113,7 +123,7 @@ vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
   ),
   PackagesModal: () => <div data-testid="packages-modal" />,
   SettingsModal: () => <div data-testid="settings-modal" />,
-  useAccountOverview: () => null,
+  useAccountOverview: () => accountOverviewState.current,
   usePortalWalletAccountMenu: () => undefined,
 }));
 
@@ -142,6 +152,8 @@ describe("PortalAomiFrame account bootstrap", () => {
       applicationId: null,
       locked: false,
     };
+    controlState.appDescriptors = [];
+    accountOverviewState.current = null;
   });
 
   it("waits for the initial account lookup before mounting the frame", async () => {
@@ -349,6 +361,42 @@ describe("PortalAomiFrame account bootstrap", () => {
         targets: [
           { mode: "auto" },
           { mode: "direct", apps: [{ app: "default" }] },
+        ],
+        defaultMode: "auto",
+      },
+    );
+  });
+
+  it("routes an installed hosted app by canonical application ID", () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    accountOverviewState.current = {
+      user: {
+        user_id: "acct-a",
+        apps: ["default", "credential-demo"],
+        application_ids: [16],
+      },
+    };
+    controlState.appDescriptors = [
+      { name: "default", applicationId: null },
+      { name: "credential-demo", applicationId: 16 },
+    ];
+
+    render(<PortalAomiFrame />);
+
+    expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
+      {
+        targets: [
+          { mode: "auto" },
+          {
+            mode: "direct",
+            apps: [
+              { app: "default" },
+              { app: "credential-demo", applicationId: 16 },
+            ],
+          },
         ],
         defaultMode: "auto",
       },

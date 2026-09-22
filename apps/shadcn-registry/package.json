@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget-lib",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Shadcn registry for the Aomi widget.",
   "type": "module",
   "main": "./dist/index.js",

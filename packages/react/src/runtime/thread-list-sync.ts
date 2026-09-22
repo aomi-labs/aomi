@@ -95,6 +95,34 @@ type ThreadListContext = {
   user: UserState;
 };
 
+/**
+ * Apply a fetched thread list without rolling back local changes made while
+ * the request was in flight. Server fields remain authoritative, while
+ * composer control belongs to the live client state.
+ */
+export function mergeThreadListMetadata(
+  fetched: Map<string, ThreadMetadata>,
+  latest: Map<string, ThreadMetadata>,
+): Map<string, ThreadMetadata> {
+  const merged = new Map<string, ThreadMetadata>();
+
+  for (const [threadId, metadata] of fetched) {
+    merged.set(threadId, {
+      ...metadata,
+      control: latest.get(threadId)?.control ?? metadata.control,
+    });
+  }
+  for (const [threadId, metadata] of latest) {
+    if (!merged.has(threadId)) merged.set(threadId, metadata);
+  }
+
+  return merged;
+}
+
+export function initRemoteThreadControl() {
+  return { ...initThreadControl(), agentMode: "auto" as const };
+}
+
 function useRemoteThreadListSync(
   context: ThreadListContext,
   sessions: RuntimeSessionBridge,
@@ -262,7 +290,12 @@ function useRemoteThreadListSync(
             title,
             status: thread.archived ? "archived" : "regular",
             lastActiveAt: lastActive,
-            control: existingControl ?? initThreadControl(),
+            // Session summaries do not expose the execution target. Mark an
+            // unseen remote thread as explicitly Auto so a device-wide Direct
+            // preference cannot present the first app as its historical
+            // target. Threads created in this client retain their exact local
+            // control through existingControl and the commit-time merge.
+            control: existingControl ?? initRemoteThreadControl(),
           });
 
           const match = title.match(/^Chat (\d+)$/);
@@ -292,7 +325,9 @@ function useRemoteThreadListSync(
             remoteThreadIds.has(threadId),
           ),
         );
-        currentContext.setThreadMetadata(newMetadata);
+        currentContext.setThreadMetadata((latestMetadata) =>
+          mergeThreadListMetadata(newMetadata, latestMetadata),
+        );
         if (maxChatNum > baseThreadCount) {
           currentContext.setThreadCnt(maxChatNum);
         }

@@ -187,6 +187,8 @@ export interface AomiUser {
   user_id: string;
   username: string | null;
   apps: string[];
+  /** Exact hosted application rows installed by this account. */
+  application_ids?: number[];
   tier: "anon" | "free" | "pro";
   verified_email: string | null;
   status: string;
@@ -418,12 +420,13 @@ export interface AomiUserAppSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** This slot accepts a value owned by the signed-in user. */
+  user_own: boolean;
   /** The current account stored its own value for this slot. */
   configured: boolean;
   /**
-   * The app ships a shared value for this slot (official bundle file or
-   * Build Environment), so a user value is an override rather than a
-   * prerequisite for the app to work.
+   * Retained in the response contract; always false for user-owned slots.
+   * A user-owned credential never falls back to a Builder credential.
    */
   app_provided: boolean;
 }
@@ -433,6 +436,19 @@ export interface AomiUserAppSecrets {
   application_id: number;
   app: string;
   slots: AomiUserAppSecretSlot[];
+  /** Every required user-owned slot currently has a saved value. */
+  ready: boolean;
+  /** Required slot names that still need a value. Values are never returned. */
+  missing_required: string[];
+}
+
+/** POST|DELETE /api/account/apps/:application_id */
+export interface AomiAccountAppMutationResponse {
+  application_id: number;
+  app: string;
+  installed: boolean;
+  /** Legacy runtime-name projection after the atomic mutation. */
+  apps: string[];
 }
 
 /** DELETE /api/account/apps/:application_id/secrets */
@@ -450,6 +466,8 @@ export interface AomiSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** Whether each signed-in user supplies their own value. Missing means false. */
+  user_own?: boolean;
 }
 
 /** Hosted application artifact availability reported by the backend catalog. */
@@ -472,6 +490,8 @@ export interface AomiAppDescriptor {
   appReleaseTag?: string | null;
   isActive?: boolean | null;
   isPublic?: boolean | null;
+  /** Exact installed state for this application row. */
+  isInstalled?: boolean | null;
   artifactReady?: boolean | null;
   artifactStatus?: AomiArtifactStatus | null;
   secrets?: AomiSecretSlot[];

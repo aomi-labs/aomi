@@ -26,6 +26,8 @@ sources_of_truth:
 
 - Chat and session state methods target `/api/chat`, `/api/state`, `/api/system`, and `/api/interrupt`.
 - Session management methods create, list, rename, archive, and delete backend threads.
+- Account app methods list the catalog, add or remove installed apps, and
+  manage redacted per-user credential status by canonical application ID.
 - SSE support is factored into its own subscriber helper so UI consumers and CLI flows can share the same event model.
 
 ## Cross-Package Role

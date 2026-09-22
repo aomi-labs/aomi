@@ -1370,11 +1370,13 @@ export interface PromoteResult {
   };
 }
 
-/** A secret an app declares via the SDK's `Secret::new(name, description, required)`. */
+/** A secret slot declared in an app release manifest. */
 export interface SecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** The chat user supplies this value. Absent and false are Builder-owned. */
+  user_own?: boolean;
 }
 
 export interface ReleaseManifestPlugin {

@@ -162,7 +162,10 @@ export type {
   AomiBrowserGrantOptions,
   AomiDeviceVerification,
 } from "./oauth";
-export { createGuestSessionProvider } from "./guest-auth";
+export {
+  createGuestSessionProvider,
+  withBrowserSessionTransition,
+} from "./guest-auth";
 export type { GuestSessionProvider } from "./guest-auth";
 export {
   AccountCredentialUnavailableError,
@@ -259,6 +262,7 @@ export type {
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
+  AomiAccountAppMutationResponse,
   AomiListByokKeysResponse,
   AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,

@@ -405,8 +405,8 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           <ExecutionControl />
-          {/* Renders only when the directly targeted app declares secret
-              slots: the signed-in user's own keys for account-bound venues. */}
+          {/* Renders only when the directly targeted app asks the signed-in
+              user for app credentials. */}
           {!hideAppSecrets && <AppSecretsDialog />}
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}

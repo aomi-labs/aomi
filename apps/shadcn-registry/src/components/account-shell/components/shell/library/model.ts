@@ -20,6 +20,7 @@ import {
 } from "../../../../../lib/capabilities/skill-catalog";
 import type { LibrarySelection } from "../library-detail-panel";
 import type { CatalogPackage } from "../packages-catalog";
+import { packageIdentityKey } from "../packages-catalog";
 
 export type LibraryView =
   | "discover"
@@ -144,7 +145,11 @@ export function useLibraryEntries({
     let source = allEntries;
     if (needle) source = allEntries;
     else if (view === "installed")
-      source = appEntries.filter((entry) => installedIds.has(entry.item.id));
+      source = appEntries.filter(
+        (entry) =>
+          entry.kind === "app" &&
+          installedIds.has(packageIdentityKey(entry.item)),
+      );
     else if (view === "apps") source = appEntries;
     else if (view === "skills") source = skillEntries;
     else if (view !== "discover")

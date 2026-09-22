@@ -50,7 +50,9 @@ function AppAction({
       onClick={onInstall}
       disabled={disabled || !available}
       aria-label={
-        available ? `Add ${app.name}` : `Switch network to add ${app.name}`
+        available
+          ? `Add ${app.name} from catalog`
+          : `Switch network to add ${app.name}`
       }
       className="border-aomi-border hover:bg-aomi-hover flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors disabled:opacity-40"
     >
