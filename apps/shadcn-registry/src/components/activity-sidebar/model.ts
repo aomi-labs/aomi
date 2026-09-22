@@ -300,7 +300,6 @@ export function selectActivity(
         if (request.type === "execute_svm") {
           const assembled = request.transactions[index];
           match.label = assembled.description || match.label;
-          match.raw = assembled as unknown as RecordValue;
           for (const duplicate of matches.slice(1))
             transactions.splice(transactions.indexOf(duplicate), 1);
         }
@@ -378,4 +377,20 @@ export function selectActivity(
       (tx) => tx.turnId === turnId || tx.action?.state === "pending",
     ),
   };
+}
+
+/** Keep compatibility Actions only when no durable source owns that Action. */
+export function selectLegacyReviewAction(
+  events: readonly Event[],
+  actions: readonly Action[],
+  commits: readonly CommitView[],
+): Action | undefined {
+  const activity = selectActivity(events, actions, commits);
+  const durableActionIds = new Set(
+    [...activity.transactions, ...activity.history]
+      .filter((transaction) => transaction.commit)
+      .map((transaction) => transaction.action?.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  return actions.find((action) => !durableActionIds.has(action.id));
 }

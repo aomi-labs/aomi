@@ -158,6 +158,7 @@ describe("WalletReview", () => {
         }) satisfies Event,
     );
     runtime.commits = [commit(1, 0), commit(2, 1)];
+    runtime.pendingActions = [action(request)];
     const execute = vi.fn().mockResolvedValue(undefined);
     runtime.commitController = {
       review: (id: string) =>
@@ -168,7 +169,7 @@ describe("WalletReview", () => {
       reject: vi.fn(),
     } as unknown as CommitController;
 
-    render(<ActivitySidebar />);
+    const { rerender } = render(<ActivitySidebar />);
 
     expect(screen.getAllByTestId("activity-transaction")).toHaveLength(2);
     expect(screen.getAllByTestId("asset-effect")[0]).toHaveTextContent("−100");
@@ -178,11 +179,39 @@ describe("WalletReview", () => {
     expect(screen.getAllByTestId("transaction-review")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
+    expect(runtime.executeAction).not.toHaveBeenCalled();
+
+    runtime.commits = runtime.commits.map((view) => ({
+      ...view,
+      state: "expired",
+      action: null,
+    }));
+    rerender(<ActivitySidebar />);
+
+    expect(
+      screen.queryByRole("button", { name: "Send to wallet" }),
+    ).not.toBeInTheDocument();
+
+    runtime.pendingActions = [
+      action(request),
+      {
+        ...action(request),
+        id: "action-2",
+        sequence: 2,
+      },
+    ];
+    rerender(<ActivitySidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(runtime.executeAction).toHaveBeenCalledWith("action-2"),
+    );
 
     cleanup();
+    runtime.pendingActions = [action(request)];
     runtime.commits = [
       {
         ...runtime.commits[0],
+        state: "needs_signature",
         action: null,
         wallet_attempt: {
           attempt_id: "attempt-1",
@@ -192,7 +221,7 @@ describe("WalletReview", () => {
           failure_code: "transaction_mismatch",
         },
       },
-      runtime.commits[1],
+      { ...runtime.commits[1], state: "needs_signature" },
     ];
     render(<ActivitySidebar />);
     expect(screen.getByRole("alert")).toHaveTextContent(

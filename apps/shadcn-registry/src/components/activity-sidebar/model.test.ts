@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Action, CommitView, Event } from "@aomi-labs/client";
-import { selectActivity } from "./model";
+import { selectActivity, selectLegacyReviewAction } from "./model";
 
 const tx = {
   chain_id: 8453,
@@ -337,6 +337,32 @@ describe("SVM preparation", () => {
     ]).transactions;
     expect(repeated).toHaveLength(2);
     expect(repeated.filter((tx) => tx.action)).toHaveLength(1);
+
+    const durable = durableCommit(1, 0, {
+      stage_id: "svm:1",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      signer: "wallet",
+      state: "expired",
+    });
+    durable.batch!.sources = [
+      {
+        thread_id: durable.thread_id,
+        chain_family: "svm",
+        chain_ref: "mainnet-beta",
+        stage_id: "svm:1",
+        source_id: 1,
+      },
+    ];
+    const durableActivity = selectActivity(
+      [staged, committed],
+      [committed],
+      [durable],
+    );
+    expect(durableActivity.transactions[0].commit).toBe(durable);
+    expect(
+      selectLegacyReviewAction([staged, committed], [committed], [durable]),
+    ).toBeUndefined();
   });
 });
 

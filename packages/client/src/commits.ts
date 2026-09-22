@@ -432,6 +432,7 @@ export class CommitController {
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     const pending = this.pending.get(id);
     if (pending) view = await this.manual(id, pending);
+    if (this.closed) throw new Error("Commit session closed");
     const browserSend = this.browserSendSelection(view);
     if (browserSend && this.canStartWalletSend()) {
       view = await this.startWalletSend(view, browserSend);
@@ -532,6 +533,7 @@ export class CommitController {
       throw new Error("Wallet send outcome is being reconciled");
     }
     await preflight(view, selection.payload);
+    if (this.closed) throw new Error("Commit session closed");
     record ??= { clientRequestId: crypto.randomUUID() };
     recovery.save(this.threadId, view.commit_id, record);
     const attempt = await this.client.request<CommitWalletAttemptView>(
@@ -553,6 +555,7 @@ export class CommitController {
       throw new Error("Wallet attempt transport mismatch");
     record = { ...record, attemptId: attempt.attempt_id };
     recovery.save(this.threadId, view.commit_id, record);
+    if (this.closed) throw new Error("Commit session closed");
     if (!attempt.may_invoke_wallet || !attempt.request)
       throw new Error("Wallet send outcome is being reconciled");
     if (attempt.request.kind !== "evm_transaction")

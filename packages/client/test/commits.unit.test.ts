@@ -117,6 +117,50 @@ const historicalExternal: CommitView = {
 };
 
 describe("Commit view surfaces", () => {
+  it.each(["refresh", "preflight", "attempt"] as const)(
+    "does not invoke a wallet when the session closes during %s",
+    async (stage) => {
+      const recovery = recoveryStore();
+      const walletSend = vi.fn();
+      const walletSendPreflight = vi.fn(async () => {
+        if (stage === "preflight") controller.close();
+      });
+      const request = vi.fn(async (method: string) => {
+        if (method === "GET") {
+          if (stage === "refresh") controller.close();
+          return external;
+        }
+        if (stage === "attempt") controller.close();
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      });
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        external.thread_id,
+        { walletSend, walletSendPreflight, recovery: recovery.store },
+      );
+
+      await expect(controller.execute(external.commit_id)).rejects.toThrow(
+        "Commit session closed",
+      );
+      expect(walletSend).not.toHaveBeenCalled();
+      expect(request).toHaveBeenCalledTimes(stage === "attempt" ? 2 : 1);
+      if (stage === "attempt") {
+        expect(recovery.records.get(external.commit_id)).toMatchObject({
+          attemptId: "attempt-1",
+        });
+      } else {
+        expect(recovery.records.size).toBe(0);
+      }
+    },
+  );
+
   it("persists a wallet-returned hash before reporting it", async () => {
     const recovery = recoveryStore();
     const walletSend = vi.fn().mockResolvedValue("0xhash");
@@ -304,37 +348,46 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
-  it("reports an explicit provider rejection through its bound attempt", async () => {
-    const recovery = recoveryStore();
-    const rejected = { code: 4001 };
-    const walletSend = vi.fn().mockRejectedValue(rejected);
-    const request = vi.fn(async (method: string, path: string, options) => {
-      if (method === "GET") return external;
-      if (path.endsWith("/wallet-attempts"))
-        return {
-          attempt_id: "attempt-1",
-          transport: "browser_send",
-          commit_id: external.commit_id,
-          state: "awaiting_wallet",
-          request: externalPayload,
-          may_invoke_wallet: true,
-        };
-      expect(options.body).toEqual({ kind: "rejected" });
-      return { ...external, version: 2, state: "rejected", action: null };
-    });
-    const controller = new CommitController(
-      { request } as unknown as AomiClient,
-      external.thread_id,
-      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
-    );
-    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
-      {
+  it.each([false, true])(
+    "reports an explicit provider rejection through its bound attempt (wrapped: %s)",
+    async (wrapped) => {
+      const recovery = recoveryStore();
+      const rejected = { code: 4001 };
+      const walletSend = vi
+        .fn()
+        .mockRejectedValue(
+          wrapped
+            ? new Error("Wallet request failed", { cause: rejected })
+            : rejected,
+        );
+      const request = vi.fn(async (method: string, path: string, options) => {
+        if (method === "GET") return external;
+        if (path.endsWith("/wallet-attempts"))
+          return {
+            attempt_id: "attempt-1",
+            transport: "browser_send",
+            commit_id: external.commit_id,
+            state: "awaiting_wallet",
+            request: externalPayload,
+            may_invoke_wallet: true,
+          };
+        expect(options.body).toEqual({ kind: "rejected" });
+        return { ...external, version: 2, state: "rejected", action: null };
+      });
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        external.thread_id,
+        { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+      );
+      await expect(
+        controller.execute(external.commit_id),
+      ).resolves.toMatchObject({
         state: "rejected",
-      },
-    );
-    expect(walletSend).toHaveBeenCalledTimes(1);
-    controller.close();
-  });
+      });
+      expect(walletSend).toHaveBeenCalledTimes(1);
+      controller.close();
+    },
+  );
 
   it.each([
     "Connect the expected signing wallet",

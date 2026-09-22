@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../../lib/wallet-kit";
-import { selectReviewCommit } from "./model";
+import { selectLegacyReviewAction, selectReviewCommit } from "./model";
 import { TransactionReview } from "./transaction-review";
 
 /** Presents the next durable Action and submits only an explicit user choice. */
@@ -10,6 +10,7 @@ export function WalletReview() {
   const {
     pendingActions,
     actionAttempts,
+    events,
     commits = [],
     commitController,
     executeAction,
@@ -17,8 +18,12 @@ export function WalletReview() {
     showNotification,
   } = useAomiRuntime();
   const wallet = useAomiWalletKit();
-  const liveAction = pendingActions[0];
   const liveCommit = selectReviewCommit(commits, commitController?.review);
+  // Durable commit state owns execution once it can present the review. Keep
+  // unrelated pending Actions as compatibility for sessions without one.
+  const liveAction = liveCommit
+    ? undefined
+    : selectLegacyReviewAction(events, pendingActions, commits);
   const attempt = liveAction ? actionAttempts.get(liveAction.id) : undefined;
   const lock = useRef(false);
   const [deciding, setDeciding] = useState(false);

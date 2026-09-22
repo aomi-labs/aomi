@@ -7,10 +7,19 @@ import {
 import type { EvmExecutionRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import type { WalletClient } from "viem";
+import type { EvmWallet } from "@aomi-labs/client";
 import {
   executeWalletKitTransaction,
   getPreferredRpcUrl,
 } from "./wallet-execution";
+
+type PreparedTransaction = Parameters<
+  NonNullable<EvmWallet["sendPreparedTransaction"]>
+>[0];
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 /**
  * Map a shared `EvmWalletRuntime` into the composer's `EvmExecutionRuntime`
@@ -42,59 +51,104 @@ export function buildEvmExecutionRuntime(
   const sendTransactionAsync = runtime.sendTransactionAsync;
   const signTypedDataAsync = runtime.signTypedDataAsync;
   const switchChainAsync = runtime.switchChainAsync;
-  const hasPreparedWalletClient = Boolean(
-    runtime.activeConnector || runtime.walletClient,
+  const activeAddress = evm.activeEvmConnection?.address;
+  const activeConnector = runtime.activeConnector;
+  const walletClient = runtime.walletClient as WalletClient | undefined;
+  const canSendPreparedTransaction = Boolean(
+    (activeConnector && activeAddress && sendTransactionAsync) ||
+    walletClient?.account?.type === "local",
   );
-  const preparedClient = async (
-    payload: Parameters<
-      NonNullable<
-        import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"]
-      >
-    >[0],
-  ) => {
-    const client = (
-      runtime.activeConnector
-        ? await runtime.getWalletClientFor({
-            connector: runtime.activeConnector,
-          })
-        : runtime.walletClient
-    ) as WalletClient | undefined;
-    if (
-      !client?.account ||
-      client.account.address.toLowerCase() !== payload.signer.toLowerCase()
-    )
+  const assertActiveSignerAddress = (payload: PreparedTransaction) => {
+    const address = activeAddress ?? walletClient?.account?.address;
+    if (!address || address.toLowerCase() !== payload.signer.toLowerCase())
       throw new Error("Expected signing wallet is not active");
+  };
+  const selectExternalChain = async (payload: PreparedTransaction) => {
+    assertActiveSignerAddress(payload);
+    if (!activeConnector)
+      throw new Error("Expected signing wallet is not connected");
+    if (runtime.currentChainId === payload.chain_id) return;
+    if (!switchChainAsync)
+      throw new Error(`EVM wallet cannot switch to chain ${payload.chain_id}`);
+    try {
+      await switchChainAsync({
+        chainId: payload.chain_id,
+        connector: activeConnector,
+      });
+    } catch (error) {
+      throw new Error(`Wallet chain switch failed: ${errorMessage(error)}`, {
+        cause: error,
+      });
+    }
+  };
+  const localPreparedClient = async (payload: PreparedTransaction) => {
+    const client = walletClient;
+    assertActiveSignerAddress(payload);
+    const account = client?.account;
+    if (!account || account.type !== "local")
+      throw new Error("Prepared local wallet client is unavailable");
+    if ((await client.getChainId()) !== payload.chain_id)
+      throw new Error("Expected signing wallet is on the wrong chain");
     const chain = runtime.chainsById[payload.chain_id];
     if (!chain) throw new Error("Commit chain is not configured");
-    return { client, chain };
+    return { client, chain, account };
   };
 
   return {
     ...runtime,
     preparePreparedEvmTransaction:
       runtime.preparePreparedEvmTransaction ??
-      (sendTransactionAsync && hasPreparedWalletClient
+      (canSendPreparedTransaction
         ? async (payload) => {
-            await preparedClient(payload);
-            if (runtime.currentChainId === payload.chain_id) return;
-            if (!switchChainAsync)
+            if (!activeConnector) {
+              await localPreparedClient(payload);
+              return;
+            }
+            // Keep preflight local. Injected providers are allowed to defer or
+            // suppress account/chain RPCs until a user-visible wallet request;
+            // awaiting those calls here used to hang before Commit Service
+            // could create the durable attempt. The cached registry identity
+            // is the identity the user selected, and the actual transaction is
+            // still pinned to this connector and verified on-chain by Commit
+            // Service before the commit can advance.
+            assertActiveSignerAddress(payload);
+            if (!runtime.chainsById[payload.chain_id])
+              throw new Error("Commit chain is not configured");
+            if (
+              runtime.currentChainId !== payload.chain_id &&
+              !switchChainAsync
+            )
               throw new Error(
                 `EVM wallet cannot switch to chain ${payload.chain_id}`,
               );
-            await switchChainAsync({
-              chainId: payload.chain_id,
-              connector: runtime.activeConnector,
-            });
           }
         : undefined),
     sendPreparedEvmTransaction:
       runtime.sendPreparedEvmTransaction ??
-      (sendTransactionAsync && hasPreparedWalletClient
+      (canSendPreparedTransaction
         ? async (payload) => {
-            const { client, chain } = await preparedClient(payload);
             const tx = payload.transaction;
+            if (activeConnector && sendTransactionAsync) {
+              await selectExternalChain(payload);
+              return sendTransactionAsync({
+                account: payload.signer as `0x${string}`,
+                chainId: payload.chain_id,
+                connector: activeConnector,
+                nonce: payload.nonce,
+                to: tx.to as `0x${string}`,
+                data: tx.data as `0x${string}`,
+                value: BigInt(tx.value),
+              }).catch((error) => {
+                throw new Error(
+                  `Wallet transaction request failed: ${errorMessage(error)}`,
+                  { cause: error },
+                );
+              });
+            }
+            const { client, chain, account } =
+              await localPreparedClient(payload);
             return client.sendTransaction({
-              account: client.account,
+              account,
               chain,
               type: "eip1559",
               nonce: payload.nonce,
