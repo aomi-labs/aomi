@@ -6,8 +6,10 @@ import {
   clearOperateCachesForTesting,
   operateAppDetailRoute,
   operateBotsRoute,
+  operateBotsCommandSecretRoute,
   operateBotsCreateRoute,
   operateBotsDeleteRoute,
+  operateBotsUpdateRoute,
   operateLogsRoute,
   operateObservabilityRoute,
   operatePaymentsRoute,
@@ -60,6 +62,7 @@ const client = {
   listUserBots: vi.fn(),
   createUserBot: vi.fn(),
   updateUserBot: vi.fn(),
+  revealUserBotCommandSecret: vi.fn(),
   deleteUserBot: vi.fn(),
   getUserProjectUsage: vi.fn(),
   getUserProjectStatement: vi.fn(),
@@ -100,6 +103,23 @@ function postJson(body: unknown) {
   });
 }
 
+function patchJson(body: unknown) {
+  return new Request("http://localhost:3000/api/bff/operate/bots", {
+    method: "PATCH",
+    headers: {
+      origin: "http://localhost:3000",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function commandSecretReq(botId: string) {
+  return new Request(
+    `http://localhost:3000/api/bff/operate/bots/${botId}/command-secret`,
+  );
+}
+
 function deleteReq(qs: string) {
   return new Request(`http://localhost:3000/api/bff/operate/bots${qs}`, {
     method: "DELETE",
@@ -126,6 +146,7 @@ beforeEach(() => {
   client.listUserBots.mockReset();
   client.createUserBot.mockReset();
   client.updateUserBot.mockReset();
+  client.revealUserBotCommandSecret.mockReset();
   client.deleteUserBot.mockReset();
   client.getUserProjectUsage.mockReset();
   client.getUserProjectStatement.mockReset();
@@ -242,7 +263,7 @@ describe("operateBotsCreateRoute", () => {
     const res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [1],
-        primaryApplicationId: 1,
+        handoverApplicationId: 1,
         credential: "t",
       }),
     );
@@ -256,7 +277,7 @@ describe("operateBotsCreateRoute", () => {
     const res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [1],
-        primaryApplicationId: 1,
+        handoverApplicationId: 1,
         credential: "t",
       }),
     );
@@ -270,7 +291,7 @@ describe("operateBotsCreateRoute", () => {
     let res = await operateBotsCreateRoute(
       postJson({
         applicationIds: "nope",
-        primaryApplicationId: 1,
+        handoverApplicationId: 1,
         credential: "t",
       }),
     );
@@ -279,7 +300,7 @@ describe("operateBotsCreateRoute", () => {
     res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [1],
-        primaryApplicationId: 1,
+        handoverApplicationId: 1,
         credential: "   ",
       }),
     );
@@ -297,10 +318,11 @@ describe("operateBotsCreateRoute", () => {
     const res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [7],
-        primaryApplicationId: 7,
+        handoverApplicationId: 7,
         credential: "secret-token",
         label: "My Bot",
-        tenantBaseUrl: "https://api.world.inc/mini-app/",
+        miniAppUrl: "",
+        commandEndpoint: "https://api.world.inc/commands/",
         commands: ["/B", "p"],
       }),
     );
@@ -308,45 +330,88 @@ describe("operateBotsCreateRoute", () => {
     await expect(res.json()).resolves.toMatchObject({
       bot: { id: "b1", platform: "telegram" },
     });
+    // Shape only: values are forwarded untouched (blank URL → null) and the
+    // manager canonicalises trailing slashes, case and leading slashes.
     expect(client.createUserBot).toHaveBeenCalledWith(
       expect.objectContaining({
         githubUserId: "gh-1",
         applicationIds: [7],
-        primaryApplicationId: 7,
+        handoverApplicationId: 7,
         botPlatform: "telegram",
         credential: "secret-token",
         label: "My Bot",
-        tenantBaseUrl: "https://api.world.inc/mini-app",
-        commands: ["b", "p"],
+        miniAppUrl: null,
+        commandEndpoint: "https://api.world.inc/commands/",
+        commands: ["/B", "p"],
       }),
     );
   });
 
-  it("rejects unsafe tenant URLs and reserved commands", async () => {
+  it("omits command config the body did not mention", async () => {
     setSession({ githubUserId: "gh-1" });
     client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
-    let res = await operateBotsCreateRoute(
+    client.createUserBot.mockResolvedValue({ id: "b1" });
+    await operateBotsCreateRoute(
       postJson({
         applicationIds: [7],
-        primaryApplicationId: 7,
+        handoverApplicationId: 7,
         credential: "secret-token",
-        tenantBaseUrl: "http://api.world.inc/mini-app",
-        commands: ["b"],
       }),
     );
-    expect(res.status).toBe(400);
+    const input = client.createUserBot.mock.calls[0][0];
+    expect(input).not.toHaveProperty("miniAppUrl");
+    expect(input).not.toHaveProperty("commandEndpoint");
+    expect(input).not.toHaveProperty("commands");
+  });
 
-    res = await operateBotsCreateRoute(
+  it("400s a shape-invalid command config before calling the backend", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+    const base = {
+      applicationIds: [7],
+      handoverApplicationId: 7,
+      credential: "secret-token",
+    };
+    for (const bad of [
+      { miniAppUrl: 42 },
+      { commandEndpoint: ["x"] },
+      { commands: "b, p" },
+      { commands: ["b", 3] },
+    ]) {
+      const res = await operateBotsCreateRoute(postJson({ ...base, ...bad }));
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toEqual({
+        error: "invalid bot command config",
+      });
+    }
+    expect(client.createUserBot).not.toHaveBeenCalled();
+  });
+
+  it("forwards the manager's 400 message instead of mirroring its rules", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+    client.createUserBot.mockRejectedValue(
+      new BackendError(
+        "create_user_bot",
+        400,
+        "create_user_bot failed (400)",
+        JSON.stringify({ error: "command `start` is reserved" }),
+      ),
+    );
+    const res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [7],
-        primaryApplicationId: 7,
+        handoverApplicationId: 7,
         credential: "secret-token",
-        tenantBaseUrl: "https://api.world.inc/mini-app",
-        commands: ["sign"],
+        commandEndpoint: "https://api.world.inc/commands",
+        commands: ["start"],
       }),
     );
     expect(res.status).toBe(400);
-    expect(client.createUserBot).not.toHaveBeenCalled();
+    await expect(res.json()).resolves.toEqual({
+      error: "command `start` is reserved",
+    });
+    expect(telemetry.capture).not.toHaveBeenCalled();
   });
 
   it("never logs or echoes the credential value on failure paths", async () => {
@@ -356,12 +421,119 @@ describe("operateBotsCreateRoute", () => {
     const res = await operateBotsCreateRoute(
       postJson({
         applicationIds: [7],
-        primaryApplicationId: 7,
+        handoverApplicationId: 7,
         credential: "top-secret",
       }),
     );
     const text = await res.text();
     expect(text).not.toContain("top-secret");
+  });
+});
+
+describe("operateBotsUpdateRoute", () => {
+  const owned = () =>
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [{ id: 7 }] }]);
+
+  it("forwards only the fields the body names, clearing blank URLs", async () => {
+    setSession({ githubUserId: "gh-1" });
+    owned();
+    client.updateUserBot.mockResolvedValue({ id: "b1" });
+    const res = await operateBotsUpdateRoute(
+      patchJson({
+        botId: "b1",
+        applicationIds: [7],
+        handoverApplicationId: 7,
+        commandEndpoint: "",
+        commands: [],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const input = client.updateUserBot.mock.calls[0][0];
+    expect(input).toMatchObject({
+      botId: "b1",
+      applicationIds: [7],
+      handoverApplicationId: 7,
+      commandEndpoint: null,
+      commands: [],
+    });
+    expect(input).not.toHaveProperty("miniAppUrl");
+  });
+
+  it("400s a shape-invalid command config and forwards a manager 400", async () => {
+    setSession({ githubUserId: "gh-1" });
+    owned();
+    let res = await operateBotsUpdateRoute(
+      patchJson({
+        botId: "b1",
+        applicationIds: [7],
+        handoverApplicationId: 7,
+        miniAppUrl: { url: "x" },
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(client.updateUserBot).not.toHaveBeenCalled();
+
+    client.updateUserBot.mockRejectedValue(
+      new BackendError(
+        "update_user_bot",
+        400,
+        "update_user_bot failed (400)",
+        JSON.stringify({ error: "commands require a command_endpoint" }),
+      ),
+    );
+    res = await operateBotsUpdateRoute(
+      patchJson({
+        botId: "b1",
+        applicationIds: [7],
+        handoverApplicationId: 7,
+        commands: ["b"],
+      }),
+    );
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: "commands require a command_endpoint",
+    });
+  });
+});
+
+describe("operateBotsCommandSecretRoute", () => {
+  it("401s when not signed in with GitHub", async () => {
+    clearSession();
+    const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
+    expect(res.status).toBe(401);
+    expect(client.revealUserBotCommandSecret).not.toHaveBeenCalled();
+  });
+
+  it("reveals the secret through the session's builder id", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
+    client.revealUserBotCommandSecret.mockResolvedValue({
+      commandSecret: "deadbeef",
+    });
+    const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    await expect(res.json()).resolves.toEqual({ commandSecret: "deadbeef" });
+    expect(client.revealUserBotCommandSecret).toHaveBeenCalledWith({
+      githubUserId: "gh-1",
+      botId: "b1",
+    });
+  });
+
+  it("forwards the manager's rejection of a bot the builder does not own", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
+    client.revealUserBotCommandSecret.mockRejectedValue(
+      new BackendError(
+        "reveal_user_bot_command_secret",
+        404,
+        "reveal_user_bot_command_secret failed (404)",
+        JSON.stringify({ error: "bot not found" }),
+      ),
+    );
+    const res = await operateBotsCommandSecretRoute(commandSecretReq("b9"));
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({ error: "bot not found" });
   });
 });
 

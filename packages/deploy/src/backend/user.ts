@@ -48,6 +48,7 @@ import type {
   SaveBuilderModelKeyInput,
   SetModelKeyGrantsInput,
   UpdateUserBotInput,
+  RevealUserBotCommandSecretInput,
   UserDeployment,
   UserDeploymentsPage,
   BuilderApplication,
@@ -556,11 +557,12 @@ export class BackendClient extends BackendPlatformClient {
       {
         platform: required(input.botPlatform, "botPlatform"),
         application_ids: input.applicationIds,
-        primary_application_id: input.primaryApplicationId,
+        handover_application_id: input.handoverApplicationId,
         label: input.label,
         credential,
         thread_mode: input.threadMode,
-        tenant_base_url: input.tenantBaseUrl,
+        mini_app_url: input.miniAppUrl,
+        command_endpoint: input.commandEndpoint,
         commands: input.commands,
       },
       "create_user_bot",
@@ -579,10 +581,11 @@ export class BackendClient extends BackendPlatformClient {
       ),
       {
         application_ids: input.applicationIds,
-        primary_application_id: input.primaryApplicationId,
+        handover_application_id: input.handoverApplicationId,
         label: input.label,
         thread_mode: input.threadMode,
-        tenant_base_url: input.tenantBaseUrl,
+        mini_app_url: input.miniAppUrl,
+        command_endpoint: input.commandEndpoint,
         commands: input.commands,
       },
       "update_user_bot",
@@ -590,6 +593,24 @@ export class BackendClient extends BackendPlatformClient {
     );
     await this.audit("update_user_bot", input.actor);
     return camelBotRegistration(raw.bot_registration);
+  }
+
+  /** The bot's derived command-signing secret. Never logged or audited with
+   *  its value; the caller shows it once. */
+  async revealUserBotCommandSecret(
+    input: RevealUserBotCommandSecretInput,
+  ): Promise<{ commandSecret: string }> {
+    const { params, bearer } = this.userParams(input);
+    const raw = await this.get<{ command_secret?: unknown }>(
+      this.userPath(
+        `bots/${encodeURIComponent(required(input.botId, "botId"))}/command-secret`,
+        params,
+      ),
+      "reveal_user_bot_command_secret",
+      bearer,
+    );
+    await this.audit("reveal_user_bot_command_secret", input.actor);
+    return { commandSecret: String(raw?.command_secret ?? "") };
   }
 
   async deleteUserBot(input: DeleteUserBotInput): Promise<void> {

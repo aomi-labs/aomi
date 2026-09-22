@@ -8,10 +8,24 @@ function client() {
   });
 }
 
+const CREATED = {
+  id: "b1",
+  platform: "telegram",
+  status: "active",
+  handover_app: "world",
+  handover_app_id: 7,
+  mini_app_url: null,
+  command_endpoint: null,
+  commands: [],
+  platform_bot_id: "1",
+  thread_mode: "single",
+  created_at: 1,
+};
+
 describe("BackendClient bots", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("lists bots for an owned source", async () => {
+  it("lists bots with bot-level command config", async () => {
     const fetchImpl = vi.fn(
       async () =>
         new Response(
@@ -22,21 +36,17 @@ describe("BackendClient bots", () => {
                 platform: "telegram",
                 status: "active",
                 label: null,
-                default_app: "binance",
+                handover_app: "binance",
+                handover_app_id: 7,
+                mini_app_url: null,
+                command_endpoint: "https://api.world.inc/commands",
+                commands: ["b", "p"],
                 platform_bot_id: "123",
                 platform_username: "mybot",
                 webhook_url: "https://x/y",
                 thread_mode: "single",
                 created_at: 1,
-                apps: [
-                  {
-                    application_id: 7,
-                    name: "world",
-                    is_primary: true,
-                    tenant_base_url: "https://api.world.inc/mini-app",
-                    commands: ["b", "p"],
-                  },
-                ],
+                apps: [{ application_id: 7, name: "world", is_primary: true }],
               },
             ],
           }),
@@ -45,54 +55,104 @@ describe("BackendClient bots", () => {
     );
     vi.stubGlobal("fetch", fetchImpl);
 
-    const bots = await client().listUserProjectBots({
-      githubUserId: "gh-1",
-      platform: "community",
-      projectId: 42,
-    });
+    const bots = await client().listUserBots({ githubUserId: "gh-1" });
 
-    expect(bots[0].platformUsername).toBe("mybot");
-    expect(bots[0].defaultApp).toBe("binance");
-    expect(bots[0].apps[0]).toMatchObject({
-      tenantBaseUrl: "https://api.world.inc/mini-app",
+    expect(bots[0]).toMatchObject({
+      platformUsername: "mybot",
+      handoverApp: "binance",
+      handoverAppId: 7,
+      miniAppUrl: null,
+      commandEndpoint: "https://api.world.inc/commands",
       commands: ["b", "p"],
     });
+    expect(bots[0].apps[0]).toEqual({
+      applicationId: 7,
+      projectId: null,
+      projectLabel: null,
+      name: "world",
+      label: "world",
+      platform: null,
+      isPrimary: true,
+    });
     expect(fetchImpl.mock.calls[0][0]).toContain(
-      "/api/integrations/github-app/user/projects/42/bots?",
+      "/api/integrations/github-app/user/bots?",
     );
   });
 
-  it("sends tenant command config when creating a builder bot", async () => {
+  it("sends handover_application_id and command config when creating a bot", async () => {
     const fetchImpl = vi.fn(async () =>
-      Response.json({
-        bot_registration: {
-          id: "b1",
-          platform: "telegram",
-          status: "active",
-          default_app: "world",
-          platform_bot_id: "1",
-          thread_mode: "single",
-          created_at: 1,
-        },
-      }),
+      Response.json({ bot_registration: CREATED }),
     );
     vi.stubGlobal("fetch", fetchImpl);
 
     await client().createUserBot({
       githubUserId: "gh-1",
       applicationIds: [7],
-      primaryApplicationId: 7,
+      handoverApplicationId: 7,
       botPlatform: "telegram",
       credential: "secret",
-      tenantBaseUrl: "https://api.world.inc/mini-app",
+      commandEndpoint: "https://api.world.inc/commands",
       commands: ["b", "p"],
     });
 
     const request = fetchImpl.mock.calls[0][1] as RequestInit;
-    expect(JSON.parse(String(request.body))).toMatchObject({
-      tenant_base_url: "https://api.world.inc/mini-app",
+    const body = JSON.parse(String(request.body));
+    expect(body).toMatchObject({
+      platform: "telegram",
+      application_ids: [7],
+      handover_application_id: 7,
+      command_endpoint: "https://api.world.inc/commands",
       commands: ["b", "p"],
     });
+    expect(body).not.toHaveProperty("primary_application_id");
+    expect(body).not.toHaveProperty("mini_app_url");
+  });
+
+  it("sends handover_application_id and null URL clears on update", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({ bot_registration: CREATED }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+
+    await client().updateUserBot({
+      githubUserId: "gh-1",
+      botId: "b1",
+      applicationIds: [7],
+      handoverApplicationId: 7,
+      miniAppUrl: null,
+      commands: [],
+    });
+
+    const [url, request] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/integrations/github-app/user/bots/b1?");
+    expect(request.method).toBe("PATCH");
+    const body = JSON.parse(String(request.body));
+    expect(body).toMatchObject({
+      application_ids: [7],
+      handover_application_id: 7,
+      mini_app_url: null,
+      commands: [],
+    });
+    expect(body).not.toHaveProperty("command_endpoint");
+  });
+
+  it("reveals the per-bot command secret", async () => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({ command_secret: "deadbeef" }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const result = await client().revealUserBotCommandSecret({
+      githubUserId: "gh-1",
+      botId: "b1",
+    });
+
+    expect(result).toEqual({ commandSecret: "deadbeef" });
+    const [url, request] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain(
+      "/api/integrations/github-app/user/bots/b1/command-secret?github_user_id=gh-1",
+    );
+    expect(request.method).toBe("GET");
   });
 
   it("never surfaces a credential field", async () => {
@@ -100,16 +160,7 @@ describe("BackendClient bots", () => {
       async () =>
         new Response(
           JSON.stringify({
-            bot_registration: {
-              id: "b1",
-              platform: "telegram",
-              status: "active",
-              default_app: "binance",
-              platform_bot_id: "1",
-              thread_mode: "single",
-              created_at: 1,
-              credential_ciphertext: "LEAK",
-            },
+            bot_registration: { ...CREATED, credential_ciphertext: "LEAK" },
           }),
           { status: 200 },
         ),

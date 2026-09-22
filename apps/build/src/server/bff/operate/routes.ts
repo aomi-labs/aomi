@@ -191,86 +191,51 @@ function isValidProjectId(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
-const RESERVED_TELEGRAM_COMMANDS = new Set([
-  "start",
-  "help",
-  "wallet",
-  "transactions",
-  "sign",
-  "thread",
-  "model",
-  "app",
-  "signing",
-]);
-
-function tenantTelegramConfig(body: {
-  tenantBaseUrl?: unknown;
+/** Shape-only check of the bot-level command config. The manager is the
+ *  authority on URL schemes, command names, the reserved list and the
+ *  endpoint-required rule; its `error` string is forwarded to the UI as-is.
+ *  Omitted fields are omitted from the forwarded body (= unchanged on PATCH);
+ *  `""` normalises to `null` for the URL fields, which the backend does too. */
+function botCommandConfig(body: {
+  miniAppUrl?: unknown;
+  commandEndpoint?: unknown;
   commands?: unknown;
 }):
-  | { tenantBaseUrl?: string; commands?: string[] }
+  | {
+      miniAppUrl?: string | null;
+      commandEndpoint?: string | null;
+      commands?: string[];
+    }
   | { response: NextResponse } {
-  if (body.tenantBaseUrl === undefined && body.commands === undefined)
-    return {};
-  if (typeof body.tenantBaseUrl !== "string" || !Array.isArray(body.commands)) {
-    return {
-      response: NextResponse.json(
-        { error: "invalid tenant command config" },
-        { status: 400 },
-      ),
-    };
-  }
-  const tenantBaseUrl = body.tenantBaseUrl.trim().replace(/\/+$/, "");
-  const commands = body.commands.map((command) =>
-    typeof command === "string"
-      ? command.trim().replace(/^\/+/, "").toLowerCase()
-      : "",
-  );
+  const url = (value: unknown) =>
+    value === undefined || value === null || typeof value === "string";
   if (
-    commands.length > 32 ||
-    new Set(commands).size !== commands.length ||
-    commands.some(
-      (command) =>
-        !/^[a-z0-9_]{1,32}$/.test(command) ||
-        RESERVED_TELEGRAM_COMMANDS.has(command),
-    )
+    !url(body.miniAppUrl) ||
+    !url(body.commandEndpoint) ||
+    (body.commands !== undefined &&
+      (!Array.isArray(body.commands) ||
+        body.commands.some((command) => typeof command !== "string")))
   ) {
     return {
       response: NextResponse.json(
-        { error: "invalid custom commands" },
+        { error: "invalid bot command config" },
         { status: 400 },
       ),
     };
   }
-  if (!tenantBaseUrl) {
-    return commands.length === 0
-      ? { tenantBaseUrl: "", commands }
-      : {
-          response: NextResponse.json(
-            { error: "custom commands require a tenant Mini App URL" },
-            { status: 400 },
-          ),
-        };
-  }
-  try {
-    const url = new URL(tenantBaseUrl);
-    const local = url.protocol === "http:" && url.hostname === "localhost";
-    if (
-      (url.protocol !== "https:" && !local) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    )
-      throw new Error("invalid URL");
-    return { tenantBaseUrl, commands };
-  } catch {
-    return {
-      response: NextResponse.json(
-        { error: "invalid tenant Mini App URL" },
-        { status: 400 },
-      ),
-    };
-  }
+  const clear = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
+  return {
+    ...(body.miniAppUrl !== undefined
+      ? { miniAppUrl: clear(body.miniAppUrl) }
+      : {}),
+    ...(body.commandEndpoint !== undefined
+      ? { commandEndpoint: clear(body.commandEndpoint) }
+      : {}),
+    ...(body.commands !== undefined
+      ? { commands: body.commands as string[] }
+      : {}),
+  };
 }
 
 function pageLimit(params: URLSearchParams, fallback: number, max: number) {
@@ -682,26 +647,27 @@ export async function operateBotsCreateRoute(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as {
     applicationIds?: unknown;
-    primaryApplicationId?: unknown;
+    handoverApplicationId?: unknown;
     credential?: unknown;
     label?: unknown;
     threadMode?: unknown;
-    tenantBaseUrl?: unknown;
+    miniAppUrl?: unknown;
+    commandEndpoint?: unknown;
     commands?: unknown;
   };
   if (
     !Array.isArray(body.applicationIds) ||
     body.applicationIds.length === 0 ||
     body.applicationIds.some((id) => typeof id !== "number") ||
-    typeof body.primaryApplicationId !== "number"
+    typeof body.handoverApplicationId !== "number"
   ) {
     return NextResponse.json(
       { error: "missing or invalid app mappings" },
       { status: 400 },
     );
   }
-  const telegram = tenantTelegramConfig(body);
-  if ("response" in telegram) return telegram.response;
+  const commandConfig = botCommandConfig(body);
+  if ("response" in commandConfig) return commandConfig.response;
   if (typeof body.credential !== "string" || !body.credential.trim()) {
     return NextResponse.json(
       { error: "missing `credential`" },
@@ -722,7 +688,7 @@ export async function operateBotsCreateRoute(req: Request) {
   }
   if (
     !applicationIds.every((id) => allowedApplicationIds.has(id)) ||
-    !applicationIds.includes(body.primaryApplicationId)
+    !applicationIds.includes(body.handoverApplicationId)
   ) {
     return NextResponse.json(
       { error: "selected apps are not owned by this user" },
@@ -734,13 +700,13 @@ export async function operateBotsCreateRoute(req: Request) {
     const bot: BotRegistration = await owned.client.createUserBot({
       githubUserId: owned.githubUserId,
       applicationIds,
-      primaryApplicationId: body.primaryApplicationId,
+      handoverApplicationId: body.handoverApplicationId,
       botPlatform: "telegram",
       credential: body.credential.trim(),
       label: typeof body.label === "string" ? body.label : undefined,
       threadMode:
         typeof body.threadMode === "string" ? body.threadMode : undefined,
-      ...telegram,
+      ...commandConfig,
     });
     return NextResponse.json({ bot }, { status: 201 });
   } catch (err) {
@@ -778,9 +744,10 @@ export async function operateBotsUpdateRoute(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     botId?: unknown;
     applicationIds?: unknown;
-    primaryApplicationId?: unknown;
+    handoverApplicationId?: unknown;
     threadMode?: unknown;
-    tenantBaseUrl?: unknown;
+    miniAppUrl?: unknown;
+    commandEndpoint?: unknown;
     commands?: unknown;
   };
   if (
@@ -788,15 +755,15 @@ export async function operateBotsUpdateRoute(req: Request) {
     !Array.isArray(body.applicationIds) ||
     body.applicationIds.length === 0 ||
     body.applicationIds.some((id) => typeof id !== "number") ||
-    typeof body.primaryApplicationId !== "number"
+    typeof body.handoverApplicationId !== "number"
   ) {
     return NextResponse.json(
       { error: "invalid bot mapping update" },
       { status: 400 },
     );
   }
-  const telegram = tenantTelegramConfig(body);
-  if ("response" in telegram) return telegram.response;
+  const commandConfig = botCommandConfig(body);
+  if ("response" in commandConfig) return commandConfig.response;
   // Optional settings patch: omitted leaves the stored value unchanged.
   if (
     body.threadMode !== undefined &&
@@ -822,7 +789,7 @@ export async function operateBotsUpdateRoute(req: Request) {
   }
   if (
     !applicationIds.every((id) => allowed.has(id)) ||
-    !applicationIds.includes(body.primaryApplicationId)
+    !applicationIds.includes(body.handoverApplicationId)
   ) {
     return NextResponse.json(
       { error: "selected apps are not owned by this user" },
@@ -834,14 +801,43 @@ export async function operateBotsUpdateRoute(req: Request) {
       githubUserId: owned.githubUserId,
       botId: body.botId,
       applicationIds,
-      primaryApplicationId: body.primaryApplicationId,
+      handoverApplicationId: body.handoverApplicationId,
       threadMode: body.threadMode,
-      ...telegram,
+      ...commandConfig,
     });
     return NextResponse.json({ bot });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.bots_update", err),
+    ).response;
+  }
+}
+
+/// GET /operate/bots/:botId/command-secret → { commandSecret }. Same scope
+/// as the update route: the session's builder id goes to the manager, which
+/// enforces bot ownership. The secret is never logged or cached here.
+export async function operateBotsCommandSecretRoute(req: Request) {
+  const owned = await ownedSources(req);
+  if ("response" in owned) return owned.response;
+  const segments = new URL(req.url).pathname.split("/");
+  const botId = decodeURIComponent(
+    segments[segments.indexOf("bots") + 1] ?? "",
+  );
+  if (!botId || botId === "command-secret") {
+    return NextResponse.json({ error: "missing `botId`" }, { status: 400 });
+  }
+  try {
+    const { commandSecret } = await owned.client.revealUserBotCommandSecret({
+      githubUserId: owned.githubUserId,
+      botId,
+    });
+    return NextResponse.json(
+      { commandSecret },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (err) {
+    return buildFailures.handle(
+      identifyOperateFailure(req, "operate.bots_command_secret", err),
     ).response;
   }
 }

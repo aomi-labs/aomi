@@ -65,11 +65,15 @@ const BOT = {
   platform: "telegram",
   status: "active",
   label: null,
-  defaultApp: "playground-example",
+  handoverApp: "playground-example",
+  miniAppUrl: null,
+  commandEndpoint: null,
+  commands: [],
   platformBotId: "8184083135",
   platformUsername: "chico_chico_bot",
   webhookUrl: "https://x",
   threadMode: "single",
+  configurationVersion: 1,
   createdAt: 1,
   apps: [
     {
@@ -189,40 +193,144 @@ describe("BotsView", () => {
     expect(JSON.parse(String(patchInit?.body))).toMatchObject({
       botId: "b1",
       applicationIds: [11],
-      primaryApplicationId: 11,
+      handoverApplicationId: 11,
       threadMode: "multi",
     });
     fetchSpy.mockRestore();
   });
 
-  it("edits the primary app tenant URL and custom commands", async () => {
+  it("labels the radio as the handover app", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
-    const configuredBot = {
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    render(<BotsView />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    expect(
+      screen.getByRole("radio", {
+        name: /make playground-example .* the handover app/i,
+      }),
+    ).toBeChecked();
+    expect(screen.getByText(/new chats start here/i)).toBeInTheDocument();
+  });
+
+  it("an untouched save omits the bot command fields", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    const configured = {
       ...BOT,
-      apps: [
-        {
-          ...BOT.apps[0],
-          tenantBaseUrl: "https://api.world.inc/mini-app",
-          commands: ["b", "p"],
-        },
-      ],
+      miniAppUrl: "https://world.example/mini",
+      commandEndpoint: "https://api.world.inc/commands",
+      commands: ["b", "p"],
     };
     mockedOperateFetch.mockResolvedValue({
       projects: PROJECTS,
-      bots: [configuredBot],
+      bots: [configured],
     });
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(Response.json({ bot: configuredBot }));
+      .mockResolvedValue(Response.json({ bot: configured }));
     render(<BotsView />);
 
     fireEvent.click(
       await screen.findByRole("button", { name: /change apps/i }),
     );
-    fireEvent.change(screen.getByLabelText(/tenant mini app url/i), {
-      target: { value: "https://api.world.inc/mini-app-v2" },
+    // Fields are seeded from the bot, not from an app.
+    expect(screen.getByLabelText(/mini app url/i)).toHaveValue(
+      "https://world.example/mini",
+    );
+    expect(screen.getByLabelText(/command endpoint/i)).toHaveValue(
+      "https://api.world.inc/commands",
+    );
+    expect(screen.getByLabelText(/custom commands/i)).toHaveValue("b, p");
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }));
+
+    await screen.findByRole("button", { name: /change apps/i });
+    const [, patchInit] = fetchSpy.mock.calls.find(
+      ([, init]) => init?.method === "PATCH",
+    )!;
+    const body = JSON.parse(String(patchInit?.body));
+    expect(body).toEqual({
+      botId: "b1",
+      applicationIds: [11],
+      handoverApplicationId: 11,
+      threadMode: "single",
     });
-    fireEvent.change(screen.getByPlaceholderText("b, p, r, chart"), {
+    fetchSpy.mockRestore();
+  });
+
+  it("re-seeds the card when the server's bot changes, so a stale draft is never sent back", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    // The save response is what the server now holds: another admin (or the
+    // backend) set a command endpoint and commands and bumped the version.
+    const refreshed = {
+      ...BOT,
+      configurationVersion: 2,
+      commandEndpoint: "https://api.world.inc/commands",
+      commands: ["b"],
+    };
+    // A fresh Response per call: a body can only be read once.
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() =>
+        Promise.resolve(Response.json({ bot: refreshed })),
+      );
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    expect(screen.getByLabelText(/command endpoint/i)).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }));
+    await screen.findByRole("button", { name: /change apps/i });
+
+    // Reopening edits the refreshed bot, not the draft from before the save.
+    fireEvent.click(screen.getByRole("button", { name: /change apps/i }));
+    expect(screen.getByLabelText(/command endpoint/i)).toHaveValue(
+      "https://api.world.inc/commands",
+    );
+    expect(screen.getByLabelText(/custom commands/i)).toHaveValue("b");
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }));
+    await screen.findByRole("button", { name: /change apps/i });
+
+    const patches = fetchSpy.mock.calls
+      .filter(([, init]) => init?.method === "PATCH")
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    expect(patches).toHaveLength(2);
+    // Neither save carried command fields: the first draft matched its seed,
+    // and the second was re-seeded from the refreshed bot.
+    for (const body of patches) {
+      expect(body).not.toHaveProperty("commandEndpoint");
+      expect(body).not.toHaveProperty("commands");
+      expect(body).not.toHaveProperty("miniAppUrl");
+    }
+    fetchSpy.mockRestore();
+  });
+
+  it("sends only the edited command fields, clearing a URL as null", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    const configured = {
+      ...BOT,
+      miniAppUrl: "https://world.example/mini",
+      commandEndpoint: "https://api.world.inc/commands",
+      commands: ["b", "p"],
+    };
+    mockedOperateFetch.mockResolvedValue({
+      projects: PROJECTS,
+      bots: [configured],
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ bot: configured }));
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/mini app url/i), {
+      target: { value: "  " },
+    });
+    fireEvent.change(screen.getByLabelText(/custom commands/i), {
       target: { value: "/B, r chart" },
     });
     fireEvent.click(screen.getByRole("button", { name: /^save/i }));
@@ -231,10 +339,115 @@ describe("BotsView", () => {
     const [, patchInit] = fetchSpy.mock.calls.find(
       ([, init]) => init?.method === "PATCH",
     )!;
-    expect(JSON.parse(String(patchInit?.body))).toMatchObject({
-      tenantBaseUrl: "https://api.world.inc/mini-app-v2",
+    const body = JSON.parse(String(patchInit?.body));
+    expect(body).toMatchObject({
+      miniAppUrl: null,
       commands: ["b", "r", "chart"],
     });
+    expect(body).not.toHaveProperty("commandEndpoint");
+    fetchSpy.mockRestore();
+  });
+
+  it("disables save when commands are set without an endpoint", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/custom commands/i), {
+      target: { value: "b" },
+    });
+    expect(screen.getByRole("button", { name: /^save/i })).toBeDisabled();
+    expect(
+      screen.getByText(/custom commands need a command endpoint/i),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/command endpoint/i), {
+      target: { value: "https://api.world.inc/commands" },
+    });
+    expect(screen.getByRole("button", { name: /^save/i })).toBeEnabled();
+  });
+
+  it("reveals the command secret through the BFF route", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ commandSecret: "deadbeef" }));
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /reveal command secret/i }),
+    );
+    const field = await screen.findByLabelText(/command secret/i);
+    expect(field).toHaveValue("deadbeef");
+    expect(field).toHaveAttribute("readonly");
+    expect(String(fetchSpy.mock.calls[0][0])).toBe(
+      "/api/bff/operate/bots/b1/command-secret",
+    );
+    fetchSpy.mockRestore();
+  });
+
+  it("read mode shows the effective Mini App URL, endpoint and commands", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({
+      projects: PROJECTS,
+      bots: [
+        BOT,
+        {
+          ...BOT,
+          id: "b2",
+          platformBotId: "2",
+          commandEndpoint: "https://api.world.inc/commands",
+          commands: ["b", "p"],
+        },
+      ],
+    });
+    render(<BotsView />);
+    const summaries = await screen.findAllByTestId("bot-command-summary");
+    expect(summaries[0]).toHaveTextContent("Mini App: Aomi default");
+    expect(summaries[0]).not.toHaveTextContent("endpoint");
+    expect(summaries[1]).toHaveTextContent(
+      "endpoint: https://api.world.inc/commands · /b /p",
+    );
+  });
+
+  it("registers a bot sending only the filled command fields", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [] });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ bot: BOT }, { status: 201 }));
+    render(<BotsView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /add bot/i }));
+    fireEvent.change(screen.getByPlaceholderText(/paste botfather token/i), {
+      target: { value: "123:abc" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /attach playground-example/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/command endpoint/i), {
+      target: { value: "https://api.world.inc/commands" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /register bot/i }));
+
+    await screen.findByRole("button", { name: /add bot/i });
+    const [, postInit] = fetchSpy.mock.calls.find(
+      ([, init]) => init?.method === "POST",
+    )!;
+    const body = JSON.parse(String(postInit?.body));
+    expect(body).toMatchObject({
+      applicationIds: [11],
+      handoverApplicationId: 11,
+      commandEndpoint: "https://api.world.inc/commands",
+    });
+    expect(body).not.toHaveProperty("miniAppUrl");
+    expect(body).not.toHaveProperty("commands");
     fetchSpy.mockRestore();
   });
 
