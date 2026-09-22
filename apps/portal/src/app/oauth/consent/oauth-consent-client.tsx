@@ -7,6 +7,11 @@ import { authClient } from "@aomi-labs/account/better-auth/client";
 import { oauthConsentRedirect } from "./consent-response";
 
 const DESCRIPTIONS: Record<string, string> = {
+  "account:apps:read": "View your available and installed apps",
+  "account:apps:write": "Install and remove apps from your account",
+  "account:credentials:read":
+    "View app credential setup status (never saved values)",
+  "account:credentials:write": "Save, replace, and remove your app credentials",
   "agent:read": "Read your Agent sessions",
   "agent:write": "Start and manage Agent turns",
   "agent:actions:resolve": "Resolve staged Agent actions",

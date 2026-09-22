@@ -302,6 +302,7 @@ export const auth = betterAuth({
                   resources.pipelineMcp,
                   resources.agentRest,
                   resources.pipelineRest,
+                  resources.accountRest,
                 ]
               : [],
             clientRegistrationDefaultScopes: [

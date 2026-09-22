@@ -29,8 +29,8 @@ export type AppSecretsDialogProps = {
 };
 
 /**
- * The app the current thread runs, as the catalog describes it. Only an app
- * A stable `applicationId` is required. Stored slots remain addressable even
+ * The app the current thread runs, as the catalog describes it. A stable
+ * `applicationId` is required. Stored slots remain addressable even
  * after a newer manifest stops declaring them, so users can remove obsolete
  * credentials.
  */
@@ -53,8 +53,8 @@ function selectedDescriptor(
  * Per-user API keys for the selected app.
  *
  * Shown when the selected app declares slots or still has obsolete stored
- * slots. The button's dot summarises state at a glance (green: every required slot is covered,
- * amber: something required is still missing); the dialog lists each slot
+ * slots. The button's dot summarises state at a glance (green: every required
+ * slot is covered, amber: something required is still missing); the dialog lists each slot
  * with its status and lets the user save or remove their own value. Values
  * are write-only — the backend never returns them.
  */

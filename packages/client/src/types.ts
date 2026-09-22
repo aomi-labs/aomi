@@ -425,9 +425,8 @@ export interface AomiUserAppSecretSlot {
   /** The current account stored its own value for this slot. */
   configured: boolean;
   /**
-   * The app ships a shared value for this slot (official bundle file or
-   * Build Environment), so a user value is an override rather than a
-   * prerequisite for the app to work.
+   * Retained in the response contract; always false for user-owned slots.
+   * A user-owned credential never falls back to a Builder credential.
    */
   app_provided: boolean;
 }
@@ -467,8 +466,8 @@ export interface AomiSecretSlot {
   name: string;
   description: string;
   required: boolean;
-  /** Whether each signed-in user supplies their own value. Defaults to false. */
-  user_own: boolean;
+  /** Whether each signed-in user supplies their own value. Missing means false. */
+  user_own?: boolean;
 }
 
 /** Hosted application artifact availability reported by the backend catalog. */

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AomiClient } from "../src/client";
+import type { AomiOAuthTokenRequest } from "../src/authorization";
 
 describe("AomiClient per-user app credentials", () => {
   const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();
@@ -190,5 +191,48 @@ describe("AomiClient per-user app credentials", () => {
         undefined,
       ],
     ]);
+  });
+  it("uses the account OAuth resource and distinct scopes for apps and credentials", async () => {
+    const oauth = vi.fn(
+      async ({ resource, scopes }: AomiOAuthTokenRequest) => ({
+        resource,
+        scopes,
+        accessToken: "account-access",
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+    fetchMock.mockImplementation(async (url) =>
+      Response.json(String(url).endsWith("/apps") ? [] : {}),
+    );
+    const api = new AomiClient({
+      baseUrl: "https://api.example",
+      fetch: fetchMock,
+      oauth,
+    });
+    await api.listAccountApps("s");
+    await api.addAccountApp("s", 42);
+    await api.getAppCredentialsStatus("s", 42);
+    await api.setAppCredential("s", 42, "API_KEY", "test-value");
+    await api.removeAppCredential("s", 42, "API_KEY");
+    await api.removeAccountApp("s", 42);
+    expect(oauth.mock.calls.map(([request]) => request.scopes)).toEqual([
+      ["account:apps:read"],
+      ["account:apps:write"],
+      ["account:credentials:read"],
+      ["account:credentials:write"],
+      ["account:credentials:write"],
+      ["account:apps:write"],
+    ]);
+    expect(
+      oauth.mock.calls.every(
+        ([request]) => request.resource === "https://api.example/v1/account",
+      ),
+    ).toBe(true);
+    for (const [url, init] of fetchMock.mock.calls) {
+      expect(String(url)).toMatch(/^https:\/\/api.example\/v1\/account\/apps/);
+      expect(new Headers(init?.headers).get("authorization")).toBe(
+        "Bearer account-access",
+      );
+    }
   });
 });

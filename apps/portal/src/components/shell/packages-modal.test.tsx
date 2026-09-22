@@ -731,6 +731,66 @@ describe("packages modal wiring", () => {
     expect(screen.queryByText("acct-1")).toBeNull();
   });
 
+  it("does not install under a new account after the saving view unmounts", async () => {
+    seedAccountOverview({
+      user: { user_id: "acct-1", apps: ["default"], application_ids: [] },
+    });
+    installFetchRecorder([], []);
+    const recordedFetch = globalThis.fetch;
+    let finishSave!: (response: Response) => void;
+    let currentAccount = "acct-1";
+    const installs: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const path = new URL(input.toString(), "https://portal.test").pathname;
+        if (
+          path === "/api/account/apps/12/secrets" &&
+          init?.method === "POST"
+        ) {
+          return new Promise<Response>((resolve) => {
+            finishSave = resolve;
+          });
+        }
+        if (path === "/api/account/apps/12" && init?.method === "POST")
+          installs.push(currentAccount);
+        return recordedFetch(input, init);
+      }),
+    );
+    const view = await renderModal();
+    fireEvent.click(screen.getByLabelText("Add Venue from catalog"));
+    fireEvent.change(await screen.findByLabelText("VENUE_API_KEY"), {
+      target: { value: "account-one-key" },
+    });
+    await waitFor(() =>
+      expect(screen.getByText("Save & add app")).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByText("Save & add app"));
+    expect(finishSave).toBeTypeOf("function");
+    view.unmount();
+    currentAccount = "acct-2";
+    seedAccountOverview(null);
+    seedAccountOverview({
+      user: { user_id: "acct-2", apps: ["default"], application_ids: [] },
+    });
+    await act(async () => {
+      finishSave(
+        Response.json({
+          application_id: 12,
+          app: "venue",
+          ready: true,
+          missing_required: [],
+          slots: VENUE_SECRETS.filter((slot) => slot.user_own).map((slot) => ({
+            ...slot,
+            configured: true,
+            app_provided: false,
+          })),
+        }),
+      );
+    });
+    expect(installs).toEqual([]);
+  });
+
   it("serializes exact app mutations", async () => {
     const calls: FetchCall[] = [];
     let finishMutation: ((response: Response) => void) | undefined;

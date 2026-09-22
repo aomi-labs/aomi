@@ -54,6 +54,8 @@ export function useAppSecretsState({
   operationsRef.current = operations;
   const scopeRef = useRef(scopeKey);
   scopeRef.current = scopeKey;
+  // Reopening the same scope must not revive work from an earlier visit.
+  const lifetimeRef = useRef(0);
   const requestRevisionRef = useRef(0);
   const [status, setStatus] = useState<AomiUserAppSecrets | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -64,11 +66,13 @@ export function useAppSecretsState({
   const refresh = useCallback(async (): Promise<AomiUserAppSecrets | null> => {
     if (!enabled || applicationId == null) return null;
     const requestScope = scopeKey;
+    const lifetime = lifetimeRef.current;
     const revision = ++requestRevisionRef.current;
     try {
       const next = await operationsRef.current.list(applicationId);
       if (
         scopeRef.current === requestScope &&
+        lifetimeRef.current === lifetime &&
         requestRevisionRef.current === revision
       ) {
         setStatus(next);
@@ -78,6 +82,7 @@ export function useAppSecretsState({
     } catch (cause) {
       if (
         scopeRef.current === requestScope &&
+        lifetimeRef.current === lifetime &&
         requestRevisionRef.current === revision
       ) {
         setStatus(null);
@@ -108,6 +113,7 @@ export function useAppSecretsState({
     });
     return () => {
       current = false;
+      lifetimeRef.current += 1;
       requestRevisionRef.current += 1;
     };
   }, [applicationId, enabled, refresh, scopeKey]);
@@ -136,23 +142,29 @@ export function useAppSecretsState({
     if (applicationId == null || Object.keys(pending).length === 0)
       return status;
     const requestScope = scopeKey;
+    const lifetime = lifetimeRef.current;
+    const isCurrent = () =>
+      scopeRef.current === requestScope && lifetimeRef.current === lifetime;
+    // Reads started before or during this mutation must not replace its result.
+    requestRevisionRef.current += 1;
     setBusyName("save");
     setError(null);
     try {
       const next = await operationsRef.current.save(applicationId, pending);
-      if (scopeRef.current !== requestScope) return null;
+      if (!isCurrent()) return null;
+      requestRevisionRef.current += 1;
       setStatus(next);
       setDrafts({});
       return next;
     } catch (cause) {
-      if (scopeRef.current === requestScope) {
+      if (isCurrent()) {
         setError(
           cause instanceof Error ? cause.message : "Couldn’t save credentials.",
         );
       }
       return null;
     } finally {
-      if (scopeRef.current === requestScope) setBusyName(null);
+      if (isCurrent()) setBusyName(null);
     }
   }, [applicationId, pending, scopeKey, status]);
 
@@ -160,16 +172,23 @@ export function useAppSecretsState({
     async (name: string): Promise<boolean> => {
       if (applicationId == null) return false;
       const requestScope = scopeKey;
+      const lifetime = lifetimeRef.current;
+      const isCurrent = () =>
+        scopeRef.current === requestScope && lifetimeRef.current === lifetime;
+      const requestOperations = operationsRef.current;
+      requestRevisionRef.current += 1;
       setBusyName(name);
       setError(null);
       try {
-        await operationsRef.current.remove(applicationId, name);
-        const next = await operationsRef.current.list(applicationId);
-        if (scopeRef.current !== requestScope) return false;
+        await requestOperations.remove(applicationId, name);
+        if (!isCurrent()) return false;
+        const next = await requestOperations.list(applicationId);
+        if (!isCurrent()) return false;
+        requestRevisionRef.current += 1;
         setStatus(next);
         return true;
       } catch (cause) {
-        if (scopeRef.current === requestScope) {
+        if (isCurrent()) {
           setError(
             cause instanceof Error
               ? cause.message
@@ -178,16 +197,18 @@ export function useAppSecretsState({
         }
         return false;
       } finally {
-        if (scopeRef.current === requestScope) setBusyName(null);
+        if (isCurrent()) setBusyName(null);
       }
     },
     [applicationId, scopeKey],
   );
 
   const retry = useCallback(async () => {
+    const lifetime = lifetimeRef.current;
     setLoading(true);
     await refresh();
-    if (scopeRef.current === scopeKey) setLoading(false);
+    if (scopeRef.current === scopeKey && lifetimeRef.current === lifetime)
+      setLoading(false);
   }, [refresh, scopeKey]);
 
   return {

@@ -102,7 +102,7 @@ describe("CLI account app commands", () => {
 
     expect(log).toHaveBeenCalledWith("venue  id=42  installed");
     expect(mocks.addAccountApp).toHaveBeenCalledWith("session-1", 42);
-    expect(mocks.removeAccountApp).toHaveBeenCalledWith("session-1", 42);
+    expect(mocks.removeAccountApp).toHaveBeenCalledWith("session-1", "42");
     log.mockRestore();
   });
 
@@ -164,5 +164,18 @@ describe("CLI account app commands", () => {
     );
     expect(log).toHaveBeenCalledWith("VENUE_KEY removed from venue.");
     log.mockRestore();
+  });
+  it("retires an unavailable app and its credentials by ID without discovery", async () => {
+    mocks.listAccountApps.mockResolvedValue([]);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    await removeAccountAppCommand({ secrets: {} }, "42");
+    await removeAppCredentialCommand({ secrets: {} }, "42", "VENUE_KEY");
+    expect(mocks.listAccountApps).not.toHaveBeenCalled();
+    expect(mocks.removeAccountApp).toHaveBeenCalledWith("session-1", "42");
+    expect(mocks.removeAppCredential).toHaveBeenCalledWith(
+      "session-1",
+      "42",
+      "VENUE_KEY",
+    );
   });
 });

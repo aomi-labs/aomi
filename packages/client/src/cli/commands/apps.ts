@@ -102,8 +102,12 @@ async function updateInstalledApp(
   install: boolean,
 ): Promise<void> {
   const context = commandContext(config);
-  const app = await resolveAccountApp(context, selector);
-  const applicationId = requireApplicationId(app);
+  // Retiring an app must work even after it disappears from discovery.
+  const app =
+    !install && /^[1-9]\d*$/.test(selector)
+      ? null
+      : await resolveAccountApp(context, selector);
+  const applicationId = app ? requireApplicationId(app) : selector;
   const result = install
     ? await context.client.addAccountApp(context.sessionId, applicationId)
     : await context.client.removeAccountApp(context.sessionId, applicationId);
@@ -111,7 +115,7 @@ async function updateInstalledApp(
     printJson(result);
     return;
   }
-  console.log(`${app.name} ${install ? "added" : "removed"}.`);
+  console.log(`${result.app} ${install ? "added" : "removed"}.`);
 }
 
 export function addAccountAppCommand(
@@ -218,19 +222,22 @@ export async function removeAppCredentialCommand(
   name: string,
 ): Promise<void> {
   const context = commandContext(config);
-  const app = await resolveAccountApp(context, selector);
+  const app = /^[1-9]\d*$/.test(selector)
+    ? null
+    : await resolveAccountApp(context, selector);
+  const label = app?.name ?? selector;
   const deleted = await context.client.removeAppCredential(
     context.sessionId,
-    requireApplicationId(app),
+    app ? requireApplicationId(app) : selector,
     name,
   );
   if (config.json) {
-    printJson({ app: app.name, name, deleted: deleted.deleted });
+    printJson({ app: label, name, deleted: deleted.deleted });
     return;
   }
   console.log(
     deleted.deleted
-      ? `${name} removed from ${app.name}.`
-      : `${name} was not saved for ${app.name}.`,
+      ? `${name} removed from ${label}.`
+      : `${name} was not saved for ${label}.`,
   );
 }

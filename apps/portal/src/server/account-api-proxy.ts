@@ -2,6 +2,7 @@ import "server-only";
 
 import { mintAgentApiBearer } from "@aomi-labs/account";
 import { configuredAgentApiUrl } from "@portal/server/agent-api-proxy";
+import { accountAppsScope } from "@portal/server/account-apps-policy";
 import type { ApiPrincipal } from "@portal/server/oauth/principal";
 
 const ACCOUNT_PATHS = new Set([
@@ -28,17 +29,34 @@ const RESPONSE_HEADERS = new Set([
   "x-request-id",
 ]);
 
-/** Authenticated BFF -> api-server proxy limited to Credit Bank endpoints. */
+/** Authenticated BFF -> api-server proxy for allowlisted account operations. */
 export async function proxyAccountApi(
   request: Request,
   principal: ApiPrincipal,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
   const incoming = new URL(request.url);
-  if (!ACCOUNT_PATHS.has(incoming.pathname)) {
+  const appScope = accountAppsScope(request.method, incoming.pathname);
+  if (!ACCOUNT_PATHS.has(incoming.pathname) && !appScope) {
     return Response.json(
       { error: { code: "not_found", message: "Not found" } },
       { status: 404 },
+    );
+  }
+
+  if (
+    appScope &&
+    (principal.principalClass !== "user" ||
+      !principal.scopes.includes(appScope))
+  ) {
+    return Response.json(
+      {
+        error: {
+          code: "insufficient_scope",
+          message: "App access is not authorized",
+        },
+      },
+      { status: 403 },
     );
   }
 

@@ -35,19 +35,17 @@ describe("aomi account login", () => {
   });
 
   it("uses least-privilege OAuth device grants by default", async () => {
-    const oauthLogin = vi.fn(async (input: { resource: string }) => ({
-      clientId: input.resource.endsWith("/v1/agent")
-        ? "agent-client"
-        : "pipeline-client",
-      accessToken: "access-token",
-      refreshToken: "refresh-token",
-      expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
-      resource: input.resource,
-      scopes: input.resource.endsWith("/v1/agent")
-        ? ["agent:read", "agent:write", "offline_access"]
-        : ["pipeline:catalog", "offline_access"],
-      tokenType: "Bearer" as const,
-    }));
+    const oauthLogin = vi.fn(
+      async (input: { resource: string; scopes: string[] }) => ({
+        clientId: `${input.resource.split("/").at(-1)}-client`,
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
+        resource: input.resource,
+        scopes: input.scopes,
+        tokenType: "Bearer" as const,
+      }),
+    );
     vi.doMock("../../src/cli/oauth-device-auth", () => ({
       signInWithOAuthDevice: oauthLogin,
     }));
@@ -58,7 +56,7 @@ describe("aomi account login", () => {
 
     await accountLoginCommand(baseConfig);
 
-    expect(oauthLogin).toHaveBeenCalledTimes(2);
+    expect(oauthLogin).toHaveBeenCalledTimes(3);
     expect(oauthLogin.mock.calls.map(([input]) => input)).toEqual([
       {
         baseUrl: "http://unit.test",
@@ -70,14 +68,40 @@ describe("aomi account login", () => {
         resource: "http://unit.test/v1/pipeline",
         scopes: ["pipeline:catalog", "offline_access"],
       },
+      {
+        baseUrl: "http://unit.test",
+        resource: "http://unit.test/v1/account",
+        scopes: [
+          "account:apps:read",
+          "account:apps:write",
+          "account:credentials:read",
+          "account:credentials:write",
+          "offline_access",
+        ],
+      },
     ]);
     expect(Object.keys(readState()?.oauthGrants ?? {})).toEqual([
       "http://unit.test/v1/agent",
       "http://unit.test/v1/pipeline",
+      "http://unit.test/v1/account",
     ]);
     expect(logSpy).toHaveBeenCalledWith(
       "Signed in with OAuth device authorization",
     );
+    const { accountAppsCommand } = await import("../../src/cli/commands/apps");
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await accountAppsCommand(baseConfig);
+      expect(String(fetchMock.mock.calls[0][0])).toBe(
+        "http://unit.test/v1/account/apps",
+      );
+      expect(
+        new Headers(fetchMock.mock.calls[0][1].headers).get("authorization"),
+      ).toBe("Bearer access-token");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("passes an explicit provider to device auth", async () => {

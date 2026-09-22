@@ -282,12 +282,27 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     url.pathname === "/v1/account" ||
     url.pathname.startsWith("/v1/account/")
   ) {
-    const scope =
-      url.pathname === "/v1/account/statement"
-        ? "account:usage:read"
-        : url.pathname === "/v1/account/credits/top-up"
-          ? "account:credits:topup"
-          : "account:credits:read";
+    const isAppCredential =
+      /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
+    const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
+    let scope: string;
+    if (isAppCredential) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:credentials:read"
+          : "account:credentials:write";
+    } else if (isAccountApp) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:apps:read"
+          : "account:apps:write";
+    } else if (url.pathname === "/v1/account/statement") {
+      scope = "account:usage:read";
+    } else if (url.pathname === "/v1/account/credits/top-up") {
+      scope = "account:credits:topup";
+    } else {
+      scope = "account:credits:read";
+    }
     return {
       resource: `${origin}/v1/account` as AomiOAuthResource,
       scopes: [scope, ...payment],
@@ -308,22 +323,16 @@ function absoluteBase(baseUrl: string): string {
 // AomiClient
 // =============================================================================
 
-/**
- * Read secret names out of a {@link AomiListSecretsResponse} whichever shape
- * the backend sent.
- *
- * A backend from before per-user app secrets were retired answers
- * `{ by_app: { <app>: [names] } }`; the one after answers `{ names: [...] }`
- * (plus an empty `by_app` for one release). This client ships ahead of the
- * backend, so it has to read both — and a browser tab cached across the
- * cutover will hit each of them in turn.
- */
-function appSecretsPath(applicationId: ApplicationId): string {
+/** Build the credential path for the selected account transport. */
+function appSecretsPath(
+  applicationId: ApplicationId,
+  basePath: string,
+): string {
   const id = String(applicationId ?? "").trim();
   if (!id) {
     throw new Error("applicationId is required for app secrets");
   }
-  return `/api/account/apps/${encodeURIComponent(id)}/secrets`;
+  return `${basePath}/${encodeURIComponent(id)}/secrets`;
 }
 
 /** Best-effort `{ error }` body reader for user-facing failure messages. */
@@ -351,11 +360,15 @@ export class AomiClient {
   private readonly rawFetchImpl: typeof fetch;
   private readonly logger?: Logger;
   private readonly hasAccountAuth: boolean;
+  private readonly accountAppsPath: string;
 
   constructor(options: AomiClientOptions) {
     // Strip trailing slash
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.hasAccountAuth = Boolean(options.getAccountBearer || options.oauth);
+    this.accountAppsPath = options.oauth
+      ? "/v1/account/apps"
+      : "/api/account/apps";
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     // Keep the caller's fetch implementation for tests and browser adapters;
@@ -701,7 +714,7 @@ export class AomiClient {
 
   /** List the full app catalog available to the signed-in account. */
   async listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]> {
-    const url = buildApiUrl(this.baseUrl, "/api/account/apps");
+    const url = buildApiUrl(this.baseUrl, this.accountAppsPath);
     const response = await this.fetchImpl(url, {
       headers: withSessionHeader(sessionId),
     });
@@ -724,7 +737,7 @@ export class AomiClient {
   ): Promise<AomiAccountAppMutationResponse> {
     const url = buildApiUrl(
       this.baseUrl,
-      `/api/account/apps/${encodeURIComponent(String(applicationId))}`,
+      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
     );
     const response = await this.fetchImpl(url, {
       method: "POST",
@@ -745,7 +758,7 @@ export class AomiClient {
   ): Promise<AomiAccountAppMutationResponse> {
     const url = buildApiUrl(
       this.baseUrl,
-      `/api/account/apps/${encodeURIComponent(String(applicationId))}`,
+      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
     );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
@@ -967,7 +980,10 @@ export class AomiClient {
     sessionId: string,
     applicationId: ApplicationId,
   ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       headers: withSessionHeader(sessionId),
     });
@@ -997,7 +1013,10 @@ export class AomiClient {
     applicationId: ApplicationId,
     secrets: Record<string, string>,
   ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       method: "POST",
       headers: withSessionHeader(sessionId, {
@@ -1044,7 +1063,7 @@ export class AomiClient {
   ): Promise<AomiDeleteSecretResponse> {
     const url = joinApiPath(
       this.baseUrl,
-      `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+      `${appSecretsPath(applicationId, this.accountAppsPath)}/${encodeURIComponent(name)}`,
     );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
@@ -1072,7 +1091,10 @@ export class AomiClient {
     sessionId: string,
     applicationId: ApplicationId,
   ): Promise<AomiClearAppSecretsResponse> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
       headers: withSessionHeader(sessionId),

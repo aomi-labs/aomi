@@ -122,7 +122,10 @@ await aomi.agent.run("Use our hosted research agent", {
 
 Signed-in clients can manage installed apps and per-user app credentials by
 canonical application ID. Credential responses contain configuration status
-only; saved values are never returned.
+only; saved values are never returned. OAuth clients use the `/v1/account`
+resource with separate `account:apps:read`, `account:apps:write`,
+`account:credentials:read`, and `account:credentials:write` scopes. Credential
+read access reveals setup status only, never saved values.
 
 ```ts
 const catalog = await client.listAccountApps(sessionId);
@@ -134,7 +137,7 @@ await client.setAppCredential(
   "DEMO_API_TOKEN",
   token,
 );
-await client.addAccountApp(sessionId, app.name);
+await client.addAccountApp(sessionId, app.applicationId!);
 
 const status = await client.getAppCredentialsStatus(
   sessionId,
@@ -151,7 +154,7 @@ await client.removeAppCredential(
   app.applicationId!,
   "DEMO_API_TOKEN",
 );
-await client.removeAccountApp(sessionId, app.name);
+await client.removeAccountApp(sessionId, app.applicationId!);
 ```
 
 For event-driven Agent integrations, retain the run object:
