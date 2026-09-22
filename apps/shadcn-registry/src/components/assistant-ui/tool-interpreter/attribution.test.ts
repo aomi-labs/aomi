@@ -87,43 +87,69 @@ describe("trace attribution", () => {
     });
   });
 
-  it("recognizes a registered hosted app namespace without global tool metadata", () => {
-    const apps = [2937805, 2937810].map((applicationId) => ({
-      name: "hoodit",
-      applicationId,
-      metadata: { registered_via: "activate_apps" },
-    }));
-    for (const result of [
-      undefined,
-      { holdings: [] },
-      { error: "Unavailable" },
-    ]) {
-      const step = interpretToolStep({
-        toolName: "hoodit_get_portfolio",
-        result,
-        attribution: { apps },
-      });
-      expect(step.chips[0]).toMatchObject({
-        id: "app:hoodit",
-        label: "Hoodit",
+  it("attributes arbitrary app and skill names using declarations, regardless of tool spelling", () => {
+    for (const name of ["atlas", "weather-service", "community_42"]) {
+      const catalog: TraceAttribution = {
+        apps: [
+          {
+            name,
+            label: "Custom App",
+            applicationId: 42,
+            metadata: {
+              registered_via: "activate_apps",
+              tool_names: ["fetch_record"],
+            },
+          },
+        ],
+        skills: [
+          {
+            id: `${name}/research`,
+            name: "Research",
+            injectedTools: ["read_data"],
+          },
+        ],
+      };
+      expect(
+        interpretToolStep({ toolName: "fetch_record", attribution: catalog })
+          .chips[0],
+      ).toMatchObject({
+        id: `app:${name}`,
+        label: "Custom App",
         icon: AppWindowIcon,
       });
-      expect(step.chips[0].skillId).toBeUndefined();
-    }
-    for (const toolName of [
-      "hooditish_lookup",
-      "get_chain_context",
-      "stage_tx",
-    ]) {
       expect(
-        interpretToolStep({ toolName, attribution: { apps } }).chips.some(
-          (chip) => chip.id?.startsWith("app:"),
-        ),
-      ).toBe(false);
+        interpretToolStep({ toolName: "read_data", attribution: catalog })
+          .chips[0],
+      ).toMatchObject({
+        skillId: `${name}/research`,
+        label: "Custom App / Research",
+      });
+      expect(
+        interpretToolStep({ toolName: `${name}_unknown`, attribution: catalog })
+          .chips,
+      ).toEqual([]);
     }
   });
 
-  it("prefers declared ownership to namespace fallback and rejects overlapping namespaces", () => {
+  it("does not infer app ownership from prefixes, even for registered hosted apps", () => {
+    const apps = ["hoodit", "hyperliquid", "atlas"].map((name) => ({
+      name,
+      applicationId: 42,
+      metadata: { registered_via: "activate_apps" },
+    }));
+    for (const toolName of [
+      "hoodit_get_portfolio",
+      "hyperliquid_orders",
+      "atlas_lookup",
+      "atlas/lookup",
+    ]) {
+      expect(
+        interpretToolStep({ toolName, attribution: { apps } }).chips,
+      ).toEqual([]);
+    }
+  });
+
+  it("uses the declared owner even when a tool is named after another app", () => {
     const step = interpretToolStep({
       toolName: "hoodit_get_portfolio",
       attribution: {
@@ -137,12 +163,25 @@ describe("trace attribution", () => {
       },
     });
     expect(step.chips[0].label).toBe("Analytics");
-    expect(
-      interpretToolStep({
-        toolName: "hoodit_get_portfolio",
-        attribution: { apps: [{ name: "hoodit" }, { name: "hoodit_get" }] },
-      }).chips,
-    ).toEqual([]);
+  });
+
+  it("does not infer skill ownership from protocol-specific tool results", () => {
+    for (const toolName of [
+      "lifi_get_quote",
+      "jupiter_prepare_swap",
+      "Swap ETH to USDC",
+    ]) {
+      const step = interpretToolStep({
+        toolName,
+        result: {
+          quote_id: "q",
+          tool: "lifi",
+          chain_id: 8453,
+          tx: { to: "0x123", data: "0x", value: "0" },
+        },
+      });
+      expect(step.chips.some((chip) => chip.skillId)).toBe(false);
+    }
   });
 
   it("does not attribute generic calls or guesses from names/previous activations", () => {

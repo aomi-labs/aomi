@@ -237,14 +237,13 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Quote Base swap 0.05 USDC to ETH");
     expect(labelsFor(step.chips)).toEqual([
-      "Lifi Swap",
       "Base",
       "USDC -> ETH",
       "0.05 USDC",
       "0.0000285146 ETH",
     ]);
     expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[1].icon).toBeTypeOf("function");
+    expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
   });
 
@@ -275,12 +274,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Prepare exact USDC approval for LI.FI Base swap");
-    expect(labelsFor(step.chips)).toEqual([
-      "Lifi Swap",
-      "Base",
-      "USDC",
-      "0.05 USDC",
-    ]);
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0.05 USDC"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
   });
 
@@ -318,8 +312,8 @@ describe("tool interpreter", () => {
       "Prepare LI.FI Base swap transaction for 0.05 USDC to ETH",
     );
     expect(labelsFor(step.chips)).toEqual([
-      "Lifi Swap",
       "Base",
+      "Lifi",
       "USDC -> ETH",
       "0.05 USDC",
       "0.0000285146 ETH",
@@ -458,7 +452,6 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Prepare 0.001 SOL to USDC Jupiter swap");
     expect(labelsFor(step.chips)).toEqual([
-      "Jupiter",
       "Solana",
       "SOL → USDC",
       "0.001 SOL",
@@ -743,7 +736,6 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toEqual([
-      "Lifi Swap",
       "Arc",
       "USDC -> EURC",
       "10 USDC",

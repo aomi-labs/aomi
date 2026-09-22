@@ -1,67 +1,61 @@
-# Working-trace attribution
+# App and skill attribution
 
-App-owned skills show a single `App / Skill` badge with a graphical slash and app artwork when the publisher identity is known.
-App tools use the app descriptor's exact `metadata.tool_names` membership;
-injected tools use the skill catalog's exact `injected_tools` membership.
-Hosted tools missing from those catalogs can fall back to an unambiguous
-registered app namespace (`hoodit_get_portfolio` → Hoodit). This identifies
-only the app name, never a skill or a particular community publisher; explicit
-ownership wins and generic tools receive no inferred badge.
-The same context feeds main and delegated trace rows and the activity sidebar.
-Both surfaces render the exact same badge component. Pending activation uses
-requested skill IDs; completed activation only displays accepted IDs.
+App-owned skill activations display their structured `app/skill` identifier as
+`App / Skill`, with a graphical slash and app artwork when the publisher identity
+is known. Names and routing IDs remain separate. Main and delegated traces and
+the activity sidebar share the attribution context and badge component.
 
-Unknown artwork uses the existing generic app icon. Private/community
-publishers retain their own identity, and ambiguous app or tool ownership does
-not borrow another app's logo. Existing skill IDs and raw details remain
-available for routing and inspection. Known LI.FI/Jupiter result shapes also
-carry their skill badge on older transcripts with descriptive tool labels.
-Generic network and transaction tools do not inherit the last activated skill.
+Tool ownership is metadata-driven for every app:
 
-The shared skill label formatter removes namespace prefixes for skill names.
-Hoodit's original published icon is recorded in the app artwork source manifest.
-The shipped widget package is bumped from 3.0.5 to 3.0.6; new modules are included
-in the installable component registry.
+- An app badge requires exact membership in its descriptor's
+  `metadata.tool_names` array.
+- A skill badge requires exact membership in the skill catalog's
+  `injected_tools` array.
+- Multiple declared owners are ambiguous and are not resolved by guessing.
+- A tool-name prefix, protocol-specific result shape, current app selection or
+  previously activated skill is not proof of ownership.
 
-## Refinement verification
+The `app/skill` namespace is used to display a skill activation that the backend
+explicitly reported. It is never matched against a tool name to infer ownership.
+Artwork comes from the existing app/skill icon registry; unknown/community or
+ambiguous publishers retain a generic icon. No app-specific attribution branches
+or per-app tool lists are maintained in the frontend.
 
-- 95 focused interpreter, attribution, trace and activity-sidebar tests passed,
-  including exact badge parity between the sidebar and trace, hosted namespace
-  fallback, duplicate publishers, and generic/ambiguous tool exclusions.
-- Changed-file lint and frontend dependency boundaries passed.
-- Widget registry/package build and trusted-base packed-widget consumer
-  compatibility passed against `01a39487b957305b5267ba5be73b11669144f679`.
-- The shared badge keeps icon, wording, slash, sizing and truncation identical
-  across the trace and sidebar. Community Hoodit retains the generic app icon
-  because its deployment does not supply a verified brand identity.
+## Hosted catalog limitation
 
-- Browser fixture checked at 1280px and 390px: matching trace/sidebar badges,
-  app badge on the Hoodit tool, no horizontal overflow or console errors, and
-  raw tool details still open. The fixture holds the sidebar at its settled
-  width/opacity to avoid background-tab animation timing; animation behavior
-  and live backend execution were not part of this visual check.
+The current hosted Hoodit descriptors have no `metadata.tool_names`, and Hoodit's
+app-local skills are absent from `/api/resource/skills`. These tools therefore
+remain untagged until the backend exposes their ownership. This is an explicit
+data dependency, not a reason to infer ownership from `hoodit_`.
 
-![Refined trace and activity sidebar](refined-desktop.png)
-![Compact activity sidebar and raw tool details](refined-mobile.png)
+The backend's `AppSpec::from_manifest` already derives `tool_names` from the
+compiled app manifest, but hosted discovery reconstructs descriptors from DB
+registration metadata. A backend follow-up must expose the exact deployed
+application's tool and injected-skill mappings, scoped by `application_id` and
+release. Joining only on app name would be incorrect for duplicate publishers.
+The frontend must not treat inherited/common tools as app-owned merely because
+an app can call them. For ambiguous historical calls, per-call provenance is
+needed to identify the supplier reliably.
 
-## Initial verification
+## Verification
 
-- 108 focused tests: interpreter, ownership, activation, mother/child rendering,
-  app artwork/identity, and skill labels.
-- Full repository lint, root TypeScript check, and frontend dependency boundaries.
-- Library/client/React builds and widget registry/package build.
-- Packed widget compatibility against trusted base `01a39487`: consumer production
-  build, host-composition types, and package export resolution pass.
-- Chromium at 1000px and 390px: real trace rows rendered in a temporary Landing
-  fixture with deterministic results; no browser errors, no mobile overflow,
-  and raw tool details opened successfully. This is UI fixture verification,
-  not a live backend or wallet execution test.
-- The optional full widget `tsc --noEmit` check reports 13 errors in untouched
-  wallet tests: `activity-sidebar/wallet-review.test.tsx`,
-  `control-bar/dual-wallet-bar.test.tsx`, `control-bar/wallet-picker.test.tsx`,
-  and `lib/wallet-kit/execution/execution-runtime.test.ts`. No changed files
-  are reported by that check. Production declaration generation passes.
+- 97 focused interpreter, attribution, trace and activity-sidebar tests pass.
+  Coverage includes arbitrary new app names with unrelated tool names, exact
+  declarations overriding misleading prefixes, missing/ambiguous metadata,
+  injected skill ownership, and identical sidebar/trace badges.
+- Changed-file lint passes. No public props or host-provider requirements changed.
+- Widget registry/package build and packed-widget consumer compatibility are
+  checked against trusted base `01a39487b957305b5267ba5be73b11669144f679`.
+- The badge layout was checked at 1280px and 390px, with no horizontal overflow
+  or console errors and working raw-detail expansion. The fixture held the
+  sidebar at its settled width/opacity to avoid background-tab animation timing;
+  live backend calls and animation timing were not part of that visual check.
+- The widget version is bumped from 3.0.5 to 3.0.6, and all shared modules are
+  included in the installable registry.
 
-![Desktop trace](desktop.png)
+The screenshots below show badge presentation. They precede removal of the
+namespace fallback: the Hoodit tool badge shown now requires explicit ownership
+metadata and is not evidence that the hosted backend currently supplies it.
 
-![Mobile trace](mobile.png)
+![Trace and activity sidebar](refined-desktop.png)
+![Compact sidebar and tool details](refined-mobile.png)

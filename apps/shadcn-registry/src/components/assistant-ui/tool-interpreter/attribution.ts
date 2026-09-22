@@ -67,27 +67,12 @@ export function attributeToolStep(
         Array.isArray(app.metadata?.tool_names) &&
         app.metadata.tool_names.includes(ctx.rawLabel),
     ) ?? [];
-  // Hosted app tools are not all included in the global skill catalog yet.
-  // A registered app's explicit tool namespace can still identify its app,
-  // never a particular skill or publisher. Declared metadata takes precedence.
-  const namespacedApps = new Set(
-    catalog?.apps
-      ?.filter((app) =>
-        ["_", "/"].some((separator) =>
-          ctx.rawLabel.startsWith(`${app.name}${separator}`),
-        ),
-      )
-      .map((app) => app.name),
-  );
-  const appName = apps.length
-    ? apps.length === 1
-      ? apps[0]!.name
-      : undefined
-    : namespacedApps.size === 1
-      ? [...namespacedApps][0]
-      : undefined;
+  // Exact declarations only. A prefix, selected app, or prior activation
+  // cannot establish who supplied a tool. Ambiguous bare names stay untagged.
   const appChips =
-    appName && !ownedApps.has(appName) ? [appChip(appName, catalog)] : [];
+    apps.length === 1 && !ownedApps.has(apps[0]!.name)
+      ? [appChip(apps[0]!.name, catalog)]
+      : [];
   const chips = [
     ...appChips,
     ...skillChips,
