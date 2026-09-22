@@ -6,7 +6,7 @@ import type {
   ReactNode,
 } from "react";
 
-import { GeneralSettings } from "./general/general-settings";
+import { GeneralSettings } from "../../../shadcn-registry/src/components/account-shell/features/general/general-settings";
 
 type FetchCall = {
   input: string | URL | Request;
@@ -18,9 +18,19 @@ const widgetMock = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   openAccountUI: vi.fn(async () => undefined),
 }));
+const runtimeMock = vi.hoisted(() => ({
+  creditsGet: vi.fn(),
+}));
 
 vi.mock("@aomi-labs/react", () => ({
   getChainInfo: () => ({ ticker: "ETH" }),
+  useAomiRuntime: () => ({
+    account: {
+      credits: {
+        get: runtimeMock.creditsGet,
+      },
+    },
+  }),
 }));
 
 vi.mock("@aomi-labs/widget-lib", () => ({
@@ -33,7 +43,64 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
   formatAuthMethod: () => "Wallet",
   useAomiWalletKit: () => ({
-    accountUser: { id: "acct-user-1" },
+    accountUser: { id: "acct-user-1", displayName: "Aron" },
+    accountWallets: [
+      {
+        id: "wallet-rabby",
+        family: "evm",
+        address: "0xabc",
+        label: "Rabby",
+        kind: "external",
+      },
+      {
+        id: "wallet-metamask",
+        family: "evm",
+        address: "0xdef",
+        label: "MetaMask",
+        kind: "external",
+      },
+    ],
+    accounts: [
+      {
+        id: "rabby",
+        family: "evm",
+        address: "0xabc",
+        walletName: "Rabby",
+        active: true,
+        linked: true,
+      },
+    ],
+    wallets: [
+      {
+        key: "evm:0xabc",
+        family: "evm",
+        address: "0xabc",
+        kind: "external",
+        walletName: "Rabby",
+        label: "Rabby",
+        connectionId: "rabby",
+        linkedWalletId: "wallet-rabby",
+        state: "ready",
+        connected: true,
+        linked: true,
+        operating: true,
+        actions: [],
+      },
+      {
+        key: "evm:0xdef",
+        family: "evm",
+        address: "0xdef",
+        kind: "external",
+        label: "MetaMask",
+        linkedWalletId: "wallet-metamask",
+        state: "offline",
+        reason: "disconnected",
+        connected: false,
+        linked: true,
+        operating: false,
+        actions: [],
+      },
+    ],
     canConnect: true,
     canOpenAccountUI: true,
     connect: widgetMock.connect,
@@ -49,19 +116,97 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("./account/use-account-acl", () => ({
-  useAccountAcl: () => ({
-    status: "ready",
-    wallets: [],
-    grants: [],
-    refresh: vi.fn(),
-    commitMode: vi.fn(),
-    revokeGrant: vi.fn(),
-    stopAllAuto: vi.fn(),
-    regrant: vi.fn(),
-    blockedReason: () => null,
+vi.mock("../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => ({
+    accountUser: { id: "acct-user-1", displayName: "Aron" },
+    accountWallets: [
+      {
+        id: "wallet-rabby",
+        family: "evm",
+        address: "0xabc",
+        label: "Rabby",
+        kind: "external",
+      },
+      {
+        id: "wallet-metamask",
+        family: "evm",
+        address: "0xdef",
+        label: "MetaMask",
+        kind: "external",
+      },
+    ],
+    accounts: [
+      {
+        id: "rabby",
+        family: "evm",
+        address: "0xabc",
+        walletName: "Rabby",
+        active: true,
+        linked: true,
+      },
+    ],
+    wallets: [
+      {
+        key: "evm:0xabc",
+        family: "evm",
+        address: "0xabc",
+        kind: "external",
+        walletName: "Rabby",
+        label: "Rabby",
+        connectionId: "rabby",
+        linkedWalletId: "wallet-rabby",
+        state: "ready",
+        connected: true,
+        linked: true,
+        operating: true,
+        actions: [],
+      },
+      {
+        key: "evm:0xdef",
+        family: "evm",
+        address: "0xdef",
+        kind: "external",
+        label: "MetaMask",
+        linkedWalletId: "wallet-metamask",
+        state: "offline",
+        reason: "disconnected",
+        connected: false,
+        linked: true,
+        operating: false,
+        actions: [],
+      },
+    ],
+    canConnect: true,
+    canOpenAccountUI: true,
+    connect: widgetMock.connect,
+    getAccountCredential: widgetMock.getAccountCredential,
+    identity: {
+      address: "0xabc",
+      authMethod: "wallet",
+      chainId: 1,
+      isConnected: true,
+      status: "connected",
+    },
+    openAccountUI: widgetMock.openAccountUI,
   }),
 }));
+
+vi.mock(
+  "../../../shadcn-registry/src/components/account-shell/features/account/use-account-acl",
+  () => ({
+    useAccountAcl: () => ({
+      status: "ready",
+      wallets: [],
+      delegatedAccounts: [],
+      refresh: vi.fn(),
+      commitMode: vi.fn(),
+      revokeDelegation: vi.fn(),
+      stopAllAuto: vi.fn(),
+      renewDelegation: vi.fn(),
+      blockedReason: () => null,
+    }),
+  }),
+);
 
 function requestUrl(input: FetchCall["input"]): URL {
   if (input instanceof Request) return new URL(input.url);
@@ -82,13 +227,6 @@ const ACCOUNT_OVERVIEW = {
     updated_at: 1_700_000_100,
     user_id: "acct-user-1",
     verified_email: "alice@example.com",
-  },
-  usage: {
-    credit_paid: 100,
-    credit_used: 12,
-    input_tokens: 1234,
-    output_tokens: 5678,
-    period_utc_month: "2026-07",
   },
 };
 
@@ -123,6 +261,18 @@ function installFetchRecorder() {
 describe("settings route callers", () => {
   beforeEach(() => {
     widgetMock.getAccountCredential.mockClear();
+    runtimeMock.creditsGet.mockReset();
+    runtimeMock.creditsGet.mockResolvedValue({
+      period_utc_month: "2026-07",
+      included: {
+        limit_microusd: 100 * 10_000,
+        used_microusd: 12 * 10_000,
+        remaining_microusd: 88 * 10_000,
+      },
+      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      entries: [],
+      next_before_id: null,
+    });
     localStorage.clear();
     // jsdom has no matchMedia; useSettings consults it for the "auto" theme.
     vi.stubGlobal(
@@ -154,12 +304,30 @@ describe("settings route callers", () => {
 
     render(<GeneralSettings />);
 
-    await waitFor(() =>
-      expect(screen.getByText("alice@example.com")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("Aron")).toBeTruthy());
+    expect(
+      screen.getByText("2 linked wallets · 1 not connected on this device"),
+    ).toBeTruthy();
     expect(screen.getByText("Pro")).toBeTruthy();
     expect(screen.getByText(/88 remaining/)).toBeTruthy();
     expect(screen.getByText(/12 \/ 100 used/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
+  });
+
+  it("keeps General settings usable when credits omit the allowance", async () => {
+    runtimeMock.creditsGet.mockResolvedValue({
+      period_utc_month: "2026-07",
+      bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+      entries: [],
+      next_before_id: null,
+    });
+    installFetchRecorder();
+
+    render(<GeneralSettings />);
+
+    expect(await screen.findByText("Aron")).toBeTruthy();
+    expect(screen.getByText("Pro")).toBeTruthy();
+    expect(screen.queryByText(/remaining/)).toBeNull();
     expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
   });
 });

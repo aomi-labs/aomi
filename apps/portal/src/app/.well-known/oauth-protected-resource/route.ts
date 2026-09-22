@@ -21,7 +21,7 @@ export async function GET() {
         .getProtectedResourceMetadata({
           resource: policy.identifier,
           authorization_servers: [resources.authorizationServerIssuer],
-          scopes_supported: [...policy.allowedScopes],
+          scopes_supported: [...policy.grantableScopes],
           dpop_bound_access_tokens_required:
             policy.dpopBoundAccessTokensRequired,
           dpop_signing_alg_values_supported: ["ES256", "EdDSA"],

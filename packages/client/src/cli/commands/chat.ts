@@ -6,12 +6,14 @@ import {
   getToolNameFromEvent,
   getToolResultFromEvent,
   isAlwaysVisibleTool,
+  inlineToolResultFromMessage,
   printNewAgentMessages,
   printPaymentEvent,
   printTaskActivity,
   printTaskCompleted,
   printTaskStarted,
   printToolComplete,
+  printToolResultLine,
 } from "../output";
 import {
   applyRequestedModelIfPresent,
@@ -21,6 +23,7 @@ import { fatal } from "../errors";
 import type { CliConfig } from "../types";
 import { parseSolanaKeypairSecret } from "../solana-signer";
 import type { ClientSession } from "../../session";
+import type { Event, MessageEvent } from "../../agent/types";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -64,6 +67,20 @@ export function resolveSvmAddressForChat(
   return deriveSvmAddress(solanaPrivateKey) ?? persistedSvmAddress;
 }
 
+export function printBoundaryForTurn(
+  events: readonly Event[],
+  messages: readonly MessageEvent[],
+  turnId: string | undefined,
+) {
+  const firstTurnEvent = events.find((event) => event.turn_id === turnId);
+  return {
+    handledSequence: firstTurnEvent ? firstTurnEvent.sequence - 1 : 0,
+    printedAgentCount: messages.filter(
+      (message) => message.sender === "agent" && message.turn_id !== turnId,
+    ).length,
+  };
+}
+
 export async function chatCommand(
   config: CliConfig,
   message: string,
@@ -88,6 +105,12 @@ export async function chatCommand(
     let handledSequence = 0;
     let thinkingPrinted = false;
     const agentLabels = new Map<string, string>();
+    // One printed line per (turn, tool) pair, whichever wire shape lands
+    // first. Suppressing by turn alone silently drops a distinct tool's only
+    // trace whenever another tool in the turn used the other shape.
+    const seenToolPairs = new Set<string>();
+    const toolPairKey = (turnId: string, name: string) =>
+      `${turnId}::${name}`;
     const render = () => {
       const snapshot = session.getSnapshot();
       if (
@@ -103,7 +126,27 @@ export async function chatCommand(
         handledSequence = event.sequence;
         if (event.type === "tool_complete") {
           const name = getToolNameFromEvent(event);
-          if (verbose || isAlwaysVisibleTool(name)) printToolComplete(event);
+          // Subagent lifecycles print through the task_* lines, not as tools.
+          if (name === "task") continue;
+          const turnId = event.turn_id ?? `event:${event.event_id}`;
+          const pair = toolPairKey(turnId, name);
+          const firstForPair = !seenToolPairs.has(pair);
+          seenToolPairs.add(pair);
+          if (firstForPair && (verbose || isAlwaysVisibleTool(name))) {
+            printToolComplete(event);
+          }
+        } else if (event.type === "message") {
+          const tool = inlineToolResultFromMessage(event);
+          if (tool) {
+            const pair = toolPairKey(tool.turnId, tool.name);
+            const firstForPair = !seenToolPairs.has(pair);
+            seenToolPairs.add(pair);
+            if (firstForPair && (verbose || isAlwaysVisibleTool(tool.name))) {
+              printToolResultLine(tool.name, tool.result);
+            }
+          } else if (verbose && event.sender === "notice") {
+            console.log(`${YELLOW}📢 ${event.content}${RESET}`);
+          }
         } else if (verbose && event.type === "task_started") {
           agentLabels.set(event.agent_id, event.label || event.agent_id);
           printTaskStarted(event);
@@ -112,8 +155,6 @@ export async function chatCommand(
         } else if (verbose && event.type === "task_completed") {
           printTaskCompleted(event, agentLabels.get(event.agent_id));
           agentLabels.delete(event.agent_id);
-        } else if (verbose && event.type === "message" && event.sender === "notice") {
-          console.log(`${YELLOW}📢 ${event.content}${RESET}`);
         } else if (verbose && event.type === "error") {
           console.log(`\x1b[31m❌ ${event.message}${RESET}`);
         }
@@ -125,23 +166,19 @@ export async function chatCommand(
         );
       }
     };
-    const unsubscribe = session.subscribe(render);
-
-    await session.sendAsync(message);
-    render();
-
-    const allMessages = session.getSnapshot().messages;
-    let seedIdx = allMessages.length;
-    for (let i = allMessages.length - 1; i >= 0; i--) {
-      if (allMessages[i].sender === "user") {
-        seedIdx = i;
-        break;
-      }
+    if (verbose) {
+      thinkingPrinted = true;
+      console.log(`${DIM}⏳ Thinking…${RESET}`);
     }
-
-    printedAgentCount = allMessages
-      .slice(0, seedIdx)
-      .filter((entry) => entry.sender === "agent").length;
+    await session.sendAsync(message);
+    const boundary = printBoundaryForTurn(
+      session.getSnapshot().events,
+      session.getSnapshot().messages,
+      session.getSnapshot().turnId,
+    );
+    handledSequence = boundary.handledSequence;
+    printedAgentCount = boundary.printedAgentCount;
+    const unsubscribe = session.subscribe(render);
     render();
     await waitForTurnStop(session);
     render();
@@ -176,8 +213,7 @@ export async function chatCommand(
     if (!verbose) {
       const agentMessages = session
         .getSnapshot()
-        .messages
-        .filter((entry) => entry.sender === "agent");
+        .messages.filter((entry) => entry.sender === "agent");
       const last = agentMessages[agentMessages.length - 1];
 
       if (last?.content) {

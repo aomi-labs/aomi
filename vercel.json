@@ -204,19 +204,19 @@
     },
     {
       "source": "/docs/llms.txt",
-      "destination": "https://aomilabs.mintlify.dev/llms.txt"
+      "destination": "https://aomilabs.mintlify.dev/docs/llms.txt"
     },
     {
       "source": "/docs/llms-full.txt",
-      "destination": "https://aomilabs.mintlify.dev/llms-full.txt"
+      "destination": "https://aomilabs.mintlify.dev/docs/llms-full.txt"
     },
     {
       "source": "/docs/sitemap.xml",
-      "destination": "https://aomilabs.mintlify.dev/sitemap.xml"
+      "destination": "https://aomilabs.mintlify.dev/docs/sitemap.xml"
     },
     {
       "source": "/docs/robots.txt",
-      "destination": "https://aomilabs.mintlify.dev/robots.txt"
+      "destination": "https://aomilabs.mintlify.dev/docs/robots.txt"
     },
     {
       "source": "/docs/:path*",

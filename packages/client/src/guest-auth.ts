@@ -2,6 +2,30 @@ export type GuestSessionProvider = ((options?: {
   forceRefresh?: boolean;
 }) => Promise<string | null>) & { clear(): void };
 
+let browserSessionTransition = Promise.resolve();
+
+/**
+ * Serialize browser operations that replace the same-origin Better Auth
+ * cookie. Without this fence, a guest bootstrap that started just before a
+ * wallet sign-in can finish last and overwrite the newly authenticated
+ * session with an anonymous one.
+ */
+export async function withBrowserSessionTransition<T>(
+  transition: () => Promise<T>,
+): Promise<T> {
+  const previous = browserSessionTransition;
+  let release!: () => void;
+  browserSessionTransition = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await transition();
+  } finally {
+    release();
+  }
+}
+
 export function createGuestSessionProvider(input: {
   baseUrl: string;
   fetch?: typeof fetch;
@@ -50,6 +74,19 @@ async function signInAnonymous(
   baseUrl: string,
   runtime: "cross-origin-browser" | "same-origin-browser" | "server",
 ) {
+  if (runtime === "same-origin-browser") {
+    return withBrowserSessionTransition(() =>
+      requestAnonymousSession(fetchImpl, baseUrl, runtime),
+    );
+  }
+  return requestAnonymousSession(fetchImpl, baseUrl, runtime);
+}
+
+async function requestAnonymousSession(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  runtime: "cross-origin-browser" | "same-origin-browser" | "server",
+) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const authEndpoint = `${normalizedBase}/api/auth/sign-in/anonymous`;
   const response = await fetchImpl(
@@ -69,6 +106,16 @@ async function signInAnonymous(
   if (
     response.status === 409 &&
     (await responseCode(response)) === "session_exists"
+  ) {
+    return null;
+  }
+  // Better Auth refuses a second anonymous sign-in while an anonymous
+  // session cookie is live. That cookie IS a working credential — fall back
+  // to it instead of failing the caller's request.
+  if (
+    response.status === 400 &&
+    (await responseCode(response)) ===
+      "ANONYMOUS_USERS_CANNOT_SIGN_IN_AGAIN_ANONYMOUSLY"
   ) {
     return null;
   }

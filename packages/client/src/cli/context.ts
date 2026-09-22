@@ -18,9 +18,10 @@ export function createControlClient(
 ): AomiClient {
   const cli = CliSession.load();
   const baseUrl = config.baseUrl ?? DEFAULT_CLI_BASE_URL;
-  const oauth: AomiOAuthTokenProvider | undefined = config.accountBearer
+  const staticBearer = config.accountBearer ?? cli?.toState().accountBearer;
+  const oauth: AomiOAuthTokenProvider | undefined = staticBearer
     ? async ({ resource, scopes }) => ({
-        accessToken: config.accountBearer!,
+        accessToken: staticBearer,
         expiresAt: Number.MAX_SAFE_INTEGER,
         resource,
         scopes,
@@ -36,12 +37,17 @@ export function createControlClient(
   return new AomiClient({
     baseUrl,
     apiKey: config.apiKey,
-    fetch: paymentFetch ?? fetch,
+    fetch: paymentFetch ?? (staticBearer ? authorizedFetch : fetch),
     // Payment settlement retries happen inside the x402 wrapper. Put OAuth
     // inside that wrapper so a newly-added Payment-Signature is authorized
     // again with payments:submit instead of reusing the narrower first token.
-    oauth: paymentFetch ? undefined : oauth,
-    guest: false,
+    // Static bearers also support public API calls, but account app operations
+    // retain their legacy transport unless a real OAuth grant is configured.
+    oauth: paymentFetch || staticBearer ? undefined : oauth,
+    guest:
+      staticBearer || oauth
+        ? false
+        : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
     getAccountBearer:
       createCliGetAccountBearer(config) ??
       createCliAuthTokenProvider(() => readState() ?? {}),

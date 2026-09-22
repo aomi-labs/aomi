@@ -59,6 +59,8 @@ describe("CLI OAuth device authorization", () => {
       resources: [AGENT_RESOURCE],
       scope: "agent:read offline_access",
     });
+    expect(registration).not.toHaveProperty("redirect_uris");
+    expect(registration).not.toHaveProperty("response_types");
     const deviceBody = new URLSearchParams(
       String(fetchImpl.mock.calls[1]?.[1]?.body),
     );

@@ -26,6 +26,7 @@ const CHAIN_ICONS: Record<number, FC<SVGProps<SVGSVGElement>>> = {
   10143: MonadIcon,
   4663: RobinhoodIcon,
   4326: MegaETHIcon,
+  5042: ArcIcon,
   5042002: ArcIcon,
 };
 

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="570" viewBox="0 0 1100 570" role="img" aria-labelledby="title desc">
+  <title id="title">Injected intent and injected state enter before transaction construction</title>
+  <desc id="desc">An attacker may alter the perceived instruction or the observed world. Both feed the transaction builder. Runtime, wallet, contract, and builder checks each see different evidence.</desc>
+  <defs>
+    <style>.bg{fill:#f8f9fb}.box{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}.attack{fill:#fff0f3;stroke:#e78aa7;stroke-width:1.5}.safe{fill:#e9f2fa;stroke:#80acd3;stroke-width:1.5}.ink{fill:#18202a}.muted{fill:#586675}.pink{fill:#bb3d68}.blue{fill:#2c6596}.eyebrow{font:700 14px Arial,sans-serif;letter-spacing:.09em}.title{font:700 25px Arial,sans-serif}.body{font:16px Arial,sans-serif}.small{font:14px Arial,sans-serif}</style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#8695a3"/></marker>
+  </defs>
+  <rect class="bg" width="1100" height="570" rx="20"/>
+  <text class="eyebrow muted" x="48" y="58">ATTACK SURFACE</text>
+  <text class="title ink" x="48" y="98">The transaction can be valid even when its premise is false.</text>
+  <rect class="attack" x="48" y="150" width="295" height="125" rx="13"/>
+  <text class="eyebrow pink" x="70" y="181">INJECTED INTENT</text>
+  <text class="body ink" x="70" y="213">“Send it to this address.”</text>
+  <text class="small muted" x="70" y="243">False user turn · forged tool result</text>
+  <rect class="attack" x="48" y="296" width="295" height="125" rx="13"/>
+  <text class="eyebrow pink" x="70" y="327">INJECTED STATE</text>
+  <text class="body ink" x="70" y="359">“Balance: 2,000 USDC.”</text>
+  <text class="small muted" x="70" y="389">Actually 3,000 · bad quote · wrong token</text>
+  <path d="M343 210H405V281H449M343 358H405V307H449" fill="none" stroke="#e78aa7" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect class="box" x="450" y="233" width="245" height="117" rx="13"/>
+  <text class="eyebrow blue" x="473" y="265">TRANSACTION BUILDER</text>
+  <text class="body ink" x="473" y="298">Calls · approvals · route</text>
+  <text class="small muted" x="473" y="326">May compile a wrong premise</text>
+  <path d="M695 291H738" stroke="#8695a3" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect class="safe" x="746" y="158" width="306" height="264" rx="13"/>
+  <text class="eyebrow blue" x="770" y="190">LATER GATES SEE</text>
+  <text class="body ink" x="770" y="224">Wallet: signing request</text>
+  <text class="body ink" x="770" y="261">Contract: delegated authority</text>
+  <text class="body ink" x="770" y="298">Builder: candidate state delta</text>
+  <path d="M770 321H1028" stroke="#b8cfdf" stroke-width="1.5"/>
+  <text class="small muted" x="770" y="347">Usually not the original conversation,</text>
+  <text class="small muted" x="770" y="370">or whether upstream state was true.</text>
+  <path d="M48 463H1052" stroke="#d9dfe7" stroke-width="1.5"/>
+  <text class="eyebrow muted" x="48" y="499">DESIGN CONSEQUENCE</text>
+  <text class="body ink" x="48" y="528">Bind exact bytes to authorization; independently constrain spend and final state.</text>
+</svg>

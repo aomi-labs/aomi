@@ -3,6 +3,22 @@
 // =============================================================================
 
 export { AomiClient, secretNamesFrom } from "./client";
+export {
+  AccountCreditsTransport,
+  AccountTransport,
+  MAX_CREDIT_TOP_UP,
+  MICROUSD_PER_CREDIT,
+  MIN_CREDIT_TOP_UP,
+} from "./account/credits";
+export type {
+  AomiCreditActivity,
+  AomiCreditListOptions,
+  AomiCreditPaymentReceipt,
+  AomiCreditPosition,
+  AomiCreditTopUpOptions,
+  AomiCreditTopUpResult,
+} from "./account/credits";
+export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
 export {
   EvmPipelineTransport,
@@ -30,8 +46,14 @@ export type {
   EvmStagedAction,
   EvmStagedBuild,
   PipelineActionSummary,
+  PipelineApprovalChange,
+  PipelineApprovalKind,
+  PipelineAssetStandard,
   PipelineBalanceChange,
   PipelineCommitOptions,
+  PipelineBuildOrigin,
+  PipelineBuildProvenance,
+  PipelineExecutionScope,
   PipelineDirectory,
   PipelineDirectoryEntry,
   PipelineDirectoryEntryKind,
@@ -40,6 +62,7 @@ export type {
   PipelineGasEstimate,
   PipelineGuardResult,
   PipelineInvokeOptions,
+  PipelineMutationOptions,
   PipelineJsonSchema,
   PipelineLog,
   PipelineOperationBuildInput,
@@ -47,11 +70,14 @@ export type {
   PipelineOperationInvocation,
   PipelineSimulation,
   PipelineSimulationStatus,
-  PipelineTransactionReceipt,
+  AssembledSvmInstruction,
   SvmAccountMeta,
+  SvmAssembledAccountMeta,
+  SvmBuildAction,
   SvmCommitResult,
   SvmDirectInput,
   SvmInstruction,
+  SvmInstructionBatch,
   SvmPresentedAction,
   SvmSimulatedBuild,
   SvmStageInput,
@@ -61,6 +87,8 @@ export type {
 } from "./pipeline/types";
 export type {
   Action,
+  AgentMode,
+  AgentTarget,
   ActionRequest,
   ActionResult,
   ErrorEvent,
@@ -72,6 +100,7 @@ export type {
   Session as AgentSession,
   SessionPage,
   StartTurnIntent,
+  AomiInferenceFundingSource,
   TaskActivityEvent,
   TaskCompletedEvent,
   TaskPhaseEvent,
@@ -133,7 +162,10 @@ export type {
   AomiBrowserGrantOptions,
   AomiDeviceVerification,
 } from "./oauth";
-export { createGuestSessionProvider } from "./guest-auth";
+export {
+  createGuestSessionProvider,
+  withBrowserSessionTransition,
+} from "./guest-auth";
 export type { GuestSessionProvider } from "./guest-auth";
 export {
   AccountCredentialUnavailableError,
@@ -176,6 +208,7 @@ export type { AomiOperationBuildOptions } from "./sdk/pipeline";
 export { buildSiwsMessage } from "./siws";
 export type { SiwsChainId, SiwsIntent } from "./siws";
 export {
+  createEvmPaymentClient,
   handlePaymentChallenges,
   wrapFetchWithPaymentChallenges,
 } from "./payment";
@@ -194,6 +227,7 @@ export type {
 
 export type {
   AomiAppDescriptor,
+  AomiFeatureCategory,
   AomiArtifactStatus,
   AomiPlatformFilter,
   ApplicationId,
@@ -201,24 +235,48 @@ export type {
   AomiRequestQueryValue,
   AomiClientOptions,
   AomiHttpMethod,
-  AomiAccessApproval,
   AomiAccountProfile,
+  AomiAccountRecordStatus,
+  AomiAuthProvider,
   AomiAuthPurpose,
-  AomiAuthIdentity,
-  AomiCreateApprovalRequest,
-  AomiIdentityWallet,
-  AomiUsageStats,
+  AomiBindOnchainPolicy,
+  AomiChainKind,
+  AomiDelegatedAccount,
+  AomiOnchainAddress,
+  AomiOnchainPolicy,
+  AomiOnchainPolicyBinding,
+  AomiOnchainPolicyProviderCtx,
+  AomiOnchainPolicyRule,
+  AomiOperatingAccount,
+  AomiPolicyWindow,
+  AomiPreparedOnchainPolicy,
+  AomiProviderBinding,
+  AomiSigningPolicy,
   AomiUser,
+  AomiUserAccount,
   GetAccountBearer,
   AomiWalletFamily,
   AomiClearSecretsResponse,
   AomiAccountResponse,
+  AomiByokKeyEntry,
+  AomiClearAppSecretsResponse,
+  AomiUserAppSecretSlot,
+  AomiUserAppSecrets,
+  AomiAccountAppMutationResponse,
+  AomiListByokKeysResponse,
+  AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
   AomiIngestSecretsResponse,
   AomiListSecretsResponse,
   AomiSecretSlot,
   AomiSimulateFee,
   AomiSimulateResponse,
+  SimulationCall,
+  SimContext,
+  SimulationExecution,
+  SimStep,
+  SimReport,
+  SimulationError,
   Logger,
 } from "./types";
 export {
@@ -234,7 +292,11 @@ export {
   type AccountSessionProvider,
   type AccountSessionSigner,
 } from "./widget-session";
-export { normalizeAppDescriptor, appIdentityKey } from "./app-descriptor";
+export {
+  normalizeAppDescriptor,
+  appIdentityKey,
+  isOfficialAppDescriptor,
+} from "./app-descriptor";
 export { safeEnv } from "./internal/env";
 export type { AomiClientType } from "./user-state";
 
@@ -309,6 +371,7 @@ export {
   CHAINS_BY_ID,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_IDS,
+  arc,
   arcTestnet,
   monad,
   monadTestnet,
@@ -347,3 +410,5 @@ export type {
   ExecuteWalletCallsParams,
   NormalizedSimulatedFee,
 } from "./aa";
+export { summarizeSimulation, SimulationApiError } from "./simulation";
+export * from "./commits";

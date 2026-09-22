@@ -127,6 +127,12 @@ describe("high-level Aomi Agent", () => {
         },
       },
     });
+    expect(
+      JSON.parse(fetch.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("mode");
+    expect(
+      JSON.parse(fetch.mock.calls[0][1].body as string),
+    ).not.toHaveProperty("app");
   });
 
   it("executes a pending Action explicitly through the session handler", async () => {
@@ -179,8 +185,7 @@ describe("high-level Aomi Agent", () => {
         return Response.json({ action: submitted });
       }
       if (url.includes("/v1/agent/chat/agent-wallet")) {
-        return Response.json(
-          page("agent-wallet", [
+        const result = page("agent-wallet", [
             {
               type: "message",
               event_id: "event-message-complete",
@@ -199,8 +204,16 @@ describe("high-level Aomi Agent", () => {
               occurred_at: occurredAt,
               state: "complete",
             },
-          ]),
-        );
+            {
+              type: "title_changed",
+              event_id: "event-title",
+              sequence: 7,
+              turn_id: "turn-1",
+              occurred_at: occurredAt,
+              title: "Execute action",
+            },
+          ]);
+        return url.includes("/stream") ? new Response(`event: page\ndata: ${JSON.stringify(result)}\n\n`, { headers: { "content-type": "text/event-stream" } }) : Response.json(result);
       }
       throw new Error(`Unexpected request ${url}`);
     });
@@ -220,7 +233,7 @@ describe("high-level Aomi Agent", () => {
     expect(aomi.wallet).toBe(wallets);
     const run = aomi.agent.run("Execute", {
       sessionId: "agent-wallet",
-      pollIntervalMs: 1,
+
     });
     const actions = vi.fn();
     run.on("action", (action) => {

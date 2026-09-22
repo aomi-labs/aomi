@@ -1,0 +1,57 @@
+name: Hosted Wallet E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 3 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-wallet-e2e-staging
+  cancel-in-progress: true
+
+jobs:
+  wallet:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.AOMI_HOSTED_WALLET_E2E_NIGHTLY == '1')
+    runs-on: ubuntu-latest
+    environment: staging-e2e
+    timeout-minutes: 16
+    steps:
+      - name: Checkout trusted main test code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: refs/heads/main
+
+      - name: Validate staging wallet configuration
+        env:
+          AOMI_HOSTED_E2E_EVM_PRIVATE_KEY: ${{ secrets.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY }}
+          AOMI_HOSTED_E2E_SVM_SECRET_KEY: ${{ secrets.AOMI_HOSTED_E2E_SVM_SECRET_KEY }}
+          AOMI_HOSTED_E2E_CHAIN_ID: "84532"
+          AOMI_HOSTED_E2E_RPC_URL: https://sepolia.base.org
+        run: node .github/scripts/validate-hosted-wallet-env.mjs
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies and Chromium
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run bounded wallet journeys against canonical staging
+        env:
+          AOMI_HOSTED_E2E_PORTAL_URL: https://chat-staging.aomi.dev
+          AOMI_HOSTED_E2E_EVM_PRIVATE_KEY: ${{ secrets.AOMI_HOSTED_E2E_EVM_PRIVATE_KEY }}
+          AOMI_HOSTED_E2E_SVM_SECRET_KEY: ${{ secrets.AOMI_HOSTED_E2E_SVM_SECRET_KEY }}
+          AOMI_HOSTED_E2E_CHAIN_ID: "84532"
+          AOMI_HOSTED_E2E_RPC_URL: https://sepolia.base.org
+        run: pnpm exec playwright test --project=hosted-wallet --workers=1 --reporter=list

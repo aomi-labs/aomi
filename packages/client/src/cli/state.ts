@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
-import type { CliAAProvider } from "./types";
+import type { CliAgentMode } from "./types";
 import type { AomiOAuthResource } from "../authorization";
 
 export type CliAuthSession = {
@@ -36,7 +36,9 @@ export type CliSessionState = {
   sessionId: string;
   clientId?: string;
   baseUrl: string;
+  agentMode?: CliAgentMode;
   app?: string;
+  applicationId?: string;
   model?: string;
   /** Whether the active model has been pushed to the backend session. */
   modelSynced?: boolean;
@@ -44,6 +46,9 @@ export type CliSessionState = {
   /** Aomi account bearer for authenticated requests. Persisted so a bearer
    * supplied once (via `--account-bearer`) survives across CLI invocations. */
   accountBearer?: string;
+  /** Better Auth anonymous bearer owning guest Agent sessions. Stored in the
+   * same private state file so a later CLI process can resume that identity. */
+  guestBearer?: string;
   publicKey?: string;
   privateKey?: string;
   /** Solana public key (base58), derived from the Solana keypair when provided. */
@@ -55,9 +60,6 @@ export type CliSessionState = {
    * command. Never printed in output. */
   svmPrivateKey?: string;
   chainId?: number;
-  aaProvider?: CliAAProvider;
-  aaMode?: "none" | "4337" | "7702" | null;
-  smartAccount?: string | null;
   secretHandles?: Record<string, string>;
   auth?: CliAuthSession;
   oauthGrants?: Record<string, CliOAuthGrant>;
@@ -117,20 +119,20 @@ function toCliSessionState(stored: StoredSessionState): CliSessionState {
     sessionId: stored.sessionId,
     clientId: stored.clientId,
     baseUrl: stored.baseUrl,
+    agentMode: stored.agentMode,
     app: stored.app,
+    applicationId: stored.applicationId,
     model: stored.model,
     modelSynced: stored.modelSynced,
     apiKey: stored.apiKey,
     accountBearer: stored.accountBearer,
+    guestBearer: stored.guestBearer,
     publicKey: stored.publicKey,
     privateKey: stored.privateKey,
     svmPublicKey: stored.svmPublicKey,
     svmCluster: stored.svmCluster,
     svmPrivateKey: stored.svmPrivateKey,
     chainId: stored.chainId,
-    aaProvider: stored.aaProvider,
-    aaMode: stored.aaMode,
-    smartAccount: stored.smartAccount,
     secretHandles: stored.secretHandles,
     auth: stored.auth,
     oauthGrants: stored.oauthGrants,
@@ -154,20 +156,26 @@ function readStoredSession(path: string): StoredSessionState | null {
       sessionId: parsed.sessionId,
       clientId: parsed.clientId,
       baseUrl: parsed.baseUrl,
+      agentMode:
+        parsed.agentMode === "auto" || parsed.agentMode === "direct"
+          ? parsed.agentMode
+          : undefined,
       app: parsed.app,
+      applicationId: parsed.applicationId,
       model: parsed.model,
       modelSynced: parsed.modelSynced,
       apiKey: parsed.apiKey,
       accountBearer: parsed.accountBearer,
+      guestBearer:
+        typeof parsed.guestBearer === "string" && parsed.guestBearer
+          ? parsed.guestBearer
+          : undefined,
       publicKey: parsed.publicKey,
       privateKey: parsed.privateKey,
       svmPublicKey: parsed.svmPublicKey,
       svmCluster: parsed.svmCluster,
       svmPrivateKey: parsed.svmPrivateKey,
       chainId: parsed.chainId,
-      aaProvider: parsed.aaProvider,
-      aaMode: parsed.aaMode,
-      smartAccount: parsed.smartAccount,
       secretHandles: parsed.secretHandles,
       auth: normalizeAuthSession(parsed.auth),
       oauthGrants: normalizeOAuthGrants(parsed.oauthGrants),
@@ -227,7 +235,7 @@ function normalizeOAuthGrants(
       typeof candidate.expiresAt !== "number" ||
       !Number.isFinite(candidate.expiresAt) ||
       typeof candidate.resource !== "string" ||
-      !/\/v1\/(agent|pipeline)$/.test(candidate.resource) ||
+      !/\/v1\/(agent|pipeline|account)$/.test(candidate.resource) ||
       !Array.isArray(candidate.scopes) ||
       !candidate.scopes.every((scope) => typeof scope === "string") ||
       (candidate.tokenType !== undefined &&
@@ -388,7 +396,6 @@ export function deleteStoredSession(
 }
 
 export function readState(): CliSessionState | null {
-
   const sessions = readAllStoredSessions();
   if (sessions.length === 0) return null;
 

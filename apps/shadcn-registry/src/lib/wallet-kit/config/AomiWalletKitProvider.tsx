@@ -9,6 +9,7 @@ import { useStandardWalletAdapters } from "@solana/wallet-standard-wallet-adapte
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ExtUserProvider } from "@aomi-labs/react";
 import {
+  arc,
   arcTestnet,
   megaeth,
   monad,
@@ -27,6 +28,10 @@ import {
 } from "wagmi/chains";
 import type { Chain } from "viem";
 import { AomiWalletKitComposer } from "../composer/AomiWalletKitComposer";
+import {
+  AOMI_BOOTING_WALLET_KIT,
+  AomiWalletKitContextProvider,
+} from "../context";
 import type { AuthRuntime, ExecutionRuntime } from "../composer/types";
 import { useResolvedAccountRuntime } from "../account/use-resolved-account-runtime";
 import { buildEvmExecutionRuntime } from "../execution/execution-runtime";
@@ -84,6 +89,7 @@ const defaultNetworks = [
   monadTestnet,
   robinhood,
   megaeth,
+  arc,
   arcTestnet,
 ] as const;
 
@@ -590,9 +596,10 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
       : props.auth;
   const authProvider =
     auth !== false && auth?.provider ? auth.provider : undefined;
-  const authPlugin = authProvider
-    ? requireWalletProvider(authProvider)
-    : undefined;
+  const authPlugin =
+    !props.initializing && authProvider
+      ? requireWalletProvider(authProvider)
+      : undefined;
   const provider =
     presetProvider ??
     (authProvider && authPlugin?.authMode !== "additive"
@@ -602,36 +609,43 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
     props.account && props.account.mode === "aomi-backend"
       ? null
       : "wallets-only";
-  if (provider !== "none") {
+  if (!props.initializing && provider !== "none") {
     requireWalletProvider(provider);
   }
 
   return (
-    <AomiWalletNetworkPreferencesProvider
-      evmChains={
-        props.wallets?.evm === false
-          ? []
-          : (props.wallets?.evm?.chains ?? defaultNetworks)
-      }
-      solanaNetworks={
-        resolveAomiSvmConfig(
-          props.wallets?.solana === false ? false : props.wallets?.solana,
-        ).networks
-      }
-      storageKey={networkPreferencesStorageKey}
-    >
-      <ExtUserProvider>
-        <AomiExternalWalletProvider
-          account={props.account}
-          auth={auth}
-          authPlugin={authPlugin}
-          execution={props.execution}
-          providers={props.providers}
-          wallets={props.wallets}
-        >
-          {props.children}
-        </AomiExternalWalletProvider>
-      </ExtUserProvider>
-    </AomiWalletNetworkPreferencesProvider>
+    <ExtUserProvider>
+      <AomiWalletNetworkPreferencesProvider
+        key={authProvider ?? "no-auth-provider"}
+        evmChains={
+          props.wallets?.evm === false
+            ? []
+            : (props.wallets?.evm?.chains ?? defaultNetworks)
+        }
+        solanaNetworks={
+          resolveAomiSvmConfig(
+            props.wallets?.solana === false ? false : props.wallets?.solana,
+          ).networks
+        }
+        storageKey={networkPreferencesStorageKey}
+      >
+        {props.initializing ? (
+          <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
+            {props.children}
+          </AomiWalletKitContextProvider>
+        ) : (
+          <AomiExternalWalletProvider
+            account={props.account}
+            auth={auth}
+            authPlugin={authPlugin}
+            execution={props.execution}
+            providers={props.providers}
+            wallets={props.wallets}
+          >
+            {props.children}
+          </AomiExternalWalletProvider>
+        )}
+      </AomiWalletNetworkPreferencesProvider>
+    </ExtUserProvider>
   );
 }

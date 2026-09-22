@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 // Type-side registration of the jest-dom matchers the root vitest.setup.ts
 // installs at runtime; the app tsconfig doesn't load the augmentation globally.
 import "@testing-library/jest-dom/vitest";
-import { useEffect } from "react";
+import { useEffect, type ContextType } from "react";
 import {
   act,
   cleanup,
@@ -14,11 +14,18 @@ import {
 } from "@testing-library/react";
 import { AomiRuntimeApiProvider, ExtUserProvider } from "@aomi-labs/react";
 import type { AomiWalletKit } from "@/lib/wallet-kit";
+import type { WalletRow } from "@/lib/wallet-kit/composer/wallet-state";
 import { AomiWalletKitContextProvider } from "@/lib/wallet-kit";
 import { AomiWalletNetworkPreferencesProvider } from "@/lib/wallet-kit/network-preferences";
 import { registerWalletProvider } from "@/lib/wallet-kit/providers/plugin-registry";
-import { WalletPickerProvider, useWalletPicker } from "./wallet-picker-context";
+import {
+  requestWalletPickerOpen,
+  WalletPickerProvider,
+  WalletSignInOptionsContext,
+  useWalletPicker,
+} from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
+import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 
 afterEach(cleanup);
 
@@ -48,7 +55,78 @@ const solanaNetworks = [
   },
 ] as const;
 
-function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
+type LegacyWalletRow = {
+  id: string;
+  family: "evm" | "svm";
+  address?: string;
+  chainId?: number;
+  label: string;
+  walletName?: string;
+  kind?: string;
+  walletKind?: "external" | "embedded" | "smart_account";
+  source: "live" | "stored" | "option";
+  status: "active" | "connected" | "stored" | "available" | "unavailable";
+  provider?: string;
+  linked?: boolean;
+  linkedVia?: string;
+  capability?: "read" | "write";
+  manageable?: boolean;
+  actions: Array<{ kind: string; label: string }>;
+};
+
+function canonicalTestRows(rows: readonly LegacyWalletRow[]): WalletRow[] {
+  return rows
+    .filter(
+      (row): row is LegacyWalletRow & { address: string } =>
+        row.source !== "option" && Boolean(row.address),
+    )
+    .map((row) => {
+      const key = `${row.family}:${row.family === "evm" ? row.address.toLowerCase() : row.address}`;
+      const connected = row.source === "live";
+      const linked = Boolean(row.linked || row.source === "stored");
+      return {
+        key,
+        family: row.family,
+        address: row.address,
+        kind: row.walletKind === "embedded" ? "embedded" : "external",
+        provider: row.provider,
+        chainId: row.chainId,
+        walletName: row.walletName,
+        label: row.label,
+        capability: row.capability,
+        manageable: row.manageable,
+        connectionId: connected ? row.id : undefined,
+        linkedWalletId: linked ? row.id : undefined,
+        state: connected ? (linked ? "ready" : "unlinked") : "offline",
+        ...(connected || linked ? {} : { reason: "disconnected" as const }),
+        ...(connected ? {} : { reason: "disconnected" as const }),
+        connected,
+        linked,
+        operating: row.status === "active",
+        actions: [
+          ...(!row.status.includes("active") && connected
+            ? [{ kind: "select" as const, walletKey: key }]
+            : []),
+          ...row.actions.flatMap<WalletRow["actions"][number]>((action) => {
+            if (action.kind === "link")
+              return [{ kind: "link" as const, connectionId: row.id }];
+            if (action.kind === "disconnect")
+              return [{ kind: "disconnect" as const, connectionId: row.id }];
+            if (action.kind === "manage" || action.kind === "signout")
+              return [{ kind: action.kind }];
+            return [];
+          }),
+        ],
+      } as WalletRow;
+    });
+}
+
+function makeAdapter(
+  overrides: Partial<AomiWalletKit> & {
+    walletModalRows?: readonly LegacyWalletRow[];
+  } = {},
+): AomiWalletKit {
+  const { walletModalRows, ...adapterOverrides } = overrides;
   const adapter: AomiWalletKit = {
     identity: {
       status: "connected",
@@ -56,8 +134,9 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
       address: "0xAAAAAAAA",
       chainId: 1,
       svmAddress: "9xQpubKey",
-      authProvider: "google",
-      walletProvider: "para",
+      authMethod: "google",
+      embeddedProvider: "para",
+      sessionProvider: "para",
       primaryLabel: "0xAAA..AA",
     },
     isReady: true,
@@ -82,6 +161,7 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
         active: true,
       },
     ],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     connect: vi.fn(async () => undefined),
     evmWallets: [
@@ -128,82 +208,72 @@ function makeAdapter(overrides: Partial<AomiWalletKit> = {}): AomiWalletKit {
     disconnect: vi.fn(async () => undefined),
     openAccountUI: vi.fn(async () => undefined),
     supportedNetworks: { evm: evmChains, solana: solanaNetworks },
-    ...overrides,
+    ...adapterOverrides,
   };
-  if (!overrides.walletModalRows) {
-    adapter.walletModalRows = [
-      ...adapter.accounts.map((account) => ({
-        id: account.id,
-        family: account.family,
-        address: account.address,
-        chainId: account.chainId,
-        label: account.label ?? account.address,
-        walletName: account.walletName,
-        source: "live" as const,
-        status: account.active ? ("active" as const) : ("connected" as const),
-        linkedVia: account.linkedVia,
-        manageable: account.manageable,
-        actions: account.actions?.map((action) => ({
-          kind: action.kind,
-          label:
-            action.label ??
-            (action.kind === "manage"
-              ? "Manage"
-              : action.kind === "signout"
-                ? "Sign out"
-                : "Disconnect"),
-        })) ?? [
-          account.manageable
-            ? ({ kind: "manage" as const, label: "Manage" } as const)
-            : ({
-                kind: "disconnect" as const,
-                label: "Disconnect",
-              } as const),
-        ],
-      })),
-      ...(adapter.evmWallets ?? []).map((wallet) => ({
-        id: wallet.id,
-        family: wallet.family === "svm" ? ("svm" as const) : ("evm" as const),
-        label: wallet.label,
-        walletName: wallet.label,
-        iconUrl: wallet.iconUrl,
-        kind: wallet.kind,
-        source: "option" as const,
-        status:
-          wallet.status === "unavailable"
-            ? ("unavailable" as const)
-            : ("available" as const),
-        provider: wallet.connectorId,
-        actions: [{ kind: "connect" as const, label: "Connect" }],
-      })),
-      ...(adapter.solanaWallets ?? []).map((wallet) => ({
-        id: wallet.name,
-        family: "svm" as const,
-        label: wallet.name,
-        walletName: wallet.name,
-        iconUrl: wallet.iconUrl,
-        kind: "solana" as const,
-        source: "option" as const,
-        status:
-          wallet.ready === false
-            ? ("unavailable" as const)
-            : ("available" as const),
-        actions: [{ kind: "connect" as const, label: "Connect" }],
-      })),
-      ...(adapter.socialLoginOptions ?? []).map((option) => ({
-        id: option.id,
-        family: "evm" as const,
-        label: option.label,
-        walletName: option.label,
-        kind: "social" as const,
-        source: "option" as const,
-        status:
-          option.status === "unavailable"
-            ? ("unavailable" as const)
-            : ("available" as const),
-        actions: [{ kind: "authenticate" as const, label: "Sign in" }],
-      })),
-    ];
+  adapter.wallets = walletModalRows
+    ? canonicalTestRows(walletModalRows)
+    : canonicalTestRows(
+        adapter.accounts.map((account) => ({
+          id: account.id,
+          family: account.family,
+          address: account.address,
+          chainId: account.chainId,
+          label: account.label ?? account.address,
+          walletName: account.walletName,
+          source: "live" as const,
+          status: account.active ? ("active" as const) : ("connected" as const),
+          linkedVia: account.linkedVia,
+          manageable: account.manageable,
+          actions: account.actions?.map((action) => ({
+            kind: action.kind,
+            label:
+              action.label ??
+              (action.kind === "manage"
+                ? "Manage"
+                : action.kind === "signout"
+                  ? "Sign out"
+                  : "Disconnect"),
+          })) ?? [
+            account.manageable
+              ? ({ kind: "manage" as const, label: "Manage" } as const)
+              : ({
+                  kind: "disconnect" as const,
+                  label: "Disconnect",
+                } as const),
+          ],
+        })),
+      );
+  if (walletModalRows) {
+    const options = walletModalRows.filter((row) => row.source === "option");
+    const social = options.filter((row) => row.kind === "social");
+    const walletOptions = options.filter((row) => row.kind !== "social");
+    if (social.length) {
+      adapter.socialLoginOptions = social.map((row) => ({
+        id: row.id,
+        label: row.label,
+        family: row.family,
+        kind: "social",
+        status: row.status === "unavailable" ? "unavailable" : "available",
+      }));
+    }
+    if (walletOptions.length) {
+      adapter.evmWallets = walletOptions
+        .filter((row) => row.family === "evm")
+        .map((row) => ({
+          id: row.id,
+          label: row.label,
+          family: "evm",
+          kind: row.kind === "walletconnect" ? "walletconnect" : "evm",
+          status: row.status === "unavailable" ? "unavailable" : "available",
+        }));
+      adapter.solanaWallets = walletOptions
+        .filter((row) => row.family === "svm")
+        .map((row) => ({
+          name: row.label,
+          ready: row.status !== "unavailable",
+          installed: row.status !== "unavailable",
+        }));
+    }
   }
   return adapter;
 }
@@ -216,7 +286,13 @@ function OpenAndRender() {
   return <WalletPicker />;
 }
 
-function renderPicker(adapter: AomiWalletKit, hasBlockingActions = false) {
+function renderPicker(
+  adapter: AomiWalletKit,
+  hasBlockingActions = false,
+  initiallyOpen = true,
+  signInOptions: ContextType<typeof WalletSignInOptionsContext> = [],
+  insideSidebar = false,
+) {
   const runtime = {
     hasBlockingActions,
     showNotification: vi.fn(),
@@ -230,9 +306,22 @@ function renderPicker(adapter: AomiWalletKit, hasBlockingActions = false) {
             evmChains={evmChains}
             solanaNetworks={solanaNetworks}
           >
-            <WalletPickerProvider>
-              <OpenAndRender />
-            </WalletPickerProvider>
+            <WalletSignInOptionsContext.Provider value={signInOptions}>
+              <WalletPickerProvider>
+                {insideSidebar ? (
+                  <Sheet open>
+                    <SheetContent>
+                      <SheetTitle>Sidebar</SheetTitle>
+                      <OpenAndRender />
+                    </SheetContent>
+                  </Sheet>
+                ) : initiallyOpen ? (
+                  <OpenAndRender />
+                ) : (
+                  <WalletPicker />
+                )}
+              </WalletPickerProvider>
+            </WalletSignInOptionsContext.Provider>
           </AomiWalletNetworkPreferencesProvider>
         </AomiWalletKitContextProvider>
       </AomiRuntimeApiProvider>
@@ -247,13 +336,46 @@ function openAddWallets() {
 }
 
 describe("WalletPicker", () => {
+  it("returns keyboard focus to the host opener after closing", async () => {
+    renderPicker(makeAdapter(), false, false);
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    try {
+      opener.focus();
+      await act(async () => requestWalletPickerOpen());
+      expect(screen.getByRole("dialog")).toContainElement(
+        document.activeElement as HTMLElement,
+      );
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "Close", exact: true }).at(-1)!,
+      );
+      await waitFor(() => expect(opener).toHaveFocus());
+    } finally {
+      opener.remove();
+    }
+  });
+
+  it("opens from a host-owned surface request", async () => {
+    renderPicker(makeAdapter(), false, false);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await act(async () => requestWalletPickerOpen());
+
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
   it("uses the shared light blurred backdrop", () => {
     renderPicker(makeAdapter());
 
+    expect(screen.getByRole("dialog").parentElement).toBe(document.body);
     const backdrop = screen.getAllByRole("button", { name: "Close" })[0];
     expect(backdrop).toHaveAttribute("data-slot", "modal-backdrop");
     expect(backdrop.className).toContain("bg-black/20");
     expect(backdrop.className).toContain("backdrop-blur-[3px]");
+    openAddWallets();
+    expect(
+      screen.getByRole("button", { name: "Link Rabby" }).className,
+    ).toContain("w-full");
   });
 
   it("quietly handles a rejected or unfinished wallet connection", async () => {
@@ -270,7 +392,8 @@ describe("WalletPicker", () => {
         identity: {
           status: "disconnected",
           isConnected: false,
-          walletProvider: "para",
+          embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -299,7 +422,8 @@ describe("WalletPicker", () => {
         identity: {
           status: "disconnected",
           isConnected: false,
-          walletProvider: "para",
+          embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
         connectEvmWallet,
@@ -318,13 +442,13 @@ describe("WalletPicker", () => {
 
   it("renders connected accounts with family tags and a collapsible add-wallet list", () => {
     renderPicker(makeAdapter());
-    expect(screen.getByText("Manage wallets")).toBeTruthy();
-    const connectedLabel = screen.getByText("Connected");
+    expect(screen.getByText("Finish signing in")).toBeTruthy();
+    const connectedLabel = screen.getByText("Connected on this device");
     const addLabel = screen.getByRole("button", { name: "Add another wallet" });
     // Para isn't connected here (MetaMask + Phantom), so the Para sign-in row
-    // stays available under "Quick sign-in".
-    const quickSignInLabel = screen.getByText("Quick sign-in");
-    // Order is Connected -> Quick sign-in -> Add another wallet.
+    // stays available under "Other ways to sign in".
+    const quickSignInLabel = screen.getByText("Other ways to sign in");
+    // Order is Connected -> other sign-in methods -> Add another wallet.
     expect(
       connectedLabel.compareDocumentPosition(quickSignInLabel) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -373,7 +497,7 @@ describe("WalletPicker", () => {
 
   it("keeps linked wallet records out of the add-wallet picker", async () => {
     const connectEvmWallet = vi.fn(async () => undefined);
-    const walletModalRows: NonNullable<AomiWalletKit["walletModalRows"]> = [
+    const walletModalRows: LegacyWalletRow[] = [
       {
         id: "para-evm",
         family: "evm",
@@ -554,7 +678,6 @@ describe("WalletPicker", () => {
           chainId: 1,
           sessionProvider: "privy",
           embeddedProvider: "privy",
-          walletProvider: "privy",
         },
         accounts: [
           {
@@ -594,8 +717,8 @@ describe("WalletPicker", () => {
       }),
     );
     expect(screen.queryByText("Connected")).toBeNull();
-    const quickSignInLabel = screen.getByText("Quick sign-in");
-    const walletsLabel = screen.getByText("Wallets");
+    const quickSignInLabel = screen.getByText("Other ways to sign in");
+    const walletsLabel = screen.getByText("Choose a wallet");
     expect(
       quickSignInLabel.compareDocumentPosition(walletsLabel) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -761,23 +884,21 @@ describe("WalletPicker", () => {
     );
   });
 
-  it("brands the social row as the account provider with the method beneath", () => {
+  it("presents social auth as a first-class sign-in method", () => {
     renderPicker(
       makeAdapter({
         identity: {
           status: "disconnected",
           isConnected: false,
-          walletProvider: "para",
+          embeddedProvider: "para",
+          sessionProvider: "para",
         },
         accounts: [],
       }),
     );
     const socialRow = screen.getByRole("button", { name: "Email or Google" });
-    // Title = provider brand ("Para"); subtitle = the sign-in method.
-    expect(within(socialRow).getByText("Para")).toBeTruthy();
     expect(within(socialRow).getByText("Email or Google")).toBeTruthy();
-    // Provider brand mark, not the generic mail icon.
-    expect(within(socialRow).getByTitle("Para")).toBeTruthy();
+    expect(within(socialRow).getByText("Para")).toBeTruthy();
   });
 
   it("falls back to the method label when no account provider brand exists", () => {
@@ -802,7 +923,122 @@ describe("WalletPicker", () => {
     // No success banner, and the picker stays open (the new wallet just lands
     // in the connected list).
     expect(screen.queryByText("Wallet connected")).toBeNull();
-    expect(screen.getByText("Manage wallets")).toBeTruthy();
+    expect(screen.getByText("Finish signing in")).toBeTruthy();
+  });
+
+  it.each([false, true])(
+    "links from the finish-sign-in panel (inside sidebar: %s)",
+    async (insideSidebar) => {
+      const linkWallet = vi.fn(async () => undefined);
+      renderPicker(
+        makeAdapter({
+          accounts: [
+            {
+              id: "rabby-account",
+              family: "evm",
+              address: "0xBBBBBBBB",
+              walletName: "Rabby Wallet",
+              chainId: 1,
+              active: true,
+            },
+          ],
+          accountWallets: [],
+          linkWallet,
+          walletModalRows: [
+            {
+              id: "rabby-account",
+              family: "evm",
+              address: "0xBBBBBBBB",
+              walletName: "Rabby Wallet",
+              label: "0xBBBBBBBB",
+              chainId: 1,
+              source: "live",
+              status: "active",
+              actions: [{ kind: "link", label: "Link wallet" }],
+            },
+          ],
+        }),
+        false,
+        true,
+        [],
+        insideSidebar,
+      );
+
+      expect(screen.getByText("Connected wallet")).toBeTruthy();
+      expect(screen.getByText("Connected")).toBeTruthy();
+      expect(
+        document.querySelector('[data-wallet-brand="rabby"]'),
+      ).toBeTruthy();
+
+      const dialog = screen.getByRole("dialog", { name: "Finish signing in" });
+      expect(getComputedStyle(dialog).pointerEvents).toBe("auto");
+      const link = screen.getByRole("button", {
+        name: "Link wallet and sign in",
+      });
+      act(() => link.focus());
+      expect(link).toHaveFocus();
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Link wallet and sign in" }),
+        );
+      });
+
+      expect(linkWallet).toHaveBeenCalledWith({
+        accountId: "rabby-account",
+        family: "evm",
+        address: "0xBBBBBBBB",
+        chainId: 1,
+      });
+      expect(
+        screen.queryByRole("dialog", { name: "Finish signing in" }),
+      ).toBeNull();
+      if (insideSidebar)
+        expect(screen.getByRole("dialog", { name: "Sidebar" })).toBeTruthy();
+    },
+  );
+
+  it("disconnects without linking from the finish-sign-in panel", async () => {
+    const disconnect = vi.fn(async () => undefined);
+    const linkWallet = vi.fn(async () => undefined);
+    renderPicker(
+      makeAdapter({
+        accounts: [
+          {
+            id: "rabby-account",
+            family: "evm",
+            address: "0xBBBBBBBB",
+            walletName: "Rabby Wallet",
+            chainId: 1,
+            active: true,
+          },
+        ],
+        accountWallets: [],
+        disconnect,
+        linkWallet,
+        walletModalRows: [
+          {
+            id: "rabby-account",
+            family: "evm",
+            address: "0xBBBBBBBB",
+            walletName: "Rabby Wallet",
+            label: "0xBBBBBBBB",
+            chainId: 1,
+            source: "live",
+            status: "active",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
+      }),
+    );
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Disconnect Ethereum wallet" }),
+      );
+    });
+
+    expect(disconnect).toHaveBeenCalledWith({ accountId: "rabby-account" });
+    expect(linkWallet).not.toHaveBeenCalled();
   });
 
   it("auto-links the first connected EVM wallet for an empty account", async () => {
@@ -884,6 +1120,51 @@ describe("WalletPicker", () => {
     expect(linkWallet).not.toHaveBeenCalled();
   });
 
+  it("shows a connected unlinked wallet when no operating wallet exists", () => {
+    renderPicker(
+      makeAdapter({
+        identity: { status: "disconnected", isConnected: false },
+        accountUser: { id: "user-1", displayName: "Ada Account" },
+        accountWallets: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            kind: "external",
+            linkedVia: "siwe",
+          },
+        ],
+        linkWallet: vi.fn(async () => undefined),
+        walletModalRows: [
+          {
+            id: "wallet-1",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            walletName: "MetaMask",
+            label: "0xAAAAAAAA",
+            source: "stored",
+            status: "stored",
+            linked: true,
+            actions: [],
+          },
+          {
+            id: "mm-2",
+            family: "evm",
+            address: "0xBBBBBBBB",
+            walletName: "MetaMask",
+            label: "0xBBBBBBBB",
+            source: "live",
+            status: "connected",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Link wallet" })).toBeEnabled();
+  });
+
   it("keeps a dual-chain wallet connectable on both families", () => {
     renderPicker(
       makeAdapter({
@@ -906,584 +1187,6 @@ describe("WalletPicker", () => {
     // Family-scoped dedup keeps Phantom reachable as both EVM and Solana.
     expect(
       screen.getAllByRole("button", { name: "Connect Phantom" }),
-    ).toHaveLength(2);
-  });
-
-  it("slides to the account manager and can open the provider UI", async () => {
-    const openAccountUI = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountUser: { id: "user-1", displayName: "Ada Account" },
-        openAccountUI,
-      }),
-    );
-
-    // "Account" navigates to the in-app account panel rather than opening the
-    // provider modal directly.
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-    expect(openAccountUI).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: "Back to wallets" }),
-    ).toBeTruthy();
-
-    // The provider shortcut inside the panel hands off to the native UI.
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: /open provider settings/i }),
-      );
-    });
-    expect(openAccountUI).toHaveBeenCalled();
-  });
-
-  it("renders live account runtime data and runs linked wallet actions", async () => {
-    const updateLinkedWallet = vi.fn(async () => undefined);
-    const unlinkLinkedWallet = vi.fn(async () => undefined);
-    const updateLinkedAccount = vi.fn(async () => undefined);
-    const unlinkLinkedAccount = vi.fn(async () => undefined);
-    const updateAccount = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountStatus: "ready",
-        accountUser: {
-          id: "user-1",
-          displayName: "Ada Account",
-          email: "ada@example.com",
-        },
-        accountLinkedAccounts: [
-          {
-            id: "identity-1",
-            provider: "privy",
-            subject: "did:privy:ada",
-            email: "ada@example.com",
-            displayLabel: "Privy",
-          },
-        ],
-        accountWallets: [
-          {
-            id: "wallet-1",
-            family: "evm",
-            address: "0xAAAAAAAA",
-            kind: "external",
-            provider: "siwe",
-            chainId: 1,
-            linkedVia: "siwe",
-            label: "Treasury",
-            capability: "write",
-          },
-        ],
-        updateAccount,
-        updateLinkedAccount,
-        updateLinkedWallet,
-        unlinkLinkedWallet,
-        unlinkLinkedAccount,
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.getByText("Manage account")).toBeTruthy();
-    expect(screen.getByText("Connected now")).toBeTruthy();
-    expect(screen.getByText("Account access")).toBeTruthy();
-    expect(screen.getByText("Privy")).toBeTruthy();
-    expect(screen.getAllByText("Treasury").length).toBeGreaterThan(0);
-    // Capability is encoded by the ChainTag dot color (green = write),
-    // not by subtitle text.
-    expect(screen.getAllByText("EVM").length).toBeGreaterThan(0);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Rename account" }));
-    });
-    const accountInput = screen.getByLabelText("Account display name");
-    fireEvent.change(accountInput, { target: { value: "Ada Main" } });
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Save account display name" }),
-      );
-    });
-    expect(updateAccount).toHaveBeenCalledWith({ displayName: "Ada Main" });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Rename Privy" }));
-    });
-    const signInInput = screen.getByLabelText("Sign-in label for Privy");
-    fireEvent.change(signInInput, { target: { value: "Personal Privy" } });
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Save label for Privy" }),
-      );
-    });
-    expect(updateLinkedAccount).toHaveBeenCalledWith({
-      identityId: "identity-1",
-      displayLabel: "Personal Privy",
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Unlink Privy" }));
-    });
-    expect(unlinkLinkedAccount).toHaveBeenCalledWith("identity-1");
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Rename Treasury" }));
-    });
-    const input = screen.getByLabelText("Wallet label for Treasury");
-    fireEvent.change(input, { target: { value: "Ops wallet" } });
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Save label for Treasury" }),
-      );
-    });
-    expect(updateLinkedWallet).toHaveBeenCalledWith({
-      walletId: "wallet-1",
-      label: "Ops wallet",
-    });
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Unlink Treasury" }));
-    });
-    expect(unlinkLinkedWallet).toHaveBeenCalledWith("wallet-1");
-  });
-
-  it("hides synthetic provider emails in the account manager", async () => {
-    renderPicker(
-      makeAdapter({
-        accountStatus: "ready",
-        accountUser: {
-          id: "user-1",
-          email: "para-para_user_123@auth.aomi.local",
-        },
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "para",
-          sessionProvider: "para",
-          walletProviderSubject: "para:user/123",
-          primaryLabel: "alice@example.com",
-        },
-        accountLinkedAccounts: [
-          {
-            id: "identity-1",
-            provider: "para",
-            subject: "para:user/123",
-            email: "para-para_user_123@auth.aomi.local",
-            displayLabel: "Para",
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.queryByText("para-para_user_123@auth.aomi.local")).toBeNull();
-    expect(screen.getByText("alice@example.com")).toBeTruthy();
-    expect(screen.getByText("Provider sign-in")).toBeTruthy();
-  });
-
-  it("does not duplicate resolved email identities in the account manager", async () => {
-    const updateLinkedAccount = vi.fn(async () => undefined);
-    const unlinkLinkedAccount = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountStatus: "ready",
-        accountUser: {
-          id: "user-1",
-          displayName: "arixon.ethereum@gmail.com",
-          email: "arixon.ethereum@gmail.com",
-        },
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "para",
-          sessionProvider: "para",
-          walletProviderSubject: "para:user/123",
-          primaryLabel: "arixon.ethereum@gmail.com",
-        },
-        accountLinkedAccounts: [
-          {
-            id: "identity-para",
-            provider: "para",
-            subject: "para:user/123",
-            email: "arixon.ethereum@gmail.com",
-            displayLabel: "arixon.ethereum@gmail.com",
-          },
-          {
-            id: "identity-email",
-            provider: "email",
-            subject: "arixon.ethereum@gmail.com",
-            email: "arixon.ethereum@gmail.com",
-            displayLabel: "email",
-          },
-        ],
-        updateLinkedAccount,
-        unlinkLinkedAccount,
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.getByText("2 wallets connected")).toBeTruthy();
-    expect(screen.getByText("Provider sign-in")).toBeTruthy();
-    expect(screen.queryByText("email")).toBeNull();
-    expect(screen.getByRole("button", { name: "Rename Para" })).toBeTruthy();
-    expect(
-      screen.queryByRole("button", {
-        name: "Rename arixon.ethereum@gmail.com",
-      }),
-    ).toBeNull();
-    expect(screen.queryByRole("button", { name: "Rename email" })).toBeNull();
-  });
-
-  it("renders provider auth separately from embedded EVM and SVM wallets", async () => {
-    const updateLinkedAccount = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountStatus: "ready",
-        accountUser: { id: "user-1", displayName: "privy user" },
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "privy",
-          sessionProvider: "privy",
-          walletProviderSubject: "did:privy:user",
-        },
-        // Two live wallets minted by the same Privy sign-in (provider="privy").
-        walletModalRows: [
-          {
-            id: "privy-evm",
-            family: "evm",
-            address: "0xCC8000000000000000000000000000000000008f",
-            chainId: 1,
-            label: "0xCC8..8f",
-            walletName: "Privy Smart Wallet",
-            source: "live",
-            status: "active",
-            provider: "privy",
-            linked: true,
-            actions: [],
-          },
-          {
-            id: "privy-svm",
-            family: "svm",
-            address: "AG6eZ8E",
-            label: "AG6eZ..8E",
-            walletName: "Privy Solana",
-            source: "live",
-            status: "connected",
-            provider: "privy",
-            linked: true,
-            actions: [],
-          },
-        ],
-        accountLinkedAccounts: [
-          {
-            id: "identity-1",
-            provider: "privy",
-            subject: "did:privy:user",
-            displayLabel: "Privy",
-          },
-        ],
-        accountWallets: [
-          {
-            id: "w-evm",
-            family: "evm",
-            address: "0xCC8000000000000000000000000000000000008f",
-            kind: "smart_account",
-            provider: "privy",
-            chainId: 1,
-            linkedVia: "privy",
-            capability: "write",
-          },
-          {
-            id: "w-svm",
-            family: "svm",
-            address: "AG6eZ8E",
-            kind: "embedded",
-            provider: "privy",
-            linkedVia: "privy",
-            capability: "write",
-          },
-        ],
-        updateLinkedAccount,
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.getByText("Connected now")).toBeTruthy();
-    expect(screen.getByText("Account access")).toBeTruthy();
-    expect(screen.queryByText("EVM/SVM")).toBeNull();
-    expect(screen.getAllByText("EVM").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("SVM").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Privy").length).toBeGreaterThanOrEqual(3);
-    expect(screen.getAllByText(/0xCC8\.\.8f/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/AG6eZ\.\.8E/).length).toBeGreaterThan(0);
-    expect(screen.getByText("AG6eZ..8E · Solana · Linked")).toBeTruthy();
-    const accessGroup = screen.getByRole("group", {
-      name: "Privy account access",
-    });
-    expect(within(accessGroup).getByText("0xCC8..8f · AG6eZ..8E")).toBeTruthy();
-    expect(screen.queryByText("Privy Smart Wallet")).toBeNull();
-    expect(screen.queryByText("Privy Solana")).toBeNull();
-    // Provider-owned embedded wallets stay represented by the provider
-    // sign-in row under Account access.
-    expect(screen.queryByText("Wallet")).toBeNull();
-    expect(screen.getByRole("button", { name: "Rename Privy" })).toBeTruthy();
-  });
-
-  it("groups tenant-scoped Para access and shows stored Solana access", async () => {
-    const updateLinkedAccount = vi.fn(async () => undefined);
-    const unlinkLinkedAccount = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountStatus: "ready",
-        accountUser: { id: "user-1", displayName: "Para user" },
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "para",
-          sessionProvider: "para",
-          walletProviderSubject: "para:user/123",
-        },
-        walletModalRows: [
-          {
-            id: "para-evm",
-            family: "evm",
-            address: "0xE7700000000000000000000000000000000000A6",
-            chainId: 1,
-            label: "0xe77..a6",
-            walletName: "Para",
-            source: "live",
-            status: "active",
-            provider: "para",
-            linked: true,
-            actions: [],
-          },
-        ],
-        accountLinkedAccounts: [
-          {
-            id: "identity-para-portal",
-            provider: "para",
-            subject: "para:user/123",
-            displayLabel: "Para",
-          },
-          {
-            id: "identity-para-widget",
-            provider: "para",
-            subject: "para:user/123",
-            displayLabel: "Para",
-          },
-        ],
-        accountWallets: [
-          {
-            id: "para-wallet-evm",
-            family: "evm",
-            address: "0xE7700000000000000000000000000000000000A6",
-            kind: "embedded",
-            provider: "para",
-            linkedVia: "para",
-            capability: "write",
-          },
-          {
-            id: "para-wallet-svm",
-            family: "svm",
-            address: "53GfExampleSolanaAddress",
-            kind: "embedded",
-            provider: "para",
-            linkedVia: "para",
-            capability: "write",
-          },
-        ],
-        updateLinkedAccount,
-        unlinkLinkedAccount,
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    const accessGroup = screen.getByRole("group", {
-      name: "Para account access",
-    });
-    expect(within(accessGroup).getAllByText("Para")).toHaveLength(1);
-    expect(within(accessGroup).getByText("EVM")).toBeTruthy();
-    expect(within(accessGroup).getByText("SVM")).toBeTruthy();
-    expect(
-      accessGroup.querySelector('[data-wallet-access="connected"]'),
-    ).toBeTruthy();
-    expect(
-      accessGroup.querySelector('[data-wallet-access="stored"]'),
-    ).toBeTruthy();
-    expect(within(accessGroup).getByText("0xE77..A6 · 53GfE..ss")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Rename Para" })).toHaveLength(
-      1,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Rename Para" }));
-    fireEvent.change(screen.getByLabelText("Sign-in label for Para"), {
-      target: { value: "My Para" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save label for Para" }),
-    );
-
-    await waitFor(() => expect(updateLinkedAccount).toHaveBeenCalledTimes(2));
-    expect(updateLinkedAccount).toHaveBeenCalledWith({
-      identityId: "identity-para-portal",
-      displayLabel: "My Para",
-    });
-    expect(updateLinkedAccount).toHaveBeenCalledWith({
-      identityId: "identity-para-widget",
-      displayLabel: "My Para",
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Unlink Para" })).toBeEnabled(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Unlink Para" }));
-    await waitFor(() => expect(unlinkLinkedAccount).toHaveBeenCalledTimes(2));
-  });
-
-  it("renders provider wallets as separate EVM and SVM rows in Manage wallets", () => {
-    renderPicker(
-      makeAdapter({
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "privy",
-          sessionProvider: "privy",
-          walletProviderSubject: "did:privy:user",
-        },
-        // No account runtime, so only the Manage wallets list renders.
-        accountUser: undefined,
-        walletModalRows: [
-          {
-            id: "privy-evm",
-            family: "evm",
-            address: "0xCC8000000000000000000000000000000000008f",
-            chainId: 1,
-            label: "0xCC8..8f",
-            walletName: "Privy Smart Wallet",
-            source: "live",
-            status: "active",
-            provider: "privy",
-            linked: true,
-            linkedVia: "privy",
-            actions: [{ kind: "signout", label: "Sign out" }],
-          },
-          {
-            id: "privy-svm",
-            family: "svm",
-            address: "AG6eZ8E",
-            label: "AG6eZ..8E",
-            walletName: "Privy Solana",
-            source: "live",
-            status: "active",
-            provider: "privy",
-            linked: true,
-            linkedVia: "privy",
-            actions: [{ kind: "signout", label: "Sign out" }],
-          },
-        ],
-      }),
-    );
-
-    expect(screen.getByText("Manage wallets")).toBeTruthy();
-    expect(screen.getAllByText("Privy").length).toBe(2);
-    expect(screen.queryByText("EVM/SVM")).toBeNull();
-    expect(screen.getByText("EVM")).toBeTruthy();
-    expect(screen.getByText("SVM")).toBeTruthy();
-    expect(screen.getByText(/0xCC8/)).toBeTruthy();
-    expect(screen.getAllByText("AG6eZ..8E").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Privy Smart Wallet")).toBeNull();
-    expect(screen.queryByText("Privy Solana")).toBeNull();
-    expect(screen.getAllByRole("button", { name: "Sign out" }).length).toBe(2);
-  });
-
-  it("does not promote linked provider wallets to connected rows without live provider accounts", async () => {
-    renderPicker(
-      makeAdapter({
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "privy",
-          sessionProvider: "privy",
-          walletProviderSubject: "did:privy:user",
-        },
-        accountUser: { id: "user-1", displayName: "Privy Account" },
-        walletModalRows: [
-          {
-            id: "rabby",
-            family: "evm",
-            address: "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            label: "Rabby",
-            walletName: "Rabby",
-            source: "live",
-            status: "active",
-            linked: true,
-            actions: [{ kind: "disconnect", label: "Disconnect" }],
-          },
-        ],
-        accountWallets: [
-          {
-            id: "w-evm",
-            family: "evm",
-            address: "0xCC8000000000000000000000000000000000008f",
-            kind: "smart_account",
-            provider: "privy",
-            chainId: 1,
-            linkedVia: "privy",
-            capability: "write",
-          },
-          {
-            id: "w-svm",
-            family: "svm",
-            address: "AG6eZ8E",
-            kind: "embedded",
-            provider: "privy",
-            linkedVia: "privy",
-            capability: "write",
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.getByText("Manage account")).toBeTruthy();
-    expect(screen.getAllByText("Rabby").length).toBeGreaterThan(0);
-    expect(screen.getByText("Account access")).toBeTruthy();
-    const accessGroup = screen.getByRole("group", {
-      name: "Privy account access",
-    });
-    expect(within(accessGroup).getByText("0xCC8..8f · AG6eZ..8E")).toBeTruthy();
-    expect(
-      accessGroup.querySelectorAll('[data-wallet-access="stored"]'),
     ).toHaveLength(2);
   });
 
@@ -1515,130 +1218,6 @@ describe("WalletPicker", () => {
     expect(screen.getByText("MetaMask")).toBeTruthy();
     expect(screen.queryByText("siwe")).toBeNull();
     expect(screen.getByText("EVM")).toBeTruthy();
-  });
-
-  it("hides SIWS auth identities while keeping the linked Solana wallet", async () => {
-    renderPicker(
-      makeAdapter({
-        accountUser: { id: "user-1", displayName: "Wallet Account" },
-        accountLinkedAccounts: [
-          {
-            id: "siws-identity",
-            provider: "siws",
-            subject: "solana:*:CB3XMCCSTp9U9vnQerN8yoqazSt8MPgGvoS1gunYXL8v",
-          },
-        ],
-        accountWallets: [
-          {
-            id: "phantom-wallet",
-            family: "svm",
-            address: "CB3XMCCSTp9U9vnQerN8yoqazSt8MPgGvoS1gunYXL8v",
-            kind: "external",
-            provider: "siws",
-            linkedVia: "siws",
-            label: "Phantom 1",
-            capability: "write",
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.queryByText("siws")).toBeNull();
-    expect(screen.getAllByText("Phantom 1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("SVM").length).toBeGreaterThan(0);
-  });
-
-  it("hides legacy wallet auth identities while keeping the linked EVM wallet", async () => {
-    const address = "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0";
-    renderPicker(
-      makeAdapter({
-        identity: {
-          status: "connected",
-          isConnected: true,
-          address,
-          chainId: 1,
-          primaryLabel: "0xda6..f0",
-        },
-        accounts: [
-          {
-            id: "rabby",
-            family: "evm",
-            address,
-            walletName: "Rabby",
-            chainId: 1,
-            active: true,
-          },
-        ],
-        accountUser: { id: "user-1", displayName: address },
-        accountLinkedAccounts: [
-          {
-            id: "legacy-wallet-identity",
-            provider: "wallet",
-            subject: address,
-          },
-        ],
-        accountWallets: [
-          {
-            id: "rabby-wallet",
-            family: "evm",
-            address,
-            kind: "external",
-            provider: "siwe",
-            linkedVia: "siwe",
-            label: "Rabby 1",
-            capability: "write",
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-
-    expect(screen.queryByText(/^wallet$/i)).toBeNull();
-    expect(screen.queryByText(address)).toBeNull();
-    expect(screen.getAllByText("Rabby 1").length).toBeGreaterThan(0);
-  });
-
-  it("shows the account button for a loaded wallet-only account without a provider UI", () => {
-    renderPicker(
-      makeAdapter({
-        accountUser: { id: "user-1", displayName: "Wallet Account" },
-        canOpenAccountUI: false,
-        openAccountUI: undefined,
-        identity: {
-          status: "connected",
-          isConnected: true,
-          address: "0xAAAAAAAA",
-          chainId: 1,
-          primaryLabel: "0xAAA..AA",
-        },
-        accounts: [
-          {
-            id: "mm",
-            family: "evm",
-            address: "0xAAAAAAAA",
-            walletName: "MetaMask",
-            active: true,
-          },
-        ],
-      }),
-    );
-
-    // The account button is gated on a loaded Aomi account, not on the provider
-    // exposing a native account modal.
-    expect(
-      screen.getByRole("button", { name: "Manage your account" }),
-    ).toBeTruthy();
   });
 
   it("shows a per-row manage action only for manageable wallets", async () => {
@@ -1681,65 +1260,13 @@ describe("WalletPicker", () => {
     expect(openAccountUI).toHaveBeenCalledWith({ family: "evm" });
   });
 
-  it("runs a full account sign-out even when a provider wallet is connected", async () => {
-    const callOrder: string[] = [];
-    const signOutAccount = vi.fn(async () => {
-      callOrder.push("sign-out");
-    });
-    const disconnect = vi.fn(async () => {
-      callOrder.push("disconnect");
-    });
-    renderPicker(
-      makeAdapter({
-        accountUser: { id: "user-1", displayName: "Ada Account" },
-        signOutAccount,
-        disconnect,
-        accounts: [
-          {
-            id: "para",
-            family: "evm",
-            address: "0xAAAAAAAA",
-            walletName: "Para",
-            active: true,
-            manageable: true,
-            actions: [
-              { kind: "manage", label: "Manage" },
-              { kind: "signout", label: "Sign out" },
-            ],
-          },
-          {
-            id: "phantom",
-            family: "svm",
-            address: "9xQpubKey",
-            walletName: "Phantom",
-            active: true,
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText("End this account session"));
-    });
-
-    expect(signOutAccount).toHaveBeenCalledTimes(1);
-    expect(disconnect).toHaveBeenCalledWith({ family: "all" });
-    expect(callOrder).toEqual(["sign-out", "disconnect"]);
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
   it("uses the Para brand mark for manageable Para accounts with generic names", () => {
     renderPicker(
       makeAdapter({
         identity: {
           status: "connected",
           isConnected: true,
-          walletProvider: "para",
+          embeddedProvider: "para",
           sessionProvider: "para",
         },
         accounts: [
@@ -1760,6 +1287,72 @@ describe("WalletPicker", () => {
         .getAllByTitle("Embedded wallet")
         .some((node) => node.getAttribute("data-wallet-brand") === "para"),
     ).toBe(true);
+  });
+
+  it("hides the connected host provider and offers the other one as a link", async () => {
+    const privy = vi.fn(async () => undefined);
+    const para = vi.fn(async () => undefined);
+    renderPicker(
+      makeAdapter({
+        identity: {
+          status: "connected",
+          isConnected: true,
+          sessionProvider: "privy",
+          walletProviderSubject: "privy-user",
+        },
+      }),
+      false,
+      true,
+      [
+        {
+          id: "privy",
+          label: "Privy",
+          status: "available",
+          family: "multichain",
+          kind: "social",
+          connect: privy,
+        },
+        {
+          id: "para",
+          label: "Para",
+          status: "available",
+          family: "multichain",
+          kind: "social",
+          connect: para,
+        },
+      ],
+    );
+    expect(screen.queryByRole("button", { name: "Privy" })).toBeNull();
+    expect(screen.getByText("Link another provider")).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Para" }));
+    });
+    expect(para).toHaveBeenCalledOnce();
+    expect(privy).not.toHaveBeenCalled();
+  });
+
+  it("shows both host providers as ways to sign in when no provider account is connected", () => {
+    renderPicker(makeAdapter({}), false, true, [
+      {
+        id: "privy",
+        label: "Privy",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+      {
+        id: "para",
+        label: "Para",
+        status: "available",
+        family: "multichain",
+        kind: "social",
+        connect: vi.fn(async () => undefined),
+      },
+    ]);
+    expect(screen.getByText("Other ways to sign in")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Para" })).toBeVisible();
   });
 
   it("hides the social sign-in row when the Para account is connected", () => {
@@ -1794,7 +1387,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "connected",
           isConnected: true,
-          walletProvider: "privy",
+          embeddedProvider: "privy",
           sessionProvider: "privy",
           walletProviderSubject: "did:privy:user",
           primaryLabel: "privy@example.com",
@@ -1825,58 +1418,11 @@ describe("WalletPicker", () => {
 
     expect(screen.queryByText("Email, wallet, or social")).toBeNull();
     expect(screen.queryByText("Quick sign-in")).toBeNull();
-    // The account button shows once the provider session has produced a loaded
-    // Aomi account, even without a native provider account modal.
+    // Account management belongs to the host settings surface, not this picker.
     expect(
-      screen.getByRole("button", { name: "Manage your account" }),
-    ).toBeTruthy();
+      screen.queryByRole("button", { name: "Manage your account" }),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
-  });
-
-  it("runs full account sign-out for provider-supplied sign-out rows", async () => {
-    const signOutAccount = vi.fn(async () => undefined);
-    const disconnect = vi.fn(async () => undefined);
-    renderPicker(
-      makeAdapter({
-        accountUser: { id: "user-1", displayName: "Privy Account" },
-        signOutAccount,
-        canOpenAccountUI: false,
-        openAccountUI: undefined,
-        disconnect,
-        identity: {
-          status: "connected",
-          isConnected: true,
-          walletProvider: "privy",
-          sessionProvider: "privy",
-          walletProviderSubject: "did:privy:user",
-          primaryLabel: "privy@example.com",
-        },
-        accounts: [
-          {
-            id: "privy-solana",
-            family: "svm",
-            address: "9xQpubKey",
-            walletName: "Privy Solana",
-            active: true,
-            linkedVia: "privy",
-            actions: [{ kind: "signout", label: "Sign out" }],
-          },
-        ],
-      }),
-    );
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Manage your account" }),
-      );
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByText("End this account session"));
-    });
-
-    expect(signOutAccount).toHaveBeenCalledTimes(1);
-    expect(disconnect).toHaveBeenCalledWith({ family: "all" });
-    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("uses full account sign-out from a provider connected-row sign-out", async () => {
@@ -1892,7 +1438,7 @@ describe("WalletPicker", () => {
         identity: {
           status: "connected",
           isConnected: true,
-          walletProvider: "privy",
+          embeddedProvider: "privy",
           sessionProvider: "privy",
           walletProviderSubject: "did:privy:user",
           primaryLabel: "privy@example.com",
@@ -1931,7 +1477,8 @@ describe("WalletPicker", () => {
           isConnected: true,
           address: "0xAAAAAAAA",
           chainId: 1,
-          walletProvider: "privy",
+          embeddedProvider: "privy",
+          sessionProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         socialLoginOptions: [
@@ -1950,10 +1497,10 @@ describe("WalletPicker", () => {
     const socialRow = screen.getByRole("button", {
       name: "Email, wallet, or social",
     });
-    expect(within(socialRow).getByText("Privy")).toBeTruthy();
     expect(
       within(socialRow).getByText("Email, wallet, or social"),
     ).toBeTruthy();
+    expect(within(socialRow).getByText("Privy")).toBeTruthy();
   });
 
   it("dedupes stored embedded wallets behind the provider quick sign-in row", () => {
@@ -1986,7 +1533,8 @@ describe("WalletPicker", () => {
           isConnected: true,
           address: "0xAAAAAAAA",
           chainId: 1,
-          walletProvider: "privy",
+          embeddedProvider: "privy",
+          sessionProvider: "privy",
           primaryLabel: "0xAAA..AA",
         },
         walletModalRows: [
@@ -2046,7 +1594,7 @@ describe("WalletPicker", () => {
     // stays reachable to (re)connect above "Add another wallet".
     renderPicker(makeAdapter());
     expect(screen.getByText("Email or Google")).toBeTruthy();
-    expect(screen.getByText("Quick sign-in")).toBeTruthy();
+    expect(screen.getByText("Other ways to sign in")).toBeTruthy();
   });
 
   it("hides the per-row manage action when the adapter can't open account UI", () => {

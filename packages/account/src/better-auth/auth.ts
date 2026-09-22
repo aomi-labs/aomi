@@ -16,6 +16,7 @@ import {
   AOMI_CANONICAL_USER_CLAIM,
   AOMI_PRINCIPAL_CLASS_CLAIM,
   AOMI_SCOPES,
+  MCP_CLIENT_REGISTRATION_SCOPES,
   aomiOAuthResourcePolicies,
   aomiOAuthResources,
 } from "./oauth-policy";
@@ -24,6 +25,10 @@ import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
+import {
+  previewWalletAuthOrigin,
+  withPreviewWalletAuthOrigin,
+} from "./preview-origin";
 
 const env = readAccountAuthEnv();
 const resources = aomiOAuthResources();
@@ -230,7 +235,11 @@ export const auth = betterAuth({
     }),
     snakeCasedSiwe(
       siwe({
-        domain: env.siweDomain,
+        get domain() {
+          return previewWalletAuthOrigin()
+            ? new URL(previewWalletAuthOrigin()!).host
+            : env.siweDomain;
+        },
         emailDomainName: env.siweEmailDomain,
         anonymous: true,
         getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
@@ -238,8 +247,14 @@ export const auth = betterAuth({
       }),
     ),
     aomiSiwsPlugin({
-      domain: env.siweDomain,
-      baseUrl: env.betterAuthUrl,
+      get domain() {
+        return previewWalletAuthOrigin()
+          ? new URL(previewWalletAuthOrigin()!).host
+          : env.siweDomain;
+      },
+      get baseUrl() {
+        return previewWalletAuthOrigin() ?? env.betterAuthUrl;
+      },
       getNonce: async () => generateRandomString(32, "a-z", "A-Z", "0-9"),
     }),
     bearer(),
@@ -267,7 +282,7 @@ export const auth = betterAuth({
             resources: seedOAuthResources
               ? resourcePolicies.map((policy) => ({
                   identifier: policy.identifier,
-                  allowedScopes: [...policy.allowedScopes, "offline_access"],
+                  allowedScopes: [...policy.grantableScopes],
                   accessTokenTtl: 5 * 60,
                   dpopBoundAccessTokensRequired:
                     policy.dpopBoundAccessTokensRequired,
@@ -275,17 +290,29 @@ export const auth = betterAuth({
               : [],
             resourceSeedMode: "overwrite",
             scopes: [...AOMI_SCOPES],
+            // Do not attach server defaults to dynamic clients. Agent,
+            // Pipeline, and REST registrations must remain exact-resource.
+            // Codex's RFC 7591 payload omits the non-standard `resources`
+            // extension, so the Portal transactionally binds that client to
+            // the one resource named by its first authorize request.
             clientRegistrationDefaultResources: [],
             clientRegistrationAllowedResources: seedOAuthResources
-              ? [resources.agentMcp, resources.pipelineMcp]
+              ? [
+                  resources.agentMcp,
+                  resources.pipelineMcp,
+                  resources.agentRest,
+                  resources.pipelineRest,
+                  resources.accountRest,
+                ]
               : [],
             clientRegistrationDefaultScopes: [
-              "agent:read",
-              "agent:write",
-              "pipeline:catalog",
-              "mcp:agent",
-              "mcp:pipeline",
+              ...MCP_CLIENT_REGISTRATION_SCOPES,
             ],
+            // What a client may ASK for at registration. Better Auth fails a
+            // registration outright on any requested scope missing from this
+            // list, and MCP clients do request `openid` — Codex does — so
+            // refusing it here broke registration before the browser opened.
+            // Breadth here is safe because the grant is bounded at authorize.
             clientRegistrationAllowedScopes: [...AOMI_SCOPES],
             clientRegistrationRequirePKCE: true,
             allowDynamicClientRegistration: true,
@@ -332,3 +359,13 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 });
+
+export function handleWalletAuthRequest(request: Request): Promise<Response> {
+  const result = withPreviewWalletAuthOrigin(
+    request,
+    process.env,
+    env.betterAuthUrl,
+    () => auth.handler(request),
+  );
+  return Promise.resolve(result);
+}

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="690" viewBox="0 0 1100 690" role="img" aria-labelledby="title desc">
+  <title id="title">Independent wallet policy at the signing boundary</title>
+  <desc id="desc">The user gives an agent runtime an intent and separately establishes delegated signing policy with a wallet provider. The runtime builds an exact signing request and sends it through MCP, but it never receives the private key. The wallet provider evaluates the request against user-controlled policy inside a trusted execution environment. A permitted request is signed inside the enclave, while a prohibited request is denied.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8f9fb}.panel{fill:#fff;stroke:#c9d2dc;stroke-width:1.5}.app{fill:#f3f7fb;stroke:#b8cfdf;stroke-width:1.5}.provider{fill:#edf5fb;stroke:#8eb5d1;stroke-width:1.5}.tee{fill:#fff;stroke:#285c87;stroke-width:1.8}.card{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}.consent{fill:#dceaf5;stroke:#7da6c4;stroke-width:1.5}.key{fill:#d6e9f8;stroke:#285c87;stroke-width:1.5}.deny{fill:#f8e6ed;stroke:#ca7897;stroke-width:1.5}.ok{fill:#e1efe5;stroke:#6f9a7a;stroke-width:1.5}.ink{fill:#18202a}.muted{fill:#586675}.blue{fill:#285c87}.pink{fill:#9a4d6b}.green{fill:#4f795b}.label{font:700 13px Arial,sans-serif;letter-spacing:.09em}.stage{font:700 25px Arial,sans-serif}.name{font:700 17px Arial,sans-serif}.body{font:15px Arial,sans-serif}.small{font:13px Arial,sans-serif}.mono{font:14px "Courier New",monospace}.note{font:italic 14px Arial,sans-serif}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#778696"/></marker>
+    <marker id="arrowblue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#285c87"/></marker>
+    <marker id="arrowgreen" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#5f8f6e"/></marker>
+  </defs>
+
+  <rect class="bg" width="1100" height="690" rx="20"/>
+  <text class="label muted" x="46" y="52">GATE 1 · SIGNING POLICY</text>
+  <text class="stage ink" x="46" y="88">The runtime requests the signature. The wallet provider decides.</text>
+
+  <!-- User establishes intent with the runtime and authority with the provider. -->
+  <rect class="consent" x="385" y="116" width="330" height="70" rx="12"/>
+  <text class="name ink" x="550" y="145" text-anchor="middle">User consent</text>
+  <text class="body muted" x="550" y="167" text-anchor="middle">Intent plus delegated signing limits</text>
+  <path d="M455 186 C390 218 324 222 260 250" fill="none" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="small muted" x="335" y="215" text-anchor="middle">intent</text>
+  <path d="M650 186 C725 214 812 218 868 250" fill="none" stroke="#285c87" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowblue)"/>
+  <text class="small blue" x="775" y="211" text-anchor="middle">user-controlled policy</text>
+
+  <!-- Application boundary. -->
+  <rect class="panel" x="46" y="234" width="392" height="330" rx="18"/>
+  <text class="label muted" x="68" y="264">APPLICATION TRUST BOUNDARY</text>
+  <rect class="app" x="68" y="286" width="348" height="166" rx="14"/>
+  <text class="label blue" x="90" y="316">AGENT RUNTIME</text>
+  <text class="name ink" x="90" y="349">Builds the exact signing request</text>
+  <text class="body muted" x="90" y="377">chain · account · destination</text>
+  <text class="body muted" x="90" y="401">calldata · value · policy reference</text>
+  <rect class="deny" x="90" y="417" width="191" height="25" rx="12.5"/>
+  <text class="small pink" x="185" y="434" text-anchor="middle">No private-key access</text>
+  <text class="body ink" x="68" y="493">The agent proposes an action.</text>
+  <text class="body muted" x="68" y="518">It cannot sign or change an independently</text>
+  <text class="body muted" x="68" y="540">administered wallet policy.</text>
+
+  <!-- MCP corridor. -->
+  <path d="M438 365 H662" fill="none" stroke="#285c87" stroke-width="2.5" marker-end="url(#arrowblue)"/>
+  <rect class="card" x="468" y="323" width="164" height="67" rx="10"/>
+  <text class="label blue" x="550" y="348" text-anchor="middle">MCP</text>
+  <text class="small ink" x="550" y="370" text-anchor="middle">signing request</text>
+  <path d="M662 435 H438" fill="none" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="small muted" x="550" y="423" text-anchor="middle">signature or policy denial</text>
+
+  <!-- Wallet provider and TEE. -->
+  <rect class="provider" x="662" y="234" width="392" height="330" rx="18"/>
+  <text class="label blue" x="684" y="264">WALLET PROVIDER</text>
+  <rect class="tee" x="684" y="286" width="348" height="206" rx="14"/>
+  <text class="label blue" x="706" y="316">TRUSTED EXECUTION ENVIRONMENT</text>
+  <rect class="key" x="706" y="338" width="126" height="74" rx="10"/>
+  <circle cx="735" cy="370" r="12" fill="none" stroke="#285c87" stroke-width="3"/>
+  <path d="M747 370 H789 M775 370 V381 M788 370 V379" stroke="#285c87" stroke-width="3" stroke-linecap="round"/>
+  <text class="name ink" x="769" y="400" text-anchor="middle">Private key</text>
+  <rect class="card" x="852" y="338" width="158" height="74" rx="10"/>
+  <text class="name ink" x="931" y="365" text-anchor="middle">Policy evaluator</text>
+  <text class="small muted" x="931" y="388" text-anchor="middle">checks exact request</text>
+  <path d="M832 375 H848" stroke="#285c87" stroke-width="2" marker-end="url(#arrowblue)"/>
+  <rect class="ok" x="706" y="434" width="304" height="38" rx="10"/>
+  <text class="body green" x="858" y="458" text-anchor="middle">Permit only when user policy is satisfied</text>
+  <text class="body ink" x="684" y="526">The provider retains the key and executes</text>
+  <text class="body muted" x="684" y="548">the signature inside the enclave.</text>
+
+  <!-- Decision statement. -->
+  <rect class="card" x="46" y="593" width="1008" height="57" rx="10"/>
+  <text class="label muted" x="68" y="618">JOINT AUTHORIZATION, NOT JOINT CUSTODY</text>
+  <text class="body ink" x="68" y="640">Agent request + authority rooted in user consent = signature. The key never enters the runtime.</text>
+  <text class="note muted" x="46" y="674">This is an independent gate only if the application cannot change the policy or obtain the signature through another route.</text>
+</svg>

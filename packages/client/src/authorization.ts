@@ -3,6 +3,7 @@ import type { AomiClient } from "./client";
 export type AomiOAuthResource =
   | `${string}/v1/agent`
   | `${string}/v1/pipeline`
+  | `${string}/v1/account`
   | `${string}/v1/agent/mcp`
   | `${string}/v1/pipeline/mcp`;
 
@@ -413,7 +414,10 @@ export function isUnboundWalletError(error: unknown): boolean {
       : typeof error === "string"
         ? error
         : "";
-  return text.includes("signing_unbound_wallet");
+  return (
+    text.includes("signing_unbound_wallet") ||
+    text.includes("signing_svm_account_link_required_for_hosted")
+  );
 }
 
 function isAlreadyBound(error: unknown): boolean {

@@ -23,6 +23,7 @@ describe("CLI session lifecycle", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     process.env = { ...ORIGINAL_ENV };
     rmSync(stateDir, { recursive: true, force: true });
   });
@@ -60,6 +61,72 @@ describe("CLI session lifecycle", () => {
       first.sessionId,
       fresh.sessionId,
     ]);
+  });
+
+  it("defaults fresh sessions to Auto and persists explicit Direct routing", async () => {
+    const { AgentTransport } = await import("../../src/agent/transport");
+    const start = vi
+      .spyOn(AgentTransport.prototype, "start")
+      .mockImplementation(async (intent) => ({
+        session_id: intent.sessionId ?? "missing",
+        cursor: "cursor-0",
+        events: [],
+        has_more: false,
+      }));
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { readState } = await import("../../src/cli/state");
+
+    const auto = CliSession.create({
+      baseUrl: "https://api.aomi.dev",
+      secrets: {},
+    });
+    expect(auto.agentMode).toBe("auto");
+    const autoSession = auto.createClientSession();
+    await autoSession.sendAsync("hello");
+    expect(start.mock.calls[0]?.[0]).toMatchObject({ mode: "auto" });
+    expect(start.mock.calls[0]?.[0]).not.toHaveProperty("app");
+    autoSession.close();
+
+    auto.setAgentRouting("direct", { app: "zerox" });
+    expect(readState()).toMatchObject({ agentMode: "direct", app: "zerox" });
+    const directSession = auto.createClientSession();
+    await directSession.sendAsync("quote");
+    expect(start.mock.calls[1]?.[0]).toMatchObject({
+      mode: "direct",
+      app: "zerox",
+    });
+    directSession.close();
+
+    auto.setAgentRouting("auto");
+    expect(readState()).toMatchObject({ agentMode: "auto" });
+    expect(readState()?.app).toBeUndefined();
+
+    auto.setAgentRouting("direct");
+    const defaultDirectSession = auto.createClientSession();
+    await defaultDirectSession.sendAsync("hello default");
+    expect(start.mock.calls[2]?.[0]).toMatchObject({ mode: "direct" });
+    expect(start.mock.calls[2]?.[0]).not.toHaveProperty("app");
+    expect(start.mock.calls[2]?.[0]).not.toHaveProperty("applicationId");
+    defaultDirectSession.close();
+
+    auto.setAgentRouting("direct", { applicationId: "42" });
+    const hostedSession = auto.createClientSession();
+    await hostedSession.sendAsync("hello hosted");
+    expect(start.mock.calls[3]?.[0]).toMatchObject({
+      mode: "direct",
+      applicationId: 42,
+    });
+    expect(start.mock.calls[3]?.[0]).not.toHaveProperty("app");
+    hostedSession.close();
+
+    auto.setAgentRouting("direct");
+    expect(readState()?.applicationId).toBeUndefined();
+    const resetSession = CliSession.load()!.createClientSession();
+    await resetSession.sendAsync("hello default again");
+    expect(start.mock.calls[4]?.[0]).toMatchObject({ mode: "direct" });
+    expect(start.mock.calls[4]?.[0]).not.toHaveProperty("app");
+    expect(start.mock.calls[4]?.[0]).not.toHaveProperty("applicationId");
+    resetSession.close();
   });
 
   it("supports newSessionCommand as an explicit fresh-session command", async () => {
@@ -220,6 +287,89 @@ describe("CLI session lifecycle", () => {
       scopes: ["agent:write"],
       tokenType: "Bearer",
     });
+  });
+
+  it("uses an anonymous bearer for Agent requests without an OAuth grant", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/auth/sign-in/anonymous") {
+          return Response.json({ token: "guest-session" });
+        }
+        if (path === "/v1/agent/sessions") {
+          if (
+            new Headers(init?.headers).get("authorization") !==
+            "Bearer guest-session"
+          ) {
+            return Response.json(
+              { error: { code: "invalid_token" } },
+              { status: 401 },
+            );
+          }
+          return Response.json({ sessions: [] });
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    const session = cli.createClientSession();
+
+    await expect(session.client.agent.sessions.list()).resolves.toEqual({
+      sessions: [],
+    });
+    session.close();
+
+    expect(
+      fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname),
+    ).toEqual(["/api/auth/sign-in/anonymous", "/v1/agent/sessions"]);
+  });
+
+  it("reuses the anonymous bearer across CLI process sessions", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/auth/sign-in/anonymous") {
+          return Response.json({ token: "guest-session" });
+        }
+        if (path === "/v1/agent/sessions") {
+          expect(new Headers(init?.headers).get("authorization")).toBe(
+            "Bearer guest-session",
+          );
+          return Response.json({ sessions: [] });
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { readState } = await import("../../src/cli/state");
+    const first = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    const firstClient = first.createClientSession();
+    await firstClient.client.agent.sessions.list();
+    firstClient.close();
+
+    const reloaded = CliSession.load();
+    const secondClient = reloaded?.createClientSession();
+    await secondClient?.client.agent.sessions.list();
+    secondClient?.close();
+
+    expect(readState()?.guestBearer).toBe("guest-session");
+    expect(
+      fetchMock.mock.calls.filter(
+        ([input]) =>
+          new URL(String(input)).pathname === "/api/auth/sign-in/anonymous",
+      ),
+    ).toHaveLength(1);
   });
 
   it("persists explicit wallet, chain, and backend settings on the active session", async () => {
@@ -385,5 +535,4 @@ describe("CLI session lifecycle", () => {
 
     expect(readState()?.accountBearer).toBe("bearer-1");
   });
-
 });

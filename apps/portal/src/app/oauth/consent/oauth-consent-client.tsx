@@ -7,6 +7,11 @@ import { authClient } from "@aomi-labs/account/better-auth/client";
 import { oauthConsentRedirect } from "./consent-response";
 
 const DESCRIPTIONS: Record<string, string> = {
+  "account:apps:read": "View your available and installed apps",
+  "account:apps:write": "Install and remove apps from your account",
+  "account:credentials:read":
+    "View app credential setup status (never saved values)",
+  "account:credentials:write": "Save, replace, and remove your app credentials",
   "agent:read": "Read your Agent sessions",
   "agent:write": "Start and manage Agent turns",
   "agent:actions:resolve": "Resolve staged Agent actions",
@@ -22,7 +27,10 @@ const DESCRIPTIONS: Record<string, string> = {
 export function OAuthConsentClient() {
   const params = useSearchParams();
   const { data: session } = authClient.useSession();
-  const code = params.get("code") ?? params.get("consent_code");
+  // Better Auth redirects to the consent page with the complete signed OAuth
+  // request in its query string. The consent endpoint validates this value
+  // before it reads any user-selected fields.
+  const oauthQuery = params.toString();
   const scopes = useMemo(
     () => (params.get("scope") ?? "").split(/\s+/).filter(Boolean),
     [params],
@@ -44,7 +52,9 @@ export function OAuthConsentClient() {
 
   const decide = useCallback(
     async (accept: boolean) => {
-      if (!code) return setStatus("This authorization request is incomplete.");
+      if (!oauthQuery) {
+        return setStatus("This authorization request is incomplete.");
+      }
       setPending(true);
       const response = await fetch("/api/auth/oauth2/consent", {
         method: "POST",
@@ -52,8 +62,9 @@ export function OAuthConsentClient() {
         credentials: "include",
         body: JSON.stringify({
           accept,
-          code,
-          consent_code: code,
+          oauth_query: oauthQuery,
+          // The signed request has already passed the canonical server policy.
+          // Echo it unchanged; the route validates it again before minting.
           scope: acceptedScopes.join(" "),
         }),
       });
@@ -67,7 +78,7 @@ export function OAuthConsentClient() {
       }
       window.location.assign(redirect);
     },
-    [acceptedScopes, code],
+    [acceptedScopes, oauthQuery],
   );
 
   return (

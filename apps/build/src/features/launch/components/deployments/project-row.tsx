@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { UserProject } from "@aomi-labs/deploy";
 import { projectDeploymentStatus } from "./project-deployment-status";
-import { sdkCompatibility, sourceSdkVersion } from "./sdk-compatibility";
+import { projectSdk } from "./sdk-compatibility";
 import { StatusDot } from "./ui/status-dot";
 import { SdkBadge } from "./ui/sdk-badge";
 
@@ -14,15 +14,21 @@ export function ProjectRow({
   requiredSdk?: string | null;
   href?: string;
 }) {
-  const status = projectDeploymentStatus(source);
+  // Index rows never run the runtime probe; strip the Manager's flag so the
+  // row reads "Activated" instead of a verification claim either way.
+  const status = projectDeploymentStatus({
+    ...source,
+    apps: source.apps.map((app) => ({ ...app, loaded: undefined })),
+  });
   const appLabel =
     source.apps.length === 0
       ? "No apps"
       : source.apps.length === 1
         ? source.apps[0]?.name
         : `${source.apps.length} apps`;
-  const stamped = sourceSdkVersion(source);
-  const mixedSdk = (source.sdkVersions?.length ?? 0) > 1;
+  // Same derivation the project page renders from, so the row and the page
+  // can never disagree about the SDK or whether it is outdated.
+  const sdk = projectSdk(source, requiredSdk);
   const boundPlatform = source.platformName.trim();
   const projectHref =
     href ??
@@ -32,12 +38,7 @@ export function ProjectRow({
   const deploymentsHref = `${projectHref}${
     projectHref.includes("?") ? "&" : "?"
   }tab=deployments`;
-  const outdated = mixedSdk
-    ? (source.sdkVersions ?? []).some(
-        (sdkVersion) =>
-          sdkCompatibility(sdkVersion, requiredSdk) === "outdated",
-      )
-    : sdkCompatibility(stamped, requiredSdk) === "outdated";
+  const outdated = sdk.outdated;
   return (
     <div className="border-border hover:bg-accent-hover flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
       <Link
@@ -61,11 +62,7 @@ export function ProjectRow({
         </div>
       </Link>
       <div className="flex shrink-0 items-center gap-2">
-        <SdkBadge
-          stamped={stamped}
-          required={requiredSdk}
-          label={mixedSdk ? "SDK mixed" : undefined}
-        />
+        <SdkBadge sdk={sdk} />
         {outdated && (
           <Link
             href={deploymentsHref}

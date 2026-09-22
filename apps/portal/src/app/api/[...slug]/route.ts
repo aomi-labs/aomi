@@ -2,9 +2,27 @@ import { createBackendProxy, type AllowedRoute } from "@aomi-labs/account";
 import { resolveCanonicalUserId } from "@portal/server/canonical-session";
 import { launchConfig } from "@portal/server/bff/launch/config";
 import { portalFailures } from "@portal/server/bff/failures";
-import { widgetPreflight, widgetRoute } from "@portal/server/widget-auth/response";
+import {
+  widgetPreflight,
+  widgetRoute,
+} from "@portal/server/widget-auth/response";
 
-export const ALLOWED_ROUTES: AllowedRoute[] = [
+const ALLOWED_ROUTES: AllowedRoute[] = [
+  { pattern: /^\/api\/commits$/, methods: new Set(["POST"]) },
+  { pattern: /^\/api\/commits\/[0-9a-f-]+$/i, methods: new Set(["GET"]) },
+  {
+    pattern: /^\/api\/commits\/[0-9a-f-]+\/manual$/i,
+    methods: new Set(["POST"]),
+  },
+  {
+    pattern: /^\/api\/commits\/[0-9a-f-]+\/wallet-attempts$/i,
+    methods: new Set(["POST"]),
+  },
+  {
+    pattern:
+      /^\/api\/commits\/[0-9a-f-]+\/wallet-attempts\/[0-9a-f-]+\/report$/i,
+    methods: new Set(["POST"]),
+  },
   {
     pattern: /^\/api\/account(\/.*)?$/,
     methods: new Set(["GET", "POST", "PATCH", "PUT", "DELETE"]),
@@ -25,6 +43,11 @@ export const ALLOWED_ROUTES: AllowedRoute[] = [
     pattern: /^\/api\/thread\/models$/,
     methods: new Set(["GET"]),
     auth: "none",
+  },
+  {
+    pattern: /^\/api\/resource\/skills(?:\/[^/]+)?$/,
+    methods: new Set(["GET"]),
+    auth: "optional",
   },
   {
     pattern: /^\/api\/thread\/model$/,
@@ -58,14 +81,6 @@ export const ALLOWED_ROUTES: AllowedRoute[] = [
   {
     pattern: /^\/api\/widget\/v1\/aa-accounts\/[^/]+$/,
     methods: new Set(["PUT"]),
-  },
-  {
-    pattern: /^\/api\/widget\/v1\/aa-operations\/[^/]+$/,
-    methods: new Set(["GET"]),
-  },
-  {
-    pattern: /^\/api\/widget\/v1\/signing-requests$/,
-    methods: new Set(["GET"]),
   },
   {
     pattern: /^\/api\/widget\/v1\/signing-requests\/sign%3A[^/]+$/i,

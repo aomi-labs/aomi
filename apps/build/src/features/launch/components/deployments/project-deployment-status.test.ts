@@ -32,6 +32,41 @@ describe("projectDeploymentStatus", () => {
     expect(status.lifecycle.kind).toBe("live");
   });
 
+  it("says Activated for rows without a runtime probe", () => {
+    const status = projectDeploymentStatus(
+      source({
+        apps: [
+          {
+            name: "playground-example",
+            isActive: true,
+            loaded: undefined,
+            appReleaseTag: "tag-1",
+          },
+        ],
+      }),
+    );
+    expect(status.isLive).toBe(false);
+    expect(status.label).toBe("Activated");
+    expect(status.dotState).toBe("ready");
+  });
+
+  it("flags an activated app whose probe answered not loaded", () => {
+    const status = projectDeploymentStatus(
+      source({
+        apps: [
+          {
+            name: "playground-example",
+            isActive: true,
+            loaded: false,
+            appReleaseTag: "tag-1",
+          },
+        ],
+      }),
+    );
+    expect(status.isLive).toBe(false);
+    expect(status.label).toBe("Activated — runtime not verified");
+  });
+
   it("marks inactive apps with a prior release as deactivated", () => {
     const status = projectDeploymentStatus(
       source({

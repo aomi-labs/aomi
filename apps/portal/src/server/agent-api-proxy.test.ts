@@ -29,6 +29,23 @@ describe("Agent API proxy", () => {
       .mockResolvedValue({ bearer: "api-user" });
   });
 
+  it("passes live chunks and timing headers without buffering the response", async () => {
+    vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082");
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
+    const upstream = vi.fn().mockResolvedValue(new Response(body, { headers: { "content-type": "text/event-stream", "server-timing": "backend;dur=5", "x-accel-buffering": "no" } }));
+    const request = new Request("https://portal.example/v1/agent/chat/session/stream");
+    const response = await proxyAgentApi(request, principal, upstream);
+    const reader = response.body!.getReader();
+    controller.enqueue(new TextEncoder().encode("event: message\ndata: {}\n\n"));
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: message");
+    expect(response.headers.get("server-timing")).toContain("backend;dur=5");
+    expect(response.headers.get("server-timing")).toContain("bff_prepare;dur=");
+    expect(response.headers.get("x-accel-buffering")).toBe("no");
+    expect(upstream.mock.calls[0][1].signal).toBe(request.signal);
+    await reader.cancel();
+  });
+
   it("mints the API audience and preserves only protocol headers", async () => {
     vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082/");
     const upstream = vi.fn().mockResolvedValue(
@@ -55,6 +72,8 @@ describe("Agent API proxy", () => {
           "mcp-protocol-version": "2025-06-18",
           "payment-signature": "payment",
           "x-request-id": "request-1",
+          "x-session-id": "session-1",
+          "x-thread-id": "thread-1",
         },
         body: "{}",
       }),
@@ -80,6 +99,8 @@ describe("Agent API proxy", () => {
     expect(headers.get("idempotency-key")).toBe("idem-1");
     expect(headers.get("mcp-protocol-version")).toBe("2025-06-18");
     expect(headers.get("payment-signature")).toBe("payment");
+    expect(headers.get("x-session-id")).toBe("session-1");
+    expect(headers.get("x-thread-id")).toBe("thread-1");
     expect(response.headers.get("payment-response")).toBe("paid");
     expect(response.headers.get("payment-receipt")).toBe("receipt");
     expect(response.headers.get("mcp-protocol-version")).toBe("2025-06-18");

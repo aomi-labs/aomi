@@ -1,5 +1,6 @@
 import type {
   Action,
+  AgentTarget,
   Event,
   EventPage,
   MessageEvent,
@@ -7,6 +8,8 @@ import type {
 } from "../agent/types";
 import type { ActionAttempt, ActionCapabilities } from "../actions";
 import type { UserState } from "../user-state";
+import type { AomiInferenceFundingSource } from "../agent/types";
+import type { CommitView, CommitCapabilities } from "../commits";
 
 export type SendResult = {
   messages: readonly MessageEvent[];
@@ -20,32 +23,59 @@ export type SessionSnapshot = Readonly<{
   turnState?: TurnState;
   events: readonly Event[];
   messages: readonly MessageEvent[];
+  /** Provisional display only; never advances the durable cursor. */
+  liveMessages?: readonly MessageEvent[];
   actions: readonly Action[];
+  commits: readonly CommitView[];
   title?: string;
-  isPolling: boolean;
+  isStreaming: boolean;
   isSubmitting: boolean;
+  /**
+   * Optimistic echo of the outbound message for the in-flight turn. Set the
+   * moment `send`/`sendAsync` is called and cleared when the server's own
+   * user message event arrives (which can trail the start response by a
+   * page or two). Render this so the just-sent message never disappears.
+   */
+  pendingUserMessage?: string;
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
+  /** Per-turn browser-clock durations; receipt is distinct from rendering. */
+  timing?: Readonly<{
+    startedAt: number;
+    acknowledgedMs?: number;
+    firstTextReceivedMs?: number;
+  }>;
   error?: unknown;
 }>;
 
 export type SessionOptions = {
+  commits?: CommitCapabilities;
   sessionId?: string;
+  /** Typed execution target. Omission is Auto. */
+  target?: AgentTarget;
+  /** @deprecated Use `target: { mode: "direct", app }`. */
   app?: string;
   model?: string | null;
+  /** @deprecated Use `target: { mode: "direct", applicationId }`. */
   applicationId?: number | string | null;
   getUserState?: () => UserState | undefined;
+  /** Explicit account funding lane for inference execution. */
+  inferenceFunding?: AomiInferenceFundingSource;
   clientId?: string;
-  pollIntervalMs?: number;
   logger?: { debug: (...args: unknown[]) => void };
   actions?: ActionCapabilities;
 };
 
 export type SessionRuntimeOptions = {
-  app: string;
+  commits?: CommitCapabilities;
+  target?: AgentTarget;
+  /** @deprecated Legacy Direct app selection. */
+  app?: string;
   model?: string | null;
+  /** @deprecated Legacy Direct hosted-app selection. */
   applicationId?: number | string | null;
   clientId?: string;
   getUserState?: () => UserState | undefined;
+  inferenceFunding?: AomiInferenceFundingSource;
   actions?: ActionCapabilities;
 };
 

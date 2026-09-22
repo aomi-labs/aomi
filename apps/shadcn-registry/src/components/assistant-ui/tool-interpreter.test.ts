@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { PencilLineIcon, PuzzleIcon } from "lucide-react";
+import { CoinsIcon, PencilLineIcon, PuzzleIcon } from "lucide-react";
 
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
+import { formatTokenUnits } from "@/components/assistant-ui/tool-interpreter/token-registry";
+import { getSkillIcon } from "@/components/icons/skills";
 
 const labelsFor = (chips: { label: string }[]) =>
   chips.map((chip) => chip.label);
 
 describe("tool interpreter", () => {
+  it("formats token units without losing bigint precision", () => {
+    expect(formatTokenUnits("123456789012345678901234", 6)).toBe(
+      "123456789012345678.901234",
+    );
+  });
+
   it("recognizes web search results", () => {
     const step = interpretToolStep({
       toolName: "Check current ETH price",
@@ -23,8 +31,8 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Search web");
     expect(labelsFor(step.chips)).toEqual([
       "ETH",
-      "3 results",
       "tradingview.com",
+      "3 results",
     ]);
   });
 
@@ -42,8 +50,8 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Search web");
     expect(labelsFor(step.chips)).toEqual([
       "ETH",
-      "2 results",
       "tradingview.com",
+      "2 results",
     ]);
   });
 
@@ -72,7 +80,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Check USDC");
-    expect(labelsFor(step.chips)).toEqual(["USDC", "Base"]);
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC"]);
     expect(step.confidence).toBe("medium");
   });
 
@@ -92,6 +100,72 @@ describe("tool interpreter", () => {
     expect(step.failed).toBe(true);
   });
 
+  it("keeps exact transaction tool titles semantic while active and failed", () => {
+    const activeStage = interpretToolStep({
+      toolName: "evm_stage_tx",
+      argsText: JSON.stringify({ chain_id: 8453, kind: "native_transfer" }),
+    });
+    const failedSimulation = interpretToolStep({
+      toolName: "simulate_batch",
+      argsText: JSON.stringify({ tx_ids: [1] }),
+      result: { is_error: true, error: "fork unavailable" },
+      relatedResults: [
+        { pending_tx_id: 1, chain_id: 8453, current_lifecycle: "queued" },
+      ],
+    });
+
+    expect(activeStage.title).toBe("Stage transaction");
+    expect(labelsFor(activeStage.chips)).toEqual(["Base", "Native transfer"]);
+    expect(failedSimulation.title).toBe("Simulate transaction");
+    expect(labelsFor(failedSimulation.chips)).toEqual([
+      "Base",
+      "1 tx",
+      "Failed",
+    ]);
+    expect(failedSimulation.failed).toBe(true);
+  });
+
+  it("uses only the requested transaction context for commit badges", () => {
+    const relatedResults = [
+      { pending_tx_id: 1, chain_id: 1, current_lifecycle: "queued" },
+      { pending_tx_id: 2, chain_id: 8453, current_lifecycle: "queued" },
+    ];
+    const active = interpretToolStep({
+      toolName: "evm_commit_txs",
+      argsText: JSON.stringify({ tx_ids: [2] }),
+      relatedResults,
+    });
+    const ambiguous = interpretToolStep({
+      toolName: "evm_commit_txs",
+      argsText: JSON.stringify({ tx_ids: [1, 2] }),
+      result: { is_error: true, error: "mixed chains" },
+      relatedResults,
+    });
+
+    expect(active.title).toBe("Commit transactions");
+    expect(labelsFor(active.chips)).toEqual([
+      "Base",
+      "1 tx",
+      "Pending confirmation",
+    ]);
+    expect(labelsFor(ambiguous.chips)).toEqual(["2 txs", "Failed"]);
+  });
+
+  it("keeps completed commit results under the same semantic title", () => {
+    const step = interpretToolStep({
+      toolName: "evm_commit_txs",
+      argsText: JSON.stringify({ tx_ids: [7] }),
+      result: { status: "confirmed", tx_hashes: ["0xabc"] },
+      relatedResults: [
+        { pending_tx_id: 7, chain_id: 8453, current_lifecycle: "queued" },
+      ],
+    });
+
+    expect(step.title).toBe("Commit transactions");
+    expect(labelsFor(step.chips)).toEqual(["Base", "1 tx", "Confirmed"]);
+    expect(step.failed).toBe(false);
+  });
+
   it("recognizes skill activation", () => {
     const step = interpretToolStep({
       toolName: "Activate skills",
@@ -104,7 +178,8 @@ describe("tool interpreter", () => {
 
     expect(step.title).toBe("Activate skill");
     expect(labelsFor(step.chips)).toEqual(["Aerodrome"]);
-    expect(step.chips[0].icon).toBe(PuzzleIcon);
+    expect(step.chips[0].icon).toBe(getSkillIcon("aerodrome"));
+    expect(step.chips[0].icon).not.toBe(PuzzleIcon);
     expect(step.chips[0].icon).not.toBe(step.icon);
     expect(step.failed).toBe(false);
   });
@@ -119,7 +194,9 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Activate skill");
-    expect(labelsFor(step.chips)).toEqual(["Common erc20", "Lifi"]);
+    expect(labelsFor(step.chips)).toEqual(["Common Erc20", "Lifi Swap"]);
+    expect(step.chips[0].icon).toBe(getSkillIcon("common_erc20"));
+    expect(step.chips[1].icon).toBe(getSkillIcon("lifi_swap"));
   });
 
   it("shows LI.FI quote chain, amounts, and token direction", () => {
@@ -161,9 +238,9 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Quote Base swap 0.05 USDC to ETH");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
+      "USDC -> ETH",
       "0.05 USDC",
       "0.0000285146 ETH",
-      "USDC -> ETH",
     ]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
@@ -237,9 +314,9 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "Lifi",
+      "USDC -> ETH",
       "0.05 USDC",
       "0.0000285146 ETH",
-      "USDC -> ETH",
     ]);
   });
 
@@ -376,14 +453,14 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Prepare 0.001 SOL to USDC Jupiter swap");
     expect(labelsFor(step.chips)).toEqual([
       "Solana",
+      "SOL → USDC",
       "0.001 SOL",
       "0.073903 USDC",
-      "SOL → USDC",
     ]);
     expect(step.confidence).toBe("high");
   });
 
-  it("recognizes native balances", () => {
+  it("does not attribute a prior tool's chain to a native balance", () => {
     const step = interpretToolStep({
       toolName: "Check connected wallet balance on Base",
       result: {
@@ -392,11 +469,26 @@ describe("tool interpreter", () => {
         balance_eth: "0.000865899754337366",
         nonce: 594,
       },
+      relatedResults: [{ chain_id: 8453, chain_name: "base" }],
     });
 
     expect(step.title).toBe("Check connected wallet balance on Base");
     expect(labelsFor(step.chips)).toEqual(["0xda65...3cf0", "0.00087"]);
-    expect(step.chips[1].icon).toBeTypeOf("function");
+    expect(step.chips[1].icon).toBe(CoinsIcon);
+  });
+
+  it("shows the native balance chain when its own arguments expose it", () => {
+    const step = interpretToolStep({
+      toolName: "Check connected wallet balance",
+      argsText: JSON.stringify({ chain_id: 8453 }),
+      result: {
+        address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+        balance_eth: "0.000865899754337366",
+      },
+      relatedResults: [{ chain_id: 1 }],
+    });
+
+    expect(labelsFor(step.chips)).toEqual(["Base", "0xda65...3cf0", "0.00087"]);
   });
 
   it("standardizes token resolution chips", () => {
@@ -473,11 +565,215 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Check token balance");
+    expect(step.title).toBe("Get balance");
     expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0xda65...3cf0"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
+  });
+
+  it("uses a generic token icon for decoded approval amounts", () => {
+    const step = interpretToolStep({
+      toolName: "Approve token spend",
+      result: {
+        success: true,
+        tx: {
+          input: `0x095ea7b3${"0".repeat(24)}cf77a3ba9a5ca399b7c97c74d54e5b1beb874e43${"0".repeat(60)}c350`,
+          chain_id: 8453,
+        },
+      },
+    });
+
+    expect(step.title).toBe("Approve token spend");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xcf77...4e43",
+      "50000 raw units",
+    ]);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
+  });
+
+  it("distinguishes Aave V4 market preparation from execution", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Aave supply",
+      result: {
+        protocol: "aave_v4",
+        chain_id: 5042,
+        status: "prepared",
+        spoke: { name: "forex" },
+        reserve: { symbol: "USDC" },
+        tx: { value: "0", input: "0x1234" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Aave V4");
+    expect(labelsFor(step.chips)).toContain("Forex market");
+    expect(labelsFor(step.chips)).toContain("Prepared");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the Morpho vault version's name and own chain", () => {
+    const step = interpretToolStep({
+      toolName: "Read Morpho vault",
+      result: {
+        source: "morpho",
+        vault: {
+          name: "Arc USDC Prime",
+          version: "v2",
+          chain_id: 5042,
+          asset: { symbol: "USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Arc USDC Prime");
+    expect(labelsFor(step.chips)).toContain("Morpho");
+  });
+
+  it("shows Circle Gateway deposit amounts without implying a completed bridge", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Gateway deposit",
+      result: {
+        protocol: "circle_gateway",
+        chain: { chain_id: 5042 },
+        token: { symbol: "USDC", decimals: 6 },
+        amount: { raw: "10000000", display: "10 USDC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Arc");
+    expect(labelsFor(step.chips)).toContain("Circle Gateway");
+    expect(labelsFor(step.chips)).toContain("10 USDC");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the CCTP route and attestation readiness separately from settlement", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare CCTP transfer",
+      result: {
+        protocol: "cctp_v2",
+        source: { chain_id: 8453 },
+        destination: { chain_id: 5042 },
+        status: "attestation_ready",
+        amount: { display: "10 USDC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Base → Arc");
+    expect(labelsFor(step.chips)).toContain("Attestation ready");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it("shows the cached Gateway transfer summary before wallet approval", () => {
+    const step = interpretToolStep({
+      toolName: "Prepare Gateway transfer",
+      result: {
+        protocol: "circle_gateway",
+        summary: {
+          source: { chain_id: 1 },
+          destination: { chain_id: 5042 },
+          amount: { raw: "10000000", display: "10 USDC" },
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toContain("Ethereum → Arc");
+    expect(labelsFor(step.chips)).toContain("10 USDC");
+    expect(labelsFor(step.chips)).not.toContain("Success");
+  });
+
+  it.each([
+    ["aerodrome", "Aerodrome"],
+    ["uniswap_v4", "Uniswap V4"],
+  ])(
+    "identifies %s preparation without implying execution",
+    (protocol, label) => {
+      const step = interpretToolStep({
+        toolName: "Prepare swap",
+        result: {
+          protocol,
+          chain_id: 5042,
+          status: "prepared",
+          token: { symbol: "USDC", decimals: 6 },
+          amount: { raw: "1000000", display: "1 USDC" },
+        },
+      });
+      expect(labelsFor(step.chips)).toContain(label);
+      expect(labelsFor(step.chips)).toContain("Arc");
+      expect(labelsFor(step.chips)).toContain("1 USDC");
+      expect(labelsFor(step.chips)).toContain("Prepared");
+      expect(labelsFor(step.chips)).not.toContain("Success");
+    },
+  );
+
+  it("shows Arc ERC-20 USDC approvals in six-decimal units", () => {
+    const step = interpretToolStep({
+      toolName: "Approve USDC spend",
+      result: {
+        success: true,
+        tx: {
+          to: "0x3600000000000000000000000000000000000000",
+          input: `0x095ea7b3${"0".repeat(24)}a4072583658fae592a3506a42431cb6316a8d40b${"0".repeat(58)}989680`,
+          chain_id: 5042,
+        },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC",
+      "0xa407...d40b",
+      "10 USDC",
+    ]);
+  });
+
+  it("preserves Arc swap amounts without treating USDC as ETH", () => {
+    const step = interpretToolStep({
+      toolName: "Quote Arc swap",
+      result: {
+        quote_id: "lifi_arc",
+        chain_id: 5042,
+        from_token: { symbol: "USDC", decimals: 6, is_native: false },
+        to_token: { symbol: "EURC", decimals: 6 },
+        from_amount: { raw: "10000000", display: "10 USDC" },
+        estimate: { to_amount_display: "8.68248 EURC" },
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC -> EURC",
+      "10 USDC",
+      "8.68248 EURC",
+    ]);
+  });
+
+  it("normalizes approval units only for a verified chain and token contract", () => {
+    const step = interpretToolStep({
+      toolName: "Approve token spend",
+      result: {
+        success: true,
+        tx: {
+          to: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          input: `0x095ea7b3${"0".repeat(24)}cf77a3ba9a5ca399b7c97c74d54e5b1beb874e43${"0".repeat(60)}c350`,
+          chain_id: 8453,
+        },
+      },
+    });
+
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xcf77...4e43",
+      "0.05 USDC",
+    ]);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
+  });
+
+  it("uses the exact Get balance title before and after tool errors", () => {
+    expect(interpretToolStep({ toolName: "get_erc20_balance" }).title).toBe(
+      "Get balance",
+    );
+    expect(
+      interpretToolStep({
+        toolName: "get_erc20_balance",
+        result: { is_error: true, error: "upstream unavailable" },
+      }).title,
+    ).toBe("Get balance");
   });
 
   it("recognizes ERC-20 decimal reads", () => {
@@ -578,8 +874,8 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Stage Aerodrome USDC to AERO swap");
-    expect(labelsFor(step.chips)).toEqual(["Base", "Swap", "2 txs", "Queued"]);
+    expect(step.title).toBe("Stage transaction");
+    expect(labelsFor(step.chips)).toEqual(["Base", "Swap", "1 tx", "Queued"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
@@ -597,7 +893,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Stage exact USDC approval for Aerodrome swap");
+    expect(step.title).toBe("Stage transaction");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "Approve",
@@ -623,7 +919,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "Delegate vote",
-      "3 txs",
+      "1 tx",
       "Queued",
     ]);
     expect(step.chips[1].icon).toBeTypeOf("object");
@@ -665,7 +961,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Simulate batch");
+    expect(step.title).toBe("Simulate transaction");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "2 txs",
@@ -677,6 +973,36 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBeTypeOf("object");
     expect(step.chips[3].icon).toBeTypeOf("object");
     expect(step.chips[3].dot).toBeUndefined();
+  });
+
+  it("derives current simulation status from execution evidence", () => {
+    const result = interpretToolStep({
+      toolName: "simulate_batch",
+      result: {
+        simulation: {
+          contexts: [{ chain_id: 8453 }],
+          steps: [
+            {
+              step: 1,
+              chain_id: 8453,
+              execution: { status: { kind: "succeeded" }, gas_used: 21000 },
+            },
+          ],
+        },
+      },
+    });
+    expect(labelsFor(result.chips)).toContain("Success");
+    expect(labelsFor(result.chips)).toContain("21,000 gas");
+    const skipped = interpretToolStep({
+      toolName: "simulate_batch",
+      result: {
+        simulation: {
+          contexts: [{ chain_id: 8453 }],
+          steps: [{ step: 1, chain_id: 8453, execution: null }],
+        },
+      },
+    });
+    expect(labelsFor(skipped.chips)).not.toContain("Success");
   });
 
   it("recognizes successful Solana simulations", () => {
@@ -693,7 +1019,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Simulate batch");
+    expect(step.title).toBe("Simulate transaction");
     expect(labelsFor(step.chips)).toEqual(["1 tx", "Success"]);
   });
 
@@ -707,7 +1033,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Await wallet approval");
+    expect(step.title).toBe("Commit transactions");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "2 txs",
@@ -731,7 +1057,7 @@ describe("tool interpreter", () => {
       },
     });
 
-    expect(step.title).toBe("Await wallet approval");
+    expect(step.title).toBe("Commit transactions");
     expect(labelsFor(step.chips)).toEqual(["6 txs", "Pending approval"]);
   });
   it("recognizes a delegated task with the child label and staged count", () => {

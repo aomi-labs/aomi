@@ -32,6 +32,7 @@ import {
   pickPrivyEmbeddedEvmUserWallet,
   privyLoginMethodsToOptions,
   useSafePrivy,
+  useSafeSignTransaction,
   useSafeSmartWallets,
   useSafeSvmWallets,
   useSafeWallets,
@@ -41,6 +42,7 @@ import { buildPrivySvmWalletState } from "./privy-svm";
 import { sendPrivySmartWalletTransaction } from "./privy-execution";
 import {
   sendPrivyEmbeddedTransaction,
+  signPrivyEmbeddedTransaction,
   switchPrivyEmbeddedChain,
   type PrivyEmbeddedEvmWallet,
 } from "./privy-embedded-execution";
@@ -70,6 +72,7 @@ export function AomiPrivyPluginProvider({
     useSafeSmartWallets();
   const { wallets: solanaWallets } = useSafeSvmWallets();
   const { wallets: connectedWallets } = useSafeWallets();
+  const { signTransaction: signPrivyTransaction } = useSafeSignTransaction();
   const contextSvmWallet = useSafeSvmWallet();
   const [activeSolanaAddress, setActiveSolanaAddress] = useState<
     string | undefined
@@ -276,6 +279,16 @@ export function AomiPrivyPluginProvider({
   const executionRuntime = useMemo<ExecutionRuntime>(
     () => ({
       evm: buildEvmExecutionRuntime(evmRuntime, {
+        // The embedded EOA has no wagmi connector, so the shared sign-only
+        // path finds no wallet client for it and rejects the commit.
+        signEvmTransaction: embeddedSigner
+          ? async (payload) =>
+              signPrivyEmbeddedTransaction({
+                walletAddress: embeddedSigner.owner,
+                signTransaction: signPrivyTransaction,
+                payload,
+              })
+          : undefined,
         signMessage: embeddedSigner
           ? async (payload: WalletEip712Payload) => {
               const owner = payload.signer ?? embeddedSigner.owner;
@@ -385,6 +398,7 @@ export function AomiPrivyPluginProvider({
       evmRuntime,
       execution,
       getClientForChain,
+      signPrivyTransaction,
       smartAddress,
       smartWalletSigner,
     ],

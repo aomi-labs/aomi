@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { withBrowserSessionTransition } from "@aomi-labs/client";
 import {
   buildSiweMessage,
   buildWalletLinkMessage,
@@ -148,7 +149,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
     // Both mount effects call refresh; the in-flight guard coalesces them.
     expect(mockState.accountClient?.getAccount).toHaveBeenCalledTimes(1);
-    expect(result.current.getAccountBearer).toBeDefined();
+    expect(result.current.getAccountBearer).toBeUndefined();
   });
 
   it("replaces a guest session before signing in with an existing EVM wallet", async () => {
@@ -156,7 +157,9 @@ describe("useAomiBackendAccountRuntime", () => {
     mockState
       .accountClient!.getAccount.mockResolvedValueOnce({
         guest: true,
-        user: null,
+        // Defense in depth: even a stale server response that includes the
+        // canonical guest user must never make it an account principal.
+        user: { id: "temporary-guest" },
         linkedAccounts: [],
         wallets: [],
         session: null,
@@ -190,16 +193,33 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() => expect(result.current.guest).toBe(true));
+    expect(result.current.user).toBeUndefined();
     expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
 
-    await act(async () => {
-      await result.current.linkWallet?.({
+    let finishGuestTransition!: () => void;
+    const guestTransition = withBrowserSessionTransition(
+      () =>
+        new Promise<void>((resolve) => {
+          finishGuestTransition = resolve;
+        }),
+    );
+    await Promise.resolve();
+    let signIn!: Promise<void>;
+    act(() => {
+      signIn = result.current.linkWallet!({
         accountId: "rabby-1",
         family: "evm",
         address,
         chainId: 1,
       });
     });
+    await Promise.resolve();
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
+
+    finishGuestTransition();
+    await guestTransition;
+    await act(async () => signIn);
     await waitFor(() =>
       expect(result.current.user?.id).toBe("existing-wallet-owner"),
     );
@@ -355,6 +375,99 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(signMessageAsync).not.toHaveBeenCalled();
   });
 
+  it("revokes a guest before provider sign-in and creates a new session", async () => {
+    const credential: AomiAccountCredential = {
+      provider: "privy",
+      tokenKind: "access_token",
+      providerToken: "provider-session",
+    };
+    mockState
+      .accountClient!.getAccount.mockResolvedValueOnce({
+        guest: true,
+        user: { id: "temporary-guest" },
+        linkedAccounts: [],
+        wallets: [],
+        session: null,
+      })
+      .mockResolvedValue({
+        user: { id: "real-user" },
+        linkedAccounts: [],
+        wallets: [],
+        session: null,
+      });
+    mockState.accountClient!.signOut.mockResolvedValue(undefined);
+    mockState.accountClient!.exchangeProviderCredential.mockResolvedValue({
+      status: "linked",
+      account: {
+        user: { id: "real-user" },
+        linkedAccounts: [],
+        wallets: [],
+        session: null,
+      },
+    });
+    let authenticated = false;
+    const getCredential = vi.fn().mockResolvedValue(credential);
+    const { result, rerender } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: authenticated ? "authenticated" : "unauthenticated",
+          provider: "privy",
+          subject: authenticated ? "privy-user" : undefined,
+          getCredential,
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.guest).toBe(true));
+    authenticated = true;
+    rerender();
+
+    await waitFor(() =>
+      expect(
+        mockState.accountClient?.exchangeProviderCredential,
+      ).toHaveBeenCalledWith(credential, { hasAccount: false }),
+    );
+    expect(mockState.accountClient?.signOut).toHaveBeenCalledTimes(1);
+    expect(
+      mockState.accountClient!.signOut.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      mockState.accountClient!.exchangeProviderCredential.mock
+        .invocationCallOrder[0]!,
+    );
+    await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
+  });
+
+  it("shows a failed provider handoff without claiming an Aomi account exists", async () => {
+    mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
+      new Error("credential verification failed"),
+    );
+    const { result } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: "authenticated",
+          provider: "para",
+          subject: "para-user",
+          getCredential: vi.fn().mockResolvedValue({
+            provider: "para",
+            providerToken: "provider-session",
+          }),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
+      ),
+    );
+    expect(result.current.user).toBeUndefined();
+  });
+
   it("exposes an account conflict instead of silently swallowing provider sign-in failure", async () => {
     const credential: AomiAccountCredential = {
       provider: "para",
@@ -416,7 +529,7 @@ describe("useAomiBackendAccountRuntime", () => {
     });
     mockState.accountClient!.verifySiws.mockResolvedValue({ success: true });
 
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useAomiBackendAccountRuntime({
         enabled: true,
         baseUrl: "http://localhost:3000",
@@ -454,9 +567,16 @@ describe("useAomiBackendAccountRuntime", () => {
       }),
     );
 
-    await waitFor(() => {
-      expect(mockState.accountClient?.verifySiws).toHaveBeenCalledOnce();
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(mockState.accountClient?.createSiwsNonce).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.linkWallet?.({
+        accountId: "Phantom",
+        family: "svm",
+        address,
+      });
     });
+    expect(mockState.accountClient?.verifySiws).toHaveBeenCalledOnce();
     expect(mockState.accountClient?.createSiwsNonce).toHaveBeenCalledWith({
       walletAddress: address,
       chainId: "solana:devnet",

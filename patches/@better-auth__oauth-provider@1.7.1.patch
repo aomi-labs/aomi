@@ -1,0 +1,35 @@
+diff --git a/dist/authorize-Crqw4_bR.mjs b/dist/authorize-Crqw4_bR.mjs
+index acdca49f49d0db30605560fb39ea6cd78ed79484..c53bc0a1dd79427d6ab35477a21482f4055cd15d 100644
+--- a/dist/authorize-Crqw4_bR.mjs
++++ b/dist/authorize-Crqw4_bR.mjs
+@@ -5380,15 +5380,27 @@ function findRegisteredRedirectUri(registered, requested) {
+ */
++function hasDisallowedRawRedirectComponents(value) {
++	const authority = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(value)?.[1];
++	return value.includes("#") || authority?.includes("@") === true;
++}
++function isRfc8252LoopbackIP(hostname) {
++	const host = hostname.startsWith("[") ? hostname.slice(1, -1).toLowerCase() : hostname.toLowerCase();
++	if (host === "::1") return true;
++	const octets = host.split(".");
++	return octets.length === 4 && octets.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255) && octets[0] === "127";
++}
+ function findRegisteredRedirectUri(registered, requested) {
+ 	if (!registered || !requested) return void 0;
+ 	let req;
+ 	try {
+ 		req = new URL(requested);
+ 	} catch {}
++	if (!req || req.username || req.password || req.hash || hasDisallowedRawRedirectComponents(requested)) return void 0;
+ 	return registered.find((url) => {
+-		if (url === requested) return true;
+-		if (!req) return false;
+ 		try {
+ 			const reg = new URL(url);
++			if (reg.username || reg.password || reg.hash || hasDisallowedRawRedirectComponents(url)) return false;
++			const sameQueryShape = url.includes("?") === requested.includes("?");
++			if (reg.href === req.href && sameQueryShape) return true;
+-			return isLoopbackIP(reg.hostname) && reg.hostname === req.hostname && reg.pathname === req.pathname && reg.protocol === req.protocol && reg.search === req.search;
++			return isRfc8252LoopbackIP(reg.hostname) && reg.hostname === req.hostname && reg.pathname === req.pathname && reg.protocol === req.protocol && reg.search === req.search && sameQueryShape;
+ 		} catch {
+ 			return false;

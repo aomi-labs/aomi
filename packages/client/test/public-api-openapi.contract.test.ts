@@ -2,9 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
-describe("public Agent and Pipeline OpenAPI snapshot", () => {
+describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(45);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(74);
+    expect(
+      publicApi["x-aomi-route-manifest"].filter((route) =>
+        route.includes("/v1/account/apps"),
+      ),
+    ).toEqual([
+      "DELETE /v1/account/apps/{applicationId}",
+      "DELETE /v1/account/apps/{applicationId}/secrets",
+      "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
+      "GET /v1/account/apps",
+      "GET /v1/account/apps/{applicationId}/secrets",
+      "POST /v1/account/apps/{applicationId}",
+      "POST /v1/account/apps/{applicationId}/secrets",
+    ]);
     expect(
       publicApi["x-aomi-route-manifest"].filter((route) =>
         route.includes("/v1/agent/"),
@@ -12,6 +25,7 @@ describe("public Agent and Pipeline OpenAPI snapshot", () => {
     ).toEqual([
       "DELETE /v1/agent/sessions/{sessionId}",
       "GET /v1/agent/chat/{sessionId}",
+      "GET /v1/agent/chat/{sessionId}/stream",
       "GET /v1/agent/sessions",
       "GET /v1/agent/sessions/{sessionId}",
       "PATCH /v1/agent/sessions/{sessionId}",
@@ -102,8 +116,14 @@ describe("public Agent and Pipeline OpenAPI snapshot", () => {
       preferences: { type: "object", additionalProperties: true },
       ext: { type: "object", additionalProperties: true },
     });
-    expect(publicApi.components.schemas.UserStateConnection.additionalProperties).toBe(false);
-    expect(publicApi.components.schemas.UserStateEvm.additionalProperties).toBe(false);
-    expect(publicApi.components.schemas.UserStateSvm.additionalProperties).toBe(false);
+    expect(
+      publicApi.components.schemas.UserStateConnection.additionalProperties,
+    ).toBe(false);
+    expect(publicApi.components.schemas.UserStateEvm.additionalProperties).toBe(
+      false,
+    );
+    expect(publicApi.components.schemas.UserStateSvm.additionalProperties).toBe(
+      false,
+    );
   });
 });

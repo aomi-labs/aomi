@@ -17,7 +17,7 @@ import type {
   UpdateLinkedAccountInput,
   UpdateWalletInput,
 } from "./account/types";
-import type { WalletModalRow } from "./composer/merge-wallet-rows";
+import type { WalletRow } from "./composer/wallet-state";
 
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 export type WalletFamily = "evm" | "svm";
@@ -244,6 +244,15 @@ export type AomiTransactionExecution = {
 export type AomiAccountCredential =
   import("@aomi-labs/client").ProviderCredential;
 
+export type AomiAccountCredentialOptions = {
+  /**
+   * Ask the provider for a credential now, skipping any transient-failure
+   * backoff the getter keeps for polling callers. One-shot login handoffs
+   * (CLI device auth) set this; widgets that poll on every request must not.
+   */
+  fresh?: boolean;
+};
+
 export type AomiWalletKit = {
   identity: AomiSessionIdentity;
   isReady: boolean;
@@ -263,10 +272,12 @@ export type AomiWalletKit = {
 
   /** All wallet accounts known to the adapter, tagged by family. */
   accounts: readonly AomiAccount[];
-  /** Unified picker rows: live accounts, stored account-runtime rows, and options. */
-  walletModalRows?: readonly WalletModalRow[];
+  /** Canonical account-aware wallet state. Transport-only accounts stay above. */
+  wallets: readonly WalletRow[];
   accountStatus?: AccountRuntimeStatus;
   accountError?: string;
+  /** The current Portal session is temporary and must not own linked wallets. */
+  accountGuest?: boolean;
   accountUser?: AomiUserRef;
   accountLinkedAccounts?: readonly LinkedAuthAccount[];
   accountWallets?: readonly AccountWallet[];
@@ -339,6 +350,9 @@ export type AomiWalletKit = {
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
   ) => Promise<AomiTxResult>;
+  sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
+  preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
+  signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
@@ -356,7 +370,7 @@ export type AomiWalletKit = {
    * deserialization failure, mirroring what wallet adapters do.
    *
    * Optional like `signTypedData` — adapters that don't support Solana
-   * (e.g. base-account) leave it undefined; `RuntimeTxHandler` rejects
+   * (e.g. base-account) leave it undefined; the wallet Action handler rejects
    * the request with a "Solana wallet provider is not ready" error in
    * that case.
    */
@@ -376,7 +390,9 @@ export type AomiWalletKit = {
    * Return an upstream wallet-provider credential that the portal can exchange
    * for a short-lived Aomi bearer.
    */
-  getAccountCredential?: () => Promise<AomiAccountCredential | null>;
+  getAccountCredential?: (
+    options?: AomiAccountCredentialOptions,
+  ) => Promise<AomiAccountCredential | null>;
   getAccountBearer?: import("@aomi-labs/client").GetAccountBearer;
   solanaRpcHttpUrl?: string;
   solanaRpcWsUrl?: string;

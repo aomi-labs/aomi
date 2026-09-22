@@ -225,6 +225,56 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/projects/{id}/attempts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/projects/{id}/attempts/{run}/cancel": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/user/projects/{id}/deployments/{deployment}": {
       "get": {
         "responses": {
@@ -785,8 +835,8 @@
         ]
       }
     },
-    "/api/platforms/{name}/telegram/handover": {
-      "post": {
+    "/api/platforms/{name}/venue": {
+      "put": {
         "responses": {
           "200": {
             "description": "OK"
@@ -794,7 +844,18 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation-admin"
+        ]
+      },
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-admin"
         ]
       }
     },
@@ -811,6 +872,45 @@
         ]
       }
     },
+    "/api/platforms/{name}/telegram/handover": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/nonce": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/{bot}/{id}/status": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "wallet-session"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/{bot}/{id}/activate": {
       "post": {
         "responses": {
@@ -820,7 +920,7 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation-or-wallet"
         ]
       }
     },
@@ -833,7 +933,7 @@
         },
         "security": [],
         "x-aomi-auth": [
-          "activation"
+          "activation-or-wallet"
         ]
       }
     }

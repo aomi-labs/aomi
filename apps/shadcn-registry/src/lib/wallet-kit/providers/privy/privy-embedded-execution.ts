@@ -1,6 +1,8 @@
 "use client";
 
-import type { Hex } from "viem";
+import type { EvmWallet } from "@aomi-labs/client";
+import type { UnsignedTransactionRequest } from "@privy-io/react-auth";
+import { isHex, type Hex } from "viem";
 
 /**
  * The slice of Privy's `ConnectedWallet` the embedded EOA execution path uses.
@@ -15,6 +17,11 @@ export type PrivyEmbeddedEvmWallet = {
     request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
   }>;
 };
+
+export type PrivySignTransaction = (
+  transaction: UnsignedTransactionRequest,
+  options?: { address?: string },
+) => Promise<{ signature: unknown }>;
 
 /** `eip155:8453` -> `8453`. Undefined for anything that isn't an EVM CAIP-2. */
 export function parseCaip2EvmChainId(
@@ -89,4 +96,51 @@ export async function sendPrivyEmbeddedTransaction({
     throw new Error("Privy returned an invalid transaction hash");
   }
   return hash;
+}
+
+/**
+ * Sign, without broadcasting, one commit transaction from Privy's embedded EOA.
+ *
+ * The commit lifecycle submits the signed bytes itself, so this must not fall
+ * back to `eth_sendTransaction`. The embedded wallet has no wagmi connector,
+ * which is why the shared wallet-client signer cannot serve it. Every field is
+ * sent through Privy's supported sign-only hook exactly as the Commit Service
+ * quoted it, with no repopulation of nonce, gas or fees.
+ */
+export async function signPrivyEmbeddedTransaction({
+  walletAddress,
+  signTransaction,
+  payload,
+}: {
+  walletAddress: string;
+  signTransaction: PrivySignTransaction;
+  payload: Parameters<NonNullable<EvmWallet["signTransaction"]>>[0];
+}): Promise<string> {
+  if (payload.signer.toLowerCase() !== walletAddress.toLowerCase()) {
+    throw new Error("The active Privy EOA is not the requested signer");
+  }
+  const tx = payload.transaction;
+  const { signature } = await signTransaction(
+    {
+      from: walletAddress,
+      to: tx.to,
+      value: BigInt(tx.value),
+      data: tx.data,
+      chainId: payload.chain_id,
+      type: 2,
+      nonce: payload.nonce,
+      gasLimit: BigInt(tx.gas_limit),
+      maxFeePerGas: BigInt(tx.max_fee_per_gas),
+      maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas),
+    },
+    { address: walletAddress },
+  );
+  if (
+    typeof signature !== "string" ||
+    signature.length <= 2 ||
+    !isHex(signature)
+  ) {
+    throw new Error("Privy returned an invalid signed transaction");
+  }
+  return signature;
 }

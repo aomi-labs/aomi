@@ -9,6 +9,46 @@ import { createControlClient } from "../../src/cli/context";
 describe("CLI explicit API bearer", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("authorizes public Pipeline requests with an anonymous bearer", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/auth/sign-in/anonymous") {
+          return Response.json({ token: "guest-session" });
+        }
+        if (path === "/v1/pipeline/apps") {
+          if (
+            new Headers(init?.headers).get("authorization") !==
+            "Bearer guest-session"
+          ) {
+            return Response.json(
+              { error: { code: "invalid_token" } },
+              { status: 401 },
+            );
+          }
+          return Response.json({
+            kind: "directory",
+            path: "/v1/pipeline/apps",
+            entries: [],
+          });
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createControlClient({
+      baseUrl: "https://api.example",
+      secrets: {},
+    });
+    await client.pipeline.apps.list();
+
+    expect(
+      fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname),
+    ).toEqual(["/api/auth/sign-in/anonymous", "/v1/pipeline/apps"]);
+  });
+
   it("authorizes public Pipeline requests with the explicit scoped bearer", async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -29,6 +69,34 @@ describe("CLI explicit API bearer", () => {
       accountBearer: "scoped-api-bearer",
       secrets: {},
     });
+    await client.pipeline.apps.list();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("preserves the explicit Pipeline bearer through the payment transport", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        expect(request.url).toBe("https://api.example/v1/pipeline/apps");
+        expect(request.headers.get("authorization")).toBe(
+          "Bearer scoped-api-bearer",
+        );
+        return Response.json({ returned: 0, apps: [] });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createControlClient(
+      {
+        baseUrl: "https://api.example",
+        accountBearer: "scoped-api-bearer",
+        paymentMethod: "coinbase",
+        privateKey: `0x${"1".repeat(64)}`,
+        secrets: {},
+      },
+      { payment: true },
+    );
     await client.pipeline.apps.list();
 
     expect(fetchMock).toHaveBeenCalledOnce();

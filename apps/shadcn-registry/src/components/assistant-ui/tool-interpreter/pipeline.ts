@@ -24,6 +24,7 @@ import {
   matchLifiQuote,
   matchLifiSwapPrep,
 } from "./families/lifi";
+import { matchProtocol } from "./families/protocol";
 import { matchJupiterSwapPrep } from "./families/jupiter";
 import { matchSvmContext, matchSvmTokenHoldings } from "./families/svm";
 import { matchSvmPendingApproval, matchSvmSimulation } from "./families/svm-tx";
@@ -50,6 +51,7 @@ const matchers: ToolMatcher[] = [
   matchLifiSwapPrep,
   matchLifiQuote,
   matchLifiApproval,
+  matchProtocol,
   matchSvmSimulation,
   matchSvmPendingApproval,
   matchStagedTx,
@@ -77,6 +79,9 @@ const fallbackOperation = (ctx: ToolContext) => {
     facts,
     confidence,
     rawLabel: ctx.rawLabel,
+    title: /^(?:evm[_ .-])?get[_ .-]erc20[_ .-]balance$/i.test(ctx.rawLabel)
+      ? "Get balance"
+      : undefined,
   };
 };
 

@@ -1,7 +1,12 @@
 import { AomiClient } from "../../client";
 import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
-import { RESET, YELLOW, printDataFileLocation } from "../output";
+import {
+  RESET,
+  YELLOW,
+  countToolCalls,
+  printDataFileLocation,
+} from "../output";
 import {
   deleteStoredSession,
   listStoredSessions,
@@ -42,8 +47,7 @@ async function fetchRemoteSessionStats(
           : "Untitled Session",
       messageCount: messages.length,
       tokenCountEstimate: estimateTokenCount(messages),
-      toolCalls: page.events.filter((event) => event.type === "tool_complete")
-        .length,
+      toolCalls: countToolCalls(page.events),
       pendingActions: page.events.filter(
         (event) => event.type === "action" && event.state === "pending",
       ).length,

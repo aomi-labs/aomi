@@ -6,7 +6,7 @@ description: Connect wallets, sign transactions, and switch networks.
 # Wallet Integration
 
 Aomi widgets use the Para + wagmi provider tree directly. The registry install
-gives you the wallet UI plus `RuntimeTxHandler`; you provide the Para and wagmi
+gives you the wallet UI plus the activity sidebar review; you provide the Para and wagmi
 providers in your host app.
 
 ## Setup
@@ -144,7 +144,7 @@ When the AI assistant determines a transaction is needed, the following flow occ
 
 ### In the Widget
 
-The widget includes `RuntimeTxHandler` automatically. When a transaction
+The widget presents pending wallet requests in its activity sidebar. When a transaction
 Action arrives, it executes through the configured wallet capability and
 prompts the user to sign.
 

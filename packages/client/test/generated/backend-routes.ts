@@ -20,22 +20,32 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/apps/:application_id/secrets",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/apps/:application_id/secrets/:name",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
     path: "/api/account/bots/:id",
     auth: ["account"],
   },
   {
     method: "DELETE",
-    path: "/api/account/payment/byok/:provider",
+    path: "/api/account/model-keys/:provider",
     auth: ["account"],
   },
   {
     method: "DELETE",
-    path: "/api/account/payment/tempo",
-    auth: ["account"],
-  },
-  {
-    method: "DELETE",
-    path: "/api/account/providers/:provider/grant",
+    path: "/api/account/providers/:provider/delegation",
     auth: ["account"],
   },
   {
@@ -62,6 +72,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "DELETE",
     path: "/api/platforms/:name/tokens/:id",
     auth: ["activation"],
+  },
+  {
+    method: "DELETE",
+    path: "/api/platforms/:name/venue",
+    auth: ["activation-admin"],
   },
   {
     method: "DELETE",
@@ -95,6 +110,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/_internal/agent/sessions/:thread_id/stream",
+    auth: ["delegated"],
+  },
+  {
+    method: "GET",
     path: "/api/_internal/secrets",
     auth: ["service"],
   },
@@ -115,17 +135,22 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/account/apps/:application_id/secrets",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
     path: "/api/account/bots",
     auth: ["account"],
   },
   {
     method: "GET",
-    path: "/api/account/grants",
+    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {
     method: "GET",
-    path: "/api/account/payment",
+    path: "/api/account/onchain-policies/:provider",
     auth: ["account"],
   },
   {
@@ -140,22 +165,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/account/statement",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
     path: "/api/account/status",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/usage",
-    auth: ["account"],
-  },
-  {
-    method: "GET",
-    path: "/api/account/wallets",
     auth: ["account"],
   },
   {
@@ -182,6 +192,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "GET",
     path: "/api/admin/skills/:id",
     auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/commits/:commit_id",
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -261,6 +276,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/integrations/github-app/user/projects/:id/apps",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/:id/attempts",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/projects/:id/attempts/:run",
     auth: ["service"],
   },
   {
@@ -401,12 +426,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "GET",
     path: "/api/resource/skills",
-    auth: ["account"],
+    auth: [],
   },
   {
     method: "GET",
-    path: "/api/resource/skills/:skill_id",
-    auth: ["account"],
+    path: "/api/resource/skills/*skill_id",
+    auth: [],
   },
   {
     method: "GET",
@@ -435,22 +460,12 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/thread/events",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
     path: "/api/thread/models",
     auth: ["thread"],
   },
   {
     method: "GET",
     path: "/api/thread/runtime/models",
-    auth: ["thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/thread/updates",
     auth: ["thread"],
   },
   {
@@ -465,17 +480,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/widget/v1/aa-operations/:operation_id",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
     path: "/api/widget/v1/execution-profile",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/widget/v1/signing-requests",
     auth: ["account","thread"],
   },
   {
@@ -535,6 +540,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/apps/:application_id/secrets",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
     path: "/api/account/authorization/challenge",
     auth: ["account"],
   },
@@ -550,12 +565,27 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/payment/byok",
+    path: "/api/account/model-keys",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/payment/tempo",
+    path: "/api/account/onchain-policies/:provider/:binding_id/revoke/confirm",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/:provider/:binding_id/revoke/prepare",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/:provider/confirm",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
+    path: "/api/account/onchain-policies/:provider/prepare",
     auth: ["account"],
   },
   {
@@ -610,6 +640,21 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/bots/telegram/:webhook_secret/binding",
+    auth: [],
+  },
+  {
+    method: "POST",
+    path: "/api/commits",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/commits/:commit_id/manual",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
     path: "/api/exec/run",
     auth: ["account","thread","app_gate","delegated"],
   },
@@ -641,6 +686,16 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/integrations/github-app/user/model-keys",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/:id/attempts",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
+    path: "/api/integrations/github-app/user/projects/:id/attempts/:run/cancel",
     auth: ["service"],
   },
   {
@@ -761,17 +816,27 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/platforms/:name/telegram/handover",
-    auth: ["activation"],
+    auth: ["activation-or-wallet"],
   },
   {
     method: "POST",
     path: "/api/platforms/:name/telegram/handover/:bot/:id/activate",
-    auth: ["activation"],
+    auth: ["activation-or-wallet"],
   },
   {
     method: "POST",
     path: "/api/platforms/:name/telegram/handover/:bot/:id/revoke",
-    auth: ["activation"],
+    auth: ["activation-or-wallet"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/:name/telegram/handover/:bot/:id/status",
+    auth: ["wallet-session"],
+  },
+  {
+    method: "POST",
+    path: "/api/platforms/:name/telegram/handover/nonce",
+    auth: ["wallet"],
   },
   {
     method: "POST",
@@ -825,11 +890,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "PUT",
-    path: "/api/account/apps",
-    auth: ["account"],
-  },
-  {
-    method: "PUT",
     path: "/api/admin/apps/public",
     auth: ["admin"],
   },
@@ -847,6 +907,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PUT",
     path: "/api/integrations/github-app/user/model-keys/:key_id/grants",
     auth: ["service"],
+  },
+  {
+    method: "PUT",
+    path: "/api/platforms/:name/venue",
+    auth: ["activation-admin"],
   },
   {
     method: "PUT",

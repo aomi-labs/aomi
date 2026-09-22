@@ -32,6 +32,50 @@ packageExtensions:
   "@inkjs/ui":
     peerDependencies:
       react: "*"
+  # react-sdk imports these chain-specific react-core entrypoints at runtime,
+  # but 2.24.0 omits react-core from its published dependency manifest. Keep
+  # pnpm from resolving an unrelated hoisted version from another workspace.
+  "@getpara/react-sdk@2.24.0":
+    dependencies:
+      "@getpara/react-core": "2.24.0"
+  # The published lite SDK imports shared formatting helpers without declaring
+  # the package. A clean Vercel install cannot resolve those imports.
+  "@getpara/react-sdk-lite@2.24.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  # The 2.19.0 line imports `@getpara/shared` and `eventemitter3` at runtime
+  # without listing them in its published manifests. They used to resolve only
+  # because another workspace pulled a newer Para line into the store, so the
+  # landing build broke the moment the Telegram app stopped depending on Para.
+  # 1.14.0 is the version `@getpara/user-management-client@2.19.0` pins.
+  "@getpara/core-sdk@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-common@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-core@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  "@getpara/react-sdk-lite@2.19.0":
+    dependencies:
+      "@getpara/shared": "1.14.0"
+  # The 2.24.0 connector still imports EventEmitter without declaring it.
+  "@getpara/wagmi-v2-connector@2.24.0":
+    dependencies:
+      eventemitter3: "5.0.1"
+  "@getpara/wagmi-v2-connector@2.19.0":
+    dependencies:
+      eventemitter3: "5.0.1"
+
+# @better-auth/mcp 1.7.1 automatically adds its primary MCP endpoint to every
+# dynamically registered client's default resources. This widens Agent,
+# Pipeline, and REST clients even when they request one exact resource. Aomi
+# binds resource-less RFC 7591 clients on their first authorize request instead.
+patchedDependencies:
+  "@better-auth/mcp@1.7.1": patches/@better-auth__mcp@1.7.1.patch
+  "@better-auth/oauth-provider@1.7.1": patches/@better-auth__oauth-provider@1.7.1.patch
+  "next@16.1.0": patches/next@16.1.0.patch
 
 onlyBuiltDependencies:
   - "@parcel/watcher"
@@ -53,12 +97,16 @@ onlyBuiltDependencies:
 allowBuilds:
   "@parcel/watcher": true
   "@reown/appkit": true
+  "@sentry/cli": true
   "@smithers-orchestrator/jj-darwin-arm64": true
+  "@smithers-orchestrator/jj-linux-x64": true
   "@tailwindcss/oxide": true
+  bigint-buffer: false
   bufferutil: true
   es5-ext: true
   esbuild: true
   keccak: true
+  koffi: true
   msgpackr-extract: true
   protobufjs: true
   secp256k1: true

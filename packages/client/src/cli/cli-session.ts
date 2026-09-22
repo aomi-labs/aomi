@@ -9,7 +9,8 @@
 // in state.ts because they operate across all sessions, not on one instance.
 
 import { ClientSession } from "../session";
-import type { CliConfig } from "./types";
+import type { AgentTarget } from "../agent/types";
+import type { CliAgentMode, CliConfig } from "./types";
 import {
   readState,
   writeState,
@@ -25,6 +26,10 @@ import { createCliPaymentFetch, type CliPaymentListener } from "./payment";
 import type { AomiOAuthTokenProvider } from "../authorization";
 import { signInWithOAuthDevice } from "./oauth-device-auth";
 import { wrapFetchWithPublicApiAuthorization } from "../client";
+import {
+  createGuestSessionProvider,
+  type GuestSessionProvider,
+} from "../guest-auth";
 import { cliActionCapabilities } from "./action-capabilities";
 
 export class CliSession {
@@ -81,7 +86,7 @@ export class CliSession {
     sessionId: string = crypto.randomUUID(),
   ): CliSession {
     // Derive Solana public key from private key when provided.
-    let svmPublicKey: string | undefined;
+    let svmPublicKey = config.svmPublicKey;
     if (config.solanaPrivateKey) {
       try {
         svmPublicKey = parseSolanaKeypairSecret(
@@ -92,14 +97,28 @@ export class CliSession {
       }
     }
 
+    const baseUrl = config.baseUrl ?? seed?.baseUrl ?? DEFAULT_CLI_BASE_URL;
+    const configuredTarget = config.app ?? config.applicationId;
+    const seededMode =
+      seed?.agentMode ??
+      (seed?.app || seed?.applicationId ? "direct" : undefined);
+    const agentMode =
+      config.agentMode ??
+      (configuredTarget ? "direct" : (seededMode ?? "auto"));
     const state: CliSessionState = {
       sessionId,
       clientId: crypto.randomUUID(),
-      baseUrl: config.baseUrl ?? seed?.baseUrl ?? DEFAULT_CLI_BASE_URL,
-      app: config.app ?? seed?.app,
+      baseUrl,
+      agentMode,
+      app: agentMode === "auto" ? undefined : (config.app ?? seed?.app),
+      applicationId:
+        agentMode === "auto"
+          ? undefined
+          : (config.applicationId ?? seed?.applicationId),
       model: config.model ?? seed?.model,
       apiKey: config.apiKey ?? seed?.apiKey,
       accountBearer: config.accountBearer ?? seed?.accountBearer,
+      guestBearer: baseUrl === seed?.baseUrl ? seed.guestBearer : undefined,
       publicKey: config.publicKey ?? seed?.publicKey,
       privateKey: seed?.privateKey,
       svmPublicKey: svmPublicKey ?? seed?.svmPublicKey,
@@ -108,8 +127,6 @@ export class CliSession {
       // Keys supplied via --solana-private-key/env stay transient.
       svmPrivateKey: seed?.svmPrivateKey,
       chainId: config.chain ?? seed?.chainId,
-      aaProvider: config.aaProvider ?? seed?.aaProvider,
-      aaMode: config.aaMode ?? seed?.aaMode,
       secretHandles: seed?.secretHandles,
       auth: seed?.auth,
       oauthGrants: seed?.oauthGrants,
@@ -132,6 +149,15 @@ export class CliSession {
   }
   get app(): string | undefined {
     return this.state.app;
+  }
+  get agentMode(): CliAgentMode {
+    return (
+      this.state.agentMode ??
+      (this.state.app || this.state.applicationId ? "direct" : "auto")
+    );
+  }
+  get applicationId(): string | undefined {
+    return this.state.applicationId;
   }
   get model(): string | undefined {
     return this.state.model;
@@ -166,6 +192,9 @@ export class CliSession {
   get auth(): CliAuthSession | undefined {
     return this.state.auth;
   }
+  get accountBearer(): string | undefined {
+    return this.state.accountBearer;
+  }
   get oauthGrants(): Readonly<Record<string, CliOAuthGrant>> {
     return this.state.oauthGrants ?? {};
   }
@@ -185,10 +214,54 @@ export class CliSession {
 
     if (config.baseUrl !== undefined && config.baseUrl !== this.state.baseUrl) {
       this.state.baseUrl = config.baseUrl;
+      delete this.state.guestBearer;
+      changed = true;
+    }
+    if (config.agentMode === "auto") {
+      if (
+        this.state.agentMode !== "auto" ||
+        this.state.app !== undefined ||
+        this.state.applicationId !== undefined
+      ) {
+        this.state.agentMode = "auto";
+        delete this.state.app;
+        delete this.state.applicationId;
+        changed = true;
+      }
+    } else if (
+      config.agentMode === "direct" &&
+      this.state.agentMode !== "direct"
+    ) {
+      this.state.agentMode = "direct";
       changed = true;
     }
     if (config.app !== undefined && config.app !== this.state.app) {
       this.state.app = config.app;
+      this.state.agentMode = "direct";
+      changed = true;
+    }
+    if (
+      config.app !== undefined &&
+      config.applicationId === undefined &&
+      this.state.applicationId !== undefined
+    ) {
+      delete this.state.applicationId;
+      changed = true;
+    }
+    if (
+      config.applicationId !== undefined &&
+      config.applicationId !== this.state.applicationId
+    ) {
+      this.state.applicationId = config.applicationId;
+      this.state.agentMode = "direct";
+      changed = true;
+    }
+    if (
+      config.applicationId !== undefined &&
+      config.app === undefined &&
+      this.state.app !== undefined
+    ) {
+      delete this.state.app;
       changed = true;
     }
     if (config.apiKey !== undefined && config.apiKey !== this.state.apiKey) {
@@ -207,6 +280,13 @@ export class CliSession {
       config.publicKey !== this.state.publicKey
     ) {
       this.state.publicKey = config.publicKey;
+      changed = true;
+    }
+    if (
+      config.svmPublicKey !== undefined &&
+      config.svmPublicKey !== this.state.svmPublicKey
+    ) {
+      this.state.svmPublicKey = config.svmPublicKey;
       changed = true;
     }
     // Derive and persist the Solana public key when a keypair secret is provided.
@@ -234,17 +314,6 @@ export class CliSession {
       this.state.chainId = config.chain;
       changed = true;
     }
-    if (
-      config.aaProvider !== undefined &&
-      config.aaProvider !== this.state.aaProvider
-    ) {
-      this.state.aaProvider = config.aaProvider;
-      changed = true;
-    }
-    if (config.aaMode !== undefined && config.aaMode !== this.state.aaMode) {
-      this.state.aaMode = config.aaMode;
-      changed = true;
-    }
     if (!this.state.clientId) {
       this.state.clientId = crypto.randomUUID();
       changed = true;
@@ -260,12 +329,31 @@ export class CliSession {
     this.save();
   }
 
+  setAgentRouting(
+    mode: CliAgentMode,
+    target?: { app?: string; applicationId?: string },
+  ): void {
+    this.state.agentMode = mode;
+    delete this.state.app;
+    delete this.state.applicationId;
+    if (mode === "direct") {
+      if (target?.app !== undefined) {
+        this.state.app = target.app;
+      }
+      if (target?.applicationId !== undefined) {
+        this.state.applicationId = target.applicationId;
+      }
+    }
+    this.save();
+  }
+
   setPublicKey(key: string): void {
     this.state.publicKey = key;
     this.save();
   }
 
   setBaseUrl(url: string): void {
+    if (url !== this.state.baseUrl) delete this.state.guestBearer;
     this.state.baseUrl = url;
     this.save();
   }
@@ -396,6 +484,7 @@ export class CliSession {
       options?.onPayment,
       authorizedFetch,
     );
+    const target = this.resolveAgentTarget(config);
     const session = new ClientSession(
       {
         baseUrl: this.state.baseUrl,
@@ -403,23 +492,94 @@ export class CliSession {
         fetch: paymentFetch,
         getAccountBearer: createCliAuthTokenProvider(() => this.state),
         oauth: paymentFetch ? undefined : oauth,
-        guest: false,
+        // Account auth remains additive for control routes. Public Agent and
+        // Pipeline requests still need a guest bearer until the user logs in.
+        guest: oauth ? false : this.createGuestProvider(fetch),
       },
       {
         sessionId: this.state.sessionId,
         clientId: this.state.clientId,
-        app: this.state.app,
+        target,
         model: config?.model ?? this.state.model,
-        applicationId: config?.applicationId,
         getUserState: () =>
           buildCliUserState(this.state.publicKey, this.state.chainId, {
             svmAddress: this.state.svmPublicKey,
             svmCluster: this.resolvedSvmCluster(config?.svmCluster),
           }),
         actions: cliActionCapabilities(this, config),
+        inferenceFunding: config?.inferenceFunding,
       },
     );
     return session;
+  }
+
+  private resolveAgentTarget(config?: Partial<CliConfig>): AgentTarget {
+    const requestedApp = config?.app ?? this.state.app;
+    const requestedApplicationId =
+      config?.applicationId ?? this.state.applicationId;
+    const mode =
+      config?.agentMode ??
+      (config?.app || config?.applicationId ? "direct" : this.agentMode);
+    if (mode === "auto") {
+      if (requestedApp || requestedApplicationId) {
+        throw new TypeError(
+          "Auto mode cannot be combined with an app or applicationId target",
+        );
+      }
+      return { mode: "auto" };
+    }
+    if (requestedApplicationId) {
+      const applicationId = Number(requestedApplicationId);
+      if (!Number.isSafeInteger(applicationId) || applicationId <= 0) {
+        throw new TypeError("Direct applicationId must be a positive integer");
+      }
+      return {
+        mode: "direct",
+        applicationId,
+        ...(requestedApp ? { app: requestedApp } : {}),
+      };
+    }
+    return { mode: "direct", ...(requestedApp ? { app: requestedApp } : {}) };
+  }
+
+  createGuestProvider(
+    fetchImpl: typeof fetch,
+    baseUrl?: string,
+  ): GuestSessionProvider {
+    const targetBaseUrl = baseUrl ?? this.state.baseUrl;
+    // The persisted guest bearer was minted for the persisted base URL; only
+    // reuse (or overwrite) it when this provider targets the same origin, so
+    // a --backend-url override never sends or clobbers another origin's
+    // credential.
+    const canUsePersisted = targetBaseUrl === this.state.baseUrl;
+    const guest = createGuestSessionProvider({
+      baseUrl: targetBaseUrl,
+      fetch: fetchImpl,
+    });
+    const provider = async (options?: { forceRefresh?: boolean }) => {
+      if (!options?.forceRefresh && canUsePersisted && this.state.guestBearer) {
+        return this.state.guestBearer;
+      }
+      const credential = await guest(options);
+      if (
+        canUsePersisted &&
+        credential &&
+        credential !== this.state.guestBearer
+      ) {
+        this.state.guestBearer = credential;
+        this.save();
+      }
+      return credential;
+    };
+    return Object.assign(provider, {
+      clear: () => {
+        guest.clear();
+        if (canUsePersisted && this.state.guestBearer) {
+          delete this.state.guestBearer;
+          this.save();
+        }
+      },
+    });
   }
 
   createOAuthProvider(

@@ -2,7 +2,11 @@
 // API Client (re-exported from @aomi-labs/client)
 // =============================================================================
 export { AomiClient } from "@aomi-labs/client";
-export type { AomiClientOptions } from "@aomi-labs/client";
+export type {
+  AgentMode,
+  AgentTarget,
+  AomiClientOptions,
+} from "@aomi-labs/client";
 export type {
   Action,
   ActionRequest,
@@ -51,6 +55,7 @@ export {
   useOptionalAomiRuntime,
 } from "./interface";
 export type { AomiRuntimeApi } from "./interface";
+export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 // =============================================================================
 // Handler Hooks
@@ -109,7 +114,7 @@ export {
   SUPPORTED_CHAINS,
   type ChainInfo,
 } from "./runtime/utils";
-export { resolveAutoModel } from "./utils/model-selection";
+export { resolveAutoModel } from "./control/model-selection";
 
 // =============================================================================
 // Notification Context (for toast UI)
@@ -131,6 +136,7 @@ export {
   useControl,
   useApiKey,
   useByok,
+  useAppSecrets,
   useAuthEndpoints,
   usePerThreadControl,
   ControlContextProvider,

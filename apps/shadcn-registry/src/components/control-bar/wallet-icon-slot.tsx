@@ -21,6 +21,18 @@ const PHANTOM_RATIO = 27.6 / 36;
 const PARA_RATIO = (24 * 0.85) / 36;
 const FALLBACK_RATIO = 16 / 36;
 
+const BRAND_COLORS: Record<string, string> = {
+  base: "#0052ff",
+  coinbase: "#0052ff",
+  metamask: "#f6851b",
+  para: "#ff4e1b",
+  phantom: "#ab9ff2",
+  privy: "#ff775f",
+  rabby: "#8697ff",
+  rainbow: "#174299",
+  walletconnect: "#3b99fc",
+};
+
 export function WalletIconSlot({
   iconUrl,
   id,
@@ -54,7 +66,7 @@ export function WalletIconSlot({
           "bg-muted text-muted-foreground flex shrink-0 items-center justify-center rounded-xl",
           className,
         )}
-        style={slotStyle}
+        style={{ ...slotStyle, color: brand ? BRAND_COLORS[brand] : undefined }}
         aria-hidden="true"
         title={label}
         data-wallet-brand={brand}

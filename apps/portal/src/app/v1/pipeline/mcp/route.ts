@@ -42,7 +42,10 @@ const authenticatedPost = requireMcpAuth(
   {
     resource,
     requiredScopes: ["mcp:pipeline"],
-    challengeScopes: ["mcp:pipeline", "pipeline:catalog"],
+    // The challenge is what a client re-authorizes with, so it must name
+    // `offline_access`; without it the next grant carries no refresh token and
+    // expires for good one access-token lifetime later.
+    challengeScopes: ["mcp:pipeline", "pipeline:catalog", "offline_access"],
     dpop: { signingAlgorithms: ["ES256", "EdDSA"] },
   },
 );

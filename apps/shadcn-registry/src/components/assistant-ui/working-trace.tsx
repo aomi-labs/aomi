@@ -7,7 +7,14 @@ import {
   type TextMessagePart,
   type ToolCallMessagePart,
 } from "@assistant-ui/react";
-import { CheckIcon, ChevronDownIcon, MoreHorizontalIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  CogIcon,
+  LightbulbIcon,
+  MoreHorizontalIcon,
+  XIcon,
+} from "lucide-react";
 
 import {
   cn,
@@ -28,27 +35,13 @@ import {
   WorkingNote,
 } from "@/components/assistant-ui/working-trace-rows";
 
-/**
- * Working trace — the chain-of-thought UI.
- *
- * A merged assistant turn (see `mergeAssistantTurns` in @aomi-labs/react) is one
- * message with ordered parts `[tool-call, …, text]`. We split it:
- *   • tool-call parts → a collapsible "Working" trace, one line per step
- *   • the trailing text → the final answer, streamed on its own
- *
- * "Still working" is carried entirely by the shimmer on the *last* step: it keeps
- * sweeping whenever the turn is running, including the common case where a tool
- * call has finished and we're just waiting on the model to say what's next. When
- * the turn completes the trace collapses to "Worked for Ns" and the answer is
- * revealed. Plain replies with no tool calls remain buffered while running,
- * then render immediately once the turn settles.
- */
+/** Interstitial prose and tool progress share one chronological trace. */
 
 const formatDuration = (seconds: number): string => {
-  if (seconds < 1) return "less than a second";
-  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
+  const totalSeconds = Math.max(1, Math.round(seconds));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
   return `${m}m ${s}s`;
 };
 
@@ -60,27 +53,6 @@ const useIsomorphicLayoutEffect =
 const WINDOW_ANIM_MS = 300;
 
 /**
- * Paces how many trace items are shown, revealing them one at a time so a burst
- * of tool calls that lands in a single update cascades instead of flashing in.
- *
- * The cadence adapts to backlog: a lone pending step waits ~1200ms (a deliberate
- * beat that fills the otherwise-idle shimmer time), but the delay tightens toward
- * ~360ms as more items queue up, so a model that ran ahead is caught up quickly
- * and in order — never held back. Once the turn ends we drain any remainder fast
- * (~220ms) so the final answer is never gated on the stagger. Under
- * `prefers-reduced-motion` everything is revealed immediately.
- *
- * Pacing applies ONLY to a turn that is live (running) while this is mounted.
- * A turn that's already complete when it mounts — a reloaded thread, scrollback,
- * a thread switch — reveals everything at once, so a finished answer never sits
- * behind an animation replaying from scratch.
- */
-const REVEAL_BASE_MS = 1200;
-const REVEAL_MIN_MS = 360;
-const REVEAL_STEP_MS = 320;
-const REVEAL_TAIL_MS = 220;
-
-/**
  * Whenever the trace is open — live or after completion — it is capped to this
  * height so a long run of steps doesn't march down the whole screen. Newest
  * steps stay pinned at the bottom; older ones remain available by scrolling the
@@ -89,40 +61,6 @@ const REVEAL_TAIL_MS = 220;
  * remains available when an uncapped overview is more useful.
  */
 const WORKING_WINDOW_PX = 260;
-
-const useStaggeredReveal = (target: number, running: boolean): number => {
-  const reduced = prefersReducedMotion();
-  // Only pace a turn we saw working live. If it wasn't running at mount, it's a
-  // completed/loaded turn — start fully revealed.
-  const startedLive = useRef(running && !reduced);
-  const [revealed, setRevealed] = useState(startedLive.current ? 0 : target);
-
-  useEffect(() => {
-    if (running && !reduced) startedLive.current = true;
-  }, [running, reduced]);
-
-  useEffect(() => {
-    if (!startedLive.current) {
-      if (revealed !== target) setRevealed(target);
-      return;
-    }
-    if (revealed >= target) return;
-    // Reveal the first item promptly for responsiveness; pace the rest.
-    if (revealed === 0) {
-      setRevealed(1);
-      return;
-    }
-    const backlog = target - revealed;
-    const delay = running
-      ? Math.max(REVEAL_MIN_MS, REVEAL_BASE_MS - (backlog - 1) * REVEAL_STEP_MS)
-      : REVEAL_TAIL_MS;
-    const timer = setTimeout(() => setRevealed((n) => n + 1), delay);
-    return () => clearTimeout(timer);
-  }, [revealed, target, running, reduced]);
-
-  // Clamp in case a turn's content ever shrinks (it is append-only in practice).
-  return Math.min(revealed, target);
-};
 
 /**
  * One tool call of the mother's own trace. The presentation lives in
@@ -134,7 +72,8 @@ const WorkingStep: FC<{
   relatedResults?: unknown[];
   active: boolean;
   animate: boolean;
-}> = ({ tool, relatedResults, active, animate }) => {
+  live: boolean;
+}> = ({ tool, relatedResults, active, animate, live }) => {
   const done = tool.result !== undefined;
   const argsText =
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
@@ -152,6 +91,7 @@ const WorkingStep: FC<{
       done={done}
       active={active}
       animate={animate}
+      animateUpdates={live}
     />
   );
 };
@@ -179,19 +119,77 @@ type TraceItem =
 const childStepCount = (item: TraceItem): number =>
   item.kind === "agent" ? agentStepCount(item.run) : 0;
 
+const taskResultAgentIds = (result: unknown): string[] => {
+  if (!result || typeof result !== "object") return [];
+  const record = result as Record<string, unknown>;
+  const candidates: unknown[] = [record.agent_id];
+  if (record.error && typeof record.error === "object") {
+    candidates.push((record.error as Record<string, unknown>).agent_id);
+  }
+  if (Array.isArray(record.results)) {
+    for (const item of record.results) {
+      if (!item || typeof item !== "object") continue;
+      const child = item as Record<string, unknown>;
+      candidates.push(child.agent_id);
+      if (child.error && typeof child.error === "object") {
+        candidates.push((child.error as Record<string, unknown>).agent_id);
+      }
+    }
+  }
+  return [
+    ...new Set(
+      candidates.filter(
+        (id): id is string => typeof id === "string" && id.length > 0,
+      ),
+    ),
+  ];
+};
+
+const ThinkingStatusGlyph: FC = () => (
+  <span
+    aria-hidden="true"
+    className="aui-thinking-glyph text-aomi-accent flex size-4 shrink-0 items-center justify-center"
+  >
+    <LightbulbIcon className="aui-thinking-bulb size-[15px] stroke-[1.8]" />
+  </span>
+);
+
+const WorkingStatusGlyph: FC = () => (
+  <span
+    aria-hidden="true"
+    className="aui-working-glyph text-aomi-accent flex size-4 shrink-0 items-center justify-center"
+  >
+    <CogIcon className="aui-working-cog size-[15px] stroke-[1.8]" />
+  </span>
+);
+
+const WORKING_STATUS_TEXT_CLASS = "text-[13px] font-medium leading-none";
+const WORKING_COLLAPSED_CHIP_CLASS =
+  "border-aomi-border bg-aomi-surface h-8 w-fit rounded-full pl-3 pr-4";
+
+type WorkingTraceOutcome = "running" | "complete" | "failed" | "interrupted";
+
 export const WorkingTrace: FC<{
   running: boolean;
+  outcome?: WorkingTraceOutcome;
   items: TraceItem[];
   revealed: number;
-  /** The turn delegated to child agents — announces the mode in the header. */
-  orchestrating: boolean;
+  /** Final-answer playback has begun, so the open trace may fold away. */
+  collapseReady?: boolean;
   /**
    * When the turn actually started, if known. The card can mount long after
    * the work began (the transcript part for a delegation only lands at the
    * end), so mount time alone under-reports "Orchestrated for Ns" badly.
    */
   startedAtMs?: number;
-}> = ({ running, items, revealed, orchestrating, startedAtMs }) => {
+}> = ({
+  running,
+  outcome = running ? "running" : "complete",
+  items,
+  revealed,
+  collapseReady = true,
+  startedAtMs,
+}) => {
   const [open, setOpen] = useState(running);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -334,31 +332,48 @@ export const WorkingTrace: FC<{
     wasRunning.current = running;
   }, [running]);
 
-  // Auto-collapse only after the tail has finished cascading, and leave the last
-  // step on screen for a beat so it isn't hidden the instant it appears.
+  // A delegating turn's `task` part only lands once its children have finished,
+  // so this trace can mount already-complete and never observe the transition
+  // above — leaving it with no duration at all. Its children carry real
+  // client-clock spans; report those instead of dropping the label. Never
+  // `Date.now()` here: that would grow with the age of reloaded history rather
+  // than measure the run.
+  const delegatedSpanMs = items.reduce<number | undefined>((span, item) => {
+    const run = item.kind === "agent" ? item.run : undefined;
+    if (!run || run.startedAt <= 0 || run.durationMs == null) return span;
+    const end = run.startedAt + run.durationMs - startedAt.current;
+    return Math.max(span ?? 0, end);
+  }, undefined);
   useEffect(() => {
-    if (!fullyRevealed) return;
+    if (running || elapsed !== null || delegatedSpanMs === undefined) return;
+    setElapsed(Math.max(0, delegatedSpanMs) / 1000);
+  }, [running, elapsed, delegatedSpanMs]);
+
+  // Auto-collapse only once final-answer playback has actually begun. An
+  // awaiting Action temporarily marks the assistant message complete, but the
+  // trace must stay open through approval and the resumed model turn.
+  useEffect(() => {
+    if (!fullyRevealed || !collapseReady) return;
     const timer = setTimeout(() => setOpen(false), 500);
     return () => clearTimeout(timer);
-  }, [fullyRevealed]);
+  }, [collapseReady, fullyRevealed]);
 
-  // The badge already names the orchestration mode. Keep the status language
-  // identical across modes so the header never reads as the redundant
-  // “Orchestrating · ORCHESTRATOR”.
-  const label = running
-    ? "Working"
-    : elapsed != null
-      ? `Worked for ${formatDuration(elapsed)}`
-      : "Worked it out";
+  const elapsedLabel =
+    elapsed != null ? ` after ${formatDuration(elapsed)}` : "";
+  const label =
+    outcome === "running"
+      ? "Working"
+      : outcome === "complete"
+        ? elapsed != null
+          ? `Worked for ${formatDuration(elapsed)}`
+          : "Worked it out"
+        : `Stopped${elapsedLabel}`;
 
-  // Exactly one "live" signal: the newest *revealed* step shimmers while running
-  // and the trace is open; if the user collapses mid-run, the header shimmers.
+  // Keep the status treatment continuous from Thinking into Working. The newest
+  // revealed step retains its contextual shimmer while the header consistently
+  // communicates that the overall turn is still live.
   const activeIndex = running ? revealed - 1 : -1;
-  const headerClass = !running
-    ? "text-aomi-fg font-medium"
-    : open
-      ? "text-aomi-muted font-medium"
-      : "aui-working-shimmer font-medium";
+  const headerClass = running ? "aui-working-shimmer" : "text-aomi-fg";
 
   const visibleItems = items.slice(0, revealed);
 
@@ -377,8 +392,10 @@ export const WorkingTrace: FC<{
     // compact header chip remains visible.
     <div
       className={cn(
-        "aui-working-trace mb-3 flex w-full flex-col overflow-hidden rounded-xl border transition-colors duration-300 motion-reduce:transition-none",
-        open ? "border-aomi-border" : "border-transparent",
+        "aui-working-trace animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex w-full origin-top-left flex-col overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-300 ease-out motion-reduce:animate-none motion-reduce:transition-none",
+        open
+          ? "border-aomi-border/70 bg-aomi-surface/25 shadow-[0_6px_20px_rgba(0,0,0,0.025)]"
+          : "border-transparent bg-transparent shadow-none",
       )}
     >
       <button
@@ -386,24 +403,38 @@ export const WorkingTrace: FC<{
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          "aui-working-trace-header flex items-center gap-2 border text-left text-sm transition-[padding,border-radius,border-color,background-color] duration-300 ease-out motion-reduce:transition-none",
+          "aui-working-trace-header flex items-center gap-2 border text-left text-sm transition-[height,padding,border-radius,border-color,background-color] duration-300 ease-out motion-reduce:transition-none",
           open
-            ? "bg-aomi-surface w-full self-stretch rounded-[11px] border-transparent px-3.5 py-[11px]"
-            : "border-aomi-border bg-aomi-surface hover:border-aomi-muted/40 w-fit self-start rounded-full px-3 py-[7px]",
+            ? "bg-aomi-surface/65 h-10 w-full self-stretch rounded-[11px] border-transparent px-3.5"
+            : cn(
+                WORKING_COLLAPSED_CHIP_CLASS,
+                "hover:border-aomi-muted/40 self-start",
+              ),
         )}
       >
-        {!running && (
-          <CheckIcon className="text-aomi-success size-3.5 shrink-0" />
-        )}
-        <span className={cn("text-[13px]", headerClass)}>{label}</span>
-        {orchestrating && (
-          <span className="aui-working-badge bg-aomi-accent-subtle text-aomi-accent-strong shrink-0 rounded-full px-2 py-[1px] font-mono text-[10px] uppercase tracking-[0.1em]">
-            orchestrator
+        {outcome === "running" ? (
+          <WorkingStatusGlyph />
+        ) : outcome === "failed" ? (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <XIcon className="text-aomi-danger size-3.5" />
+          </span>
+        ) : outcome === "interrupted" ? (
+          <span className="text-aomi-muted flex size-4 shrink-0 items-center justify-center">
+            <MoreHorizontalIcon className="size-3.5" />
+          </span>
+        ) : (
+          <span className="flex size-4 shrink-0 items-center justify-center">
+            <CheckIcon className="text-aomi-success size-3.5" />
           </span>
         )}
-        <span className="text-aomi-muted font-mono text-xs">
-          {stepCount} {stepCount === 1 ? "step" : "steps"}
+        <span className={cn(WORKING_STATUS_TEXT_CLASS, headerClass)}>
+          {label}
         </span>
+        {stepCount > 0 ? (
+          <span className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none">
+            {stepCount} {stepCount === 1 ? "step" : "steps"}
+          </span>
+        ) : null}
         {open && <span className="flex-1" />}
         <ChevronDownIcon
           className={cn(
@@ -424,7 +455,7 @@ export const WorkingTrace: FC<{
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="border-aomi-border relative border-t">
+          <div className="border-aomi-border/60 bg-aomi-bg/15 relative border-t">
             {windowed && overflowing && !animating && (
               <>
                 <span
@@ -462,7 +493,7 @@ export const WorkingTrace: FC<{
                 className="aui-working-trace-body relative isolate flex flex-col gap-1 px-3.5 pb-3.5 pt-3 text-sm"
               >
                 {visibleItems.map((item, i) => {
-                  const animate = i >= animatedCount.current;
+                  const animate = running && i >= animatedCount.current;
                   if (item.kind === "tool") {
                     return (
                       <WorkingStep
@@ -477,6 +508,7 @@ export const WorkingTrace: FC<{
                           )}
                         active={i === activeIndex}
                         animate={animate}
+                        live={running}
                       />
                     );
                   }
@@ -528,82 +560,34 @@ export const WorkingTrace: FC<{
   );
 };
 
-const MinimalWorkingTrace: FC = () => (
-  <div className="aui-working-trace border-aomi-border mb-3 flex flex-col overflow-hidden rounded-xl border">
-    <div className="aui-working-trace-header bg-aomi-surface flex items-center gap-2.5 px-3.5 py-[11px] text-sm">
-      <span className="aui-working-shimmer text-[13px] font-medium">
-        Working
-      </span>
-    </div>
+export const MinimalWorkingTrace: FC = () => (
+  <div
+    role="status"
+    aria-label="Aomi is thinking"
+    className={cn(
+      "aui-working-trace-start animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex origin-top-left items-center gap-2 border duration-300 ease-out motion-reduce:animate-none",
+      WORKING_COLLAPSED_CHIP_CLASS,
+    )}
+  >
+    <ThinkingStatusGlyph />
+    <span className={cn(WORKING_STATUS_TEXT_CLASS, "aui-working-shimmer")}>
+      Thinking
+    </span>
   </div>
 );
 
-const collectText = (parts: TextMessagePart[]): string =>
-  parts
-    .map((part) => part.text)
-    .join("\n\n")
-    .trim();
-
-/**
- * The final answer is deliberately buffered while tools are running because a
- * text part is provisional until the last tool call lands. Once the turn has
- * settled, reveal that buffered answer with a lightweight synthetic stream so
- * it hands off naturally from the trace instead of appearing in one paint.
- *
- * The cadence scales with answer length and tops out at a few seconds: short
- * answers still feel typed, while long reports do not make the reader wait.
- */
-const ANSWER_STREAM_TICK_MS = 20;
-const ANSWER_STREAM_MS_PER_CHARACTER = 5.5;
-const ANSWER_STREAM_MIN_MS = 180;
-const ANSWER_STREAM_MAX_MS = 1400;
-
-const answerStreamChunkSize = (length: number): number => {
-  const duration = Math.min(
-    ANSWER_STREAM_MAX_MS,
-    Math.max(ANSWER_STREAM_MIN_MS, length * ANSWER_STREAM_MS_PER_CHARACTER),
-  );
-  return Math.max(1, Math.ceil(length / (duration / ANSWER_STREAM_TICK_MS)));
-};
-
-const useProgressiveAnswer = (
-  text: string,
-  animate: boolean,
-): { text: string; streaming: boolean } => {
-  const reduced = prefersReducedMotion();
-  const shouldAnimate = animate && !reduced;
-  const [visibleLength, setVisibleLength] = useState(() =>
-    shouldAnimate ? 0 : text.length,
-  );
-
-  useEffect(() => {
-    if (!shouldAnimate) {
-      setVisibleLength(text.length);
-      return;
+export const RenderedText: FC<{ text: string }> = ({ text }) => {
+  const runtime = useOptionalAomiRuntime();
+  const recorded = useRef(false);
+  useLayoutEffect(() => {
+    if (!recorded.current && text.trim()) {
+      recorded.current = true;
+      // DOM commit marker, not a claim about compositor paint or answer quality.
+      performance.mark?.("aomi:answer-committed", {
+        detail: { sessionId: runtime?.currentThreadId },
+      });
     }
-    // Content is append-only in normal operation. The clamp also handles a
-    // reconciliation replacing it with a shorter canonical answer.
-    setVisibleLength((current) => Math.min(current, text.length));
-  }, [shouldAnimate, text.length]);
-
-  useEffect(() => {
-    if (!shouldAnimate || visibleLength >= text.length) return;
-    const chunk = answerStreamChunkSize(text.length);
-    const timer = setTimeout(
-      () =>
-        setVisibleLength((current) => Math.min(text.length, current + chunk)),
-      ANSWER_STREAM_TICK_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [shouldAnimate, text.length, visibleLength]);
-
-  return {
-    text: text.slice(0, visibleLength),
-    streaming: shouldAnimate && visibleLength < text.length,
-  };
-};
-
-const RenderedText: FC<{ text: string }> = ({ text }) => {
+  }, [text, runtime?.currentThreadId]);
   return (
     <TextMessagePartProvider text={text}>
       <MarkdownText />
@@ -611,80 +595,78 @@ const RenderedText: FC<{ text: string }> = ({ text }) => {
   );
 };
 
-export const ProgressiveRenderedText: FC<{
-  text: string;
-  animate: boolean;
-}> = ({ text, animate }) => {
-  const progressive = useProgressiveAnswer(text, animate);
-  return (
-    <div aria-busy={progressive.streaming || undefined}>
-      <RenderedText text={progressive.text} />
-    </div>
-  );
-};
-
 /**
- * Drop-in replacement for `<MessagePrimitive.Parts>` in an assistant message.
+ * Reconcile the ordered transcript with the live delegation sidecar.
  *
- * A merged turn is one ordered `content` array: interstitial talk (`text`) and
- * tool calls, then the final answer (`text`). We split at the LAST tool call —
- * everything up to and including it is the Working trace (tool steps + muted
- * interstitial notes, in order); the trailing `text` run is the final answer,
- * buffered out of view until the turn finishes so only it streams out below.
- * A plain reply with no tool calls remains buffered while running, then renders
- * directly once it is known to be the final answer.
- *
- * Delegations are the one row that does not come from the transcript alone: a
- * running child has no `task` part yet, so its row is rendered synthetically
- * from the `taskRuns` sidecar and hands over to the transcript part (same key,
- * same row) once that lands. See `WorkingAgent`.
+ * A task exists in the sidecar before its transcript tool part arrives. Once
+ * that part does arrive, it replaces the synthetic row at the transcript's
+ * chronological position instead of being appended again at the bottom. This
+ * matters when a failed child is followed by successful parent work: the
+ * failure remains useful history without looking like the final active step.
  */
-export const AssistantTurnParts: FC = () => {
-  const content = useMessage((s) => s.content);
-  const running = useMessage((s) => s.status?.type === "running");
-  const isLast = useMessage((s) => s.isLast);
-  const runtime = useOptionalAomiRuntime();
-  const taskRuns = useThreadTaskRuns();
-  // Only animate a turn observed live in this component. Completed messages
-  // restored from history render immediately instead of replaying the effect.
-  const witnessedRunning = useRef(running);
-  if (running) witnessedRunning.current = true;
-
-  const lastToolIndex = content.reduce(
-    (last, part, i) => (part.type === "tool-call" ? i : last),
-    -1,
-  );
-
-  // The sidecar is cleared on every send (see the runtime's sendMessage), so
-  // every run in it belongs to the current turn — render them all on the last
-  // message, running or finished. Deliberately NOT gated on "seen while
-  // running" via a component ref: fast models can stream the final text as a
-  // separate message that remounts this component between `task_completed`
-  // and the `task` transcript part landing, and a ref-based memory would
-  // blank the trace for that gap (it re-appeared with the row folded).
-  // Scrollback stays inert because only the last message reads the sidecar,
-  // and reloads start with an empty sidecar (transcript rows take over).
-  const liveDelegations = isLast
-    ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
-    : [];
-
-  // Where the trace ends and the final answer begins. Normally the last tool
-  // call — but a delegation that has not landed in the transcript yet has no
-  // tool part at all, so a turn that is *only* a live delegation still gets a
-  // trace (its talk becomes notes; the answer is buffered while running).
-  const traceEnd =
-    lastToolIndex >= 0
-      ? lastToolIndex + 1
-      : liveDelegations.length > 0
-        ? content.length
-        : 0;
-
-  // Build the trace rows in order, merging consecutive talk into one note.
-  // Empty when the turn has neither tool calls nor a live delegation.
+export const buildTraceItems = (
+  content: readonly (TextMessagePart | ToolCallMessagePart)[],
+  liveDelegations: readonly TaskRunState[],
+): TraceItem[] => {
   const items: TraceItem[] = [];
+  const runsByAgentId = new Map(
+    liveDelegations.map((run) => [run.agentId, run] as const),
+  );
+  const taskParts = content.filter(
+    (part): part is ToolCallMessagePart =>
+      part.type === "tool-call" && part.toolName === "task",
+  );
+  const occurrences = new Map<string, number>();
+  for (const part of taskParts) {
+    for (const agentId of taskResultAgentIds(part.result)) {
+      occurrences.set(agentId, (occurrences.get(agentId) ?? 0) + 1);
+    }
+  }
+  const consumedRuns = new Set<TaskRunState>();
+  const invocationKey = (callId: string, agentId: string) =>
+    `agent-${JSON.stringify([callId, agentId])}`;
   let agentOrder = 0;
-  content.slice(0, traceEnd).forEach((part, i) => {
+
+  content.forEach((part, i) => {
     if (part.type === "tool-call") {
+      if (part.toolName === "task") {
+        const resultAgentIds = taskResultAgentIds(part.result);
+        const callId = part.toolCallId ?? `task-${i}`;
+        // Batch children use <tool call>:<one-based index> on the wire.
+        const matchedRuns = liveDelegations.filter(
+          (run) =>
+            run.callId === callId ||
+            (run.callId.startsWith(`${callId}:`) &&
+              /^\d+$/.test(run.callId.slice(callId.length + 1))),
+        );
+        const agentIds = [
+          ...new Set([
+            ...resultAgentIds,
+            ...matchedRuns.map((run) => run.agentId),
+          ]),
+        ];
+        for (const agentId of agentIds.length ? agentIds : [callId]) {
+          const exactRun = matchedRuns.find((run) => run.agentId === agentId);
+          // Legacy inline messages lack canonical call identity. Only join an
+          // unambiguous child once; a continuation must not rewrite history.
+          const legacyRun =
+            callId.startsWith("inline:") && occurrences.get(agentId) === 1
+              ? runsByAgentId.get(agentId)
+              : undefined;
+          const run = exactRun ?? legacyRun;
+          if (run) consumedRuns.add(run);
+          items.push({
+            kind: "agent",
+            agentId,
+            run,
+            tool: part,
+            order: agentOrder++,
+            key: invocationKey(run?.callId ?? callId, agentId),
+          });
+        }
+        return;
+      }
+
       items.push({
         kind: "tool",
         tool: part,
@@ -692,120 +674,127 @@ export const AssistantTurnParts: FC = () => {
       });
       return;
     }
-    if (part.type !== "text" || part.text.trim().length === 0) return;
+
+    if (part.text.trim().length === 0) return;
     const prev = items[items.length - 1];
     if (prev?.kind === "note") prev.text += `\n\n${part.text}`;
     else items.push({ kind: "note", text: part.text, key: `note-${i}` });
   });
 
-  // Synthetic rows for runs the transcript has not caught up with, appended
-  // after the last transcript-derived item, ordered by start. The key is the
-  // agent id, so when the transcript part lands React keeps the same row (and
-  // its open/user-toggled state) instead of remounting it.
   for (const run of liveDelegations) {
+    if (consumedRuns.has(run)) continue;
     items.push({
       kind: "agent",
       agentId: run.agentId,
       run,
       order: agentOrder++,
-      key: `agent-${run.agentId}`,
+      key: invocationKey(run.callId, run.agentId),
     });
   }
 
-  // "Orchestrator-ness" is a property of the turn, never of the currently
-  // selected app — so scrollback still reads correctly after an app switch. A
-  // `task` part that carries no join key (an older transcript) still counts.
-  const orchestrating = items.some(
-    (item) =>
-      item.kind === "agent" ||
-      (item.kind === "tool" && item.tool.toolName === "task"),
+  return items;
+};
+
+/** Keep working notes with their tools; only the final answer sits outside. */
+export const AssistantTurnParts: FC = () => {
+  const content = useMessage((s) => s.content);
+  const running = useMessage((s) => s.status?.type === "running");
+  const isLast = useMessage((s) => s.isLast);
+  const runtime = useOptionalAomiRuntime();
+  const taskRuns = useThreadTaskRuns("turn");
+  const terminal = ["complete", "failed", "interrupted"].includes(
+    runtime?.turnState ?? "",
   );
-
-  // Pace the reveal so a burst of tool calls cascades instead of flashing in.
-  // Called unconditionally (before the branches below) to satisfy hook rules;
-  // it's a harmless no-op with an empty trace.
-  const staggered = useStaggeredReveal(items.length, running);
-
-  // Staggered-reveal choice: an agent row backed by a live sidecar is never
-  // held hostage to the reveal backlog. Everything up to and including the
-  // newest sidecar-backed agent row is shown at once (in practice that row is
-  // last, so an orchestrating turn reveals immediately); the mother's own
-  // steps keep their paced cascade before and after the delegation.
-  const revealFloor = items.reduce(
-    (floor, item, i) => (item.kind === "agent" && item.run ? i + 1 : floor),
-    0,
+  const live =
+    !terminal &&
+    (running ||
+      (isLast &&
+        ["processing", "awaiting_action"].includes(runtime?.turnState ?? "")));
+  const outcome: WorkingTraceOutcome = live
+    ? "running"
+    : isLast && runtime?.turnState === "failed"
+      ? "failed"
+      : isLast && runtime?.turnState === "interrupted"
+        ? "interrupted"
+        : "complete";
+  const delegations = isLast
+    ? Object.values(taskRuns).sort((a, b) => a.startedAt - b.startedAt)
+    : [];
+  // When the work actually began, for the header's "Worked for Ns". Anchored to
+  // the earliest signal available: the moment this turn was first seen live, or
+  // the earliest delegation's client-clock start — whichever is older. Mount
+  // time alone lies when the trace mounts late, and a delegating turn's `task`
+  // part only lands once its children have already finished.
+  const firstSeenLive = useRef<number | undefined>(
+    live ? Date.now() : undefined,
   );
-  const revealed = Math.max(staggered, revealFloor);
-
-  // When the work actually began, for the header's "Orchestrated for Ns".
-  // Anchored to the earliest signal we have: the moment this turn was first
-  // seen running, or the earliest delegation's client-clock start — whichever
-  // is older. Mount time alone lies when the trace mounts late (a delegating
-  // turn's transcript part only lands at the very end).
-  const turnStartRef = useRef<number | null>(running ? Date.now() : null);
-  if (running && turnStartRef.current === null) {
-    turnStartRef.current = Date.now();
+  if (live && firstSeenLive.current === undefined) {
+    firstSeenLive.current = Date.now();
   }
-  const earliestRunStart = items.reduce<number | null>(
-    (earliest, item) =>
-      item.kind === "agent" && item.run
-        ? Math.min(earliest ?? item.run.startedAt, item.run.startedAt)
+  const earliestDelegation = delegations.reduce<number | undefined>(
+    (earliest, run) =>
+      run.startedAt > 0
+        ? Math.min(earliest ?? run.startedAt, run.startedAt)
         : earliest,
-    null,
+    undefined,
   );
   const startedAtMs =
-    turnStartRef.current !== null && earliestRunStart !== null
-      ? Math.min(turnStartRef.current, earliestRunStart)
-      : (turnStartRef.current ?? earliestRunStart ?? undefined);
-
-  if (items.length === 0) {
-    const answerText = collectText(
-      content.filter((part): part is TextMessagePart => part.type === "text"),
-    );
-
-    // Before the first tool call, text is provisional: a later tool can move it
-    // into the Working trace. Keep it buffered until the turn settles.
-    if (running) {
-      return runtime?.turnState === "processing" ? (
-        <MinimalWorkingTrace />
-      ) : null;
-    }
-
-    return answerText.length > 0 ? (
-      <ProgressiveRenderedText
-        text={answerText}
-        animate={witnessedRunning.current}
-      />
-    ) : null;
-  }
-
-  const answerText = collectText(
-    content
-      .slice(traceEnd)
-      .filter((part): part is TextMessagePart => part.type === "text"),
+    firstSeenLive.current !== undefined && earliestDelegation !== undefined
+      ? Math.min(firstSeenLive.current, earliestDelegation)
+      : (firstSeenLive.current ?? earliestDelegation);
+  const parts = content.filter(
+    (part): part is TextMessagePart | ToolCallMessagePart =>
+      part.type === "text" || part.type === "tool-call",
   );
-
-  // Hold the answer until the trace has fully caught up, so the steps finish
-  // cascading before it fades in — nothing moves between the two regions.
-  const answerReady = !running && revealed >= items.length;
-
+  const lastToolIndex = parts.findLastIndex(
+    (part) => part.type === "tool-call",
+  );
+  const represented = new Set(
+    parts
+      .filter((part) => part.type === "tool-call")
+      .map((part) => part.toolCallId),
+  );
+  const pending = delegations.filter(
+    (run) => !run.callId || !represented.has(run.callId),
+  );
+  // Any live text, including the first part, may still precede a tool call.
+  // Completion is the boundary that identifies the final answer; until then
+  // keep prose in the trace rather than moving it back when a tool arrives.
+  const traceEnd = live ? parts.length : lastToolIndex + 1;
+  const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
+  const answerParts = parts
+    .slice(traceEnd)
+    .filter((part) => part.type === "text");
   return (
     <>
-      <WorkingTrace
-        running={running}
-        items={items}
-        revealed={revealed}
-        orchestrating={orchestrating}
-        startedAtMs={startedAtMs}
-      />
-      {answerReady && answerText.length > 0 && (
-        <div className="aui-working-answer">
-          <ProgressiveRenderedText
-            text={answerText}
-            animate={witnessedRunning.current}
-          />
-        </div>
+      {traceItems.length > 0 && (
+        <WorkingTrace
+          key="turn-trace"
+          running={live}
+          outcome={outcome}
+          items={traceItems}
+          revealed={traceItems.length}
+          collapseReady={!live}
+          startedAtMs={startedAtMs}
+        />
       )}
+      {answerParts.map((part, index) =>
+        part.text ? (
+          <div className="aui-working-answer" key={`answer:${index}`}>
+            <RenderedText text={part.text} />
+          </div>
+        ) : null,
+      )}
+      {live && parts.length === 0 && pending.length === 0 && (
+        <MinimalWorkingTrace />
+      )}
+      {outcome === "failed" && <TurnFailureFallback />}
     </>
   );
 };
+
+const TurnFailureFallback: FC = () => (
+  <p className="text-aomi-danger mt-2 text-sm leading-5" role="status">
+    This run stopped before it could finish.
+  </p>
+);

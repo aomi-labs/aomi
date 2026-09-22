@@ -19,7 +19,7 @@ graph TB
 
     subgraph "API Layer"
         HTTP[HTTP Backend<br/>Axum Server]
-        SSE[SSE Stream<br/>/api/thread/updates]
+        SSE[SSE Stream<br/>/v1/agent/chat/:session_id/stream]
     end
 
     subgraph "Core Runtime"

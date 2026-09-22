@@ -25,10 +25,16 @@ export default function App() {
 
 ## Props
 
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `backendUrl` | `string` | `"http://localhost:8080"` | URL of the Aomi backend API |
-| `children` | `ReactNode` | -- | Your application components |
+| Prop            | Type                       | Default                   | Description                                                        |
+| --------------- | -------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `backendUrl`    | `string`                   | `"http://localhost:8080"` | URL of the Aomi backend API                                        |
+| `agentTarget`   | `AgentTarget`              | `{ mode: "auto" }`        | Optional host-fixed Auto or Direct target                          |
+| `applicationId` | `number \| string \| null` | --                        | Scope app discovery and thread persistence; does not select Direct |
+| `children`      | `ReactNode`                | --                        | Your application components                                        |
+
+Omit `agentTarget` for the normal per-thread Auto default. A host that must pin
+every turn can pass `agentTarget={{ mode: "direct", app: "uniswap" }}` or a
+hosted `applicationId` target.
 
 ## What It Provides
 
@@ -39,7 +45,7 @@ AomiRuntimeProvider
 ├── ThreadContextProvider          ← selection, list metadata, persistence
 │   └── NotificationContextProvider
 │       └── ExtUserProvider        ← the single client-owned UserState source
-│           └── ControlContextProvider ← app/model preferences
+│           └── ControlContextProvider ← routing/model preferences
 │               └── AomiRuntimeCore
 │                   ├── ClientSession external store
 │                   ├── Assistant UI Event projection
@@ -48,14 +54,14 @@ AomiRuntimeProvider
 
 Each layer provides specific functionality through its own hook:
 
-| Context | Hook | Provides |
-| --- | --- | --- |
-| Thread | `useThreadContext` | Thread ID, metadata, persistence, thread operations |
-| User | `useUser` | Wallet address, chain ID, connection status |
-| Notification | `useNotification` | Show/dismiss notifications |
-| Control | `useControl` | Model selection, app, API key |
-| Agent | `useAomiRuntime` | Ordered Events, backend TurnState, Actions, messages |
-| **Unified** | `useAomiRuntime` | **The public runtime surface** |
+| Context      | Hook               | Provides                                             |
+| ------------ | ------------------ | ---------------------------------------------------- |
+| Thread       | `useThreadContext` | Thread ID, metadata, persistence, thread operations  |
+| User         | `useUser`          | Wallet address, chain ID, connection status          |
+| Notification | `useNotification`  | Show/dismiss notifications                           |
+| Control      | `useControl`       | Auto/Direct target, model selection, API key         |
+| Agent        | `useAomiRuntime`   | Ordered Events, backend TurnState, Actions, messages |
+| **Unified**  | `useAomiRuntime`   | **The public runtime surface**                       |
 
 ## Typical Provider Hierarchy
 
@@ -76,9 +82,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <AomiRuntimeProvider
-          backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
-        >
+        <AomiRuntimeProvider backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}>
           {children}
         </AomiRuntimeProvider>
       </QueryClientProvider>

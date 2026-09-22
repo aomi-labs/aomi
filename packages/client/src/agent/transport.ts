@@ -7,6 +7,7 @@ import type {
   Session,
   SessionPage,
   StartTurnIntent,
+  AomiInferenceFundingSource,
 } from "./types";
 
 type RequestResponse = (
@@ -32,16 +33,31 @@ export class AgentApiError extends Error {
 export class AgentTransport {
   readonly sessions: AgentSessionsTransport;
 
-  constructor(private readonly requestResponse: RequestResponse) {
+  constructor(
+    private readonly requestResponse: RequestResponse,
+    private readonly defaultInferenceFunding?: AomiInferenceFundingSource,
+  ) {
     this.sessions = new AgentSessionsTransport(requestResponse);
   }
 
   start(
     intent: StartTurnIntent,
-    options: { idempotencyKey?: string; paymentSignature?: string } = {},
+    options: {
+      idempotencyKey?: string;
+      paymentSignature?: string;
+      inferenceFunding?: AomiInferenceFundingSource;
+    } = {},
   ): Promise<EventPage> {
+    const sessionId = intent.sessionId;
     return this.json("POST", "/v1/agent/chat", {
-      headers: mutationHeaders(options),
+      headers: {
+        ...mutationHeaders({
+          ...options,
+          inferenceFunding:
+            options.inferenceFunding ?? this.defaultInferenceFunding,
+        }),
+        ...threadHeaders(sessionId),
+      },
       body: intent,
     });
   }
@@ -51,11 +67,71 @@ export class AgentTransport {
     options: { cursor?: string; waitMs?: number } = {},
   ): Promise<EventPage> {
     return this.json("GET", `/v1/agent/chat/${encodeURIComponent(sessionId)}`, {
+      headers: threadHeaders(sessionId),
       query: {
         cursor: options.cursor,
         wait: Math.min(Math.max(options.waitMs ?? 0, 0), 30_000),
       },
     });
+  }
+
+  async stream(
+    sessionId: string,
+    options: { cursor?: string; signal: AbortSignal },
+    onFrame: (event: string, data: unknown) => void,
+  ): Promise<void> {
+    const response = await this.requestResponse(
+      "GET",
+      `/v1/agent/chat/${encodeURIComponent(sessionId)}/stream`,
+      {
+        headers: { ...threadHeaders(sessionId), accept: "text/event-stream" },
+        query: { cursor: options.cursor },
+        signal: options.signal,
+      },
+    );
+    if (!response.ok) {
+      await parseAgentResponse(response);
+      return;
+    }
+    if (
+      !response.body ||
+      !response.headers.get("content-type")?.includes("text/event-stream")
+    ) {
+      throw new TypeError("Expected an Agent event stream");
+    }
+    const reader = response.body.getReader();
+    const cancel = () => { void reader.cancel().catch(() => {}); };
+    options.signal.addEventListener("abort", cancel, { once: true });
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      while (!options.signal.aborted) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Axum emits LF; accept CRLF from conforming intermediaries too.
+        let boundary: RegExpExecArray | null;
+        while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+          const frame = buffer.slice(0, boundary.index);
+          buffer = buffer.slice(boundary.index + boundary[0].length);
+          let event = "message";
+          const data: string[] = [];
+          for (const line of frame.split(/\r?\n/)) {
+            if (line.startsWith("event:")) event = line.slice(6).trimStart();
+            if (line.startsWith("data:"))
+              data.push(line.slice(5).replace(/^ /, ""));
+          }
+          if (data.length) onFrame(event, JSON.parse(data.join("\n")));
+          if (options.signal.aborted) return;
+        }
+        if (buffer.length > 8 * 1024 * 1024)
+          throw new TypeError("Agent stream frame too large");
+      }
+    } finally {
+      options.signal.removeEventListener("abort", cancel);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
   }
 
   interrupt(
@@ -67,7 +143,10 @@ export class AgentTransport {
       "POST",
       `/v1/agent/chat/${encodeURIComponent(sessionId)}/interrupt`,
       {
-        headers: { "idempotency-key": idempotencyKey },
+        headers: {
+          "idempotency-key": idempotencyKey,
+          ...threadHeaders(sessionId),
+        },
         body: { turnId },
       },
     );
@@ -84,7 +163,10 @@ export class AgentTransport {
       "POST",
       `/v1/agent/chat/${encodeURIComponent(sessionId)}/actions/${encodeURIComponent(actionId)}/result`,
       {
-        headers: { "idempotency-key": idempotencyKey },
+        headers: {
+          "idempotency-key": idempotencyKey,
+          ...threadHeaders(sessionId),
+        },
         body: { revision, result },
       },
     );
@@ -105,7 +187,9 @@ export class AgentTransport {
 export class AgentSessionsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
-  list(options: { cursor?: string; limit?: number } = {}): Promise<SessionPage> {
+  list(
+    options: { cursor?: string; limit?: number } = {},
+  ): Promise<SessionPage> {
     return this.json("GET", "/v1/agent/sessions", {
       query: { cursor: options.cursor, limit: options.limit },
     });
@@ -123,17 +207,24 @@ export class AgentSessionsTransport {
   }
 
   get(sessionId: string): Promise<Session> {
-    return this.json("GET", `/v1/agent/sessions/${encodeURIComponent(sessionId)}`);
+    return this.json(
+      "GET",
+      `/v1/agent/sessions/${encodeURIComponent(sessionId)}`,
+    );
   }
 
   update(
     sessionId: string,
     patch: { title?: string; archived?: boolean },
   ): Promise<Session> {
-    return this.json("PATCH", `/v1/agent/sessions/${encodeURIComponent(sessionId)}`, {
-      headers: mutationHeaders(),
-      body: patch,
-    });
+    return this.json(
+      "PATCH",
+      `/v1/agent/sessions/${encodeURIComponent(sessionId)}`,
+      {
+        headers: mutationHeaders(),
+        body: patch,
+      },
+    );
   }
 
   async delete(sessionId: string): Promise<void> {
@@ -151,19 +242,36 @@ export class AgentSessionsTransport {
     path: string,
     options?: AomiRequestOptions,
   ): Promise<T> {
-    return parseAgentResponse<T>(await this.requestResponse(method, path, options));
+    return parseAgentResponse<T>(
+      await this.requestResponse(method, path, options),
+    );
   }
 }
 
 function mutationHeaders(
-  options: { idempotencyKey?: string; paymentSignature?: string } = {},
+  options: {
+    idempotencyKey?: string;
+    paymentSignature?: string;
+    inferenceFunding?: AomiInferenceFundingSource;
+  } = {},
 ): Record<string, string> {
   return {
     "idempotency-key": options.idempotencyKey ?? randomIdempotencyKey(),
     ...(options.paymentSignature
       ? { "payment-signature": options.paymentSignature }
       : {}),
+    ...(options.inferenceFunding
+      ? { "x-aomi-inference-funding": options.inferenceFunding }
+      : {}),
   };
+}
+
+function threadHeaders(
+  sessionId: string | null | undefined,
+): Record<string, string> {
+  return sessionId
+    ? { "x-session-id": sessionId, "x-thread-id": sessionId }
+    : {};
 }
 
 function randomIdempotencyKey(): string {
@@ -195,7 +303,9 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
     response.status,
     code,
     code.replaceAll("_", " "),
-    response.status === 408 || response.status === 429 || response.status >= 500,
+    response.status === 408 ||
+      response.status === 429 ||
+      response.status >= 500,
     response.headers.get("x-request-id") ?? undefined,
     raw,
   );

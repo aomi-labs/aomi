@@ -2,6 +2,7 @@
 
 import {
   usePrivy,
+  useSignTransaction,
   useWallets,
   type ConnectedWallet,
   type PrivyClientConfig,
@@ -20,6 +21,7 @@ export type PrivyAccessTokenHook = PrivyHook & {
 export type SmartWalletsHook = ReturnType<typeof useSmartWallets>;
 export type SolanaWalletsHook = ReturnType<typeof useSolanaWallets>;
 export type WalletsHook = ReturnType<typeof useWallets>;
+export type SignTransactionHook = ReturnType<typeof useSignTransaction>;
 export type PrivyUser = PrivyHook["user"];
 export type PrivySolanaWallet = SolanaWalletsHook["wallets"][number];
 export type PrivyConnectedWallet = ConnectedWallet;
@@ -56,6 +58,12 @@ const DISCONNECTED_WALLETS: WalletsHook = {
   wallets: [],
   ready: false,
 } as unknown as WalletsHook;
+
+const DISCONNECTED_SIGN_TRANSACTION: SignTransactionHook = {
+  signTransaction: async () => {
+    throw new Error("Privy transaction signing is not available");
+  },
+};
 
 const AOMI_LOGIN_METHODS = new Set<AomiLoginMethod>([
   "google",
@@ -102,6 +110,14 @@ export function useSafeWallets(): WalletsHook {
     return useWallets();
   } catch {
     return DISCONNECTED_WALLETS;
+  }
+}
+
+export function useSafeSignTransaction(): SignTransactionHook {
+  try {
+    return useSignTransaction();
+  } catch {
+    return DISCONNECTED_SIGN_TRANSACTION;
   }
 }
 
@@ -254,7 +270,9 @@ export function toPrivyLoginMethods(
   methods: readonly AuthMethodId[] | undefined,
 ): PrivyClientConfig["loginMethods"] | undefined {
   if (!methods) return undefined;
-  type PrivyLoginMethod = NonNullable<PrivyClientConfig["loginMethods"]>[number];
+  type PrivyLoginMethod = NonNullable<
+    PrivyClientConfig["loginMethods"]
+  >[number];
   const map = {
     apple: "apple",
     discord: "discord",
@@ -267,9 +285,7 @@ export function toPrivyLoginMethods(
     telegram: "telegram",
     wallet: "wallet",
     x: "twitter",
-  } as const satisfies Partial<
-    Record<AuthMethodId, PrivyLoginMethod>
-  >;
+  } as const satisfies Partial<Record<AuthMethodId, PrivyLoginMethod>>;
   const resolved: PrivyLoginMethod[] = [];
   for (const method of methods) {
     const loginMethod = map[method];

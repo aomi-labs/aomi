@@ -6,6 +6,7 @@ import type { WalletEip712Payload, WalletTxPayload } from "@aomi-labs/react";
 import type {
   AomiAccount,
   AomiAccountCredential,
+  AomiAccountCredentialOptions,
   AomiSessionIdentity,
   AomiTransactionExecution,
   AomiLoginMethod,
@@ -44,7 +45,9 @@ export type AuthRuntime = {
   logout?: () => Promise<void>;
   openAccountUI?: (reason: string, step?: string) => Promise<void>;
   startFlow?: (reason: string) => void;
-  getCredential?: () => Promise<AomiAccountCredential | null>;
+  getCredential?: (
+    options?: AomiAccountCredentialOptions,
+  ) => Promise<AomiAccountCredential | null>;
 };
 
 export type SvmIdentity = {
@@ -80,6 +83,9 @@ export type SvmWalletRuntime = WalletRuntime<"svm"> & {
 };
 
 export type EvmExecutionRuntime = {
+  sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
+  preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
+  signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   sendTransaction?: (
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
@@ -106,6 +112,7 @@ export type SvmExecutionRuntime = ReturnType<typeof buildSvmTransactionMethods>;
 
 export type ExecutionRuntime = {
   evm: EvmExecutionRuntime;
+  canSignFor?: (family: "evm" | "svm", address: string) => boolean;
 };
 
 export type AccountTransform = (accounts: AomiAccount[]) => AomiAccount[];

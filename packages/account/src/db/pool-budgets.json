@@ -1,0 +1,46 @@
+{
+  "staging": {
+    "project_ref": "cmwkmjpfbffmdiluvgtu",
+    "session_client_limit": 30,
+    "reserved_clients": 5,
+    "services": {
+      "backend": { "max_connections_per_instance": 6 },
+      "backend-listener": { "max_connections_per_instance": 1 },
+      "api-server": { "max_connections_per_instance": 2 },
+      "manager": { "max_connections_per_instance": 1 },
+      "commit": { "max_connections_per_instance": 2 },
+      "payment": { "max_connections_per_instance": 2 },
+      "tool": { "max_connections_per_instance": 2 }
+    },
+    "idle_timeout_secs": 60,
+    "long_hold_secs": 5,
+    "portal": {
+      "pooler_port": 6543,
+      "max_connections_per_instance": 1,
+      "idle_timeout_ms": 5000,
+      "connection_timeout_ms": 10000
+    }
+  },
+  "production": {
+    "project_ref": "akejwtxsjvbexutsfhkn",
+    "session_client_limit": 48,
+    "reserved_clients": 5,
+    "services": {
+      "backend": { "max_connections_per_instance": 12 },
+      "backend-listener": { "max_connections_per_instance": 1 },
+      "api-server": { "max_connections_per_instance": 6 },
+      "manager": { "max_connections_per_instance": 1 },
+      "commit": { "max_connections_per_instance": 2 },
+      "payment": { "max_connections_per_instance": 2 },
+      "tool": { "max_connections_per_instance": 2 }
+    },
+    "idle_timeout_secs": 60,
+    "long_hold_secs": 5,
+    "portal": {
+      "pooler_port": 6543,
+      "max_connections_per_instance": 1,
+      "idle_timeout_ms": 5000,
+      "connection_timeout_ms": 10000
+    }
+  }
+}

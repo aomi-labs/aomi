@@ -1,10 +1,38 @@
-import type { AomiAppDescriptor, AomiArtifactStatus } from "./types";
+import type {
+  AomiAppDescriptor,
+  AomiArtifactStatus,
+  AomiFeatureCategory,
+  AomiSecretSlot,
+} from "./types";
 
 const ARTIFACT_STATUSES = new Set<AomiArtifactStatus>([
   "ready",
   "pending",
   "fetch_backoff",
 ]);
+const FEATURE_CATEGORIES = new Set<AomiFeatureCategory>([
+  "lending",
+  "cross-chain",
+  "staking",
+  "trading",
+  "research",
+  "wallets",
+  "developer",
+]);
+
+function normalizeSecretSlot(item: unknown): AomiSecretSlot | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const raw = item as Record<string, unknown>;
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!name) return null;
+  return {
+    name,
+    description:
+      typeof raw.description === "string" ? raw.description.trim() : "",
+    required: raw.required === true,
+    user_own: raw.user_own === true || raw.userOwn === true,
+  };
+}
 
 /**
  * Canonical home for app-descriptor identity logic. The backend speaks
@@ -42,6 +70,25 @@ export function normalizeAppDescriptor(
   }
   if (typeof raw.platform === "string") descriptor.platform = raw.platform;
   if (typeof raw.label === "string") descriptor.label = raw.label;
+  if (
+    raw.metadata &&
+    typeof raw.metadata === "object" &&
+    !Array.isArray(raw.metadata)
+  ) {
+    descriptor.metadata = raw.metadata as Record<string, unknown>;
+  }
+  const featureCatalog = raw.featureCatalog ?? raw.feature_catalog;
+  descriptor.featureCatalog = Array.isArray(featureCatalog)
+    ? [
+        ...new Set(
+          featureCatalog.filter(
+            (feature): feature is AomiFeatureCategory =>
+              typeof feature === "string" &&
+              FEATURE_CATEGORIES.has(feature as AomiFeatureCategory),
+          ),
+        ),
+      ]
+    : [];
   if (typeof raw.appReleaseTag === "string") {
     descriptor.appReleaseTag = raw.appReleaseTag;
   } else if (typeof raw.app_release_tag === "string") {
@@ -57,6 +104,11 @@ export function normalizeAppDescriptor(
   } else if (typeof raw.is_public === "boolean") {
     descriptor.isPublic = raw.is_public;
   }
+  if (typeof raw.isInstalled === "boolean") {
+    descriptor.isInstalled = raw.isInstalled;
+  } else if (typeof raw.is_installed === "boolean") {
+    descriptor.isInstalled = raw.is_installed;
+  }
   if (typeof raw.artifactReady === "boolean") {
     descriptor.artifactReady = raw.artifactReady;
   } else if (typeof raw.artifact_ready === "boolean") {
@@ -69,7 +121,11 @@ export function normalizeAppDescriptor(
   ) {
     descriptor.artifactStatus = artifactStatus as AomiArtifactStatus;
   }
-  descriptor.secrets = Array.isArray(raw.secrets) ? raw.secrets : [];
+  descriptor.secrets = Array.isArray(raw.secrets)
+    ? raw.secrets
+        .map(normalizeSecretSlot)
+        .filter((slot): slot is AomiSecretSlot => slot !== null)
+    : [];
   const rawChainIds = raw.chainIds ?? raw.chain_ids;
   if (Array.isArray(rawChainIds)) {
     descriptor.chainIds = [
@@ -92,13 +148,27 @@ export function normalizeAppDescriptor(
     "app_release_tag",
     "is_active",
     "is_public",
+    "is_installed",
     "artifact_ready",
     "artifact_status",
     "chain_ids",
+    "feature_catalog",
   ]) {
     delete (descriptor as unknown as Record<string, unknown>)[key];
   }
   return descriptor;
+}
+
+/** Registration is backend-controlled; neither public visibility nor a repo
+ * URL implies official ownership. Bare app names are code-owned builtins. */
+export function isOfficialAppDescriptor(app: AomiAppDescriptor): boolean {
+  const source = app.metadata?.source;
+  const registeredVia = app.metadata?.registered_via;
+  return (
+    source === "builtin" ||
+    registeredVia === "official_source" ||
+    (app.applicationId == null && !app.platform && registeredVia == null)
+  );
 }
 
 /**

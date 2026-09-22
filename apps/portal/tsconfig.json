@@ -21,10 +21,15 @@
     "paths": {
       "@portal/*": ["./src/*"],
       "@aomi-labs/widget-lib": ["../shadcn-registry/src/index.ts"],
-      "@aomi-labs/widget-lib/providers/*": [
-        "../shadcn-registry/src/lib/wallet-kit/providers/*"
+      "@aomi-labs/widget-lib/providers/para": [
+        "../shadcn-registry/src/lib/wallet-kit/providers/para/index.ts"
       ],
-      "@aomi-labs/widget-lib/*": ["../shadcn-registry/src/*"],
+      "@aomi-labs/widget-lib/providers/privy": [
+        "../shadcn-registry/src/lib/wallet-kit/providers/privy/index.ts"
+      ],
+      "@aomi-labs/widget-lib/host-composition": [
+        "../shadcn-registry/src/host-composition.ts"
+      ],
       "@/components/*": ["../shadcn-registry/src/components/*"],
       "@/hooks/*": ["../shadcn-registry/src/hooks/*"],
       "@/lib/*": ["../shadcn-registry/src/lib/*"],

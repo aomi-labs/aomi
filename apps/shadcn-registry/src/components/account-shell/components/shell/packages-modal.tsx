@@ -1,0 +1,419 @@
+"use client";
+
+import { useShellTransport } from "../../transport";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Library, Loader2, X } from "lucide-react";
+import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
+import { ModalBackdrop } from "../../../ui/modal-backdrop";
+import { requestCapabilityMention } from "../../../assistant-ui/capability-composer";
+import {
+  useSkillCatalog,
+  type SkillSummary,
+} from "../../../../lib/capabilities/skill-catalog";
+import {
+  useAccountOverviewStore,
+  useAccountOverview,
+} from "../../lib/account-overview";
+import { LibraryDetailPanel } from "./library-detail-panel";
+import {
+  packageIdentityKey,
+  PINNED_APPS,
+  type CatalogPackage,
+} from "./packages-catalog";
+import { installApp, uninstallApp } from "./packages-api";
+import { usePackageCatalog } from "./use-package-catalog";
+import { directoryModalType } from "./directory-modal-type";
+import {
+  NAV_ITEMS,
+  CATEGORIES,
+  selectionKey,
+  selectionIsOfficial,
+  useLibraryEntries,
+  type LibraryView,
+} from "./library/model";
+import { CatalogRow } from "./library/catalog-row";
+import { SearchField, SidebarButton, EmptyList } from "./library/navigation";
+
+export { inferLibraryCategory } from "./library/model";
+
+interface PackagesModalProps {
+  onClose: () => void;
+}
+
+export function PackagesModal({ onClose }: PackagesModalProps) {
+  const transport = useShellTransport();
+  const { updateAccountApps } = useAccountOverviewStore();
+  const activeChainId = useAomiWalletKit().identity.chainId;
+  const account = useAccountOverview();
+  const {
+    catalog,
+    error: catalogError,
+    retry: retryApps,
+  } = usePackageCatalog(account?.user.user_id);
+  const {
+    skills,
+    error: skillsError,
+    retry: retrySkills,
+    loading: skillsLoading,
+  } = useSkillCatalog(transport.json);
+  const [view, setView] = useState<LibraryView>("discover");
+  const [query, setQuery] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const mutationInFlight = useRef(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const accountUserId = account?.user.user_id;
+  const installedReady = catalog !== null && accountUserId != null;
+  const installedIds = useMemo(() => {
+    const ids = new Set(
+      (catalog ?? [])
+        .filter((app) => app.installed || app.pinned)
+        .map(packageIdentityKey),
+    );
+    for (const pinned of PINNED_APPS) ids.add(`name:${pinned}`);
+    return ids;
+  }, [catalog]);
+
+  const mutateInstalled = useCallback(
+    async (app: CatalogPackage, install: boolean) => {
+      if (!installedReady || !accountUserId || mutationInFlight.current)
+        return false;
+      if (app.applicationId == null) {
+        setActionError("This app does not expose an installable identity.");
+        return false;
+      }
+      const packageId = packageIdentityKey(app);
+      mutationInFlight.current = true;
+      setBusyId(packageId);
+      setActionError(null);
+      try {
+        const result = install
+          ? await installApp(app.applicationId, transport.json)
+          : await uninstallApp(app.applicationId, transport.json);
+        const previousIds = account?.user.application_ids ?? [];
+        const applicationId = Number(result.application_id);
+        const applicationIds = install
+          ? [...new Set([...previousIds, applicationId])]
+          : previousIds.filter((id) => id !== applicationId);
+        updateAccountApps(accountUserId, result.apps, applicationIds);
+        retryApps();
+        return true;
+      } catch (cause) {
+        setActionError(
+          cause instanceof Error ? cause.message : "Couldn’t update apps",
+        );
+        return false;
+      } finally {
+        mutationInFlight.current = false;
+        setBusyId(null);
+      }
+    },
+    [
+      account?.user.application_ids,
+      accountUserId,
+      installedReady,
+      retryApps,
+      transport,
+      updateAccountApps,
+    ],
+  );
+
+  const install = (app: CatalogPackage) => {
+    return mutateInstalled(app, true);
+  };
+  const uninstall = (app: CatalogPackage) => {
+    void mutateInstalled(app, false);
+  };
+  const trySkill = (skill: SkillSummary) => {
+    requestCapabilityMention({ kind: "skill", id: skill.id });
+    onClose();
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      const typingElsewhere =
+        event.target instanceof HTMLElement &&
+        ["INPUT", "TEXTAREA"].includes(event.target.tagName);
+      const wantsSearch =
+        event.key === "/" ||
+        (event.key === "k" && (event.metaKey || event.ctrlKey));
+      if (wantsSearch && !typingElsewhere) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const {
+    appEntries,
+    skillEntries,
+    allEntries,
+    categoryCounts,
+    visible,
+    listTitle,
+  } = useLibraryEntries({ catalog, skills, installedIds, query, view });
+
+  const activeSelection =
+    visible.find((entry) => selectionKey(entry) === selectedKey) ??
+    visible[0] ??
+    null;
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [view, query]);
+  const selectedInstalled =
+    activeSelection?.kind === "app" &&
+    installedIds.has(packageIdentityKey(activeSelection.item));
+  const waiting =
+    view === "apps" || view === "installed"
+      ? catalog === null
+      : view === "skills"
+        ? skillsLoading
+        : catalog === null || skillsLoading;
+  const loadError =
+    view === "apps" || view === "installed"
+      ? catalogError
+      : view === "skills"
+        ? skillsError
+        : (catalogError ?? skillsError);
+
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center"
+      style={{ zIndex: 60 }}
+    >
+      <ModalBackdrop aria-label="Dismiss library" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="library-title"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg relative overflow-hidden rounded-[22px] border shadow-[0_24px_70px_rgba(0,0,0,0.08)]"
+        style={{ width: 1080, height: 620, maxWidth: "96%", maxHeight: "92%" }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close library"
+          className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg absolute right-4 top-4 z-20 flex size-7 items-center justify-center rounded-full transition-colors"
+        >
+          <X className="size-3.5" />
+        </button>
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[185px_minmax(0,1fr)_300px] md:grid-rows-1">
+          <aside
+            className={`border-aomi-border bg-aomi-bg/40 min-h-0 min-w-0 border-b p-3 md:overflow-y-auto md:border-b-0 md:border-r ${mobileDetailOpen ? "max-md:hidden" : ""}`}
+          >
+            <div className="flex items-center gap-2 px-2.5 py-3">
+              <Library className="text-aomi-accent size-4" />
+              <h1
+                id="library-title"
+                className={`flex-1 ${directoryModalType.modalTitle}`}
+              >
+                Library
+              </h1>
+            </div>
+            <nav
+              className="mt-2 flex gap-1 overflow-x-auto md:mt-3 md:block md:space-y-0.5"
+              aria-label="Library sections"
+            >
+              {NAV_ITEMS.map((item) => (
+                <SidebarButton
+                  key={item.id}
+                  label={item.label}
+                  icon={item.icon}
+                  active={view === item.id}
+                  onClick={() => {
+                    setView(item.id);
+                    setSelectedKey(null);
+                  }}
+                  count={
+                    item.id === "discover"
+                      ? allEntries.length
+                      : item.id === "installed"
+                        ? appEntries.filter(
+                            (entry) =>
+                              entry.kind === "app" &&
+                              installedIds.has(packageIdentityKey(entry.item)),
+                          ).length
+                        : item.id === "apps"
+                          ? appEntries.length
+                          : skillEntries.length
+                  }
+                />
+              ))}
+            </nav>
+            <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
+              <span className="text-aomi-muted hidden px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:block">
+                Categories
+              </span>
+              <nav
+                className="mt-2 flex gap-1 overflow-x-auto md:block md:space-y-0.5"
+                aria-label="Library categories"
+              >
+                {CATEGORIES.map((category) => (
+                  <SidebarButton
+                    key={category.id}
+                    label={category.label}
+                    icon={category.icon}
+                    active={view === category.id}
+                    onClick={() => {
+                      setView(category.id);
+                      setSelectedKey(null);
+                    }}
+                    count={categoryCounts.get(category.id)}
+                  />
+                ))}
+              </nav>
+            </div>
+          </aside>
+
+          <main
+            className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
+          >
+            <SearchField
+              query={query}
+              onQueryChange={(next) => {
+                setQuery(next);
+                setSelectedKey(null);
+              }}
+              searchRef={searchRef}
+            />
+            {actionError ? (
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs"
+              >
+                {actionError}
+              </p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-between px-1">
+              <h2 className={directoryModalType.sectionTitle}>{listTitle}</h2>
+              <span className="text-aomi-muted font-mono text-[10px]">
+                {visible.length}
+              </span>
+            </div>
+            <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
+              {loadError ? (
+                <div className="flex min-h-44 flex-col items-center justify-center gap-3 text-center text-xs">
+                  <p className="text-aomi-muted">{loadError}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      retryApps();
+                      retrySkills();
+                    }}
+                    className="bg-aomi-fg text-aomi-bg rounded-full px-4 py-2 font-medium"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : waiting ? (
+                <div className="text-aomi-muted flex min-h-44 items-center justify-center gap-2 text-xs">
+                  <Loader2 className="size-3.5 animate-spin" /> Loading library…
+                </div>
+              ) : visible.length === 0 ? (
+                <EmptyList />
+              ) : (
+                <div className="space-y-0.5">
+                  {visible.map((entry, index) => (
+                    <div key={selectionKey(entry)}>
+                      {!selectionIsOfficial(entry) &&
+                      (index === 0 ||
+                        selectionIsOfficial(visible[index - 1])) ? (
+                        <div className="border-aomi-border text-aomi-muted mt-3 border-t px-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.12em]">
+                          Community apps
+                        </div>
+                      ) : null}
+                      <CatalogRow
+                        selection={entry}
+                        selected={
+                          activeSelection
+                            ? selectionKey(activeSelection) ===
+                              selectionKey(entry)
+                            : false
+                        }
+                        installed={
+                          entry.kind === "app" &&
+                          installedIds.has(packageIdentityKey(entry.item))
+                        }
+                        busy={
+                          entry.kind === "app" &&
+                          busyId === packageIdentityKey(entry.item)
+                        }
+                        disabled={!installedReady || busyId !== null}
+                        activeChainId={activeChainId}
+                        onSelect={() => {
+                          setSelectedKey(selectionKey(entry));
+                          setMobileDetailOpen(true);
+                        }}
+                        onInstall={() =>
+                          entry.kind === "app" && entry.item.secrets.length > 0
+                            ? (() => {
+                                setSelectedKey(selectionKey(entry));
+                                setMobileDetailOpen(true);
+                              })()
+                            : entry.kind === "app" && void install(entry.item)
+                        }
+                        onTry={() =>
+                          entry.kind === "skill" && trySkill(entry.item)
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+
+          <div
+            className={
+              mobileDetailOpen
+                ? "bg-aomi-raised absolute inset-0 z-10 flex min-h-0 flex-col md:static md:z-auto"
+                : "hidden min-h-0 md:flex md:flex-col"
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setMobileDetailOpen(false)}
+              className="border-aomi-border flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 text-sm md:hidden"
+            >
+              <ArrowLeft className="size-4" />
+              Back to library
+            </button>
+            {actionError && mobileDetailOpen ? (
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mx-4 mt-3 rounded-xl px-3 py-2 text-xs md:hidden"
+              >
+                {actionError}
+              </p>
+            ) : null}
+            <LibraryDetailPanel
+              key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${mobileDetailOpen}`}
+              selection={activeSelection}
+              installed={selectedInstalled}
+              installedReady={installedReady}
+              busy={
+                activeSelection?.kind === "app" &&
+                busyId === packageIdentityKey(activeSelection.item)
+              }
+              activeChainId={activeChainId}
+              accountUserId={accountUserId}
+              onInstall={install}
+              onUninstall={uninstall}
+              onTrySkill={trySkill}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

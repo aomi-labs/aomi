@@ -103,7 +103,7 @@ function createHarnessAdapter(options?: {
       address: options?.address,
       chainId: options?.chainId ?? 8453,
       svmAddress: options?.svmAddress,
-      solanaCluster: options?.solanaCluster ?? "solana:devnet",
+      svmCluster: options?.solanaCluster ?? "solana:devnet",
     },
     isReady: true,
     isSwitchingChain: false,
@@ -111,6 +111,7 @@ function createHarnessAdapter(options?: {
     canOpenAccountUI: Boolean(options?.connected),
     canDisconnect: false,
     accounts: [],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     supportedChains: harnessEvmChains,
     supportedNetworks: {
@@ -315,7 +316,7 @@ describe("NetworkSelect", () => {
     ).toBeTruthy();
     expect(selectNetwork).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Switch Network" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch network" }));
 
     await waitFor(() => {
       expect(selectNetwork).toHaveBeenCalledWith({
@@ -347,6 +348,11 @@ describe("NetworkSelect", () => {
     expect(screen.getByRole("option", { name: /Base/i })).toBeTruthy();
     expect(screen.getByRole("option", { name: /Ethereum/i })).toBeTruthy();
     expect(screen.getByRole("option", { name: /^Solana$/i })).toBeTruthy();
+    expect(screen.queryByText("Networks")).toBeNull();
+    expect(screen.queryByText(/EVM network/i)).toBeNull();
+    expect(screen.getByText("L1 · ETH")).toBeTruthy();
+    expect(screen.getByText("L2 · ETH")).toBeTruthy();
+    expect(screen.getByText("Devnet · SOL")).toBeTruthy();
   });
 
   it("folds testnets behind a toggle and reveals them on demand", async () => {
@@ -406,23 +412,22 @@ describe("NetworkSelect", () => {
     expect(screen.queryByRole("button", { name: /testnets/i })).toBeNull();
   });
 
-  it("connects without a family selection", async () => {
-    const onConnect = vi.fn();
+  it("opens the wallet picker without a family selection", async () => {
     render(
       <ExtUserProvider>
         <AomiWalletNetworkPreferencesProvider
           evmChains={evmChains}
           solanaNetworks={solanaNetworks}
         >
-          <Harness onConnect={onConnect} />
+          <Harness />
         </AomiWalletNetworkPreferencesProvider>
       </ExtUserProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
 
-    await waitFor(() => {
-      expect(onConnect).toHaveBeenCalled();
-    });
+    expect(
+      await screen.findByRole("dialog", { name: "Sign in to Aomi" }),
+    ).toBeTruthy();
   });
 });

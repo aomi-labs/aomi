@@ -1,6 +1,6 @@
 import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "../chains";
-import type { AAMode } from "../aa/types";
-import type { CliAAProvider, CliPaymentMethod } from "./types";
+import type { CliPaymentMethod } from "./types";
+import type { AomiInferenceFundingSource } from "../agent/types";
 import { fatal } from "./errors";
 import { parseSolanaKeypairSecret } from "./solana-signer";
 
@@ -47,24 +47,6 @@ export function validateSolanaPrivateKey(
   return trimmed;
 }
 
-export function parseAAProvider(
-  value: string | undefined,
-): CliAAProvider | undefined {
-  if (value === undefined || value.trim() === "") return undefined;
-  if (value === "alchemy" || value === "pimlico") {
-    return value;
-  }
-  fatal("Unsupported AA provider. Use `alchemy` or `pimlico`.");
-}
-
-export function parseAAMode(value: string | undefined): AAMode | undefined {
-  if (value === undefined || value.trim() === "") return undefined;
-  if (value === "4337" || value === "7702") {
-    return value;
-  }
-  fatal("Unsupported AA mode. Use `4337` or `7702`.");
-}
-
 export function parsePaymentMethod(
   value: string | undefined,
 ): CliPaymentMethod | undefined {
@@ -74,4 +56,15 @@ export function parsePaymentMethod(
     return normalized;
   }
   fatal("Unsupported payment method. Use `coinbase`.");
+}
+
+export function parseInferenceFunding(
+  value: string | undefined,
+): AomiInferenceFundingSource | undefined {
+  if (value === undefined || value.trim() === "") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "user_byok") {
+    return normalized;
+  }
+  fatal("Unsupported inference funding. Use `user_byok`.");
 }

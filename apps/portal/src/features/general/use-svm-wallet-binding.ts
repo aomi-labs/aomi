@@ -6,12 +6,11 @@ import {
   type AuthorizationPoster,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { accountScopedFetch } from "@portal/lib/settings-api";
+import { accountScopedFetch } from "@aomi-labs/widget-lib/host-composition";
 
-type WalletRow = {
-  address: string;
-  chain_type: string;
-  signing_mode: string;
+type SigningPolicy = {
+  address: { chain: "evm" | "svm"; address: string };
+  mode: string;
 };
 
 export type SvmBindingState =
@@ -36,8 +35,7 @@ export function useSvmWalletBinding() {
   const cluster = adapter.identity.svmCluster;
   const capabilities = adapter.identity.svmCapabilities;
   const signSolanaMessage = adapter.signSolanaMessage;
-  const requiresBinding =
-    adapter.identity.svmTransport === "embedded";
+  const requiresBinding = adapter.identity.svmTransport === "embedded";
   const [state, setState] = useState<SvmBindingState>({ status: "no-wallet" });
   const [binding, setBinding] = useState(false);
 
@@ -48,17 +46,17 @@ export function useSvmWalletBinding() {
     }
     setState({ status: "loading" });
     try {
-      const data = await accountScopedFetch<{ wallets: WalletRow[] }>(
-        "/api/account/wallets",
-      );
-      const row = data.wallets.find(
-        (wallet) =>
-          wallet.chain_type.toLowerCase() === "svm" &&
-          wallet.address === svmAddress,
+      const data = await accountScopedFetch<{
+        signing_policies: SigningPolicy[];
+      }>("/api/account");
+      const row = data.signing_policies.find(
+        (policy) =>
+          policy.address.chain === "svm" &&
+          policy.address.address === svmAddress,
       );
       setState(
         row
-          ? { status: "bound", signingMode: row.signing_mode }
+          ? { status: "bound", signingMode: row.mode }
           : { status: "unbound" },
       );
     } catch (error) {

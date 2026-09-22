@@ -8,7 +8,11 @@ export type AomiAuthClass =
   | "delegated"
   | "service"
   | "admin"
-  | "activation";
+  | "activation"
+  | "activation-admin"
+  | "activation-or-wallet"
+  | "wallet"
+  | "wallet-session";
 
 export interface AomiEndpointSpec {
   method: AomiHttpMethod;

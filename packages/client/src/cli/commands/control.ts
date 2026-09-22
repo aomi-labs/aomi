@@ -27,7 +27,10 @@ export async function statusCommand(config: CliConfig): Promise<void> {
         {
           sessionId: cli.sessionId,
           baseUrl: cli.baseUrl,
-          app: cli.app,
+          mode: cli.agentMode,
+          app: cli.agentMode === "direct" ? (cli.app ?? null) : null,
+          applicationId:
+            cli.agentMode === "direct" ? (cli.applicationId ?? null) : null,
           model: cli.model ?? null,
           chainId: cli.chainId ?? null,
           turnState: snapshot.turnState ?? null,
@@ -101,7 +104,7 @@ export async function appsCommand(config: CliConfig): Promise<void> {
     return;
   }
 
-  const currentApp = cli?.app ?? config.app;
+  const currentApp = cli?.agentMode === "direct" ? cli.app : config.app;
   if (config.json) {
     printJson(
       apps.map((descriptor) => ({
@@ -149,10 +152,20 @@ export function currentAppCommand(config: CliConfig = { secrets: {} }): void {
     return;
   }
   if (config.json) {
-    printJson({ active: true, app: cli.app ?? "default" });
+    printJson({
+      active: true,
+      mode: cli.agentMode,
+      app: cli.agentMode === "direct" ? (cli.app ?? null) : null,
+      applicationId:
+        cli.agentMode === "direct" ? (cli.applicationId ?? null) : null,
+    });
     return;
   }
-  console.log(cli.app ?? "(default)");
+  console.log(
+    cli.agentMode === "auto"
+      ? "Auto (no Direct app)"
+      : (cli.app ?? `application ${cli.applicationId}`),
+  );
   printDataFileLocation({ verbose: config.verbose });
 }
 
@@ -273,16 +286,37 @@ export function setAppCommand(
 
   const cli = CliSession.loadOrCreate({
     ...config,
+    agentMode: "direct",
     app: trimmed,
   });
   cli.mergeConfig({
     ...config,
+    agentMode: "direct",
     app: trimmed,
   });
 
   console.log(`App set to ${trimmed}`);
   if (options?.printLocation !== false) {
     printDataFileLocation();
+  }
+}
+
+export function setAgentModeCommand(
+  config: CliConfig,
+  mode: "auto" | "direct",
+  app?: string,
+  options?: { printLocation?: boolean },
+): void {
+  const selectedApp = app?.trim();
+  const cli = CliSession.loadOrCreate(config);
+  cli.setAgentRouting(mode, selectedApp ? { app: selectedApp } : undefined);
+  console.log(
+    mode === "auto"
+      ? "Mode set to Auto"
+      : `Mode set to Direct (${selectedApp ?? cli.app ?? (cli.applicationId ? `application ${cli.applicationId}` : "default")})`,
+  );
+  if (options?.printLocation !== false) {
+    printDataFileLocation({ verbose: config.verbose });
   }
 }
 

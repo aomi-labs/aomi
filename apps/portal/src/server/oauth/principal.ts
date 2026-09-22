@@ -110,11 +110,7 @@ export async function resolveApiPrincipal(input: {
       scopes,
       resource: input.resource,
       authSource: "session",
-      // Widget requests are delegated through the BFF as user-class thread
-      // credentials so the backend can select the configured guest-safe
-      // model. The original widget auth method still applies the guest scope
-      // ceiling above.
-      principalClass: "user",
+      principalClass: isAnonymousWidget ? "guest" : "user",
       sid: "widget-session",
       widgetOrigin: widget.origin,
     };
@@ -184,6 +180,7 @@ export async function resolveApiPrincipal(input: {
     if (
       origin &&
       origin !== aomiOAuthResources().portalOrigin &&
+      origin !== new URL(input.request.url).origin &&
       !(await isManagedWidgetClientOrigin(origin, principal.clientId))
     ) {
       throw new ApiPrincipalError(401, "invalid_token");
@@ -195,7 +192,8 @@ export async function resolveApiPrincipal(input: {
   if (
     !input.request.headers.has("authorization") &&
     origin &&
-    origin !== aomiOAuthResources().portalOrigin
+    origin !== aomiOAuthResources().portalOrigin &&
+    origin !== new URL(input.request.url).origin
   ) {
     throw new ApiPrincipalError(401, "invalid_token");
   }

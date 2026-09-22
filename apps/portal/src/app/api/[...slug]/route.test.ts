@@ -220,6 +220,49 @@ describe("portal API proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("forwards only the commit lifecycle operations through the authenticated proxy", async () => {
+    canonicalSessionMock.userId = "widget-user-1";
+    const fetchMock = vi.fn(async () => Response.json({ state: "submitted" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "11111111-2222-4333-8444-555555555555";
+    const attemptId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    for (const [path, method] of [
+      ["/api/commits", "POST"],
+      [`/api/commits/${id}`, "GET"],
+      [`/api/commits/${id}/manual`, "POST"],
+      [`/api/commits/${id}/wallet-attempts`, "POST"],
+      [`/api/commits/${id}/wallet-attempts/${attemptId}/report`, "POST"],
+    ] as const) {
+      const response = await (method === "GET" ? GET : POST)(
+        ...apiRequest(path, method),
+      );
+      expect(response.status).toBe(200);
+      expect(proxiedUrl(fetchMock.mock.calls.at(-1)!).pathname).toBe(path);
+    }
+
+    fetchMock.mockClear();
+    canonicalSessionMock.userId = null;
+    const unauthenticated = await POST(
+      ...apiRequest(`/api/commits/${id}/wallet-attempts`, "POST"),
+    );
+    expect(unauthenticated.status).toBe(401);
+    await expect(unauthenticated.json()).resolves.toEqual({
+      error: "Authentication required",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    canonicalSessionMock.userId = "widget-user-1";
+    fetchMock.mockClear();
+    expect(
+      (await POST(...apiRequest(`/api/commits/${id}/broadcast`, "POST")))
+        .status,
+    ).toBe(404);
+    expect(
+      (await GET(...apiRequest(`/api/commits/${id}/wallet-attempts`))).status,
+    ).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("logs a downstream Rust 5xx without changing its response", async () => {
     vi.stubGlobal(
       "fetch",

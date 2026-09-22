@@ -170,7 +170,7 @@ export type PersistedRegistryV1 = {
   providerSessionDetached: boolean;
 };
 
-/** Future `GET /api/account/wallets` row; see the wallet provider plugin spec. */
+/** Public address projection from the canonical `GET /api/account` response. */
 export type WalletLink = {
   address: string;
   family: WalletFamily;

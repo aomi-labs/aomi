@@ -1,7 +1,7 @@
 import {
   issueDeviceAuthGrant,
   type DeviceAuthProvider,
-} from "@portal/lib/device-auth-grants";
+} from "@portal/server/device-auth/grants";
 import { getBetterAuthSession, json } from "@portal/server/account/session";
 import { identifyDeviceAuthFailure } from "@portal/server/bff/device-auth-errors";
 import { portalFailures } from "@portal/server/bff/failures";
@@ -32,13 +32,13 @@ export async function POST(req: Request): Promise<Response> {
   ) {
     return json(400, { error: "invalid_request" });
   }
-  const provider =
-    body.provider === "privy" || body.provider === "para"
-      ? (body.provider as DeviceAuthProvider)
-      : undefined;
+  if (body.provider !== "privy" && body.provider !== "para") {
+    return json(400, { error: "invalid_request" });
+  }
+  const provider = body.provider as DeviceAuthProvider;
 
   try {
-    const grant = issueDeviceAuthGrant({
+    const grant = await issueDeviceAuthGrant({
       state: body.state,
       codeChallenge: body.codeChallenge,
       redirectUri: body.redirectUri,

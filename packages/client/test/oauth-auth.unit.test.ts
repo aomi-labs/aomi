@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { wrapFetchWithPublicApiAuthorization } from "../src/client";
-import { createGuestSessionProvider } from "../src/guest-auth";
+import {
+  createGuestSessionProvider,
+  withBrowserSessionTransition,
+} from "../src/guest-auth";
 import type { AomiOAuthTokenRequest } from "../src/authorization";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -67,6 +70,44 @@ describe("public API OAuth transport", () => {
       forceRefresh: false,
     });
     expect(upstream).toHaveBeenCalledTimes(2);
+  });
+
+  it("requests exact Credit Bank scopes and steps up signed top-ups", async () => {
+    const upstream = vi.fn(async () => new Response("{}", { status: 200 }));
+    const oauth = vi.fn(async (request: AomiOAuthTokenRequest) => ({
+      accessToken: "account-token",
+      expiresAt: Date.now() + 60_000,
+      resource: request.resource,
+      scopes: request.scopes,
+    }));
+    const authorized = wrapFetchWithPublicApiAuthorization({
+      fetch: upstream as typeof fetch,
+      baseUrl: "https://chat.aomi.dev",
+      oauth,
+    });
+
+    await authorized("https://chat.aomi.dev/v1/account/credits");
+    await authorized("https://chat.aomi.dev/v1/account/statement");
+    await authorized("https://chat.aomi.dev/v1/account/credits/top-up", {
+      method: "POST",
+      headers: { "payment-signature": "signed" },
+    });
+
+    expect(oauth).toHaveBeenNthCalledWith(1, {
+      resource: "https://chat.aomi.dev/v1/account",
+      scopes: ["account:credits:read"],
+      forceRefresh: false,
+    });
+    expect(oauth).toHaveBeenNthCalledWith(2, {
+      resource: "https://chat.aomi.dev/v1/account",
+      scopes: ["account:usage:read"],
+      forceRefresh: false,
+    });
+    expect(oauth).toHaveBeenNthCalledWith(3, {
+      resource: "https://chat.aomi.dev/v1/account",
+      scopes: ["account:credits:topup", "payments:submit"],
+      forceRefresh: false,
+    });
   });
 
   it("retries once with a refreshed token after a token failure", async () => {
@@ -229,6 +270,30 @@ describe("Better Auth guest bootstrap", () => {
     );
   });
 
+  it("falls back to the anonymous cookie when Better Auth refuses a second anonymous sign-in", async () => {
+    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    const fetchImpl = vi.fn().mockResolvedValue(
+      Response.json(
+        {
+          code: "ANONYMOUS_USERS_CANNOT_SIGN_IN_AGAIN_ANONYMOUSLY",
+          message: "Anonymous users cannot sign in again anonymously",
+        },
+        { status: 400 },
+      ),
+    );
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchImpl as typeof fetch,
+    });
+
+    // The live anonymous cookie IS a working credential; the refusal must
+    // not fail the caller's request, and the null result is cached so the
+    // provider does not re-POST on every call.
+    await expect(guest({ forceRefresh: true })).resolves.toBeNull();
+    await expect(guest()).resolves.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("retries a same-origin 401 after establishing the guest cookie", async () => {
     vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
     const authFetch = vi.fn().mockResolvedValue(Response.json({}));
@@ -257,6 +322,63 @@ describe("Better Auth guest bootstrap", () => {
     for (const [, init] of upstream.mock.calls) {
       expect(new Headers(init?.headers).has("authorization")).toBe(false);
     }
+  });
+
+  it("finishes an in-flight guest session before a wallet session transition", async () => {
+    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    let finishGuest!: (response: Response) => void;
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          finishGuest = resolve;
+        }),
+    );
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchImpl as typeof fetch,
+    });
+    const guestRequest = guest({ forceRefresh: true });
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledOnce());
+
+    const walletTransition = vi.fn(async () => undefined);
+    const walletRequest = withBrowserSessionTransition(walletTransition);
+    await Promise.resolve();
+    expect(walletTransition).not.toHaveBeenCalled();
+
+    finishGuest(Response.json({}));
+    await guestRequest;
+    await walletRequest;
+    expect(walletTransition).toHaveBeenCalledOnce();
+  });
+
+  it("makes a guest retry wait for an active wallet session transition", async () => {
+    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    let finishWallet!: () => void;
+    const walletRequest = withBrowserSessionTransition(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWallet = resolve;
+        }),
+    );
+    await Promise.resolve();
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ code: "session_exists" }, { status: 409 }),
+      );
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchImpl as typeof fetch,
+    });
+    const guestRequest = guest({ forceRefresh: true });
+    await Promise.resolve();
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    finishWallet();
+    await walletRequest;
+    await expect(guestRequest).resolves.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
   it("fails closed when anonymous session establishment is unavailable", async () => {

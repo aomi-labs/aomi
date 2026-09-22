@@ -34,10 +34,8 @@ export async function signInWithOAuthDevice(input: {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             client_name: "Aomi CLI",
-            redirect_uris: ["http://127.0.0.1"],
             token_endpoint_auth_method: "none",
             grant_types: [DEVICE_GRANT, "refresh_token"],
-            response_types: ["code"],
             resources: [input.resource],
             scope: input.scopes.join(" "),
           }),

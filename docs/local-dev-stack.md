@@ -42,10 +42,11 @@ tail -f /tmp/aomi-backend.log
 - Uses the local Supabase Postgres exposed on `127.0.0.1:54322`.
 - Ensures `aomi_local` exists.
 - Applies product-mono migrations only if the backend `users` table is missing.
-- Applies `packages/auth/src/db/schema.sql` for `aomi_users`,
-  `aomi_auth_identities`, `aomi_wallets`, and `aomi_account_events`.
-- Runs Better Auth's migration helper so `"user"`, `"session"`, `"account"`,
-  `"verification"`, and `"walletAddress"` exist.
+- Applies the selected backend checkout's migrations for canonical account and
+  wallet tables.
+- Loads `packages/account/src/better-auth/auth.ts` and runs Better Auth's
+  migration helper so `"user"`, `"session"`, `"account"`, `"verification"`,
+  and `"walletAddress"` exist.
 - Overrides the portal runtime `DATABASE_URL` to
   `postgresql://postgres:postgres@127.0.0.1:54322/aomi_local`.
 

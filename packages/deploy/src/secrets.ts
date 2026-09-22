@@ -2,6 +2,13 @@ import type { SecretSlot } from "./types";
 
 export type { SecretSlot };
 
+/** Slots configured by the app Builder rather than each chat user. */
+export function builderSecretSlots(
+  slots: SecretSlot[] | undefined,
+): SecretSlot[] {
+  return (slots ?? []).filter((slot) => slot.user_own !== true);
+}
+
 /**
  * The required slots that have no value in the vault yet.
  *
@@ -12,7 +19,8 @@ export function missingRequiredSecrets(
   slots: SecretSlot[] | undefined,
   configuredKeys: string[],
 ): SecretSlot[] {
-  if (!slots?.length) return [];
   const configured = new Set(configuredKeys);
-  return slots.filter((slot) => slot.required && !configured.has(slot.name));
+  return builderSecretSlots(slots).filter(
+    (slot) => slot.required && !configured.has(slot.name),
+  );
 }

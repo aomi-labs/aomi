@@ -3,10 +3,9 @@
 import { useLayoutEffect, useRef } from "react";
 import { useAomiWalletKit } from "@aomi-labs/widget-lib";
 import {
-  scopeAccountOverviewToUser,
-  seedAccountOverview,
-} from "@portal/lib/account-overview";
-import { useSettings } from "@portal/lib/use-settings";
+  useAccountOverviewStore,
+  useSettings,
+} from "@aomi-labs/widget-lib/host-composition";
 
 // Client boundary that runs `useSettings()` at the app root so persisted user
 // settings (theme/colorMode) load and apply. It also owns the lifetime of the
@@ -18,6 +17,8 @@ export function SettingsInitializer({
   children: React.ReactNode;
 }) {
   useSettings();
+  const { scopeAccountOverviewToUser, seedAccountOverview } =
+    useAccountOverviewStore();
   const adapter = useAomiWalletKit();
   const accountUserId = adapter.accountUser?.id;
   const previousAccountUserId = useRef(accountUserId);
@@ -30,7 +31,7 @@ export function SettingsInitializer({
       scopeAccountOverviewToUser(accountUserId);
     }
     previousAccountUserId.current = accountUserId;
-  }, [accountUserId]);
+  }, [accountUserId, scopeAccountOverviewToUser, seedAccountOverview]);
 
   return <>{children}</>;
 }

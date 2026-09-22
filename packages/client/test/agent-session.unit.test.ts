@@ -31,9 +31,11 @@ function meta(type: string, sequence: number) {
 function turn(
   sequence: number,
   state: "processing" | "awaiting_action" | "complete",
+  turnId = "turn-1",
 ) {
   return {
     ...meta("turn_state_changed", sequence),
+    turn_id: turnId,
     type: "turn_state_changed",
     state,
   } as const;
@@ -58,16 +60,206 @@ function action(
 }
 
 function client() {
-  return new AomiClient({
+  const api = new AomiClient({
     baseUrl: "https://portal.example",
     fetch: vi.fn(),
   });
+  // Existing lifecycle scenarios deliver one page per transport connection.
+  vi.spyOn(api.agent, "stream").mockImplementation(
+    async (sessionId, options, onFrame) => {
+      onFrame(
+        "page",
+        await api.agent.poll(sessionId, {
+          cursor: options.cursor,
+          waitMs: 25_000,
+        }),
+      );
+    },
+  );
+  return api;
 }
 
 describe("ClientSession Agent transport", () => {
+  it("reopens a completed stream for a later commit receipt and drains the new answer", async () => {
+    vi.useFakeTimers();
+    const api = client();
+    const commit = {
+      commit_id: "commit-later",
+      thread_id: "session-agent",
+      stage_id: "svm:1",
+      chain_family: "svm" as const,
+      chain_ref: "localnet",
+      signer: "payer",
+      broadcaster: "hosted" as const,
+      state: "submitted" as const,
+      version: 1,
+      action: null,
+      transaction_id: "sig",
+      failure_code: null,
+    };
+    vi.spyOn(api.agent, "start").mockResolvedValue(
+      page(
+        [
+          {
+            ...meta("message", 1),
+            type: "message",
+            sender: "agent",
+            content: "Submitted; waiting for confirmation.",
+            is_streaming: false,
+          },
+          turn(2, "complete"),
+        ],
+        { commits: [commit] },
+      ),
+    );
+    const session = new Session(api, { sessionId: "session-agent" });
+    await session.send("transfer");
+    expect(session.getSnapshot().isStreaming).toBe(false);
+    vi.spyOn(api.agent, "poll").mockResolvedValue(
+      page([
+        {
+          ...meta("message", 3),
+          type: "message",
+          sender: "agent",
+          content: "Confirmed on chain.",
+          is_streaming: false,
+        },
+      ]),
+    );
+    session.commits.ingest({ ...commit, state: "confirmed", version: 2 });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(session.getSnapshot().messages.at(-1)?.content).toBe(
+      "Confirmed on chain.",
+    );
+    expect(session.getSnapshot().isStreaming).toBe(false);
+    expect(session.getSnapshot().commits[0].state).toBe("confirmed");
+    session.close();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it("sends its current cursor on a later send so the start page skips seen history", async () => {
+    const api = client();
+    const start = vi
+      .spyOn(api.agent, "start")
+      .mockImplementation(async (intent) =>
+        page([], {
+          session_id: intent.sessionId ?? "session-agent",
+          cursor: "cursor-2",
+        }),
+      );
+    vi.spyOn(api.agent, "poll").mockResolvedValue(
+      page([], { session_id: "session-agent", cursor: "cursor-2" }),
+    );
+    const session = new Session(api, { sessionId: "session-agent" });
+
+    // First send: nothing seen yet, so no cursor is claimed.
+    await session.sendAsync("first");
+    expect(start.mock.calls[0][0].cursor).toBeUndefined();
+
+    // The page advanced the cursor; the next send carries it.
+    await session.sendAsync("second");
+    expect(start.mock.calls[1][0].cursor).toBe("cursor-2");
+    session.close();
+  });
+
+  it("serializes Auto and Direct targets without rewriting legacy app callers", async () => {
+    const api = client();
+    const start = vi
+      .spyOn(api.agent, "start")
+      .mockImplementation(async (intent) =>
+        page([], { session_id: intent.sessionId ?? "session-agent" }),
+      );
+    const cases = [
+      { options: {}, expected: {} },
+      {
+        options: { target: { mode: "auto" as const } },
+        expected: { mode: "auto" },
+      },
+      {
+        options: { target: { mode: "direct" as const } },
+        expected: { mode: "direct" },
+      },
+      {
+        options: { target: { mode: "direct" as const, app: "  " } },
+        expected: { mode: "direct" },
+      },
+      {
+        options: { target: { mode: "direct" as const, applicationId: 42 } },
+        expected: { mode: "direct", applicationId: 42 },
+      },
+      {
+        options: { target: { mode: "direct" as const, app: "zerox" } },
+        expected: { mode: "direct", app: "zerox" },
+      },
+      {
+        options: {
+          target: {
+            mode: "direct" as const,
+            applicationId: 42,
+            app: "partner",
+          },
+        },
+        expected: { mode: "direct", applicationId: 42, app: "partner" },
+      },
+      { options: { app: "legacy" }, expected: { app: "legacy" } },
+    ];
+
+    for (const [index, testCase] of cases.entries()) {
+      const session = new Session(api, {
+        sessionId: `session-${index}`,
+        ...testCase.options,
+      });
+      await session.sendAsync("hello");
+      expect(start.mock.calls[index]?.[0]).toEqual({
+        sessionId: `session-${index}`,
+        clientId: expect.any(String),
+        message: "hello",
+        ...testCase.expected,
+      });
+      session.close();
+    }
+  });
+
+  it("rejects ambiguous or invalid Direct session targets before transport", () => {
+    const api = client();
+    expect(
+      () =>
+        new Session(api, {
+          target: { mode: "auto" },
+          app: "legacy",
+        }),
+    ).toThrow("target cannot be combined");
+    expect(
+      () =>
+        new Session(api, {
+          target: { mode: "direct", applicationId: 0 },
+        }),
+    ).toThrow("Direct applicationId must be a positive integer");
+  });
+
+  it("clears a prior app identity when switching to the default Direct runtime", async () => {
+    const api = client();
+    const start = vi.spyOn(api.agent, "start").mockResolvedValue(page());
+    const session = new Session(api, {
+      sessionId: "session-agent",
+      target: { mode: "direct", applicationId: 42, app: "partner" },
+    });
+    session.syncRuntimeOptions({ target: { mode: "direct" } });
+    await session.sendAsync("hello");
+    expect(start).toHaveBeenCalledWith(
+      {
+        sessionId: "session-agent",
+        clientId: expect.any(String),
+        message: "hello",
+        mode: "direct",
+      },
+      expect.anything(),
+    );
+    session.close();
   });
 
   it("reduces one ordered Event page into messages, title, and lifecycle", async () => {
@@ -132,7 +324,19 @@ describe("ClientSession Agent transport", () => {
       .mockRejectedValueOnce(
         new AgentApiError(503, "upstream_unavailable", "try again", true),
       )
-      .mockResolvedValue(page([turn(1, "complete")]));
+      .mockResolvedValue(
+        page([
+          {
+            ...meta("message", 1),
+            type: "message",
+            message_key: "message-1",
+            sender: "agent",
+            content: "done",
+            is_streaming: false,
+          },
+          turn(2, "complete"),
+        ]),
+      );
     const session = new Session(api, { sessionId: "session-agent" });
 
     await expect(session.send("hello")).rejects.toThrow("try again");
@@ -142,6 +346,74 @@ describe("ClientSession Agent transport", () => {
     expect(start.mock.calls[0]?.[1]?.idempotencyKey).toBe(
       start.mock.calls[1]?.[1]?.idempotencyKey,
     );
+    session.close();
+  });
+
+  it("drains the final agent message without waiting for another title", async () => {
+    vi.useFakeTimers();
+    const api = client();
+    // Turn 1 completed earlier and set a session title.
+    vi.spyOn(api.agent, "start")
+      .mockResolvedValueOnce(
+        page([
+          {
+            ...meta("message", 1),
+            type: "message",
+            message_key: "message-1",
+            sender: "agent",
+            content: "first answer",
+            is_streaming: false,
+          },
+          {
+            ...meta("title_changed", 2),
+            type: "title_changed",
+            title: "Existing title",
+          },
+          turn(3, "complete"),
+        ]),
+      )
+      // Turn 2: the start page carries only the new processing state.
+      .mockResolvedValueOnce(page([turn(4, "processing", "turn-2")]));
+    const session = new Session(api, {
+      sessionId: "session-agent",
+    });
+    await session.send("first");
+
+    // Turn 2's ledger trails: complete arrives alone, then the final message.
+    // The thread title does not change, so no title event follows this turn.
+    vi.spyOn(api.agent, "poll")
+      .mockResolvedValueOnce(page([turn(5, "complete", "turn-2")]))
+      .mockResolvedValue(
+        page([
+          {
+            ...meta("message", 6),
+            turn_id: "turn-2",
+            type: "message",
+            message_key: "message-final",
+            sender: "agent",
+            content: "FINAL ANSWER",
+            is_streaming: false,
+          },
+        ]),
+      );
+
+    const result = session.send("second");
+    let settled = false;
+    void result.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(settled).toBe(true);
+    await expect(result).resolves.toMatchObject({
+      title: "Existing title",
+    });
+    expect(session.getSnapshot().messages.at(-1)).toMatchObject({
+      message_key: "message-final",
+      content: "FINAL ANSWER",
+    });
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 
@@ -179,7 +451,6 @@ describe("ClientSession Agent transport", () => {
     );
     const session = new Session(api, {
       sessionId: "session-agent",
-      pollIntervalMs: 10,
     });
 
     await session.sendAsync("Check ETH price");
@@ -213,7 +484,6 @@ describe("ClientSession Agent transport", () => {
 
     expect(poll).toHaveBeenNthCalledWith(1, "session-agent", {
       cursor: undefined,
-      waitMs: 0,
     });
     expect(poll).toHaveBeenNthCalledWith(2, "session-agent");
     expect(session.getSnapshot().cursor).toBe("cursor-recovered");
@@ -240,15 +510,14 @@ describe("ClientSession Agent transport", () => {
     vi.spyOn(api.agent, "start").mockResolvedValue(
       page([turn(1, "processing"), pending, turn(3, "awaiting_action")]),
     );
-    const respond = vi.spyOn(api.agent, "respondToAction").mockResolvedValue(
-      action(pending.request, {
-        sequence: 4,
-        event_id: "event-4",
-        revision: 2,
-        state: "rejected",
-        result: { status: "rejected", reason: "Not now" },
-      }),
-    );
+    const rejected = action(pending.request, {
+      revision: 2,
+      state: "rejected",
+      result: { status: "rejected", reason: "Not now" },
+    });
+    const respond = vi
+      .spyOn(api.agent, "respondToAction")
+      .mockResolvedValue(rejected);
     vi.spyOn(api.agent, "poll").mockResolvedValue(
       page([turn(5, "complete")], { cursor: "cursor-5" }),
     );
@@ -269,6 +538,9 @@ describe("ClientSession Agent transport", () => {
       expect.any(String),
     );
     expect(session.actions.pending()).toEqual([]);
+    expect(
+      session.getSnapshot().events.filter((event) => event.type === "action"),
+    ).toEqual([rejected]);
     session.close();
   });
 
@@ -306,14 +578,16 @@ describe("ClientSession Agent transport", () => {
       .mockResolvedValueOnce(
         page([turn(5, "complete")], { cursor: "cursor-5" }),
       )
-      .mockResolvedValueOnce(page([], { cursor: "cursor-5" }))
       .mockResolvedValueOnce(
         page(
           [
             {
-              ...meta("title_changed", 6),
-              type: "title_changed",
-              title: "Canonical title",
+              ...meta("message", 6),
+              type: "message",
+              message_key: "message-final",
+              sender: "agent",
+              content: "The action was rejected.",
+              is_streaming: false,
             },
           ],
           { cursor: "cursor-6" },
@@ -321,7 +595,6 @@ describe("ClientSession Agent transport", () => {
       );
     const session = new Session(api, {
       sessionId: "session-agent",
-      pollIntervalMs: 10,
     });
 
     await session.sendAsync("execute");
@@ -330,25 +603,13 @@ describe("ClientSession Agent transport", () => {
 
     expect(poll).toHaveBeenCalledTimes(1);
     expect(session.getSnapshot().turnState).toBe("awaiting_action");
-    expect(session.getSnapshot().isPolling).toBe(true);
-
-    await vi.advanceTimersByTimeAsync(10);
-
-    expect(poll).toHaveBeenCalledTimes(2);
-    expect(session.getSnapshot().turnState).toBe("complete");
-    expect(session.getSnapshot().isPolling).toBe(true);
+    expect(session.getSnapshot().isStreaming).toBe(true);
 
     await vi.advanceTimersByTimeAsync(10);
 
     expect(poll).toHaveBeenCalledTimes(3);
     expect(session.getSnapshot().title).toBeUndefined();
-    expect(session.getSnapshot().isPolling).toBe(true);
-
-    await vi.advanceTimersByTimeAsync(10);
-
-    expect(poll).toHaveBeenCalledTimes(4);
-    expect(session.getSnapshot().title).toBe("Canonical title");
-    expect(session.getSnapshot().isPolling).toBe(false);
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 
@@ -373,7 +634,7 @@ describe("ClientSession Agent transport", () => {
 
     expect(session.actions.pending()).toEqual([pending]);
     expect(session.getSnapshot().turnState).toBe("awaiting_action");
-    expect(session.getSnapshot().isPolling).toBe(false);
+    expect(session.getSnapshot().isStreaming).toBe(false);
     session.close();
   });
 });

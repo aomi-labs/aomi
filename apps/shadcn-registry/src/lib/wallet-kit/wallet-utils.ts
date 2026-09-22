@@ -21,3 +21,18 @@ export function toRegistryFamily(
   if (!family) return fallback;
   return family;
 }
+
+/**
+ * Whether a connected wallet can be linked by signing the link challenge.
+ * Embedded and smart-account Solana wallets cannot: the account service only
+ * accepts a Solana link from an external signer.
+ */
+export function canLinkWalletBySignature(
+  family: WalletFamily,
+  kind: "external" | "embedded" | "smart_account" | undefined,
+): boolean {
+  return (
+    family === "evm" ||
+    (family === "svm" && kind !== "embedded" && kind !== "smart_account")
+  );
+}

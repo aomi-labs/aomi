@@ -1,7 +1,7 @@
 import {
   issueDeviceAuthLinkGrant,
   type DeviceAuthProvider,
-} from "@portal/lib/device-auth-grants";
+} from "@portal/server/device-auth/grants";
 import { json } from "@portal/server/account/session";
 import { identifyDeviceAuthFailure } from "@portal/server/bff/device-auth-errors";
 import { portalFailures } from "@portal/server/bff/failures";
@@ -30,7 +30,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const grant = issueDeviceAuthLinkGrant({
+    const grant = await issueDeviceAuthLinkGrant({
       linkIntent: body.linkIntent,
       state: body.state,
       redirectUri: body.redirectUri,

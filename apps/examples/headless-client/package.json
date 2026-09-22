@@ -10,6 +10,7 @@
     "oauth:token": "tsx src/oauth/supplied-token.ts",
     "walkthrough": "tsx src/walkthrough.ts",
     "wallet-terminal": "tsx src/wallet-terminal.ts",
+    "account:credits": "tsx src/account/credits.ts",
     "build": "tsc --noEmit",
     "test": "vitest run"
   },

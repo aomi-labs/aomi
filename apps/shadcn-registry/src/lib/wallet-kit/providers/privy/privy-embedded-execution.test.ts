@@ -5,6 +5,7 @@ import type { EvmWalletRuntime } from "../../runtime/evm/wallet-runtime";
 import {
   parseCaip2EvmChainId,
   sendPrivyEmbeddedTransaction,
+  signPrivyEmbeddedTransaction,
   switchPrivyEmbeddedChain,
   type PrivyEmbeddedEvmWallet,
 } from "./privy-embedded-execution";
@@ -112,7 +113,124 @@ describe("sendPrivyEmbeddedTransaction", () => {
   });
 });
 
+const COMMIT = {
+  kind: "evm_transaction" as const,
+  chain_id: 8453,
+  signer: OWNER.toLowerCase(),
+  nonce: 0,
+  transaction: {
+    to: OWNER.toLowerCase(),
+    value: "0",
+    data: "0x",
+    gas_limit: 21000,
+    max_fee_per_gas: "397596218",
+    max_priority_fee_per_gas: "1000000",
+  },
+};
+
+describe("signPrivyEmbeddedTransaction", () => {
+  it("signs the quoted transaction as-is without broadcasting", async () => {
+    const signTransaction = vi.fn(async () => ({
+      signature: "0x02f86b" as const,
+    }));
+
+    const signed = await signPrivyEmbeddedTransaction({
+      walletAddress: OWNER,
+      signTransaction,
+      payload: COMMIT,
+    });
+
+    expect(signTransaction).toHaveBeenCalledTimes(1);
+    expect(signTransaction).toHaveBeenCalledWith(
+      {
+        from: OWNER,
+        to: COMMIT.transaction.to,
+        value: BigInt(0),
+        data: "0x",
+        chainId: 8453,
+        type: 2,
+        nonce: 0,
+        gasLimit: BigInt(21000),
+        maxFeePerGas: BigInt(397596218),
+        maxPriorityFeePerGas: BigInt(1000000),
+      },
+      { address: OWNER },
+    );
+    expect(signed).toBe("0x02f86b");
+  });
+
+  it("refuses to sign for an address that is not the embedded EOA", async () => {
+    const signTransaction = vi.fn();
+    await expect(
+      signPrivyEmbeddedTransaction({
+        walletAddress: OWNER,
+        signTransaction,
+        payload: {
+          ...COMMIT,
+          signer: "0x9999999999999999999999999999999999999999",
+        },
+      }),
+    ).rejects.toThrow("not the requested signer");
+    expect(signTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a provider that answers with something other than bytes", async () => {
+    const signTransaction = vi.fn(async () => ({ signature: null }));
+    await expect(
+      signPrivyEmbeddedTransaction({
+        walletAddress: OWNER,
+        signTransaction,
+        payload: COMMIT,
+      }),
+    ).rejects.toThrow("invalid signed transaction");
+  });
+
+  it("rejects a provider that answers with a non-hex string", async () => {
+    const signTransaction = vi.fn(async () => ({
+      signature: "not-signed-bytes",
+    }));
+    await expect(
+      signPrivyEmbeddedTransaction({
+        walletAddress: OWNER,
+        signTransaction,
+        payload: COMMIT,
+      }),
+    ).rejects.toThrow("invalid signed transaction");
+  });
+});
+
 describe("embedded EOA execution through the shared executor", () => {
+  /**
+   * The regression this guards: the embedded EOA never has a wagmi connector,
+   * so the shared sign-only path found no wallet client and rejected every
+   * commit with "Expected signing wallet is not active".
+   */
+  it("signs a commit from the embedded EOA with no wagmi connector", async () => {
+    const signTransaction = vi.fn(async () => ({
+      signature: "0x02f86b" as const,
+    }));
+    const evmRuntime = {
+      activeConnector: undefined,
+      walletClient: undefined,
+      chainsById: { 1: mainnet, 8453: base },
+      shouldUseExternalSigner: false,
+    } as unknown as EvmWalletRuntime;
+
+    await expect(
+      buildEvmExecutionRuntime(evmRuntime).signEvmTransaction!(COMMIT),
+    ).rejects.toThrow("Expected signing wallet is not active");
+
+    const runtime = buildEvmExecutionRuntime(evmRuntime, {
+      signEvmTransaction: async (payload) =>
+        signPrivyEmbeddedTransaction({
+          walletAddress: OWNER,
+          signTransaction,
+          payload,
+        }),
+    });
+    await expect(runtime.signEvmTransaction!(COMMIT)).resolves.toBe("0x02f86b");
+  });
+
   /**
    * The regression this guards: with no `sendTransaction` and no Privy smart
    * wallet, the kit used to fall through to a wagmi connector that was never

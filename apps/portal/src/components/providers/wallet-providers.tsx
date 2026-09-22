@@ -2,7 +2,22 @@
 
 import "@aomi-labs/widget-lib/providers/para";
 import "@aomi-labs/widget-lib/providers/privy";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  hostedPortalOrigin,
+  hostedPortalApiOrigin,
+} from "@portal/lib/hosted-portal";
+import { ShellTransportProvider } from "@aomi-labs/widget-lib";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   mainnet,
   arbitrum,
@@ -17,23 +32,36 @@ import {
 import { type Chain } from "viem";
 import {
   AomiWalletKitProvider,
+  ExtUserProvider,
   FullTestnetWalletRouter,
+  arc,
   arcTestnet,
   monad,
   monadTestnet,
   megaeth,
   robinhood,
   useFullTestnet,
+  useAomiWalletKit,
+  WalletSignInOptionsContext,
 } from "@aomi-labs/widget-lib";
 import { PrivyDelegationProvider } from "@aomi-labs/widget-lib/providers/privy";
 import {
   E2EWalletProvider,
   type E2EWalletSeedClient,
 } from "@portal/components/providers/e2e-wallet-provider";
+import {
+  isDeviceAuthRoute,
+  classifyProviderInitializationFailure,
+  providerConfigurationFailure,
+  providerFailureText,
+  requestedDeviceAuthProvider,
+  type DeviceAuthProvider,
+} from "@portal/lib/device-auth-provider";
 
 const paraApiKey = process.env.NEXT_PUBLIC_PARA_API_KEY?.trim() ?? "";
-const paraEnvironment =
-  process.env.NEXT_PUBLIC_PARA_ENVIRONMENT === "PROD" ? "PROD" : "BETA";
+const paraEnvironmentSetting =
+  process.env.NEXT_PUBLIC_PARA_ENVIRONMENT?.trim() ?? "";
+const paraEnvironment = paraEnvironmentSetting === "PROD" ? "PROD" : "BETA";
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "";
 
 const walletConnectProjectId =
@@ -55,6 +83,7 @@ const defaultNetworks = [
   monadTestnet,
   robinhood,
   megaeth,
+  arc,
   arcTestnet,
 ] as const;
 
@@ -117,6 +146,53 @@ function getBrowserAuthOrigin(): BrowserAuthOrigin | null {
 }
 
 export function WalletProviders({ children, e2eWallet }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [signIn, setSignIn] = useState<{
+    provider: DeviceAuthProvider;
+    attempt: number;
+  } | null>(null);
+  const [providerRestored, setProviderRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const provider = window.localStorage.getItem("aomi:wallet-provider");
+      if (
+        (provider === "para" && paraApiKey) ||
+        (provider === "privy" && privyAppId)
+      ) {
+        setSignIn({ provider, attempt: 0 });
+      }
+    } catch {
+      // Storage can be disabled; provider selection still works for this visit.
+    } finally {
+      setProviderRestored(true);
+    }
+  }, []);
+  const chooseProvider = useCallback(async (provider: DeviceAuthProvider) => {
+    try {
+      window.localStorage.setItem("aomi:wallet-provider", provider);
+    } catch {
+      // Remembering a UI preference is optional, never an authentication grant.
+    }
+    setSignIn((previous) => ({
+      provider,
+      attempt: (previous?.attempt ?? 0) + 1,
+    }));
+  }, []);
+  const signInOptions = useMemo(() => {
+    const providers: DeviceAuthProvider[] = [];
+    if (privyAppId) providers.push("privy");
+    if (paraApiKey) providers.push("para");
+    return providers.map((provider) => ({
+      id: provider,
+      label: provider === "privy" ? "Privy" : "Para",
+      description: "Sign in or link this provider to your Aomi account",
+      family: "multichain" as const,
+      kind: "social" as const,
+      status: "available" as const,
+      connect: () => chooseProvider(provider),
+    }));
+  }, [chooseProvider]);
   const [browserAuthOrigin, setBrowserAuthOrigin] =
     useState<BrowserAuthOrigin | null>(() => getBrowserAuthOrigin());
   useEffect(() => {
@@ -130,25 +206,41 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     routedChains,
     routedChainIds,
   } = useFullTestnet(networks);
+  const hostedOrigin = hostedPortalOrigin();
   const account = useMemo(
     () => ({
       mode: "aomi-backend" as const,
-      ...(browserAuthOrigin ?? {}),
+      ...(hostedOrigin
+        ? {
+            baseUrl: hostedPortalApiOrigin(),
+            widgetAuth: { mode: "wallet" as const },
+          }
+        : (browserAuthOrigin ?? {})),
     }),
-    [browserAuthOrigin],
+    [browserAuthOrigin, hostedOrigin],
   );
   const evmWallets =
     typeof window !== "undefined" && walletConnectProjectId
       ? (["metamask", "rabby", "coinbase", "walletconnect"] as const)
       : (["metamask", "rabby", "coinbase"] as const);
-  const auth = privyAppId
-    ? ({ provider: "privy" } as const)
-    : paraApiKey.length > 0
-      ? ({
-          provider: "para",
-          methods: ["email", "google"],
-        } as const)
-      : false;
+  const routeProvider = requestedDeviceAuthProvider(pathname, searchParams);
+  const routeProviderFailure = routeProvider
+    ? providerConfigurationFailure(routeProvider, {
+        paraApiKey,
+        paraEnvironment: paraEnvironmentSetting,
+        privyAppId,
+      })
+    : null;
+  const selectedProvider = isDeviceAuthRoute(pathname)
+    ? routeProviderFailure
+      ? null
+      : routeProvider
+    : (signIn?.provider ?? (privyAppId ? "privy" : paraApiKey ? "para" : null));
+  const auth = selectedProvider
+    ? selectedProvider === "privy"
+      ? ({ provider: "privy" } as const)
+      : ({ provider: "para", methods: ["email", "google"] } as const)
+    : false;
 
   if (e2eWallet) {
     return (
@@ -162,60 +254,169 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     );
   }
 
-  return (
-    <AomiWalletKitProvider
-      auth={auth}
-      account={account}
-      providers={{
-        para: paraApiKey
-          ? {
-              appName: "Aomi Labs",
-              appDescription: "Aomi portal testing",
-              apiKey: paraApiKey,
-              environment: paraEnvironment,
-            }
-          : false,
-        privy: privyAppId
-          ? {
-              appId: privyAppId,
-              appName: "Aomi Labs",
-            }
-          : false,
-      }}
-      wallets={{
-        evm: {
-          chains: routedChains,
-          appName: "Aomi Labs",
-          wallets: evmWallets,
-          walletConnectProjectId,
-        },
-        solana: {
-          networks: solanaNetworks,
-          preferDirectSend: true,
-        },
-      }}
+  const routedChildren = (
+    <FullTestnetWalletRouter
+      enabled={fullTestnetEnabled}
+      chains={routedChains}
+      routedChainIds={routedChainIds}
+      logLabel="portal:FullTestnetWalletRouter"
     >
-      {privyAppId ? (
-        <PrivyDelegationProvider>
-          <FullTestnetWalletRouter
-            enabled={fullTestnetEnabled}
-            chains={routedChains}
-            routedChainIds={routedChainIds}
-            logLabel="portal:FullTestnetWalletRouter"
-          >
-            {children}
-          </FullTestnetWalletRouter>
-        </PrivyDelegationProvider>
-      ) : (
-        <FullTestnetWalletRouter
-          enabled={fullTestnetEnabled}
-          chains={routedChains}
-          routedChainIds={routedChainIds}
-          logLabel="portal:FullTestnetWalletRouter"
-        >
-          {children}
-        </FullTestnetWalletRouter>
-      )}
-    </AomiWalletKitProvider>
+      <HostedPortalShell>{children}</HostedPortalShell>
+    </FullTestnetWalletRouter>
+  );
+  const providerTree = (
+    <WalletSignInOptionsContext.Provider
+      value={
+        !providerRestored || isDeviceAuthRoute(pathname) || hostedOrigin
+          ? []
+          : signInOptions
+      }
+    >
+      <AomiWalletKitProvider
+        initializing={!providerRestored}
+        auth={hostedOrigin ? false : auth}
+        account={account}
+        providers={{
+          para: paraApiKey
+            ? {
+                appName: "Aomi Labs",
+                appDescription: "Aomi portal testing",
+                apiKey: paraApiKey,
+                environment: paraEnvironment,
+              }
+            : false,
+          privy: privyAppId
+            ? {
+                appId: privyAppId,
+                appName: "Aomi Labs",
+              }
+            : false,
+        }}
+        wallets={{
+          evm: {
+            chains: routedChains,
+            appName: "Aomi Labs",
+            wallets: evmWallets,
+            walletConnectProjectId,
+          },
+          solana: {
+            networks: solanaNetworks,
+            preferDirectSend: true,
+          },
+        }}
+      >
+        {providerRestored &&
+          !isDeviceAuthRoute(pathname) &&
+          signIn &&
+          signIn.attempt > 0 && (
+            <ProviderSignIn key={signIn.attempt} provider={signIn.provider} />
+          )}
+        {!providerRestored ? (
+          <HostedPortalShell>{children}</HostedPortalShell>
+        ) : selectedProvider === "privy" && !hostedOrigin ? (
+          <PrivyDelegationProvider>{routedChildren}</PrivyDelegationProvider>
+        ) : (
+          routedChildren
+        )}
+      </AomiWalletKitProvider>
+    </WalletSignInOptionsContext.Provider>
+  );
+  const mounted =
+    isDeviceAuthRoute(pathname) && selectedProvider ? (
+      <DeviceAuthProviderErrorBoundary
+        key={`${pathname}:${selectedProvider}`}
+        provider={selectedProvider}
+      >
+        {providerTree}
+      </DeviceAuthProviderErrorBoundary>
+    ) : (
+      providerTree
+    );
+  // Keep account state above the route-keyed device-auth error boundary.
+  return <ExtUserProvider>{mounted}</ExtUserProvider>;
+}
+
+function ProviderSignIn({ provider }: { provider: DeviceAuthProvider }) {
+  const adapter = useAomiWalletKit();
+  const started = useRef(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!adapter.isReady || !adapter.connectSocial || started.current) return;
+    started.current = true;
+    void adapter.connectSocial(provider).catch(() => setFailed(true));
+  }, [adapter, provider]);
+  return failed ? (
+    <div
+      role="alert"
+      className="bg-background fixed bottom-4 right-4 z-[100] rounded-xl p-4 shadow-lg"
+    >
+      Couldn’t open {provider === "privy" ? "Privy" : "Para"}. Choose it again
+      to retry.
+    </div>
+  ) : null;
+}
+
+class DeviceAuthProviderErrorBoundary extends Component<
+  { children: ReactNode; provider: DeviceAuthProvider },
+  { error: unknown | null }
+> {
+  state: { error: unknown | null } = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  componentDidCatch(error: unknown, _info: ErrorInfo) {
+    const failure = classifyProviderInitializationFailure(
+      this.props.provider,
+      error,
+      providerConfiguration,
+    );
+    console.error("device_auth_provider_initialization_failed", {
+      provider: this.props.provider,
+      code: failure.code,
+    });
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    const failure = classifyProviderInitializationFailure(
+      this.props.provider,
+      this.state.error,
+      providerConfiguration,
+    );
+    return (
+      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-6">
+        <section className="w-full max-w-sm">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Sign in to Aomi CLI
+          </h1>
+          <p className="text-muted-foreground mt-3 text-sm">
+            {providerFailureText(failure)}
+          </p>
+        </section>
+      </main>
+    );
+  }
+}
+
+const providerConfiguration = {
+  paraApiKey,
+  paraEnvironment: paraEnvironmentSetting,
+  privyAppId,
+};
+
+function HostedPortalShell({ children }: { children: ReactNode }) {
+  const origin = hostedPortalOrigin();
+  const kit = useAomiWalletKit();
+  if (!origin) return <>{children}</>;
+  return (
+    <ShellTransportProvider
+      key={kit.accountUser?.id ?? "anonymous"}
+      baseUrl={hostedPortalApiOrigin()}
+      getBearer={kit.getAccountBearer}
+    >
+      {children}
+    </ShellTransportProvider>
   );
 }

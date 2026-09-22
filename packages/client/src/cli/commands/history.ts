@@ -4,6 +4,7 @@ import {
   DIM,
   RESET,
   YELLOW,
+  countToolCalls,
   formatLogContent,
   printDataFileLocation,
 } from "../output";
@@ -26,9 +27,7 @@ export async function logCommand(config: CliConfig): Promise<void> {
     const snapshot = session.getSnapshot();
     const messages = snapshot.messages;
     const actions = snapshot.actions;
-    const toolCalls = snapshot.events.filter(
-      (event) => event.type === "tool_complete",
-    ).length;
+    const toolCalls = countToolCalls(snapshot.events);
     const tokenCountEstimate = estimateTokenCount(messages);
     const topic = snapshot.title ?? "Untitled Session";
 

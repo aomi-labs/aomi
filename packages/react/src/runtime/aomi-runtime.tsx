@@ -6,9 +6,12 @@ import type { ReactNode } from "react";
 import {
   AomiClient,
   type ActionCapabilities,
+  type CommitCapabilities,
+  type AgentTarget,
   type AomiClientOptions,
   type AomiPlatformFilter,
 } from "@aomi-labs/client";
+import type { AomiInferenceFundingSource } from "../interface";
 import { ControlContextProvider } from "../contexts/control-context";
 import { NotificationContextProvider } from "../contexts/notification-context";
 import {
@@ -30,9 +33,13 @@ export type AomiRuntimeProviderProps = {
   children: ReactNode;
   backendUrl?: string;
   applicationId?: number | string | null;
+  /** Optional host-fixed target. Omit to use the per-thread Auto/Direct control. */
+  agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
   clientOptions?: Omit<AomiClientOptions, "baseUrl">;
+  inferenceFunding?: AomiInferenceFundingSource;
   actions?: ActionCapabilities;
+  commits?: CommitCapabilities;
   /** Whether a canonical account session can load threads without a wallet. */
   accountSessionAvailable?: boolean;
   /** Optional explicit initial thread. Takes precedence over stored state. */
@@ -53,9 +60,12 @@ export function AomiRuntimeProvider({
   children,
   backendUrl = "http://127.0.0.1:8080",
   applicationId,
+  agentTarget,
   appPlatforms,
   clientOptions,
+  inferenceFunding,
   actions,
+  commits,
   accountSessionAvailable = false,
   initialThreadId,
   persistThread = true,
@@ -111,10 +121,13 @@ export function AomiRuntimeProvider({
         <ExtUserProvider>
           <AomiRuntimeInner
             aomiClient={aomiClient}
+            inferenceFunding={inferenceFunding}
             applicationId={applicationId}
+            agentTarget={agentTarget}
             appPlatforms={appPlatforms}
             accountSessionAvailable={accountSessionAvailable}
             actions={actions}
+            commits={commits}
             restoredThreadId={restoredThreadId}
             threadPersistenceKey={resolvedThreadPersistenceKey}
           >
@@ -133,10 +146,13 @@ export function AomiRuntimeProvider({
 type AomiRuntimeInnerProps = {
   children: ReactNode;
   aomiClient: AomiClient;
+  inferenceFunding?: AomiInferenceFundingSource;
   applicationId?: number | string | null;
+  agentTarget?: AgentTarget;
   appPlatforms?: AomiPlatformFilter;
   accountSessionAvailable: boolean;
   actions?: ActionCapabilities;
+  commits?: CommitCapabilities;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
 };
@@ -144,10 +160,13 @@ type AomiRuntimeInnerProps = {
 function AomiRuntimeInner({
   children,
   aomiClient,
+  inferenceFunding,
   applicationId,
+  agentTarget,
   appPlatforms,
   accountSessionAvailable,
   actions,
+  commits,
   restoredThreadId,
   threadPersistenceKey,
 }: Readonly<AomiRuntimeInnerProps>) {
@@ -161,12 +180,15 @@ function AomiRuntimeInner({
       updateThreadMetadata={threadContext.updateThreadMetadata}
       appPlatforms={appPlatforms}
       applicationId={applicationId}
+      inferenceFunding={inferenceFunding}
+      accountSessionAvailable={accountSessionAvailable}
     >
       <AomiRuntimeCore
         aomiClient={aomiClient}
-        applicationId={applicationId}
+        agentTarget={agentTarget}
         accountSessionAvailable={accountSessionAvailable}
         actions={actions}
+        commits={commits}
         restoredThreadId={restoredThreadId}
         threadPersistenceKey={threadPersistenceKey}
       >

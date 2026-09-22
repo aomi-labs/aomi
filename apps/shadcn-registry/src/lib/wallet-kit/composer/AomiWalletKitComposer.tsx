@@ -10,8 +10,14 @@ import { DISABLED_ACCOUNT_RUNTIME } from "../account/disabled-runtime";
 import { buildWalletKitAccounts } from "../accounts";
 import { buildWalletKitIdentity } from "./build-identity";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
-import { mergeWalletRows } from "./merge-wallet-rows";
 import type { AomiWalletKitComposerProps } from "./types";
+import { resolveWalletState } from "./wallet-state";
+import {
+  browserWalletSelectionStorage,
+  readWalletSelection,
+  writeWalletSelection,
+} from "./wallet-selection";
+import { walletKey } from "../wallet-utils";
 
 export function AomiWalletKitComposer({
   children,
@@ -29,6 +35,13 @@ export function AomiWalletKitComposer({
   const { user } = useUser();
   const [evmIdentityGraceVersion, bumpEvmIdentityGrace] = useState(0);
   const { registryStore, registryState } = evm;
+  const accountId = account.guest ? undefined : account.user?.id;
+  const [selectionVersion, setSelectionVersion] = useState(0);
+  const selectionStorage = browserWalletSelectionStorage();
+  const storedSelection = useMemo(
+    () => readWalletSelection(selectionStorage, accountId),
+    [accountId, selectionStorage, selectionVersion],
+  );
 
   const registryEvmIdentity = useMemo(() => {
     const identity = evm.identity(Date.now());
@@ -62,6 +75,124 @@ export function AomiWalletKitComposer({
     gracefulEvmIdentity.usingCachedIdentity,
   ]);
 
+  const accounts = useMemo(
+    () =>
+      buildWalletKitAccounts({
+        accounts: [
+          ...evm.accounts(Date.now()),
+          ...(svm?.accounts(Date.now()) ?? []),
+        ],
+        accountWallets: account.wallets,
+        transformAccounts,
+        canManageAccount,
+      }),
+    [account.wallets, canManageAccount, evm, svm, transformAccounts],
+  );
+  const selection = useMemo(() => {
+    if (accountId) return storedSelection;
+    const selected: typeof storedSelection = {};
+    for (const family of ["evm", "svm"] as const) {
+      const active = registryState.activeByFamily[family];
+      if (active) selected[family] = walletKey(family, active.address);
+    }
+    return selected;
+  }, [accountId, registryState.activeByFamily, storedSelection]);
+  const mountedProviders = useMemo(
+    () =>
+      [...new Set([auth.provider, auth.sessionProvider, auth.embeddedProvider])]
+        .filter((provider): provider is string => Boolean(provider))
+        .filter((provider) => provider !== "none"),
+    [auth.embeddedProvider, auth.provider, auth.sessionProvider],
+  );
+  const walletState = useMemo(
+    () =>
+      resolveWalletState({
+        account:
+          account.guest || account.status === "disabled"
+            ? null
+            : account.user
+              ? {
+                  id: account.user.id,
+                  status: account.status === "ready" ? "ready" : "loading",
+                }
+              : auth.status === "authenticated"
+                ? { id: "pending", status: "loading" }
+                : null,
+        linked: account.wallets
+          .filter((wallet) => wallet.kind !== "smart_account")
+          .map((wallet) => ({
+            id: wallet.id,
+            family: wallet.family,
+            address: wallet.address,
+            kind: wallet.kind === "embedded" ? "embedded" : "external",
+            provider: wallet.provider,
+            chainId: wallet.chainId,
+            label: wallet.label,
+            capability: wallet.capability,
+          })),
+        connections: accounts
+          .filter((connection) => connection.walletKind !== "smart_account")
+          .map((connection) => ({
+            id: connection.id,
+            family: connection.family,
+            address: connection.address,
+            kind:
+              connection.walletKind === "embedded" ? "embedded" : "external",
+            provider: connection.provider,
+            chainId: connection.chainId,
+            walletName: connection.walletName,
+            label: connection.label,
+            capability: connection.capability,
+            manageable: connection.manageable,
+            providerActions: connection.actions,
+            signerReady:
+              connection.walletKind !== "embedded" ||
+              execution.canSignFor?.(connection.family, connection.address) ===
+                true,
+          })),
+        mountedProviders,
+        selection,
+      }),
+    [
+      account.guest,
+      account.status,
+      account.user,
+      account.wallets,
+      accounts,
+      auth.status,
+      execution,
+      mountedProviders,
+      selection,
+    ],
+  );
+
+  useEffect(() => {
+    if (!accountId) return;
+    let changed = false;
+    for (const family of walletState.clearSelection) {
+      writeWalletSelection(selectionStorage, accountId, family, undefined);
+      changed = true;
+    }
+    for (const family of ["evm", "svm"] as const) {
+      if (!storedSelection[family] && walletState.operating[family]) {
+        writeWalletSelection(
+          selectionStorage,
+          accountId,
+          family,
+          walletState.operating[family],
+        );
+        changed = true;
+      }
+    }
+    if (changed) setSelectionVersion((version) => version + 1);
+  }, [
+    accountId,
+    selectionStorage,
+    storedSelection,
+    walletState.clearSelection,
+    walletState.operating,
+  ]);
+
   useEffect(() => {
     if (registryState.phase !== "stable") return;
     const registryAddress =
@@ -81,8 +212,13 @@ export function AomiWalletKitComposer({
   ]);
 
   const adapter = useMemo<AomiWalletKit>(() => {
-    const address = gracefulEvmIdentity.identity.address;
-    const effectiveChainId = gracefulEvmIdentity.identity.chainId;
+    const operatingEvm = walletState.wallets.find(
+      (wallet) => wallet.family === "evm" && wallet.operating,
+    );
+    const operatingSvm = walletState.wallets.find(
+      (wallet) => wallet.family === "svm" && wallet.operating,
+    );
+    const address = operatingEvm?.address;
     const svmIdentity = svm?.identity(Date.now());
     const registryEvmConnected = registryState.connections.some(
       (connection) => connection.family === "evm",
@@ -101,15 +237,6 @@ export function AomiWalletKitComposer({
         ready: option.ready !== false && option.status !== "unavailable",
         iconUrl: option.iconUrl,
       })) ?? [];
-    const accounts = buildWalletKitAccounts({
-      accounts: [
-        ...evm.accounts(Date.now()),
-        ...(svm?.accounts(Date.now()) ?? []),
-      ],
-      accountWallets: account.wallets,
-      transformAccounts,
-      canManageAccount,
-    });
     const evmWalletOptions = [...evm.options, ...additionalEvmWalletOptions];
     const svmWalletOptions =
       svm?.options.map((option) => ({
@@ -117,13 +244,6 @@ export function AomiWalletKitComposer({
         family: "svm" as const,
         kind: "solana" as const,
       })) ?? [];
-    const walletModalRows = mergeWalletRows({
-      accounts,
-      storedWallets: account.wallets,
-      canLinkWallet: Boolean(account.linkWallet),
-      auth,
-      options: [...evmWalletOptions, ...svmWalletOptions, ...auth.methods],
-    });
     const actions = buildWalletKitActions({
       accounts,
       auth,
@@ -140,13 +260,11 @@ export function AomiWalletKitComposer({
     );
     const identity = buildWalletKitIdentity({
       auth,
-      address,
-      chainId: effectiveChainId ?? undefined,
+      evmWallet: operatingEvm,
+      svmWallet: operatingSvm,
       isBooting,
       isConnected,
       svm,
-      walletName: gracefulEvmIdentity.identity.walletName,
-      walletSource: gracefulEvmIdentity.identity.walletSource,
     });
     return {
       identity,
@@ -162,21 +280,48 @@ export function AomiWalletKitComposer({
         identity.isConnected,
       canDisconnect: hasAnyDisconnectablePath,
       accounts,
-      walletModalRows,
+      wallets: walletState.wallets,
       accountStatus: account.status,
       accountError: account.error,
-      accountUser: account.user,
-      accountLinkedAccounts: account.linkedAccounts,
-      accountWallets: account.wallets,
+      accountGuest: account.guest,
+      // Temporary Better Auth guests are a transport principal, never an
+      // account-management principal. Keep that boundary at the adapter too,
+      // so stale or non-canonical account responses cannot expose guest chrome.
+      accountUser: account.guest ? undefined : account.user,
+      accountLinkedAccounts: account.guest ? [] : account.linkedAccounts,
+      accountWallets: account.guest ? [] : account.wallets,
       signOutAccount: account.signOut,
       deleteAccount: account.deleteAccount,
       updateAccount: account.updateAccount,
-      linkWallet: account.linkWallet,
+      linkWallet: account.linkWallet
+        ? async (input) => {
+            await account.linkWallet!(input);
+            if (!accountId) return;
+            writeWalletSelection(
+              selectionStorage,
+              accountId,
+              input.family,
+              walletKey(input.family, input.address),
+            );
+            setSelectionVersion((version) => version + 1);
+          }
+        : undefined,
       updateLinkedAccount: account.updateAuthIdentity,
       updateLinkedWallet: account.updateWallet,
       unlinkLinkedWallet: account.unlinkWallet,
       unlinkLinkedAccount: account.unlinkAuthIdentity,
-      selectAccount: actions.selectAccount,
+      selectAccount: async (id) => {
+        const selected = accounts.find((candidate) => candidate.id === id);
+        await actions.selectAccount(id);
+        if (!selected || !accountId) return;
+        writeWalletSelection(
+          selectionStorage,
+          accountId,
+          selected.family,
+          walletKey(selected.family, selected.address),
+        );
+        setSelectionVersion((version) => version + 1);
+      },
       evmWallets: evmWalletOptions,
       connectEvmWallet: actions.connectEvmWallet,
       socialLoginOptions: auth.methods,
@@ -196,6 +341,10 @@ export function AomiWalletKitComposer({
       switchChain: actions.switchChain,
       selectNetwork: actions.selectNetwork,
       sendTransaction: execution.evm.sendTransaction,
+      preparePreparedEvmTransaction:
+        execution.evm.preparePreparedEvmTransaction,
+      sendPreparedEvmTransaction: execution.evm.sendPreparedEvmTransaction,
+      signEvmTransaction: execution.evm.signEvmTransaction,
       signTypedData: execution.evm.signTypedData,
       signMessage: execution.evm.signMessage,
       getAccountCredential:
@@ -214,6 +363,7 @@ export function AomiWalletKitComposer({
     account.linkedAccounts,
     account.status,
     account.error,
+    account.guest,
     account.deleteAccount,
     account.updateAccount,
     account.linkWallet,
@@ -224,16 +374,16 @@ export function AomiWalletKitComposer({
     account.user,
     account.getAccountBearer,
     additionalEvmWalletOptions,
-    canManageAccount,
+    accountId,
+    accounts,
     evm,
     execution,
     gracefulEvmIdentity.identity.address,
-    gracefulEvmIdentity.identity.chainId,
-    gracefulEvmIdentity.identity.walletName,
+    walletState.wallets,
     registryStore,
+    selectionStorage,
     svm,
     supportedChains,
-    transformAccounts,
   ]);
 
   return (

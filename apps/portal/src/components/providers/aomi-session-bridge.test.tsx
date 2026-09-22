@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
-import { seedAccountOverview } from "@portal/lib/account-overview";
-import { useAomiSession } from "./aomi-session-bridge";
+import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
+import { useAomiSession } from "../../../../shadcn-registry/src/components/account-shell/components/providers/aomi-session-bridge";
 
 type AdapterState = {
   identity: { status: "anonymous" | "booting" | "connected" };
   accountStatus: "disabled" | "loading" | "ready" | "error";
+  accountGuest?: boolean;
   accountUser?: { id: string };
   connect: ReturnType<typeof vi.fn>;
 };
@@ -20,7 +21,7 @@ const adapterState = vi.hoisted(() => ({
   } as AdapterState,
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
   useAomiWalletKit: () => adapterState.current,
 }));
 
@@ -131,6 +132,24 @@ describe("useAomiSession lifecycle", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(screen.getByRole("button")).toHaveTextContent("anonymous");
+  });
+
+  it("treats the temporary Better Auth guest as signed out account chrome", async () => {
+    adapterState.current = {
+      identity: { status: "connected" },
+      accountStatus: "ready",
+      accountGuest: true,
+      accountUser: undefined,
+      connect: vi.fn(async () => undefined),
+    };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SessionProbe />);
+    await flushEffects();
+
+    expect(screen.getByRole("button")).toHaveTextContent("anonymous");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("restarts provider authentication when the user retries", () => {

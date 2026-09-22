@@ -17,7 +17,7 @@ vi.mock("@portal/server/account/session", async (importOriginal) => {
   return { ...actual, getBetterAuthSession: mocks.getSession };
 });
 
-vi.mock("@portal/lib/device-auth-grants", () => ({
+vi.mock("@portal/server/device-auth/grants", () => ({
   issueDeviceAuthGrant: mocks.issueGrant,
   issueDeviceAuthLinkIntent: mocks.issueLinkIntent,
   issueDeviceAuthLinkGrant: mocks.issueLinkGrant,
@@ -116,12 +116,29 @@ describe("device-auth route error ownership", () => {
         state: VALID_STATE,
         codeChallenge: VALID_CHALLENGE,
         redirectUri: REDIRECT_URI,
+        provider: "para",
       }),
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "invalid_state" });
     expect(mocks.capture).not.toHaveBeenCalled();
+  });
+
+  it("requires a provider when issuing an ordinary grant", async () => {
+    const response = await grant(
+      post("/v1/account/device-auth/grant", {
+        state: VALID_STATE,
+        codeChallenge: VALID_CHALLENGE,
+        redirectUri: REDIRECT_URI,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "invalid_request",
+    });
+    expect(mocks.issueGrant).not.toHaveBeenCalled();
   });
 
   it("leaves session failures to the framework error boundary", async () => {
@@ -140,7 +157,7 @@ describe("device-auth route error ownership", () => {
     expect(mocks.capture).not.toHaveBeenCalled();
   });
 
-  it("preserves link-intent's broad 400 response contract", async () => {
+  it("keeps link-intent validation errors public and storage failures private", async () => {
     mocks.issueLinkIntent.mockImplementationOnce(() => {
       throw new Error("invalid_redirect_uri");
     });
@@ -164,14 +181,17 @@ describe("device-auth route error ownership", () => {
     const unexpected = await linkIntent(
       post("/v1/account/device-auth/link-intent", requestBody),
     );
-    expect(unexpected.status).toBe(400);
+    expect(unexpected.status).toBe(500);
     await expect(unexpected.json()).resolves.toEqual({
-      error: "private storage detail",
+      error: "device_auth_failed",
     });
-    expect(mocks.capture).not.toHaveBeenCalled();
+    expect(mocks.capture).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({ status: 500 }),
+    );
   });
 
-  it("preserves link-grant's broad 400 response contract", async () => {
+  it("keeps link-grant validation errors public and crypto failures private", async () => {
     const requestBody = {
       linkIntent: "intent",
       state: VALID_STATE,
@@ -196,14 +216,17 @@ describe("device-auth route error ownership", () => {
     const unexpected = await linkGrant(
       post("/v1/account/device-auth/link-grant", requestBody),
     );
-    expect(unexpected.status).toBe(400);
+    expect(unexpected.status).toBe(500);
     await expect(unexpected.json()).resolves.toEqual({
-      error: "private crypto detail",
+      error: "device_auth_failed",
     });
-    expect(mocks.capture).not.toHaveBeenCalled();
+    expect(mocks.capture).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({ status: 500 }),
+    );
   });
 
-  it("preserves provider exchange's broad 400 response contract", async () => {
+  it("keeps provider token errors public and provider configuration private", async () => {
     const requestBody = {
       code: "code",
       state: VALID_STATE,
@@ -234,10 +257,39 @@ describe("device-auth route error ownership", () => {
     const unexpected = await exchange(
       post("/v1/account/device-auth/exchange", requestBody),
     );
-    expect(unexpected.status).toBe(400);
+    expect(unexpected.status).toBe(500);
     await expect(unexpected.json()).resolves.toEqual({
-      error: "private provider configuration",
+      error: "provider_exchange_failed",
     });
-    expect(mocks.capture).not.toHaveBeenCalled();
+    expect(mocks.capture).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({ status: 500 }),
+    );
+  });
+
+  it("returns a safe JSON failure when durable grant consumption fails", async () => {
+    const failure = new Error("private postgres connection detail");
+    mocks.exchangeGrant.mockRejectedValue(failure);
+
+    const response = await exchange(
+      post("/v1/account/device-auth/exchange", {
+        code: "code",
+        state: VALID_STATE,
+        codeVerifier: "verifier",
+        redirectUri: REDIRECT_URI,
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "device_auth_failed",
+    });
+    expect(mocks.capture).toHaveBeenCalledWith(
+      failure,
+      expect.objectContaining({
+        operation: "device_auth_grant_consume",
+        status: 500,
+      }),
+    );
   });
 });

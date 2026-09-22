@@ -34,6 +34,18 @@ const stagedActionIcon = (operation: ToolOperation): LucideIcon => {
 };
 
 const descriptorById: Record<string, Descriptor> = {
+  "protocol.result": {
+    title: "label",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "sourceHost" },
+      { kind: "decoded" },
+      { kind: "token" },
+      { kind: "amount" },
+      { kind: "status" },
+    ],
+  },
   "evm.account.native_balance": {
     title: "label",
     icon: SHAPE_ICONS.nativeBalance,
@@ -136,7 +148,7 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "evm.tx.simulate_batch": {
     title: "fixed",
-    fixedTitle: "Simulate batch",
+    fixedTitle: "Simulate transaction",
     icon: SHAPE_ICONS.simulation,
     chipPlan: [
       { kind: "chain" },
@@ -236,7 +248,7 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "svm.tx.simulate_batch": {
     title: "fixed",
-    fixedTitle: "Simulate batch",
+    fixedTitle: "Simulate transaction",
     icon: SHAPE_ICONS.simulation,
     chipPlan: [{ kind: "count", role: "tx" }, { kind: "status" }],
   },
@@ -258,7 +270,8 @@ const descriptorById: Record<string, Descriptor> = {
 };
 
 const stagedDescriptor: Descriptor = {
-  title: "label",
+  title: "fixed",
+  fixedTitle: "Stage transaction",
   icon: "stagedAction",
   chipPlan: [
     { kind: "chain" },

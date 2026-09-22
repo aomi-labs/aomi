@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 
 import {
+  creditAllowanceFromPosition,
   formatAllowanceSummary,
   scopeAccountOverviewToUser,
   seedAccountOverview,
   useAccountOverview,
-} from "./account-overview";
+} from "../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 
 function AccountUserId() {
   const account = useAccountOverview();
@@ -64,7 +65,40 @@ describe("account overview store", () => {
 });
 
 describe("formatAllowanceSummary", () => {
-  it("matches mock sidebar allowance copy", () => {
+  it("formats the sidebar allowance copy", () => {
     expect(formatAllowanceSummary(80, 500)).toBe("420 left · 80/500 used");
+  });
+});
+
+describe("creditAllowanceFromPosition", () => {
+  it("derives the allowance from the validated SDK position", () => {
+    expect(
+      creditAllowanceFromPosition({
+        period_utc_month: "2026-09-01",
+        included: {
+          used_microusd: 120_000,
+          limit_microusd: 1_000_000,
+          remaining_microusd: 880_000,
+        },
+        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        entries: [],
+        next_before_id: null,
+      }),
+    ).toEqual({ used: 12, included: 100 });
+  });
+
+  it("returns no allowance before the SDK position is available", () => {
+    expect(creditAllowanceFromPosition(null)).toBe(null);
+  });
+
+  it("returns no allowance for a partial runtime position", () => {
+    expect(
+      creditAllowanceFromPosition({
+        period_utc_month: "2026-09-01",
+        bank: { balance_microusd: 0, outstanding_debt_microusd: 0 },
+        entries: [],
+        next_before_id: null,
+      }),
+    ).toBe(null);
   });
 });

@@ -8,7 +8,11 @@ import {
   type TOAuthMethod,
 } from "@getpara/react-sdk";
 import type ParaWeb from "@getpara/react-sdk";
-import type { AomiAccountCredential, AomiLoginMethod } from "../../types";
+import type {
+  AomiAccountCredential,
+  AomiAccountCredentialOptions,
+  AomiLoginMethod,
+} from "../../types";
 
 export type ParaAccountShape = {
   isLoading: boolean;
@@ -112,17 +116,26 @@ export function useSafeParaClient(): ParaWeb | null {
 
 export function createParaCredentialGetter(
   paraClient: ParaJwtClient | null,
-): (() => Promise<AomiAccountCredential | null>) | null {
+):
+  | ((
+      options?: AomiAccountCredentialOptions,
+    ) => Promise<AomiAccountCredential | null>)
+  | null {
   if (!paraClient || typeof paraClient.issueJwt !== "function") return null;
   // Cooldown/in-flight state is scoped to this getter (one per plugin/adapter
   // instance) instead of module-level, so several widget instances mounted on
   // the same page each keep their own JWT-issuance backoff and never share or
   // clobber one another's cooldown window.
+  //
+  // The cooldown protects polling widgets. A one-shot login handoff passes
+  // `fresh: true` to ask Para again right away: right after the modal reports
+  // authentication `issueJwt` can 403 for a few seconds, and a 30-second
+  // backoff there would outlast the handoff page's own deadline.
   let issueJwtUnavailableUntil = 0;
   let issueJwtInFlight: Promise<AomiAccountCredential | null> | null = null;
-  return async () => {
+  return async (options) => {
     const now = Date.now();
-    if (now < issueJwtUnavailableUntil) {
+    if (!options?.fresh && now < issueJwtUnavailableUntil) {
       return null;
     }
     if (issueJwtInFlight) {

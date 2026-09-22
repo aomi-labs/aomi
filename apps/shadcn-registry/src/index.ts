@@ -1,8 +1,10 @@
 // Main entry point for @aomi-labs/widget-lib
+export { WalletSignInOptionsContext } from "./components/control-bar/wallet-picker-context";
 // Re-export the main AomiFrame component
 export { AomiFrame } from "./components/aomi-frame";
 export { AomiLogo, type AomiLogoProps } from "./components/aomi-logo";
 export { AomiMark } from "./components/aomi-mark";
+export { useActivityPanel } from "./components/activity-sidebar/activity-panel-context";
 export {
   DEFAULT_SIDEBAR_PRODUCTS,
   type SidebarProduct,
@@ -13,6 +15,11 @@ export {
   type CrossOriginWidgetAuth,
   type WalletPresentationConfig,
 } from "./components/aomi-widget";
+export type {
+  AomiRoutingConfig,
+  AomiRoutingTarget,
+  DirectRoutingApp,
+} from "./components/assistant-ui/routing";
 
 // Dual-wallet UI
 export {
@@ -58,6 +65,7 @@ export {
 } from "@aomi-labs/react";
 export { ExtUserProvider, useUser, UserState } from "@aomi-labs/react";
 export {
+  arc,
   arcTestnet,
   megaeth,
   monad,
@@ -65,15 +73,23 @@ export {
   robinhood,
 } from "@aomi-labs/client";
 export type {
+  AccountWallet,
+  AomiAccount,
+  AomiUserRef,
   AomiWalletKit,
   AomiSessionIdentity,
   AomiSessionStatus,
+  LinkedAuthAccount,
 } from "./lib/wallet-kit";
 export {
+  AOMI_BOOTING_WALLET_KIT,
   AomiWalletKitContextProvider,
   AomiWalletKitProvider,
+  AomiWalletNetworkPreferencesProvider,
+  signOutAndDisconnect,
   useAomiWalletKit,
 } from "./lib/wallet-kit";
+export { requestWalletPickerOpen } from "./components/control-bar/wallet-picker-context";
 export {
   usePrivyDelegation,
   type PrivyDelegationContextValue,
@@ -90,3 +106,6 @@ export {
   isFullTestnet,
   useFullTestnet,
 } from "./lib/wallet-kit";
+
+export { ShellTransportProvider } from "./components/account-shell/transport";
+export type { AomiWidgetFeatures } from "./components/aomi-widget";

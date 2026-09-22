@@ -8,7 +8,13 @@ import {
   type AppendMessage,
 } from "@assistant-ui/react";
 
-import type { ActionCapabilities, AomiClient } from "@aomi-labs/client";
+import {
+  AgentApiError,
+  type ActionCapabilities,
+  type CommitCapabilities,
+  type AgentTarget,
+  type AomiClient,
+} from "@aomi-labs/client";
 import { useControl } from "../contexts/control-context";
 import { useUser } from "../contexts/ext-user-context";
 import { useThreadContext } from "../contexts/thread-context";
@@ -23,7 +29,8 @@ import {
   clearPersistedThreadId,
   writePersistedThreadId,
 } from "./thread-persistence";
-import { projectAssistantMessages } from "./utils";
+import { projectAssistantMessages, projectRuntimeMessages } from "./utils";
+import { appendCapabilityHints } from "./capability-hints";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -62,8 +69,9 @@ function appendMessageText(message: AppendMessage): string {
 export type AomiRuntimeCoreProps = {
   children: ReactNode;
   aomiClient: AomiClient;
-  applicationId?: number | string | null;
+  agentTarget?: AgentTarget;
   actions?: ActionCapabilities;
+  commits?: CommitCapabilities;
   accountSessionAvailable?: boolean;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
@@ -76,8 +84,9 @@ export type AomiRuntimeCoreProps = {
 export function AomiRuntimeCore({
   children,
   aomiClient,
-  applicationId,
+  agentTarget,
   actions: actionCapabilities,
+  commits: commitCapabilities,
   accountSessionAvailable = false,
   restoredThreadId,
   threadPersistenceKey,
@@ -88,11 +97,11 @@ export function AomiRuntimeCore({
   const {
     getControlState,
     getCurrentThreadControl,
-    getCurrentThreadApplicationId,
-    getCurrentThreadApp,
+    getCurrentThreadTarget,
     getPreferredThreadControl,
     markControlSynced,
   } = useControl();
+  const inferenceFunding = getControlState().inferenceFunding;
 
   // ---------------------------------------------------------------------------
   // Orchestrator (manages ClientSession per thread)
@@ -110,14 +119,15 @@ export function AomiRuntimeCore({
     aomiClientRef,
   } = useRuntimeOrchestrator(aomiClient, {
     getUserState,
-    getApp: getCurrentThreadApp,
+    inferenceFunding,
+    getTarget: () => agentTarget ?? getCurrentThreadTarget(),
     getModel: () => {
       const control = getCurrentThreadControl();
       return control.modelMode === "manual" ? control.model : null;
     },
-    getApplicationId: () => getCurrentThreadApplicationId() ?? applicationId,
     getClientId: () => getControlState().clientId ?? undefined,
     getActions: () => actionCapabilities,
+    getCommits: () => commitCapabilities,
     onSendSuccess: (threadId) => {
       const wasRemote = remoteThreadIdsRef.current.has(threadId);
       remoteThreadIdsRef.current.add(threadId);
@@ -141,16 +151,47 @@ export function AomiRuntimeCore({
           kind: "payment_required",
           title: "You're out of funds",
         });
+        // Prewarmed empty threads are intentionally durable. A quota failure
+        // keeps the same thread so payment setup can retry without another
+        // create/model round trip.
+        return;
       }
 
-      // Prewarmed empty threads are intentionally durable. A quota failure
-      // keeps the same thread so payment setup can retry without another
-      // create/model round trip.
+      if (
+        error instanceof AgentApiError &&
+        error.code === "session_not_found"
+      ) {
+        // The pinned thread belongs to another principal (sign-out, new
+        // guest). Drop the pin so the next attempt starts clean instead of
+        // 404ing forever.
+        if (threadPersistenceKey) {
+          clearPersistedThreadId(threadPersistenceKey);
+        }
+        notificationContext.showNotification({
+          type: "error",
+          title: "Conversation unavailable",
+          message:
+            "This conversation is no longer accessible. Start a new chat and send your message again.",
+        });
+        return;
+      }
+
+      // Every other failure was previously swallowed — the composer text
+      // vanished with no feedback at all.
+      notificationContext.showNotification({
+        type: "error",
+        title: "Message not sent",
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : "Something went wrong sending your message. Please try again.",
+      });
     },
   });
 
   const actions = useActions(currentSession);
-  const isRunning = snapshot.isSubmitting || snapshot.turnState === "processing";
+  const isRunning =
+    snapshot.isSubmitting || snapshot.turnState === "processing";
 
   // ---------------------------------------------------------------------------
   // Refs for stable access
@@ -236,15 +277,20 @@ export function AomiRuntimeCore({
     return () => {
       cancelled = true;
     };
-  }, [
-    ensureInitialState,
-    threadContext.currentThreadId,
-    warmThread,
-  ]);
+  }, [ensureInitialState, threadContext.currentThreadId, warmThread]);
 
+  // The server's user event can trail the start response by a poll or two.
+  // Echo it immediately with the same ordinal id the canonical projection will
+  // use, keeping the previous assistant reply complete without creating a
+  // phantom user-message branch when the server event arrives.
   const currentMessages = useMemo(
-    () => projectAssistantMessages(snapshot.events),
-    [snapshot.events],
+    () =>
+      projectRuntimeMessages(
+        snapshot.events,
+        snapshot.pendingUserMessage,
+        snapshot.liveMessages,
+      ),
+    [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
   );
 
   useEffect(() => {
@@ -286,6 +332,7 @@ export function AomiRuntimeCore({
   // ---------------------------------------------------------------------------
   // External store runtime
   // ---------------------------------------------------------------------------
+  const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const runtime = useExternalStoreRuntime({
     messages: currentMessages,
     isLoading: isThreadLoading,
@@ -294,9 +341,17 @@ export function AomiRuntimeCore({
       const text = appendMessageText(message);
       if (text) {
         try {
-          await orchestratorSendMessage(text, threadContext.currentThreadId);
+          const hintedText = appendCapabilityHints(
+            text,
+            message.runConfig?.custom?.aomiCapabilityHints,
+          );
+          await orchestratorSendMessage(
+            hintedText,
+            threadContext.currentThreadId,
+          );
         } catch (error) {
           console.error("Failed to send message:", error);
+          restoreComposerTextRef.current(text);
         }
       }
     },
@@ -306,6 +361,10 @@ export function AomiRuntimeCore({
     convertMessage: (msg) => msg,
     adapters: { threadList: threadListAdapter },
   });
+  restoreComposerTextRef.current = (text) => {
+    const composer = runtime.thread.composer;
+    if (!composer.getState().text) composer.setText(text);
+  };
 
   // ---------------------------------------------------------------------------
   // Cleanup on unmount.
@@ -399,6 +458,7 @@ export function AomiRuntimeCore({
 
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
     () => ({
+      account: aomiClient.account,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
@@ -434,6 +494,8 @@ export function AomiRuntimeCore({
 
       // Action API
       pendingActions: actions.pendingActions,
+      commits: snapshot.commits,
+      commitController: currentSession?.commits,
       actionAttempts: actions.actionAttempts,
       hasBlockingActions: actions.hasBlockingActions,
       executeAction: actions.executeAction,
@@ -446,6 +508,7 @@ export function AomiRuntimeCore({
     }),
     [
       userContext,
+      aomiClient.account,
       threadContext.currentThreadId,
       threadContext.threadViewKey,
       threadContext.allThreadsMetadata,
