@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Layers3, LoaderCircle } from "lucide-react";
+import { Check, Layers3, LoaderCircle } from "lucide-react";
 
 import { useGitHubSession } from "@build/components/control-plane/github-session-context";
 import { HelpBadge } from "@build/components/help-badge";
@@ -17,7 +17,17 @@ import {
 } from "@build/features/launch/query-keys";
 import { writePlatform } from "@build/features/launch/platform";
 import { usePlatform } from "@build/features/launch/use-platform";
+import {
+  useAccessiblePlatforms,
+  type AccessiblePlatform,
+} from "@build/features/launch/use-accessible-platforms";
 import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+import { cn } from "@build/lib/utils";
+
+function projectCountLabel(count: number) {
+  if (count === 0) return "No projects yet";
+  return count === 1 ? "1 project" : `${count} projects`;
+}
 
 export function PlatformSwitcher({
   currentPlatform,
@@ -35,6 +45,7 @@ export function PlatformSwitcher({
       : currentPlatform;
   const queryClient = useQueryClient();
   const { account } = useGitHubSession();
+  const accessible = useAccessiblePlatforms(activePlatform);
   const [value, setValue] = useState(activePlatform ?? "");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +54,21 @@ export function PlatformSwitcher({
     setValue(activePlatform ?? "");
     setError(null);
   }, [activePlatform]);
+
+  function goToPlatform(platform: string) {
+    writePlatform(platform);
+    router.push(`/projects?platform=${encodeURIComponent(platform)}`);
+  }
+
+  /** A name that came out of an authorized read of the user's own projects is
+   *  already known-good; re-verifying it would only add latency and a second
+   *  way to fail. */
+  function select(platform: string) {
+    if (checking || platform === activePlatform) return;
+    setValue(platform);
+    setError(null);
+    goToPlatform(platform);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,8 +101,7 @@ export function PlatformSwitcher({
           });
         }
       }
-      writePlatform(platform);
-      router.push(`/projects?platform=${encodeURIComponent(platform)}`);
+      goToPlatform(platform);
     } catch (cause) {
       setError(
         cause instanceof LaunchRequestError &&
@@ -89,18 +114,36 @@ export function PlatformSwitcher({
     }
   }
 
-  function useCommunity() {
-    if (checking) return;
-    setValue(DEFAULT_DEPLOY_PLATFORM);
-    setError(null);
-    writePlatform(DEFAULT_DEPLOY_PLATFORM);
-    router.push(
-      `/projects?platform=${encodeURIComponent(DEFAULT_DEPLOY_PLATFORM)}`,
-    );
-  }
-
   return (
     <div className="w-full">
+      {accessible.status === "loading" ? (
+        <ul aria-hidden className="mb-8 space-y-2">
+          {[0, 1].map((row) => (
+            <li
+              key={row}
+              className="border-border h-[62px] w-full rounded-xl border"
+            />
+          ))}
+        </ul>
+      ) : null}
+
+      {accessible.status === "ready" ? (
+        <ul aria-label="Your platforms" className="mb-8 space-y-2">
+          {accessible.platforms.map((platform) => (
+            <PlatformRow
+              key={platform.name}
+              platform={platform}
+              current={platform.name === activePlatform}
+              disabled={checking}
+              onSelect={() => select(platform.name)}
+            />
+          ))}
+        </ul>
+      ) : null}
+
+      <p className="text-subtle mb-3 text-[13px]">
+        On a platform that is not listed? Enter its exact name.
+      </p>
       <form onSubmit={submit} className="flex items-center gap-3">
         <div className="border-border bg-background focus-within:ring-ring flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border px-4 focus-within:ring-1">
           {checking ? (
@@ -147,23 +190,60 @@ export function PlatformSwitcher({
           {error}
         </p>
       ) : null}
-      <div className="border-border mt-8 flex items-center justify-between gap-4 border-t pt-6">
-        <div className="flex min-w-0 items-center gap-1">
-          <p className="text-foreground text-[13px] font-medium">Community</p>
+    </div>
+  );
+}
+
+function PlatformRow({
+  platform,
+  current,
+  disabled,
+  onSelect,
+}: {
+  platform: AccessiblePlatform;
+  current: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  const isCommunity = platform.name === DEFAULT_DEPLOY_PLATFORM;
+  return (
+    <li>
+      <div
+        className={cn(
+          "border-border flex items-center gap-3 rounded-xl border px-4 py-3 transition",
+          current && "border-foreground/30 bg-accent",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onSelect}
+          disabled={disabled || current}
+          aria-current={current ? "true" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-default"
+        >
+          <Layers3 className="text-dim size-4 shrink-0" aria-hidden />
+          <span className="min-w-0">
+            <span className="text-foreground block truncate text-[13px] font-medium">
+              {platform.name}
+            </span>
+            <span className="text-dim block text-xs">
+              {projectCountLabel(platform.projectCount)}
+            </span>
+          </span>
+        </button>
+        {isCommunity ? (
           <HelpBadge label="What is Community?">
             Community is Aomi&apos;s default platform for projects that are not
             scoped to a partner deployment.
           </HelpBadge>
-        </div>
-        <button
-          type="button"
-          onClick={useCommunity}
-          disabled={checking}
-          className="border-border hover:bg-accent-hover text-foreground inline-flex h-9 shrink-0 items-center rounded-full border px-4 text-[13px] transition disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Use Community
-        </button>
+        ) : null}
+        {current ? (
+          <span className="text-foreground inline-flex shrink-0 items-center gap-1 text-xs">
+            <Check className="size-3.5" aria-hidden />
+            Current
+          </span>
+        ) : null}
       </div>
-    </div>
+    </li>
   );
 }
