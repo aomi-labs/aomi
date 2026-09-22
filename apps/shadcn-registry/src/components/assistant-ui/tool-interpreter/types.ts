@@ -5,6 +5,8 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 
 export type ToolChip = {
   label: string;
+  /** App and skill names, rendered with a graphical separator. */
+  labelParts?: readonly [string, string];
   /** Stable identity for attribution badges with potentially identical labels. */
   id?: string;
   title?: string;

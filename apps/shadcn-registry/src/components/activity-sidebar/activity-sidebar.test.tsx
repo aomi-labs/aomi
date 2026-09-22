@@ -9,6 +9,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
+import { TraceAttributionContext } from "../assistant-ui/trace-attribution";
+import { ToolStepRow } from "../assistant-ui/working-trace-rows";
+import { interpretToolStep } from "../assistant-ui/tool-interpreter";
 
 describe("activity signing strip", () => {
   it("keeps Signed neutral until signing and puts rejection in the strip", () => {
@@ -207,6 +210,68 @@ describe("active transaction presentation", () => {
     expect(content).toHaveClass("grid-rows-[0fr]", "opacity-0");
     expect(content).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByText("Aave")).toBeInTheDocument();
+  });
+
+  it("matches the trace's app/skill label, icon and slash in the activity sidebar", () => {
+    const result = { activated: ["hoodit/portfolio", "lifi_swap"] };
+    runtime.events = [
+      {
+        type: "message",
+        event_id: "skills",
+        sequence: 1,
+        turn_id: "turn-1",
+        occurred_at: 1,
+        sender: "agent",
+        content: "",
+        tool_result: ["activate_skills", JSON.stringify(result)],
+      },
+    ];
+    const attribution = {
+      apps: [
+        {
+          name: "hoodit",
+          applicationId: 2937810,
+          metadata: { registered_via: "activate_apps" },
+        },
+      ],
+      skills: [
+        {
+          id: "hoodit/portfolio",
+          name: "Portfolio",
+          injectedTools: ["hoodit_get_portfolio"],
+        },
+      ],
+    };
+    const { container } = render(
+      <TraceAttributionContext.Provider value={attribution}>
+        <ActivitySidebar />
+        <ToolStepRow
+          interpretation={interpretToolStep({
+            toolName: "activate_skills",
+            result,
+            attribution,
+          })}
+          done
+          active={false}
+          animate={false}
+        />
+      </TraceAttributionContext.Provider>,
+    );
+    for (const title of [
+      "App: Hoodit / Skill: Portfolio",
+      "Skill: Lifi Swap",
+    ]) {
+      const badges = screen.getAllByTitle(title);
+      expect(badges).toHaveLength(2);
+      expect(badges[0].outerHTML).toBe(badges[1].outerHTML);
+    }
+    const sidebarBadge = container.querySelector(
+      '[data-activity-group-content="Skills"] [title="App: Hoodit / Skill: Portfolio"]',
+    );
+    expect(sidebarBadge).toHaveTextContent("Hoodit / Portfolio");
+    expect(
+      sidebarBadge?.querySelector('svg[viewBox="0 0 8 16"]'),
+    ).not.toBeNull();
   });
 
   it("uses icon states and only renders the formatted subagent result", () => {

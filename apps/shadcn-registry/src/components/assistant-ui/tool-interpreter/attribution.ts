@@ -36,8 +36,9 @@ export function skillChip(id: string, catalog?: TraceAttribution): ToolChip {
   return {
     id: `skill:${id}`,
     skillId: id,
-    label: app ? `${app.label} · ${label}` : label,
-    title: app ? `${app.title} · Skill: ${label}` : `Skill: ${label}`,
+    label: app ? `${app.label} / ${label}` : label,
+    ...(app ? { labelParts: [app.label, label] as const } : {}),
+    title: app ? `${app.title} / Skill: ${label}` : `Skill: ${label}`,
     icon: app?.icon ?? getSkillIcon(id) ?? PuzzleIcon,
   };
 }
@@ -66,11 +67,27 @@ export function attributeToolStep(
         Array.isArray(app.metadata?.tool_names) &&
         app.metadata.tool_names.includes(ctx.rawLabel),
     ) ?? [];
-  // A bare tool name shared by multiple apps is ambiguous.
+  // Hosted app tools are not all included in the global skill catalog yet.
+  // A registered app's explicit tool namespace can still identify its app,
+  // never a particular skill or publisher. Declared metadata takes precedence.
+  const namespacedApps = new Set(
+    catalog?.apps
+      ?.filter((app) =>
+        ["_", "/"].some((separator) =>
+          ctx.rawLabel.startsWith(`${app.name}${separator}`),
+        ),
+      )
+      .map((app) => app.name),
+  );
+  const appName = apps.length
+    ? apps.length === 1
+      ? apps[0]!.name
+      : undefined
+    : namespacedApps.size === 1
+      ? [...namespacedApps][0]
+      : undefined;
   const appChips =
-    apps.length === 1 && !ownedApps.has(apps[0]!.name)
-      ? [appChip(apps[0]!.name, catalog)]
-      : [];
+    appName && !ownedApps.has(appName) ? [appChip(appName, catalog)] : [];
   const chips = [
     ...appChips,
     ...skillChips,

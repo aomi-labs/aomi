@@ -39,9 +39,9 @@ describe("trace attribution", () => {
       attribution,
     });
     expect(step.chips.map((chip) => chip.label)).toEqual([
-      "Hoodit · Markets",
-      "Hyperliquid · Portfolio",
-      "Hoodit · Coin Scanner",
+      "Hoodit / Markets",
+      "Hyperliquid / Portfolio",
+      "Hoodit / Coin Scanner",
     ]);
     expect(step.chips[0].icon).toBe(getAppIcon("hoodit"));
     expect(step.chips[1].icon).toBe(getAppIcon("hyperliquid"));
@@ -73,7 +73,7 @@ describe("trace attribution", () => {
       toolName: "hoodit_search_tokens",
       attribution,
     });
-    expect(step.chips.map((chip) => chip.label)).toEqual(["Hoodit · Markets"]);
+    expect(step.chips.map((chip) => chip.label)).toEqual(["Hoodit / Markets"]);
   });
 
   it("uses app metadata when a skill owner is not available", () => {
@@ -85,6 +85,64 @@ describe("trace attribution", () => {
       label: "Hyperliquid",
       icon: getAppIcon("hyperliquid"),
     });
+  });
+
+  it("recognizes a registered hosted app namespace without global tool metadata", () => {
+    const apps = [2937805, 2937810].map((applicationId) => ({
+      name: "hoodit",
+      applicationId,
+      metadata: { registered_via: "activate_apps" },
+    }));
+    for (const result of [
+      undefined,
+      { holdings: [] },
+      { error: "Unavailable" },
+    ]) {
+      const step = interpretToolStep({
+        toolName: "hoodit_get_portfolio",
+        result,
+        attribution: { apps },
+      });
+      expect(step.chips[0]).toMatchObject({
+        id: "app:hoodit",
+        label: "Hoodit",
+        icon: AppWindowIcon,
+      });
+      expect(step.chips[0].skillId).toBeUndefined();
+    }
+    for (const toolName of [
+      "hooditish_lookup",
+      "get_chain_context",
+      "stage_tx",
+    ]) {
+      expect(
+        interpretToolStep({ toolName, attribution: { apps } }).chips.some(
+          (chip) => chip.id?.startsWith("app:"),
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it("prefers declared ownership to namespace fallback and rejects overlapping namespaces", () => {
+    const step = interpretToolStep({
+      toolName: "hoodit_get_portfolio",
+      attribution: {
+        apps: [
+          { name: "hoodit" },
+          {
+            name: "analytics",
+            metadata: { tool_names: ["hoodit_get_portfolio"] },
+          },
+        ],
+      },
+    });
+    expect(step.chips[0].label).toBe("Analytics");
+    expect(
+      interpretToolStep({
+        toolName: "hoodit_get_portfolio",
+        attribution: { apps: [{ name: "hoodit" }, { name: "hoodit_get" }] },
+      }).chips,
+    ).toEqual([]);
   });
 
   it("does not attribute generic calls or guesses from names/previous activations", () => {
@@ -117,7 +175,7 @@ describe("trace attribution", () => {
       }),
       attribution,
     });
-    expect(step.chips[0].label).toBe("Hoodit · Markets");
+    expect(step.chips[0].label).toBe("Hoodit / Markets");
   });
 
   it("shows requested skills while pending and only accepted skills after completion", () => {
@@ -164,11 +222,11 @@ describe("trace attribution", () => {
       },
     });
     expect(step.chips[0]).toMatchObject({
-      label: "Unknown · Portfolio",
+      label: "Unknown / Portfolio",
       icon: AppWindowIcon,
     });
     expect(step.chips[1]).toMatchObject({
-      label: "Community Exchange · Trading",
+      label: "Community Exchange / Trading",
       icon: AppWindowIcon,
     });
   });

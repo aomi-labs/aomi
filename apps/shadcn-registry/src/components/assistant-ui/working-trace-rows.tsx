@@ -6,10 +6,10 @@ import { CheckIcon, ChevronRightIcon, XIcon } from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
-import type {
-  InterpretedToolStep,
-  ToolChip,
-} from "@/components/assistant-ui/tool-interpreter";
+import type { InterpretedToolStep } from "@/components/assistant-ui/tool-interpreter";
+
+import { ToolChipView } from "./tool-chip";
+export { ToolChipView } from "./tool-chip";
 
 /**
  * The primitive rows shared by the mother trace (`working-trace.tsx`) and a
@@ -39,52 +39,6 @@ export const DETAIL_BOX_CLASS =
   "border-aomi-border bg-aomi-surface text-aomi-muted max-h-[26rem] overflow-auto whitespace-pre-wrap break-words rounded-md border p-2 font-mono text-xs leading-relaxed";
 
 const MAX_VISIBLE_CHIPS = 4;
-
-/** Base + per-chip stagger for the left-to-right chip cascade (ms). */
-const CHIP_BASE_DELAY_MS = 15;
-const CHIP_STEP_DELAY_MS = 25;
-
-export const ToolChipView: FC<{
-  chip: ToolChip;
-  index: number;
-  animate: boolean;
-}> = ({ chip, index, animate }) => {
-  const Glyph = chip.icon;
-  return (
-    <span
-      title={chip.title}
-      className={cn(
-        "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] tabular-nums leading-none",
-        animate &&
-          "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-[180ms] motion-reduce:animate-none",
-      )}
-      style={
-        animate
-          ? {
-              animationDelay: `${CHIP_BASE_DELAY_MS + index * CHIP_STEP_DELAY_MS}ms`,
-            }
-          : undefined
-      }
-    >
-      {chip.dot ? (
-        <span
-          className="size-[5px] shrink-0 rounded-full"
-          style={{ backgroundColor: chip.dot }}
-          aria-hidden="true"
-        />
-      ) : (
-        !Glyph && (
-          <span
-            className="bg-aomi-accent size-[5px] shrink-0 rounded-full"
-            aria-hidden="true"
-          />
-        )
-      )}
-      {Glyph && <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />}
-      <span className="truncate">{chip.label}</span>
-    </span>
-  );
-};
 
 /**
  * One interpreted tool call, as a flat row: marker · title · chips, with an

@@ -292,6 +292,7 @@ export const registry: RegistryComponent[] = [
       "lib/capabilities/skill-label.ts",
       "components/assistant-ui/working-trace.tsx",
       "components/assistant-ui/working-trace-rows.tsx",
+      "components/assistant-ui/tool-chip.tsx",
       "components/assistant-ui/working-agent.tsx",
       "components/assistant-ui/tool-interpreter.ts",
       "components/assistant-ui/tool-interpreter/index.ts",
@@ -416,6 +417,12 @@ export const registry: RegistryComponent[] = [
   {
     name: "activity-sidebar",
     file: [
+      "components/icons/auto-mode.tsx",
+      "components/assistant-ui/tool-chip.tsx",
+      "components/assistant-ui/trace-attribution.tsx",
+      "components/assistant-ui/tool-interpreter/attribution.ts",
+      "components/icons/app-map.tsx",
+      "lib/apps/app-identity.ts",
       "components/activity-sidebar/activity-sidebar.tsx",
       "components/activity-sidebar/subagent-row.tsx",
       "components/activity-sidebar/transactions.tsx",
