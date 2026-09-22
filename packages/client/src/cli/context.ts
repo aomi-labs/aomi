@@ -18,11 +18,15 @@ export function createControlClient(
 ): AomiClient {
   const cli = CliSession.load();
   const baseUrl = config.baseUrl ?? DEFAULT_CLI_BASE_URL;
-  // An explicit legacy AccountBearer is carried by getAccountBearer below;
-  // it is not a resource-scoped OAuth grant.
-  const legacyBearer = config.accountBearer ?? cli?.toState().accountBearer;
-  const oauth: AomiOAuthTokenProvider | undefined = legacyBearer
-    ? undefined
+  const staticBearer = config.accountBearer ?? cli?.toState().accountBearer;
+  const oauth: AomiOAuthTokenProvider | undefined = staticBearer
+    ? async ({ resource, scopes }) => ({
+        accessToken: staticBearer,
+        expiresAt: Number.MAX_SAFE_INTEGER,
+        resource,
+        scopes,
+        tokenType: "Bearer",
+      })
     : cli?.createOAuthProvider(fetch);
   const authorizedFetch = oauth
     ? wrapFetchWithPublicApiAuthorization({ fetch, baseUrl, oauth })
@@ -33,13 +37,15 @@ export function createControlClient(
   return new AomiClient({
     baseUrl,
     apiKey: config.apiKey,
-    fetch: paymentFetch ?? fetch,
+    fetch: paymentFetch ?? (staticBearer ? authorizedFetch : fetch),
     // Payment settlement retries happen inside the x402 wrapper. Put OAuth
     // inside that wrapper so a newly-added Payment-Signature is authorized
     // again with payments:submit instead of reusing the narrower first token.
-    oauth: paymentFetch ? undefined : oauth,
+    // Static bearers also support public API calls, but account app operations
+    // retain their legacy transport unless a real OAuth grant is configured.
+    oauth: paymentFetch || staticBearer ? undefined : oauth,
     guest:
-      legacyBearer || oauth
+      staticBearer || oauth
         ? false
         : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
     getAccountBearer:
