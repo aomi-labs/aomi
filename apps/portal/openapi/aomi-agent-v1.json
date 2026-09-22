@@ -3022,6 +3022,234 @@
           }
         }
       },
+      "CommitSourceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "chain_family",
+          "chain_ref",
+          "stage_id",
+          "source_id"
+        ],
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CommitReviewSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "revision", "digest", "request", "legs"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "digest": {
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ActionRequest"
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequest"
+            }
+          }
+        }
+      },
+      "CommitBatchMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batch_id",
+          "index",
+          "ordered_stage_ids",
+          "ordered_commit_ids",
+          "sources",
+          "predecessor_commit_id",
+          "review_digest"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ordered_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ordered_commit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitSourceRef"
+            }
+          },
+          "predecessor_commit_id": {
+            "type": ["string", "null"]
+          },
+          "review_digest": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitWalletAttemptStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "transport",
+          "state",
+          "transaction_id",
+          "failure_code"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CommitTransport": {
+        "type": "string",
+        "enum": ["sign_and_broadcast", "browser_send"]
+      },
+      "CommitWalletAttemptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "review_digest",
+          "client_request_id",
+          "transport"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "review_digest": {
+            "type": "string"
+          },
+          "client_request_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          }
+        }
+      },
+      "CommitWalletAttemptView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "commit_id",
+          "transport",
+          "state",
+          "request",
+          "may_invoke_wallet"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "request": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SignableCommit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "may_invoke_wallet": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CommitWalletAttemptOutcome": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "transaction_id"],
+            "properties": {
+              "kind": {
+                "const": "transaction"
+              },
+              "transaction_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "rejected"
+              }
+            }
+          }
+        ]
+      },
       "CommitView": {
         "type": "object",
         "additionalProperties": false,
@@ -3037,7 +3265,10 @@
           "state",
           "action",
           "transaction_id",
-          "failure_code"
+          "failure_code",
+          "batch",
+          "review",
+          "wallet_attempt"
         ],
         "properties": {
           "version": {
@@ -3080,11 +3311,48 @@
               "expired"
             ]
           },
+          "supported_transports": {
+            "type": "array",
+            "description": "Additive capability advertisement. Absence on an older cached view means the legacy sign-and-broadcast route.",
+            "items": {
+              "$ref": "#/components/schemas/CommitTransport"
+            }
+          },
           "transaction_id": {
             "type": ["string", "null"]
           },
           "failure_code": {
             "type": ["string", "null"]
+          },
+          "batch": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitBatchMember"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitReviewSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet_attempt": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitWalletAttemptStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "action": {
             "oneOf": [
@@ -3116,6 +3384,24 @@
                     "type": "string"
                   },
                   "transaction_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "description": "Historical cached-view compatibility; new views use sign plus supported_transports.",
+                "deprecated": true,
+                "additionalProperties": false,
+                "required": ["kind", "payload", "review_digest"],
+                "properties": {
+                  "kind": {
+                    "const": "start_wallet_send"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  },
+                  "review_digest": {
                     "type": "string"
                   }
                 }

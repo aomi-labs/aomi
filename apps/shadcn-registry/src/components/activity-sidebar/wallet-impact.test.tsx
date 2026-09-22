@@ -21,19 +21,10 @@ const simulation = (): Simulation => ({
 function review(request: Action["request"]) {
   return render(
     <TransactionReview
-      action={{
-        type: "action",
-        event_id: "event",
-        sequence: 1,
-        turn_id: "turn",
-        occurred_at: 1,
+      review={{
         id: "action",
         revision: 1,
-        state: "pending",
         request,
-        result: null,
-        created_at: 1,
-        expires_at: null,
       }}
       onApprove={() => undefined}
       onReject={() => undefined}

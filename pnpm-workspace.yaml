@@ -97,12 +97,16 @@ onlyBuiltDependencies:
 allowBuilds:
   "@parcel/watcher": true
   "@reown/appkit": true
+  "@sentry/cli": true
   "@smithers-orchestrator/jj-darwin-arm64": true
+  "@smithers-orchestrator/jj-linux-x64": true
   "@tailwindcss/oxide": true
+  bigint-buffer: false
   bufferutil: true
   es5-ext: true
   esbuild: true
   keccak: true
+  koffi: true
   msgpackr-extract: true
   protobufjs: true
   secp256k1: true

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Action, Event } from "@aomi-labs/client";
-import { selectActivity } from "./model";
+import type { Action, CommitView, Event } from "@aomi-labs/client";
+import { selectActivity, selectLegacyReviewAction } from "./model";
 
 const tx = {
   chain_id: 8453,
@@ -59,8 +59,80 @@ const stage = tool(1, "evm_stage_tx", {
   pending_tx_id: 1,
   current_lifecycle: "queued",
 });
+const durableCommit = (
+  sourceId: number,
+  index: number,
+  patch: Partial<CommitView> = {},
+): CommitView => ({
+  version: 1,
+  commit_id: `commit-${sourceId}`,
+  thread_id: "thread-1",
+  stage_id: `evm:${sourceId}`,
+  chain_family: "evm",
+  chain_ref: "8453",
+  signer: tx.from,
+  broadcaster: "wallet",
+  state: "needs_signature",
+  transaction_id: null,
+  failure_code: null,
+  batch: {
+    batch_id: "batch-1",
+    index,
+    ordered_stage_ids: ["evm:1", "evm:2"],
+    ordered_commit_ids: ["commit-1", "commit-2"],
+    sources: [
+      {
+        thread_id: "thread-1",
+        chain_family: "evm",
+        chain_ref: "8453",
+        stage_id: `evm:${sourceId}`,
+        source_id: sourceId,
+      },
+    ],
+    predecessor_commit_id: index === 0 ? null : "commit-1",
+    review_digest: "review",
+  },
+  review: null,
+  wallet_attempt: null,
+  action: null,
+  ...patch,
+});
 
 describe("activity projection", () => {
+  it("binds cards to scoped durable sources without changing visual order", () => {
+    const supply = tool(2, "evm_stage_tx", {
+      ...tx,
+      label: "Supply USDC to Aave",
+      pending_tx_id: 2,
+      current_lifecycle: "queued",
+    });
+    const result = selectActivity(
+      [stage, supply],
+      [],
+      [durableCommit(1, 0), durableCommit(2, 1)],
+    );
+    expect(result.transactions.map((item) => item.commit?.commit_id)).toEqual([
+      "commit-1",
+      "commit-2",
+    ]);
+    expect(
+      result.transactions.every((item) => item.stage === "committed"),
+    ).toBe(true);
+    expect(
+      [...result.transactions]
+        .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))
+        .map((item) => item.commit?.commit_id),
+    ).toEqual(["commit-2", "commit-1"]);
+  });
+
+  it("rejects a source binding with a different durable chain scope", () => {
+    const mismatched = durableCommit(1, 0);
+    mismatched.batch!.sources[0].chain_ref = "1";
+    expect(
+      selectActivity([stage], [], [mismatched]).transactions[0].commit,
+    ).toBeUndefined();
+  });
+
   it("tracks stage, simulation and commit without fabricating an Action", () => {
     expect(selectActivity([stage]).transactions[0].stage).toBe("staged");
     const sim = tool(2, "evm_simulate_batch", {
@@ -265,6 +337,32 @@ describe("SVM preparation", () => {
     ]).transactions;
     expect(repeated).toHaveLength(2);
     expect(repeated.filter((tx) => tx.action)).toHaveLength(1);
+
+    const durable = durableCommit(1, 0, {
+      stage_id: "svm:1",
+      chain_family: "svm",
+      chain_ref: "mainnet-beta",
+      signer: "wallet",
+      state: "expired",
+    });
+    durable.batch!.sources = [
+      {
+        thread_id: durable.thread_id,
+        chain_family: "svm",
+        chain_ref: "mainnet-beta",
+        stage_id: "svm:1",
+        source_id: 1,
+      },
+    ];
+    const durableActivity = selectActivity(
+      [staged, committed],
+      [committed],
+      [durable],
+    );
+    expect(durableActivity.transactions[0].commit).toBe(durable);
+    expect(
+      selectLegacyReviewAction([staged, committed], [committed], [durable]),
+    ).toBeUndefined();
   });
 });
 

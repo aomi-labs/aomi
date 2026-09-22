@@ -30,7 +30,10 @@ import { ControlBar, type ControlBarProps } from "@/components/control-bar";
 import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
 import { ActivityPanelProvider } from "@/components/activity-sidebar/activity-panel-context";
 import { safeEnv } from "../lib/wallet-kit/env";
-import { useActionCapabilities } from "../lib/wallet-kit";
+import {
+  useActionCapabilities,
+  useCommitCapabilities,
+} from "../lib/wallet-kit";
 
 // =============================================================================
 // Composer Control Context - signals Thread to show inline controls
@@ -157,11 +160,13 @@ const Root: FC<RootProps> = ({
     "http://127.0.0.1:8080";
   const frameStyle: CSSProperties = { width, height, ...style };
   const actions = useActionCapabilities();
+  const commits = useCommitCapabilities();
 
   return (
     <AomiRuntimeProvider
       backendUrl={resolvedBackendUrl}
       actions={actions}
+      commits={commits}
       applicationId={applicationId}
       agentTarget={agentTarget}
       clientOptions={clientOptions}
