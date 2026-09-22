@@ -123,6 +123,7 @@ export function useAppSecretsState({
       status?.slots.filter((slot) => slot.user_own !== false) ??
       declaredSlots.map((slot) => ({
         ...slot,
+        user_own: slot.user_own === true,
         configured: false,
         app_provided: false,
       })),
