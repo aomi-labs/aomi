@@ -235,7 +235,7 @@ function normalizeOAuthGrants(
       typeof candidate.expiresAt !== "number" ||
       !Number.isFinite(candidate.expiresAt) ||
       typeof candidate.resource !== "string" ||
-      !/\/v1\/(agent|pipeline)$/.test(candidate.resource) ||
+      !/\/v1\/(agent|pipeline|account)$/.test(candidate.resource) ||
       !Array.isArray(candidate.scopes) ||
       !candidate.scopes.every((scope) => typeof scope === "string") ||
       (candidate.tokenType !== undefined &&

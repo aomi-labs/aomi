@@ -20,6 +20,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
     path: "/api/account/apps/:application_id/secrets",
     auth: ["account"],
   },
@@ -535,6 +540,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
     path: "/api/account/apps/:application_id/secrets",
     auth: ["account"],
   },
@@ -626,6 +636,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   {
     method: "POST",
     path: "/api/bots/telegram/:webhook_secret",
+    auth: [],
+  },
+  {
+    method: "POST",
+    path: "/api/bots/telegram/:webhook_secret/binding",
     auth: [],
   },
   {
@@ -872,11 +887,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/widget/v1/signing-requests/:request_id",
     auth: ["account","thread"],
-  },
-  {
-    method: "PUT",
-    path: "/api/account/apps",
-    auth: ["account"],
   },
   {
     method: "PUT",

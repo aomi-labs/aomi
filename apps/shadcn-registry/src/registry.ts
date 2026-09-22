@@ -33,6 +33,7 @@ export const registry: RegistryComponent[] = [
     file: [
       "components/aomi-widget.tsx",
       "components/backend-aa-provisioner.tsx",
+      "components/app-secrets/use-app-secrets-state.ts",
       "components/account-shell/components/providers/aomi-session-bridge.tsx",
       "components/account-shell/components/settings/settings-modal.tsx",
       "components/account-shell/components/shell/directory-modal-type.ts",
@@ -217,6 +218,7 @@ export const registry: RegistryComponent[] = [
       "components/control-bar/network-metadata.ts",
       "components/control-bar/network-select.tsx",
       "components/control-bar/secret-input.tsx",
+      "components/app-secrets/use-app-secrets-state.ts",
       "components/control-bar/app-secrets-dialog.tsx",
       "components/control-bar/payment-required-gate.tsx",
       "components/control-bar/dual-wallet-bar.tsx",
@@ -411,7 +413,6 @@ export const registry: RegistryComponent[] = [
     name: "activity-sidebar",
     file: [
       "components/activity-sidebar/activity-sidebar.tsx",
-      "components/activity-sidebar/commit-review.tsx",
       "components/activity-sidebar/subagent-row.tsx",
       "components/activity-sidebar/transactions.tsx",
       "components/activity-sidebar/activity-panel-context.tsx",

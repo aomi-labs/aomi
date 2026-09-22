@@ -21,6 +21,10 @@ export const AOMI_SCOPES = [
   "account:credits:read",
   "account:credits:topup",
   "account:usage:read",
+  "account:apps:read",
+  "account:apps:write",
+  "account:credentials:read",
+  "account:credentials:write",
   "custody:delegate",
   "openid",
   "profile",
@@ -47,6 +51,10 @@ export const ACCOUNT_SCOPES = [
   "account:credits:read",
   "account:credits:topup",
   "account:usage:read",
+  "account:apps:read",
+  "account:apps:write",
+  "account:credentials:read",
+  "account:credentials:write",
   "payments:submit",
 ] as const;
 

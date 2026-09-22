@@ -46,9 +46,6 @@ export function UsageSettings() {
   }
 
   const { period } = month;
-  const hasAllowance =
-    statement.isCurrentMonth && month.payment.allowanceCredits.included > 0;
-
   return (
     <div className="mx-auto w-full max-w-[780px] px-6 py-6">
       <div className="flex flex-col gap-5">
@@ -59,8 +56,14 @@ export function UsageSettings() {
 
         <SpendBreakdownSection month={month} />
 
-        <AllowanceSettlementSection month={month} showAllowance={hasAllowance}>
-          <CreditBank />
+        <AllowanceSettlementSection
+          month={month}
+          showAllowance={statement.isCurrentMonth}
+          allowanceStatus={statement.allowanceStatus}
+          allowanceError={statement.allowanceError}
+          onRetryAllowance={statement.retryAllowance}
+        >
+          {statement.isCurrentMonth ? <CreditBank /> : null}
         </AllowanceSettlementSection>
 
         {month.apps.length > 0 ? (

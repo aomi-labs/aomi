@@ -1,81 +1,42 @@
 "use client";
 
 /**
- * Wire layer for the usage statement.
+ * Boundary and aggregation layer for the usage statement.
  *
  * API-server statement rows are immutable raw usage joined to one pricing
- * result. This adapter retains the existing month/app view while the wire
- * boundary is now integer micro-USD and funding-source based.
+ * result. This adapter validates the current contract and builds the shared
+ * month/app view while amounts are still integer micro-USD.
  */
 
 import type { ShellRequest } from "../../transport";
+import { MICROUSD_PER_CREDIT } from "@aomi-labs/client";
 import { accountScopedFetch } from "../../lib/settings-api";
-import type {
-  AppModelRow,
-  AppUsageEntry,
-  MonthlyStatement,
-  UsagePayment,
-} from "./types";
-
-/** One line of the wire statement (backend `ModelStatementLine`). */
-export type WireModelLine = {
-  model: string;
-  provider: string;
-  /** `"null"` (tier allowance) / `"byok"` / a stream method (`"coinbase"`, …). */
-  payment_method: string;
-  turns: number;
-  input_tokens: number;
-  output_tokens: number;
-  credits_used: number;
-  usd: number;
-};
-
-export type WireAppStatement = {
-  app: string;
-  turns: number;
-  input_tokens: number;
-  output_tokens: number;
-  credits_used: number;
-  usd: number;
-  by_model: WireModelLine[];
-};
-
-export type WirePaymentLeg = {
-  method: string;
-  credits_used: number;
-  usd: number;
-  paid_credits: number;
-  paid_usd: number;
-};
-
-export type WireModelStatement = {
-  period_utc_from: string;
-  period_utc_to: string;
-  apps: WireAppStatement[];
-  payment: WirePaymentLeg[];
-  total_credits_used: number;
-  total_usd: number;
-};
+import type { CreditAllowance } from "../../lib/account-overview";
+import type { AppUsageEntry, MonthlyStatement } from "./types";
 
 type AccountStatementResponse = {
-  entries: Array<{
-    usage_event_id: string;
-    operation_id: string;
-    application: string;
-    provider: string;
-    model: string;
-    input_tokens: number;
-    output_tokens: number;
-    inference_funding_source: "platform" | "user_byok" | "application_byok";
-    gross_charge_microusd: number;
-    included_applied_microusd: number;
-    bank_debit_microusd: number;
-    occurred_at: number;
-  }>;
+  entries: unknown[];
   next_cursor: string | null;
 };
 
-export type CreditAllowance = { included: number; used: number };
+type FundingKind = "platform" | "user_key" | "application_key";
+
+type UsageCharge = {
+  applicationId: number | null;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  funding: FundingKind;
+  grossMicrousd: number;
+  includedMicrousd: number;
+  creditsMicrousd: number;
+};
+
+type AppAccumulator = {
+  usage: AppUsageEntry;
+  funding: Set<FundingKind>;
+};
 
 /** `"YYYY-MM"` month key → the from/to the statement endpoint expects. */
 export function monthRange(monthKey: string): { from: string; to: string } {
@@ -104,14 +65,14 @@ export function recentMonthKeys(count: number, now = new Date()): string[] {
   return keys;
 }
 
-export async function fetchModelStatement(
+export async function fetchMonthlyStatement(
   monthKey: string,
   request: ShellRequest = accountScopedFetch,
-): Promise<WireModelStatement> {
+): Promise<MonthlyStatement> {
   const { from, to } = monthRange(monthKey);
   const start = Date.parse(`${from}T00:00:00Z`) / 1000;
   const end = Date.parse(`${to}T23:59:59Z`) / 1000 + 1;
-  const rows: AccountStatementResponse["entries"] = [];
+  const rawRows: AccountStatementResponse["entries"] = [];
   let cursor: string | null = null;
   do {
     const query = new URLSearchParams({
@@ -124,95 +85,259 @@ export async function fetchModelStatement(
       await request<AccountStatementResponse>(
         `/v1/account/statement?${query.toString()}`,
       );
-    rows.push(...page.entries);
+    if (!Array.isArray(page.entries)) {
+      throw new TypeError(
+        "Invalid account statement response: entries must be an array",
+      );
+    }
+    rawRows.push(...page.entries);
     cursor = page.next_cursor;
   } while (cursor);
-  const apps = new Map<string, WireAppStatement>();
-  const payments = new Map<string, WirePaymentLeg>();
+  const rows = rawRows.map(parseUsageCharge);
+  const applicationNames = await fetchApplicationNames(rows, request);
+  const apps = new Map<string, AppAccumulator>();
+  let allowanceAppliedMicrousd = 0;
+  let creditBankAppliedMicrousd = 0;
+
   for (const row of rows) {
-    const method = row.inference_funding_source;
-    const credits = row.gross_charge_microusd / 10_000;
-    const usd = row.gross_charge_microusd / 1_000_000;
-    const app = apps.get(row.application) ?? {
-      app: row.application,
-      turns: 0,
-      input_tokens: 0,
-      output_tokens: 0,
-      credits_used: 0,
-      usd: 0,
-      by_model: [],
-    };
-    app.turns += 1;
-    app.input_tokens += row.input_tokens;
-    app.output_tokens += row.output_tokens;
-    app.credits_used += credits;
-    app.usd += usd;
-    let model = app.by_model.find(
-      (line) => line.model === row.model && line.payment_method === method,
+    const usd = row.grossMicrousd / 1_000_000;
+    const application =
+      row.applicationId === null
+        ? "default"
+        : (applicationNames.get(row.applicationId) ??
+          `Application ${row.applicationId}`);
+    const app = apps.get(application) ?? createAppAccumulator(application);
+    app.funding.add(row.funding);
+    app.usage.model.turns += 1;
+    app.usage.model.baseUsd += usd;
+    app.usage.model.chargedUsd += usd;
+    app.usage.appTotalUsd += usd;
+
+    let model = app.usage.model.byModel.find(
+      (line) =>
+        line.provider === row.provider &&
+        line.model === row.model &&
+        line.paymentMethod === row.funding,
     );
     if (!model) {
       model = {
         model: row.model,
         provider: row.provider,
-        payment_method: method,
+        paymentMethod: row.funding,
         turns: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        credits_used: 0,
-        usd: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        baseUsd: 0,
+        chargedUsd: 0,
+        ...(isOwnKeyFunding(row.funding)
+          ? { note: "paid by your own key" }
+          : {}),
       };
-      app.by_model.push(model);
+      app.usage.model.byModel.push(model);
     }
     model.turns += 1;
-    model.input_tokens += row.input_tokens;
-    model.output_tokens += row.output_tokens;
-    model.credits_used += credits;
-    model.usd += usd;
-    apps.set(row.application, app);
-    addPaymentLeg(payments, "included", row.included_applied_microusd);
-    addPaymentLeg(payments, "credit_bank", row.bank_debit_microusd);
+    model.inputTokens += row.inputTokens;
+    model.outputTokens += row.outputTokens;
+    model.baseUsd += usd;
+    model.chargedUsd += usd;
+    apps.set(application, app);
+    allowanceAppliedMicrousd += row.includedMicrousd;
+    creditBankAppliedMicrousd += row.creditsMicrousd;
   }
-  const totalMicrousd = rows.reduce(
-    (sum, row) => sum + row.gross_charge_microusd,
-    0,
-  );
+
+  const appUsage = [...apps.values()].map(({ usage, funding }) => {
+    const ownKeyOnly = [...funding].every(isOwnKeyFunding);
+    usage.settings.modelKey = ownKeyOnly ? "byok" : "managed";
+    usage.settings.appByok = ownKeyOnly;
+    usage.model.billed = !ownKeyOnly;
+    return usage;
+  });
+  const totalMicrousd = rows.reduce((sum, row) => sum + row.grossMicrousd, 0);
+  const totalUsd = totalMicrousd / 1_000_000;
+  const settlement = [
+    allowanceAppliedMicrousd > 0 ? "monthly allowance" : null,
+    creditBankAppliedMicrousd > 0 ? "Credit Bank" : null,
+  ].filter((method): method is string => method !== null);
+
   return {
-    period_utc_from: from,
-    period_utc_to: to,
-    apps: [...apps.values()],
-    payment: [...payments.values()],
-    total_credits_used: totalMicrousd / 10_000,
-    total_usd: totalMicrousd / 1_000_000,
+    period: {
+      periodLabel: monthLabel(monthKey),
+      from,
+      to,
+      issued: to,
+    },
+    summary: {
+      modelUsd: totalUsd,
+      toolUsd: 0,
+      outcomeUsd: 0,
+      computeUsd: totalUsd,
+      onchainUsd: 0,
+      totalUsd,
+      managedMarkupUsd: 0,
+    },
+    payment: {
+      settledVia: settlement.length ? settlement.join(" + ") : "your own key",
+      allowanceCredits: { included: 0, used: 0 },
+      allowanceAppliedUsd: allowanceAppliedMicrousd / 1_000_000,
+      creditBankAppliedUsd: creditBankAppliedMicrousd / 1_000_000,
+      onchainUsd: 0,
+      onchainNote: "",
+    },
+    apps: appUsage,
+    byApp: appUsage.map((app) => ({
+      app: app.id,
+      modelUsd: app.model.chargedUsd,
+      toolUsd: null,
+      outcomeUsd: null,
+      totalUsd: app.appTotalUsd,
+    })),
+    columnTotals: {
+      modelUsd: totalUsd,
+      toolUsd: 0,
+      outcomeUsd: 0,
+      totalUsd,
+    },
   };
 }
 
-function addPaymentLeg(
-  payments: Map<string, WirePaymentLeg>,
-  method: string,
-  amountMicrousd: number,
-) {
-  if (amountMicrousd <= 0) return;
-  const leg = payments.get(method) ?? {
-    method,
-    credits_used: 0,
-    usd: 0,
-    paid_credits: 0,
-    paid_usd: 0,
+function createAppAccumulator(name: string): AppAccumulator {
+  return {
+    funding: new Set(),
+    usage: {
+      id: name,
+      name,
+      native: name === "default",
+      settings: {
+        modelKey: "managed",
+        appByok: false,
+        managedMarkupPct: 0,
+        note: "",
+      },
+      model: {
+        baseUsd: 0,
+        markupPct: 0,
+        markupUsd: 0,
+        chargedUsd: 0,
+        billed: true,
+        turns: 0,
+        byModel: [],
+      },
+      tool: null,
+      outcome: null,
+      appTotalUsd: 0,
+    },
   };
-  leg.credits_used += amountMicrousd / 10_000;
-  leg.usd += amountMicrousd / 1_000_000;
-  payments.set(method, leg);
+}
+
+function parseUsageCharge(value: unknown): UsageCharge {
+  const row = statementObject(value, "entry");
+  const funding = statementObject(row.funding, "entry.funding");
+  const fundingKind = funding.kind;
+  if (
+    fundingKind !== "platform" &&
+    fundingKind !== "user_key" &&
+    fundingKind !== "application_key"
+  ) {
+    throw new TypeError(
+      `Invalid account statement response: unsupported funding kind ${String(fundingKind)}`,
+    );
+  }
+
+  return {
+    applicationId: statementNullableNumber(
+      row.application_id,
+      "application_id",
+    ),
+    provider: statementString(row.provider, "provider"),
+    model: statementString(row.model, "model"),
+    inputTokens: statementNumber(row.input_tokens, "input_tokens"),
+    outputTokens: statementNumber(row.output_tokens, "output_tokens"),
+    funding: fundingKind,
+    grossMicrousd: statementNumber(row.gross, "gross"),
+    includedMicrousd: statementNumber(row.included, "included"),
+    creditsMicrousd: statementNumber(row.credits, "credits"),
+  };
+}
+
+function isOwnKeyFunding(funding: FundingKind): boolean {
+  return funding === "user_key" || funding === "application_key";
+}
+
+async function fetchApplicationNames(
+  rows: UsageCharge[],
+  request: ShellRequest,
+): Promise<Map<number, string>> {
+  if (!rows.some((row) => row.applicationId !== null)) return new Map();
+  try {
+    const apps = await request<unknown[]>("/api/account/apps");
+    const names = new Map<number, string>();
+    for (const value of apps) {
+      const app = statementObject(value, "application");
+      const id = app.application_id;
+      if (
+        typeof id === "number" &&
+        Number.isSafeInteger(id) &&
+        typeof app.name === "string" &&
+        app.name.trim()
+      ) {
+        names.set(id, app.name.trim());
+      }
+    }
+    return names;
+  } catch {
+    return new Map();
+  }
+}
+
+function statementObject(
+  value: unknown,
+  field: string,
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError(
+      `Invalid account statement response: ${field} must be an object`,
+    );
+  }
+  return value as Record<string, unknown>;
+}
+
+function statementString(value: unknown, field: string): string {
+  if (typeof value !== "string") {
+    throw new TypeError(
+      `Invalid account statement response: ${field} must be a string`,
+    );
+  }
+  return value;
+}
+
+function statementNumber(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new TypeError(
+      `Invalid account statement response: ${field} must be a safe integer`,
+    );
+  }
+  return value;
+}
+
+function statementNullableNumber(value: unknown, field: string): number | null {
+  if (value === null || value === undefined) return null;
+  return statementNumber(value, field);
 }
 
 export async function fetchCreditAllowance(
   request: ShellRequest = accountScopedFetch,
 ): Promise<CreditAllowance> {
-  const position = await request<{
-    included: { limit_microusd: number; used_microusd: number };
-  }>("/v1/account/credits?limit=1");
+  const position = statementObject(
+    await request<unknown>("/v1/account/credits?limit=1"),
+    "account credits",
+  );
   return {
-    included: position.included.limit_microusd / 10_000,
-    used: position.included.used_microusd / 10_000,
+    included:
+      statementNumber(position.included_limit, "included_limit") /
+      MICROUSD_PER_CREDIT,
+    used:
+      statementNumber(position.included_used, "included_used") /
+      MICROUSD_PER_CREDIT,
   };
 }
 
@@ -234,121 +359,4 @@ const MONTH_NAMES = [
 function monthLabel(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
   return `${MONTH_NAMES[month - 1] ?? monthKey} ${year}`;
-}
-
-/** Human label for a payment method wire value. */
-export function paymentMethodLabel(method: string): string {
-  if (method === "included") return "monthly allowance";
-  if (method === "credit_bank") return "Credit Bank";
-  if (method === "null" || method === "platform") return "platform funding";
-  if (method === "byok" || method === "user_byok") return "your own key";
-  if (method === "application_byok") return "application key";
-  return method;
-}
-
-/**
- * Wire statement + the profile's credit position → the `MonthlyStatement`
- * shape every usage view renders. Only the model subject carries numbers;
- * tool/outcome land as `null` (the types' own "not charged" encoding) and the
- * column totals for those subjects stay 0.
- */
-export function toMonthlyStatement(
-  wire: WireModelStatement,
-  monthKey: string,
-  allowance: { included: number; used: number },
-): MonthlyStatement {
-  const apps: AppUsageEntry[] = wire.apps.map((app) => {
-    const byok = app.by_model.every((line) =>
-      line.payment_method.endsWith("byok"),
-    );
-    const byModel: AppModelRow[] = app.by_model.map((line) => ({
-      model: line.model,
-      provider: line.provider,
-      paymentMethod: line.payment_method,
-      turns: line.turns,
-      inputTokens: line.input_tokens,
-      outputTokens: line.output_tokens,
-      // No base-vs-markup split on the ledger — charged is the only real
-      // number, so base mirrors it rather than inventing a markup.
-      baseUsd: line.usd,
-      chargedUsd: line.usd,
-      ...(line.payment_method.endsWith("byok")
-        ? { note: "paid by your own key" }
-        : {}),
-    }));
-    return {
-      id: app.app,
-      name: app.app,
-      native: app.app === "default",
-      settings: {
-        modelKey: byok ? "byok" : "managed",
-        appByok: byok,
-        managedMarkupPct: 0,
-        note: "",
-      },
-      model: {
-        baseUsd: app.usd,
-        markupPct: 0,
-        markupUsd: 0,
-        chargedUsd: app.usd,
-        billed: !byok,
-        turns: app.turns,
-        byModel,
-      },
-      tool: null,
-      outcome: null,
-      appTotalUsd: app.usd,
-    };
-  });
-
-  const allowanceAppliedUsd =
-    wire.payment.find((leg) => leg.method === "included")?.usd ?? 0;
-  const creditBankAppliedUsd =
-    wire.payment.find((leg) => leg.method === "credit_bank")?.usd ?? 0;
-  const settledVia = wire.payment.length
-    ? wire.payment.map((leg) => paymentMethodLabel(leg.method)).join(" + ")
-    : "your own key";
-
-  const payment: UsagePayment = {
-    settledVia,
-    allowanceCredits: allowance,
-    allowanceAppliedUsd,
-    creditBankAppliedUsd,
-    onchainUsd: 0,
-    onchainNote: "",
-  };
-
-  const { from, to } = monthRange(monthKey);
-  return {
-    period: {
-      periodLabel: monthLabel(monthKey),
-      from,
-      to,
-      issued: to,
-    },
-    summary: {
-      modelUsd: wire.total_usd,
-      toolUsd: 0,
-      outcomeUsd: 0,
-      computeUsd: wire.total_usd,
-      onchainUsd: 0,
-      totalUsd: wire.total_usd,
-      managedMarkupUsd: 0,
-    },
-    payment,
-    apps,
-    byApp: wire.apps.map((app) => ({
-      app: app.app,
-      modelUsd: app.usd,
-      toolUsd: null,
-      outcomeUsd: null,
-      totalUsd: app.usd,
-    })),
-    columnTotals: {
-      modelUsd: wire.total_usd,
-      toolUsd: 0,
-      outcomeUsd: 0,
-      totalUsd: wire.total_usd,
-    },
-  };
 }

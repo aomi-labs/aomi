@@ -6,6 +6,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  CommitController,
+  type CommitView,
+  type Event,
+} from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
 
@@ -14,11 +19,523 @@ describe("WalletReview", () => {
     runtime.isRunning = false;
     runtime.pendingActions = [];
     runtime.events = [];
+    runtime.commits = [];
+    runtime.commitController = undefined;
     runtime.turnState = undefined;
     runtime.executeAction.mockReset().mockResolvedValue(undefined);
     runtime.rejectAction.mockReset().mockResolvedValue(undefined);
     runtime.showNotification.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+
+  it("renders one whole-operation review from durable commits", async () => {
+    const request = {
+      type: "execute_evm" as const,
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x1111111111111111111111111111111111111111",
+          to: "0x2222222222222222222222222222222222222222",
+          data: "0x01",
+          label: "Approve USDC for Aave",
+          kind: "approval",
+        },
+        {
+          chain_id: 8453,
+          from: "0x1111111111111111111111111111111111111111",
+          to: "0x3333333333333333333333333333333333333333",
+          data: "0x02",
+          label: "Supply 100 USDC to Aave",
+          kind: "supply",
+        },
+      ],
+      simulation: {
+        ...simulation(),
+        balanceChanges: [
+          {
+            account: "0x1111111111111111111111111111111111111111",
+            asset: "0x4444444444444444444444444444444444444444",
+            amount: "100000000",
+            direction: "out" as const,
+            standard: "erc20" as const,
+            name: "USD Coin",
+            symbol: "USDC",
+            decimals: 6,
+            chainId: 8453,
+          },
+          {
+            account: "0x1111111111111111111111111111111111111111",
+            asset: "0x5555555555555555555555555555555555555555",
+            amount: "100000118",
+            direction: "in" as const,
+            standard: "erc20" as const,
+            name: "Aave Base USDC",
+            symbol: "aBasUSDC",
+            decimals: 6,
+            chainId: 8453,
+          },
+        ],
+      },
+    };
+    const commit = (sourceId: number, index: number): CommitView => ({
+      version: 1,
+      commit_id: `commit-${sourceId}`,
+      thread_id: "thread-1",
+      stage_id: `evm:${sourceId}`,
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "0x1111111111111111111111111111111111111111",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      supported_transports: ["sign_and_broadcast", "browser_send"],
+      transaction_id: null,
+      failure_code: null,
+      batch: {
+        batch_id: "batch-1",
+        index,
+        ordered_stage_ids: ["evm:1", "evm:2"],
+        ordered_commit_ids: ["commit-1", "commit-2"],
+        sources: [
+          {
+            thread_id: "thread-1",
+            chain_family: "evm",
+            chain_ref: "8453",
+            stage_id: `evm:${sourceId}`,
+            source_id: sourceId,
+          },
+        ],
+        predecessor_commit_id: index ? "commit-1" : null,
+        review_digest: "review-1",
+      },
+      review: {
+        version: 1,
+        revision: 1,
+        digest: "review-1",
+        request,
+        legs: [],
+      },
+      wallet_attempt: null,
+      action:
+        index === 0
+          ? {
+              kind: "sign",
+              payload: {
+                kind: "evm_transaction",
+                chain_id: 8453,
+                signer: "0x1111111111111111111111111111111111111111",
+                nonce: 7,
+                transaction: {
+                  to: request.transactions[0].to,
+                  value: "0",
+                  data: request.transactions[0].data,
+                  gas_limit: 50_000,
+                  max_fee_per_gas: "2",
+                  max_priority_fee_per_gas: "1",
+                },
+              },
+            }
+          : null,
+    });
+    runtime.events = [1, 2].map(
+      (sourceId) =>
+        ({
+          type: "message",
+          event_id: `event-${sourceId}`,
+          sequence: sourceId,
+          turn_id: "turn-1",
+          occurred_at: sourceId,
+          sender: "agent",
+          content: "",
+          tool_name: "evm_stage_tx",
+          tool_result: [
+            "evm_stage_tx",
+            JSON.stringify({
+              ...request.transactions[sourceId - 1],
+              pending_tx_id: sourceId,
+              current_lifecycle: "queued",
+            }),
+          ],
+        }) satisfies Event,
+    );
+    runtime.commits = [commit(1, 0), commit(2, 1)];
+    runtime.pendingActions = [action(request)];
+    const execute = vi.fn().mockResolvedValue(undefined);
+    runtime.commitController = {
+      review: (id: string) =>
+        runtime.commits.find((candidate) => candidate.commit_id === id)?.review
+          ?.request,
+      canExecute: (view: CommitView) => view.action != null,
+      execute,
+      reject: vi.fn(),
+    } as unknown as CommitController;
+
+    const { rerender } = render(<ActivitySidebar />);
+
+    expect(screen.getAllByTestId("activity-transaction")).toHaveLength(2);
+    expect(screen.getAllByTestId("asset-effect")[0]).toHaveTextContent("−100");
+    expect(screen.getAllByTestId("asset-effect")[1]).toHaveTextContent(
+      "+100.000118",
+    );
+    expect(screen.getAllByTestId("transaction-review")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
+    expect(runtime.executeAction).not.toHaveBeenCalled();
+
+    runtime.commits = runtime.commits.map((view) => ({
+      ...view,
+      state: "expired",
+      action: null,
+    }));
+    rerender(<ActivitySidebar />);
+
+    expect(
+      screen.queryByRole("button", { name: "Send to wallet" }),
+    ).not.toBeInTheDocument();
+
+    runtime.pendingActions = [
+      action(request),
+      {
+        ...action(request),
+        id: "action-2",
+        sequence: 2,
+      },
+    ];
+    rerender(<ActivitySidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(runtime.executeAction).toHaveBeenCalledWith("action-2"),
+    );
+
+    cleanup();
+    runtime.pendingActions = [action(request)];
+    runtime.commits = [
+      {
+        ...runtime.commits[0],
+        state: "needs_signature",
+        action: null,
+        wallet_attempt: {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          state: "mismatched",
+          transaction_id: "0xdeadbeef",
+          failure_code: "transaction_mismatch",
+        },
+      },
+      { ...runtime.commits[1], state: "needs_signature" },
+    ];
+    render(<ActivitySidebar />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Wallet transaction needs attention. It does not match the reviewed request.",
+    );
+  });
+
+  it("retries a saved wallet outcome without sending the transaction twice", async () => {
+    const request = {
+      type: "execute_evm" as const,
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x1111111111111111111111111111111111111111",
+          to: "0x2222222222222222222222222222222222222222",
+          data: "0x01",
+          label: "Supply USDC",
+          kind: "supply",
+        },
+      ],
+      simulation: simulation(),
+    };
+    const initial: CommitView = {
+      version: 1,
+      commit_id: "commit-recovery",
+      thread_id: "thread-1",
+      stage_id: "evm:1",
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: request.transactions[0].from,
+      broadcaster: "wallet",
+      state: "needs_signature",
+      supported_transports: ["sign_and_broadcast", "browser_send"],
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: {
+        version: 1,
+        revision: 1,
+        digest: "review-1",
+        request,
+        legs: [],
+      },
+      wallet_attempt: null,
+      action: {
+        kind: "sign",
+        payload: {
+          kind: "evm_transaction",
+          chain_id: 8453,
+          signer: request.transactions[0].from,
+          nonce: 7,
+          transaction: {
+            to: request.transactions[0].to,
+            value: "0",
+            data: request.transactions[0].data,
+            gas_limit: 50_000,
+            max_fee_per_gas: "2",
+            max_priority_fee_per_gas: "1",
+          },
+        },
+      },
+    };
+    const walletAttempt = {
+      attempt_id: "attempt-1",
+      transport: "browser_send",
+      state: "awaiting_wallet" as const,
+      transaction_id: null,
+      failure_code: null,
+    };
+    const awaiting: CommitView = {
+      ...initial,
+      version: 2,
+      action: null,
+      wallet_attempt: walletAttempt,
+    };
+    const submitted: CommitView = {
+      ...awaiting,
+      version: 3,
+      state: "submitted",
+      transaction_id: "0xtransaction",
+      wallet_attempt: {
+        ...walletAttempt,
+        state: "reported",
+        transaction_id: "0xtransaction",
+      },
+    };
+    const saved = new Map<
+      string,
+      {
+        clientRequestId: string;
+        attemptId?: string;
+        transactionId?: string;
+      }
+    >();
+    const recovery = {
+      load: (_threadId: string, commitId: string) => saved.get(commitId),
+      save: (
+        _threadId: string,
+        commitId: string,
+        record: {
+          clientRequestId: string;
+          attemptId?: string;
+          transactionId?: string;
+        },
+      ) => saved.set(commitId, record),
+      remove: (_threadId: string, commitId: string) => saved.delete(commitId),
+    };
+    let reports = 0;
+    const requestApi = vi.fn(async (method: string, path: string) => {
+      if (method === "GET") return initial;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: initial.commit_id,
+          state: "awaiting_wallet",
+          request:
+            initial.action?.kind === "sign" ? initial.action.payload : null,
+          may_invoke_wallet: true,
+        };
+      reports += 1;
+      if (reports === 1) throw new Error("report transport failed");
+      return submitted;
+    });
+    const walletSend = vi.fn().mockResolvedValue("0xtransaction");
+    const controller = new CommitController(
+      { request: requestApi } as never,
+      initial.thread_id,
+      { recovery, walletSend, walletSendPreflight: vi.fn() },
+    );
+    controller.ingest(initial);
+    runtime.commitController = controller;
+    runtime.commits = [initial];
+
+    const view = render(<ActivitySidebar />);
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(runtime.showNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "report transport failed" }),
+      ),
+    );
+
+    runtime.commits = [awaiting];
+    controller.ingest(awaiting);
+    view.rerender(<ActivitySidebar />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Wallet transaction found. Continue to verify it.",
+    );
+    const retry = screen.getByRole("button", { name: "Send to wallet" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(reports).toBe(2));
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    controller.close();
+
+    saved.set(initial.commit_id, {
+      clientRequestId: "request-1",
+      attemptId: "attempt-1",
+      transactionId: "0xtransaction",
+    });
+    const mismatched: CommitView = {
+      ...awaiting,
+      version: 4,
+      wallet_attempt: {
+        ...walletAttempt,
+        state: "mismatched",
+        transaction_id: "0xtransaction",
+        failure_code: "transaction_mismatch",
+      },
+    };
+    const mismatchController = new CommitController(
+      { request: requestApi } as never,
+      initial.thread_id,
+      { recovery, walletSend, walletSendPreflight: vi.fn() },
+    );
+    mismatchController.ingest(mismatched);
+    runtime.commitController = mismatchController;
+    runtime.commits = [mismatched];
+    view.rerender(<ActivitySidebar />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Wallet transaction needs attention. It does not match the reviewed request.",
+    );
+    for (const button of screen.getAllByRole("button"))
+      expect(button).toBeDisabled();
+    await mismatchController.execute(mismatched.commit_id);
+    expect(reports).toBe(2);
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    mismatchController.close();
+  });
+
+  it("renders and approves a reviewless durable Solana commit", async () => {
+    const commit: CommitView = {
+      version: 1,
+      commit_id: "commit-svm",
+      thread_id: "thread-1",
+      stage_id: "svm:7",
+      chain_family: "svm",
+      chain_ref: "devnet",
+      signer: "payer-address",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: null,
+      wallet_attempt: null,
+      action: {
+        kind: "sign",
+        payload: {
+          kind: "svm_transaction",
+          signer: "payer-address",
+          transaction_base64: "AQID",
+        },
+      },
+    };
+    const submitted: CommitView = {
+      ...commit,
+      version: 2,
+      state: "submitted",
+      action: null,
+      transaction_id: "solana-signature",
+    };
+    const request = vi.fn(async (method: string) =>
+      method === "GET" ? commit : submitted,
+    );
+    const sign = vi.fn().mockResolvedValue(["signed-transaction"]);
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { sign },
+    );
+    controller.ingest(commit);
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+
+    render(<ActivitySidebar />);
+
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "Review Solana transaction",
+    );
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "devnet",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(sign).toHaveBeenCalledWith(commit, commit.action?.payload),
+    );
+    expect(request).toHaveBeenCalledWith(
+      "POST",
+      "/api/commits/commit-svm/manual",
+      expect.objectContaining({
+        body: { kind: "signed", payloads: ["signed-transaction"] },
+      }),
+    );
+    controller.close();
+  });
+
+  it("resumes a reviewless Solana commit awaiting broadcast", async () => {
+    const commit: CommitView = {
+      version: 2,
+      commit_id: "commit-svm-broadcast",
+      thread_id: "thread-1",
+      stage_id: "svm:8",
+      chain_family: "svm",
+      chain_ref: "devnet",
+      signer: "payer-address",
+      broadcaster: "wallet",
+      state: "awaiting_broadcast",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: null,
+      wallet_attempt: null,
+      action: {
+        kind: "broadcast",
+        signed_transaction: "signed-transaction",
+        transaction_id: "solana-signature",
+      },
+    };
+    const submitted: CommitView = {
+      ...commit,
+      version: 3,
+      state: "submitted",
+      action: null,
+      transaction_id: "solana-signature",
+    };
+    const request = vi.fn(async (method: string) =>
+      method === "GET" ? commit : submitted,
+    );
+    const walletBroadcast = vi.fn().mockResolvedValue("solana-signature");
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { walletBroadcast },
+    );
+    controller.ingest(commit);
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+
+    render(<ActivitySidebar />);
+
+    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+      "Submit signed Solana transaction",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    await waitFor(() =>
+      expect(walletBroadcast).toHaveBeenCalledWith(
+        commit,
+        "signed-transaction",
+      ),
+    );
+    controller.close();
   });
 
   afterEach(cleanup);

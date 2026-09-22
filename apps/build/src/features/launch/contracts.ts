@@ -30,6 +30,7 @@ export type {
   DeploymentFeedResult,
   DeploymentSecretsResult,
   DeploymentPromoteResult,
+  RequiredSecretsResult,
 } from "@aomi-labs/deploy/launch";
 
 export const TEMPLATE_REPO = resolveTemplateRepo();

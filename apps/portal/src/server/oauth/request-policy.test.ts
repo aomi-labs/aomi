@@ -48,6 +48,31 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("OAuth request policy", () => {
+  it("registers a separate account device grant without sharing agent scopes", async () => {
+    const request = (scope: string) =>
+      new Request("https://portal.example/api/auth/oauth2/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token_endpoint_auth_method: "none",
+          grant_types: [
+            "urn:ietf:params:oauth:grant-type:device_code",
+            "refresh_token",
+          ],
+          resources: ["https://portal.example/v1/account"],
+          scope,
+        }),
+      });
+    await expectContinue(
+      enforceAomiOAuthRequestPolicy(
+        request("account:apps:read account:credentials:write offline_access"),
+      ),
+    );
+    await expectReject(
+      enforceAomiOAuthRequestPolicy(request("agent:write account:apps:read")),
+    );
+  });
+
   it("requires exactly one exact resource and matching scopes", async () => {
     const authorize = (query: string) =>
       enforceAomiOAuthRequestPolicy(

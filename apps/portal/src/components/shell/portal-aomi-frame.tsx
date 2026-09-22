@@ -17,7 +17,11 @@ import {
   usePortalWalletAccountMenu,
   type SettingsTab,
 } from "@aomi-labs/widget-lib/host-composition";
-import { useAomiRuntime, usePerThreadControl } from "@aomi-labs/react";
+import {
+  useAomiRuntime,
+  useControl,
+  usePerThreadControl,
+} from "@aomi-labs/react";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
@@ -26,6 +30,7 @@ import {
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
+const GUEST_SESSION_TIMEOUT_MS = 8_000;
 
 function directTarget(
   app: string,
@@ -35,6 +40,77 @@ function directTarget(
   return Number.isSafeInteger(parsed) && parsed > 0
     ? { app, applicationId: parsed }
     : { app };
+}
+
+function PortalComposer({
+  enabledApps,
+  enabledApplicationIds,
+  lockedTarget,
+}: {
+  enabledApps: readonly string[];
+  enabledApplicationIds: readonly number[];
+  lockedTarget?: DirectRoutingApp;
+}) {
+  const { state } = useControl();
+  const installedIds = useMemo(
+    () => new Set(enabledApplicationIds),
+    [enabledApplicationIds],
+  );
+  const directApps = useMemo<DirectRoutingApp[]>(
+    () =>
+      enabledApps
+        .filter((app) => app !== "orchestrator" && app !== "auto")
+        .flatMap((app) => {
+          const matching = state.appDescriptors.filter(
+            (descriptor) => descriptor.name === app,
+          );
+          const hosted = matching.flatMap((descriptor) => {
+            const applicationId = Number(descriptor.applicationId);
+            return Number.isSafeInteger(applicationId) &&
+              applicationId > 0 &&
+              installedIds.has(applicationId)
+              ? [{ app, applicationId }]
+              : [];
+          });
+          const hasHostedIdentity = matching.some((descriptor) => {
+            const applicationId = Number(descriptor.applicationId);
+            return Number.isSafeInteger(applicationId) && applicationId > 0;
+          });
+          return hosted.length > 0 || hasHostedIdentity ? hosted : [{ app }];
+        }),
+    [enabledApps, installedIds, state.appDescriptors],
+  );
+  const routing = useMemo<AomiRoutingConfig>(
+    () =>
+      lockedTarget
+        ? {
+            targets: [{ mode: "direct", apps: [lockedTarget] }],
+            defaultMode: "direct",
+            showFixedControls: true,
+          }
+        : {
+            targets: [
+              { mode: "auto" },
+              ...(directApps.length > 0
+                ? [{ mode: "direct" as const, apps: directApps }]
+                : []),
+            ],
+            defaultMode: "auto",
+          },
+    [directApps, lockedTarget],
+  );
+
+  return (
+    <AomiFrame.Composer
+      withControl
+      controlBarProps={{
+        hideApiKey: true,
+        routing,
+        enabledAppIds: enabledApps,
+        hideNetwork: true,
+      }}
+    />
+  );
 }
 
 function RequestedAppBootstrap({
@@ -159,9 +235,15 @@ export function PortalAomiFrame() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      if (!cancelled) setGuestSession({ checked: true, userId: null });
+    }, GUEST_SESSION_TIMEOUT_MS);
     void fetch("/api/auth/get-session", {
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok) return null;
@@ -175,10 +257,15 @@ export function PortalAomiFrame() {
       })
       .catch(() => null)
       .then((userId) => {
-        if (!cancelled) setGuestSession({ checked: true, userId });
+        if (!cancelled) {
+          window.clearTimeout(timeout);
+          setGuestSession({ checked: true, userId });
+        }
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [accountStatus, accountUserId]);
   const principalId =
@@ -195,36 +282,11 @@ export function PortalAomiFrame() {
   const lockedApp = requestedApp.locked ? requestedApp.app : null;
   const lockedApplicationId = lockedApp ? requestedApp.applicationId : null;
   const enabledApps = accountOverview?.user.apps ?? DEFAULT_ENABLED_APPS;
+  const enabledApplicationIds = accountOverview?.user.application_ids ?? [];
   const lockedTarget = useMemo(
     () =>
       lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
     [lockedApp, lockedApplicationId],
-  );
-  const directApps = useMemo(
-    () =>
-      enabledApps
-        .filter((app) => app !== "orchestrator" && app !== "auto")
-        .map((app) => ({ app })),
-    [enabledApps],
-  );
-  const routing = useMemo<AomiRoutingConfig>(
-    () =>
-      lockedTarget
-        ? {
-            targets: [{ mode: "direct", apps: [lockedTarget] }],
-            defaultMode: "direct",
-            showFixedControls: true,
-          }
-        : {
-            targets: [
-              { mode: "auto" },
-              ...(directApps.length > 0
-                ? [{ mode: "direct" as const, apps: directApps }]
-                : []),
-            ],
-            defaultMode: "auto",
-          },
-    [directApps, lockedTarget],
   );
   const clientOptions = usePortalClientOptions(lockedApp, lockedApplicationId);
   const backendUrl = getBackendUrl();
@@ -259,7 +321,7 @@ export function PortalAomiFrame() {
     });
   }
 
-  if (!hasResolvedInitialAccount || !guestSession.checked) {
+  if (!hasResolvedInitialAccount) {
     return (
       <main
         aria-busy="true"
@@ -270,7 +332,9 @@ export function PortalAomiFrame() {
 
   return (
     <main
+      aria-busy={!guestSession.checked}
       data-testid="portal-shell"
+      inert={!guestSession.checked}
       className="bg-background relative h-full w-full overflow-hidden"
     >
       <AomiFrame.Root
@@ -311,14 +375,10 @@ export function PortalAomiFrame() {
             onOpenPackages={() => setOverlay("packages")}
           />
         </AomiFrame.Header>
-        <AomiFrame.Composer
-          withControl
-          controlBarProps={{
-            hideApiKey: true,
-            routing,
-            enabledAppIds: enabledApps,
-            hideNetwork: true,
-          }}
+        <PortalComposer
+          enabledApps={enabledApps}
+          enabledApplicationIds={enabledApplicationIds}
+          lockedTarget={lockedTarget}
         />
         <SvmWalletBindingGate />
         {/* Inside the frame so they see the Aomi runtime (the settings

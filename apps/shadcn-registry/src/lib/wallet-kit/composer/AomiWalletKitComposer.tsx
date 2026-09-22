@@ -341,6 +341,9 @@ export function AomiWalletKitComposer({
       switchChain: actions.switchChain,
       selectNetwork: actions.selectNetwork,
       sendTransaction: execution.evm.sendTransaction,
+      preparePreparedEvmTransaction:
+        execution.evm.preparePreparedEvmTransaction,
+      sendPreparedEvmTransaction: execution.evm.sendPreparedEvmTransaction,
       signEvmTransaction: execution.evm.signEvmTransaction,
       signTypedData: execution.evm.signTypedData,
       signMessage: execution.evm.signMessage,

@@ -5,7 +5,10 @@
 
 import {
   normalizeAppDescriptor,
+  type AomiAccountAppMutationResponse,
   type AomiAppDescriptor,
+  type AomiDeleteSecretResponse,
+  type AomiUserAppSecrets,
 } from "@aomi-labs/client";
 import type { ShellRequest } from "../../transport";
 import { accountScopedFetch } from "../../lib/settings-api";
@@ -22,13 +25,57 @@ export async function fetchAppCatalog(
     .filter((app): app is AomiAppDescriptor => app !== null);
 }
 
-export async function setInstalledApps(
-  apps: string[],
+function appInstallPath(applicationId: number | string): string {
+  return `/api/account/apps/${encodeURIComponent(String(applicationId))}`;
+}
+
+export async function installApp(
+  applicationId: number | string,
   request: ShellRequest = accountScopedFetch,
-): Promise<string[]> {
-  const response = await request<{ apps: string[] }>("/api/account/apps", {
-    method: "PUT",
-    body: JSON.stringify({ apps }),
+): Promise<AomiAccountAppMutationResponse> {
+  return request(appInstallPath(applicationId), {
+    method: "POST",
   });
-  return response.apps;
+}
+
+export async function uninstallApp(
+  applicationId: number | string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiAccountAppMutationResponse> {
+  return request(appInstallPath(applicationId), {
+    method: "DELETE",
+  });
+}
+
+function appSecretsPath(applicationId: number | string): string {
+  return `/api/account/apps/${encodeURIComponent(String(applicationId))}/secrets`;
+}
+
+export function fetchAppSecrets(
+  applicationId: number | string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiUserAppSecrets> {
+  return request(appSecretsPath(applicationId));
+}
+
+export function saveAppSecrets(
+  applicationId: number | string,
+  secrets: Record<string, string>,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiUserAppSecrets> {
+  return request(appSecretsPath(applicationId), {
+    method: "POST",
+    body: JSON.stringify({ secrets }),
+  });
+}
+
+export function removeAppSecret(
+  applicationId: number | string,
+  name: string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<AomiDeleteSecretResponse> {
+  return request(
+    `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
 }

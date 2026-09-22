@@ -11,6 +11,7 @@ import {
 import {
   AgentApiError,
   type ActionCapabilities,
+  type CommitCapabilities,
   type AgentTarget,
   type AomiClient,
 } from "@aomi-labs/client";
@@ -70,6 +71,7 @@ export type AomiRuntimeCoreProps = {
   aomiClient: AomiClient;
   agentTarget?: AgentTarget;
   actions?: ActionCapabilities;
+  commits?: CommitCapabilities;
   accountSessionAvailable?: boolean;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
@@ -84,6 +86,7 @@ export function AomiRuntimeCore({
   aomiClient,
   agentTarget,
   actions: actionCapabilities,
+  commits: commitCapabilities,
   accountSessionAvailable = false,
   restoredThreadId,
   threadPersistenceKey,
@@ -124,6 +127,7 @@ export function AomiRuntimeCore({
     },
     getClientId: () => getControlState().clientId ?? undefined,
     getActions: () => actionCapabilities,
+    getCommits: () => commitCapabilities,
     onSendSuccess: (threadId) => {
       const wasRemote = remoteThreadIdsRef.current.has(threadId);
       remoteThreadIdsRef.current.add(threadId);

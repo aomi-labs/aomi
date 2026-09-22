@@ -35,6 +35,16 @@ const DISCONNECTED_WAGMI_CONFIG: WagmiConfigShape = {
   connectors: [],
 };
 
+type SafeSendTransactionArgs = {
+  account?: `0x${string}`;
+  chainId?: number;
+  connector?: Connector;
+  data?: `0x${string}`;
+  nonce?: number;
+  to: `0x${string}`;
+  value?: bigint;
+};
+
 export function useSafeWalletClient(): {
   walletClient?: ReturnType<typeof useWalletClient>["data"];
 } {
@@ -104,23 +114,11 @@ export function useSafeSwitchChain(): {
 }
 
 export function useSafeSendTransaction(): {
-  sendTransactionAsync?: (args: {
-    chainId?: number;
-    connector?: Connector;
-    to: `0x${string}`;
-    value?: bigint;
-    data?: `0x${string}`;
-  }) => Promise<string>;
+  sendTransactionAsync?: (args: SafeSendTransactionArgs) => Promise<string>;
 } {
   try {
     return useSendTransaction() as {
-      sendTransactionAsync?: (args: {
-        chainId?: number;
-        connector?: Connector;
-        to: `0x${string}`;
-        value?: bigint;
-        data?: `0x${string}`;
-      }) => Promise<string>;
+      sendTransactionAsync?: (args: SafeSendTransactionArgs) => Promise<string>;
     };
   } catch {
     return { sendTransactionAsync: undefined };

@@ -903,7 +903,9 @@ describe("deploymentPromoteRoute", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(ownedSources(99))
-      .mockResolvedValueOnce(Response.json({ deployment: null }, { status: 404 }));
+      .mockResolvedValueOnce(
+        Response.json({ deployment: null }, { status: 404 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await deploymentPromoteRoute(
@@ -1631,6 +1633,12 @@ describe("requiredSecretsRoute", () => {
                   name: "BINANCE_SECRET_KEY",
                   description: "d2",
                   required: true,
+                },
+                {
+                  name: "BINANCE_USER_KEY",
+                  description: "Chat user trading key",
+                  required: true,
+                  user_own: true,
                 },
               ],
             },

@@ -11,16 +11,28 @@ import {
   simulationCostSummary,
 } from "./presentation";
 
+export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
+  request: ActionRequest;
+};
+
 export function TransactionReview({
-  action,
+  review,
   supportedChains,
   approving = false,
+  approveDisabled = false,
+  rejectDisabled = false,
+  status,
+  statusIsError = false,
   onApprove,
   onReject,
 }: {
-  action: Action;
+  review: TransactionReviewData;
   supportedChains?: readonly SupportedChain[];
   approving?: boolean;
+  approveDisabled?: boolean;
+  rejectDisabled?: boolean;
+  status?: string;
+  statusIsError?: boolean;
   onApprove: () => void;
   onReject: () => void;
 }) {
@@ -36,14 +48,14 @@ export function TransactionReview({
         rail.getBoundingClientRect().bottom;
       if (overflow > 0) rail.scrollTop += overflow + 16;
     }
-  }, [action.id, action.revision]);
+  }, [review.id, review.revision]);
   const simulation =
-    action.request.type === "sign" ? undefined : action.request.simulation;
+    review.request.type === "sign" ? undefined : review.request.simulation;
   const warnings = visibleSimulationWarnings(simulation);
   const failed =
     simulation?.status === "failed" ||
     simulation?.guards.some((guard) => guard.status === "failed");
-  const request = action.request;
+  const request = review.request;
   const signers =
     request.type === "sign"
       ? [request.signer]
@@ -54,7 +66,7 @@ export function TransactionReview({
     <section
       ref={reviewRef}
       data-testid="transaction-review"
-      data-action-id={action.id}
+      data-action-id={review.id}
       aria-label="Wallet impact"
       className="text-aomi-fg animate-in fade-in-0 slide-in-from-top-2 mt-3 min-w-0 duration-300 motion-reduce:animate-none"
     >
@@ -69,7 +81,7 @@ export function TransactionReview({
       )}
       <div className="space-y-3">
         <ImpactPanel
-          key={`${action.id}-${action.revision}`}
+          key={`${review.id}-${review.revision}`}
           request={request}
           balanceChanges={simulation?.balanceChanges ?? []}
           approvals={simulation?.approvals ?? []}
@@ -112,6 +124,14 @@ export function TransactionReview({
           </pre>
         </details>
       )}
+      {status && (
+        <p
+          role={statusIsError ? "alert" : "status"}
+          className="text-aomi-muted mt-3 text-[11px]"
+        >
+          {status}
+        </p>
+      )}
       <footer
         className={failed ? "mt-3" : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"}
       >
@@ -119,7 +139,7 @@ export function TransactionReview({
           type="button"
           variant="outline"
           onClick={onReject}
-          disabled={approving}
+          disabled={approving || rejectDisabled}
           className="border-aomi-border bg-aomi-raised text-aomi-muted hover:bg-aomi-hover h-10 rounded-full text-[12px]"
         >
           {failed ? "Reject request" : "Reject"}
@@ -128,7 +148,7 @@ export function TransactionReview({
           <Button
             type="button"
             onClick={onApprove}
-            disabled={approving}
+            disabled={approving || approveDisabled}
             className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
           >
             <Wallet className="size-4" />
