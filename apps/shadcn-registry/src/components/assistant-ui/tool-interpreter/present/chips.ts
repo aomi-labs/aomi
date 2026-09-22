@@ -9,14 +9,13 @@ import {
   CoinsIcon,
   FuelIcon,
   HashIcon,
-  PuzzleIcon,
   ReceiptTextIcon,
   UserIcon,
 } from "lucide-react";
 
 import { getChainIcon } from "@/components/icons/chain-map";
 import { SolanaIcon } from "@/components/icons/chains";
-import { getSkillIcon } from "@/components/icons/skills";
+import { skillChip } from "../attribution";
 import {
   SHAPE_ICONS,
   STAGED_ACTION_ICON_REGISTRY,
@@ -150,10 +149,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
     case "selector":
       return { label: fact.label ?? fact.value };
     case "skill":
-      return {
-        label: fact.label ?? humanize(fact.value),
-        icon: getSkillIcon(fact.value) ?? PuzzleIcon,
-      };
+      return skillChip(fact.value);
     case "sourceHost":
       return { label: fact.label ?? fact.value };
     case "status":
@@ -181,7 +177,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
 export const uniqueChips = (chips: ToolChip[]): ToolChip[] => {
   const seen = new Set<string>();
   return chips.filter((chip) => {
-    const key = chip.label.toLowerCase();
+    const key = chip.id ?? chip.label.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

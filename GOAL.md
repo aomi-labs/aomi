@@ -1,3 +1,14 @@
+# Working-trace app and skill attribution — 2026-09-22
+
+Frontend-only `codex/trace-app-skill-badges`, based on `origin/main` at
+`01a39487`. The shared trace displays app/skill ownership badges and app
+artwork, including Hoodit, and labels injected tools from the skill catalog.
+Namespaced skill IDs render readable names while routing IDs stay intact.
+Main and child traces share the same attribution context. Historical LI.FI
+and Jupiter result shapes retain their skill badge without catalog metadata.
+Widget patch version: 3.0.6. See `docs/trace-attribution/README.md` for browser
+proof, focused checks, and the unrelated full-widget test-typecheck failures.
+
 # Arc protocol support planning — 2026-09-20
 
 Explored Arc mainnet support in the paired `arc-protocol-support-plan` worktrees. Product implementation has not started. Backend-owned plan: `../product-mono/docs/plans/2026-09-20-arc-protocol-support.md`. Existing Arc wallet, chain, icon and explorer support will be reused; proposed frontend work focuses on USDC units, protocol result presentation and authenticated staging verification.

@@ -52,6 +52,7 @@ export const ToolChipView: FC<{
   const Glyph = chip.icon;
   return (
     <span
+      title={chip.title}
       className={cn(
         "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] tabular-nums leading-none",
         animate &&
@@ -119,7 +120,9 @@ export const ToolStepRow: FC<{
       ? interpretation.chips.slice(0, MAX_VISIBLE_CHIPS)
       : interpretation.chips;
   const overflow = interpretation.chips.length - shownChips.length;
-  const chipKeys = interpretation.chips.map((chip) => chip.label.toLowerCase());
+  const chipKeys = interpretation.chips.map(
+    (chip) => chip.id ?? chip.label.toLowerCase(),
+  );
   const seenChipKeys = useRef(new Set(animate ? [] : chipKeys));
   const hasNewOverflowChip = chipKeys
     .slice(shownChips.length)

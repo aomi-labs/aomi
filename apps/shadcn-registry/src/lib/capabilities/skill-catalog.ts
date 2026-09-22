@@ -126,13 +126,7 @@ export async function fetchSkillDetail(
   };
 }
 
-export function skillLabel(skill: Pick<SkillSummary, "name">): string {
-  return skill.name
-    .split(/[-_\s]+/u)
-    .filter(Boolean)
-    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
-    .join(" ");
-}
+export { skillLabel } from "./skill-label";
 
 const CHAIN_CONTEXT =
   /\s+(?:on|from|across)\s+(?:Ethereum|Arbitrum(?: One)?|Optimism|OP Mainnet|Polygon|Base|Linea|Monad|MegaETH|Robinhood|Solana)\b.*$/iu;

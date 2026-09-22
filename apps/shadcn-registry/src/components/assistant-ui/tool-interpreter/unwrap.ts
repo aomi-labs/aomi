@@ -38,8 +38,13 @@ export const unwrapToolStep = ({
   relatedResults,
 }: ToolStepInput): ToolContext => {
   const parsedArgs = parseArgsText(argsText);
+  // Child-agent previews serialize the same JSON result as a string.
+  const parsedResult =
+    typeof result === "string" ? parseArgsText(result) : result;
   const unwrapped =
-    typeof result === "string" ? { args: result } : unwrapEnvelope(result);
+    typeof result === "string" && !asRecord(parsedResult)
+      ? { args: result }
+      : unwrapEnvelope(parsedResult);
   const relatedResultRecords = (relatedResults ?? [])
     .map(unwrapEnvelope)
     .map(asRecord)

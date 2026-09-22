@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conciseSkillDescription } from "./skill-catalog";
+import { conciseSkillDescription, skillLabel } from "./skill-catalog";
 
 describe("conciseSkillDescription", () => {
   it("removes picker boilerplate and redundant chain prose", () => {
@@ -24,4 +24,10 @@ describe("conciseSkillDescription", () => {
     expect(summary.endsWith("…")).toBe(true);
     expect(summary.length).toBeLessThanOrEqual(64);
   });
+});
+
+it("formats namespaced skill labels without changing wire IDs", () => {
+  expect(skillLabel({ name: "hoodit/coin-scanner" })).toBe("Coin Scanner");
+  expect(skillLabel({ name: "hyperliquid/portfolio" })).toBe("Portfolio");
+  expect(skillLabel({ name: "lifi_swap" })).toBe("Lifi Swap");
 });

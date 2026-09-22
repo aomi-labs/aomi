@@ -25,12 +25,6 @@ const op = (
   rawLabel,
 });
 
-const displaySkillLabel = (skillId: string): string | undefined => {
-  if (skillId === "lifi_swap") return "Lifi Swap";
-  if (skillId === "common_erc20") return "Common Erc20";
-  return undefined;
-};
-
 export const matchWebSearch: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;
   const body = asString(resultRecord.args) ?? asString(resultRecord.result);
@@ -51,8 +45,23 @@ export const matchWebSearch: ToolMatcher = ({ rawLabel, resultRecord }) => {
 
 export const matchSkillActivation: ToolMatcher = ({
   rawLabel,
+  parsedArgs,
   resultRecord,
 }) => {
+  const requested = asRecord(parsedArgs)?.skill_ids;
+  if (
+    !resultRecord &&
+    /^(?:activate_skills|Activate skills)$/i.test(rawLabel) &&
+    Array.isArray(requested)
+  ) {
+    return op(
+      "skill.activate",
+      rawLabel,
+      requested
+        .filter((id): id is string => typeof id === "string")
+        .map((value) => ({ kind: "skill", value, source: "args" })),
+    );
+  }
   if (!resultRecord) return null;
   if (!("activated" in resultRecord || "applied_scope" in resultRecord)) {
     return null;
@@ -71,7 +80,6 @@ export const matchSkillActivation: ToolMatcher = ({
       ? activated.map((value) => ({
           kind: "skill",
           value,
-          label: displaySkillLabel(value),
           source: "result" as const,
         }))
       : [{ kind: "skill", value: "Skill", source: "result" }],

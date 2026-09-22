@@ -23,6 +23,7 @@ import {
   RenderedText,
   WorkingTrace,
 } from "./working-trace";
+import { TraceAttributionContext } from "./trace-attribution";
 import { ToolStepRow } from "./working-trace-rows";
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
@@ -568,4 +569,39 @@ describe("WorkingTrace", () => {
       buildTraceItems([], [latest])[0]?.key,
     );
   });
+});
+
+it("keeps ownership badges visible in the mother and delegated trace", () => {
+  const attribution = {
+    skills: [
+      { id: "lifi_swap", name: "lifi_swap", injectedTools: ["lifi_get_quote"] },
+    ],
+  };
+  const child = run([
+    {
+      kind: "tool_call",
+      toolName: "lifi_get_quote",
+      args: {},
+      resultPreview: JSON.stringify({ error: "Unavailable" }),
+      childSeq: 1,
+    },
+  ]);
+  const tool: ToolCallMessagePart = {
+    type: "tool-call",
+    toolCallId: "quote",
+    toolName: "lifi_get_quote",
+    args: {},
+    argsText: "{}",
+    result: { error: "Unavailable" },
+  };
+  const { getAllByText } = render(
+    <TraceAttributionContext.Provider value={attribution}>
+      <WorkingTrace
+        running
+        items={buildTraceItems([tool], [child])}
+        revealed={2}
+      />
+    </TraceAttributionContext.Provider>,
+  );
+  expect(getAllByText("Lifi Swap")).toHaveLength(2);
 });

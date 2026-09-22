@@ -5,6 +5,10 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 
 export type ToolChip = {
   label: string;
+  /** Stable identity for attribution badges with potentially identical labels. */
+  id?: string;
+  title?: string;
+  skillId?: string;
   dot?: string;
   icon?: ElementType;
 };
@@ -26,6 +30,7 @@ export type ToolStepInput = {
   /** Earlier tool results in the same trace, used to resolve references such
    * as commit `tx_ids` back to the staged transaction's network. */
   relatedResults?: unknown[];
+  attribution?: import("./attribution").TraceAttribution;
 };
 
 export type FactKind =

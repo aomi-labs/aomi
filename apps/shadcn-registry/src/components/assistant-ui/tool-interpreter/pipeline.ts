@@ -30,6 +30,7 @@ import { matchSvmContext, matchSvmTokenHoldings } from "./families/svm";
 import { matchSvmPendingApproval, matchSvmSimulation } from "./families/svm-tx";
 import { matchEvmCall } from "./families/evm-call";
 import { matchTaskDelegation } from "./families/task";
+import { skillChip } from "./attribution";
 import { presentOperation } from "./present";
 import type {
   InterpretedToolStep,
@@ -92,5 +93,15 @@ export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
       null,
     ) ?? fallbackOperation(ctx);
 
-  return presentOperation(operation);
+  const step = presentOperation(operation);
+  if (operation.id.startsWith("lifi.")) {
+    step.chips = [
+      skillChip("lifi_swap"),
+      ...step.chips.filter((chip) => chip.label !== "Lifi"),
+    ];
+  }
+  if (operation.id === "jupiter.swap.prepare") {
+    step.chips = [skillChip("jupiter"), ...step.chips];
+  }
+  return step;
 };

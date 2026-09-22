@@ -23,6 +23,7 @@ import {
   type TaskRunState,
 } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
   agentStepCount,
@@ -74,6 +75,7 @@ const WorkingStep: FC<{
   animate: boolean;
   live: boolean;
 }> = ({ tool, relatedResults, active, animate, live }) => {
+  const attribution = useTraceAttribution();
   const done = tool.result !== undefined;
   const argsText =
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
@@ -81,6 +83,7 @@ const WorkingStep: FC<{
   return (
     <ToolStepRow
       interpretation={interpretToolStep({
+        attribution,
         toolName: tool.toolName,
         argsText,
         result: tool.result,
