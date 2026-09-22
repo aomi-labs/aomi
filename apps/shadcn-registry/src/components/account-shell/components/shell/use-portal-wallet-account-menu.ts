@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import type { WalletAccountMenuOptions } from "../../../control-bar/account-menu-types";
-import { formatAllowanceSummary } from "../../lib/account-overview";
+import {
+  creditAllowanceFromPosition,
+  formatAllowanceSummary,
+  type CreditAllowance,
+} from "../../lib/account-overview";
 import { useShellTransport } from "../../transport";
 import { useSettings } from "../../lib/use-settings";
 
@@ -23,10 +27,7 @@ export function usePortalWalletAccountMenu(
   } = {},
 ): WalletAccountMenuOptions | undefined {
   const { account: runtimeAccount } = useAomiRuntime();
-  const [credits, setCredits] = useState<{
-    used: number;
-    included: number;
-  } | null>(null);
+  const [credits, setCredits] = useState<CreditAllowance | null>(null);
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();
   const adapter = useAomiWalletKit();
@@ -43,12 +44,7 @@ export function usePortalWalletAccountMenu(
     void runtimeAccount.credits
       .get({ limit: 1 })
       .then((position) => {
-        if (mounted) {
-          setCredits({
-            used: position.included.used_microusd / 10_000,
-            included: position.included.limit_microusd / 10_000,
-          });
-        }
+        if (mounted) setCredits(creditAllowanceFromPosition(position));
       })
       .catch(() => {
         if (mounted) setCredits(null);

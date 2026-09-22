@@ -43,15 +43,16 @@ Still open here:
 | `rdns` on self-custody wallets | Para/Privy logos always; MetaMask/Phantom only when API returns `rdns` | Capture EIP-6963 `rdns` / wallet-adapter id at connect, persist to wallet `displayMetadata`, return via account API |
 | Grant `kind` copy | `grantKindLabel()` display map | Settle grant_kind enum copy on the backend |
 
-## Usage tab + `/statement` (`src/features/usage/`) — **model subject wired 2026-07-26**
+## Usage tab + `/statement` (`src/features/usage/`) — **current payment contract wired 2026-09-21**
 
-Both surfaces now read `GET /api/account/statement?from_date&to_date` (new
-backend endpoint; `aomi_account::model_statement` over `llm_usage_events` —
-the only table that keeps the model dimension; the daily rollup drops it).
-`statement-api.ts` adapts the wire onto the existing `MonthlyStatement` shape,
-`use-usage-statement.ts` fetches per month key with a session cache.
-`fixture.ts` is unreferenced — kept as the design harness for the sections
-that can't be real yet.
+Both surfaces read paginated `GET /v1/account/statement?from&to` usage-charge
+rows. `statement-api.ts` validates the current `gross` / `included` / `credits`
+and structured `funding` contract, then aggregates it directly into the shared
+`MonthlyStatement` view. `use-usage-statement.ts` fetches each month key with a
+session cache. The current-month allowance and Credit Bank position come from
+`GET /v1/account/credits`; the Credit Bank view consumes the same typed SDK
+position. `fixture.ts` remains only as the explicit `/dev/theme-audit` visual
+harness and is not part of either live payment surface.
 
 The honesty rule that shaped this: **a subject with no ledger writer renders
 as absent ("—"), never as $0.00.** The types already encoded it
@@ -59,10 +60,10 @@ as absent ("—"), never as $0.00.** The types already encoded it
 
 | Was | Now |
 |---|---|
-| Per-app matrix + per-model rows | Real — per app × model × payment method, turns/tokens/credits/USD (`AomiCredit::to_usd`, no FE pricing constant) |
+| Per-app matrix + per-model rows | Real — per app × model × funding kind, turns/tokens/USD from the current usage-charge contract |
 | Monthly history | Real — month picker fetches per range; last 6 months offered |
-| Payment strip | Real for the current month — allowance position from the profile's embedded `UsageStats`, x402 settlement from `paid_credits` on stream-method legs. Hidden for past months (the profile's position is only exact for the current one) |
-| BYOK marking | Real — an app whose lines are all `payment_method: "byok"` shows "paid by your own key" and `billed: false` |
+| Payment strip | Real — each statement row contributes `included` and `credits`; the current month also shows the allowance position from `/v1/account/credits` |
+| BYOK marking | Real — an app whose rows are all funded by `user_key` or `application_key` shows "paid by your own key" and `billed: false` |
 | `/statement` identity header | Real — email/user id + public key from `/api/account` |
 
 Still open here (all blocked on ledger writers, not on FE/endpoint work):

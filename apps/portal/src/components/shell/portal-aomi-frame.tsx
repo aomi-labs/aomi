@@ -26,6 +26,7 @@ import {
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
+const GUEST_SESSION_TIMEOUT_MS = 8_000;
 
 function directTarget(
   app: string,
@@ -159,9 +160,15 @@ export function PortalAomiFrame() {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      controller.abort();
+      if (!cancelled) setGuestSession({ checked: true, userId: null });
+    }, GUEST_SESSION_TIMEOUT_MS);
     void fetch("/api/auth/get-session", {
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller.signal,
     })
       .then(async (response) => {
         if (!response.ok) return null;
@@ -175,10 +182,15 @@ export function PortalAomiFrame() {
       })
       .catch(() => null)
       .then((userId) => {
-        if (!cancelled) setGuestSession({ checked: true, userId });
+        if (!cancelled) {
+          window.clearTimeout(timeout);
+          setGuestSession({ checked: true, userId });
+        }
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [accountStatus, accountUserId]);
   const principalId =
@@ -259,7 +271,7 @@ export function PortalAomiFrame() {
     });
   }
 
-  if (!hasResolvedInitialAccount || !guestSession.checked) {
+  if (!hasResolvedInitialAccount) {
     return (
       <main
         aria-busy="true"
@@ -270,7 +282,9 @@ export function PortalAomiFrame() {
 
   return (
     <main
+      aria-busy={!guestSession.checked}
       data-testid="portal-shell"
+      inert={!guestSession.checked}
       className="bg-background relative h-full w-full overflow-hidden"
     >
       <AomiFrame.Root

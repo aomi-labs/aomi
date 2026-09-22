@@ -14,17 +14,16 @@ const baseConfig = {
 };
 const position = {
   period_utc_month: "2026-09-01",
-  included: {
-    limit_microusd: 50_000_000,
-    used_microusd: 5_250_000,
-    remaining_microusd: 44_750_000,
-  },
-  bank: { balance_microusd: 1_500_000, outstanding_debt_microusd: 0 },
-  entries: [
+  included_limit: 50_000_000,
+  included_used: 5_250_000,
+  included_remaining: 44_750_000,
+  balance: 1_500_000,
+  outstanding_debt: 0,
+  records: [
     {
       id: 1,
-      amount_microusd: 1_500_000,
-      entry_kind: "purchase",
+      amount: 1_500_000,
+      kind: "purchase",
       application_id: null,
       payment_method: "coinbase",
       payment_provider: "coinbase",
@@ -115,7 +114,7 @@ describe("aomi account credits", () => {
         expect(await request.json()).toEqual({ amount_microusd: 1_000_000 });
         return Response.json({
           ...position,
-          bank: { balance_microusd: 2_500_000, outstanding_debt_microusd: 0 },
+          balance: 2_500_000,
         });
       },
     );
