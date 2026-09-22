@@ -8,6 +8,9 @@ import type { ToolChip } from "./tool-interpreter/types";
 const CHIP_BASE_DELAY_MS = 15;
 const CHIP_STEP_DELAY_MS = 25;
 
+export const chipAnimationDelay = (index: number): string =>
+  `${CHIP_BASE_DELAY_MS + index * CHIP_STEP_DELAY_MS}ms`;
+
 export const ToolChipView: FC<{
   chip: ToolChip;
   index?: number;
@@ -25,7 +28,7 @@ export const ToolChipView: FC<{
       style={
         animate
           ? {
-              animationDelay: `${CHIP_BASE_DELAY_MS + index * CHIP_STEP_DELAY_MS}ms`,
+              animationDelay: chipAnimationDelay(index),
             }
           : undefined
       }

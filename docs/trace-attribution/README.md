@@ -39,10 +39,12 @@ needed to identify the supplier reliably.
 
 ## Verification
 
-- 97 focused interpreter, attribution, trace and activity-sidebar tests pass.
+- 137 focused interpreter, attribution, trace and activity-sidebar tests pass.
   Coverage includes arbitrary new app names with unrelated tool names, exact
   declarations overriding misleading prefixes, missing/ambiguous metadata,
-  injected skill ownership, and identical sidebar/trace badges.
+  injected skill ownership, identical sidebar/trace badges, and initial/live
+  overflow-chip animation.
+- Removed unused early screenshots and the obsolete sidebar skill-catalog mock.
 - Changed-file lint passes. No public props or host-provider requirements changed.
 - Widget registry/package build and packed-widget consumer compatibility are
   checked against trusted base `01a39487b957305b5267ba5be73b11669144f679`.

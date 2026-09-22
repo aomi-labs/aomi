@@ -37,6 +37,48 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it.each(["initial", "update"])(
+    "staggers overflow badges on %s render",
+    (mode) => {
+      const base = {
+        icon: CircleIcon,
+        title: "Activate skill",
+        confidence: "high" as const,
+        rawLabel: "activate_skills",
+        failed: false,
+      };
+      const chips = Array.from({ length: 6 }, (_, index) => ({
+        label: `Skill ${index}`,
+      }));
+      const { getByText, queryByText, rerender } = render(
+        <ToolStepRow
+          interpretation={{
+            ...base,
+            chips: mode === "initial" ? chips : chips.slice(0, 4),
+          }}
+          done
+          active={false}
+          animate={mode === "initial"}
+          animateUpdates
+        />,
+      );
+      if (mode === "update") {
+        rerender(
+          <ToolStepRow
+            interpretation={{ ...base, chips }}
+            done
+            active={false}
+            animate={false}
+            animateUpdates
+          />,
+        );
+      }
+      expect(getByText("+2 more")).toHaveClass("animate-in");
+      expect(getByText("+2 more")).toHaveStyle({ animationDelay: "115ms" });
+      expect(queryByText("Skill 4")).not.toBeInTheDocument();
+    },
+  );
+
   it("animates only badges that arrive on an existing live row", () => {
     const base = {
       icon: CircleIcon,

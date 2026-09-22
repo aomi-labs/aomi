@@ -8,7 +8,7 @@ import { cn } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import type { InterpretedToolStep } from "@/components/assistant-ui/tool-interpreter";
 
-import { ToolChipView } from "./tool-chip";
+import { chipAnimationDelay, ToolChipView } from "./tool-chip";
 export { ToolChipView } from "./tool-chip";
 
 /**
@@ -155,7 +155,7 @@ export const ToolStepRow: FC<{
               style={
                 animate || (animateUpdates && hasNewOverflowChip)
                   ? {
-                      animationDelay: `${CHIP_BASE_DELAY_MS + shownChips.length * CHIP_STEP_DELAY_MS}ms`,
+                      animationDelay: chipAnimationDelay(shownChips.length),
                     }
                   : undefined
               }
