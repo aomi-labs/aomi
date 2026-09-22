@@ -18,14 +18,11 @@ export function createControlClient(
 ): AomiClient {
   const cli = CliSession.load();
   const baseUrl = config.baseUrl ?? DEFAULT_CLI_BASE_URL;
-  const oauth: AomiOAuthTokenProvider | undefined = config.accountBearer
-    ? async ({ resource, scopes }) => ({
-        accessToken: config.accountBearer!,
-        expiresAt: Number.MAX_SAFE_INTEGER,
-        resource,
-        scopes,
-        tokenType: "Bearer",
-      })
+  // An explicit legacy AccountBearer is carried by getAccountBearer below;
+  // it is not a resource-scoped OAuth grant.
+  const legacyBearer = config.accountBearer ?? cli?.toState().accountBearer;
+  const oauth: AomiOAuthTokenProvider | undefined = legacyBearer
+    ? undefined
     : cli?.createOAuthProvider(fetch);
   const authorizedFetch = oauth
     ? wrapFetchWithPublicApiAuthorization({ fetch, baseUrl, oauth })
@@ -41,7 +38,10 @@ export function createControlClient(
     // inside that wrapper so a newly-added Payment-Signature is authorized
     // again with payments:submit instead of reusing the narrower first token.
     oauth: paymentFetch ? undefined : oauth,
-    guest: oauth ? false : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
+    guest:
+      legacyBearer || oauth
+        ? false
+        : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
     getAccountBearer:
       createCliGetAccountBearer(config) ??
       createCliAuthTokenProvider(() => readState() ?? {}),

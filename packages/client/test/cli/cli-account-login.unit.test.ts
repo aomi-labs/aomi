@@ -104,6 +104,29 @@ describe("aomi account login", () => {
     }
   });
 
+  it("keeps explicit backend AccountBearers on the legacy account app transport", async () => {
+    const { createControlClient } = await import("../../src/cli/context");
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const client = createControlClient({
+        baseUrl: "http://backend.example:8080",
+        accountBearer: "test-account-bearer",
+        secrets: {},
+      });
+      await client.listAccountApps("s");
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(String(fetchMock.mock.calls[0][0])).toBe(
+        "http://backend.example:8080/api/account/apps",
+      );
+      expect(
+        new Headers(fetchMock.mock.calls[0][1].headers).get("authorization"),
+      ).toBe("Bearer test-account-bearer");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("passes an explicit provider to device auth", async () => {
     const deviceLogin = vi.fn(async () => ({
       provider: "para" as const,

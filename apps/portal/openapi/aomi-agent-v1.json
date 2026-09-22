@@ -2396,7 +2396,18 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "List available apps and exact installed state"
+            "description": "List available apps and exact installed state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2433,7 +2444,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Install an app after checking required user credentials"
+            "description": "Install an app after checking required user credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2468,7 +2487,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Remove an app installation"
+            "description": "Remove an app installation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2505,7 +2532,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Read credential declarations and presence, never values"
+            "description": "Read credential declarations and presence, never values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2540,7 +2575,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Save the authenticated account's declared credentials"
+            "description": "Save the authenticated account's declared credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2598,7 +2641,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Remove all credentials for this account and app"
+            "description": "Remove all credentials for this account and app",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2645,7 +2696,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Remove one credential for this account and app"
+            "description": "Remove one credential for this account and app",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
