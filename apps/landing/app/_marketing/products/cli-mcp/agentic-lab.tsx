@@ -94,7 +94,7 @@ const surfaceMatrix = [
     trace: [
       "aomi_chat",
       "aomi_check …",
-      "awaiting_user",
+      "awaiting_action",
       "sign in portal / CLI",
       "aomi_check ✓",
     ],

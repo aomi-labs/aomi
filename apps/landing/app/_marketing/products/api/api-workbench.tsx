@@ -17,7 +17,8 @@ const examples = {
   -H "Content-Type: application/json" \\
   -d '{
     "message": "Swap 0.5 ETH to USDC on Base",
-    "app": "aomi",
+    "mode": "direct",
+    "app": "default",
     "userState": {
       "connection": { "is_connected": true },
       "evm": {
@@ -43,10 +44,16 @@ const examples = {
     status: "event page",
     title: "Ordered events with a durable cursor",
     detail: "Messages, activity, turn state, and Actions share one event log",
+    flow: [
+      ["Start turn", "Send an idempotent intent and wallet state"],
+      ["Read events", "Continue from the durable cursor"],
+      ["Respond", "Report an Action result when signing finishes"],
+      ["Continue", "Read the next ordered event page"],
+    ],
   },
   pipeline: {
     label: "Pipeline API",
-    version: "v1",
+    version: "Build v2",
     endpoint: "POST /v1/pipeline/evm/stage",
     request: `curl https://chat.aomi.dev/v1/pipeline/evm/stage \\
   -H "Authorization: Bearer $AOMI_TOKEN" \\
@@ -54,34 +61,43 @@ const examples = {
   -H "Content-Type: application/json" \\
   -d '{
     "actions": [{
-      "chainId": 8453,
+      "to": "0x…",
       "description": "Supply USDC",
-      "calls": [{
-        "to": "0x…",
-        "data": "0x…",
-        "value": "0"
-      }]
+      "data": {
+        "signature": "",
+        "args": [],
+        "raw": "0x…"
+      },
+      "chain_id": 8453,
+      "value": "0"
     }]
   }'`,
     response: `{
-  "version": 1,
+  "version": 2,
   "status": "staged",
   "actions": [{
-    "id": "action_0",
-    "chainFamily": "evm",
-    "kind": "calls",
-    "chainId": 8453,
-    "calls": [{
-      "to": "0x…",
-      "data": "0x…",
-      "value": "0x0"
-    }]
+    "chain_id": 8453,
+    "from": "0xAb5…",
+    "to": "0x…",
+    "value": "0",
+    "data": "0x…",
+    "label": "Supply USDC",
+    "kind": "transaction"
   }],
-  "digest": "sha256:…"
+  "origin": { "app": "default", "operations": [] },
+  "expiresAt": 1788174300,
+  "digest": "sha256:…",
+  "attestation": "eyJ…"
 }`,
     status: "staged",
     title: "Portable staged EVM Build",
     detail: "Exact ordered calls and a stable digest",
+    flow: [
+      ["Stage", "Assemble a portable Build v2"],
+      ["Simulate", "Attach fork evidence and summary"],
+      ["Commit", "Seal the simulated Build"],
+      ["Handle requests", "Send each stateless request to the signer"],
+    ],
   },
 } as const;
 
@@ -186,26 +202,13 @@ export function ApiWorkbench() {
         </div>
 
         <ol className={styles.actionFlow} aria-label="Action lifecycle">
-          <li>
-            <span>01</span>
-            <strong>Request</strong>
-            <small>Intent or exact operation enters the API</small>
-          </li>
-          <li>
-            <span>02</span>
-            <strong>Build</strong>
-            <small>Transactions and simulation form a portable Build</small>
-          </li>
-          <li>
-            <span>03</span>
-            <strong>Sign</strong>
-            <small>Your wallet approves the exact payload</small>
-          </li>
-          <li>
-            <span>04</span>
-            <strong>Resume</strong>
-            <small>The verified result continues the workflow</small>
-          </li>
+          {example.flow.map(([title, detail], index) => (
+            <li key={title}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{title}</strong>
+              <small>{detail}</small>
+            </li>
+          ))}
         </ol>
       </div>
     </div>

@@ -1,279 +1,115 @@
 ---
 title: Building Apps
-description: How AomiApps are built with tools, preambles, and model selection.
+description: Build an Aomi App from a preamble, typed Rust tools, and declared capabilities.
 ---
 
 # Building Apps
 
-This page explains how AI assistants are constructed on the Aomi platform. It covers the AomiApp abstraction, the builder pattern, tool definitions, model selection, and app registration.
+An Aomi App is a packaged Rust plugin that gives the hosted Agent runtime a
+preamble and a set of typed tools. You implement the plugin with the public
+`aomi-sdk` crate; the host owns model orchestration, sessions, authorization,
+action review, and event delivery.
 
-## AomiApp: The Core Abstraction
+## App components
 
-Every AI assistant on the Aomi platform implements the **AomiApp** pattern. An AomiApp bundles:
+| Component                     | Purpose                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| Preamble                      | Define the App's role, rules, and expected workflow         |
+| `DynAomiTool` implementations | Expose typed operations to the model                        |
+| Secret declarations           | Name operator-owned configuration or user-owned credentials |
+| Host namespaces               | Request the platform capabilities the tools call            |
+| Manifest                      | Register the App name, version, tools, and capabilities     |
 
-| Component | Purpose |
-| --- | --- |
-| **Tools** | Functions the AI can call during conversations |
-| **Preamble** | System prompt defining personality, rules, and domain knowledge |
-| **Model** | Which LLM powers the assistant |
-| **RAG docs** | Optional document store for knowledge retrieval |
+## Create the plugin
 
-```mermaid
-flowchart TB
-    subgraph "AomiApp"
-        PREAMBLE[Preamble<br/>System prompt]
-        TOOLS[Tool Set<br/>API-backed functions]
-        MODEL[Model Selection<br/>Claude / GPT / OpenRouter]
-        RAG[RAG Store<br/>Domain documents]
-    end
+Pin the SDK version you build and test:
 
-    subgraph "Builder"
-        B[CoreAppBuilder]
-    end
+```toml
+[lib]
+crate-type = ["cdylib"]
 
-    B --> PREAMBLE
-    B --> TOOLS
-    B --> MODEL
-    B --> RAG
+[dependencies]
+aomi-sdk = "=5.1.1"
+serde = { version = "1", features = ["derive"] }
 ```
 
-## CoreAppBuilder
-
-Apps are constructed using the builder pattern:
-
-```mermaid
-flowchart LR
-    NEW[new] --> TOOL[add_tool]
-    TOOL --> TOOL
-    TOOL --> DOCS[add_docs_tool]
-    DOCS --> BUILD[build]
-    BUILD --> APP[AomiApp]
-```
-
-### Basic Example
+Define one typed argument structure and one `DynAomiTool` implementation for
+each operation. Keep tool descriptions specific enough for the model to choose
+the operation and field documentation specific enough to produce valid input.
 
 ```rust
-use aomi_chat::CoreAppBuilder;
+#[derive(Default)]
+struct PortfolioApp;
 
-let app = CoreAppBuilder::new("You are a helpful trading assistant.")
-    .await?
-    .add_tool(GetTokenPrice)?
-    .add_tool(ExecuteTrade)?
-    .add_tool(GetPortfolio)?
-    .build(system_events, sender)
-    .await?;
-```
+impl DynAomiTool for GetPortfolio {
+    type App = PortfolioApp;
+    type Args = GetPortfolioArgs;
 
-### With RAG Documents
+    const NAME: &'static str = "get_portfolio";
+    const DESCRIPTION: &'static str = "Read token balances for one address.";
 
-```rust
-let app = CoreAppBuilder::new(&preamble)
-    .await?
-    .add_tool(GetTokenPrice)?
-    .add_tool(ExecuteTrade)?
-    .add_docs_tool(sender, None)
-    .await?
-    .build(false, Some(&system_events), Some(&sender_to_ui))
-    .await?;
-```
-
-The `add_docs_tool` method registers a document search tool that queries a vector store of ingested documents.
-
-## Tools
-
-Tools are the functions your AI assistant can call. Each tool wraps an API endpoint or computation and makes it available to the LLM during conversations.
-
-### Defining a Tool
-
-Tools are defined using the `#[tool]` macro:
-
-```rust
-use rig::tool;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
-
-#[derive(Debug, Deserialize, JsonSchema, Clone)]
-pub struct GetTokenPriceArgs {
-    /// The token symbol (e.g., "ETH", "BTC")
-    pub symbol: String,
-}
-
-#[derive(Debug, Serialize, Clone)]
-pub struct TokenPrice {
-    pub symbol: String,
-    pub price: f64,
-    pub currency: String,
-}
-
-/// Get the current price of a token
-#[tool(description = "Get the current price of a cryptocurrency token")]
-pub async fn get_token_price(
-    args: GetTokenPriceArgs,
-) -> Result<TokenPrice, ToolError> {
-    let price = your_api_client.get_price(&args.symbol).await?;
-
-    Ok(TokenPrice {
-        symbol: args.symbol,
-        price,
-        currency: "USD".into(),
-    })
+    fn run(
+        _app: &PortfolioApp,
+        args: GetPortfolioArgs,
+        ctx: DynToolCallCtx,
+    ) -> Result<Value, String> {
+        // Validate args, call the declared host capability, and return JSON.
+        todo!()
+    }
 }
 ```
 
-The LLM uses the tool's `description` and parameter documentation to decide when and how to call it. Clear descriptions and well-documented parameters lead to better tool use.
-
-> For full trait definitions and API details, see the [SDK Reference](/docs/reference/sdk).
-
-### Tool Documentation
-
-The doc comments on your args struct fields become the parameter descriptions the LLM sees:
+Register the App once in `src/lib.rs`:
 
 ```rust
-#[derive(Debug, Deserialize, JsonSchema, Clone)]
-pub struct ExecuteTradeArgs {
-    /// The token to buy (symbol or contract address)
-    pub buy_token: String,
+const PREAMBLE: &str = include_str!("preamble.md");
 
-    /// The token to sell (symbol or contract address)
-    pub sell_token: String,
-
-    /// Amount to sell in human-readable format (e.g., "1.5")
-    pub amount: String,
-
-    /// Maximum acceptable slippage as a percentage (e.g., "0.5" for 0.5%)
-    #[serde(default = "default_slippage")]
-    pub max_slippage: String,
-}
+aomi_sdk::dyn_aomi_app!(
+    app = PortfolioApp,
+    name = "portfolio",
+    version = "0.1.0",
+    preamble = PREAMBLE,
+    tools = [GetPortfolio],
+    namespaces = ["evm_token_holdings"],
+);
 ```
 
-## Preamble
+## Choose the right execution boundary
 
-The preamble is the system prompt that defines the assistant's personality, capabilities, and rules. It is the single most important configuration for shaping behavior.
+Return ordinary JSON for a completed read or calculation. Use an async tool
+when work must emit progress. Use `ToolReturn` routes when a result supplies
+host-managed data for a follow-up step.
 
-### Example Preamble
+For transaction workflows, use the Pipeline host capabilities to build and
+simulate a typed operation. Let the runtime create a durable Action for user
+review and signing. A route is a continuation hint and does not bypass policy
+or approval.
 
-```
-You are the MyCoinDex trading assistant.
+## Handle credentials
 
-## Capabilities
-- Check real-time token prices
-- View user portfolio and P&L
-- Execute trades (with user confirmation)
-- List available trading pairs
+Declare service configuration as an operator-owned `Secret`. Mark a credential
+that each user supplies with `.user_owned()` and resolve it only from the
+current `DynToolCallCtx`. Never place a secret value in a tool result, log, or
+preamble.
 
-## Rules
-- Always confirm with the user before executing a trade
-- Show prices in USD unless the user requests otherwise
-- If you don't have data for a token, say so clearly
-- Never fabricate prices or portfolio data
+## Build and verify
 
-## Tone
-- Professional but approachable
-- Concise responses unless the user asks for detail
-- Use bullet points for lists of data
-```
+Run the SDK toolchain from the App directory:
 
-### Dynamic Preambles
-
-Preambles can include runtime context:
-
-```rust
-fn build_preamble(user_preferences: &UserPrefs) -> String {
-    format!(
-        "You are the MyCoinDex trading assistant.\n\
-         \n\
-         User preferences:\n\
-         - Default currency: {}\n\
-         - Risk tolerance: {}\n\
-         - Preferred chains: {}",
-        user_preferences.currency,
-        user_preferences.risk_level,
-        user_preferences.chains.join(", ")
-    )
-}
+```bash
+cargo install aomi-sdk --locked --features cli,dev-runtime
+aomi build
+aomi run --port 8081
 ```
 
-## Model Selection
+Exercise each tool with valid and invalid inputs before packaging. Test routed
+returns as full `ToolReturn` values so route names, bindings, and callback
+artifacts remain part of the contract.
 
-Aomi supports multiple LLM providers. The model is configured via the `Selection` type:
+## Canonical guides
 
-| Provider | Models | Notes |
-| --- | --- | --- |
-| **Anthropic** | Claude Sonnet, Claude Haiku | Strong tool use, reliable structured output |
-| **OpenAI** | GPT-4o, GPT-4o Mini | Broad general knowledge |
-| **OpenRouter** | 100+ models | Access to Llama, Mistral, and others |
-
-Models can be switched at runtime via the `/api/session/model` endpoint without redeploying the app.
-
-## RAG: Document Store
-
-For assistants that need domain knowledge beyond what tools provide, Aomi supports RAG (Retrieval-Augmented Generation):
-
-1. **Ingest** -- documents (markdown, PDF, HTML) are chunked and embedded into a vector store.
-2. **Search** -- when the assistant needs context, it queries the vector store for relevant chunks.
-3. **Augment** -- retrieved chunks are injected into the LLM context alongside the user's message.
-
-RAG is added via the builder:
-
-```rust
-builder.add_docs_tool(sender, None).await?;
-```
-
-## App Registration
-
-Once an app is built, it is registered in the backend's app map:
-
-```rust
-fn build_backends() -> HashMap<String, Arc<dyn AomiBackend>> {
-    let mut backends = HashMap::new();
-
-    // Register MyCoinDex
-    let mycoindex_app = MyCoinDexApp::new().await?;
-    backends.insert("mycoindex".to_string(), Arc::new(mycoindex_app));
-
-    // Register another app
-    let defiwatch_app = DeFiWatchApp::new().await?;
-    backends.insert("defiwatch".to_string(), Arc::new(defiwatch_app));
-
-    backends
-}
-```
-
-When a request arrives with `?app=mycoindex`, the backend looks up the app in this map and routes the request to the corresponding app.
-
-Each registered app implements the `AomiBackend` trait, which provides a uniform interface for the backend to route messages to any app. For the full trait definition, see the [SDK Reference](/docs/reference/sdk).
-
-## Putting It All Together
-
-Here is the complete flow for a MyCoinDex app:
-
-```mermaid
-flowchart TB
-    subgraph "Build Phase"
-        P[Define Preamble] --> B[CoreAppBuilder::new]
-        B --> T1[add_tool: GetTokenPrice]
-        T1 --> T2[add_tool: ExecuteTrade]
-        T2 --> T3[add_tool: GetPortfolio]
-        T3 --> D[add_docs_tool]
-        D --> BUILD[build]
-    end
-
-    subgraph "Register Phase"
-        BUILD --> APP[MyCoinDexApp]
-        APP --> REG[backends.insert 'mycoindex']
-    end
-
-    subgraph "Runtime"
-        REQ[POST /v1/agent/chat?app=mycoindex] --> LOOKUP[Lookup app]
-        LOOKUP --> APP2[MyCoinDexApp.process_message]
-        APP2 --> RESPONSE[SSE Stream]
-    end
-
-    REG --> LOOKUP
-```
-
-## Next Steps
-
-- [How It Works](/docs/build/how-it-works) -- see the full request flow with sequence diagrams.
-- [API Reference](/docs/build/services/api-reference) -- the HTTP endpoints your frontend uses.
-- [SDK Reference](/docs/reference/sdk) -- detailed Rust SDK reference for `CoreAppBuilder` and related types.
+- [Build an Aomi App](https://aomi.dev/docs/build/plugins/aomi-app)
+- [Rust SDK reference](https://aomi.dev/docs/build/plugins/rust-sdk)
+- [Build tool](https://aomi.dev/docs/build/toolchain/aomi-build)
+- [Local runner](https://aomi.dev/docs/build/toolchain/aomi-run)
+- [Runtime contract](https://aomi.dev/docs/reference/runtime)

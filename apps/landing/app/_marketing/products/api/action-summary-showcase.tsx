@@ -5,9 +5,19 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import styles from "./rest-api.module.css";
 
-type SourceKey = "agent" | "pipeline" | "safe";
+type SourceKey = "agent" | "pipeline" | "recovery";
 
-type FieldKey = "id" | "revision" | "state" | "request" | "result";
+type FieldKey =
+  | "id"
+  | "revision"
+  | "state"
+  | "request"
+  | "result"
+  | "status"
+  | "digest"
+  | "requests";
+
+type ContractKey = "action" | "commit";
 
 type SheetStep = {
   label: string;
@@ -25,7 +35,8 @@ type SheetExample = {
   steps: SheetStep[];
   cost: string;
   warning?: string;
-  deferredHint?: string;
+  pendingHint?: string;
+  contract: ContractKey;
   usedFields: FieldKey[];
   requestLabel: string;
   request: string[];
@@ -49,6 +60,7 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
     ],
     cost: "Gas: you pay ~$1.20",
     warning: "Price impact 2.3%",
+    contract: "action",
     usedFields: ["id", "revision", "state", "request"],
     requestLabel: "one call · chat",
     request: [
@@ -57,15 +69,16 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
       "Idempotency-Key: 7c1e…",
       "",
       '{ "message": "Swap 0.5 ETH to USDC on Base",',
-      '  "app": "aomi",',
+      '  "mode": "direct",',
+      '  "app": "default",',
       '  "userState": { "evm": { "address": "0xAb5…", "chain_id": 8453 } } }',
     ],
   },
   pipeline: {
     tabLabel: "Pipeline API",
-    tabTag: "v1",
-    sourceExpr: "commit.action?.request",
-    sourceNote: "when commit returns awaiting_wallet",
+    tabTag: "Build v2",
+    sourceExpr: "commit.requests[0]",
+    sourceNote: "stateless request; no Action ID",
     title: "Rotate 2,000 USDC into Morpho",
     steps: [
       {
@@ -76,43 +89,46 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
       },
       {
         label: "Supply to Morpho Blue",
-        sub: "Simulated as one atomic batch",
+        sub: "Simulation evidence attached",
         amount: "−2,000 USDC",
         direction: "out",
       },
     ],
-    cost: "Gas: sponsored · 1 signature",
-    usedFields: ["id", "revision", "state", "request"],
+    cost: "Network fee shown before approval",
+    contract: "commit",
+    usedFields: ["status", "digest", "requests"],
     requestLabel: "portable build · stage, simulate, commit",
     request: [
       "POST /v1/pipeline/evm/stage",
-      '{ "actions": [{ "chainId": 8453, "calls": [',
-      '  { "to": "0x…", "data": "0x…", "value": "0" }',
-      "] }] }",
+      '{ "actions": [{ "to": "0x…", "description": "Supply USDC",',
+      '  "data": { "signature": "", "args": [], "raw": "0x…" },',
+      '  "chain_id": 8453, "value": "0" }] }',
       "",
       "POST /v1/pipeline/evm/simulate",
-      '{ "build": { "version": 1, "status": "staged", … } }',
+      '{ "build": { "version": 2, "status": "staged", … } }',
       "",
       "POST /v1/pipeline/evm/commit",
-      '{ "build": { "version": 1, "status": "simulated", … } }',
+      '{ "build": { "version": 2, "status": "simulated", … } }',
     ],
   },
-  safe: {
-    tabLabel: "Safe signer",
+  recovery: {
+    tabLabel: "Agent recovery",
     tabTag: "recovery",
-    sourceExpr: "pendingAction.request",
-    sourceNote: "same Action revision, any device",
+    sourceExpr: "action.request",
+    sourceNote: "latest Action revision, any device",
     title: "Transfer 50,000 USDC to treasury ops",
     steps: [
       {
         label: "Transfer to ops.aomi.eth",
-        sub: "Safe 2-of-3 · Base",
+        sub: "Base · simulated request",
         amount: "−50,000 USDC",
         direction: "out",
       },
     ],
-    cost: "Gas: paid by the Safe",
-    deferredHint: "Awaiting 2 of 3 signatures. The Action waits.",
+    cost: "Network fee shown before approval",
+    pendingHint:
+      "The Action remains pending until the host reports a supported result.",
+    contract: "action",
     usedFields: ["id", "revision", "state", "request"],
     requestLabel: "recover a pending Action",
     request: [
@@ -125,10 +141,39 @@ const sheetExamples: Record<SourceKey, SheetExample> = {
 
 type CodeLine = { field?: FieldKey; content: ReactNode };
 
-function interfaceLines(): CodeLine[] {
+function interfaceLines(contract: ContractKey): CodeLine[] {
   const kw = styles.showcaseKw;
   const ty = styles.showcaseTy;
   const cm = styles.showcaseCm;
+
+  if (contract === "commit") {
+    return [
+      {
+        content: (
+          <>
+            <span className={kw}>interface</span>{" "}
+            <span className={ty}>EvmCommitResult</span> {"{"}
+          </>
+        ),
+      },
+      { field: "status", content: '  status: "committed"' },
+      { field: "digest", content: "  digest: string" },
+      { field: "result", content: "  result: unknown" },
+      {
+        field: "requests",
+        content: (
+          <>
+            {"  requests: "}
+            <span className={ty}>ActionRequest</span>[]
+            {"  "}
+            <span className={cm}>{"// stateless signer requests"}</span>
+          </>
+        ),
+      },
+      { content: "}" },
+    ];
+  }
+
   return [
     {
       content: (
@@ -243,8 +288,14 @@ function RequestCode({ lines }: { lines: string[] }) {
   );
 }
 
-function InterfaceCode({ used }: { used: FieldKey[] }) {
-  const lines = interfaceLines();
+function InterfaceCode({
+  contract,
+  used,
+}: {
+  contract: ContractKey;
+  used: FieldKey[];
+}) {
+  const lines = interfaceLines(contract);
   return (
     <pre>
       <code>
@@ -291,14 +342,14 @@ export function ActionSummaryShowcase() {
           ))}
         </div>
         <span className={styles.showcaseChip}>
-          <ShieldCheck aria-hidden /> one Action renderer · every source
+          <ShieldCheck aria-hidden /> one request renderer · two lifecycles
         </span>
       </div>
 
       <div className={styles.showcaseRequest} key={`${source}-req`}>
         <div className={styles.showcaseTypeLabel}>
           <span>{example.requestLabel}</span>
-          <span>raw http · contract-accurate request flow</span>
+          <span>raw http · illustrative wire shape</span>
         </div>
         <RequestCode lines={example.request} />
       </div>
@@ -306,24 +357,28 @@ export function ActionSummaryShowcase() {
       <div className={styles.showcaseBody}>
         <div className={styles.showcaseType}>
           <div className={styles.showcaseTypeLabel}>
-            <span>Action</span>
-            <span>exported by @aomi-labs/client</span>
+            <span>
+              {example.contract === "action" ? "Action" : "EvmCommitResult"}
+            </span>
+            <span>current @aomi-labs/client source contract</span>
           </div>
-          <InterfaceCode used={example.usedFields} />
+          <InterfaceCode
+            contract={example.contract}
+            used={example.usedFields}
+          />
           <p className={styles.showcaseTypeFoot}>
             <span>filled by this example</span>
-            {(["id", "revision", "state", "request", "result"] as const).map(
-              (field) => (
-                <em
-                  key={field}
-                  data-dim={
-                    example.usedFields.includes(field) ? undefined : true
-                  }
-                >
-                  {field}
-                </em>
-              ),
-            )}
+            {(example.contract === "action"
+              ? (["id", "revision", "state", "request", "result"] as const)
+              : (["status", "digest", "result", "requests"] as const)
+            ).map((field) => (
+              <em
+                key={field}
+                data-dim={example.usedFields.includes(field) ? undefined : true}
+              >
+                {field}
+              </em>
+            ))}
           </p>
         </div>
 
@@ -368,9 +423,9 @@ export function ActionSummaryShowcase() {
                 </span>
               ) : null}
             </div>
-            {example.deferredHint ? (
+            {example.pendingHint ? (
               <div className={styles.confirmDeferred}>
-                <i aria-hidden /> {example.deferredHint}
+                <i aria-hidden /> {example.pendingHint}
               </div>
             ) : (
               <div className={styles.confirmButtons}>
@@ -381,15 +436,16 @@ export function ActionSummaryShowcase() {
           </article>
 
           <p className={styles.showcaseFoot}>
-            approval view derived from Action.request and its simulation
+            approval view derived from ActionRequest and simulation evidence
           </p>
         </div>
       </div>
 
       <p className={styles.showcaseCaption}>
-        The host branches on Action.request.type, then renders its exact
-        transactions or signing payload and attached simulation. Pending Actions
-        remain revisioned and recoverable until a supported result is reported.
+        Both APIs use the ActionRequest union, so the host can render the exact
+        transactions or signing payload with simulation evidence. Agent Actions
+        remain revisioned and recoverable; Pipeline commit requests are
+        stateless and carry no Action ID.
       </p>
     </div>
   );

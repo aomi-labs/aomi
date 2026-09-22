@@ -1,171 +1,71 @@
 ---
-title: Apps & Authentication
-description: How API keys, Aomi Apps, and sessions work together.
+title: Apps and authentication
+description: Keep App selection, caller identity, App access, user credentials, sessions, and wallet authority separate.
 ---
 
-# Apps and Authentication
+# Apps and authentication
 
-Every Aomi-powered assistant runs inside an **App**. This page explains how Apps, API keys, and sessions work together to provide isolated, authenticated access to your AI assistant.
+An Aomi **App** is the deployed unit users select. Builders author a Rust plugin; the deployment makes it available to Agent and Pipeline callers.
 
-## What is an App?
+These boundaries are independent:
 
-An App is a self-contained AI assistant environment. It encapsulates:
+| Boundary         | What it controls                                                    |
+| ---------------- | ------------------------------------------------------------------- |
+| Caller identity  | Which guest or account owns a call or Agent session.                |
+| App selection    | Which App handles Direct work, or whether Auto routing chooses one. |
+| App access       | Whether the caller may use the selected App.                        |
+| App credentials  | User-owned secret slots declared by one App.                        |
+| Wallet authority | Which exact Action a wallet can review and sign.                    |
 
-| Component | Description | Example |
-| --- | --- | --- |
-| **Tools** | The API-backed functions the assistant can call | `GetTokenPrice`, `ExecuteTrade` |
-| **Preamble** | The system prompt defining personality and rules | "You are the MyCoinDex assistant..." |
-| **Model config** | Default LLM and available alternatives | Claude Sonnet, GPT-4o |
-| **RAG docs** | Optional document store for domain knowledge | MyCoinDex FAQ, API docs |
+## Auto and Direct
 
-Each App maps to an **AomiApp** -- the backend construct that bundles these components:
-
-```mermaid
-flowchart TB
-    subgraph "App: mycoindex"
-        APP[MyCoinDexApp]
-        TOOLS[Tools: GetTokenPrice, ExecuteTrade, GetPortfolio]
-        PREAMBLE[Preamble: Trading assistant instructions]
-        MODEL[Model: Claude Sonnet]
-    end
-
-    subgraph "App: defiwatch"
-        APP2[DeFiWatchApp]
-        TOOLS2[Tools: GetProtocolTVL, GetYieldRates]
-        PREAMBLE2[Preamble: DeFi analytics assistant]
-        MODEL2[Model: GPT-4o]
-    end
-```
-
-Apps are fully isolated. MyCoinDex's tools and configuration have no visibility into other Apps.
-
-## API Keys
-
-API keys are issued by Aomi and scoped to one or more Apps.
-
-### Key Properties
-
-| Property | Description |
-| --- | --- |
-| **Scoped** | Each key authorizes access to specific Apps |
-| **Stored securely** | Keys are hashed and stored in the database |
-| **Revocable** | Keys can be deactivated without affecting the App |
-
-### How Keys Are Used
-
-Include the API key in the `X-API-Key` header on every request. The `app` query parameter specifies which App to use:
+Agent uses Auto routing by default. Select Direct only when you mean to pin one App:
 
 ```bash
-curl -X POST https://api.aomi.dev/v1/agent/chat?app=mycoindex \
-  -H "X-API-Key: sk-mcd-a1b2c3d4e5f6" \
-  -H "X-Session-Id: 550e8400-e29b-41d4-a716-446655440000" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "What is the price of ETH?"}'
+aomi chat "compare routes" --new-session
+aomi chat "quote this swap" --mode direct --app zerox --new-session
+aomi chat "use this hosted App" --application-id 2936682 --new-session
 ```
 
-### Key Scoping
+Use the canonical numeric Application ID when a hosted App name can be ambiguous. Pipeline is already explicit:
 
-A single key can authorize multiple Apps:
-
-```
-Key: sk-mcd-a1b2c3d4e5f6
-Authorized: ["mycoindex", "mycoindex-staging"]
+```bash
+aomi pipeline apps
+aomi pipeline operations --app aave
 ```
 
-Or an App can have multiple keys (e.g., production vs. development):
+## Caller identity and App access
 
-```
-Key: sk-mcd-prod-...  → ["mycoindex"]
-Key: sk-mcd-dev-...   → ["mycoindex-staging"]
-```
+Guest or OAuth credentials establish caller identity. OAuth grants bind to exact resources such as `/v1/agent`, `/v1/pipeline`, and `/v1/account`; their tokens are not interchangeable.
 
-## Authentication Flow
+Some provisioned Apps also require an App access key. The TypeScript client's `apiKey` option and the CLI's `--api-key` flag send it as `Aomi-App-Key`.
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Backend as Aomi Backend
-    participant DB as Database
-
-    Client->>Backend: POST /v1/agent/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid
-
-    Backend->>DB: Lookup API key
-    DB-->>Backend: Key record (authorized Apps)
-
-    alt Key valid and App authorized
-        Backend->>Backend: Load/create session
-        Backend->>Backend: Route to MyCoinDexApp
-        Backend-->>Client: SSE stream (200)
-    else Key invalid
-        Backend-->>Client: 401 Unauthorized
-    else App not authorized for key
-        Backend-->>Client: 403 Forbidden
-    end
+```bash
+aomi chat "run the selected App" \
+  --mode direct \
+  --app my-app \
+  --api-key "$AOMI_API_KEY"
 ```
 
-### Step by Step
+Do not use retired `X-API-Key`, `/api/chat`, or query-string message examples. Current Agent work uses the versioned `/v1/agent` resource.
 
-1. Client sends a request with `X-API-Key` and `X-Session-Id` headers.
-2. Backend looks up the API key in the database.
-3. Backend checks if the key authorizes the requested App (from the `?app=` query parameter).
-4. If authorized, the request proceeds to the appropriate AomiApp.
-5. If not, the request is rejected with a `401` or `403` status.
+## User credentials
 
-## Sessions
+Persistent App credentials are declared slots owned by one account and App. Status calls return slot names and configuration state, never saved values. Merged client `0.9.4` source adds hidden-input CLI commands:
 
-Sessions represent conversation threads. They are identified by a UUID sent in the `X-Session-Id` header.
-
-### Session Properties
-
-| Property | Description |
-| --- | --- |
-| **ID** | Client-generated UUID |
-| **Messages** | Full conversation history |
-| **Wallet binding** | Optional association with a wallet address (public key) |
-| **Processing status** | Idle, processing, or interrupted |
-
-### Session Lifecycle
-
-Sessions are loaded using a three-tier strategy:
-
-1. **Memory cache** -- check if the session is already active in memory.
-2. **Database** -- load persisted session from PostgreSQL.
-3. **Create new** -- if not found, create a fresh session.
-
-### Wallet Binding
-
-Sessions can optionally be associated with a wallet address. This enables:
-
-- Cross-session context (the assistant knows the user's wallet)
-- Wallet-aware tool calls (portfolio queries scoped to the user)
-- Persistent history tied to a public key
-
-```
-Session: 550e8400-e29b-41d4-a716-446655440000
-Wallet:  0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68
-Chain:   Ethereum (1)
+```bash
+aomi app credentials status <application-id>
+aomi app credentials set <application-id> EXCHANGE_API_KEY
 ```
 
-## Default App
+These commands require a matching npm release and Account API deployment. npm `latest` is `0.7.6` as of September 22, 2026.
 
-Aomi provides a `default` App that is accessible without an API key. This is useful for:
+Temporary `aomi secret add NAME=value` handles and model-provider BYOK keys are separate stores with different lifetimes.
 
-- Public demos
-- Evaluation and testing
-- Development before you receive your production key
+## Sessions and wallets
 
-The default App has general-purpose tools but no custom configuration. For production use, always use a scoped API key with your own App.
+An Agent session continues a conversation and belongs to its authenticated caller. A session ID, wallet address, or App key is not an authentication credential.
 
-## Headers Reference
+Wallet context tells the App which account to build for. Signing still requires review of the exact pending Action.
 
-| Header | Required | Description |
-| --- | --- | --- |
-| `X-API-Key` | For non-default Apps | Your Aomi API key |
-| `X-Session-Id` | Yes | UUID identifying the conversation session |
-| `Content-Type` | For POST requests | `application/json` |
-
-## Next Steps
-
-- [API Reference](/docs/build/services/api-reference) -- full endpoint documentation with request/response formats.
-- [Sessions](/docs/build/services/sessions) -- deep dive into session management, threads, and persistence.
-- [Quickstart](/docs/build/quickstart) -- get a working integration in 5 minutes.
+Read the canonical [Apps and authentication reference](https://aomi.dev/docs/reference/apps-and-authentication) for the full identity model and [Transactions and signing](https://aomi.dev/docs/reference/client-cli/transactions-and-signing) for wallet execution.

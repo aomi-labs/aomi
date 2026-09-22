@@ -47,9 +47,9 @@ export const SESSIONS: readonly Session[] = [
       },
       {
         kind: "out",
-        text: "queued  tx-1 approve USDC   tx-2 supply Morpho Blue",
+        text: "pending act_91a · 2 EVM transactions · supply Morpho Blue",
       },
-      { kind: "cmd", text: "aomi tx simulate tx-1 tx-2", delay: 600 },
+      { kind: "cmd", text: "aomi tx simulate act_91a", delay: 600 },
       {
         kind: "ok",
         text: "fork ok · gas 0.0007 ETH · drain-vector guard passed",
@@ -57,7 +57,7 @@ export const SESSIONS: readonly Session[] = [
       },
       {
         kind: "halt",
-        text: "Stopped at approval. Run aomi tx sign tx-1 tx-2 when ready.",
+        text: "Stopped at approval. Run aomi tx sign act_91a when ready.",
         delay: 500,
       },
     ],
@@ -89,12 +89,12 @@ export const SESSIONS: readonly Session[] = [
       { kind: "call", text: "aomi_check", delay: 600 },
       {
         kind: "ret",
-        text: "status awaiting_user · req_91a supply 2,000 USDC → Morpho Blue · simulated",
+        text: "status awaiting_action · act_91a supply 2,000 USDC → Morpho Blue · simulated",
         delay: 900,
       },
       {
         kind: "halt",
-        text: "Approve in Portal or `aomi tx sign req_91a`. No key passes through MCP.",
+        text: "Approve in Portal or `aomi tx sign act_91a`. No key passes through MCP.",
         delay: 500,
       },
     ],
@@ -119,21 +119,16 @@ export const SESSIONS: readonly Session[] = [
       { kind: "cmd", text: "aomi tx list", delay: 500 },
       {
         kind: "out",
-        text: "tx-1  approve USDC      pending   base",
+        text: "act_91a  supply Morpho · 2 transactions  pending  base",
         delay: 500,
       },
-      {
-        kind: "out",
-        text: "tx-2  supply Morpho     pending   base",
-        delay: 120,
-      },
-      { kind: "cmd", text: "aomi tx simulate tx-1 tx-2", delay: 500 },
+      { kind: "cmd", text: "aomi tx simulate act_91a", delay: 500 },
       {
         kind: "ok",
         text: "fork ok · gas 0.0007 ETH · batch_status ready",
         delay: 1000,
       },
-      { kind: "cmd", text: "aomi tx sign tx-1 tx-2", delay: 600 },
+      { kind: "cmd", text: "aomi tx sign act_91a", delay: 600 },
       {
         kind: "ok",
         text: "signed locally · broadcast · 0x4e…c1 confirmed",

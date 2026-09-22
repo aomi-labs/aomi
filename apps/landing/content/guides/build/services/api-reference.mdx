@@ -6,13 +6,13 @@ description: Typed Intents and the ordered Event contract.
 # Agent API Reference
 
 The Agent API accepts typed Intents and returns ordered `EventPage`s. Actions
-are durable Events; transaction and signing details exist only inside
-`Action.request`.
+are durable Events with typed `Action.request` and `ActionResult` unions. Current transaction execution also exposes durable Commit views in `EventPage.commits`; do not treat every transaction as an Action.
 
 ## Start turn
 
 ```http
 POST /v1/agent/chat
+Authorization: Bearer <exact Agent resource token>
 Content-Type: application/json
 Idempotency-Key: <unique operation key>
 ```
@@ -21,6 +21,7 @@ Idempotency-Key: <unique operation key>
 {
   "sessionId": "session-uuid",
   "message": "What is my ETH position worth?",
+  "mode": "direct",
   "app": "default",
   "userState": {
     "connection": {
@@ -28,7 +29,7 @@ Idempotency-Key: <unique operation key>
       "provider": "para"
     },
     "evm": {
-      "address": "0x742d...",
+      "address": "0x0000000000000000000000000000000000000001",
       "chain_id": 8453
     }
   }
@@ -70,6 +71,7 @@ without `cursor` to hydrate from the ledger.
 
 ```http
 POST /v1/agent/chat/{sessionId}/actions/{actionId}/result
+Authorization: Bearer <exact Agent resource token>
 Content-Type: application/json
 Idempotency-Key: <unique operation key>
 ```
@@ -92,6 +94,7 @@ resuming the turn.
 
 ```http
 POST /v1/agent/chat/{sessionId}/interrupt
+Authorization: Bearer <exact Agent resource token>
 Content-Type: application/json
 Idempotency-Key: <unique operation key>
 ```
@@ -118,6 +121,6 @@ second transcript or lifecycle authority.
 
 ## Pipeline
 
-The `/v1/pipeline/*` surface returns the same canonical Actions and concrete
-Events. It does not expose request mirrors, inferred snapshots, or system-event
-projections. Fetch `/openapi.json` for the complete generated schema.
+The `/v1/pipeline/*` surface is stateless. It discovers operations and carries portable version 2 Builds through stage, simulate, and explicit commit. Commit returns `status: "committed"`, `digest`, operation output, and `requests: ActionRequest[]`; these have no durable Agent Action IDs. The caller owns wallet execution and receipt tracking.
+
+Use `/v1/agent/mcp` for Agent MCP and `/v1/pipeline/mcp` for Pipeline MCP, each with its own exact-resource OAuth grant. Read the [canonical API reference](https://aomi.dev/docs/api-reference/overview) and the selected origin's `/openapi.json`; source, npm, and deployments can differ during a release.
