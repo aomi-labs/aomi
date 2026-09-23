@@ -61,6 +61,89 @@ describe("launch error responses", () => {
     });
   });
 
+  it("carries the Manager's structured deploy_error through to the browser", async () => {
+    const deployError = {
+      code: "github_app_permission_missing",
+      message:
+        "The Aomi GitHub App cannot dispatch the deployment workflow on `aomi-labs/community-apps`",
+      hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
+      retryable: false,
+      details: {
+        repository: "aomi-labs/community-apps",
+        permission: "actions:write",
+      },
+    };
+    const error = new BackendError(
+      "deploy",
+      502,
+      "deploy failed (502)",
+      JSON.stringify({
+        ok: false,
+        error: "GitHub deployment request returned HTTP 403",
+        error_code: "github_app_permission_missing",
+        deploy_error: deployError,
+      }),
+    );
+
+    expect(identifyLaunchError(error).response).toEqual({
+      status: 502,
+      error: "GitHub deployment request returned HTTP 403",
+      code: "github_app_permission_missing",
+      retryable: false,
+      deployError,
+    });
+    const response = launchErrorResponse(error);
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "GitHub deployment request returned HTTP 403",
+      code: "github_app_permission_missing",
+      retryable: false,
+      deployError,
+    });
+  });
+
+  it("leaves an envelope without deploy_error exactly as before", () => {
+    const plain = new BackendError(
+      "deploy",
+      502,
+      "deploy failed (502)",
+      JSON.stringify({ error: "upstream exploded" }),
+    );
+    expect(identifyLaunchError(plain).response).toEqual({
+      status: 502,
+      error: "upstream exploded",
+    });
+
+    // `error_code` alone still names the failure; retryability stays unknown
+    // (so the browser keeps its Retry) until a deploy_error says otherwise.
+    const coded = new BackendError(
+      "deploy",
+      422,
+      "deploy failed (422)",
+      JSON.stringify({ error: "bad manifest", error_code: "manifest_invalid" }),
+    );
+    expect(identifyLaunchError(coded).response).toEqual({
+      status: 422,
+      error: "bad manifest",
+      code: "manifest_invalid",
+    });
+
+    const unmarked = new BackendError(
+      "deploy",
+      502,
+      "deploy failed (502)",
+      JSON.stringify({
+        error: "flaky",
+        deploy_error: { code: "github_unreachable", message: "flaky" },
+      }),
+    );
+    expect(identifyLaunchError(unmarked).response).toMatchObject({
+      code: "github_unreachable",
+      retryable: true,
+      deployError: { hint: null, retryable: true, details: {} },
+    });
+  });
+
   it("preserves the established unknown-error fallback", async () => {
     const error = new Error("launch setup failed");
 

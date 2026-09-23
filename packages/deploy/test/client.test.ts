@@ -1247,6 +1247,143 @@ describe("BackendClient projects", () => {
   });
 });
 
+describe("BackendClient GitHub App installations", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads the account's installations, narrowed to a platform, in camelCase", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        apps: [
+          {
+            app_id: 1001,
+            slug: "aomi-build",
+            declared_permissions: { actions: "write", contents: "write" },
+          },
+          { app_id: 1002, slug: "aomi-build-staging", error: "GitHub 500" },
+        ],
+        installations: [
+          {
+            installation_id: 139189936,
+            app_id: 1001,
+            app_slug: "aomi-build",
+            account: { login: "alice", type: "User" },
+            repository_selection: "selected",
+            suspended: false,
+            settings_url: "https://github.com/settings/installations/139189936",
+            granted_permissions: { actions: "read", contents: "write" },
+            missing_permissions: [
+              { permission: "actions", required: "write", granted: "read" },
+            ],
+            repositories: ["alice/bot"],
+            status: "missing_permissions",
+          },
+        ],
+        platform: {
+          name: "community",
+          github_repo: "aomi-labs/community-apps",
+          required: { actions: "write", contents: "write" },
+          installation: {
+            installation_id: 5,
+            app_id: 1001,
+            app_slug: "aomi-build",
+            account: { login: "aomi-labs", type: "Organization" },
+            settings_url:
+              "https://github.com/organizations/aomi-labs/settings/installations/5",
+            granted_permissions: { actions: "write", contents: "write" },
+            missing_permissions: [],
+            status: "ok",
+          },
+          status: "ok",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const audits: AuditEvent[] = [];
+
+    const result = await client((event) =>
+      audits.push(event),
+    ).listUserGitHubAppInstallations({
+      githubUserId: "42",
+      platform: "community",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42&platform=community",
+    );
+    expect(result).toEqual({
+      apps: [
+        {
+          appId: 1001,
+          slug: "aomi-build",
+          declaredPermissions: { actions: "write", contents: "write" },
+        },
+        {
+          appId: 1002,
+          slug: "aomi-build-staging",
+          declaredPermissions: {},
+          error: "GitHub 500",
+        },
+      ],
+      installations: [
+        {
+          installationId: 139189936,
+          appId: 1001,
+          appSlug: "aomi-build",
+          account: { login: "alice", type: "User" },
+          repositorySelection: "selected",
+          suspended: false,
+          settingsUrl: "https://github.com/settings/installations/139189936",
+          grantedPermissions: { actions: "read", contents: "write" },
+          missingPermissions: [
+            { permission: "actions", required: "write", granted: "read" },
+          ],
+          repositories: ["alice/bot"],
+          status: "missing_permissions",
+        },
+      ],
+      platform: {
+        name: "community",
+        githubRepo: "aomi-labs/community-apps",
+        required: { actions: "write", contents: "write" },
+        installation: {
+          installationId: 5,
+          appId: 1001,
+          appSlug: "aomi-build",
+          account: { login: "aomi-labs", type: "Organization" },
+          settingsUrl:
+            "https://github.com/organizations/aomi-labs/settings/installations/5",
+          grantedPermissions: { actions: "write", contents: "write" },
+          missingPermissions: [],
+          status: "ok",
+        },
+        status: "ok",
+      },
+    });
+    expect(audits).toContainEqual(
+      expect.objectContaining({
+        action: "list_user_github_app_installations",
+        platform: "community",
+      }),
+    );
+  });
+
+  it("omits the platform block and query when no platform is given", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ apps: [], installations: [], platform: null }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().listUserGitHubAppInstallations({
+      githubUserId: "42",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
+    );
+    expect(result).toEqual({ apps: [], installations: [], platform: null });
+  });
+});
+
 describe("server-only guard", () => {
   it("throws in a browser-like environment", () => {
     const g = globalThis as Record<string, unknown>;

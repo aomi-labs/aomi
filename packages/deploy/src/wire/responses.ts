@@ -4,6 +4,7 @@
  * mappers live in operate.ts.
  */
 import { DeployError } from "../errors";
+import { optNumber, optString } from "./operate";
 import type {
   ActivateResult,
   BotRegistration,
@@ -11,7 +12,11 @@ import type {
   BuilderModelKeyUsage,
   DeployResult,
   DeploymentStatus,
+  GitHubAppInstallation,
+  GitHubAppInstallationsResult,
+  GitHubAppPermissionGap,
   PlatformApp,
+  PlatformInstallationStatus,
   Project,
   TokenRecord,
   UserDeployment,
@@ -453,6 +458,113 @@ export function camelUserProject(raw: unknown): UserProject {
     ).flatMap((version) =>
       typeof version === "string" && version ? [version] : [],
     ),
+  };
+}
+
+/** Permission name → level maps and the gap rows both arrive as plain
+ *  objects; keep only string-valued entries so a malformed row cannot leak a
+ *  nested object into the UI. */
+function permissionLevels(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+}
+
+function permissionGaps(raw: unknown): GitHubAppPermissionGap[] {
+  return Array.isArray(raw)
+    ? raw.map((gap: Record<string, any>) => ({
+        permission: String(gap?.permission ?? ""),
+        required: String(gap?.required ?? ""),
+        granted: String(gap?.granted ?? "none"),
+      }))
+    : [];
+}
+
+function installationAccount(raw: unknown): GitHubAppInstallation["account"] {
+  const account = (raw ?? {}) as Record<string, any>;
+  return {
+    login: String(account.login ?? ""),
+    type: String(account.type ?? ""),
+  };
+}
+
+export function camelGitHubAppInstallations(
+  raw: unknown,
+): GitHubAppInstallationsResult {
+  const r = (raw ?? {}) as Record<string, any>;
+  const platform = r.platform as Record<string, any> | null | undefined;
+  const platformInstallation = platform?.installation as
+    | Record<string, any>
+    | null
+    | undefined;
+  return {
+    apps: Array.isArray(r.apps)
+      ? r.apps.map((app: Record<string, any>) => ({
+          appId: Number(app?.app_id),
+          slug: String(app?.slug ?? ""),
+          declaredPermissions: permissionLevels(app?.declared_permissions),
+          ...(typeof app?.error === "string" ? { error: app.error } : {}),
+        }))
+      : [],
+    installations: Array.isArray(r.installations)
+      ? r.installations.map(
+          (row: Record<string, any>): GitHubAppInstallation => ({
+            installationId: Number(row?.installation_id),
+            appId: optNumber(row?.app_id),
+            appSlug: optString(row?.app_slug),
+            account: installationAccount(row?.account),
+            repositorySelection: optString(row?.repository_selection),
+            suspended: row?.suspended === true,
+            settingsUrl: optString(row?.settings_url),
+            grantedPermissions: permissionLevels(row?.granted_permissions),
+            missingPermissions: permissionGaps(row?.missing_permissions),
+            repositories: Array.isArray(row?.repositories)
+              ? row.repositories.map(String)
+              : [],
+            status: String(
+              row?.status ?? "error",
+            ) as GitHubAppInstallation["status"],
+            ...(typeof row?.error === "string" ? { error: row.error } : {}),
+          }),
+        )
+      : [],
+    platform: platform
+      ? {
+          name: String(platform.name ?? ""),
+          githubRepo: String(platform.github_repo ?? ""),
+          required: permissionLevels(platform.required),
+          installation: platformInstallation
+            ? {
+                installationId: Number(platformInstallation.installation_id),
+                appId: optNumber(platformInstallation.app_id),
+                appSlug: optString(platformInstallation.app_slug),
+                account: installationAccount(platformInstallation.account),
+                settingsUrl: optString(platformInstallation.settings_url),
+                grantedPermissions: permissionLevels(
+                  platformInstallation.granted_permissions,
+                ),
+                missingPermissions: permissionGaps(
+                  platformInstallation.missing_permissions,
+                ),
+                status: String(
+                  platformInstallation.status ?? "error",
+                ) as GitHubAppInstallation["status"],
+                ...(typeof platformInstallation.error === "string"
+                  ? { error: platformInstallation.error }
+                  : {}),
+              }
+            : null,
+          status: String(
+            platform.status ?? "error",
+          ) as PlatformInstallationStatus["status"],
+          ...(typeof platform.error === "string"
+            ? { error: platform.error }
+            : {}),
+        }
+      : null,
   };
 }
 

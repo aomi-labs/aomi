@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { attemptRequest, type ProjectDeploymentAttempt } from "../attempts";
 import { LaunchRequestError } from "@aomi-labs/deploy/launch";
+import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
 export type LocalAttempt = {
   id: string;
@@ -15,6 +16,8 @@ export type LocalAttempt = {
   branch: string;
   message: string;
   pending: boolean;
+  /** The Manager's structured reason, when the start failed with one. */
+  deployError?: DeployErrorDetail;
 };
 type Page = { attempts: ProjectDeploymentAttempt[]; nextPage?: number | null };
 function savedAttempts(storageKey: string): LocalAttempt[] {
@@ -31,8 +34,16 @@ function savedAttempts(storageKey: string): LocalAttempt[] {
           typeof item.createdAt === "string",
       )
       .slice(0, 10)
-      .map((item) => ({
+      .map(({ deployError, ...item }) => ({
         ...item,
+        // A saved hint is only trusted while it still has the shape the card
+        // renders; anything else is dropped rather than the whole attempt.
+        ...(deployError &&
+        typeof deployError === "object" &&
+        typeof deployError.code === "string" &&
+        typeof deployError.message === "string"
+          ? { deployError: deployError as DeployErrorDetail }
+          : {}),
         pending: false,
         message: item.pending
           ? "Start acknowledgement was interrupted. Reconnect to check GitHub before retrying."
@@ -255,6 +266,15 @@ export function useDeploymentAttempts(
         void client.invalidateQueries({ queryKey: key, exact: true });
         return result.attempt;
       } catch (error) {
+        // The BFF forwards the Manager's `deployError` on the body; keeping it
+        // lets the card show the hint and, for a GitHub App permission gap,
+        // link to the settings page instead of a bare "HTTP 403".
+        const deployError =
+          error instanceof LaunchRequestError &&
+          error.body &&
+          typeof error.body === "object"
+            ? (error.body as { deployError?: DeployErrorDetail }).deployError
+            : undefined;
         persist(
           next.map((item) =>
             item.id === current.id
@@ -265,6 +285,7 @@ export function useDeploymentAttempts(
                     error instanceof Error
                       ? error.message
                       : "Could not start deployment",
+                  ...(deployError ? { deployError } : {}),
                 }
               : item,
           ),

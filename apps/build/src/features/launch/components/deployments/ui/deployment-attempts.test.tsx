@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { useProjectDetail } from "../../../hooks/use-project-detail";
 import type { ProjectDeploymentAttempt } from "../../../attempts";
+import type { LocalAttempt } from "../../../hooks/use-deployment-attempts";
 import { AttemptControls, DeploymentAttempts } from "./deployment-attempts";
 
 type Detail = ReturnType<typeof useProjectDetail>;
@@ -98,7 +99,10 @@ describe("attempt cards", () => {
     const running = { status: "in_progress", conclusion: null };
     const { rerender } = render(
       <DeploymentAttempts
-        detail={listDetail({ ...running, jobs: [job("Build", "2026-01-01T00:00:10Z")] })}
+        detail={listDetail({
+          ...running,
+          jobs: [job("Build", "2026-01-01T00:00:10Z")],
+        })}
       />,
     );
     expect(
@@ -106,11 +110,88 @@ describe("attempt cards", () => {
     ).toBeInTheDocument();
     rerender(
       <DeploymentAttempts
-        detail={listDetail({ ...running, jobs: [job("Activate", "2026-01-01T00:01:00Z")] })}
+        detail={listDetail({
+          ...running,
+          jobs: [job("Activate", "2026-01-01T00:01:00Z")],
+        })}
       />,
     );
     expect(
       screen.queryByRole("button", { name: "Cancel deployment" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("local attempts", () => {
+  function localDetail(local: Partial<LocalAttempt>) {
+    return {
+      redeploySource: vi.fn(),
+      attempts: {
+        attempts: [],
+        local: [
+          {
+            id: "local-1",
+            createdAt: "2026-09-22T00:00:00.000Z",
+            branch: "main",
+            message: "GitHub deployment request returned HTTP 403",
+            pending: false,
+            ...local,
+          },
+        ],
+        busy: false,
+        isSuccess: true,
+        isError: false,
+        failureCount: 0,
+        cancelling: null,
+        cancel: vi.fn(),
+        clearLocal: vi.fn(),
+        loadDetail: vi.fn(),
+      },
+    } as unknown as Detail;
+  }
+
+  it("shows the Manager's hint and a settings link for a GitHub App permission gap", () => {
+    render(
+      <DeploymentAttempts
+        detail={localDetail({
+          deployError: {
+            code: "github_app_permission_missing",
+            message: "The Aomi GitHub App cannot dispatch the workflow",
+            hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
+            retryable: false,
+            details: { permission: "actions:write" },
+          },
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(/Grant the Aomi GitHub App `actions: write`/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Check GitHub App access" }),
+    ).toHaveAttribute("href", "/settings/general#github-app");
+    expect(
+      screen.getByRole("button", { name: /Retry deployment/ }),
+    ).toBeTruthy();
+  });
+
+  it("keeps other structured failures to their hint alone", () => {
+    render(
+      <DeploymentAttempts
+        detail={localDetail({
+          deployError: {
+            code: "github_installation_owner_unresolved",
+            message: "Repository owner could not be resolved",
+            hint: "Reconnect the repository.",
+            retryable: true,
+            details: {},
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Reconnect the repository.")).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: "Check GitHub App access" }),
+    ).toBeNull();
   });
 });

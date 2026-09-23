@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { BackendError, DeployError } from "../errors";
+import type { DeployErrorDetail } from "../types";
 
 export type LaunchFailureSource = {
   origin: "expected" | "local" | "upstream_request" | "upstream_response";
@@ -20,6 +21,8 @@ export type LaunchFailureSource = {
     code?: string;
     /** False when retrying cannot help — an operator has to act. */
     retryable?: boolean;
+    /** The Manager's structured `deploy_error`, when its envelope carried one. */
+    deployError?: DeployErrorDetail;
   };
 };
 
@@ -120,6 +123,9 @@ export function launchErrorResponse(error: unknown): Response {
       ...(failure.response.retryable !== undefined
         ? { retryable: failure.response.retryable }
         : {}),
+      ...(failure.response.deployError
+        ? { deployError: failure.response.deployError }
+        : {}),
     },
     { status: failure.response.status },
   );
@@ -182,24 +188,69 @@ function backendResponse(
   error: BackendErrorLike,
 ): LaunchFailureSource["response"] {
   if (error.status >= 400 && error.status <= 599) {
+    const envelope = backendErrorEnvelope(error.body);
     return {
       status: error.status,
-      error:
-        backendErrorMessage(error.body) ??
-        activationErrorMessage(error) ??
-        error.message,
+      error: envelope.error ?? activationErrorMessage(error) ?? error.message,
+      ...(envelope.code ? { code: envelope.code } : {}),
+      ...(envelope.deployError
+        ? {
+            retryable: envelope.deployError.retryable,
+            deployError: envelope.deployError,
+          }
+        : {}),
     };
   }
   return { status: 502, error: "upstream_unavailable" };
 }
 
-function backendErrorMessage(body?: string): string | null {
-  if (!body) return null;
+/**
+ * The Manager's error envelope: `{ error, error_code?, deploy_error? }`. Only
+ * `error` used to survive this hop, which flattened a structured "the GitHub
+ * App lacks `actions: write`" into "returned HTTP 403" by the time it reached
+ * a browser.
+ */
+function backendErrorEnvelope(body?: string): {
+  error: string | null;
+  code: string | null;
+  deployError: DeployErrorDetail | null;
+} {
+  const none = { error: null, code: null, deployError: null };
+  if (!body) return none;
   try {
-    const json = JSON.parse(body) as { error?: unknown };
-    return typeof json.error === "string" ? json.error : null;
+    const json = JSON.parse(body) as {
+      error?: unknown;
+      error_code?: unknown;
+      deploy_error?: unknown;
+    };
+    const raw =
+      json.deploy_error && typeof json.deploy_error === "object"
+        ? (json.deploy_error as Record<string, unknown>)
+        : null;
+    const deployError =
+      raw && typeof raw.code === "string" && typeof raw.message === "string"
+        ? {
+            code: raw.code,
+            message: raw.message,
+            hint: typeof raw.hint === "string" ? raw.hint : null,
+            // Absent means "unknown", and an unknown failure keeps its Retry.
+            retryable: raw.retryable !== false,
+            details:
+              raw.details && typeof raw.details === "object"
+                ? (raw.details as Record<string, unknown>)
+                : {},
+          }
+        : null;
+    return {
+      error: typeof json.error === "string" ? json.error : null,
+      code:
+        typeof json.error_code === "string"
+          ? json.error_code
+          : (deployError?.code ?? null),
+      deployError,
+    };
   } catch {
-    return null;
+    return none;
   }
 }
 

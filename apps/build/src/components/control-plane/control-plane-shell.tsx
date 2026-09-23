@@ -521,6 +521,14 @@ function AccountMenu({
           <Settings className="size-3.5" />
           Settings
         </Link>
+        <Link
+          href="/settings/general#github-app"
+          prefetch={false}
+          className="hover:bg-accent-hover hover:text-foreground flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition"
+        >
+          <Github className="size-3.5" />
+          GitHub App
+        </Link>
         <div className="bg-border -mx-1 my-1 h-px" />
         <a
           href="https://aomi.dev/docs"

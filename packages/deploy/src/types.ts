@@ -36,6 +36,7 @@ export interface AuditEvent {
     | "list_user_project_apps"
     | "exchange_github_code"
     | "list_user_projects"
+    | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
     | "list_user_deployments"
@@ -511,6 +512,108 @@ export interface ListUserProjectsInput extends BearerOverride {
   githubUserId: string;
   platform?: string;
   visibilityGrant?: string;
+}
+
+/**
+ * Structured failure detail the Manager attaches to a deploy-domain error
+ * (`deploy_error` on the wire). `code` is the contract the browser branches
+ * on; `hint` is operator-facing copy; `retryable` says whether trying again
+ * can help at all.
+ */
+export interface DeployErrorDetail {
+  code: string;
+  message: string;
+  hint: string | null;
+  retryable: boolean;
+  details: Record<string, unknown>;
+}
+
+export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
+  githubUserId: string;
+  /** Narrows the report to one platform's repository installation. */
+  platform?: string;
+}
+
+/** One of the GitHub Apps Build is configured with, and what it declares. */
+export interface GitHubAppSummary {
+  appId: number;
+  slug: string;
+  /** Permission name → level (`read` | `write` | `admin`) the App asks for. */
+  declaredPermissions: Record<string, string>;
+  /** Set when the Manager could not read the App's metadata from GitHub. */
+  error?: string;
+}
+
+/** A permission the installation grants below what is required of it. */
+export interface GitHubAppPermissionGap {
+  permission: string;
+  required: string;
+  granted: string;
+}
+
+export interface GitHubAppInstallationAccount {
+  login: string;
+  type: string;
+}
+
+export type GitHubAppInstallationStatus =
+  | "ok"
+  | "missing_permissions"
+  | "suspended"
+  | "not_found"
+  | "app_not_configured"
+  | "error";
+
+/** A builder-side installation reached through one of the owned projects. */
+export interface GitHubAppInstallation {
+  installationId: number;
+  appId: number | null;
+  appSlug: string | null;
+  account: GitHubAppInstallationAccount;
+  repositorySelection: string | null;
+  suspended: boolean;
+  /** GitHub's installation settings page, where pending requests are accepted. */
+  settingsUrl: string | null;
+  grantedPermissions: Record<string, string>;
+  missingPermissions: GitHubAppPermissionGap[];
+  /** `owner/name` of the owned projects this installation covers. */
+  repositories: string[];
+  status: GitHubAppInstallationStatus;
+  error?: string;
+}
+
+export type PlatformInstallationStatusKind =
+  | "ok"
+  | "missing_permissions"
+  | "not_installed"
+  | "error";
+
+/** The platform repository's own installation, compared against what a
+ *  deploy needs of it. */
+export interface PlatformInstallationStatus {
+  name: string;
+  githubRepo: string;
+  required: Record<string, string>;
+  installation: {
+    installationId: number;
+    appId: number | null;
+    appSlug: string | null;
+    account: GitHubAppInstallationAccount;
+    settingsUrl: string | null;
+    grantedPermissions: Record<string, string>;
+    missingPermissions: GitHubAppPermissionGap[];
+    status: GitHubAppInstallationStatus;
+    error?: string;
+  } | null;
+  status: PlatformInstallationStatusKind;
+  error?: string;
+}
+
+export interface GitHubAppInstallationsResult {
+  apps: GitHubAppSummary[];
+  installations: GitHubAppInstallation[];
+  /** Null when the read was not narrowed to a platform. */
+  platform: PlatformInstallationStatus | null;
 }
 
 export interface GetUserProjectInput extends BearerOverride {
