@@ -61,7 +61,9 @@ and prepared state; market and standalone token labels do not displace the
 amount. LI.FI swap preparation keeps source and destination token and amount
 details. A protocol payload never changes the structure or title of a core
 transaction lifecycle row. Tool ownership attribution is independent of
-presentation and must come from exact catalog declarations.
+presentation and must come from exact catalog declarations. Matching a
+registered presentation also requires the full declared tool name; a
+namespaced skill tool cannot borrow a core tool's presentation by suffix.
 
 Unknown tools, including tools injected by a skill, show a readable tool title
 and expandable details without inferred chain, token, amount, protocol, or

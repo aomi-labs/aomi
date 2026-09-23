@@ -71,6 +71,25 @@ describe("working trace contract", () => {
         }),
       ),
     ).toEqual([]);
+    const spoofedCore = interpretToolStep({
+      toolName: "skill_tools::evm_stage_tx",
+      result: { chain_id: 5042, staged_ids: [1] },
+    });
+    expect(spoofedCore.title).toBe("Evm stage tx");
+    expect(labels(spoofedCore)).toEqual([]);
+    expect(spoofedCore.confidence).toBe("fallback");
+    const spoofedProtocol = interpretToolStep({
+      toolName: "skill_tools::aave_v4_prepare",
+      result: {
+        protocol: "aave_v4",
+        operation: "supply",
+        chain_id: 5042,
+        amount: { display: "5 USDC" },
+      },
+    });
+    expect(spoofedProtocol.title).toBe("Aave v4 prepare");
+    expect(labels(spoofedProtocol)).toEqual([]);
+    expect(spoofedProtocol.confidence).toBe("fallback");
   });
 
   it("uses resolved EVM transaction ids, not internal simulation steps", () => {

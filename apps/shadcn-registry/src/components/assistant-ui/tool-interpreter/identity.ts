@@ -7,6 +7,10 @@ export const toolIdentity = (label: string): string =>
       .at(-1) ?? ""
   ).trim();
 
+/** Full declared name for matching registered tools, including any namespace. */
+export const declaredToolIdentity = (label: string): string =>
+  label.toLowerCase().trim();
+
 /** Titles for Aomi-owned tools. Keep these stable before and after a result. */
 const coreTitles: Record<string, string> = {
   evm_stage_tx: "Stage transaction",
@@ -42,6 +46,6 @@ const coreTitles: Record<string, string> = {
 };
 
 export const coreToolTitle = (label: string): string | undefined => {
-  const name = toolIdentity(label);
+  const name = declaredToolIdentity(label);
   return Object.hasOwn(coreTitles, name) ? coreTitles[name] : undefined;
 };

@@ -1,4 +1,4 @@
-import { coreToolTitle, toolIdentity } from "./identity";
+import { coreToolTitle, declaredToolIdentity } from "./identity";
 import {
   matchChainContext,
   matchError,
@@ -89,7 +89,7 @@ const matchersFor = (name: string): ToolMatcher[] => {
 };
 
 const fallbackOperation = (ctx: ToolContext) => {
-  const name = toolIdentity(ctx.rawLabel);
+  const name = declaredToolIdentity(ctx.rawLabel);
   const coreIds: Record<string, string> = {
     brave_search: "web.search",
     activate_skills: "skill.activate",
@@ -110,7 +110,7 @@ const fallbackOperation = (ctx: ToolContext) => {
 };
 
 export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
-  const name = toolIdentity(ctx.rawLabel);
+  const name = declaredToolIdentity(ctx.rawLabel);
   const operation =
     matchersFor(name).reduce<ReturnType<ToolMatcher>>(
       (matched, matcher) => matched ?? matcher(ctx),
