@@ -72,7 +72,10 @@ const server = await createServer({
         replacement: runtime,
       },
       { find: "@aomi-labs/react", replacement: runtime },
-      { find: "@aomi-labs/client", replacement: runtime },
+      {
+        find: "@aomi-labs/client",
+        replacement: resolve(fixtureRoot, "client.ts"),
+      },
       { find: "@fixture-source", replacement: sourceRoot },
       {
         find: "@",
@@ -90,6 +93,10 @@ const server = await createServer({
 let browser;
 try {
   await server.listen();
+  if (process.env.TRANSACTION_REVIEW_SERVE_ONLY === "1") {
+    console.log(`Transaction review fixture: ${pageUrl()}`);
+    await new Promise(() => {});
+  }
   browser = await chromium.launch({
     headless: true,
     channel: process.env.TRANSACTION_REVIEW_BROWSER_CHANNEL || "chrome",
@@ -210,8 +217,9 @@ try {
     const recovery = page.getByTestId("transaction-review");
     await assertText(
       recovery,
-      "Wallet transaction needs attention. It does not match the reviewed request.",
+      "The wallet used a different nonce from the prepared transaction.",
     );
+    await assertText(recovery, "Transaction: 0xdeadbeef");
     assert.equal(
       await recovery
         .getByRole("button", { name: "Submit 1 of 2", exact: true })

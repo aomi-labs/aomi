@@ -16,6 +16,14 @@ type BatchSubmission = {
   controllerGeneration: number;
 };
 
+function walletMismatchMessage(failureCode: string | null | undefined): string {
+  const reason =
+    failureCode === "commit_wallet_transaction_nonce_mismatch"
+      ? "The wallet used a different nonce from the prepared transaction."
+      : "The submitted transaction did not match the reviewed request.";
+  return `${reason} Aomi could not verify this transaction. Check its on-chain result before submitting another transaction.`;
+}
+
 /** Presents the next durable Action and submits only an explicit user choice. */
 export function WalletReview() {
   const {
@@ -261,13 +269,17 @@ export function WalletReview() {
         }
       : undefined);
   if (!review) return null;
-  const status =
-    walletAttemptState === "mismatched"
-      ? "Wallet transaction needs attention. It does not match the reviewed request."
-      : recoverableWalletOutcome
-        ? "Wallet transaction found. Continue to verify it."
+  const walletMismatch = walletAttemptState === "mismatched";
+  const status = walletMismatch
+    ? walletMismatchMessage(
+        liveCommit?.wallet_attempt?.failure_code ?? liveCommit?.failure_code,
+      )
+    : recoverableWalletOutcome
+      ? "Wallet transaction found. Continue to verify it."
+      : walletAttemptState === "reported" || walletAttemptState === "observing"
+        ? "Wallet submitted the transaction. Checking on-chain confirmation…"
         : walletAttemptState
-          ? "Checking the wallet transaction…"
+          ? "Waiting for wallet approval…"
           : batchSubmission
             ? "Submitting in order; waiting for each confirmation."
             : undefined;
@@ -288,7 +300,10 @@ export function WalletReview() {
       approveDisabled={Boolean(liveCommit) && !commitCanExecute}
       rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
       status={status}
-      statusIsError={walletAttemptState === "mismatched"}
+      statusTransactionId={
+        liveCommit?.wallet_attempt?.transaction_id ?? undefined
+      }
+      statusIsError={walletMismatch}
       onApprove={() => void decide(true)}
       onApproveAll={showBatchControls ? submitAll : undefined}
       batchProgress={

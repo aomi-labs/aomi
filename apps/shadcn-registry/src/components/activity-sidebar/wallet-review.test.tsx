@@ -183,6 +183,28 @@ describe("WalletReview", () => {
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
     expect(runtime.executeAction).not.toHaveBeenCalled();
 
+    runtime.commits = [
+      {
+        ...runtime.commits[0],
+        action: null,
+        wallet_attempt: {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          state: "reported",
+          transaction_id: "0xdeadbeef",
+          failure_code: null,
+        },
+      },
+      runtime.commits[1],
+    ];
+    rerender(<ActivitySidebar />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Wallet submitted the transaction. Checking on-chain confirmation…",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Transaction: 0xdeadbeef",
+    );
+
     runtime.commits = runtime.commits.map((view) => ({
       ...view,
       state: "expired",
@@ -227,7 +249,10 @@ describe("WalletReview", () => {
     ];
     render(<ActivitySidebar />);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Wallet transaction needs attention. It does not match the reviewed request.",
+      "The submitted transaction did not match the reviewed request.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Transaction: 0xdeadbeef",
     );
   });
 
@@ -392,7 +417,7 @@ describe("WalletReview", () => {
         ...walletAttempt,
         state: "mismatched",
         transaction_id: "0xtransaction",
-        failure_code: "transaction_mismatch",
+        failure_code: "commit_wallet_transaction_nonce_mismatch",
       },
     };
     const mismatchController = new CommitController(
@@ -406,7 +431,10 @@ describe("WalletReview", () => {
     view.rerender(<ActivitySidebar />);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Wallet transaction needs attention. It does not match the reviewed request.",
+      "The wallet used a different nonce from the prepared transaction.",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Transaction: 0xtransaction",
     );
     for (const button of screen.getAllByRole("button"))
       expect(button).toBeDisabled();

@@ -22,6 +22,7 @@ export function TransactionReview({
   approveDisabled = false,
   rejectDisabled = false,
   status,
+  statusTransactionId,
   statusIsError = false,
   onApprove,
   onApproveAll,
@@ -34,6 +35,7 @@ export function TransactionReview({
   approveDisabled?: boolean;
   rejectDisabled?: boolean;
   status?: string;
+  statusTransactionId?: string;
   statusIsError?: boolean;
   onApprove: () => void;
   onApproveAll?: () => void;
@@ -134,6 +136,11 @@ export function TransactionReview({
           className="text-aomi-muted mt-3 text-[11px]"
         >
           {status}
+          {statusTransactionId && (
+            <span className="mt-1 block break-all font-mono">
+              Transaction: {statusTransactionId}
+            </span>
+          )}
         </p>
       )}
       <footer

@@ -130,11 +130,12 @@ export function buildEvmExecutionRuntime(
             const tx = payload.transaction;
             if (activeConnector && sendTransactionAsync) {
               await selectExternalChain(payload);
+              // Browser sends use the wallet's current pending nonce. The
+              // staged nonce may have changed before the user approves.
               return sendTransactionAsync({
                 account: payload.signer as `0x${string}`,
                 chainId: payload.chain_id,
                 connector: activeConnector,
-                nonce: payload.nonce,
                 to: tx.to as `0x${string}`,
                 data: tx.data as `0x${string}`,
                 value: BigInt(tx.value),
@@ -151,7 +152,6 @@ export function buildEvmExecutionRuntime(
               account,
               chain,
               type: "eip1559",
-              nonce: payload.nonce,
               to: tx.to as `0x${string}`,
               data: tx.data as `0x${string}`,
               value: BigInt(tx.value),
