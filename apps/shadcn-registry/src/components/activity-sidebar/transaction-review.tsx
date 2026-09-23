@@ -22,8 +22,11 @@ export function TransactionReview({
   approveDisabled = false,
   rejectDisabled = false,
   status,
+  statusTransactionId,
   statusIsError = false,
   onApprove,
+  onApproveAll,
+  batchProgress,
   onReject,
 }: {
   review: TransactionReviewData;
@@ -32,8 +35,11 @@ export function TransactionReview({
   approveDisabled?: boolean;
   rejectDisabled?: boolean;
   status?: string;
+  statusTransactionId?: string;
   statusIsError?: boolean;
   onApprove: () => void;
+  onApproveAll?: () => void;
+  batchProgress?: { current: number; total: number; submitting: boolean };
   onReject: () => void;
 }) {
   const reviewRef = useRef<HTMLElement>(null);
@@ -130,10 +136,21 @@ export function TransactionReview({
           className="text-aomi-muted mt-3 text-[11px]"
         >
           {status}
+          {statusTransactionId && (
+            <span className="mt-1 block break-all font-mono">
+              Transaction: {statusTransactionId}
+            </span>
+          )}
         </p>
       )}
       <footer
-        className={failed ? "mt-3" : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"}
+        className={
+          failed
+            ? "mt-3"
+            : onApproveAll && batchProgress
+              ? "mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2"
+              : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"
+        }
       >
         <Button
           type="button"
@@ -144,17 +161,53 @@ export function TransactionReview({
         >
           {failed ? "Reject request" : "Reject"}
         </Button>
-        {!failed && (
-          <Button
-            type="button"
-            onClick={onApprove}
-            disabled={approving || approveDisabled}
-            className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
-          >
-            <Wallet className="size-4" />
-            {approving ? "Waiting for wallet…" : "Send to wallet"}
-          </Button>
-        )}
+        {!failed &&
+          (onApproveAll && batchProgress ? (
+            <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
+              <Button
+                type="button"
+                onClick={onApprove}
+                disabled={
+                  approving || approveDisabled || batchProgress.submitting
+                }
+                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 min-w-0 flex-1 rounded-none px-3 text-[12px] hover:opacity-90"
+              >
+                {approving
+                  ? "Waiting…"
+                  : `Submit ${batchProgress.current} of ${batchProgress.total}`}
+              </Button>
+              <span
+                className="bg-aomi-bg/25 my-2 w-px shrink-0"
+                aria-hidden="true"
+              />
+              <Button
+                type="button"
+                onClick={onApproveAll}
+                disabled={
+                  approving || approveDisabled || batchProgress.submitting
+                }
+                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 shrink-0 rounded-none px-3 text-[12px] hover:opacity-90"
+              >
+                {batchProgress.submitting ? "Submitting…" : "Submit all"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              onClick={onApprove}
+              disabled={
+                approving || approveDisabled || batchProgress?.submitting
+              }
+              className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
+            >
+              <Wallet className="size-4" />
+              {approving
+                ? "Waiting for wallet…"
+                : batchProgress
+                  ? `Submit ${batchProgress.current} of ${batchProgress.total}`
+                  : "Submit"}
+            </Button>
+          ))}
       </footer>
     </section>
   );

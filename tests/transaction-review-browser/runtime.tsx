@@ -1,22 +1,49 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { SUPPORTED_CHAINS } from "./client";
+export { SUPPORTED_CHAINS };
+import {
+  logicalTurnRunning,
+  projectRuntimeMessages,
+  walletContinuationPending,
+} from "@fixture-source/packages/react/src/runtime/utils";
+export { walletContinuationPending };
 import {
   aaveActivityEvents,
   aaveReviewAction,
   durableActivityEvents,
   durableCommits,
+  confirmedCommits,
+  commitTraceEvents,
+  reportedCommits,
   failedReviewAction,
   recoveryCommits,
 } from "./fixtures";
 
 const params = new URLSearchParams(window.location.search);
-const state = params.get("state") ?? "review";
+type FixtureState = "review" | "reported" | "recovery" | "confirmed" | "failed";
+const fixtureState = (value: string | null): FixtureState =>
+  value === "reported" ||
+  value === "recovery" ||
+  value === "confirmed" ||
+  value === "failed"
+    ? value
+    : "review";
+let state = fixtureState(params.get("state"));
 const mode = params.get("mode") ?? "legacy";
 const failed = failedReviewAction();
 const commitMode = mode === "commit";
-const commits = state === "recovery" ? recoveryCommits : durableCommits;
+let commits =
+  state === "recovery"
+    ? recoveryCommits
+    : state === "reported"
+      ? reportedCommits
+      : state === "confirmed"
+        ? confirmedCommits
+        : durableCommits;
 const controllerCalls = { execute: [] as string[], reject: [] as string[] };
 const commitController = {
+  threadId: "thread-1",
   review(id: string) {
     return commits.find((commit) => commit.commit_id === id)?.review?.request;
   },
@@ -34,7 +61,7 @@ const commitController = {
 const runtime = {
   threadViewKey: "fixture-aave-review",
   events: commitMode
-    ? durableActivityEvents
+    ? [...durableActivityEvents, ...commitTraceEvents(state)]
     : state === "failed"
       ? [...aaveActivityEvents.slice(0, -1), failed]
       : aaveActivityEvents,
@@ -45,12 +72,49 @@ const runtime = {
       : [aaveReviewAction],
   actionAttempts: new Map(),
   isRunning: false,
+  turnState: "complete",
   commits: commitMode ? commits : [],
   commitController: commitMode ? commitController : undefined,
   executeAction: async () => undefined,
   rejectAction: async () => undefined,
   showNotification: () => undefined,
 };
+runtime.isRunning =
+  commitMode &&
+  logicalTurnRunning(
+    runtime.events,
+    projectRuntimeMessages(runtime.events),
+    runtime.turnState as Parameters<typeof logicalTurnRunning>[2],
+  );
+
+export function setFixtureState(next: FixtureState) {
+  state = next;
+  commits =
+    next === "recovery"
+      ? recoveryCommits
+      : next === "reported"
+        ? reportedCommits
+        : next === "confirmed"
+          ? confirmedCommits
+          : durableCommits;
+  runtime.commits = commitMode ? commits : [];
+  runtime.events = commitMode
+    ? [...durableActivityEvents, ...commitTraceEvents(next)]
+    : runtime.events;
+  runtime.turnState = "complete";
+  runtime.isRunning =
+    commitMode &&
+    logicalTurnRunning(
+      runtime.events,
+      projectRuntimeMessages(runtime.events),
+      runtime.turnState as Parameters<typeof logicalTurnRunning>[2],
+    );
+  return next;
+}
+
+export function getFixtureRuntime() {
+  return runtime;
+}
 
 Object.assign(window, {
   __transactionReviewFixture: {
@@ -66,6 +130,14 @@ Object.assign(window, {
 
 export function useAomiRuntime() {
   return runtime;
+}
+
+export function useOptionalAomiRuntime() {
+  return runtime;
+}
+
+export function useThreadTaskRuns() {
+  return {};
 }
 
 export function useAomiWalletKit() {
@@ -116,24 +188,6 @@ export function getChainInfo(chainId: number) {
     : undefined;
 }
 
-export const SUPPORTED_CHAINS = [{ id: 8453, name: "Base", ticker: "ETH" }];
-
 export function selectTaskRuns() {
   return {};
-}
-
-export function normalizeSolanaCluster(cluster?: string) {
-  return cluster;
-}
-
-export function summarizeSimulation(simulation: Record<string, unknown>) {
-  const passed =
-    simulation.status === "passed" || simulation.batch_success === true;
-  return { passed };
-}
-
-export function isTerminalCommit(commit: { state?: string }) {
-  return ["confirmed", "failed", "rejected", "expired"].includes(
-    commit.state ?? "",
-  );
 }

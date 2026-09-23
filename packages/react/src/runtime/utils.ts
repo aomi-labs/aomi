@@ -7,6 +7,7 @@ import {
   type MessageEvent,
   type ToolCompleteEvent,
   type ToolUpdateEvent,
+  type TurnState,
   type UserState,
 } from "@aomi-labs/client";
 
@@ -132,10 +133,11 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
 }
 
 type AssistantProjection = {
-  message: ThreadMessageLike;
+  message: ThreadMessageLike & { id: string };
   parts: MessageContentPart[];
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
+  finalAnswerStartIndex?: number;
 };
 
 /** Insert a part once per key, replacing it in place on re-delivery. */
@@ -210,6 +212,120 @@ const inlineToolPart = (
   } as MessageContentPart;
 };
 
+/** A durable commit resumes under a new backend turn id after wallet action. */
+function commitContinuationOwners(
+  events: readonly Event[],
+): Map<string, string> {
+  const owners = new Map<string, string>();
+  for (const event of events) {
+    if (!event.turn_id) continue;
+    const toolName =
+      (event.type === "message" || event.type === "tool_complete") &&
+      event.tool_name?.split("::").at(-1);
+    const isCommit = /^(evm|svm)_commit_(txs|tx|ix|message)$/.test(
+      toolName || "",
+    );
+    const isInlineCommit =
+      event.type === "message" && event.sender === "agent" && isCommit;
+    const isTypedCommit = event.type === "tool_complete" && isCommit;
+    if (!isInlineCommit && !isTypedCommit) continue;
+    try {
+      const raw = isInlineCommit
+        ? JSON.parse((event as MessageEvent).tool_result?.[1] ?? "null")
+        : (event as ToolCompleteEvent).result;
+      if (!raw || typeof raw !== "object") continue;
+      const result = raw as {
+        commits?: unknown;
+        commit_id?: unknown;
+        batch?: { batch_id?: unknown };
+        status?: unknown;
+      };
+      // A terminal wallet receipt reuses the commit tool name and carries a
+      // member commit_id, but only the admission starts a continuation.
+      const commits = Array.isArray(result.commits)
+        ? result.commits
+        : result.status === undefined ||
+            result.status === "pending_approval" ||
+            result.status === "commit_staged"
+          ? [result]
+          : [];
+      for (const entry of commits) {
+        if (!entry || typeof entry !== "object") continue;
+        const commit = entry as {
+          commit_id?: unknown;
+          batch?: { batch_id?: unknown };
+        };
+        const operationId = commit.batch?.batch_id ?? commit.commit_id;
+        if (typeof operationId === "string" && operationId.length > 0) {
+          const callbackTurn = `broadcast-terminal:${operationId}`;
+          if (!owners.has(callbackTurn))
+            owners.set(callbackTurn, event.turn_id);
+        }
+      }
+    } catch {
+      // A failed or malformed tool has no continuation to group.
+    }
+  }
+  return owners;
+}
+
+/** The logical turn stays open while its wallet callback has not finished. */
+export function walletContinuationPending(
+  continuationTurnIds: readonly string[],
+  events: readonly Event[],
+): boolean {
+  return continuationTurnIds.some((callbackId) => {
+    const callbackState = events.findLast(
+      (candidate) =>
+        candidate.type === "turn_state_changed" &&
+        candidate.turn_id === callbackId,
+    );
+    return !(
+      callbackState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(callbackState.state)
+    );
+  });
+}
+
+/** Assistant UI's running state for the latest logical message. */
+export function logicalTurnRunning(
+  events: readonly Event[],
+  messages: readonly ThreadMessageLike[],
+  turnState?: TurnState,
+  isSubmitting = false,
+): boolean {
+  if (
+    isSubmitting ||
+    turnState === "processing" ||
+    turnState === "awaiting_action"
+  ) {
+    return true;
+  }
+  const lastMessage = messages.at(-1);
+  const continuationTurnIds =
+    lastMessage?.role === "assistant"
+      ? (
+          lastMessage.metadata?.custom as
+            | { aomiContinuationTurnIds?: string[] }
+            | undefined
+        )?.aomiContinuationTurnIds
+      : undefined;
+  return walletContinuationPending(continuationTurnIds ?? [], events);
+}
+
+/** Walk callback ancestry without allowing malformed cycles to merge turns. */
+function rootTurn(turnId: string, owners: ReadonlyMap<string, string>): string {
+  let current = turnId;
+  const seen = new Set<string>();
+  while (true) {
+    const parent = owners.get(current);
+    if (parent === undefined) return current;
+    if (seen.has(current)) return turnId;
+    seen.add(current);
+    current = parent;
+  }
+}
+
 /**
  * Pure Assistant UI projection over the canonical ordered event ledger.
  * Messages and tool parts are grouped by backend turn identity; no transcript
@@ -223,12 +339,25 @@ export function projectAssistantMessages(
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
-  const turnKeys = events.map((event) => {
+  const continuationOwners = commitContinuationOwners(events);
+  const continuationTurnIds = new Map<string, string[]>();
+  const parentsWithCallbacks = new Set(continuationOwners.values());
+  for (const callbackTurn of continuationOwners.keys()) {
+    const root = rootTurn(callbackTurn, continuationOwners);
+    if (root === callbackTurn) continue;
+    const siblings = continuationTurnIds.get(root) ?? [];
+    siblings.push(callbackTurn);
+    continuationTurnIds.set(root, siblings);
+  }
+  const wireTurnKeys = events.map((event) => {
     if (event.type === "message" && event.sender === "user") {
       legacyTurnKey = `legacy:${event.event_id}`;
     }
     return event.turn_id ?? legacyTurnKey;
   });
+  const turnKeys = wireTurnKeys.map((turnKey) =>
+    rootTurn(turnKey, continuationOwners),
+  );
   // Inline results only ever arrive as `tool_result` message events, so an
   // inline part may be suppressed only when the SAME tool also produced a
   // typed completion in the turn — suppressing per turn would drop a sync
@@ -238,7 +367,7 @@ export function projectAssistantMessages(
   const typedToolCompletions = new Set(
     events.flatMap((event, index) =>
       event.type === "tool_complete" && event.tool_name !== "task"
-        ? [typedToolKey(turnKeys[index]!, event.tool_name)]
+        ? [typedToolKey(wireTurnKeys[index]!, event.tool_name)]
         : [],
     ),
   );
@@ -273,7 +402,7 @@ export function projectAssistantMessages(
         if (toolResult) {
           if (
             !typedToolCompletions.has(
-              typedToolKey(turnKeys[index]!, toolResult.toolName),
+              typedToolKey(wireTurnKeys[index]!, toolResult.toolName),
             )
           ) {
             upsertPart(
@@ -284,6 +413,14 @@ export function projectAssistantMessages(
             );
           }
         } else {
+          if (
+            continuationOwners.has(event.turn_id ?? "") &&
+            !parentsWithCallbacks.has(event.turn_id ?? "") &&
+            turnKeys[index] !== event.turn_id &&
+            key === `${event.turn_id}:response`
+          ) {
+            projection.finalAnswerStartIndex ??= projection.parts.length;
+          }
           upsertPart(projection, projection.textParts, key, {
             type: "text",
             text: event.content,
@@ -329,9 +466,25 @@ export function projectAssistantMessages(
   return output
     .map((entry) => {
       if (!("parts" in entry)) return entry;
+      const root = entry.message.id.slice("turn:".length);
+      const callbackTurns = continuationTurnIds.get(root);
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
+        ...(entry.finalAnswerStartIndex !== undefined || callbackTurns
+          ? {
+              metadata: {
+                custom: {
+                  ...(entry.finalAnswerStartIndex !== undefined
+                    ? { aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex }
+                    : {}),
+                  ...(callbackTurns
+                    ? { aomiContinuationTurnIds: callbackTurns }
+                    : {}),
+                },
+              },
+            }
+          : {}),
       };
     })
     .filter(
