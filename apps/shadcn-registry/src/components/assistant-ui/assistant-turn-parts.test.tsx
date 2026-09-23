@@ -325,6 +325,14 @@ describe("AssistantTurnParts lifecycle", () => {
 
     state.events = [
       ...state.events,
+      {
+        type: "message",
+        turn_id: callbackId,
+        message_key: `${callbackId}:response`,
+        sender: "agent",
+        content: state.answerText,
+        is_streaming: false,
+      },
       { type: "turn_state_changed", turn_id: callbackId, state: "complete" },
     ];
     state.turnState = "complete";
@@ -374,6 +382,14 @@ describe("AssistantTurnParts lifecycle", () => {
     state.events = [
       ...state.events,
       {
+        type: "message",
+        turn_id: "broadcast-terminal:batch-1",
+        message_key: "broadcast-terminal:batch-1:response",
+        sender: "agent",
+        content: "Finished.",
+        is_streaming: false,
+      },
+      {
         type: "turn_state_changed",
         turn_id: "broadcast-terminal:batch-1",
         state: "complete",
@@ -415,6 +431,14 @@ describe("AssistantTurnParts lifecycle", () => {
 
     state.events = [
       ...state.events,
+      {
+        type: "message",
+        turn_id: secondCallback,
+        message_key: `${secondCallback}:response`,
+        sender: "agent",
+        content: state.answerText,
+        is_streaming: false,
+      },
       {
         type: "turn_state_changed",
         turn_id: secondCallback,

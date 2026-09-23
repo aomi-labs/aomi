@@ -20,9 +20,9 @@ import {
   cn,
   useOptionalAomiRuntime,
   useThreadTaskRuns,
+  walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
-import type { Event } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
@@ -695,23 +695,6 @@ export const buildTraceItems = (
 
   return items;
 };
-
-function walletContinuationPending(
-  continuationTurnIds: readonly string[],
-  events: readonly Event[],
-): boolean {
-  return continuationTurnIds.some((callbackId) => {
-    const callbackState = events.findLast(
-      (candidate) =>
-        candidate.type === "turn_state_changed" &&
-        candidate.turn_id === callbackId,
-    );
-    return !(
-      callbackState?.type === "turn_state_changed" &&
-      ["complete", "failed", "interrupted"].includes(callbackState.state)
-    );
-  });
-}
 
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {

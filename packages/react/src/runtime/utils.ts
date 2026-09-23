@@ -7,6 +7,7 @@ import {
   type MessageEvent,
   type ToolCompleteEvent,
   type ToolUpdateEvent,
+  type TurnState,
   type UserState,
 } from "@aomi-labs/client";
 
@@ -237,8 +238,17 @@ function commitContinuationOwners(
         commits?: unknown;
         commit_id?: unknown;
         batch?: { batch_id?: unknown };
+        status?: unknown;
       };
-      const commits = Array.isArray(result.commits) ? result.commits : [result];
+      // A terminal wallet receipt reuses the commit tool name and carries a
+      // member commit_id, but only the admission starts a continuation.
+      const commits = Array.isArray(result.commits)
+        ? result.commits
+        : result.status === undefined ||
+            result.status === "pending_approval" ||
+            result.status === "commit_staged"
+          ? [result]
+          : [];
       for (const entry of commits) {
         if (!entry || typeof entry !== "object") continue;
         const commit = entry as {
@@ -257,6 +267,50 @@ function commitContinuationOwners(
     }
   }
   return owners;
+}
+
+/** The logical turn stays open while its wallet callback has not finished. */
+export function walletContinuationPending(
+  continuationTurnIds: readonly string[],
+  events: readonly Event[],
+): boolean {
+  return continuationTurnIds.some((callbackId) => {
+    const callbackState = events.findLast(
+      (candidate) =>
+        candidate.type === "turn_state_changed" &&
+        candidate.turn_id === callbackId,
+    );
+    return !(
+      callbackState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(callbackState.state)
+    );
+  });
+}
+
+/** Assistant UI's running state for the latest logical message. */
+export function logicalTurnRunning(
+  events: readonly Event[],
+  messages: readonly ThreadMessageLike[],
+  turnState?: TurnState,
+  isSubmitting = false,
+): boolean {
+  if (
+    isSubmitting ||
+    turnState === "processing" ||
+    turnState === "awaiting_action"
+  ) {
+    return true;
+  }
+  const lastMessage = messages.at(-1);
+  const continuationTurnIds =
+    lastMessage?.role === "assistant"
+      ? (
+          lastMessage.metadata?.custom as
+            | { aomiContinuationTurnIds?: string[] }
+            | undefined
+        )?.aomiContinuationTurnIds
+      : undefined;
+  return walletContinuationPending(continuationTurnIds ?? [], events);
 }
 
 /** Walk callback ancestry without allowing malformed cycles to merge turns. */

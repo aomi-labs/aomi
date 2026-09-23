@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
 
-import { projectAssistantMessages, projectRuntimeMessages } from "../utils";
+import {
+  logicalTurnRunning,
+  projectAssistantMessages,
+  projectRuntimeMessages,
+  walletContinuationPending,
+} from "../utils";
 import { appendCapabilityHints } from "../capability-hints";
 
 const meta = (
@@ -260,6 +265,133 @@ describe("projectAssistantMessages", () => {
     expect(following[3]?.content).toEqual([
       { type: "text", text: "Another answer" },
     ]);
+  });
+
+  it("keeps a two-transaction batch open through wallet receipts and settles on its final callback", () => {
+    // The wire emits one admission with two CommitViews, then one terminal
+    // ToolCompletion per member. Only the batch id owns the model callback.
+    const batchId = "batch-1";
+    const callbackId = `broadcast-terminal:${batchId}`;
+    const admission = {
+      commits: [
+        { commit_id: "commit-1", batch: { batch_id: batchId } },
+        { commit_id: "commit-2", batch: { batch_id: batchId } },
+      ],
+    };
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "user",
+        content: "Approve and supply",
+      },
+      {
+        ...meta(2, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "commit-admission",
+        tool_name: "evm_commit_txs",
+        tool_result: ["Commit", JSON.stringify(admission)],
+      },
+      {
+        ...meta(3, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "Your wallet approval is required.",
+        message_key: "turn-1:note",
+      },
+      {
+        ...meta(4, "turn_state_changed", "turn-1"),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+      ...["commit-1", "commit-2"].map(
+        (commitId, index) =>
+          ({
+            ...meta(5 + index, "tool_complete", "turn-1"),
+            type: "tool_complete",
+            id: `receipt-${index}`,
+            call_id: "commit-call",
+            tool_name: "evm_commit_txs",
+            result: {
+              status: "success",
+              commit_id: commitId,
+              identifier: { kind: "hash", value: `0x${index}` },
+              pending_ids: [{ id: index + 1, chain: "evm" }],
+            },
+          }) as Event,
+      ),
+      {
+        ...meta(7, "turn_state_changed", callbackId),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(8, "message", callbackId),
+        type: "message",
+        sender: "agent",
+        content: "Both transactions succeeded.",
+        message_key: `${callbackId}:response`,
+        is_streaming: false,
+      },
+      {
+        ...meta(9, "turn_state_changed", callbackId),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+    ];
+
+    for (const count of [4, 6, 7, 8]) {
+      const phase = events.slice(0, count);
+      const assistant = projectAssistantMessages(phase)[1];
+      const ids = (
+        assistant?.metadata?.custom as
+          | { aomiContinuationTurnIds?: string[] }
+          | undefined
+      )?.aomiContinuationTurnIds;
+      expect(ids).toEqual([callbackId]);
+      expect(walletContinuationPending(ids ?? [], phase)).toBe(true);
+      expect(
+        logicalTurnRunning(phase, projectAssistantMessages(phase), "complete"),
+      ).toBe(true);
+    }
+
+    const projected = projectAssistantMessages(events);
+    const assistant = projected[1];
+    const ids = (
+      assistant?.metadata?.custom as
+        | { aomiContinuationTurnIds?: string[] }
+        | undefined
+    )?.aomiContinuationTurnIds;
+    expect(projected).toHaveLength(2);
+    expect(assistant).toMatchObject({
+      id: "turn:turn-1",
+      metadata: {
+        custom: {
+          aomiContinuationTurnIds: [callbackId],
+          aomiFinalAnswerStartIndex: 2,
+        },
+      },
+    });
+    expect(walletContinuationPending(ids ?? [], events)).toBe(false);
+    expect(logicalTurnRunning(events, projected, "complete")).toBe(false);
+  });
+
+  it("settles a completed callback without a response message", () => {
+    const callbackId = "broadcast-terminal:batch-1";
+    expect(
+      walletContinuationPending(
+        [callbackId],
+        [
+          {
+            ...meta(1, "turn_state_changed", callbackId),
+            type: "turn_state_changed",
+            state: "complete",
+          },
+        ],
+      ),
+    ).toBe(false);
   });
 
   it("groups a namespaced typed commit callback after a later user turn", () => {
