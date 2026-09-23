@@ -160,7 +160,7 @@ export function WalletReview() {
       setBatchSubmission(null);
       return;
     }
-    if (liveCommit && liveCommit.batch?.batch_id !== batchSubmission.batchId) {
+    if (!liveCommit || liveCommit.batch?.batch_id !== batchSubmission.batchId) {
       setBatchSubmission(null);
       return;
     }

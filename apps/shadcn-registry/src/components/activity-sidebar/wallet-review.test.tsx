@@ -1343,6 +1343,28 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
+  it("requires fresh batch consent after the review closes", async () => {
+    const execute = vi.fn((id: string) =>
+      Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
+    );
+    controller(execute);
+    const { rerender } = render(<WalletReview />);
+    fireEvent.click(screen.getByRole("button", { name: "Submit all" }));
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+
+    const remaining = runtime.commits[1];
+    runtime.commits = [];
+    rerender(<WalletReview />);
+    await waitFor(() =>
+      expect(screen.queryByTestId("transaction-review")).toBeNull(),
+    );
+
+    runtime.commits = [commit(0, "confirmed"), remaining];
+    rerender(<WalletReview />);
+    expect(screen.getByRole("button", { name: "Submit 2 of 2" })).toBeEnabled();
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   it("cancels when another batch becomes the visible review", async () => {
     const execute = vi.fn((id: string) =>
       Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),
