@@ -22,7 +22,7 @@ import {
   useThreadTaskRuns,
   type TaskRunState,
 } from "@aomi-labs/react";
-import type { CommitView, Event } from "@aomi-labs/client";
+import type { Event } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
@@ -697,42 +697,10 @@ export const buildTraceItems = (
 };
 
 function walletContinuationPending(
-  turnId: string,
+  continuationTurnIds: readonly string[],
   events: readonly Event[],
-  commits: readonly CommitView[],
 ): boolean {
-  const current = new Map(commits.map((commit) => [commit.commit_id, commit]));
-  const ownedCommits = new Map<string, Partial<CommitView>>();
-  for (const event of events) {
-    if (event.turn_id !== turnId) continue;
-    if (event.type !== "message" && event.type !== "tool_complete") continue;
-    const toolName = event.tool_name?.split("::").at(-1) ?? "";
-    if (!/^(evm|svm)_commit_(txs|tx|ix|message)$/.test(toolName)) continue;
-    try {
-      const raw =
-        event.type === "message"
-          ? JSON.parse(event.tool_result?.[1] ?? "null")
-          : event.result;
-      if (!raw || typeof raw !== "object") continue;
-      const result = raw as { commits?: unknown; commit_id?: unknown };
-      const entries: unknown[] = Array.isArray(result.commits)
-        ? result.commits
-        : [result];
-      for (const commit of entries) {
-        if (!commit || typeof commit !== "object") continue;
-        const view = commit as Partial<CommitView>;
-        if (typeof view.commit_id === "string") {
-          ownedCommits.set(view.commit_id, view);
-        }
-      }
-    } catch {
-      // A failed or non-JSON tool result has no commit to continue.
-    }
-  }
-  return [...ownedCommits].some(([id, initial]) => {
-    const commit = current.get(id) ?? initial;
-    if (!commit) return false;
-    const callbackId = `broadcast-terminal:${commit.batch?.batch_id ?? initial.batch?.batch_id ?? id}`;
+  return continuationTurnIds.some((callbackId) => {
     const callbackState = events.findLast(
       (candidate) =>
         candidate.type === "turn_state_changed" &&
@@ -754,6 +722,11 @@ export const AssistantTurnParts: FC = () => {
       (s.metadata?.custom as { aomiFinalAnswerStartIndex?: number } | undefined)
         ?.aomiFinalAnswerStartIndex,
   );
+  const continuationTurnIds = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiContinuationTurnIds?: string[] } | undefined)
+        ?.aomiContinuationTurnIds,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
@@ -774,9 +747,10 @@ export const AssistantTurnParts: FC = () => {
     ownStatus !== undefined &&
     ["complete", "failed", "interrupted"].includes(ownStatus);
   const ownStopped = ownStatus === "failed" || ownStatus === "interrupted";
-  const walletContinuation = turnId
-    ? walletContinuationPending(turnId, turnEvents, runtime?.commits ?? [])
-    : false;
+  const walletContinuation = walletContinuationPending(
+    continuationTurnIds ?? [],
+    turnEvents,
+  );
   // A commit returns before wallet approval and the backend marks its model
   // turn complete. Keep this trace live through the durable commit and its
   // broadcast-terminal continuation. A later turn's processing state must not

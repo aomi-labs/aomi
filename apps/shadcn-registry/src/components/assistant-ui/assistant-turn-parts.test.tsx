@@ -13,8 +13,8 @@ const state = vi.hoisted(() => ({
   isLast: true,
   messageId: "turn:turn-1",
   events: [] as unknown[],
-  commits: [] as unknown[],
   finalAnswerStartIndex: undefined as number | undefined,
+  continuationTurnIds: [] as string[],
 }));
 
 vi.mock("@assistant-ui/react", async (importOriginal) => ({
@@ -23,7 +23,10 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
     selector({
       id: state.messageId,
       metadata: {
-        custom: { aomiFinalAnswerStartIndex: state.finalAnswerStartIndex },
+        custom: {
+          aomiFinalAnswerStartIndex: state.finalAnswerStartIndex,
+          aomiContinuationTurnIds: state.continuationTurnIds,
+        },
       },
       content: [
         ...(state.prefixText
@@ -70,7 +73,6 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useOptionalAomiRuntime: () => ({
     turnState: state.turnState,
     events: state.events,
-    commits: state.commits,
   }),
   useThreadTaskRuns: () => ({}),
 }));
@@ -106,8 +108,8 @@ beforeEach(() => {
   state.isLast = true;
   state.messageId = "turn:turn-1";
   state.events = [];
-  state.commits = [];
   state.finalAnswerStartIndex = undefined;
+  state.continuationTurnIds = [];
 });
 
 describe("AssistantTurnParts lifecycle", () => {
@@ -297,48 +299,14 @@ describe("AssistantTurnParts lifecycle", () => {
   );
 
   it("stays Working from commit through wallet confirmation and callback", () => {
-    const commitId = "commit-1";
     const callbackId = "broadcast-terminal:batch-1";
+    state.continuationTurnIds = [callbackId];
     state.events = [
-      {
-        type: "message",
-        turn_id: "turn-1",
-        tool_name: "evm_commit_txs",
-        tool_result: [
-          "Commit",
-          JSON.stringify({
-            commits: [
-              {
-                commit_id: commitId,
-                batch: { batch_id: "batch-1" },
-                state: "needs_signature",
-              },
-            ],
-          }),
-        ],
-      },
       { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
-    ];
-    state.commits = [
-      {
-        commit_id: commitId,
-        state: "needs_signature",
-        batch: { batch_id: "batch-1" },
-      },
     ];
     state.running = false;
     state.turnState = "complete";
     const view = render(<AssistantTurnParts />);
-    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
-
-    state.commits = [
-      {
-        commit_id: commitId,
-        state: "confirmed",
-        batch: { batch_id: "batch-1" },
-      },
-    ];
-    view.rerender(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
 
     state.events = [
@@ -365,8 +333,7 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
     expect(view.getByText(state.answerText)).toBe(answer);
 
-    // A reload can expose durable ledger events before the commit snapshot.
-    state.commits = [];
+    // Completion remains settled when the durable projection rerenders.
     view.rerender(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
   });
@@ -385,44 +352,14 @@ describe("AssistantTurnParts lifecycle", () => {
     state.running = false;
     state.isLast = false;
     state.turnState = "processing";
+    state.continuationTurnIds = ["broadcast-terminal:batch-1"];
     state.events = [
-      {
-        type: "message",
-        turn_id: "turn-1",
-        tool_name: "evm_commit_txs",
-        tool_result: [
-          "Commit",
-          JSON.stringify({
-            commits: [
-              {
-                commit_id: "commit-1",
-                batch: { batch_id: "batch-1" },
-                state: "needs_signature",
-              },
-            ],
-          }),
-        ],
-      },
       { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
       { type: "turn_state_changed", turn_id: "turn-2", state: "processing" },
-    ];
-    state.commits = [
-      {
-        commit_id: "commit-1",
-        batch: { batch_id: "batch-1" },
-        state: "needs_signature",
-      },
     ];
     const view = render(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
 
-    state.commits = [
-      {
-        commit_id: "commit-1",
-        batch: { batch_id: "batch-1" },
-        state: "rejected",
-      },
-    ];
     state.events = [
       ...state.events,
       {
@@ -444,5 +381,49 @@ describe("AssistantTurnParts lifecycle", () => {
     ];
     view.rerender(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("keeps nested callback work in one trace until the last callback settles", () => {
+    const firstCallback = "broadcast-terminal:batch-a";
+    const secondCallback = "broadcast-terminal:batch-b";
+    state.running = false;
+    state.turnState = "complete";
+    state.continuationTurnIds = [firstCallback, secondCallback];
+    state.middleText = "The first payment finished; approve the second.";
+    state.secondTool = true;
+    state.answerText = "Both payments finished.";
+    state.finalAnswerStartIndex = 3;
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: firstCallback, state: "complete" },
+      {
+        type: "turn_state_changed",
+        turn_id: secondCallback,
+        state: "processing",
+      },
+    ];
+    const view = render(<AssistantTurnParts />);
+    const trace = view.container.querySelector(".aui-working-trace");
+    const answer = view.getByText(state.answerText);
+    expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
+      1,
+    );
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+    expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
+    expect(trace).toContainElement(view.getByText(state.middleText));
+    expect(trace).not.toContainElement(answer);
+
+    state.events = [
+      ...state.events,
+      {
+        type: "turn_state_changed",
+        turn_id: secondCallback,
+        state: "complete",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
+    expect(view.getByText(state.answerText)).toBe(answer);
   });
 });

@@ -132,7 +132,7 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
 }
 
 type AssistantProjection = {
-  message: ThreadMessageLike;
+  message: ThreadMessageLike & { id: string };
   parts: MessageContentPart[];
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
@@ -247,7 +247,9 @@ function commitContinuationOwners(
         };
         const operationId = commit.batch?.batch_id ?? commit.commit_id;
         if (typeof operationId === "string" && operationId.length > 0) {
-          owners.set(`broadcast-terminal:${operationId}`, event.turn_id);
+          const callbackTurn = `broadcast-terminal:${operationId}`;
+          if (!owners.has(callbackTurn))
+            owners.set(callbackTurn, event.turn_id);
         }
       }
     } catch {
@@ -255,6 +257,19 @@ function commitContinuationOwners(
     }
   }
   return owners;
+}
+
+/** Walk callback ancestry without allowing malformed cycles to merge turns. */
+function rootTurn(turnId: string, owners: ReadonlyMap<string, string>): string {
+  let current = turnId;
+  const seen = new Set<string>();
+  while (true) {
+    const parent = owners.get(current);
+    if (parent === undefined) return current;
+    if (seen.has(current)) return turnId;
+    seen.add(current);
+    current = parent;
+  }
 }
 
 /**
@@ -271,13 +286,24 @@ export function projectAssistantMessages(
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
   const continuationOwners = commitContinuationOwners(events);
-  const turnKeys = events.map((event) => {
+  const continuationTurnIds = new Map<string, string[]>();
+  const parentsWithCallbacks = new Set(continuationOwners.values());
+  for (const callbackTurn of continuationOwners.keys()) {
+    const root = rootTurn(callbackTurn, continuationOwners);
+    if (root === callbackTurn) continue;
+    const siblings = continuationTurnIds.get(root) ?? [];
+    siblings.push(callbackTurn);
+    continuationTurnIds.set(root, siblings);
+  }
+  const wireTurnKeys = events.map((event) => {
     if (event.type === "message" && event.sender === "user") {
       legacyTurnKey = `legacy:${event.event_id}`;
     }
-    const turnKey = event.turn_id ?? legacyTurnKey;
-    return continuationOwners.get(turnKey) ?? turnKey;
+    return event.turn_id ?? legacyTurnKey;
   });
+  const turnKeys = wireTurnKeys.map((turnKey) =>
+    rootTurn(turnKey, continuationOwners),
+  );
   // Inline results only ever arrive as `tool_result` message events, so an
   // inline part may be suppressed only when the SAME tool also produced a
   // typed completion in the turn — suppressing per turn would drop a sync
@@ -287,7 +313,7 @@ export function projectAssistantMessages(
   const typedToolCompletions = new Set(
     events.flatMap((event, index) =>
       event.type === "tool_complete" && event.tool_name !== "task"
-        ? [typedToolKey(turnKeys[index]!, event.tool_name)]
+        ? [typedToolKey(wireTurnKeys[index]!, event.tool_name)]
         : [],
     ),
   );
@@ -322,7 +348,7 @@ export function projectAssistantMessages(
         if (toolResult) {
           if (
             !typedToolCompletions.has(
-              typedToolKey(turnKeys[index]!, toolResult.toolName),
+              typedToolKey(wireTurnKeys[index]!, toolResult.toolName),
             )
           ) {
             upsertPart(
@@ -335,6 +361,8 @@ export function projectAssistantMessages(
         } else {
           if (
             continuationOwners.has(event.turn_id ?? "") &&
+            !parentsWithCallbacks.has(event.turn_id ?? "") &&
+            turnKeys[index] !== event.turn_id &&
             key === `${event.turn_id}:response`
           ) {
             projection.finalAnswerStartIndex ??= projection.parts.length;
@@ -384,14 +412,21 @@ export function projectAssistantMessages(
   return output
     .map((entry) => {
       if (!("parts" in entry)) return entry;
+      const root = entry.message.id.slice("turn:".length);
+      const callbackTurns = continuationTurnIds.get(root);
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
-        ...(entry.finalAnswerStartIndex !== undefined
+        ...(entry.finalAnswerStartIndex !== undefined || callbackTurns
           ? {
               metadata: {
                 custom: {
-                  aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex,
+                  ...(entry.finalAnswerStartIndex !== undefined
+                    ? { aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex }
+                    : {}),
+                  ...(callbackTurns
+                    ? { aomiContinuationTurnIds: callbackTurns }
+                    : {}),
                 },
               },
             }
