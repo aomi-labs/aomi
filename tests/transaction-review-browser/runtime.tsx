@@ -17,6 +17,7 @@ const commitMode = mode === "commit";
 const commits = state === "recovery" ? recoveryCommits : durableCommits;
 const controllerCalls = { execute: [] as string[], reject: [] as string[] };
 const commitController = {
+  threadId: "thread-1",
   review(id: string) {
     return commits.find((commit) => commit.commit_id === id)?.review?.request;
   },

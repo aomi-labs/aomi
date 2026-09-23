@@ -23,7 +23,7 @@ TRANSACTION_REVIEW_ARTIFACT_DIR=output/playwright/transaction-review-baseline-3c
 node scripts/test-transaction-review-visuals.mjs
 ```
 
-Run the candidate production components and require byte-identical output:
+Compare an unchanged candidate against the historical visual baseline (the new split submit controls intentionally differ):
 
 ```bash
 TRANSACTION_REVIEW_EXPECT_DIR=tests/transaction-review-browser/snapshots/pre-extraction-3c54a806 \
@@ -33,9 +33,12 @@ node scripts/test-transaction-review-visuals.mjs
 The current-source run uses only durable commit views: `pendingActions` is
 empty, transaction cards bind the commit batch's typed source references to
 the original staging events, and the review comes from the persisted commit
-snapshot. The runner also clicks the production CTA and verifies it targets
-the first commit, then captures a mismatched-attempt recovery state with both
-choices disabled. Set `TRANSACTION_REVIEW_FIXTURE_MODE=legacy` only to replay
+snapshot. The runner checks that the split “Submit 1 of 2” / “Submit all” control fits
+inside both wide and narrow sidebars, clicks the single-transaction choice and
+verifies it targets the first commit, then captures a mismatched-attempt recovery
+state with submission disabled. Run `node scripts/test-transaction-review-visuals.mjs`
+without an expected directory to capture the current design. Ordered submit-all
+execution and cancellation are covered by the wallet-review component tests. Set `TRANSACTION_REVIEW_FIXTURE_MODE=legacy` only to replay
 the extracted original source.
 
 The browser fixture proves production component composition and visual

@@ -11,12 +11,20 @@ const state = vi.hoisted(() => ({
   middleText: "",
   secondTool: false,
   isLast: true,
+  messageId: "turn:turn-1",
+  events: [] as unknown[],
+  commits: [] as unknown[],
+  finalAnswerStartIndex: undefined as number | undefined,
 }));
 
 vi.mock("@assistant-ui/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@assistant-ui/react")>()),
   useMessage: (selector: (message: unknown) => unknown) =>
     selector({
+      id: state.messageId,
+      metadata: {
+        custom: { aomiFinalAnswerStartIndex: state.finalAnswerStartIndex },
+      },
       content: [
         ...(state.prefixText
           ? [{ type: "text" as const, text: state.prefixText }]
@@ -59,7 +67,11 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
-  useOptionalAomiRuntime: () => ({ turnState: state.turnState }),
+  useOptionalAomiRuntime: () => ({
+    turnState: state.turnState,
+    events: state.events,
+    commits: state.commits,
+  }),
   useThreadTaskRuns: () => ({}),
 }));
 
@@ -92,6 +104,10 @@ beforeEach(() => {
   state.middleText = "";
   state.secondTool = false;
   state.isLast = true;
+  state.messageId = "turn:turn-1";
+  state.events = [];
+  state.commits = [];
+  state.finalAnswerStartIndex = undefined;
 });
 
 describe("AssistantTurnParts lifecycle", () => {
@@ -279,4 +295,154 @@ describe("AssistantTurnParts lifecycle", () => {
       expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
     },
   );
+
+  it("stays Working from commit through wallet confirmation and callback", () => {
+    const commitId = "commit-1";
+    const callbackId = "broadcast-terminal:batch-1";
+    state.events = [
+      {
+        type: "message",
+        turn_id: "turn-1",
+        tool_name: "evm_commit_txs",
+        tool_result: [
+          "Commit",
+          JSON.stringify({
+            commits: [
+              {
+                commit_id: commitId,
+                batch: { batch_id: "batch-1" },
+                state: "needs_signature",
+              },
+            ],
+          }),
+        ],
+      },
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+    ];
+    state.commits = [
+      {
+        commit_id: commitId,
+        state: "needs_signature",
+        batch: { batch_id: "batch-1" },
+      },
+    ];
+    state.running = false;
+    state.turnState = "complete";
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.commits = [
+      {
+        commit_id: commitId,
+        state: "confirmed",
+        batch: { batch_id: "batch-1" },
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      { type: "turn_state_changed", turn_id: callbackId, state: "processing" },
+    ];
+    state.turnState = "processing";
+    state.finalAnswerStartIndex = 1;
+    state.answerText = "Payment confirmed.";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+    const trace = view.container.querySelector(".aui-working-trace");
+    const answer = view.getByText(state.answerText);
+    expect(trace).not.toContainElement(answer);
+    expect(answer.closest(".aui-working-answer")).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      { type: "turn_state_changed", turn_id: callbackId, state: "complete" },
+    ];
+    state.turnState = "complete";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
+    expect(view.getByText(state.answerText)).toBe(answer);
+
+    // A reload can expose durable ledger events before the commit snapshot.
+    state.commits = [];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("does not reanimate a completed turn for a later turn's processing", () => {
+    state.running = true;
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: "turn-2", state: "processing" },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("keeps an older commit trace live while a later user turn runs", () => {
+    state.running = false;
+    state.isLast = false;
+    state.turnState = "processing";
+    state.events = [
+      {
+        type: "message",
+        turn_id: "turn-1",
+        tool_name: "evm_commit_txs",
+        tool_result: [
+          "Commit",
+          JSON.stringify({
+            commits: [
+              {
+                commit_id: "commit-1",
+                batch: { batch_id: "batch-1" },
+                state: "needs_signature",
+              },
+            ],
+          }),
+        ],
+      },
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: "turn-2", state: "processing" },
+    ];
+    state.commits = [
+      {
+        commit_id: "commit-1",
+        batch: { batch_id: "batch-1" },
+        state: "needs_signature",
+      },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.commits = [
+      {
+        commit_id: "commit-1",
+        batch: { batch_id: "batch-1" },
+        state: "rejected",
+      },
+    ];
+    state.events = [
+      ...state.events,
+      {
+        type: "turn_state_changed",
+        turn_id: "broadcast-terminal:batch-1",
+        state: "processing",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      {
+        type: "turn_state_changed",
+        turn_id: "broadcast-terminal:batch-1",
+        state: "complete",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
 });

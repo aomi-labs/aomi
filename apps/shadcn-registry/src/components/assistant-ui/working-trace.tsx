@@ -22,6 +22,7 @@ import {
   useThreadTaskRuns,
   type TaskRunState,
 } from "@aomi-labs/react";
+import type { CommitView, Event } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
@@ -695,26 +696,106 @@ export const buildTraceItems = (
   return items;
 };
 
+function walletContinuationPending(
+  turnId: string,
+  events: readonly Event[],
+  commits: readonly CommitView[],
+): boolean {
+  const current = new Map(commits.map((commit) => [commit.commit_id, commit]));
+  const ownedCommits = new Map<string, Partial<CommitView>>();
+  for (const event of events) {
+    if (event.turn_id !== turnId) continue;
+    if (event.type !== "message" && event.type !== "tool_complete") continue;
+    const toolName = event.tool_name?.split("::").at(-1) ?? "";
+    if (!/^(evm|svm)_commit_(txs|tx|ix|message)$/.test(toolName)) continue;
+    try {
+      const raw =
+        event.type === "message"
+          ? JSON.parse(event.tool_result?.[1] ?? "null")
+          : event.result;
+      if (!raw || typeof raw !== "object") continue;
+      const result = raw as { commits?: unknown; commit_id?: unknown };
+      const entries: unknown[] = Array.isArray(result.commits)
+        ? result.commits
+        : [result];
+      for (const commit of entries) {
+        if (!commit || typeof commit !== "object") continue;
+        const view = commit as Partial<CommitView>;
+        if (typeof view.commit_id === "string") {
+          ownedCommits.set(view.commit_id, view);
+        }
+      }
+    } catch {
+      // A failed or non-JSON tool result has no commit to continue.
+    }
+  }
+  return [...ownedCommits].some(([id, initial]) => {
+    const commit = current.get(id) ?? initial;
+    if (!commit) return false;
+    const callbackId = `broadcast-terminal:${commit.batch?.batch_id ?? initial.batch?.batch_id ?? id}`;
+    const callbackState = events.findLast(
+      (candidate) =>
+        candidate.type === "turn_state_changed" &&
+        candidate.turn_id === callbackId,
+    );
+    return !(
+      callbackState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(callbackState.state)
+    );
+  });
+}
+
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
+  const messageId = useMessage((s) => s.id);
   const content = useMessage((s) => s.content);
+  const finalAnswerStartIndex = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiFinalAnswerStartIndex?: number } | undefined)
+        ?.aomiFinalAnswerStartIndex,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
   const taskRuns = useThreadTaskRuns("turn");
-  const terminal = ["complete", "failed", "interrupted"].includes(
-    runtime?.turnState ?? "",
-  );
+  const turnId = messageId.startsWith("turn:")
+    ? messageId.slice("turn:".length)
+    : undefined;
+  const turnEvents = runtime?.events ?? [];
+  const ownState = turnId
+    ? turnEvents.findLast(
+        (event) =>
+          event.type === "turn_state_changed" && event.turn_id === turnId,
+      )
+    : undefined;
+  const ownStatus =
+    ownState?.type === "turn_state_changed" ? ownState.state : undefined;
+  const ownTerminal =
+    ownStatus !== undefined &&
+    ["complete", "failed", "interrupted"].includes(ownStatus);
+  const ownStopped = ownStatus === "failed" || ownStatus === "interrupted";
+  const walletContinuation = turnId
+    ? walletContinuationPending(turnId, turnEvents, runtime?.commits ?? [])
+    : false;
+  // A commit returns before wallet approval and the backend marks its model
+  // turn complete. Keep this trace live through the durable commit and its
+  // broadcast-terminal continuation. A later turn's processing state must not
+  // reanimate an unrelated completed trace.
   const live =
-    !terminal &&
-    (running ||
+    !ownStopped &&
+    (walletContinuation ||
       (isLast &&
-        ["processing", "awaiting_action"].includes(runtime?.turnState ?? "")));
+        !ownTerminal &&
+        (running ||
+          ["processing", "awaiting_action"].includes(
+            runtime?.turnState ?? "",
+          ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : isLast && runtime?.turnState === "failed"
+    : isLast && (ownStatus === "failed" || runtime?.turnState === "failed")
       ? "failed"
-      : isLast && runtime?.turnState === "interrupted"
+      : isLast &&
+          (ownStatus === "interrupted" || runtime?.turnState === "interrupted")
         ? "interrupted"
         : "complete";
   const delegations = isLast
@@ -760,7 +841,14 @@ export const AssistantTurnParts: FC = () => {
   // Any live text, including the first part, may still precede a tool call.
   // Completion is the boundary that identifies the final answer; until then
   // keep prose in the trace rather than moving it back when a tool arrives.
-  const traceEnd = live ? parts.length : lastToolIndex + 1;
+  const traceEnd =
+    typeof finalAnswerStartIndex === "number" &&
+    finalAnswerStartIndex >= 0 &&
+    finalAnswerStartIndex <= parts.length
+      ? finalAnswerStartIndex
+      : live
+        ? parts.length
+        : lastToolIndex + 1;
   const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
   const answerParts = parts
     .slice(traceEnd)

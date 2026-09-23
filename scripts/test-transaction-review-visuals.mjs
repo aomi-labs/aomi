@@ -124,7 +124,16 @@ try {
   await assertText(review, "Transaction details");
   await assertText(review, "Simulation details");
   await review.getByRole("button", { name: "Reject", exact: true }).waitFor();
-  await review.getByRole("button", { name: "Send to wallet" }).waitFor();
+  await review
+    .getByRole("button", {
+      name: fixtureMode === "commit" ? "Submit 1 of 2" : "Send to wallet",
+      exact: true,
+    })
+    .waitFor();
+  if (fixtureMode === "commit")
+    await review
+      .getByRole("button", { name: "Submit all", exact: true })
+      .waitFor();
   if (fixtureMode === "commit") {
     assert.deepEqual(await fixtureEvidence(page), {
       mode: "commit",
@@ -135,6 +144,7 @@ try {
     });
   }
   assert.deepEqual(failures, []);
+  if (fixtureMode === "commit") await assertSplitFits(review);
 
   await page.screenshot({
     path: resolve(artifacts, "aave-usdc-light-wide.png"),
@@ -177,6 +187,8 @@ try {
   });
   await page.getByTestId("transaction-review").waitFor();
   await page.waitForTimeout(100);
+  if (fixtureMode === "commit")
+    await assertSplitFits(page.getByTestId("transaction-review"));
   await page.screenshot({
     path: resolve(artifacts, "aave-usdc-light-narrow.png"),
     animations: "disabled",
@@ -185,7 +197,9 @@ try {
   await page.setViewportSize({ width: 1355, height: 825 });
   if (fixtureMode === "commit") {
     await page.goto(pageUrl(), { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "Send to wallet" }).click();
+    await page
+      .getByRole("button", { name: "Submit 1 of 2", exact: true })
+      .click();
     assert.deepEqual((await fixtureEvidence(page)).controllerCalls, {
       execute: ["commit-1"],
       reject: [],
@@ -200,7 +214,7 @@ try {
     );
     assert.equal(
       await recovery
-        .getByRole("button", { name: "Send to wallet" })
+        .getByRole("button", { name: "Submit 1 of 2", exact: true })
         .isDisabled(),
       true,
     );
@@ -279,4 +293,25 @@ async function assertText(locator, value) {
 
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function assertSplitFits(review) {
+  for (const name of ["Submit 1 of 2", "Submit all"]) {
+    const fits = await review
+      .getByRole("button", { name, exact: true })
+      .evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(button);
+        const content = range.getBoundingClientRect();
+        return (
+          content.left >= bounds.left + 4 && content.right <= bounds.right - 4
+        );
+      });
+    assert.equal(
+      fits,
+      true,
+      `${name} must fit inside its segment with padding`,
+    );
+  }
 }

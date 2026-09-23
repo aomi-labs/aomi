@@ -169,6 +169,148 @@ describe("projectAssistantMessages", () => {
     ]);
   });
 
+  it("keeps a durable wallet continuation in its originating assistant row", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "user",
+        content: "Send the payment",
+      },
+      {
+        ...meta(2, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "commit-step",
+        tool_name: "evm_commit_txs",
+        tool_result: [
+          "Commit",
+          JSON.stringify({
+            commits: [
+              { commit_id: "commit-1", batch: { batch_id: "batch-1" } },
+            ],
+          }),
+        ],
+      },
+      {
+        ...meta(3, "turn_state_changed", "turn-1"),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+      {
+        ...meta(4, "turn_state_changed", "broadcast-terminal:batch-1"),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(5, "message", "broadcast-terminal:batch-1"),
+        type: "message",
+        sender: "agent",
+        content: "Payment confirmed.",
+        message_key: "broadcast-terminal:batch-1:response",
+        is_streaming: true,
+      },
+      {
+        ...meta(6, "turn_state_changed", "broadcast-terminal:batch-1"),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+    ];
+
+    const beforeCallback = projectAssistantMessages(events.slice(0, 3));
+    const streaming = projectAssistantMessages(events.slice(0, 5));
+    const complete = projectAssistantMessages(events);
+    const live = projectRuntimeMessages(events.slice(0, 4), undefined, [
+      events[4] as Extract<Event, { type: "message" }>,
+    ]);
+    expect(streaming).toHaveLength(2);
+    expect(live).toHaveLength(2);
+    expect(complete).toHaveLength(2);
+    expect(streaming[1]?.id).toBe(beforeCallback[1]?.id);
+    expect(live[1]?.id).toBe(beforeCallback[1]?.id);
+    expect(streaming[1]?.metadata?.custom).toMatchObject({
+      aomiFinalAnswerStartIndex: 1,
+    });
+    expect(live[1]?.metadata?.custom).toMatchObject({
+      aomiFinalAnswerStartIndex: 1,
+    });
+    expect(complete[1]?.content).toMatchObject([
+      { type: "tool-call", toolName: "evm_commit_txs" },
+      { type: "text", text: "Payment confirmed." },
+    ]);
+
+    const following = projectAssistantMessages([
+      ...events,
+      {
+        ...meta(7, "message", "turn-2"),
+        type: "message",
+        sender: "user",
+        content: "Another request",
+      },
+      {
+        ...meta(8, "message", "turn-2"),
+        type: "message",
+        sender: "agent",
+        content: "Another answer",
+      },
+    ]);
+    expect(following).toHaveLength(4);
+    expect(following[1]?.id).toBe(beforeCallback[1]?.id);
+    expect(following[3]?.content).toEqual([
+      { type: "text", text: "Another answer" },
+    ]);
+  });
+
+  it("groups a namespaced typed commit callback after a later user turn", () => {
+    const projected = projectAssistantMessages([
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "user",
+        content: "First request",
+      },
+      {
+        ...meta(2, "tool_complete", "turn-1"),
+        type: "tool_complete",
+        id: "tool-1",
+        call_id: "commit-call",
+        tool_name: "wallet::svm_commit_tx",
+        result: { commits: [{ commit_id: "commit-1" }] },
+      },
+      {
+        ...meta(3, "message", "turn-2"),
+        type: "message",
+        sender: "user",
+        content: "Second request",
+      },
+      {
+        ...meta(4, "message", "turn-2"),
+        type: "message",
+        sender: "agent",
+        content: "Second answer",
+      },
+      {
+        ...meta(5, "message", "broadcast-terminal:commit-1"),
+        type: "message",
+        sender: "agent",
+        content: "First operation finished",
+        message_key: "broadcast-terminal:commit-1:response",
+      },
+    ]);
+
+    expect(projected).toHaveLength(4);
+    expect(projected[1]).toMatchObject({
+      id: "turn:turn-1",
+      content: [
+        { type: "tool-call", toolName: "wallet::svm_commit_tx" },
+        { type: "text", text: "First operation finished" },
+      ],
+      metadata: { custom: { aomiFinalAnswerStartIndex: 1 } },
+    });
+    expect(projected[3]).toMatchObject({ id: "turn:turn-2" });
+  });
+
   it("groups legacy null-turn tools and answers by their preceding user message", () => {
     const events: Event[] = [
       {

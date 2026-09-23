@@ -136,6 +136,7 @@ type AssistantProjection = {
   parts: MessageContentPart[];
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
+  finalAnswerStartIndex?: number;
 };
 
 /** Insert a part once per key, replacing it in place on re-delivery. */
@@ -210,6 +211,52 @@ const inlineToolPart = (
   } as MessageContentPart;
 };
 
+/** A durable commit resumes under a new backend turn id after wallet action. */
+function commitContinuationOwners(
+  events: readonly Event[],
+): Map<string, string> {
+  const owners = new Map<string, string>();
+  for (const event of events) {
+    if (!event.turn_id) continue;
+    const toolName =
+      (event.type === "message" || event.type === "tool_complete") &&
+      event.tool_name?.split("::").at(-1);
+    const isCommit = /^(evm|svm)_commit_(txs|tx|ix|message)$/.test(
+      toolName || "",
+    );
+    const isInlineCommit =
+      event.type === "message" && event.sender === "agent" && isCommit;
+    const isTypedCommit = event.type === "tool_complete" && isCommit;
+    if (!isInlineCommit && !isTypedCommit) continue;
+    try {
+      const raw = isInlineCommit
+        ? JSON.parse((event as MessageEvent).tool_result?.[1] ?? "null")
+        : (event as ToolCompleteEvent).result;
+      if (!raw || typeof raw !== "object") continue;
+      const result = raw as {
+        commits?: unknown;
+        commit_id?: unknown;
+        batch?: { batch_id?: unknown };
+      };
+      const commits = Array.isArray(result.commits) ? result.commits : [result];
+      for (const entry of commits) {
+        if (!entry || typeof entry !== "object") continue;
+        const commit = entry as {
+          commit_id?: unknown;
+          batch?: { batch_id?: unknown };
+        };
+        const operationId = commit.batch?.batch_id ?? commit.commit_id;
+        if (typeof operationId === "string" && operationId.length > 0) {
+          owners.set(`broadcast-terminal:${operationId}`, event.turn_id);
+        }
+      }
+    } catch {
+      // A failed or malformed tool has no continuation to group.
+    }
+  }
+  return owners;
+}
+
 /**
  * Pure Assistant UI projection over the canonical ordered event ledger.
  * Messages and tool parts are grouped by backend turn identity; no transcript
@@ -223,11 +270,13 @@ export function projectAssistantMessages(
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
+  const continuationOwners = commitContinuationOwners(events);
   const turnKeys = events.map((event) => {
     if (event.type === "message" && event.sender === "user") {
       legacyTurnKey = `legacy:${event.event_id}`;
     }
-    return event.turn_id ?? legacyTurnKey;
+    const turnKey = event.turn_id ?? legacyTurnKey;
+    return continuationOwners.get(turnKey) ?? turnKey;
   });
   // Inline results only ever arrive as `tool_result` message events, so an
   // inline part may be suppressed only when the SAME tool also produced a
@@ -284,6 +333,12 @@ export function projectAssistantMessages(
             );
           }
         } else {
+          if (
+            continuationOwners.has(event.turn_id ?? "") &&
+            key === `${event.turn_id}:response`
+          ) {
+            projection.finalAnswerStartIndex ??= projection.parts.length;
+          }
           upsertPart(projection, projection.textParts, key, {
             type: "text",
             text: event.content,
@@ -332,6 +387,15 @@ export function projectAssistantMessages(
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
+        ...(entry.finalAnswerStartIndex !== undefined
+          ? {
+              metadata: {
+                custom: {
+                  aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex,
+                },
+              },
+            }
+          : {}),
       };
     })
     .filter(
