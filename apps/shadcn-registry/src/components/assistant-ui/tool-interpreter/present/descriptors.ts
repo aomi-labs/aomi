@@ -1,13 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 
 import {
+  DEFAULT_TOOL_ICON,
   EVM_SELECTOR_REGISTRY,
   SHAPE_ICONS,
   STAGED_ACTION_ICON_REGISTRY,
 } from "@/components/assistant-ui/tool-registry";
 
 import type { FactKind, FactRole, ToolOperation } from "../types";
-import { fallbackIcon } from "./fallback";
 
 export type ChipSlot = {
   kind: FactKind;
@@ -21,6 +21,24 @@ export type Descriptor = {
   icon: LucideIcon | "fallback" | "stagedAction";
   chipPlan: ChipSlot[];
 };
+
+/** One layout contract for both chain families. Adapters supply facts only. */
+const lifecycleDescriptor = (
+  title: string,
+  icon: Descriptor["icon"],
+  network: "chain" | "cluster",
+  detail: "action" | "gas" | "compute" | "txId",
+): Descriptor => ({
+  title: "fixed",
+  fixedTitle: title,
+  icon,
+  chipPlan: [
+    { kind: network },
+    { kind: "count" },
+    { kind: detail },
+    { kind: "status" },
+  ],
+});
 
 const stagedActionIcon = (operation: ToolOperation): LucideIcon => {
   const action = operation.facts.find((fact) => fact.kind === "action");
@@ -43,6 +61,18 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "decoded" },
       { kind: "token" },
       { kind: "amount" },
+      { kind: "status" },
+    ],
+  },
+  "protocol.prepare": {
+    title: "label",
+    icon: SHAPE_ICONS.tokenLookup,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "cluster" },
+      { kind: "amount" },
+      { kind: "decoded" },
+      { kind: "sourceHost" },
       { kind: "status" },
     ],
   },
@@ -120,8 +150,9 @@ const descriptorById: Record<string, Descriptor> = {
     ],
   },
   "evm.call.generic": {
-    title: "label",
-    icon: "fallback",
+    title: "fixed",
+    fixedTitle: "Call contract",
+    icon: SHAPE_ICONS.customCall,
     chipPlan: [
       { kind: "chain" },
       { kind: "address", role: "from" },
@@ -136,40 +167,31 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "evm.contract.lookup.found": {
     title: "fixed",
-    fixedTitle: "Resolve contract",
+    fixedTitle: "Get contract details",
     icon: SHAPE_ICONS.tokenLookup,
     chipPlan: [{ kind: "chain" }, { kind: "token" }],
   },
   "evm.contract.lookup.missing": {
     title: "fixed",
-    fixedTitle: "Resolve token",
+    fixedTitle: "Get contract details",
     icon: SHAPE_ICONS.tokenLookup,
     chipPlan: [{ kind: "chain" }, { kind: "token" }],
   },
-  "evm.tx.simulate_batch": {
-    title: "fixed",
-    fixedTitle: "Simulate transaction",
-    icon: SHAPE_ICONS.simulation,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "count", role: "tx" },
-      { kind: "gas" },
-      { kind: "status" },
-    ],
-  },
-  "evm.tx.pending_approval": {
-    title: "fixed",
-    fixedTitle: "Commit transactions",
-    icon: SHAPE_ICONS.commit,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "count", role: "tx" },
-      { kind: "txId" },
-      { kind: "status" },
-    ],
-  },
+  "evm.tx.simulate_batch": lifecycleDescriptor(
+    "Simulate transaction",
+    SHAPE_ICONS.simulation,
+    "chain",
+    "gas",
+  ),
+  "evm.tx.pending_approval": lifecycleDescriptor(
+    "Commit transactions",
+    SHAPE_ICONS.commit,
+    "chain",
+    "txId",
+  ),
   "lifi.approval": {
-    title: "label",
+    title: "fixed",
+    fixedTitle: "Prepare LI.FI approval",
     icon: EVM_SELECTOR_REGISTRY["0x095ea7b3"].icon,
     chipPlan: [
       { kind: "chain" },
@@ -178,34 +200,36 @@ const descriptorById: Record<string, Descriptor> = {
     ],
   },
   "lifi.quote": {
-    title: "label",
+    title: "fixed",
+    fixedTitle: "Quote LI.FI swap",
     icon: SHAPE_ICONS.swap,
     chipPlan: [
       { kind: "chain" },
+      { kind: "token", role: "primary" },
       { kind: "amount", role: "primary" },
       { kind: "amount", role: "secondary" },
-      { kind: "token", role: "primary" },
     ],
   },
   "lifi.swap.prepare": {
-    title: "label",
+    title: "fixed",
+    fixedTitle: "Prepare LI.FI swap",
     icon: SHAPE_ICONS.swap,
     chipPlan: [
       { kind: "chain" },
-      { kind: "sourceHost" },
+      { kind: "token", role: "primary" },
       { kind: "amount", role: "primary" },
       { kind: "amount", role: "secondary" },
-      { kind: "token", role: "primary" },
     ],
   },
   "jupiter.swap.prepare": {
-    title: "label",
+    title: "fixed",
+    fixedTitle: "Prepare swap",
     icon: SHAPE_ICONS.swap,
     chipPlan: [
       { kind: "cluster" },
+      { kind: "token", role: "primary" },
       { kind: "amount", role: "primary" },
       { kind: "amount", role: "secondary" },
-      { kind: "token", role: "primary" },
     ],
   },
   "skill.activate": {
@@ -235,23 +259,24 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.nativeBalance,
     chipPlan: [{ kind: "amount", role: "primary", repeat: true }],
   },
-  "svm.tx.pending_approval": {
-    title: "fixed",
-    fixedTitle: "Commit transactions",
-    icon: SHAPE_ICONS.commit,
-    chipPlan: [
-      { kind: "cluster" },
-      { kind: "count", role: "tx" },
-      { kind: "txId" },
-      { kind: "status" },
-    ],
-  },
-  "svm.tx.simulate_batch": {
-    title: "fixed",
-    fixedTitle: "Simulate transaction",
-    icon: SHAPE_ICONS.simulation,
-    chipPlan: [{ kind: "count", role: "tx" }, { kind: "status" }],
-  },
+  "svm.tx.pending_approval": lifecycleDescriptor(
+    "Commit transactions",
+    SHAPE_ICONS.commit,
+    "cluster",
+    "txId",
+  ),
+  "svm.tx.simulate_batch": lifecycleDescriptor(
+    "Simulate transaction",
+    SHAPE_ICONS.simulation,
+    "cluster",
+    "compute",
+  ),
+  "svm.tx.stage": lifecycleDescriptor(
+    "Stage transaction",
+    SHAPE_ICONS.staged,
+    "cluster",
+    "action",
+  ),
   "tool.error": {
     title: "label",
     icon: "fallback",
@@ -261,30 +286,21 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Search web",
     icon: SHAPE_ICONS.search,
-    chipPlan: [
-      { kind: "token" },
-      { kind: "count", role: "results" },
-      { kind: "sourceHost" },
-    ],
+    chipPlan: [{ kind: "count", role: "results" }, { kind: "sourceHost" }],
   },
 };
 
-const stagedDescriptor: Descriptor = {
-  title: "fixed",
-  fixedTitle: "Stage transaction",
-  icon: "stagedAction",
-  chipPlan: [
-    { kind: "chain" },
-    { kind: "action" },
-    { kind: "count", role: "tx" },
-    { kind: "status" },
-  ],
-};
+const stagedDescriptor = lifecycleDescriptor(
+  "Stage transaction",
+  "stagedAction",
+  "chain",
+  "action",
+);
 
 const fallbackDescriptor: Descriptor = {
   title: "label",
   icon: "fallback",
-  chipPlan: [{ kind: "token" }, { kind: "chain" }, { kind: "status" }],
+  chipPlan: [],
 };
 
 export const descriptorFor = (operation: ToolOperation): Descriptor => {
@@ -296,7 +312,7 @@ export const iconForDescriptor = (
   descriptor: Descriptor,
   operation: ToolOperation,
 ): LucideIcon => {
-  if (descriptor.icon === "fallback") return fallbackIcon(operation.rawLabel);
+  if (descriptor.icon === "fallback") return DEFAULT_TOOL_ICON;
   if (descriptor.icon === "stagedAction") return stagedActionIcon(operation);
   return descriptor.icon;
 };

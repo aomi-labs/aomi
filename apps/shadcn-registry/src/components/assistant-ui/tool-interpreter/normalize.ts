@@ -84,30 +84,6 @@ export const chainFactFromRecord = (
   );
 };
 
-/** Resolve an explicit chain name embedded in a model-authored tool topic.
- * Longest names win, so "Base Sepolia" is not reduced to "Base". Tickers are
- * intentionally excluded because token symbols such as ETH are ambiguous. */
-export const chainFactFromText = (
-  value: string,
-  source: FactSource = "label",
-): ToolFact | null => {
-  const searchable = ` ${value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()} `;
-  const chains = [...SUPPORTED_CHAINS].sort(
-    (left, right) => right.name.length - left.name.length,
-  );
-  const chain = chains.find((candidate) => {
-    const name = candidate.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-    return name.length > 0 && searchable.includes(` ${name} `);
-  });
-  return chain ? chainFact(chain.id, chain.name, source) : null;
-};
-
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const normalizeAddress = (value: unknown): string | null => {
@@ -168,23 +144,30 @@ export const statusFact = (
   const raw = asString(value);
   if (!raw) return null;
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
-  if (normalized === "pending approval") {
-    return { kind: "status", value: "pending_approval", source };
-  }
-  if (normalized.includes("pending")) {
-    return { kind: "status", value: "pending", source };
-  }
-  if (normalized.includes("queued")) {
-    return { kind: "status", value: "queued", source };
-  }
-  if (normalized.includes("success") || normalized.includes("complete")) {
-    return { kind: "status", value: "success", source };
-  }
-  if (normalized.includes("fail") || normalized.includes("error")) {
-    return { kind: "status", value: "failed", source };
-  }
-  if (normalized.includes("revoked")) {
-    return { kind: "status", value: "revoked", source };
+  const statuses: Record<string, string> = {
+    "pending approval": "pending_approval",
+    "needs signature": "needs_signature",
+    "awaiting broadcast": "awaiting_broadcast",
+    pending: "pending",
+    queued: "queued",
+    staged: "staged",
+    passed: "passed",
+    success: "success",
+    succeeded: "success",
+    complete: "complete",
+    completed: "complete",
+    confirmed: "confirmed",
+    submitted: "submitted",
+    prepared: "prepared",
+    incomplete: "incomplete",
+    failed: "failed",
+    error: "failed",
+    rejected: "rejected",
+    expired: "expired",
+    revoked: "revoked",
+  };
+  if (statuses[normalized]) {
+    return { kind: "status", value: statuses[normalized], source };
   }
   return { kind: "status", value: raw, label: humanize(raw), source };
 };
@@ -225,13 +208,6 @@ export const decodedValue = (result: Record<string, unknown>): unknown => {
   const decodedRoot = asRecord(result.result_decoded);
   const decoded = asRecord(decodedRoot?.decoded);
   return decoded?.decoded;
-};
-
-export const topicTokenFact = (topic: string): ToolFact | null => {
-  const matches = topic.match(/\b[A-Z][A-Z0-9]{1,9}\b/g);
-  const ignored = new Set(["URL", "USD"]);
-  const token = matches?.find((match) => !ignored.has(match));
-  return token ? { kind: "token", value: token, source: "label" } : null;
 };
 
 export const hostnameFromUrl = (urlText: string): string | null => {

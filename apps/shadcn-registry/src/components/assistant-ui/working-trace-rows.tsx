@@ -2,7 +2,13 @@
 
 import { type FC, useEffect, useRef, useState } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
-import { CheckIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import {
+  BanIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  XIcon,
+} from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
@@ -114,16 +120,26 @@ export const ToolStepRow: FC<{
   const [open, setOpen] = useState(false);
   const hasDetail = detailText !== undefined || argsText !== undefined;
   const Icon = interpretation.icon;
-  const shownChips =
-    interpretation.chips.length > MAX_VISIBLE_CHIPS
-      ? interpretation.chips.slice(0, MAX_VISIBLE_CHIPS)
-      : interpretation.chips;
+  const essential = interpretation.chips.filter((chip) => chip.essential);
+  const available = Math.max(0, MAX_VISIBLE_CHIPS - essential.length);
+  const selected = new Set([
+    ...essential,
+    ...interpretation.chips
+      .filter((chip) => !chip.essential)
+      .slice(0, available),
+  ]);
+  const shownChips = interpretation.chips.filter((chip) => selected.has(chip));
   const overflow = interpretation.chips.length - shownChips.length;
-  const chipKeys = interpretation.chips.map((chip) => chip.label.toLowerCase());
+  const chipKeys = interpretation.chips.map(
+    (chip) => chip.key ?? chip.label.toLowerCase(),
+  );
+  const shownChipKeys = shownChips.map(
+    (chip) => chip.key ?? chipKeys[interpretation.chips.indexOf(chip)],
+  );
   const seenChipKeys = useRef(new Set(animate ? [] : chipKeys));
-  const hasNewOverflowChip = chipKeys
-    .slice(shownChips.length)
-    .some((key) => !seenChipKeys.current.has(key));
+  const hasNewOverflowChip = chipKeys.some(
+    (key) => !shownChipKeys.includes(key) && !seenChipKeys.current.has(key),
+  );
   useEffect(() => {
     chipKeys.forEach((key) => seenChipKeys.current.add(key));
   });
@@ -145,8 +161,15 @@ export const ToolStepRow: FC<{
       >
         <span className="relative flex size-4 shrink-0 items-center justify-center">
           {done && !active ? (
-            interpretation.failed ? (
+            interpretation.outcome === "failed" ? (
               <XIcon className="text-aomi-danger size-3.5" />
+            ) : interpretation.outcome === "cancelled" ? (
+              <BanIcon className="text-aomi-danger size-3.5" />
+            ) : interpretation.outcome === "waiting" ||
+              interpretation.outcome === "incomplete" ? (
+              <ClockIcon className="text-aomi-muted size-3.5" />
+            ) : interpretation.outcome === "unknown" ? (
+              <Icon className="text-aomi-muted size-3.5" />
             ) : (
               <CheckIcon className="text-aomi-success size-3.5" />
             )
@@ -179,12 +202,12 @@ export const ToolStepRow: FC<{
         <div className="aui-working-step-chips mb-1 ml-[26px] mt-1.5 flex max-w-full flex-wrap items-center gap-1.5">
           {shownChips.map((chip, i) => (
             <ToolChipView
-              key={chipKeys[i]}
+              key={shownChipKeys[i]}
               chip={chip}
               index={i}
               animate={
                 animate ||
-                (animateUpdates && !seenChipKeys.current.has(chipKeys[i]))
+                (animateUpdates && !seenChipKeys.current.has(shownChipKeys[i]))
               }
             />
           ))}

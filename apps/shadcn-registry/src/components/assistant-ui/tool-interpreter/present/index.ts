@@ -1,5 +1,11 @@
 import { humanize } from "../normalize";
-import type { InterpretedToolStep, ToolFact, ToolOperation } from "../types";
+import { toolIdentity } from "../identity";
+import type {
+  InterpretedToolStep,
+  ToolFact,
+  ToolOperation,
+  ToolOutcome,
+} from "../types";
 import { chipForFact, uniqueChips } from "./chips";
 import { descriptorFor, iconForDescriptor } from "./descriptors";
 
@@ -27,52 +33,71 @@ const pickFacts = (
   return picked;
 };
 
-const CHIP_KIND_ORDER: Record<ToolFact["kind"], number> = {
-  chain: 0,
-  cluster: 0,
-  action: 1,
-  token: 1,
-  skill: 1,
-  sourceHost: 1,
-  selector: 1,
-  address: 2,
-  amount: 3,
-  block: 3,
-  code: 3,
-  count: 3,
-  decoded: 3,
-  gas: 3,
-  slot: 3,
-  txId: 3,
-  status: 4,
-};
-
-const canonicalFactOrder = (facts: ToolFact[]): ToolFact[] =>
-  facts
-    .map((fact, index) => ({ fact, index }))
-    .sort(
-      (left, right) =>
-        CHIP_KIND_ORDER[left.fact.kind] - CHIP_KIND_ORDER[right.fact.kind] ||
-        left.index - right.index,
-    )
-    .map(({ fact }) => fact);
-
 /** A failure/error status fact — the same signal that renders the "Failed" chip. */
 const isFailedStatus = (fact: ToolFact): boolean =>
-  fact.kind === "status" && (fact.value === "failed" || fact.value === "error");
+  fact.kind === "status" && ["failed", "error"].includes(fact.value);
+
+const outcomeFor = (operation: ToolOperation): ToolOutcome => {
+  if (operation.failed) return "failed";
+  const status = operation.facts.find((fact) => fact.kind === "status")?.value;
+  if (status === "failed" || status === "error") return "failed";
+  if (status === "rejected" || status === "expired" || status === "revoked")
+    return "cancelled";
+  if (status === "incomplete") return "incomplete";
+  if (
+    status === "pending" ||
+    status === "pending_approval" ||
+    status === "needs_signature" ||
+    status === "awaiting_broadcast" ||
+    status === "submitted"
+  )
+    return "waiting";
+  if (
+    status &&
+    [
+      "queued",
+      "staged",
+      "passed",
+      "confirmed",
+      "prepared",
+      "success",
+      "complete",
+    ].includes(status)
+  )
+    return "success";
+  if (status || operation.id.includes(".tx.")) return "unknown";
+  return "success";
+};
 
 export const presentOperation = (
   operation: ToolOperation,
 ): InterpretedToolStep => {
   const descriptor = descriptorFor(operation);
+  const readableLabel = operation.rawLabel.includes("::")
+    ? humanize(toolIdentity(operation.rawLabel))
+    : humanize(operation.rawLabel);
   const title =
     operation.title ??
     (descriptor.title === "fixed"
-      ? (descriptor.fixedTitle ?? humanize(operation.rawLabel))
-      : humanize(operation.rawLabel));
+      ? (descriptor.fixedTitle ?? readableLabel)
+      : readableLabel);
+  const lifecycle = operation.id.includes(".tx.");
   const chips = uniqueChips(
-    canonicalFactOrder(pickFacts(operation.facts, descriptor.chipPlan))
-      .map(chipForFact)
+    pickFacts(operation.facts, descriptor.chipPlan)
+      .map((fact) => {
+        const chip = chipForFact(fact);
+        return chip
+          ? {
+              ...chip,
+              key: `${fact.kind}:${fact.role ?? ""}:${fact.value}`,
+              essential:
+                lifecycle &&
+                (["chain", "cluster", "count", "status"] as string[]).includes(
+                  fact.kind,
+                ),
+            }
+          : null;
+      })
       .filter((chip): chip is NonNullable<typeof chip> => chip != null),
   );
 
@@ -83,5 +108,6 @@ export const presentOperation = (
     confidence: operation.confidence,
     rawLabel: operation.rawLabel,
     failed: operation.failed ?? operation.facts.some(isFailedStatus),
+    outcome: outcomeFor(operation),
   };
 };

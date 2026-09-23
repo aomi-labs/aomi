@@ -8,7 +8,6 @@ import {
   hostnameFromUrl,
   statusFact,
   tokenFact,
-  topicTokenFact,
   uniqueFacts,
 } from "../normalize";
 import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
@@ -41,7 +40,6 @@ export const matchWebSearch: ToolMatcher = ({ rawLabel, resultRecord }) => {
   const source = firstUrl ? hostnameFromUrl(firstUrl) : null;
 
   return op("web.search", rawLabel, [
-    topicTokenFact(rawLabel),
     count
       ? { kind: "count", role: "results", value: count, source: "result" }
       : null,
@@ -135,7 +133,7 @@ export const matchTokenLookup: ToolMatcher = ({ rawLabel, resultRecord }) => {
 
   return op(`evm.contract.lookup.${found ? "found" : "missing"}`, rawLabel, [
     chainFactFromRecord(first) ?? chainFactFromRecord(resultRecord),
-    tokenFact(first?.symbol) ?? topicTokenFact(rawLabel),
+    tokenFact(first?.symbol),
   ]);
 };
 

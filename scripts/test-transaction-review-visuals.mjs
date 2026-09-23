@@ -115,6 +115,16 @@ try {
   const sidebarPanel = sidebar.locator(":scope > div");
   const review = page.getByTestId("transaction-review");
   await review.waitFor();
+  if (fixtureMode === "commit") {
+    const trace = page.locator(".aui-working-trace");
+    await assertText(trace, "Stage transaction");
+    await assertText(trace, "Staged");
+    await assertText(trace, "Commit transactions");
+    await trace.screenshot({
+      path: resolve(artifacts, "working-trace-light.png"),
+      animations: "disabled",
+    });
+  }
 
   await assertText(sidebar, "Skills");
   await assertText(sidebar, "Aave");
