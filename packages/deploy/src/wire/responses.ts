@@ -250,8 +250,15 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
     platform: String(b.platform ?? ""),
     status: String(b.status ?? ""),
     label: b.label ?? null,
-    defaultApp: String(b.default_app ?? b.defaultApp ?? ""),
-    defaultAppId: Number(b.default_app_id ?? b.defaultAppId ?? 0),
+    handoverApp: String(b.handover_app ?? b.handoverApp ?? ""),
+    handoverAppId: Number(b.handover_app_id ?? b.handoverAppId ?? 0),
+    miniAppUrl: b.mini_app_url ?? b.miniAppUrl ?? null,
+    commandEndpoint: b.command_endpoint ?? b.commandEndpoint ?? null,
+    commands: Array.isArray(b.commands)
+      ? b.commands.filter(
+          (command: unknown): command is string => typeof command === "string",
+        )
+      : [],
     apps: ((b.apps ?? []) as Record<string, any>[]).map((app) => ({
       applicationId: Number(app.application_id ?? app.applicationId ?? 0),
       projectId: app.project_id ?? app.projectId ?? null,
@@ -265,6 +272,9 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
     platformUsername: b.platform_username ?? b.platformUsername ?? null,
     webhookUrl: b.webhook_url ?? b.webhookUrl ?? null,
     threadMode: String(b.thread_mode ?? b.threadMode ?? "single"),
+    configurationVersion: Number(
+      b.configuration_version ?? b.configurationVersion ?? 0,
+    ),
     createdAt: Number(b.created_at ?? b.createdAt ?? 0),
   };
 }

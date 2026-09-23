@@ -82,6 +82,7 @@ export type {
   DeleteUserProjectBotInput,
   CreateUserBotInput,
   UpdateUserBotInput,
+  RevealUserBotCommandSecretInput,
   DeleteUserBotInput,
   ProjectSdkUpgradeResult,
   ProjectSdkUpgradeStatusResult,

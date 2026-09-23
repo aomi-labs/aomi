@@ -46,6 +46,7 @@ export interface AuditEvent {
     | "list_user_bots"
     | "create_user_bot"
     | "update_user_bot"
+    | "reveal_user_bot_command_secret"
     | "delete_user_bot"
     | "list_builder_model_keys"
     | "save_builder_model_key"
@@ -824,13 +825,24 @@ export interface BotRegistration {
   platform: string;
   status: string;
   label: string | null;
-  defaultApp: string;
-  defaultAppId?: number;
+  /** The app a new chat starts on; also picks the operating account for a
+   *  handover. */
+  handoverApp: string;
+  handoverAppId?: number;
+  /** null = the Aomi platform default, resolved by the backend at read time. */
+  miniAppUrl: string | null;
+  /** null = custom commands unsupported. Commands post to
+   *  `{commandEndpoint}/{command}`. */
+  commandEndpoint: string | null;
+  commands: string[];
   apps: BotRegistrationApp[];
   platformBotId: string;
   platformUsername: string | null;
   webhookUrl: string | null;
   threadMode: string;
+  /** Bumped by the manager on every registration change; lets a client tell
+   *  a refreshed bot from a re-fetched identical one. */
+  configurationVersion: number;
   createdAt: number;
 }
 
@@ -850,21 +862,36 @@ export interface BuilderBotsInput extends BearerOverride {
 
 export interface CreateUserBotInput extends BuilderBotsInput {
   applicationIds: number[];
-  primaryApplicationId: number;
+  handoverApplicationId: number;
   botPlatform: string;
   credential: string;
   label?: string;
   threadMode?: string;
+  /** Omitted = platform default; null or "" clears. */
+  miniAppUrl?: string | null;
+  /** Omitted = custom commands unsupported; null or "" clears. */
+  commandEndpoint?: string | null;
+  commands?: string[];
 }
 
 export interface UpdateUserBotInput extends BuilderBotsInput {
   botId: string;
   applicationIds: number[];
-  primaryApplicationId: number;
+  handoverApplicationId: number;
   /** Omitted = unchanged; blank clears the label (manager semantics). */
   label?: string;
   /** Omitted = unchanged; "single" | "multi". */
   threadMode?: string;
+  /** Omitted = unchanged; null or "" clears. */
+  miniAppUrl?: string | null;
+  /** Omitted = unchanged; null or "" clears. */
+  commandEndpoint?: string | null;
+  /** Omitted = unchanged; [] clears. */
+  commands?: string[];
+}
+
+export interface RevealUserBotCommandSecretInput extends BuilderBotsInput {
+  botId: string;
 }
 
 export interface DeleteUserBotInput extends BuilderBotsInput {
