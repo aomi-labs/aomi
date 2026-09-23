@@ -213,7 +213,7 @@ describe("WalletReview", () => {
     rerender(<ActivitySidebar />);
 
     expect(
-      screen.queryByRole("button", { name: "Send to wallet" }),
+      screen.queryByRole("button", { name: "Submit" }),
     ).not.toBeInTheDocument();
 
     runtime.pendingActions = [
@@ -225,7 +225,7 @@ describe("WalletReview", () => {
       },
     ];
     rerender(<ActivitySidebar />);
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-2"),
     );
@@ -384,7 +384,7 @@ describe("WalletReview", () => {
     runtime.commits = [initial];
 
     const view = render(<ActivitySidebar />);
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.showNotification).toHaveBeenCalledWith(
         expect.objectContaining({ title: "report transport failed" }),
@@ -397,7 +397,7 @@ describe("WalletReview", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Wallet transaction found. Continue to verify it.",
     );
-    const retry = screen.getByRole("button", { name: "Send to wallet" });
+    const retry = screen.getByRole("button", { name: "Submit" });
     expect(retry).toBeEnabled();
     fireEvent.click(retry);
 
@@ -497,7 +497,7 @@ describe("WalletReview", () => {
     expect(screen.getByTestId("transaction-review")).toHaveTextContent(
       "devnet",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     const signAction = commit.action;
     if (signAction?.kind !== "sign") throw new Error("expected sign action");
     await waitFor(() =>
@@ -560,7 +560,7 @@ describe("WalletReview", () => {
     expect(screen.getByTestId("transaction-review")).toHaveTextContent(
       "Submit signed Solana transaction",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(walletBroadcast).toHaveBeenCalledWith(
         commit,
@@ -599,7 +599,7 @@ describe("WalletReview", () => {
       "0x2222222222222222222222222222222222222222",
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
     );
@@ -626,7 +626,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
       expect(runtime.showNotification).toHaveBeenCalledWith(
@@ -671,7 +671,7 @@ describe("WalletReview", () => {
     expect(screen.getByText("123456 native base units")).toBeInTheDocument();
     expect(screen.getByText("Application fee")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
@@ -1086,7 +1086,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(
-      screen.queryByRole("button", { name: "Send to wallet" }),
+      screen.queryByRole("button", { name: "Submit" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Reject request" }),
@@ -1227,14 +1227,26 @@ describe("ordered batch submission", () => {
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
 
     runtime.commits = [
+      { ...runtime.commits[0], state: "submitted" },
+      runtime.commits[1],
+    ];
+    rerender(<WalletReview />);
+    expect(
+      screen.getByRole("button", { name: "Submit 2 of 2" }),
+    ).toBeInTheDocument();
+
+    runtime.commits = [
       { ...runtime.commits[0], state: "confirmed" },
       runtime.commits[1],
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Submit 2 of 2" })).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Send to wallet" }),
-    ).toBeEnabled();
+      screen.queryByRole("button", { name: "Submit all" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Submit 2 of 2" }));
+    await waitFor(() => expect(execute).toHaveBeenNthCalledWith(2, "commit-2"));
   });
 
   it("stops the batch after a wallet mismatch", async () => {
@@ -1262,7 +1274,7 @@ describe("ordered batch submission", () => {
     rerender(<WalletReview />);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Send to wallet" }),
+        screen.getByRole("button", { name: "Submit 2 of 2" }),
       ).toBeEnabled(),
     );
     runtime.commits = [
@@ -1325,7 +1337,7 @@ describe("ordered batch submission", () => {
     rerender(<WalletReview />);
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Send to wallet" }),
+        screen.getByRole("button", { name: "Submit 2 of 2" }),
       ).toBeEnabled(),
     );
     expect(execute).toHaveBeenCalledTimes(1);
@@ -1356,9 +1368,7 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Send to wallet" }),
-      ).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled(),
     );
 
     runtime.commits = [

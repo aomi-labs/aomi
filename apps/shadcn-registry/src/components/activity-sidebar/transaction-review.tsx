@@ -195,11 +195,17 @@ export function TransactionReview({
             <Button
               type="button"
               onClick={onApprove}
-              disabled={approving || approveDisabled}
+              disabled={
+                approving || approveDisabled || batchProgress?.submitting
+              }
               className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
             >
               <Wallet className="size-4" />
-              {approving ? "Waiting for wallet…" : "Send to wallet"}
+              {approving
+                ? "Waiting for wallet…"
+                : batchProgress
+                  ? `Submit ${batchProgress.current} of ${batchProgress.total}`
+                  : "Submit"}
             </Button>
           ))}
       </footer>

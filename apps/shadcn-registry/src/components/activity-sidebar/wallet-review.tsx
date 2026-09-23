@@ -125,7 +125,6 @@ export function WalletReview() {
     batch &&
     batchIds &&
     batchIds.length > 1 &&
-    batch.index < batchIds.length - 1 &&
     batchIds[batch.index] === liveCommit.commit_id &&
     batch.review_digest === liveCommit.review?.digest &&
     batchIds.every((id, index) => {
@@ -139,7 +138,6 @@ export function WalletReview() {
         view.batch.ordered_commit_ids.every(
           (orderedId, orderedIndex) => orderedId === batchIds[orderedIndex],
         ) &&
-        (index >= batch.index || view.state === "confirmed") &&
         (!view.review || view.review.digest === batch.review_digest)
       );
     }),
@@ -305,7 +303,11 @@ export function WalletReview() {
       }
       statusIsError={walletMismatch}
       onApprove={() => void decide(true)}
-      onApproveAll={showBatchControls ? submitAll : undefined}
+      onApproveAll={
+        showBatchControls && batch && batch.index < batchIds!.length - 1
+          ? submitAll
+          : undefined
+      }
       batchProgress={
         showBatchControls && batch
           ? {

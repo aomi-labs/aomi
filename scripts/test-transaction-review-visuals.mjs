@@ -133,7 +133,7 @@ try {
   await review.getByRole("button", { name: "Reject", exact: true }).waitFor();
   await review
     .getByRole("button", {
-      name: fixtureMode === "commit" ? "Submit 1 of 2" : "Send to wallet",
+      name: fixtureMode === "commit" ? "Submit 1 of 2" : "Submit",
       exact: true,
     })
     .waitFor();
@@ -249,7 +249,7 @@ try {
       "Simulation reverted before the supply could execute.",
     );
     assert.equal(
-      await failed.getByRole("button", { name: "Send to wallet" }).count(),
+      await failed.getByRole("button", { name: "Submit" }).count(),
       0,
     );
     await page
