@@ -12,9 +12,9 @@ import {
   selectorFact,
   tokenFact,
   uniqueFacts,
-} from "../normalize";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { formatTokenUnits, knownToken } from "../token-registry";
+} from "../../normalize";
+import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import { formatTokenUnits, knownToken } from "../../token-registry";
 
 const op = (
   id: string,

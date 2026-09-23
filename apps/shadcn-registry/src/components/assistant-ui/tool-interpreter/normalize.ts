@@ -146,6 +146,7 @@ export const statusFact = (
   const normalized = raw.toLowerCase().replace(/[_-]+/g, " ");
   const statuses: Record<string, string> = {
     "pending approval": "pending_approval",
+    "attestation ready": "attestation_ready",
     "needs signature": "needs_signature",
     "awaiting broadcast": "awaiting_broadcast",
     pending: "pending",
@@ -166,7 +167,7 @@ export const statusFact = (
     expired: "expired",
     revoked: "revoked",
   };
-  if (statuses[normalized]) {
+  if (Object.hasOwn(statuses, normalized)) {
     return { kind: "status", value: statuses[normalized], source };
   }
   return { kind: "status", value: raw, label: humanize(raw), source };

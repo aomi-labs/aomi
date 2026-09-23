@@ -47,6 +47,7 @@ const outcomeFor = (operation: ToolOperation): ToolOutcome => {
   if (
     status === "pending" ||
     status === "pending_approval" ||
+    status === "attestation_ready" ||
     status === "needs_signature" ||
     status === "awaiting_broadcast" ||
     status === "submitted"
@@ -98,7 +99,7 @@ export const presentOperation = (
             }
           : null;
       })
-      .filter((chip): chip is NonNullable<typeof chip> => chip != null),
+      .filter((chip): chip is NonNullable<typeof chip> => chip?.icon != null),
   );
 
   return {

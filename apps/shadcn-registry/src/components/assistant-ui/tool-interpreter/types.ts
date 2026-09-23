@@ -6,7 +6,6 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 export type ToolChip = {
   key?: string;
   label: string;
-  dot?: string;
   icon?: ElementType;
   essential?: boolean;
 };
@@ -51,6 +50,8 @@ export type FactKind =
   | "count"
   | "decoded"
   | "gas"
+  | "requirement"
+  | "route"
   | "selector"
   | "skill"
   | "sourceHost"

@@ -2,12 +2,32 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { interpretToolStep } from "./tool-interpreter";
-import { ToolStepRow } from "./working-trace-rows";
+import { ToolChipView, ToolStepRow } from "./working-trace-rows";
 
 const labels = (step: ReturnType<typeof interpretToolStep>) =>
   step.chips.map((chip) => chip.label);
 
 describe("working trace contract", () => {
+  it("omits data chips without a meaningful icon", () => {
+    const { container } = render(
+      <ToolChipView chip={{ label: "Aave V4" }} index={0} animate={false} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("keeps the failure marker for older callers without an outcome", () => {
+    const step = interpretToolStep({ toolName: "unknown_tool" });
+    const { container } = render(
+      <ToolStepRow
+        interpretation={{ ...step, failed: true, outcome: undefined }}
+        done
+        active={false}
+        animate={false}
+      />,
+    );
+    expect(container.querySelector("svg.text-aomi-danger")).not.toBeNull();
+  });
+
   it.each([
     ["Evm stage", "Stage transaction"],
     ["evm_stage_tx", "Stage transaction"],
@@ -92,6 +112,22 @@ describe("working trace contract", () => {
     expect(spoofedProtocol.confidence).toBe("fallback");
   });
 
+  it("shows a protocol error even when the payload resembles a valid quote", () => {
+    const step = interpretToolStep({
+      toolName: "lifi_get_quote",
+      result: {
+        is_error: true,
+        error: "quote expired",
+        quote_id: "q-1",
+        from_token: { symbol: "ETH" },
+        to_token: { symbol: "USDC" },
+        estimate: { to_amount_display: "2 USDC" },
+      },
+    });
+    expect(labels(step)).toEqual(["Failed"]);
+    expect(step.outcome).toBe("failed");
+  });
+
   it("uses resolved EVM transaction ids, not internal simulation steps", () => {
     const step = interpretToolStep({
       toolName: "simulate_batch",
@@ -162,6 +198,15 @@ describe("working trace contract", () => {
     expect(failedStage.outcome).toBe("failed");
   });
 
+  it("counts requested Solana transactions when a commit view is absent", () => {
+    const step = interpretToolStep({
+      toolName: "svm_commit_txs",
+      argsText: JSON.stringify({ tx_ids: [11, 12] }),
+      result: { cluster: "mainnet-beta", status: "pending_approval" },
+    });
+    expect(labels(step)).toEqual(["Solana", "2 txs", "Awaiting approval"]);
+  });
+
   it("shows Commit Service progress and keeps a pending row pending", () => {
     const step = interpretToolStep({
       toolName: "evm_commit_txs",
@@ -219,7 +264,9 @@ describe("working trace contract", () => {
     expect(getByText("Base")).toBeTruthy();
     expect(getByText("1 tx")).toBeTruthy();
     expect(getByText("Submitted")).toBeTruthy();
+    expect(queryByText("extra one")).toBeNull();
     expect(queryByText("extra three")).toBeNull();
+    expect(queryByText(/more/)).toBeNull();
   });
 
   it("does not assign one network to mixed commit views", () => {

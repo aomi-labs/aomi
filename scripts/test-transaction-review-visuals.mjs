@@ -282,6 +282,25 @@ try {
     }
   }
 
+  if (fixtureMode === "commit") {
+    await page.goto(pageUrl({ mode: "arc-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const arcTrace = page.getByTestId("arc-trace-fixture");
+    await assertText(arcTrace, "Get account details");
+    await assertText(arcTrace, "126.88181 USDC");
+    await assertText(arcTrace, "Read Aave V4 markets");
+    await assertText(arcTrace, "Prepare Aave V4 supply");
+    assert.equal(
+      await arcTrace.locator(".aui-working-step-chips .bg-aomi-accent").count(),
+      0,
+    );
+    await arcTrace.screenshot({
+      path: resolve(artifacts, "working-trace-arc-light.png"),
+      animations: "disabled",
+    });
+  }
+
   console.log(JSON.stringify({ artifacts, failures, state: "passed" }));
 } finally {
   await browser?.close();

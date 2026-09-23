@@ -6,6 +6,7 @@ area: apps
 review_after_days: 30
 sources_of_truth:
   - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/pipeline.ts
+  - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/protocols/index.ts
   - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/identity.ts
   - apps/shadcn-registry/src/components/assistant-ui/tool-interpreter/present/descriptors.ts
   - apps/shadcn-registry/src/components/assistant-ui/working-trace-rows.tsx
@@ -46,6 +47,12 @@ state, network, transaction count, and partial confirmation progress.
 The pictured commit is still running; it has a transaction count but no
 completed-state marker.
 
+Facts without a meaningful icon do not produce chips. Account details use the account tool's own
+network, address, and native balance/currency, including Arc's native USDC;
+they never inherit a previous tool's network.
+
+![Arc account and Aave trace without decorative dots](../assets/working-trace-arc-light.png)
+
 ## Names and protocol context
 
 Declared core tool names resolve to stable action titles while active, after
@@ -69,6 +76,17 @@ Unknown tools, including tools injected by a skill, show a readable tool title
 and expandable details without inferred chain, token, amount, protocol, or
 action chips. Real errors still show a failed state. Adding rich presentation
 requires registering the tool identity and validating its result shape.
+
+## Interpreter layout
+
+`families/evm`, `families/svm`, and `families/general` own the corresponding
+core tools. `protocols` holds one adapter per integration, with its exact tool
+names, result validation, and semantic facts. `pipeline.ts` only asks the core
+and protocol registries for a matcher; it contains no protocol rules. To add a
+protocol such as Curve, add `protocols/curve.ts` and register its adapter in
+`protocols/index.ts`. The widget registry discovers protocol source files when
+it builds, so no second source-file manifest update is needed. A protocol
+adapter must return neutral fallback when its result is invalid.
 
 ## Verification
 

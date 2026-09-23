@@ -1,5 +1,11 @@
 # Working trace contract cleanup — 2026-09-23
 
+Follow-up: removed decorative blue dots from text-only data chips, displayed
+Arc account native USDC balance, and split interpretation into EVM, SVM,
+general, and individual protocol adapters. New protocol files are picked up by
+the registry build after one adapter registration. The original PR remains the
+review target.
+
 Created a clean paired frontend/backend worktree from freshly fetched
 `origin/main`. The shared widget now routes tool presentation by declared
 identity, uses one lifecycle layout for EVM and Solana, shows Commit Service

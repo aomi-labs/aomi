@@ -8,6 +8,7 @@ import {
 } from "@/components/assistant-ui/tool-registry";
 
 import type { FactKind, FactRole, ToolOperation } from "../types";
+import { protocolDescriptorFor } from "../protocols";
 
 export type ChipSlot = {
   kind: FactKind;
@@ -57,7 +58,6 @@ const descriptorById: Record<string, Descriptor> = {
     icon: SHAPE_ICONS.tokenLookup,
     chipPlan: [
       { kind: "chain" },
-      { kind: "sourceHost" },
       { kind: "decoded" },
       { kind: "token" },
       { kind: "amount" },
@@ -71,8 +71,9 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "chain" },
       { kind: "cluster" },
       { kind: "amount" },
+      { kind: "route" },
+      { kind: "requirement" },
       { kind: "decoded" },
-      { kind: "sourceHost" },
       { kind: "status" },
     ],
   },
@@ -189,49 +190,6 @@ const descriptorById: Record<string, Descriptor> = {
     "chain",
     "txId",
   ),
-  "lifi.approval": {
-    title: "fixed",
-    fixedTitle: "Prepare LI.FI approval",
-    icon: EVM_SELECTOR_REGISTRY["0x095ea7b3"].icon,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "token" },
-      { kind: "amount", role: "primary" },
-    ],
-  },
-  "lifi.quote": {
-    title: "fixed",
-    fixedTitle: "Quote LI.FI swap",
-    icon: SHAPE_ICONS.swap,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "token", role: "primary" },
-      { kind: "amount", role: "primary" },
-      { kind: "amount", role: "secondary" },
-    ],
-  },
-  "lifi.swap.prepare": {
-    title: "fixed",
-    fixedTitle: "Prepare LI.FI swap",
-    icon: SHAPE_ICONS.swap,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "token", role: "primary" },
-      { kind: "amount", role: "primary" },
-      { kind: "amount", role: "secondary" },
-    ],
-  },
-  "jupiter.swap.prepare": {
-    title: "fixed",
-    fixedTitle: "Prepare swap",
-    icon: SHAPE_ICONS.swap,
-    chipPlan: [
-      { kind: "cluster" },
-      { kind: "token", role: "primary" },
-      { kind: "amount", role: "primary" },
-      { kind: "amount", role: "secondary" },
-    ],
-  },
   "skill.activate": {
     title: "fixed",
     fixedTitle: "Activate skill",
@@ -305,7 +263,11 @@ const fallbackDescriptor: Descriptor = {
 
 export const descriptorFor = (operation: ToolOperation): Descriptor => {
   if (operation.id.startsWith("evm.tx.stage.")) return stagedDescriptor;
-  return descriptorById[operation.id] ?? fallbackDescriptor;
+  return (
+    descriptorById[operation.id] ??
+    protocolDescriptorFor(operation.id) ??
+    fallbackDescriptor
+  );
 };
 
 export const iconForDescriptor = (

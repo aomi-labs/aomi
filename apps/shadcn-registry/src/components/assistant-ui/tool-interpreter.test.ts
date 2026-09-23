@@ -3,6 +3,7 @@ import { CoinsIcon, PencilLineIcon, PuzzleIcon } from "lucide-react";
 
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import { formatTokenUnits } from "@/components/assistant-ui/tool-interpreter/token-registry";
+import { statusFact } from "@/components/assistant-ui/tool-interpreter/normalize";
 import { getSkillIcon } from "@/components/icons/skills";
 
 const labelsFor = (chips: { label: string }[]) =>
@@ -13,6 +14,15 @@ describe("tool interpreter", () => {
     expect(formatTokenUnits("123456789012345678901234", 6)).toBe(
       "123456789012345678.901234",
     );
+  });
+
+  it("does not treat inherited status table names as known states", () => {
+    expect(statusFact("constructor")).toEqual({
+      kind: "status",
+      value: "constructor",
+      label: "Constructor",
+      source: "result",
+    });
   });
 
   it("recognizes web search results", () => {
@@ -29,7 +39,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Search web");
-    expect(labelsFor(step.chips)).toEqual(["3 results", "tradingview.com"]);
+    expect(labelsFor(step.chips)).toEqual([]);
   });
 
   it("wraps plain text results before matching", () => {
@@ -44,7 +54,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Search web");
-    expect(labelsFor(step.chips)).toEqual(["2 results", "tradingview.com"]);
+    expect(labelsFor(step.chips)).toEqual([]);
   });
 
   it("unwraps routed tool envelopes before matching", () => {
@@ -88,7 +98,6 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Call token contract");
     expect(labelsFor(step.chips)).toEqual(["Failed"]);
     expect(step.chips[0].icon).toBeTypeOf("object");
-    expect(step.chips[0].dot).toBeUndefined();
     expect(step.failed).toBe(true);
   });
 
@@ -324,7 +333,6 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Check network");
     expect(labelsFor(step.chips)).toEqual(["Base", "48,314,732"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
-    expect(step.chips[0].dot).toBeUndefined();
     expect(step.chips[1].icon).toBeTypeOf("object");
   });
 
@@ -462,7 +470,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Get account details");
-    expect(labelsFor(step.chips)).toEqual(["0xda65...3cf0", "0.00087"]);
+    expect(labelsFor(step.chips)).toEqual(["0xda65...3cf0", "0.00087 ETH"]);
     expect(step.chips[1].icon).toBe(CoinsIcon);
   });
 
@@ -477,7 +485,34 @@ describe("tool interpreter", () => {
       relatedResults: [{ chain_id: 1 }],
     });
 
-    expect(labelsFor(step.chips)).toEqual(["Base", "0xda65...3cf0", "0.00087"]);
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0xda65...3cf0",
+      "0.00087 ETH",
+    ]);
+  });
+
+  it("shows Arc native USDC balance from the account details result", () => {
+    const step = interpretToolStep({
+      toolName: "get_account_info",
+      argsText: JSON.stringify({ chain_id: 5042 }),
+      result: {
+        address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+        balance_wei: "126818805954291600000",
+        balance_native: "126.8818059542916",
+        native_currency: "USDC",
+        nonce: 24,
+        balance_usdc: "126.8818059542916",
+      },
+    });
+
+    expect(step.title).toBe("Get account details");
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "0xda65...3cf0",
+      "126.88181 USDC",
+    ]);
+    expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
   it("standardizes token resolution chips", () => {
@@ -602,11 +637,23 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toContain("5 USDC");
     expect(labelsFor(step.chips)).not.toContain("Aave V4");
     expect(labelsFor(step.chips)).toContain("Approval required");
+    expect(
+      step.chips.find((chip) => chip.label === "Approval required")?.icon,
+    ).toBeDefined();
     expect(labelsFor(step.chips)).toContain("Prepared");
     expect(labelsFor(step.chips)).not.toContain("Success");
   });
 
-  it("shows the Morpho vault version's name and own chain", () => {
+  it("reads Aave markets without repeating the protocol in a chip", () => {
+    const step = interpretToolStep({
+      toolName: "aave_v4_markets",
+      result: { protocol: "aave_v4", chain_id: 5042, markets: [] },
+    });
+    expect(step.title).toBe("Read Aave V4 markets");
+    expect(labelsFor(step.chips)).toEqual(["Arc"]);
+  });
+
+  it("shows the Morpho vault's chain without a text-only name chip", () => {
     const step = interpretToolStep({
       toolName: "morpho_vault_overview",
       result: {
@@ -620,8 +667,8 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(labelsFor(step.chips)).toContain("Arc USDC Prime");
-    expect(labelsFor(step.chips)).toContain("Morpho");
+    expect(labelsFor(step.chips)).not.toContain("Arc USDC Prime");
+    expect(labelsFor(step.chips)).not.toContain("Morpho");
   });
 
   it("shows Circle Gateway deposit amounts without implying a completed bridge", () => {
@@ -635,7 +682,7 @@ describe("tool interpreter", () => {
       },
     });
     expect(labelsFor(step.chips)).toContain("Arc");
-    expect(step.title).toBe("Prepare deposit Circle Gateway");
+    expect(step.title).toBe("Prepare Circle Gateway deposit");
     expect(labelsFor(step.chips)).toContain("10 USDC");
     expect(labelsFor(step.chips)).not.toContain("Success");
   });
@@ -653,6 +700,7 @@ describe("tool interpreter", () => {
     });
     expect(labelsFor(step.chips)).toContain("Base → Arc");
     expect(labelsFor(step.chips)).toContain("Attestation ready");
+    expect(step.chips.every((chip) => chip.icon)).toBe(true);
     expect(labelsFor(step.chips)).not.toContain("Success");
   });
 
@@ -971,7 +1019,6 @@ describe("tool interpreter", () => {
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
     expect(step.chips[3].icon).toBeTypeOf("object");
-    expect(step.chips[3].dot).toBeUndefined();
   });
 
   it("derives current simulation status from execution evidence", () => {
@@ -1045,7 +1092,6 @@ describe("tool interpreter", () => {
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
-    expect(step.chips[2].dot).toBeUndefined();
   });
 
   it("shows the Solana transaction count while awaiting wallet approval", () => {
@@ -1083,7 +1129,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Delegated: swap-worker");
-    expect(labelsFor(step.chips)).toEqual(["1a2b3c4d", "staged 1"]);
+    expect(labelsFor(step.chips)).toEqual(["staged 1"]);
     expect(step.failed).toBe(false);
   });
 
@@ -1098,7 +1144,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Delegated task");
-    expect(labelsFor(step.chips)).toEqual(["1a2b3c4d"]);
+    expect(labelsFor(step.chips)).toEqual([]);
   });
 
   it("marks a non-completed delegation as failed", () => {
@@ -1113,7 +1159,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Delegated: approvals-auditor");
-    expect(labelsFor(step.chips)).toEqual(["11223344", "Stalled"]);
+    expect(labelsFor(step.chips)).toEqual([]);
     expect(step.failed).toBe(true);
   });
 });

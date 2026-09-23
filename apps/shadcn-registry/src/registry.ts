@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+
 export type RegistryComponent = {
   name: string;
   file: string | string[];
@@ -8,6 +10,15 @@ export type RegistryComponent = {
 };
 
 const REGISTRY_BASE_URL = "https://aomi.dev/r";
+
+const protocolInterpreterFiles = readdirSync(
+  new URL(
+    "./components/assistant-ui/tool-interpreter/protocols/",
+    import.meta.url,
+  ),
+)
+  .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
+  .map((name) => `components/assistant-ui/tool-interpreter/protocols/${name}`);
 
 // Helper to create registry dependency URLs
 const aomi = (name: string) => `${REGISTRY_BASE_URL}/${name}.json`;
@@ -299,16 +310,24 @@ export const registry: RegistryComponent[] = [
       "components/assistant-ui/tool-interpreter/identity.ts",
       "components/assistant-ui/tool-interpreter/pipeline.ts",
       "components/assistant-ui/tool-interpreter/token-registry.ts",
-      "components/assistant-ui/tool-interpreter/families/simple.ts",
-      "components/assistant-ui/tool-interpreter/families/evm-call.ts",
-      "components/assistant-ui/tool-interpreter/families/evm-tx.ts",
-      "components/assistant-ui/tool-interpreter/families/commit-view.ts",
-      "components/assistant-ui/tool-interpreter/families/svm.ts",
-      "components/assistant-ui/tool-interpreter/families/svm-tx.ts",
-      "components/assistant-ui/tool-interpreter/families/jupiter.ts",
-      "components/assistant-ui/tool-interpreter/families/lifi.ts",
-      "components/assistant-ui/tool-interpreter/families/protocol.ts",
-      "components/assistant-ui/tool-interpreter/families/task.ts",
+      "components/assistant-ui/tool-interpreter/families/index.ts",
+      "components/assistant-ui/tool-interpreter/families/operation.ts",
+      "components/assistant-ui/tool-interpreter/families/general/index.ts",
+      "components/assistant-ui/tool-interpreter/families/general/commit-view.ts",
+      "components/assistant-ui/tool-interpreter/families/general/errors.ts",
+      "components/assistant-ui/tool-interpreter/families/general/search.ts",
+      "components/assistant-ui/tool-interpreter/families/general/skills.ts",
+      "components/assistant-ui/tool-interpreter/families/general/task.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/index.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/account.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/call.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/context.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/contract.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/transactions.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/index.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/context.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/transactions.ts",
+      ...protocolInterpreterFiles,
       "components/assistant-ui/tool-interpreter/present/index.ts",
       "components/assistant-ui/tool-interpreter/present/chips.ts",
       "components/assistant-ui/tool-interpreter/present/descriptors.ts",

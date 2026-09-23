@@ -4,11 +4,15 @@ import {
   asString,
   statusFact,
   uniqueFacts,
-} from "../normalize";
-import { toolIdentity } from "../identity";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { svmClusterFact } from "./svm";
-import { commitCountFact, commitStateFact, commitViews } from "./commit-view";
+} from "../../normalize";
+import { toolIdentity } from "../../identity";
+import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import { svmClusterFact } from "./context";
+import {
+  commitCountFact,
+  commitStateFact,
+  commitViews,
+} from "../general/commit-view";
 
 const op = (
   id: string,
@@ -139,9 +143,16 @@ export const matchSvmPendingApproval: ToolMatcher = ({
   return op("svm.tx.pending_approval", rawLabel, [
     clusterFact(cluster),
     commitCountFact(views) ??
-      (resultRecord || requested.length > 0
-        ? { kind: "count", role: "tx", value: "1", source: "result" }
-        : null),
+      (requested.length > 1 && !Array.isArray(resultRecord?.svm_ix_ids)
+        ? {
+            kind: "count",
+            role: "tx",
+            value: String(requested.length),
+            source: "args",
+          }
+        : resultRecord || requested.length > 0
+          ? { kind: "count", role: "tx", value: "1", source: "result" }
+          : null),
     failedFact(resultRecord) ??
       commitStateFact(views) ??
       statusFact(

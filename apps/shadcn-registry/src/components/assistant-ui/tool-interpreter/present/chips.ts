@@ -1,5 +1,6 @@
 import {
   ArrowDownLeftIcon,
+  ArrowRightLeftIcon,
   ArrowUpRightIcon,
   BanIcon,
   BlocksIcon,
@@ -57,6 +58,8 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Pending confirmation", icon: ClockIcon };
     case "pending_approval":
       return { label: "Awaiting approval", icon: ClockIcon };
+    case "attestation_ready":
+      return { label: "Attestation ready", icon: ClockIcon };
     case "needs_signature":
       return { label: "Awaiting signature", icon: ClockIcon };
     case "awaiting_broadcast":
@@ -120,7 +123,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
     case "amount":
       if (fact.role === "native") {
         return {
-          label: formatNativeAmount(fact.value),
+          label: `${formatNativeAmount(fact.value)}${fact.label ? ` ${fact.label}` : ""}`,
           icon: CoinsIcon,
         };
       }
@@ -179,6 +182,10 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "gas":
       return { label: `${formatInteger(fact.value)} gas`, icon: FuelIcon };
+    case "requirement":
+      return { label: fact.label ?? fact.value, icon: ClockIcon };
+    case "route":
+      return { label: fact.label ?? fact.value, icon: ArrowRightLeftIcon };
     case "selector":
       return { label: fact.label ?? fact.value };
     case "skill":

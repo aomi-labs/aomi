@@ -183,9 +183,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getChainInfo(chainId: number) {
-  return chainId === 8453
-    ? { id: 8453, name: "Base", ticker: "ETH" }
-    : undefined;
+  return SUPPORTED_CHAINS.find((chain) => chain.id === chainId);
 }
 
 export function selectTaskRuns() {

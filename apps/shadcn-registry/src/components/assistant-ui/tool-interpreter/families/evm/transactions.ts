@@ -11,10 +11,14 @@ import {
   selectorFact,
   statusFact,
   uniqueFacts,
-} from "../normalize";
-import { toolIdentity } from "../identity";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { commitCountFact, commitStateFact, commitViews } from "./commit-view";
+} from "../../normalize";
+import { toolIdentity } from "../../identity";
+import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import {
+  commitCountFact,
+  commitStateFact,
+  commitViews,
+} from "../general/commit-view";
 
 const op = (
   id: string,

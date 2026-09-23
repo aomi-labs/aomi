@@ -1,33 +1,8 @@
 import { coreToolTitle, declaredToolIdentity } from "./identity";
-import {
-  matchChainContext,
-  matchError,
-  matchNativeBalance,
-  matchSkillActivation,
-  matchTokenLookup,
-  matchWebSearch,
-} from "./families/simple";
-import {
-  matchEvmPendingApproval,
-  matchEvmSimulation,
-  matchStagedTx,
-} from "./families/evm-tx";
-import {
-  matchLifiApproval,
-  matchLifiQuote,
-  matchLifiSwapPrep,
-} from "./families/lifi";
-import { isSupportedProtocolTool, matchProtocol } from "./families/protocol";
-import { matchJupiterSwapPrep } from "./families/jupiter";
-import { matchSvmContext, matchSvmTokenHoldings } from "./families/svm";
-import {
-  matchSvmPendingApproval,
-  matchSvmSimulation,
-  matchSvmStage,
-} from "./families/svm-tx";
-import { matchEvmCall } from "./families/evm-call";
-import { matchTaskDelegation } from "./families/task";
+import { coreMatchersFor } from "./families";
+import { matchError } from "./families/general/errors";
 import { presentOperation } from "./present";
+import { protocolMatcherFor } from "./protocols";
 import type {
   InterpretedToolStep,
   ToolConfidence,
@@ -37,55 +12,11 @@ import type {
 
 /** Identity selects an adapter; payload shape only determines facts inside it. */
 const matchersFor = (name: string): ToolMatcher[] => {
-  if (isSupportedProtocolTool(name)) return [matchProtocol, matchError];
-  switch (name) {
-    case "task":
-      return [matchTaskDelegation, matchError];
-    case "svm_stage_ix":
-    case "svm_stage_tx":
-      return [matchSvmStage, matchError];
-    case "svm_simulate_ix":
-    case "svm_simulate_tx":
-      return [matchSvmSimulation, matchError];
-    case "svm_commit_txs":
-      return [matchSvmPendingApproval, matchError];
-    case "evm_stage_tx":
-    case "evm stage":
-      return [matchStagedTx, matchError];
-    case "simulate_batch":
-      return [matchEvmSimulation, matchError];
-    case "evm_commit_txs":
-      return [matchEvmPendingApproval, matchError];
-    case "brave_search":
-    case "search_docs":
-      return [matchWebSearch, matchError];
-    case "activate_skills":
-      return [matchSkillActivation, matchError];
-    case "svm_get_context":
-      return [matchSvmContext, matchError];
-    case "svm_get_token_holdings":
-      return [matchSvmTokenHoldings, matchError];
-    case "get_time_and_onchain_context":
-      return [matchChainContext, matchEvmCall, matchError];
-    case "get_account_info":
-      return [matchNativeBalance, matchError];
-    case "get_contract":
-      return [matchTokenLookup, matchError];
-    case "encode_and_call":
-    case "sim_call":
-      return [matchEvmCall, matchError];
-    case "jupiter_prepare_swap":
-      return [matchJupiterSwapPrep, matchError];
-    case "lifi_prepare_swap_tx":
-    case "lifi_prepare_swap_batch":
-      return [matchLifiSwapPrep, matchError];
-    case "lifi_get_quote":
-      return [matchLifiQuote, matchError];
-    case "lifi_prepare_approval_tx":
-      return [matchLifiApproval, matchError];
-    default:
-      return [matchError];
-  }
+  const protocol = protocolMatcherFor(name);
+  return [
+    ...(coreMatchersFor(name) ?? (protocol ? [protocol] : [])),
+    matchError,
+  ];
 };
 
 const fallbackOperation = (ctx: ToolContext) => {
