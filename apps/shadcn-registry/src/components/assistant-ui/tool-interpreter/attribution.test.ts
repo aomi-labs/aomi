@@ -59,13 +59,38 @@ describe("trace attribution", () => {
         result,
         attribution,
       });
-      expect(step.chips[0]).toMatchObject({
+      expect(
+        step.chips.find((chip) => chip.attribution === "skill"),
+      ).toMatchObject({
         label: "Lifi Swap",
         icon: getSkillIcon("lifi_swap"),
         title: "Skill: Lifi Swap",
       });
       expect(step.failed).toBe(Boolean(result && "error" in result));
     }
+  });
+
+  it("keeps quote facts ahead of the skill badge", () => {
+    const step = interpretToolStep({
+      toolName: "lifi_get_quote",
+      result: {
+        quote_id: "quote-1",
+        chain_id: 8453,
+        from_token: { symbol: "USDC" },
+        to_token: { symbol: "ETH" },
+        from_amount: { display: "10 USDC" },
+        estimate: { to_amount_display: "0.002 ETH" },
+      },
+      attribution,
+    });
+    expect(step.title).toBe("Quote LI.FI swap");
+    expect(step.chips.map((chip) => chip.label)).toEqual([
+      "Base",
+      "USDC -> ETH",
+      "10 USDC",
+      "0.002 ETH",
+      "Lifi Swap",
+    ]);
   });
 
   it("shows a single combined app/skill badge for an owned tool", () => {

@@ -1,14 +1,28 @@
-# Working-trace app and skill attribution — 2026-09-22
+# Working-trace app and skill attribution — 2026-09-24
 
-Frontend-only `codex/trace-app-skill-badges`, based on `origin/main` at
-`01a39487`. The shared trace displays app/skill ownership badges and app
-artwork, including Hoodit, and labels injected tools from the skill catalog.
-Namespaced skill IDs render readable names while routing IDs stay intact.
-Main and child traces and the activity sidebar share the same attribution
-context. Tool attribution uses exact catalog metadata only; prefix and
-protocol-result inference are not used.
-Widget patch version: 3.0.6. See `docs/trace-attribution/README.md` for browser
-proof, focused checks, and the unrelated full-widget test-typecheck failures.
+PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
+
+# Working trace contract cleanup — 2026-09-23
+
+Follow-up: removed decorative blue dots from text-only data chips, displayed
+Arc account native USDC balance, and split interpretation into EVM, SVM,
+general, and individual protocol adapters. New protocol files are picked up by
+the registry build after one adapter registration. The original PR remains the
+review target.
+
+Created a clean paired frontend/backend worktree from freshly fetched
+`origin/main`. The shared widget now routes tool presentation by declared
+identity, uses one lifecycle layout for EVM and Solana, shows Commit Service
+states and truthful count units, and leaves unknown skill tools neutral.
+Core action names remain stable while active and after results or errors.
+Aave and other supported preparation tools have explicit semantic
+presentations. The maintained contract is in
+`docs/topics/apps/facts/working-trace.md`; backend source is unchanged.
+The widget's 598 tests, focused contract tests, registry build, frontend
+boundary check, trusted-base packed consumer build, and transaction-review
+browser fixture pass. The isolated widget TypeScript check still reports
+pre-existing errors in control-bar and wallet-kit test files unrelated to
+this change.
 
 # Arc protocol support planning — 2026-09-20
 
@@ -72,8 +86,7 @@ backend or database. The first Tailscale preview used Landing's
 `/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
 Landing's missing route (404). The current managed runtime serves the actual
 `apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
-pointed at `https://chat-staging.aomi.dev` with public Across application
-24895. Read-only inspection confirmed the host fixture's global `h1` rule
+pointed at `https://chat-staging.aomi.dev` with public Across application 24895. Read-only inspection confirmed the host fixture's global `h1` rule
 changes the widget welcome title from its intended 30px to 60px, and its
 global `header` rule caps the internal widget header at 760px and adds a 24px
 bottom margin. The consumer's routing prop visibly offers Auto and Direct,

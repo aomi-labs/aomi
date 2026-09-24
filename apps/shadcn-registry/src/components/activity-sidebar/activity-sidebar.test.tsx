@@ -420,7 +420,7 @@ describe("unified live transaction review", () => {
     expect(
       screen.getByText(/Wallet request: 1 transaction/),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Send to wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("first"),
     );
@@ -448,7 +448,7 @@ describe("unified live transaction review", () => {
     runtime.events = [failed];
     render(<ActivitySidebar />);
     expect(
-      screen.queryByRole("button", { name: "Send to wallet" }),
+      screen.queryByRole("button", { name: "Submit" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^Transactions/ }),

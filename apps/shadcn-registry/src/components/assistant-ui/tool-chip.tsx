@@ -17,6 +17,7 @@ export const ToolChipView: FC<{
   animate?: boolean;
 }> = ({ chip, index = 0, animate = false }) => {
   const Glyph = chip.icon;
+  if (!Glyph) return null;
   return (
     <span
       title={chip.title}
@@ -33,21 +34,7 @@ export const ToolChipView: FC<{
           : undefined
       }
     >
-      {chip.dot ? (
-        <span
-          className="size-[5px] shrink-0 rounded-full"
-          style={{ backgroundColor: chip.dot }}
-          aria-hidden="true"
-        />
-      ) : (
-        !Glyph && (
-          <span
-            className="bg-aomi-accent size-[5px] shrink-0 rounded-full"
-            aria-hidden="true"
-          />
-        )
-      )}
-      {Glyph && <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />}
+      <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />
       {chip.labelParts ? (
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <span className="truncate">{chip.labelParts[0]}</span>

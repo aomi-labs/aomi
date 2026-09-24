@@ -20,6 +20,7 @@ function appChip(name: string, catalog?: TraceAttribution): ToolChip {
   );
   return {
     id: `app:${name}`,
+    attribution: "app",
     label: identity.displayName,
     title: `App: ${identity.displayName}`,
     icon:
@@ -55,7 +56,10 @@ export function attributeToolStep(
       skill.injectedTools.includes(ctx.rawLabel),
     ) ?? [];
   const owners = candidates.length === 1 ? candidates : [];
-  const skillChips = owners.map((skill) => skillChip(skill.id, catalog));
+  const skillChips = owners.map((skill) => ({
+    ...skillChip(skill.id, catalog),
+    attribution: "skill" as const,
+  }));
   const ownedApps = new Set(
     owners.flatMap((skill) =>
       skill.id.includes("/") ? [skill.id.split("/")[0]!] : [],
@@ -74,11 +78,11 @@ export function attributeToolStep(
       ? [appChip(apps[0]!.name, catalog)]
       : [];
   const chips = [
-    ...appChips,
-    ...skillChips,
     ...step.chips.map((chip) =>
       chip.skillId ? skillChip(chip.skillId, catalog) : chip,
     ),
+    ...appChips,
+    ...skillChips,
   ];
   const seen = new Set<string>();
   return {

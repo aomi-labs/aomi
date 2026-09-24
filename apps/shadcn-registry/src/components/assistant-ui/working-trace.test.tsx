@@ -1,7 +1,16 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
-import { CircleIcon } from "lucide-react";
+import {
+  AppWindowIcon,
+  CircleIcon,
+  ClockIcon,
+  BlocksIcon,
+  CircleCheckIcon,
+  FuelIcon,
+  PuzzleIcon,
+  ReceiptTextIcon,
+} from "lucide-react";
 
 import type { TaskRunState } from "@aomi-labs/react";
 
@@ -37,47 +46,70 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
-  it.each(["initial", "update"])(
-    "staggers overflow badges on %s render",
-    (mode) => {
-      const base = {
-        icon: CircleIcon,
-        title: "Activate skill",
-        confidence: "high" as const,
-        rawLabel: "activate_skills",
-        failed: false,
-      };
-      const chips = Array.from({ length: 6 }, (_, index) => ({
-        label: `Skill ${index}`,
-      }));
-      const { getByText, queryByText, rerender } = render(
-        <ToolStepRow
-          interpretation={{
-            ...base,
-            chips: mode === "initial" ? chips : chips.slice(0, 4),
-          }}
-          done
-          active={false}
-          animate={mode === "initial"}
-          animateUpdates
-        />,
-      );
-      if (mode === "update") {
-        rerender(
-          <ToolStepRow
-            interpretation={{ ...base, chips }}
-            done
-            active={false}
-            animate={false}
-            animateUpdates
-          />,
-        );
-      }
-      expect(getByText("+2 more")).toHaveClass("animate-in");
-      expect(getByText("+2 more")).toHaveStyle({ animationDelay: "115ms" });
-      expect(queryByText("Skill 4")).not.toBeInTheDocument();
-    },
-  );
+  it("keeps ownership and transaction facts without an overflow bubble", () => {
+    const { getByText, queryByText, container } = render(
+      <ToolStepRow
+        interpretation={{
+          icon: CircleIcon,
+          title: "Commit transactions",
+          confidence: "high",
+          rawLabel: "evm_commit_txs",
+          failed: false,
+          outcome: "waiting",
+          chips: [
+            {
+              id: "app:hoodit",
+              attribution: "app",
+              label: "Hoodit",
+              icon: AppWindowIcon,
+            },
+            {
+              id: "skill:portfolio",
+              attribution: "skill",
+              label: "Portfolio",
+              icon: PuzzleIcon,
+            },
+            { label: "Arc", icon: BlocksIcon, essential: true },
+            { label: "1 tx", icon: ReceiptTextIcon, essential: true },
+            { label: "Pending confirmation", icon: ClockIcon, essential: true },
+            { label: "extra", icon: FuelIcon },
+            { label: "hidden", icon: FuelIcon },
+            { label: "iconless" },
+          ],
+        }}
+        done
+        active={false}
+        animate={false}
+      />,
+    );
+    for (const label of [
+      "Hoodit",
+      "Portfolio",
+      "Arc",
+      "1 tx",
+      "Pending confirmation",
+      "extra",
+    ]) {
+      expect(getByText(label)).toBeInTheDocument();
+    }
+    expect(queryByText("hidden")).not.toBeInTheDocument();
+    expect(queryByText("iconless")).not.toBeInTheDocument();
+    expect(queryByText(/more/)).not.toBeInTheDocument();
+    expect(container.querySelector("svg.lucide-clock")).toBeInTheDocument();
+    expect(
+      Array.from(
+        container.querySelector(".aui-working-step-chips")!.children,
+        (chip) => chip.textContent,
+      ),
+    ).toEqual([
+      "Arc",
+      "1 tx",
+      "Pending confirmation",
+      "extra",
+      "Hoodit",
+      "Portfolio",
+    ]);
+  });
 
   it("animates only badges that arrive on an existing live row", () => {
     const base = {
@@ -89,7 +121,10 @@ describe("WorkingTrace", () => {
     };
     const { getByText, rerender } = render(
       <ToolStepRow
-        interpretation={{ ...base, chips: [{ label: "Pending" }] }}
+        interpretation={{
+          ...base,
+          chips: [{ label: "Pending", icon: ClockIcon }],
+        }}
         done={false}
         active
         animate={false}
@@ -103,7 +138,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Pending" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Pending", icon: ClockIcon },
+          ],
         }}
         done
         active={false}
@@ -119,7 +157,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Success" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Success", icon: CircleCheckIcon },
+          ],
         }}
         done
         active={false}
@@ -135,7 +176,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Success" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Success", icon: CircleCheckIcon },
+          ],
         }}
         done
         active={false}
@@ -152,9 +196,9 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base" },
-            { label: "21,000 gas" },
-            { label: "Success" },
+            { label: "Base", icon: BlocksIcon },
+            { label: "21,000 gas", icon: FuelIcon },
+            { label: "Success", icon: CircleCheckIcon },
           ],
         }}
         done

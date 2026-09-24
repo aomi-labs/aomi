@@ -20,6 +20,7 @@ import {
   cn,
   useOptionalAomiRuntime,
   useThreadTaskRuns,
+  walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
@@ -700,24 +701,61 @@ export const buildTraceItems = (
 
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
+  const messageId = useMessage((s) => s.id);
   const content = useMessage((s) => s.content);
+  const finalAnswerStartIndex = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiFinalAnswerStartIndex?: number } | undefined)
+        ?.aomiFinalAnswerStartIndex,
+  );
+  const continuationTurnIds = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiContinuationTurnIds?: string[] } | undefined)
+        ?.aomiContinuationTurnIds,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
   const taskRuns = useThreadTaskRuns("turn");
-  const terminal = ["complete", "failed", "interrupted"].includes(
-    runtime?.turnState ?? "",
+  const turnId = messageId.startsWith("turn:")
+    ? messageId.slice("turn:".length)
+    : undefined;
+  const turnEvents = runtime?.events ?? [];
+  const ownState = turnId
+    ? turnEvents.findLast(
+        (event) =>
+          event.type === "turn_state_changed" && event.turn_id === turnId,
+      )
+    : undefined;
+  const ownStatus =
+    ownState?.type === "turn_state_changed" ? ownState.state : undefined;
+  const ownTerminal =
+    ownStatus !== undefined &&
+    ["complete", "failed", "interrupted"].includes(ownStatus);
+  const ownStopped = ownStatus === "failed" || ownStatus === "interrupted";
+  const walletContinuation = walletContinuationPending(
+    continuationTurnIds ?? [],
+    turnEvents,
   );
+  // A commit returns before wallet approval and the backend marks its model
+  // turn complete. Keep this trace live through the durable commit and its
+  // broadcast-terminal continuation. A later turn's processing state must not
+  // reanimate an unrelated completed trace.
   const live =
-    !terminal &&
-    (running ||
+    !ownStopped &&
+    (walletContinuation ||
       (isLast &&
-        ["processing", "awaiting_action"].includes(runtime?.turnState ?? "")));
+        !ownTerminal &&
+        (running ||
+          ["processing", "awaiting_action"].includes(
+            runtime?.turnState ?? "",
+          ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : isLast && runtime?.turnState === "failed"
+    : isLast && (ownStatus === "failed" || runtime?.turnState === "failed")
       ? "failed"
-      : isLast && runtime?.turnState === "interrupted"
+      : isLast &&
+          (ownStatus === "interrupted" || runtime?.turnState === "interrupted")
         ? "interrupted"
         : "complete";
   const delegations = isLast
@@ -763,7 +801,14 @@ export const AssistantTurnParts: FC = () => {
   // Any live text, including the first part, may still precede a tool call.
   // Completion is the boundary that identifies the final answer; until then
   // keep prose in the trace rather than moving it back when a tool arrives.
-  const traceEnd = live ? parts.length : lastToolIndex + 1;
+  const traceEnd =
+    typeof finalAnswerStartIndex === "number" &&
+    finalAnswerStartIndex >= 0 &&
+    finalAnswerStartIndex <= parts.length
+      ? finalAnswerStartIndex
+      : live
+        ? parts.length
+        : lastToolIndex + 1;
   const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
   const answerParts = parts
     .slice(traceEnd)

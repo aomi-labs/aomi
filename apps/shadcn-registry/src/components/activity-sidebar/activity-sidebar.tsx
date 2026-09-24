@@ -263,15 +263,7 @@ function ActivitySidebarContent() {
                               {current.length === 1 ? "" : "s"}.
                             </p>
                           )}
-                          {(pending || pendingCommit) && (
-                            <WalletReview
-                              key={
-                                pending
-                                  ? `${pending.id}:${pending.revision}`
-                                  : `${pendingCommit!.commit_id}:${pendingCommit!.version}`
-                              }
-                            />
-                          )}
+                          <WalletReview />
                         </m.div>
                       )}
                     </AnimatePresence>

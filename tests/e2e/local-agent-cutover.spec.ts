@@ -113,7 +113,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
   // The sidebar is the only approval surface.
   await expect(page.getByTestId("transaction-review")).toHaveCount(1);
   await expect(
-    page.getByRole("button", { name: "Send to wallet", exact: true }),
+    page.getByRole("button", { name: "Submit", exact: true }),
   ).toHaveCount(1);
   const transactionDetails = review.locator("details").filter({
     has: page.locator("summary", { hasText: "Transaction details" }),
@@ -147,9 +147,7 @@ test("local Agent Action executes and session snapshots survive A to B to A", as
       response.request().method() === "POST",
     { timeout: 60_000 },
   );
-  await review
-    .getByRole("button", { name: "Send to wallet", exact: true })
-    .click();
+  await review.getByRole("button", { name: "Submit", exact: true }).click();
   await executionIntercepted;
   releaseExecution();
   const execution = await executeResponse;

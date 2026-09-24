@@ -72,7 +72,10 @@ const server = await createServer({
         replacement: runtime,
       },
       { find: "@aomi-labs/react", replacement: runtime },
-      { find: "@aomi-labs/client", replacement: runtime },
+      {
+        find: "@aomi-labs/client",
+        replacement: resolve(fixtureRoot, "client.ts"),
+      },
       { find: "@fixture-source", replacement: sourceRoot },
       {
         find: "@",
@@ -90,6 +93,10 @@ const server = await createServer({
 let browser;
 try {
   await server.listen();
+  if (process.env.TRANSACTION_REVIEW_SERVE_ONLY === "1") {
+    console.log(`Transaction review fixture: ${pageUrl()}`);
+    await new Promise(() => {});
+  }
   browser = await chromium.launch({
     headless: true,
     channel: process.env.TRANSACTION_REVIEW_BROWSER_CHANNEL || "chrome",
@@ -108,6 +115,16 @@ try {
   const sidebarPanel = sidebar.locator(":scope > div");
   const review = page.getByTestId("transaction-review");
   await review.waitFor();
+  if (fixtureMode === "commit") {
+    const trace = page.locator(".aui-working-trace");
+    await assertText(trace, "Stage transaction");
+    await assertText(trace, "Staged");
+    await assertText(trace, "Commit transactions");
+    await trace.screenshot({
+      path: resolve(artifacts, "working-trace-light.png"),
+      animations: "disabled",
+    });
+  }
 
   await assertText(sidebar, "Skills");
   await assertText(sidebar, "Aave");
@@ -124,7 +141,16 @@ try {
   await assertText(review, "Transaction details");
   await assertText(review, "Simulation details");
   await review.getByRole("button", { name: "Reject", exact: true }).waitFor();
-  await review.getByRole("button", { name: "Send to wallet" }).waitFor();
+  await review
+    .getByRole("button", {
+      name: fixtureMode === "commit" ? "Submit 1 of 2" : "Submit",
+      exact: true,
+    })
+    .waitFor();
+  if (fixtureMode === "commit")
+    await review
+      .getByRole("button", { name: "Submit all", exact: true })
+      .waitFor();
   if (fixtureMode === "commit") {
     assert.deepEqual(await fixtureEvidence(page), {
       mode: "commit",
@@ -135,6 +161,7 @@ try {
     });
   }
   assert.deepEqual(failures, []);
+  if (fixtureMode === "commit") await assertSplitFits(review);
 
   await page.screenshot({
     path: resolve(artifacts, "aave-usdc-light-wide.png"),
@@ -177,6 +204,8 @@ try {
   });
   await page.getByTestId("transaction-review").waitFor();
   await page.waitForTimeout(100);
+  if (fixtureMode === "commit")
+    await assertSplitFits(page.getByTestId("transaction-review"));
   await page.screenshot({
     path: resolve(artifacts, "aave-usdc-light-narrow.png"),
     animations: "disabled",
@@ -185,7 +214,9 @@ try {
   await page.setViewportSize({ width: 1355, height: 825 });
   if (fixtureMode === "commit") {
     await page.goto(pageUrl(), { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "Send to wallet" }).click();
+    await page
+      .getByRole("button", { name: "Submit 1 of 2", exact: true })
+      .click();
     assert.deepEqual((await fixtureEvidence(page)).controllerCalls, {
       execute: ["commit-1"],
       reject: [],
@@ -196,11 +227,12 @@ try {
     const recovery = page.getByTestId("transaction-review");
     await assertText(
       recovery,
-      "Wallet transaction needs attention. It does not match the reviewed request.",
+      "The wallet used a different nonce from the prepared transaction.",
     );
+    await assertText(recovery, "Transaction: 0xdeadbeef");
     assert.equal(
       await recovery
-        .getByRole("button", { name: "Send to wallet" })
+        .getByRole("button", { name: "Submit 1 of 2", exact: true })
         .isDisabled(),
       true,
     );
@@ -227,7 +259,7 @@ try {
       "Simulation reverted before the supply could execute.",
     );
     assert.equal(
-      await failed.getByRole("button", { name: "Send to wallet" }).count(),
+      await failed.getByRole("button", { name: "Submit" }).count(),
       0,
     );
     await page
@@ -248,6 +280,71 @@ try {
         `${name} differs from the preserved pre-extraction baseline`,
       );
     }
+  }
+
+  if (fixtureMode === "commit") {
+    await page.goto(pageUrl({ mode: "arc-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const arcTrace = page.getByTestId("arc-trace-fixture");
+    await assertText(arcTrace, "Get account details");
+    await assertText(arcTrace, "126.88181 USDC");
+    await assertText(arcTrace, "Read Aave V4 markets");
+    await assertText(arcTrace, "Prepare Aave V4 supply");
+    assert.equal(
+      await arcTrace.locator(".aui-working-step-chips .bg-aomi-accent").count(),
+      0,
+    );
+    await arcTrace.screenshot({
+      path: resolve(artifacts, "working-trace-arc-light.png"),
+      animations: "disabled",
+    });
+
+    await page.goto(pageUrl({ mode: "attribution-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const attributionTrace = page.getByTestId("attribution-trace-fixture");
+    await assertText(attributionTrace, "Hoodit / Markets");
+    await assertText(attributionTrace, "LI.FI Swap");
+    await assertText(attributionTrace, "Awaiting approval");
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Quote LI.FI swap" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Base", "USDC -> ETH", "10 USDC", "0.002 ETH", "LI.FI Swap"],
+    );
+    assert.equal(await attributionTrace.getByText(/more/).count(), 0);
+    assert.equal(
+      await attributionTrace
+        .locator(".aui-working-step-chips .bg-aomi-accent")
+        .count(),
+      0,
+    );
+    await attributionTrace.screenshot({
+      path: resolve(artifacts, "working-trace-attribution-light.png"),
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(pageUrl({ mode: "attribution-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const mobileAttributionTrace = page.getByTestId(
+      "attribution-trace-fixture",
+    );
+    await assertText(mobileAttributionTrace, "Hoodit / Markets");
+    assert.equal(
+      await mobileAttributionTrace.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+      true,
+      "attribution trace overflows the narrow viewport",
+    );
+    await mobileAttributionTrace.screenshot({
+      path: resolve(artifacts, "working-trace-attribution-mobile.png"),
+      animations: "disabled",
+    });
   }
 
   console.log(JSON.stringify({ artifacts, failures, state: "passed" }));
@@ -279,4 +376,25 @@ async function assertText(locator, value) {
 
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function assertSplitFits(review) {
+  for (const name of ["Submit 1 of 2", "Submit all"]) {
+    const fits = await review
+      .getByRole("button", { name, exact: true })
+      .evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(button);
+        const content = range.getBoundingClientRect();
+        return (
+          content.left >= bounds.left + 4 && content.right <= bounds.right - 4
+        );
+      });
+    assert.equal(
+      fits,
+      true,
+      `${name} must fit inside its segment with padding`,
+    );
+  }
 }

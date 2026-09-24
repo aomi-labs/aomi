@@ -10,11 +10,11 @@ import {
   chainFactFromRecord,
   decodedValue,
   selectorFact,
-  topicTokenFact,
+  tokenFact,
   uniqueFacts,
-} from "../normalize";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { formatTokenUnits, knownToken } from "../token-registry";
+} from "../../normalize";
+import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import { formatTokenUnits, knownToken } from "../../token-registry";
 
 const op = (
   id: string,
@@ -48,7 +48,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (selectorMeta?.kind === "erc20_balance") {
     return op("evm.call.erc20.balance_of", rawLabel, [
       chainFactFromRecord(tx),
-      topicTokenFact(rawLabel),
+      tokenFact(token?.symbol),
       addressFact(firstAddress, "owner", "decoded"),
     ]);
   }
@@ -60,7 +60,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
       rawLabel,
       [
         chainFactFromRecord(tx),
-        topicTokenFact(rawLabel),
+        tokenFact(token?.symbol),
         { ...selector, label: selectorMeta.name, role: "metadata" },
         decoded != null
           ? {
@@ -78,7 +78,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (selectorMeta?.kind === "erc20_allowance") {
     return op("evm.call.erc20.allowance", rawLabel, [
       chainFactFromRecord(tx),
-      topicTokenFact(rawLabel),
+      tokenFact(token?.symbol),
       addressFact(firstAddress, "owner", "decoded"),
       addressFact(secondAddress, "spender", "decoded"),
     ]);
@@ -87,7 +87,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (selectorMeta?.kind === "erc20_approve") {
     return op("evm.call.erc20.approve", rawLabel, [
       chainFactFromRecord(tx),
-      topicTokenFact(rawLabel),
+      tokenFact(token?.symbol),
       addressFact(firstAddress, "spender", "decoded"),
       amountFact(
         secondAmount && token
@@ -102,7 +102,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (selectorMeta?.kind === "erc20_transfer") {
     return op("evm.call.erc20.transfer", rawLabel, [
       chainFactFromRecord(tx),
-      topicTokenFact(rawLabel),
+      tokenFact(token?.symbol),
       addressFact(firstAddress, "recipient", "decoded"),
       amountFact(secondAmount, undefined, "decoded"),
     ]);

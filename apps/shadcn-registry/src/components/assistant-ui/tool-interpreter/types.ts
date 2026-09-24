@@ -4,6 +4,7 @@ import type { ElementType } from "react";
 export type ToolConfidence = "high" | "medium" | "fallback";
 
 export type ToolChip = {
+  key?: string;
   label: string;
   /** App and skill names, rendered with a graphical separator. */
   labelParts?: readonly [string, string];
@@ -11,9 +12,18 @@ export type ToolChip = {
   id?: string;
   title?: string;
   skillId?: string;
-  dot?: string;
+  attribution?: "app" | "skill";
   icon?: ElementType;
+  essential?: boolean;
 };
+
+export type ToolOutcome =
+  | "success"
+  | "waiting"
+  | "failed"
+  | "cancelled"
+  | "incomplete"
+  | "unknown";
 
 export type InterpretedToolStep = {
   icon: LucideIcon;
@@ -23,6 +33,7 @@ export type InterpretedToolStep = {
   rawLabel: string;
   /** The tool reported a failure/error status (drives the red-X step marker). */
   failed: boolean;
+  outcome?: ToolOutcome;
 };
 
 export type ToolStepInput = {
@@ -43,9 +54,12 @@ export type FactKind =
   | "chain"
   | "cluster"
   | "code"
+  | "compute"
   | "count"
   | "decoded"
   | "gas"
+  | "requirement"
+  | "route"
   | "selector"
   | "skill"
   | "sourceHost"
@@ -70,9 +84,10 @@ export type FactRole =
   | "spender"
   | "staged"
   | "to"
-  | "tx";
+  | "tx"
+  | "instruction";
 
-export type FactSource = "args" | "decoded" | "label" | "result";
+export type FactSource = "args" | "decoded" | "result";
 
 export type ToolFact = {
   kind: FactKind;

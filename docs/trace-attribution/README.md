@@ -4,6 +4,8 @@ App-owned skill activations display their structured `app/skill` identifier as
 `App / Skill`, with a graphical slash and app artwork when the publisher identity
 is known. Names and routing IDs remain separate. Main and delegated traces and
 the activity sidebar share the attribution context and badge component.
+On tool rows, network and transaction or quote facts appear first; ownership
+badges follow them and never consume the data-chip limit.
 
 Tool ownership is metadata-driven for every app:
 
@@ -39,25 +41,20 @@ needed to identify the supplier reliably.
 
 ## Verification
 
-- 137 focused interpreter, attribution, trace and activity-sidebar tests pass.
-  Coverage includes arbitrary new app names with unrelated tool names, exact
-  declarations overriding misleading prefixes, missing/ambiguous metadata,
-  injected skill ownership, identical sidebar/trace badges, and initial/live
-  overflow-chip animation.
-- Removed unused early screenshots and the obsolete sidebar skill-catalog mock.
-- Changed-file lint passes. No public props or host-provider requirements changed.
-- Widget registry/package build and packed-widget consumer compatibility are
-  checked against trusted base `01a39487b957305b5267ba5be73b11669144f679`.
-- The badge layout was checked at 1280px and 390px, with no horizontal overflow
-  or console errors and working raw-detail expansion. The fixture held the
-  sidebar at its settled width/opacity to avoid background-tab animation timing;
-  live backend calls and animation timing were not part of that visual check.
-- The widget version is bumped from 3.0.5 to 3.0.6, and all shared modules are
-  included in the installable registry.
+- The widget's 624 tests pass, including attribution, trace, and activity-sidebar
+  coverage. Ownership requires exact declarations and stays absent when metadata
+  is missing or ambiguous. Core transaction outcomes and account facts remain
+  visible alongside attribution.
+- The registry/package build, changed-file lint, and frontend dependency
+  boundaries pass. No public props or host-provider requirements changed.
+- A deterministic browser fixture checks desktop and 390px trace layouts,
+  including badges, Arc transaction state, no decorative dots or text-only
+  overflow bubbles, and no horizontal overflow in the narrow trace.
+- The widget version advances from 3.0.8 to 3.0.9, and the shared attribution
+  modules are included in the installable registry.
 
-The screenshots below show badge presentation. They precede removal of the
-namespace fallback: the Hoodit tool badge shown now requires explicit ownership
-metadata and is not evidence that the hosted backend currently supplies it.
+These screenshots use declared ownership in a fixture. They do not imply that
+the hosted backend currently supplies Hoodit's tool metadata.
 
-![Trace and activity sidebar](refined-desktop.png)
-![Compact sidebar and tool details](refined-mobile.png)
+![Integrated attribution trace on desktop](integrated-desktop.png)
+![Integrated attribution trace at 390px](integrated-mobile.png)

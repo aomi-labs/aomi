@@ -29,7 +29,11 @@ import {
   clearPersistedThreadId,
   writePersistedThreadId,
 } from "./thread-persistence";
-import { projectAssistantMessages, projectRuntimeMessages } from "./utils";
+import {
+  logicalTurnRunning,
+  projectAssistantMessages,
+  projectRuntimeMessages,
+} from "./utils";
 import { appendCapabilityHints } from "./capability-hints";
 
 /** Deduplicate in-flight async work keyed by thread id. */
@@ -190,8 +194,6 @@ export function AomiRuntimeCore({
   });
 
   const actions = useActions(currentSession);
-  const isRunning =
-    snapshot.isSubmitting || snapshot.turnState === "processing";
 
   // ---------------------------------------------------------------------------
   // Refs for stable access
@@ -291,6 +293,12 @@ export function AomiRuntimeCore({
         snapshot.liveMessages,
       ),
     [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
+  );
+  const isRunning = logicalTurnRunning(
+    snapshot.events,
+    currentMessages,
+    snapshot.turnState,
+    snapshot.isSubmitting,
   );
 
   useEffect(() => {
