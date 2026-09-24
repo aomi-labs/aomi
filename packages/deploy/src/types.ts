@@ -36,6 +36,7 @@ export interface AuditEvent {
     | "list_user_project_apps"
     | "exchange_github_code"
     | "list_user_projects"
+    | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
     | "list_user_deployments"
@@ -511,6 +512,54 @@ export interface ListUserProjectsInput extends BearerOverride {
   githubUserId: string;
   platform?: string;
   visibilityGrant?: string;
+}
+
+/**
+ * Structured failure detail the Manager attaches to a deploy-domain error
+ * (`deploy_error` on the wire). Internal message/details are deliberately not
+ * exposed through the BFF.
+ */
+export interface DeployErrorDetail {
+  code: string;
+  hint: string | null;
+  retryable: boolean;
+}
+
+export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
+  githubUserId: string;
+  /** Narrows the report to one platform's repository installation. */
+  platform?: string;
+}
+
+/** A permission the installation grants below what is required of it. */
+export interface GitHubAppPermissionGap {
+  permission: string;
+  required: string;
+  granted: string;
+}
+
+export type PlatformInstallationStatusKind =
+  | "ok"
+  | "missing_permissions"
+  | "suspended"
+  | "not_installed"
+  | "error";
+
+/** The platform repository's own installation, compared against what a
+ *  deploy needs of it. */
+export interface PlatformInstallationStatus {
+  githubRepo: string;
+  required: Record<string, string>;
+  installation: {
+    settingsUrl: string | null;
+    missingPermissions: GitHubAppPermissionGap[];
+  } | null;
+  status: PlatformInstallationStatusKind;
+}
+
+export interface GitHubAppInstallationsResult {
+  /** Null when the read was not narrowed to a platform. */
+  platform: PlatformInstallationStatus | null;
 }
 
 export interface GetUserProjectInput extends BearerOverride {
