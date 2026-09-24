@@ -43,17 +43,6 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
   };
 });
 
-vi.mock("../../lib/capabilities/skill-catalog", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../lib/capabilities/skill-catalog")
-  >()),
-  useSkillCatalog: () => ({
-    skills: [{ id: "aave", name: "aave" }],
-    loading: false,
-    error: null,
-  }),
-}));
-
 vi.mock("../../lib/wallet-kit", () => ({
   useAomiWalletKit: () => ({
     supportedChains: [

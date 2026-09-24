@@ -200,7 +200,7 @@ export async function signInThroughUi(
 export async function sendPrompt(
   page: Page,
   message: string,
-  options: { expectReply?: boolean } = {},
+  options: { expectReply?: boolean; expectComposerReady?: boolean } = {},
 ): Promise<Response> {
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true", {
@@ -223,9 +223,11 @@ export async function sendPrompt(
         .filter({ hasText: `Controlled reply for ${message}` }),
     ).toBeVisible({ timeout: 30_000 });
   }
-  await expect(page.getByRole("button", { name: "Send message" })).toBeEnabled({
-    timeout: 30_000,
-  });
+  if (options.expectComposerReady !== false) {
+    await expect(
+      page.getByRole("button", { name: "Send message" }),
+    ).toBeEnabled({ timeout: 30_000 });
+  }
   return response;
 }
 
