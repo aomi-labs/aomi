@@ -23,8 +23,9 @@
   },
   "production": {
     "project_ref": "akejwtxsjvbexutsfhkn",
-    "session_client_limit": 48,
+    "session_client_limit": 49,
     "reserved_clients": 5,
+    "activation_deployables": { "commit": 1, "payment": 1 },
     "services": {
       "backend": { "max_connections_per_instance": 12 },
       "backend-listener": { "max_connections_per_instance": 1 },

@@ -10,18 +10,24 @@ const wallets = {
       "Browser mode authenticates an existing EOA. No Para or Privy provider import required.",
     provider: null,
     environment: null,
+    credential: null,
+    credentialEnv: null,
   },
   Para: {
     description:
-      "Importing the Para entry point registers Para authentication and its wallet signer.",
+      "Import the Para entry point and pass the host's public Para API key.",
     provider: "para",
     environment: "PROD",
+    credential: "apiKey",
+    credentialEnv: "NEXT_PUBLIC_PARA_API_KEY",
   },
   Privy: {
     description:
-      "Importing the Privy entry point registers Privy authentication and its wallet signer.",
+      "Import the Privy entry point and pass the host's public Privy app ID.",
     provider: "privy",
-    environment: "production",
+    environment: null,
+    credential: "appId",
+    credentialEnv: "NEXT_PUBLIC_PRIVY_APP_ID",
   },
 } as const;
 
@@ -35,17 +41,19 @@ function uiSnippet(wallet: Wallet) {
     ? `\nimport "@aomi-labs/widget-lib/providers/${config.provider}";`
     : "";
   const auth = config.provider
-    ? `auth={{\n        kind: "embedded_wallet",\n        provider: "${config.provider}",\n        environment: "${config.environment}",\n      }}`
+    ? `auth={{\n        kind: "embedded_wallet",\n        provider: "${config.provider}",\n${config.environment ? `        environment: "${config.environment}",\n` : ""}        ${config.credential}: process.env.${config.credentialEnv}!,\n      }}`
     : 'auth={{ kind: "browser_wallet" }}';
 
-  return `import { AomiWidget } from "@aomi-labs/widget-lib";${providerImport}
+  return `"use client";
+
+import { AomiWidget } from "@aomi-labs/widget-lib";${providerImport}
 import "@aomi-labs/widget-lib/styles.css";
 
 export default function AssistantPage() {
   return (
     <AomiWidget
-      applicationId={process.env.AOMI_APPLICATION_ID!}
-      apiUrl={process.env.AOMI_API_URL!}
+      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
+      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
       ${auth}
       height="calc(100dvh - 32px)"
     />
@@ -57,12 +65,13 @@ const terminalSnippets = {
   CLI: `# Sign in with an embedded provider in your browser
 aomi account login --provider privy
 
-# Or authenticate with the wallet itself
-aomi account login --siwe
+# Or authenticate with the configured EVM wallet
+aomi account login --wallet
 
 aomi wallet current --json`,
   MCP: `npx skills add aomi-labs/skills
-codex mcp add aomi --url https://chat.aomi.dev/api/mcp
+codex mcp add aomi-agent --url https://chat.aomi.dev/v1/agent/mcp
+codex mcp login aomi-agent
 
 # OAuth binds the session to your Aomi account.
 # Wallets remain account-scoped.`,
@@ -182,6 +191,10 @@ function UiCode({ wallet }: { wallet: Wallet }) {
     >
       <code>
         <span>
+          <em>{'"use client"'}</em>;
+        </span>
+        <span>&nbsp;</span>
+        <span>
           <i>import</i> {"{ AomiWidget }"} <i>from</i>{" "}
           <em>{'"@aomi-labs/widget-lib"'}</em>;
         </span>
@@ -206,11 +219,11 @@ function UiCode({ wallet }: { wallet: Wallet }) {
         </span>
         <span>
           <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;applicationId</u>=
-          {"{process.env.AOMI_APPLICATION_ID!}"}
+          {"{process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}"}
         </span>
         <span>
           <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;apiUrl</u>=
-          {"{process.env.AOMI_API_URL!}"}
+          {"{process.env.NEXT_PUBLIC_AOMI_API_URL!}"}
         </span>
         {config.provider ? (
           <>
@@ -225,9 +238,15 @@ function UiCode({ wallet }: { wallet: Wallet }) {
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;provider:{" "}
               <em>{`"${config.provider}"`}</em>,
             </span>
+            {config.environment ? (
+              <span className={styles.installSyntaxFocus}>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;environment:{" "}
+                <em>{`"${config.environment}"`}</em>,
+              </span>
+            ) : null}
             <span className={styles.installSyntaxFocus}>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;environment:{" "}
-              <em>{`"${config.environment}"`}</em>,
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              {config.credential}: process.env.{config.credentialEnv}!,
             </span>
             <span className={styles.installSyntaxFocus}>
               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{"}}"}

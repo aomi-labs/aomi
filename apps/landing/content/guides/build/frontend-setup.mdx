@@ -1,13 +1,45 @@
 ---
-title: Frontend Setup
-description: Set up a frontend with Aomi using either the bundled widget or the headless React library.
+title: Frontend setup
+description: Choose the packaged widget or the React headless library for your product.
 ---
 
-# Frontend Setup
+Use `@aomi-labs/widget-lib` when you want a complete interface with conversations, wallet authentication, and transaction review. Use `@aomi-labs/react`, the headless library, when you want to compose your own UI and wallet provider tree.
 
-There are two supported frontend paths:
+| Surface           | Your application supplies                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| Packaged widget   | API origin, deployed Application ID, explicit authentication mode, and public provider identifiers |
+| Headless library  | Runtime provider, UI components, caller authentication, and wallet capabilities                    |
+| TypeScript client | Agent or Pipeline flows, host UI, and explicit wallet review                                       |
 
-- [Widget Installation](/docs/build/widget-installation) if you want a ready-made chat surface.
-- [Headless Library](/docs/build/headless-library) if you want to build your own UI.
+## Embed the widget
 
-If you are starting from zero, begin with [Quickstart](/docs/build/quickstart).
+```bash
+npm install @aomi-labs/widget-lib
+```
+
+```tsx
+"use client";
+
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
+
+export default function AssistantPage() {
+  return (
+    <AomiWidget
+      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
+      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
+      auth={{ kind: "browser_wallet" }}
+      height="100dvh"
+    />
+  );
+}
+```
+
+Use the production API origin `https://chat.aomi.dev` or the compatible origin supplied for your environment. The Application ID selects an activated App; it is not an API key. The widget creates an origin-bound session and keeps transaction review in the user interface.
+
+## Continue
+
+- [Widget installation](https://aomi.dev/docs/guides/widget/installation) for browser, Para, and Privy examples.
+- [Headless library](https://aomi.dev/docs/integrate/ui/headless-library) for a custom React interface.
+- [Client SDK](https://aomi.dev/docs/integrate/client-sdk) for package compatibility and headless TypeScript.
+- [Authentication](https://aomi.dev/docs/integrate/authentication) for caller credentials and App credentials.

@@ -58,9 +58,7 @@ test("a Solana Action is signed through the Solana BFF route", async ({
   await expect(page.getByTestId("transaction-review")).toBeVisible({
     timeout: 300_000,
   });
-  await page
-    .getByRole("button", { name: "Send to wallet", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Submit", exact: true }).click();
   const response = await solanaResponse;
   expect(response.status()).toBe(200);
   const body = (await response.json()) as { signature?: string };

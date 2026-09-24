@@ -1,11 +1,20 @@
+import { attributeToolStep } from "./attribution";
 import { interpretToolContext } from "./pipeline";
 import { unwrapToolStep } from "./unwrap";
 import type { InterpretedToolStep, ToolChip, ToolStepInput } from "./types";
 
 export type { InterpretedToolStep, ToolChip, ToolStepInput };
 
-export const interpretToolStep = (input: ToolStepInput): InterpretedToolStep =>
-  interpretToolContext(unwrapToolStep(input));
+export const interpretToolStep = (
+  input: ToolStepInput,
+): InterpretedToolStep => {
+  const context = unwrapToolStep(input);
+  return attributeToolStep(
+    interpretToolContext(context),
+    context,
+    input.attribution,
+  );
+};
 
 export const resolveToolIcon = (
   topic: string,

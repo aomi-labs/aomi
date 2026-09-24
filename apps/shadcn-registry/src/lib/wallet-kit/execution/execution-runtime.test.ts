@@ -179,11 +179,11 @@ describe("buildEvmExecutionRuntime", () => {
       account: address,
       chainId: arbitrum.id,
       connector: activeConnector,
-      nonce: 7,
       to: "0x1111111111111111111111111111111111111111",
       data: "0x1234",
       value: 9n,
     });
+    expect(sendTransactionAsync.mock.calls[0]?.[0]).not.toHaveProperty("nonce");
   });
 
   it("rejects a stale selected account before sending", async () => {
@@ -299,7 +299,6 @@ describe("buildEvmExecutionRuntime", () => {
       account: localAccount,
       chain: arbitrum,
       type: "eip1559",
-      nonce: 7,
       to: "0x1111111111111111111111111111111111111111",
       data: "0x",
       value: 0n,
@@ -307,6 +306,7 @@ describe("buildEvmExecutionRuntime", () => {
       maxFeePerGas: 2n,
       maxPriorityFeePerGas: 1n,
     });
+    expect(sendTransaction.mock.calls[0]?.[0]).not.toHaveProperty("nonce");
     expect(sendTransactionAsync).not.toHaveBeenCalled();
   });
 

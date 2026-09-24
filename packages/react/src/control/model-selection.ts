@@ -1,6 +1,6 @@
 /** Models preferred as default, in priority order. */
 const PREFERRED_DEFAULT_MODEL_PATTERNS: RegExp[] = [
-  /^gpt-5\.6[- ]terra/i,
+  /^gpt[- ]?6[- ]sol/i,
   /^claude.*opus.*4[.-]?8/i,
   /^claude.*4[.-]?8.*opus/i,
   /^claude.*opus.*4[.-]?6/i,

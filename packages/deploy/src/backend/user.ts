@@ -31,6 +31,8 @@ import type {
   ListUserProjectLogsInput,
   ListUserProjectTransactionsInput,
   ListUserProjectsInput,
+  ListUserGitHubAppInstallationsInput,
+  GitHubAppInstallationsResult,
   ListUserTransactionsInput,
   ActivateResult,
   PromoteResult,
@@ -67,6 +69,7 @@ import {
   camelBotWebhookStatus,
   camelActivateResult,
   camelBuilderModelKey,
+  camelGitHubAppInstallations,
   camelLogCursor,
   camelLogRow,
   camelOperateAppDetail,
@@ -223,6 +226,27 @@ export class BackendClient extends BackendPlatformClient {
       "projects",
       "list_user_projects",
       (raw) => ((raw.projects ?? []) as unknown[]).map(camelUserProject),
+      (params) => {
+        if (input.platform?.trim()) {
+          params.set("platform", input.platform.trim());
+        }
+      },
+      { platform: input.platform },
+    );
+  }
+
+  /**
+   * The selected platform repository's installation compared against what
+   * publishing and dispatch need. Read-only, JWT-only on the Manager side.
+   */
+  async listUserGitHubAppInstallations(
+    input: ListUserGitHubAppInstallationsInput,
+  ): Promise<GitHubAppInstallationsResult> {
+    return this.userGet(
+      input,
+      "installations",
+      "list_user_github_app_installations",
+      camelGitHubAppInstallations,
       (params) => {
         if (input.platform?.trim()) {
           params.set("platform", input.platform.trim());

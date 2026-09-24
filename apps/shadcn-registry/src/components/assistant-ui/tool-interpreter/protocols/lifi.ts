@@ -6,7 +6,13 @@ import {
   tokenFact,
   uniqueFacts,
 } from "../normalize";
+import {
+  EVM_SELECTOR_REGISTRY,
+  SHAPE_ICONS,
+} from "@/components/assistant-ui/tool-registry";
 import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
+import { validResult } from "./shared";
+import type { ProtocolAdapter } from "./types";
 
 const op = (
   id: string,
@@ -56,14 +62,8 @@ const tokenPairFact = (
   };
 };
 
-const lifiFact = (): ToolFact => ({
-  kind: "sourceHost",
-  value: "Lifi",
-  source: "result",
-});
-
 export const matchLifiQuote: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!resultRecord) return null;
+  if (!validResult(resultRecord)) return null;
   const fromToken = asRecord(resultRecord.from_token);
   const toToken = asRecord(resultRecord.to_token);
   const estimate = asRecord(resultRecord.estimate);
@@ -80,7 +80,8 @@ export const matchLifiQuote: ToolMatcher = ({ rawLabel, resultRecord }) => {
 };
 
 export const matchLifiApproval: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!resultRecord || !asString(resultRecord.quote_id)) return null;
+  if (!validResult(resultRecord) || !asString(resultRecord.quote_id))
+    return null;
   if (!("approval_required" in resultRecord)) return null;
 
   const approval = asRecord(resultRecord.approval);
@@ -95,16 +96,95 @@ export const matchLifiApproval: ToolMatcher = ({ rawLabel, resultRecord }) => {
 };
 
 export const matchLifiSwapPrep: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!resultRecord || !asString(resultRecord.quote_id)) return null;
+  if (!validResult(resultRecord) || !asString(resultRecord.quote_id))
+    return null;
   const stageTx = asRecord(resultRecord.stage_tx);
   if (stageTx?.kind !== "lifi_swap") return null;
 
   const estimate = asRecord(resultRecord.estimate);
   return op("lifi.swap.prepare", rawLabel, [
     chainFactFromRecord(resultRecord),
-    lifiFact(),
     amountDisplayFact(resultRecord.from_amount, "primary"),
     amountTextFact(estimate?.to_amount_display, "secondary"),
     tokenPairFact(resultRecord.from_token, resultRecord.to_token),
   ]);
+};
+
+export const matchLifiSwapBatch: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (resultRecord && !validResult(resultRecord)) return null;
+  const args = asRecord(parsedArgs);
+  const estimate = asRecord(resultRecord?.estimate);
+  const fromToken = asString(args?.from_token);
+  const requestedAmount = asString(args?.amount);
+  const requestedDisplay =
+    requestedAmount && fromToken && !fromToken.startsWith("0x")
+      ? `${requestedAmount} ${fromToken}`
+      : requestedAmount;
+
+  return op("lifi.swap.prepare", rawLabel, [
+    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
+    tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
+    amountDisplayFact(resultRecord?.from_amount, "primary") ??
+      amountTextFact(requestedDisplay, "primary"),
+    amountTextFact(estimate?.to_amount_display, "secondary"),
+  ]);
+};
+
+export const lifi: ProtocolAdapter = {
+  descriptors: {
+    "lifi.approval": {
+      title: "fixed",
+      fixedTitle: "Prepare LI.FI approval",
+      icon: EVM_SELECTOR_REGISTRY["0x095ea7b3"].icon,
+      chipPlan: [
+        { kind: "chain" },
+        { kind: "token" },
+        { kind: "amount", role: "primary" },
+      ],
+    },
+    "lifi.quote": {
+      title: "fixed",
+      fixedTitle: "Quote LI.FI swap",
+      icon: SHAPE_ICONS.swap,
+      chipPlan: [
+        { kind: "chain" },
+        { kind: "token", role: "primary" },
+        { kind: "amount", role: "primary" },
+        { kind: "amount", role: "secondary" },
+      ],
+    },
+    "lifi.swap.prepare": {
+      title: "fixed",
+      fixedTitle: "Prepare LI.FI swap",
+      icon: SHAPE_ICONS.swap,
+      chipPlan: [
+        { kind: "chain" },
+        { kind: "token", role: "primary" },
+        { kind: "amount", role: "primary" },
+        { kind: "amount", role: "secondary" },
+      ],
+    },
+  },
+  tools: [
+    "lifi_get_quote",
+    "lifi_prepare_approval_tx",
+    "lifi_prepare_swap_tx",
+    "lifi_prepare_swap_batch",
+  ],
+  match: (ctx) => {
+    switch (ctx.rawLabel.toLowerCase().trim()) {
+      case "lifi_get_quote":
+        return matchLifiQuote(ctx);
+      case "lifi_prepare_approval_tx":
+        return matchLifiApproval(ctx);
+      case "lifi_prepare_swap_batch":
+        return matchLifiSwapBatch(ctx);
+      default:
+        return matchLifiSwapPrep(ctx);
+    }
+  },
 };
