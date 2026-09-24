@@ -15,7 +15,7 @@ import {
 } from "@build/features/launch/components/deployments/ui/state-panels";
 
 const button =
-  "border-border hover:bg-accent-hover inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium disabled:opacity-50";
+  "border-border hover:bg-accent-hover inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-xs font-medium disabled:opacity-50";
 
 const accessLabel: Record<PlatformInstallationStatusKind, string> = {
   ok: "Access OK",
