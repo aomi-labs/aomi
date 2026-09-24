@@ -10,6 +10,11 @@ import {
 import "@fixture-source/apps/shadcn-registry/src/package.css";
 import { ActivitySidebar } from "@fixture-source/apps/shadcn-registry/src/components/activity-sidebar/activity-sidebar";
 import { AssistantTurnParts } from "@fixture-source/apps/shadcn-registry/src/components/assistant-ui/working-trace";
+import { ToolStepRow } from "@fixture-source/apps/shadcn-registry/src/components/assistant-ui/working-trace-rows";
+import {
+  interpretToolStep,
+  type ToolStepInput,
+} from "@fixture-source/apps/shadcn-registry/src/components/assistant-ui/tool-interpreter";
 import {
   logicalTurnRunning,
   projectRuntimeMessages,
@@ -46,7 +51,9 @@ function Fixture() {
           Deposit 100 USDC to Aave
         </p>
         <article className="border-aomi-border mt-12 rounded-2xl border p-6 text-[14px]">
-          {params.get("mode") === "commit" ? (
+          {params.get("mode") === "arc-trace" ? (
+            <ArcTraceFixture />
+          ) : params.get("mode") === "commit" ? (
             <TraceFixture state={state} />
           ) : (
             <p className="text-aomi-muted mb-5 text-[13px]">
@@ -154,6 +161,54 @@ function TraceFixture({ state }: { state: string }) {
           />
         </ThreadPrimitive.Root>
       </AssistantRuntimeProvider>
+    </div>
+  );
+}
+
+const arcTraceSteps: ToolStepInput[] = [
+  {
+    toolName: "get_time_and_onchain_context",
+    result: { chain_id: 5042, chain_name: "arc", block_number: 22383269 },
+  },
+  {
+    toolName: "get_account_info",
+    argsText: JSON.stringify({ chain_id: 5042 }),
+    result: {
+      address: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+      balance_native: "126.8818059542916",
+      native_currency: "USDC",
+      nonce: 24,
+    },
+  },
+  {
+    toolName: "aave_v4_markets",
+    result: { protocol: "aave_v4", chain_id: 5042, markets: [] },
+  },
+  {
+    toolName: "aave_v4_prepare",
+    result: {
+      protocol: "aave_v4",
+      chain_id: 5042,
+      operation: "supply",
+      amount: { display: "10 USDC" },
+      approval: { required: true },
+      status: "prepared",
+    },
+  },
+];
+
+function ArcTraceFixture() {
+  return (
+    <div data-testid="arc-trace-fixture" className="aui-working-trace">
+      {arcTraceSteps.map((step) => (
+        <ToolStepRow
+          key={step.toolName}
+          interpretation={interpretToolStep(step)}
+          done
+          active={false}
+          animate={false}
+        />
+      ))}
     </div>
   );
 }

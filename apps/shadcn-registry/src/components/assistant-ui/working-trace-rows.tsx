@@ -2,7 +2,13 @@
 
 import { type FC, useEffect, useRef, useState } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
-import { CheckIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import {
+  BanIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  XIcon,
+} from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
@@ -50,6 +56,7 @@ export const ToolChipView: FC<{
   animate: boolean;
 }> = ({ chip, index, animate }) => {
   const Glyph = chip.icon;
+  if (!Glyph) return null;
   return (
     <span
       className={cn(
@@ -65,21 +72,7 @@ export const ToolChipView: FC<{
           : undefined
       }
     >
-      {chip.dot ? (
-        <span
-          className="size-[5px] shrink-0 rounded-full"
-          style={{ backgroundColor: chip.dot }}
-          aria-hidden="true"
-        />
-      ) : (
-        !Glyph && (
-          <span
-            className="bg-aomi-accent size-[5px] shrink-0 rounded-full"
-            aria-hidden="true"
-          />
-        )
-      )}
-      {Glyph && <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />}
+      <Glyph className="text-aomi-fg/80 size-3.5 shrink-0" />
       <span className="truncate">{chip.label}</span>
     </span>
   );
@@ -114,16 +107,23 @@ export const ToolStepRow: FC<{
   const [open, setOpen] = useState(false);
   const hasDetail = detailText !== undefined || argsText !== undefined;
   const Icon = interpretation.icon;
-  const shownChips =
-    interpretation.chips.length > MAX_VISIBLE_CHIPS
-      ? interpretation.chips.slice(0, MAX_VISIBLE_CHIPS)
-      : interpretation.chips;
-  const overflow = interpretation.chips.length - shownChips.length;
-  const chipKeys = interpretation.chips.map((chip) => chip.label.toLowerCase());
+  const outcome =
+    interpretation.outcome ?? (interpretation.failed ? "failed" : "success");
+  const visibleChips = interpretation.chips.filter((chip) => chip.icon != null);
+  const essential = visibleChips.filter((chip) => chip.essential);
+  const available = Math.max(0, MAX_VISIBLE_CHIPS - essential.length);
+  const selected = new Set([
+    ...essential,
+    ...visibleChips.filter((chip) => !chip.essential).slice(0, available),
+  ]);
+  const shownChips = visibleChips.filter((chip) => selected.has(chip));
+  const chipKeys = visibleChips.map(
+    (chip) => chip.key ?? chip.label.toLowerCase(),
+  );
+  const shownChipKeys = shownChips.map(
+    (chip) => chip.key ?? chipKeys[visibleChips.indexOf(chip)],
+  );
   const seenChipKeys = useRef(new Set(animate ? [] : chipKeys));
-  const hasNewOverflowChip = chipKeys
-    .slice(shownChips.length)
-    .some((key) => !seenChipKeys.current.has(key));
   useEffect(() => {
     chipKeys.forEach((key) => seenChipKeys.current.add(key));
   });
@@ -145,8 +145,14 @@ export const ToolStepRow: FC<{
       >
         <span className="relative flex size-4 shrink-0 items-center justify-center">
           {done && !active ? (
-            interpretation.failed ? (
+            outcome === "failed" ? (
               <XIcon className="text-aomi-danger size-3.5" />
+            ) : outcome === "cancelled" ? (
+              <BanIcon className="text-aomi-danger size-3.5" />
+            ) : outcome === "waiting" || outcome === "incomplete" ? (
+              <ClockIcon className="text-aomi-muted size-3.5" />
+            ) : outcome === "unknown" ? (
+              <Icon className="text-aomi-muted size-3.5" />
             ) : (
               <CheckIcon className="text-aomi-success size-3.5" />
             )
@@ -175,37 +181,19 @@ export const ToolStepRow: FC<{
         )}
       </button>
 
-      {interpretation.chips.length > 0 && (
+      {shownChips.length > 0 && (
         <div className="aui-working-step-chips mb-1 ml-[26px] mt-1.5 flex max-w-full flex-wrap items-center gap-1.5">
           {shownChips.map((chip, i) => (
             <ToolChipView
-              key={chipKeys[i]}
+              key={shownChipKeys[i]}
               chip={chip}
               index={i}
               animate={
                 animate ||
-                (animateUpdates && !seenChipKeys.current.has(chipKeys[i]))
+                (animateUpdates && !seenChipKeys.current.has(shownChipKeys[i]))
               }
             />
           ))}
-          {overflow > 0 && (
-            <span
-              className={cn(
-                "border-aomi-border/80 bg-aomi-raised text-aomi-muted inline-flex items-center rounded-full border px-2.5 py-1.5 text-[11px] leading-none",
-                (animate || (animateUpdates && hasNewOverflowChip)) &&
-                  "animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-[180ms] motion-reduce:animate-none",
-              )}
-              style={
-                animate || (animateUpdates && hasNewOverflowChip)
-                  ? {
-                      animationDelay: `${CHIP_BASE_DELAY_MS + shownChips.length * CHIP_STEP_DELAY_MS}ms`,
-                    }
-                  : undefined
-              }
-            >
-              +{overflow} more
-            </span>
-          )}
         </div>
       )}
 

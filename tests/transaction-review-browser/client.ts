@@ -1,5 +1,8 @@
 /** Minimal client exports needed by the production UI in this browser fixture. */
-export const SUPPORTED_CHAINS = [{ id: 8453, name: "Base", ticker: "ETH" }];
+export const SUPPORTED_CHAINS = [
+  { id: 8453, name: "Base", ticker: "ETH" },
+  { id: 5042, name: "Arc", ticker: "USDC" },
+];
 
 export function normalizeSolanaCluster(cluster?: string) {
   return cluster;

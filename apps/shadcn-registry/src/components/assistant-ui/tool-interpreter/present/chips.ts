@@ -1,5 +1,6 @@
 import {
   ArrowDownLeftIcon,
+  ArrowRightLeftIcon,
   ArrowUpRightIcon,
   BanIcon,
   BlocksIcon,
@@ -51,11 +52,28 @@ const formatNativeAmount = (value: string): string => {
 const statusChip = (value: string): ToolChip => {
   switch (value) {
     case "queued":
-      return { label: "Queued", icon: ClockIcon };
+    case "staged":
+      return { label: "Staged", icon: CircleCheckIcon };
     case "pending":
       return { label: "Pending confirmation", icon: ClockIcon };
     case "pending_approval":
-      return { label: "Pending approval", icon: ClockIcon };
+      return { label: "Awaiting approval", icon: ClockIcon };
+    case "attestation_ready":
+      return { label: "Attestation ready", icon: ClockIcon };
+    case "needs_signature":
+      return { label: "Awaiting signature", icon: ClockIcon };
+    case "awaiting_broadcast":
+      return { label: "Awaiting broadcast", icon: ClockIcon };
+    case "submitted":
+      return { label: "Submitted", icon: ClockIcon };
+    case "passed":
+      return { label: "Passed", icon: CircleCheckIcon };
+    case "confirmed":
+      return { label: "Confirmed", icon: CircleCheckIcon };
+    case "prepared":
+      return { label: "Prepared", icon: CircleCheckIcon };
+    case "incomplete":
+      return { label: "Incomplete", icon: ClockIcon };
     case "success":
       return { label: "Success", icon: CircleCheckIcon };
     case "failed":
@@ -63,6 +81,10 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Failed", icon: CircleXIcon };
     case "revoked":
       return { label: "Revoked", icon: BanIcon };
+    case "rejected":
+      return { label: "Rejected", icon: BanIcon };
+    case "expired":
+      return { label: "Expired", icon: BanIcon };
     default:
       return { label: humanize(value) };
   }
@@ -101,7 +123,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
     case "amount":
       if (fact.role === "native") {
         return {
-          label: formatNativeAmount(fact.value),
+          label: `${formatNativeAmount(fact.value)}${fact.label ? ` ${fact.label}` : ""}`,
           icon: CoinsIcon,
         };
       }
@@ -122,11 +144,24 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? humanize(fact.value), icon: SolanaIcon };
     case "code":
       return { label: fact.label ?? fact.value };
+    case "compute":
+      return {
+        label: `${formatInteger(fact.value)} compute units`,
+        icon: FuelIcon,
+      };
     case "count":
+      if (fact.label) return { label: fact.label, icon: ReceiptTextIcon };
       if (fact.role === "tx") {
         const count = Number(fact.value);
         return {
           label: `${fact.value} tx${count === 1 ? "" : "s"}`,
+          icon: ReceiptTextIcon,
+        };
+      }
+      if (fact.role === "instruction") {
+        const count = Number(fact.value);
+        return {
+          label: `${fact.value} instruction${count === 1 ? "" : "s"}`,
           icon: ReceiptTextIcon,
         };
       }
@@ -147,6 +182,10 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "gas":
       return { label: `${formatInteger(fact.value)} gas`, icon: FuelIcon };
+    case "requirement":
+      return { label: fact.label ?? fact.value, icon: ClockIcon };
+    case "route":
+      return { label: fact.label ?? fact.value, icon: ArrowRightLeftIcon };
     case "selector":
       return { label: fact.label ?? fact.value };
     case "skill":

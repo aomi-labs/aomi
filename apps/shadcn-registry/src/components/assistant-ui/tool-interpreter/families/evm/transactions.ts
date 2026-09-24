@@ -7,13 +7,18 @@ import {
   asString,
   chainFact,
   chainFactFromRecord,
-  chainFactFromText,
   humanize,
   selectorFact,
   statusFact,
   uniqueFacts,
-} from "../normalize";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
+} from "../../normalize";
+import { toolIdentity } from "../../identity";
+import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import {
+  commitCountFact,
+  commitStateFact,
+  commitViews,
+} from "../general/commit-view";
 
 const op = (
   id: string,
@@ -32,11 +37,8 @@ const stagedActionId = (action: string): string =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "") || "custom";
 
-const canonicalToolName = (rawLabel: string): string =>
-  rawLabel.toLowerCase().split(/[.:/]/).at(-1) ?? "";
-
 const isTool = (rawLabel: string, name: string): boolean =>
-  canonicalToolName(rawLabel) === name;
+  toolIdentity(rawLabel) === name;
 
 const failedFact = (resultRecord: Record<string, unknown> | null) =>
   resultRecord && (resultRecord.is_error === true || resultRecord.error)
@@ -63,7 +65,8 @@ export const matchStagedTx: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  const namedStage = isTool(rawLabel, "evm_stage_tx");
+  const namedStage =
+    isTool(rawLabel, "evm_stage_tx") || isTool(rawLabel, "evm stage");
   if (
     !namedStage &&
     (!resultRecord || resultRecord.current_lifecycle !== "queued")
@@ -112,6 +115,8 @@ export const matchEvmSimulation: ToolMatcher = ({
   relatedResultRecords,
 }) => {
   const namedSimulation = isTool(rawLabel, "simulate_batch");
+  if (resultRecord?.chain_kind === "svm" || Array.isArray(resultRecord?.ix_ids))
+    return null;
   if (!resultRecord && !namedSimulation) return null;
   const sim =
     typeof resultRecord?.simulation === "object" && resultRecord.simulation
@@ -144,28 +149,33 @@ export const matchEvmSimulation: ToolMatcher = ({
   const explicitBatchSuccess =
     summary?.passed ?? sim?.batch_success ?? resultRecord?.batch_success;
   const simulationStatus =
-    explicitBatchSuccess !== undefined
-      ? explicitBatchSuccess
-      : sim && "err" in sim
-        ? sim.err == null
-        : resultRecord?.last_batch_status;
+    resultRecord?.simulation_incomplete === true
+      ? "incomplete"
+      : explicitBatchSuccess !== undefined
+        ? explicitBatchSuccess
+          ? "passed"
+          : "failed"
+        : sim && "err" in sim
+          ? sim.err == null
+            ? "passed"
+            : "failed"
+          : resultRecord?.last_batch_status;
   const gas =
     summary?.gas ??
     asNumber(sim?.total_gas) ??
     asNumber(resultRecord?.total_gas);
-  const steps = Array.isArray(sim?.steps)
-    ? sim.steps.length
-    : Array.isArray(resultRecord?.tx_ids)
-      ? resultRecord.tx_ids.length
-      : requestedIds.length || undefined;
+  const resolvedIds = Array.isArray(resultRecord?.resolved_ids)
+    ? resultRecord.resolved_ids
+    : null;
+  const txCount = resolvedIds?.length ?? (requestedIds.length || undefined);
 
   return op("evm.tx.simulate_batch", rawLabel, [
     chain,
-    steps != null
+    txCount != null
       ? {
           kind: "count",
           role: "tx",
-          value: String(steps),
+          value: String(txCount),
           source: "result",
         }
       : null,
@@ -187,11 +197,14 @@ export const matchEvmPendingApproval: ToolMatcher = ({
   relatedResultRecords,
 }) => {
   const namedCommit = isTool(rawLabel, "evm_commit_txs");
+  const views = commitViews(resultRecord);
+  const firstView = views[0];
   if (
     (!namedCommit &&
       (!resultRecord || resultRecord.status !== "pending_approval")) ||
     resultRecord?.chain_kind === "svm" ||
-    Array.isArray(resultRecord?.svm_ix_ids)
+    Array.isArray(resultRecord?.svm_ix_ids) ||
+    firstView?.chain_family === "svm"
   ) {
     return null;
   }
@@ -208,24 +221,34 @@ export const matchEvmPendingApproval: ToolMatcher = ({
         typeof value === "number" && Number.isInteger(value),
     ),
   );
+  const chainRef = views.every(
+    (view) =>
+      view.chain_family === "evm" && view.chain_ref === firstView?.chain_ref,
+  )
+    ? asString(firstView?.chain_ref)
+    : undefined;
+  const chainId = chainRef?.startsWith("evm:")
+    ? Number(chainRef.slice(4))
+    : undefined;
   const chain =
+    (Number.isSafeInteger(chainId) ? chainFact(chainId) : null) ??
     chainFactFromRecord(resultRecord) ??
     chainFactFromRecord(args, "args") ??
-    associatedChain(relatedResultRecords, [...stagedIds]) ??
-    chainFactFromText(rawLabel);
+    associatedChain(relatedResultRecords, [...stagedIds]);
   const outcome = asRecord(resultRecord?.tx_outcome);
   const txHash = asString(outcome?.txHash);
 
   return op("evm.tx.pending_approval", rawLabel, [
     chain,
-    txIds.length > 0
-      ? {
-          kind: "count",
-          role: "tx",
-          value: String(txIds.length),
-          source: "result",
-        }
-      : null,
+    commitCountFact(views) ??
+      (txIds.length > 0
+        ? {
+            kind: "count",
+            role: "tx",
+            value: String(txIds.length),
+            source: "result",
+          }
+        : null),
     txHash
       ? {
           kind: "txId",
@@ -237,6 +260,7 @@ export const matchEvmPendingApproval: ToolMatcher = ({
     // still shaped as pending_approval is pending; an inline tx_outcome only
     // appears on pre-cutover persisted results and still wins when present.
     failedFact(resultRecord) ??
+      commitStateFact(views) ??
       statusFact(
         outcome?.status ??
           resultRecord?.status ??

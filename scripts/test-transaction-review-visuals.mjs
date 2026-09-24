@@ -115,6 +115,16 @@ try {
   const sidebarPanel = sidebar.locator(":scope > div");
   const review = page.getByTestId("transaction-review");
   await review.waitFor();
+  if (fixtureMode === "commit") {
+    const trace = page.locator(".aui-working-trace");
+    await assertText(trace, "Stage transaction");
+    await assertText(trace, "Staged");
+    await assertText(trace, "Commit transactions");
+    await trace.screenshot({
+      path: resolve(artifacts, "working-trace-light.png"),
+      animations: "disabled",
+    });
+  }
 
   await assertText(sidebar, "Skills");
   await assertText(sidebar, "Aave");
@@ -270,6 +280,25 @@ try {
         `${name} differs from the preserved pre-extraction baseline`,
       );
     }
+  }
+
+  if (fixtureMode === "commit") {
+    await page.goto(pageUrl({ mode: "arc-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const arcTrace = page.getByTestId("arc-trace-fixture");
+    await assertText(arcTrace, "Get account details");
+    await assertText(arcTrace, "126.88181 USDC");
+    await assertText(arcTrace, "Read Aave V4 markets");
+    await assertText(arcTrace, "Prepare Aave V4 supply");
+    assert.equal(
+      await arcTrace.locator(".aui-working-step-chips .bg-aomi-accent").count(),
+      0,
+    );
+    await arcTrace.screenshot({
+      path: resolve(artifacts, "working-trace-arc-light.png"),
+      animations: "disabled",
+    });
   }
 
   console.log(JSON.stringify({ artifacts, failures, state: "passed" }));

@@ -1,7 +1,13 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
-import { CircleIcon } from "lucide-react";
+import {
+  CircleIcon,
+  ClockIcon,
+  BlocksIcon,
+  CircleCheckIcon,
+  FuelIcon,
+} from "lucide-react";
 
 import type { TaskRunState } from "@aomi-labs/react";
 
@@ -46,7 +52,10 @@ describe("WorkingTrace", () => {
     };
     const { getByText, rerender } = render(
       <ToolStepRow
-        interpretation={{ ...base, chips: [{ label: "Pending" }] }}
+        interpretation={{
+          ...base,
+          chips: [{ label: "Pending", icon: ClockIcon }],
+        }}
         done={false}
         active
         animate={false}
@@ -60,7 +69,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Pending" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Pending", icon: ClockIcon },
+          ],
         }}
         done
         active={false}
@@ -76,7 +88,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Success" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Success", icon: CircleCheckIcon },
+          ],
         }}
         done
         active={false}
@@ -92,7 +107,10 @@ describe("WorkingTrace", () => {
       <ToolStepRow
         interpretation={{
           ...base,
-          chips: [{ label: "Base" }, { label: "Success" }],
+          chips: [
+            { label: "Base", icon: BlocksIcon },
+            { label: "Success", icon: CircleCheckIcon },
+          ],
         }}
         done
         active={false}
@@ -109,9 +127,9 @@ describe("WorkingTrace", () => {
         interpretation={{
           ...base,
           chips: [
-            { label: "Base" },
-            { label: "21,000 gas" },
-            { label: "Success" },
+            { label: "Base", icon: BlocksIcon },
+            { label: "21,000 gas", icon: FuelIcon },
+            { label: "Success", icon: CircleCheckIcon },
           ],
         }}
         done
