@@ -252,8 +252,11 @@ export function Onboarding({
    * back with an installation id.
    */
   const beginInstall = useCallback(
-    async (mode?: "install" | "authorize") => {
-      const next = withPendingInstall(withPath(state, PATH), { path: PATH });
+    async (mode: "install" | "authorize", repoName: string) => {
+      const next = withPendingInstall(
+        withProgress(withPath(state, PATH), PATH, { repoName }),
+        { path: PATH },
+      );
       saveLaunch(next);
       setState(next);
       setInstallError(null);

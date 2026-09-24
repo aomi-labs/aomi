@@ -150,7 +150,7 @@ describe("local attempts", () => {
     } as unknown as Detail;
   }
 
-  it("shows the Manager's hint and a settings link for a GitHub App permission gap", () => {
+  it("does not send builders to source settings for a platform failure", () => {
     render(
       <DeploymentAttempts
         detail={localDetail({
@@ -166,8 +166,8 @@ describe("local attempts", () => {
       screen.getByText(/Grant the Aomi GitHub App `actions: write`/),
     ).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: "Check GitHub App access" }),
-    ).toHaveAttribute("href", "/settings/general#github-app");
+      screen.queryByRole("link", { name: "Check GitHub App access" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: /Retry deployment/ }),
     ).toBeTruthy();

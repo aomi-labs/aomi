@@ -10,7 +10,13 @@
  * dead end. Only `pageshow` with `persisted: true` reports that restore.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { Onboarding } from "./onboarding";
 
 vi.mock("@aomi-labs/widget-lib", () => ({
@@ -51,7 +57,7 @@ vi.mock("@build/lib/deploy-platform", () => ({
 function firePageShow(persisted: boolean) {
   const event = new Event("pageshow") as Event & { persisted?: boolean };
   Object.defineProperty(event, "persisted", { value: persisted });
-  window.dispatchEvent(event);
+  act(() => window.dispatchEvent(event));
 }
 
 describe("Onboarding bfcache restore", () => {
@@ -83,7 +89,9 @@ describe("Onboarding bfcache restore", () => {
     expect(recovery).not.toBeDisabled();
 
     // Start the install: the component navigates away and marks itself busy.
-    fireEvent.click(screen.getByRole("button", { name: /install on github/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue on github/i }),
+    );
     await waitFor(() => expect(recovery).toBeDisabled());
 
     // The user hits Back from GitHub's configure page. Without the pageshow
@@ -98,7 +106,9 @@ describe("Onboarding bfcache restore", () => {
     const recovery = screen.getByRole("button", {
       name: /already installed/i,
     });
-    fireEvent.click(screen.getByRole("button", { name: /install on github/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue on github/i }),
+    );
     await waitFor(() => expect(recovery).toBeDisabled());
 
     // A fresh load fires pageshow with persisted:false; that is not a restore
