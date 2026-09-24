@@ -834,7 +834,8 @@ export const AssistantTurnParts: FC = () => {
     delegations,
   );
   const answerParts = parts.filter(
-    (part, index) => part.type === "text" && answerIndexes.has(index),
+    (part, index): part is TextMessagePart =>
+      part.type === "text" && answerIndexes.has(index),
   );
   return (
     <>
