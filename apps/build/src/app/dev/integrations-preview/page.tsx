@@ -89,7 +89,10 @@ let BOTS = [
     platform: "telegram",
     status: "active",
     label: null as string | null,
-    defaultApp: "playground-example",
+    handoverApp: "playground-example",
+    miniAppUrl: null as string | null,
+    commandEndpoint: null as string | null,
+    commands: [] as string[],
     apps: appsFor([11, 21], 11),
     platformBotId: "8184083135",
     platformUsername: "chico_chico_bot",
@@ -102,7 +105,10 @@ let BOTS = [
     platform: "telegram",
     status: "active",
     label: "Trading assistant" as string | null,
-    defaultApp: "somm-agent",
+    handoverApp: "somm-agent",
+    miniAppUrl: null as string | null,
+    commandEndpoint: "https://api.somm.example/commands" as string | null,
+    commands: ["b", "p"] as string[],
     apps: appsFor([22, 99], 22),
     platformBotId: "7729918454",
     platformUsername: "trade_helper_bot",
@@ -128,6 +134,8 @@ function stubFetch() {
       return Response.json(SESSION);
 
     if (url.includes("/api/bff/operate/bots")) {
+      if (method === "GET" && url.includes("/command-secret"))
+        return Response.json({ commandSecret: "preview-secret-0000" });
       if (method === "GET")
         return Response.json({ projects: SOURCES, bots: BOTS });
       if (method === "POST") {
@@ -135,15 +143,21 @@ function stubFetch() {
           label?: string;
           threadMode?: string;
           applicationIds: number[];
-          primaryApplicationId: number;
+          handoverApplicationId: number;
+          miniAppUrl?: string | null;
+          commandEndpoint?: string | null;
+          commands?: string[];
         };
         const bot = {
           id: `new-${BOTS.length + 1}`,
           platform: "telegram",
           status: "active",
           label: body.label ?? null,
-          defaultApp: "playground-example",
-          apps: appsFor(body.applicationIds, body.primaryApplicationId),
+          handoverApp: "playground-example",
+          miniAppUrl: body.miniAppUrl ?? null,
+          commandEndpoint: body.commandEndpoint ?? null,
+          commands: body.commands ?? [],
+          apps: appsFor(body.applicationIds, body.handoverApplicationId),
           platformBotId: "5550001234",
           platformUsername: "your_new_bot",
           webhookUrl: "https://api.example.test/api/bots/telegram/secret3",
@@ -157,14 +171,21 @@ function stubFetch() {
         const body = JSON.parse(String(init?.body ?? "{}")) as {
           botId: string;
           applicationIds: number[];
-          primaryApplicationId: number;
+          handoverApplicationId: number;
           threadMode?: string;
+          miniAppUrl?: string | null;
+          commandEndpoint?: string | null;
+          commands?: string[];
         };
         const bot = BOTS.find((b) => b.id === body.botId);
         if (!bot)
           return Response.json({ error: "not found" }, { status: 404 });
-        bot.apps = appsFor(body.applicationIds, body.primaryApplicationId);
+        bot.apps = appsFor(body.applicationIds, body.handoverApplicationId);
         if (body.threadMode) bot.threadMode = body.threadMode;
+        if (body.miniAppUrl !== undefined) bot.miniAppUrl = body.miniAppUrl;
+        if (body.commandEndpoint !== undefined)
+          bot.commandEndpoint = body.commandEndpoint;
+        if (body.commands !== undefined) bot.commands = body.commands;
         return Response.json({ bot });
       }
       if (method === "DELETE") {

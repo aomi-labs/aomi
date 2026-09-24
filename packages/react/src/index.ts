@@ -111,6 +111,7 @@ export {
   getNetworkName,
   getChainInfo,
   projectAssistantMessages,
+  walletContinuationPending,
   SUPPORTED_CHAINS,
   type ChainInfo,
 } from "./runtime/utils";

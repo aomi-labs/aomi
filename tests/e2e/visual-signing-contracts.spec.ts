@@ -67,15 +67,16 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   page,
 }) => {
   const { wallet } = await signIn(page);
-  await sendPrompt(page, actionPrompt, { expectReply: false });
+  await sendPrompt(page, actionPrompt, {
+    expectReply: false,
+    expectComposerReady: false,
+  });
 
   const sidebar = page.getByRole("complementary", { name: "Chat activity" });
   const review = sidebar.getByTestId("transaction-review");
   await expect(review).toBeVisible({ timeout: 30_000 });
   await expect(review).toContainText("0.000000000000000001 ETH");
-  await expect(
-    review.getByRole("button", { name: "Send to wallet" }),
-  ).toBeEnabled();
+  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
   await assertSidebarDoesNotCoverComposer(page, sidebar);
   await settleVisuals(page);
   await expect(sidebar).toHaveScreenshot(
@@ -83,7 +84,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
     screenshot(),
   );
 
-  await review.getByRole("button", { name: "Send to wallet" }).click();
+  await review.getByRole("button", { name: "Submit" }).click();
   await expect.poll(() => wallet.blocked.length, { timeout: 15_000 }).toBe(1);
   await expect(
     page.getByText(/signing and broadcasting are forbidden/i),
