@@ -4,7 +4,9 @@ In the isolated `codex/chat-final-response-visible` frontend worktree, the
 working trace now shows completed prose as the assistant answer when a late tool
 record or empty final-answer boundary would otherwise leave it inside the
 collapsible trace. The late tool stays visible as a step. Focused regression
-checks cover both boundary cases; widget version is 3.0.10.
+checks cover both boundary cases. The activity sidebar now animates arriving
+transaction cards and lists each signing batch in execution order while recent
+batches still lead. Widget version is 3.0.10.
 
 # GPT-6 model rollout — 2026-09-23
 

@@ -86,16 +86,43 @@ function ActivitySidebarContent() {
       (!tx.action || tx.action.state === "pending") &&
       (!pending || tx.action?.id === pending.id),
   );
-  const transactions = [
+  const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
     ).values(),
-  ].sort(
-    (a, b) =>
-      (b.sequence ?? b.action?.sequence ?? 0) -
-        (a.sequence ?? a.action?.sequence ?? 0) ||
-      (b.actionIndex ?? 0) - (a.actionIndex ?? 0),
-  );
+  ];
+  const batchKey = (tx: ActivityTransaction) =>
+    tx.action?.id
+      ? `action:${tx.action.id}`
+      : tx.commit?.batch?.batch_id
+        ? `commit:${tx.commit.batch.batch_id}`
+        : undefined;
+  const batchSequence = new Map<string, number>();
+  for (const tx of transactionRows) {
+    const key = batchKey(tx);
+    if (!key) continue;
+    batchSequence.set(
+      key,
+      Math.max(
+        batchSequence.get(key) ?? 0,
+        tx.action?.sequence ?? tx.sequence ?? 0,
+      ),
+    );
+  }
+  const order = (tx: ActivityTransaction) =>
+    batchSequence.get(batchKey(tx) ?? "") ?? tx.sequence ?? 0;
+  const transactions = transactionRows.sort((a, b) => {
+    const recency = order(b) - order(a);
+    if (recency) return recency;
+    const key = batchKey(a);
+    if (key && key === batchKey(b)) {
+      return (
+        (a.actionIndex ?? a.commit?.batch?.index ?? 0) -
+        (b.actionIndex ?? b.commit?.batch?.index ?? 0)
+      );
+    }
+    return (b.sequence ?? 0) - (a.sequence ?? 0);
+  });
   const card = (tx: ActivityTransaction, historical = false) => (
     <TransactionCard
       key={tx.id}
