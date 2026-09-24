@@ -37,6 +37,7 @@ const coreTitles: Record<string, string> = {
   sim_revert: "Revert simulation",
   sim_close: "Close simulation",
   get_erc20_balance: "Get balance",
+  get_erc20_holdings: "Get token holdings",
   get_account_info: "Get account details",
   svm_get_account_info: "Get account details",
   svm_get_context: "Check network",

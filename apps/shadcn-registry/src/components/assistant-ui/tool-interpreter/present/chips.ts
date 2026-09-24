@@ -11,6 +11,7 @@ import {
   FuelIcon,
   HashIcon,
   ReceiptTextIcon,
+  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
 
@@ -211,6 +212,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
             : fact.value,
         icon: ReceiptTextIcon,
       };
+    case "warning":
+      return { label: fact.label ?? fact.value, icon: TriangleAlertIcon };
     default:
       return null;
   }

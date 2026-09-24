@@ -66,7 +66,8 @@ export type FactKind =
   | "status"
   | "slot"
   | "token"
-  | "txId";
+  | "txId"
+  | "warning";
 
 export type FactRole =
   | "contract"

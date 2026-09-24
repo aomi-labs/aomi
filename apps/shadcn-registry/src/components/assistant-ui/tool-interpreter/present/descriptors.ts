@@ -97,6 +97,18 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "amount" },
     ],
   },
+  "evm.account.erc20_holdings": {
+    title: "fixed",
+    fixedTitle: "Get token holdings",
+    icon: SHAPE_ICONS.nativeBalance,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "count", role: "results" },
+      { kind: "address", role: "owner" },
+      { kind: "warning" },
+      { kind: "status" },
+    ],
+  },
   "evm.call.erc20.allowance": {
     title: "fixed",
     fixedTitle: EVM_SELECTOR_REGISTRY["0xdd62ed3e"].title,

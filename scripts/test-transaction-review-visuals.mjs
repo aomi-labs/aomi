@@ -313,6 +313,14 @@ try {
         .allTextContents(),
       ["Arc", "USDC", "0xda65...3cf0", "126.881805 USDC"],
     );
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Get token holdings" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Base", "2 of 15 holdings", "0xda65...3cf0"],
+    );
     await assertText(attributionTrace, "LI.FI Swap");
     await assertText(attributionTrace, "Awaiting approval");
     assert.deepEqual(

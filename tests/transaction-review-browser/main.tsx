@@ -251,6 +251,22 @@ const attributionTraceSteps: ToolStepInput[] = [
     },
   },
   {
+    toolName: "get_erc20_holdings",
+    result: {
+      chain_id: 8453,
+      holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+      source: "alchemy_portfolio",
+      complete: true,
+      items: [
+        { token_address: "0x1111111111111111111111111111111111111111" },
+        { token_address: "0x2222222222222222222222222222222222222222" },
+      ],
+      total_matching: 15,
+      next_cursor: "opaque-cursor",
+      warnings: [],
+    },
+  },
+  {
     toolName: "lifi_get_quote",
     result: {
       quote_id: "quote-1",

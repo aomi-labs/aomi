@@ -1,10 +1,12 @@
 import {
   addressFact,
   amountFact,
+  asInteger,
   asRecord,
   asString,
   chainFactFromRecord,
   normalizeAddress,
+  statusFact,
   tokenFact,
 } from "../../normalize";
 import type { ToolMatcher } from "../../types";
@@ -58,5 +60,45 @@ export const matchErc20Balance: ToolMatcher = ({ rawLabel, resultRecord }) => {
     tokenFact(symbol ?? tokenAddress),
     addressFact(resultRecord.holder, "owner"),
     amountFact(reportedBalance.value, symbol),
+  ]);
+};
+
+export const matchErc20Holdings: ToolMatcher = ({ rawLabel, resultRecord }) => {
+  if (!resultRecord || !Array.isArray(resultRecord.items)) return null;
+  if (typeof resultRecord.complete !== "boolean") return null;
+
+  const holder = addressFact(resultRecord.holder, "owner");
+  const total = asInteger(resultRecord.total_matching);
+  const shown = resultRecord.items.length;
+  if (!holder || total == null || total < shown) return null;
+
+  const warningCount = Array.isArray(resultRecord.warnings)
+    ? resultRecord.warnings.length
+    : 0;
+  const countLabel =
+    shown === total
+      ? `${total.toLocaleString("en-US")} holding${total === 1 ? "" : "s"}`
+      : `${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} holdings`;
+
+  return operation("evm.account.erc20_holdings", rawLabel, [
+    chainFactFromRecord(resultRecord),
+    {
+      kind: "count",
+      role: "results",
+      value: String(shown),
+      label: countLabel,
+      source: "result",
+    },
+    holder,
+    resultRecord.complete === false
+      ? statusFact("incomplete")
+      : warningCount > 0
+        ? {
+            kind: "warning",
+            value: String(warningCount),
+            label: `${warningCount} warning${warningCount === 1 ? "" : "s"}`,
+            source: "result",
+          }
+        : null,
   ]);
 };
