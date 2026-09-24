@@ -1,3 +1,7 @@
+# GPT-6 model rollout — 2026-09-23
+
+The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
+
 # Working-trace app and skill attribution — 2026-09-24
 
 PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
