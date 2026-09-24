@@ -110,6 +110,30 @@ export const matchLifiSwapPrep: ToolMatcher = ({ rawLabel, resultRecord }) => {
   ]);
 };
 
+export const matchLifiSwapBatch: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (resultRecord && !validResult(resultRecord)) return null;
+  const args = asRecord(parsedArgs);
+  const estimate = asRecord(resultRecord?.estimate);
+  const fromToken = asString(args?.from_token);
+  const requestedAmount = asString(args?.amount);
+  const requestedDisplay =
+    requestedAmount && fromToken && !fromToken.startsWith("0x")
+      ? `${requestedAmount} ${fromToken}`
+      : requestedAmount;
+
+  return op("lifi.swap.prepare", rawLabel, [
+    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
+    tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
+    amountDisplayFact(resultRecord?.from_amount, "primary") ??
+      amountTextFact(requestedDisplay, "primary"),
+    amountTextFact(estimate?.to_amount_display, "secondary"),
+  ]);
+};
+
 export const lifi: ProtocolAdapter = {
   descriptors: {
     "lifi.approval": {
@@ -157,6 +181,8 @@ export const lifi: ProtocolAdapter = {
         return matchLifiQuote(ctx);
       case "lifi_prepare_approval_tx":
         return matchLifiApproval(ctx);
+      case "lifi_prepare_swap_batch":
+        return matchLifiSwapBatch(ctx);
       default:
         return matchLifiSwapPrep(ctx);
     }

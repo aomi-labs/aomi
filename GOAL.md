@@ -1,3 +1,7 @@
+# LI.FI swap chips — 2026-09-24
+
+The current `lifi_prepare_swap_batch` result uses `stage_txs`; the trace adapter now reads that batch shape and shows the chain, token direction, input amount, and expected output. The chain appears first from call arguments while the result is pending. Working trace lifecycle code is unchanged. Widget patch version: 3.0.10.
+
 # GPT-6 model rollout — 2026-09-23
 
 The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
