@@ -132,6 +132,10 @@ export function useAomiRuntime() {
   return runtime;
 }
 
+export function useControl() {
+  return { state: { appDescriptors: [] } };
+}
+
 export function useOptionalAomiRuntime() {
   return runtime;
 }

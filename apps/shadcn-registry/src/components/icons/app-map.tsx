@@ -1,3 +1,4 @@
+import { HooditIcon } from "./apps/hoodit";
 import type { FC, SVGProps } from "react";
 import { Globe2Icon } from "lucide-react";
 
@@ -79,6 +80,7 @@ const APP_ICONS: Readonly<Record<string, AppIcon>> = {
   etherscan: EtherscanIcon,
   github: GitHubIcon,
   gmx: GmxIcon,
+  hoodit: HooditIcon,
   hyperliquid: HyperliquidIcon,
   jupiter: JupiterSkillIcon,
   kaito: KaitoIcon,

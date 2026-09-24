@@ -2,11 +2,14 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
 import {
+  AppWindowIcon,
   CircleIcon,
   ClockIcon,
   BlocksIcon,
   CircleCheckIcon,
   FuelIcon,
+  PuzzleIcon,
+  ReceiptTextIcon,
 } from "lucide-react";
 
 import type { TaskRunState } from "@aomi-labs/react";
@@ -29,6 +32,7 @@ import {
   RenderedText,
   WorkingTrace,
 } from "./working-trace";
+import { TraceAttributionContext } from "./trace-attribution";
 import { ToolStepRow } from "./working-trace-rows";
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
@@ -42,6 +46,71 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("keeps ownership and transaction facts without an overflow bubble", () => {
+    const { getByText, queryByText, container } = render(
+      <ToolStepRow
+        interpretation={{
+          icon: CircleIcon,
+          title: "Commit transactions",
+          confidence: "high",
+          rawLabel: "evm_commit_txs",
+          failed: false,
+          outcome: "waiting",
+          chips: [
+            {
+              id: "app:hoodit",
+              attribution: "app",
+              label: "Hoodit",
+              icon: AppWindowIcon,
+            },
+            {
+              id: "skill:portfolio",
+              attribution: "skill",
+              label: "Portfolio",
+              icon: PuzzleIcon,
+            },
+            { label: "Arc", icon: BlocksIcon, essential: true },
+            { label: "1 tx", icon: ReceiptTextIcon, essential: true },
+            { label: "Pending confirmation", icon: ClockIcon, essential: true },
+            { label: "extra", icon: FuelIcon },
+            { label: "hidden", icon: FuelIcon },
+            { label: "iconless" },
+          ],
+        }}
+        done
+        active={false}
+        animate={false}
+      />,
+    );
+    for (const label of [
+      "Hoodit",
+      "Portfolio",
+      "Arc",
+      "1 tx",
+      "Pending confirmation",
+      "extra",
+    ]) {
+      expect(getByText(label)).toBeInTheDocument();
+    }
+    expect(queryByText("hidden")).not.toBeInTheDocument();
+    expect(queryByText("iconless")).not.toBeInTheDocument();
+    expect(queryByText(/more/)).not.toBeInTheDocument();
+    expect(container.querySelector("svg.lucide-clock")).toBeInTheDocument();
+    expect(
+      Array.from(
+        container.querySelector(".aui-working-step-chips")!.children,
+        (chip) => chip.textContent,
+      ),
+    ).toEqual([
+      "Arc",
+      "1 tx",
+      "Pending confirmation",
+      "extra",
+      "Hoodit",
+      "Portfolio",
+    ]);
+  });
+
   it("animates only badges that arrive on an existing live row", () => {
     const base = {
       icon: CircleIcon,
@@ -586,4 +655,39 @@ describe("WorkingTrace", () => {
       buildTraceItems([], [latest])[0]?.key,
     );
   });
+});
+
+it("keeps ownership badges visible in the mother and delegated trace", () => {
+  const attribution = {
+    skills: [
+      { id: "lifi_swap", name: "lifi_swap", injectedTools: ["lifi_get_quote"] },
+    ],
+  };
+  const child = run([
+    {
+      kind: "tool_call",
+      toolName: "lifi_get_quote",
+      args: {},
+      resultPreview: JSON.stringify({ error: "Unavailable" }),
+      childSeq: 1,
+    },
+  ]);
+  const tool: ToolCallMessagePart = {
+    type: "tool-call",
+    toolCallId: "quote",
+    toolName: "lifi_get_quote",
+    args: {},
+    argsText: "{}",
+    result: { error: "Unavailable" },
+  };
+  const { getAllByText } = render(
+    <TraceAttributionContext.Provider value={attribution}>
+      <WorkingTrace
+        running
+        items={buildTraceItems([tool], [child])}
+        revealed={2}
+      />
+    </TraceAttributionContext.Provider>,
+  );
+  expect(getAllByText("Lifi Swap")).toHaveLength(2);
 });

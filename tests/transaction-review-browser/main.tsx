@@ -24,6 +24,7 @@ import { getFixtureRuntime, setFixtureState } from "./runtime";
 const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "dark" ? "dark" : "light";
 document.documentElement.className = theme;
+const attributionMode = params.get("mode") === "attribution-trace";
 
 function Fixture() {
   const [state, setState] = useState(
@@ -40,7 +41,8 @@ function Fixture() {
   return (
     <main
       data-testid="transaction-review-fixture"
-      className="bg-aomi-bg text-aomi-fg grid h-[825px] w-full max-w-[1355px] grid-cols-[minmax(0,1fr)_376px] overflow-hidden"
+      data-mode={params.get("mode") ?? "review"}
+      className={`bg-aomi-bg text-aomi-fg grid h-[825px] w-full max-w-[1355px] overflow-hidden ${attributionMode ? "grid-cols-1" : "grid-cols-[minmax(0,1fr)_376px]"}`}
     >
       <section
         id="fixture-chat"
@@ -51,7 +53,9 @@ function Fixture() {
           Deposit 100 USDC to Aave
         </p>
         <article className="border-aomi-border mt-12 rounded-2xl border p-6 text-[14px]">
-          {params.get("mode") === "arc-trace" ? (
+          {attributionMode ? (
+            <AttributionTraceFixture />
+          ) : params.get("mode") === "arc-trace" ? (
             <ArcTraceFixture />
           ) : params.get("mode") === "commit" ? (
             <TraceFixture state={state} />
@@ -117,13 +121,15 @@ function Fixture() {
           </div>
         </article>
       </section>
-      <section
-        id="sidebar-fixture-mount"
-        className="relative h-[825px]"
-        aria-label="Sidebar fixture mount"
-      >
-        <ActivitySidebar />
-      </section>
+      {!attributionMode && (
+        <section
+          id="sidebar-fixture-mount"
+          className="relative h-[825px]"
+          aria-label="Sidebar fixture mount"
+        >
+          <ActivitySidebar />
+        </section>
+      )}
     </main>
   );
 }
@@ -206,6 +212,90 @@ function ArcTraceFixture() {
           interpretation={interpretToolStep(step)}
           done
           active={false}
+          animate={false}
+        />
+      ))}
+    </div>
+  );
+}
+
+const attributionCatalog: NonNullable<ToolStepInput["attribution"]> = {
+  apps: [
+    { name: "hoodit", metadata: { tool_names: ["hoodit_search_tokens"] } },
+  ],
+  skills: [
+    {
+      id: "hoodit/markets",
+      name: "Markets",
+      injectedTools: ["hoodit_search_tokens"],
+    },
+    { id: "lifi_swap", name: "LI.FI Swap", injectedTools: ["lifi_get_quote"] },
+  ],
+};
+
+const attributionTraceSteps: ToolStepInput[] = [
+  {
+    toolName: "activate_skills",
+    result: { activated: ["hoodit/markets", "lifi_swap"] },
+  },
+  { toolName: "hoodit_search_tokens" },
+  {
+    toolName: "get_erc20_balance",
+    result: {
+      chain_id: 5042,
+      token: "0x3600000000000000000000000000000000000000",
+      holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+      balance_raw: "126881805",
+      balance: "126.881805",
+      decimals: 6,
+    },
+  },
+  {
+    toolName: "get_erc20_holdings",
+    result: {
+      chain_id: 8453,
+      holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+      source: "alchemy_portfolio",
+      complete: true,
+      items: [
+        { token_address: "0x1111111111111111111111111111111111111111" },
+        { token_address: "0x2222222222222222222222222222222222222222" },
+      ],
+      total_matching: 15,
+      next_cursor: "opaque-cursor",
+      warnings: [],
+    },
+  },
+  {
+    toolName: "lifi_get_quote",
+    result: {
+      quote_id: "quote-1",
+      chain_id: 8453,
+      from_token: { symbol: "USDC" },
+      to_token: { symbol: "ETH" },
+      from_amount: { display: "10 USDC" },
+      estimate: { to_amount_display: "0.002 ETH" },
+    },
+  },
+  {
+    toolName: "evm_commit_txs",
+    argsText: JSON.stringify({ tx_ids: [1] }),
+    result: { status: "pending_approval", chain_id: 5042 },
+  },
+];
+
+function AttributionTraceFixture() {
+  return (
+    <div data-testid="attribution-trace-fixture" className="aui-working-trace">
+      {attributionTraceSteps.map((step) => (
+        <ToolStepRow
+          key={step.toolName}
+          interpretation={interpretToolStep({
+            ...step,
+            attribution: attributionCatalog,
+          })}
+          done={step.result !== undefined}
+          active={step.result === undefined}
           animate={false}
         />
       ))}

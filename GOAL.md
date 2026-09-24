@@ -1,3 +1,7 @@
+# Working-trace app and skill attribution — 2026-09-24
+
+PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
+
 # Working trace contract cleanup — 2026-09-23
 
 Follow-up: removed decorative blue dots from text-only data chips, displayed

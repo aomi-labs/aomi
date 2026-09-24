@@ -16,6 +16,7 @@ import {
   type TaskRunStatus,
   type TaskRunStep,
 } from "@aomi-labs/react";
+import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
   prefersReducedMotion,
@@ -321,6 +322,7 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
   active,
   animate,
 }) => {
+  const attribution = useTraceAttribution();
   const args = readArgs(tool, agentId, run);
   const result = asRecord(tool?.result);
 
@@ -487,6 +489,7 @@ export const WorkingAgent: FC<WorkingAgentProps> = ({
                 <ToolStepRow
                   key={stepKey(step, i)}
                   interpretation={interpretToolStep({
+                    attribution,
                     toolName: step.toolName,
                     argsText,
                     result: step.resultPreview,

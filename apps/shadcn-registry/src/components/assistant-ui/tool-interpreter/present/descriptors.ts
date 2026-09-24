@@ -86,6 +86,29 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "amount" },
     ],
   },
+  "evm.account.erc20_balance": {
+    title: "fixed",
+    fixedTitle: "Get balance",
+    icon: EVM_SELECTOR_REGISTRY["0x70a08231"].icon,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "token" },
+      { kind: "address", role: "owner" },
+      { kind: "amount" },
+    ],
+  },
+  "evm.account.erc20_holdings": {
+    title: "fixed",
+    fixedTitle: "Get token holdings",
+    icon: SHAPE_ICONS.nativeBalance,
+    chipPlan: [
+      { kind: "chain" },
+      { kind: "count", role: "results" },
+      { kind: "address", role: "owner" },
+      { kind: "warning" },
+      { kind: "status" },
+    ],
+  },
   "evm.call.erc20.allowance": {
     title: "fixed",
     fixedTitle: EVM_SELECTOR_REGISTRY["0xdd62ed3e"].title,

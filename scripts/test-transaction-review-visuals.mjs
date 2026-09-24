@@ -299,6 +299,68 @@ try {
       path: resolve(artifacts, "working-trace-arc-light.png"),
       animations: "disabled",
     });
+
+    await page.goto(pageUrl({ mode: "attribution-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const attributionTrace = page.getByTestId("attribution-trace-fixture");
+    await assertText(attributionTrace, "Hoodit / Markets");
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Get balance" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Arc", "USDC", "0xda65...3cf0", "126.881805 USDC"],
+    );
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Get token holdings" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Base", "2 of 15 holdings", "0xda65...3cf0"],
+    );
+    await assertText(attributionTrace, "LI.FI Swap");
+    await assertText(attributionTrace, "Awaiting approval");
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Quote LI.FI swap" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Base", "USDC -> ETH", "10 USDC", "0.002 ETH", "LI.FI Swap"],
+    );
+    assert.equal(await attributionTrace.getByText(/more/).count(), 0);
+    assert.equal(
+      await attributionTrace
+        .locator(".aui-working-step-chips .bg-aomi-accent")
+        .count(),
+      0,
+    );
+    await attributionTrace.screenshot({
+      path: resolve(artifacts, "working-trace-attribution-light.png"),
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(pageUrl({ mode: "attribution-trace" }), {
+      waitUntil: "networkidle",
+    });
+    const mobileAttributionTrace = page.getByTestId(
+      "attribution-trace-fixture",
+    );
+    await assertText(mobileAttributionTrace, "Hoodit / Markets");
+    assert.equal(
+      await mobileAttributionTrace.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth + 1,
+      ),
+      true,
+      "attribution trace overflows the narrow viewport",
+    );
+    await mobileAttributionTrace.screenshot({
+      path: resolve(artifacts, "working-trace-attribution-mobile.png"),
+      animations: "disabled",
+    });
   }
 
   console.log(JSON.stringify({ artifacts, failures, state: "passed" }));

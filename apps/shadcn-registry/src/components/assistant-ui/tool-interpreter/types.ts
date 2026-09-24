@@ -6,6 +6,13 @@ export type ToolConfidence = "high" | "medium" | "fallback";
 export type ToolChip = {
   key?: string;
   label: string;
+  /** App and skill names, rendered with a graphical separator. */
+  labelParts?: readonly [string, string];
+  /** Stable identity for attribution badges with potentially identical labels. */
+  id?: string;
+  title?: string;
+  skillId?: string;
+  attribution?: "app" | "skill";
   icon?: ElementType;
   essential?: boolean;
 };
@@ -36,6 +43,7 @@ export type ToolStepInput = {
   /** Earlier tool results in the same trace, used to resolve references such
    * as commit `tx_ids` back to the staged transaction's network. */
   relatedResults?: unknown[];
+  attribution?: import("./attribution").TraceAttribution;
 };
 
 export type FactKind =
@@ -58,7 +66,8 @@ export type FactKind =
   | "status"
   | "slot"
   | "token"
-  | "txId";
+  | "txId"
+  | "warning";
 
 export type FactRole =
   | "contract"

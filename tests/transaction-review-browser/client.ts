@@ -4,6 +4,20 @@ export const SUPPORTED_CHAINS = [
   { id: 5042, name: "Arc", ticker: "USDC" },
 ];
 
+export function isOfficialAppDescriptor(app: {
+  applicationId?: number | null;
+  platform?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const source = app.metadata?.source;
+  const registeredVia = app.metadata?.registered_via;
+  return (
+    source === "builtin" ||
+    registeredVia === "official_source" ||
+    (app.applicationId == null && !app.platform && registeredVia == null)
+  );
+}
+
 export function normalizeSolanaCluster(cluster?: string) {
   return cluster;
 }

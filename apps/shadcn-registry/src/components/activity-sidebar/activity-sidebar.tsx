@@ -2,10 +2,6 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
-  skillLabel,
-  useSkillCatalog,
-} from "../../lib/capabilities/skill-catalog";
-import {
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -13,9 +9,11 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { ChevronDown, Puzzle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
-import { getSkillIcon } from "../icons/skills";
+import { useTraceAttribution } from "../assistant-ui/trace-attribution";
+import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
+import { ToolChipView } from "../assistant-ui/tool-chip";
 import {
   selectActivity,
   selectReviewCommit,
@@ -328,33 +326,12 @@ function Group({
 }
 
 function InvokedSkills({ ids }: { ids: string[] }) {
-  const { skills } = useSkillCatalog();
+  const attribution = useTraceAttribution();
   return (
     <div className="flex flex-wrap gap-2">
-      {ids.map((id) => {
-        const Icon = getSkillIcon(id) ?? Puzzle;
-        const skill = skills?.find((skill) => skill.id === id);
-        const label = skillLabel(
-          skill ?? {
-            name:
-              id === "common_erc20"
-                ? "ERC-20"
-                : id === "lifi_swap"
-                  ? "LI.FI"
-                  : id,
-          },
-        );
-        return (
-          <span
-            key={id}
-            title={label}
-            className="border-aomi-border bg-aomi-surface inline-flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-[12px]"
-          >
-            <Icon className="size-4 shrink-0" />
-            <span className="truncate">{label}</span>
-          </span>
-        );
-      })}
+      {ids.map((id) => (
+        <ToolChipView key={id} chip={skillChip(id, attribution)} />
+      ))}
     </div>
   );
 }
