@@ -24,7 +24,7 @@ function appChip(name: string, catalog?: TraceAttribution): ToolChip {
     label: identity.displayName,
     title: `App: ${identity.displayName}`,
     icon:
-      (matches.length > 1 ? undefined : getAppIcon(identity.brandId)) ??
+      (matches.length === 1 ? getAppIcon(identity.brandId) : undefined) ??
       AppWindowIcon,
   };
 }

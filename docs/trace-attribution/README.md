@@ -48,7 +48,7 @@ needed to identify the supplier reliably.
 
 ## Verification
 
-- The widget's 630 tests pass, including attribution, trace, and activity-sidebar
+- The widget's 631 tests pass, including attribution, trace, and activity-sidebar
   coverage. Ownership requires exact declarations and stays absent when metadata
   is missing or ambiguous. Core transaction outcomes and account facts remain
   visible alongside attribution.

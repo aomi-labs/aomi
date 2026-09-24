@@ -295,6 +295,18 @@ describe("trace attribution", () => {
     });
   });
 
+  it("does not borrow official artwork for an unverified skill namespace", () => {
+    const step = interpretToolStep({
+      toolName: "activate_skills",
+      result: { activated: ["hyperliquid/portfolio"] },
+      attribution: { skills: [] },
+    });
+    expect(step.chips[0]).toMatchObject({
+      label: "Hyperliquid / Portfolio",
+      icon: AppWindowIcon,
+    });
+  });
+
   it("does not guess when multiple apps or skills declare the same bare tool", () => {
     const step = interpretToolStep({
       toolName: "lookup",
