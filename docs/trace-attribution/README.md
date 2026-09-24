@@ -6,6 +6,9 @@ is known. Names and routing IDs remain separate. Main and delegated traces and
 the activity sidebar share the attribution context and badge component.
 On tool rows, network and transaction or quote facts appear first; ownership
 badges follow them and never consume the data-chip limit.
+The core `get_erc20_balance` result shows its network, verified token identity,
+holder, and exact reported balance. Unknown token contracts show a shortened
+address without an inferred symbol or unit.
 
 Tool ownership is metadata-driven for every app:
 
@@ -41,7 +44,7 @@ needed to identify the supplier reliably.
 
 ## Verification
 
-- The widget's 624 tests pass, including attribution, trace, and activity-sidebar
+- The widget's 627 tests pass, including attribution, trace, and activity-sidebar
   coverage. Ownership requires exact declarations and stays absent when metadata
   is missing or ambiguous. Core transaction outcomes and account facts remain
   visible alongside attribution.

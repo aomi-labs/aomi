@@ -515,6 +515,48 @@ describe("tool interpreter", () => {
     expect(step.chips[2].icon).toBe(CoinsIcon);
   });
 
+  it("shows the verified ERC-20 balance without rounding it", () => {
+    const step = interpretToolStep({
+      toolName: "get_erc20_balance",
+      result: {
+        chain_id: 5042,
+        token: "0x3600000000000000000000000000000000000000",
+        holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+        balance_raw: "126881805",
+        balance: "126.881805",
+        decimals: 6,
+      },
+    });
+
+    expect(step.title).toBe("Get balance");
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC",
+      "0xda65...3cf0",
+      "126.881805 USDC",
+    ]);
+  });
+
+  it("shows an unknown token's address without guessing its symbol or unit", () => {
+    const step = interpretToolStep({
+      toolName: "get_erc20_balance",
+      argsText: JSON.stringify({ token_address: "USDC" }),
+      result: {
+        chain_id: 8453,
+        token: "0x1111111111111111111111111111111111111111",
+        holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+        balance: "0",
+      },
+    });
+
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "0x1111...1111",
+      "0xda65...3cf0",
+      "0",
+    ]);
+  });
+
   it("standardizes token resolution chips", () => {
     const step = interpretToolStep({
       toolName: "get_contract",

@@ -305,6 +305,14 @@ try {
     });
     const attributionTrace = page.getByTestId("attribution-trace-fixture");
     await assertText(attributionTrace, "Hoodit / Markets");
+    assert.deepEqual(
+      await attributionTrace
+        .locator(".aui-working-step")
+        .filter({ hasText: "Get balance" })
+        .locator(".aui-working-step-chips > *")
+        .allTextContents(),
+      ["Arc", "USDC", "0xda65...3cf0", "126.881805 USDC"],
+    );
     await assertText(attributionTrace, "LI.FI Swap");
     await assertText(attributionTrace, "Awaiting approval");
     assert.deepEqual(

@@ -240,6 +240,17 @@ const attributionTraceSteps: ToolStepInput[] = [
   },
   { toolName: "hoodit_search_tokens" },
   {
+    toolName: "get_erc20_balance",
+    result: {
+      chain_id: 5042,
+      token: "0x3600000000000000000000000000000000000000",
+      holder: "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0",
+      balance_raw: "126881805",
+      balance: "126.881805",
+      decimals: 6,
+    },
+  },
+  {
     toolName: "lifi_get_quote",
     result: {
       quote_id: "quote-1",

@@ -199,7 +199,10 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
         icon: BlocksIcon,
       };
     case "token":
-      return { label: fact.label ?? fact.value, icon: CoinsIcon };
+      return {
+        label: fact.label ?? shortenAddress(fact.value),
+        icon: CoinsIcon,
+      };
     case "txId":
       return {
         label:
