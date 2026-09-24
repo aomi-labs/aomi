@@ -208,6 +208,18 @@ describe("AssistantTurnParts lifecycle", () => {
     },
   );
 
+  it("keeps pre-tool commentary in the trace when no answer follows", () => {
+    state.prefixText = "Checking the balance.";
+    state.running = false;
+    state.turnState = "complete";
+
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.prefixText),
+    );
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+  });
+
   it("places notes before and between tools in a single chronological trace", () => {
     state.prefixText = "Checking the balance.";
     state.middleText = "The balance read failed; retrying.";

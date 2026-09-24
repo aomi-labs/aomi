@@ -790,6 +790,7 @@ export const AssistantTurnParts: FC = () => {
   const lastToolIndex = parts.findLastIndex(
     (part) => part.type === "tool-call",
   );
+  const firstToolIndex = parts.findIndex((part) => part.type === "tool-call");
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -819,11 +820,16 @@ export const AssistantTurnParts: FC = () => {
   // A late tool completion or an empty final-answer marker can leave the
   // completed prose before the boundary. Keep the tool in the trace while
   // showing the last nonempty text as the answer instead of hiding it there.
-  if (!live && outcome === "complete" && answerIndexes.size === 0) {
+  if (
+    !live &&
+    outcome === "complete" &&
+    answerIndexes.size === 0 &&
+    firstToolIndex >= 0
+  ) {
     const lastTextIndex = parts.findLastIndex(
       (part) => part.type === "text" && part.text.trim().length > 0,
     );
-    if (lastTextIndex >= 0) answerIndexes.add(lastTextIndex);
+    if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
   }
   const traceItems = buildTraceItems(
     parts.filter(
