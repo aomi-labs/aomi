@@ -790,6 +790,7 @@ export const AssistantTurnParts: FC = () => {
   const lastToolIndex = parts.findLastIndex(
     (part) => part.type === "tool-call",
   );
+  const firstToolIndex = parts.findIndex((part) => part.type === "tool-call");
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -809,10 +810,40 @@ export const AssistantTurnParts: FC = () => {
       : live
         ? parts.length
         : lastToolIndex + 1;
-  const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
-  const answerParts = parts
-    .slice(traceEnd)
-    .filter((part) => part.type === "text");
+  const answerIndexes = new Set(
+    parts.flatMap((part, index) =>
+      index >= traceEnd && part.type === "text" && part.text.trim()
+        ? [index]
+        : [],
+    ),
+  );
+  // A late tool completion or an empty final-answer marker can leave the
+  // completed prose before the boundary. Keep the tool in the trace while
+  // showing the last nonempty text as the answer instead of hiding it there.
+  if (
+    !live &&
+    outcome === "complete" &&
+    !ownStopped &&
+    answerIndexes.size === 0 &&
+    firstToolIndex >= 0
+  ) {
+    const lastTextIndex = parts.findLastIndex(
+      (part) => part.type === "text" && part.text.trim().length > 0,
+    );
+    if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
+  }
+  const traceItems = buildTraceItems(
+    parts.filter(
+      (part, index) =>
+        part.type === "tool-call" ||
+        (index < traceEnd && !answerIndexes.has(index)),
+    ),
+    delegations,
+  );
+  const answerParts = parts.filter(
+    (part, index): part is TextMessagePart =>
+      part.type === "text" && answerIndexes.has(index),
+  );
   return (
     <>
       {traceItems.length > 0 && (

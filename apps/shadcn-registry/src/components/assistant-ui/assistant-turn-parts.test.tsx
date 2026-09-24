@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   prefixText: "",
   middleText: "",
   secondTool: false,
+  trailingTool: false,
   isLast: true,
   messageId: "turn:turn-1",
   events: [] as unknown[],
@@ -62,6 +63,18 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
         ...(state.answerText
           ? [{ type: "text" as const, text: state.answerText }]
           : []),
+        ...(state.trailingTool
+          ? [
+              {
+                type: "tool-call",
+                argsText: "{}",
+                toolName: "receipt",
+                toolCallId: "late-receipt",
+                args: {},
+                result: { status: "completed" },
+              } satisfies ToolCallMessagePart,
+            ]
+          : []),
       ],
       status: { type: state.running ? "running" : "complete" },
       isLast: state.isLast,
@@ -105,6 +118,7 @@ beforeEach(() => {
   state.prefixText = "";
   state.middleText = "";
   state.secondTool = false;
+  state.trailingTool = false;
   state.isLast = true;
   state.messageId = "turn:turn-1";
   state.events = [];
@@ -174,6 +188,56 @@ describe("AssistantTurnParts lifecycle", () => {
     ).toHaveTextContent(state.answerText);
     expect(view.getAllByText(state.answerText)).toHaveLength(1);
   });
+
+  it.each([undefined, 3])(
+    "shows the completed answer when a tool arrives late and the boundary is %s",
+    (boundary) => {
+      state.running = false;
+      state.turnState = "complete";
+      state.answerText = "The move on Arc is complete.";
+      state.trailingTool = true;
+      state.finalAnswerStartIndex = boundary;
+
+      const view = render(<AssistantTurnParts />);
+      const trace = view.container.querySelector(".aui-working-trace");
+      const answer = view.getByText(state.answerText);
+      expect(trace).not.toContainElement(answer);
+      expect(answer.closest(".aui-working-answer")).toBeTruthy();
+      expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
+      expect(view.getAllByText(state.answerText)).toHaveLength(1);
+    },
+  );
+
+  it("keeps pre-tool commentary in the trace when no answer follows", () => {
+    state.prefixText = "Checking the balance.";
+    state.running = false;
+    state.turnState = "complete";
+
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.prefixText),
+    );
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+  });
+
+  it.each(["failed", "interrupted"])(
+    "keeps a stopped historical turn's notes in its trace after %s",
+    (terminal) => {
+      state.middleText = "Checking the receipt next.";
+      state.secondTool = true;
+      state.running = false;
+      state.isLast = false;
+      state.events = [
+        { type: "turn_state_changed", turn_id: "turn-1", state: terminal },
+      ];
+
+      const view = render(<AssistantTurnParts />);
+      expect(
+        view.container.querySelector(".aui-working-trace"),
+      ).toContainElement(view.getByText(state.middleText));
+      expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    },
+  );
 
   it("places notes before and between tools in a single chronological trace", () => {
     state.prefixText = "Checking the balance.";
