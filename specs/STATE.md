@@ -2,6 +2,35 @@
 
 ## Last Updated
 
+2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
+  `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
+  branch `codex/bot-webhook-reassert` off origin/main, uncommitted). The
+  webhook was only ever asserted at registration; an external `deleteWebhook`
+  (an old poller on @chico_chico_bot, staging) left the row `active` with its
+  `webhook_url` intact while Telegram delivered nothing, invisible in UI and
+  logs. product-mono: `Telegram` (manager `bots/telegram.rs`) now owns the
+  backend origin (`webhook_url` is a method, `for_tests` injects a fake API)
+  and gained `getWebhookInfo`; `BotRegistry::reassert_webhook` (warning, never
+  an error) runs after `replace_apps` in `update_builder_bot` and the PATCH
+  response carries `webhook_warning` when it fails; new `POST
+  /api/integrations/github-app/user/bots/:bot_id/webhook` →
+  `BotRegistry::check_webhook` → `{ webhook: { url_matches,
+  pending_update_count, last_error_message, reasserted, warning? } }`,
+  re-asserting on mismatch; worker allowlist admits `/webhook` beside
+  `/command-secret`. Widget: deploy SDK (still 0.8.0, unreleased; npm is
+  0.7.2) adds `checkUserBotWebhook`, `BotWebhookStatus`,
+  `UpdateUserBotResult.webhookWarning`; BFF `POST
+  /api/bff/operate/bots/:id/webhook` + update route returns `webhookWarning`
+  beside `bot`; bot card has "Check webhook" in read mode with the result
+  line and shows the save warning (held by the parent, keyed by bot id, since
+  the card remounts on `configurationVersion`). Verified: worker 36/36,
+  vitest 79 (deploy bots, BFF operate routes, bots-view), aomi-build
+  typecheck + eslint, manager `cargo check`/fmt; manager DB tests ran against
+  a throwaway Postgres 17 cluster (local 5432 is PG14 and
+  `20260820120000_thread_actions.sql` needs `NULLS NOT DISTINCT`). Docs:
+  `specs/TELEGRAM-BOT-MODEL.md` (both repos) and product-mono
+  `docs/topics/deployments/facts/registered-telegram-bots.md`.
+
 2026-09-22 — TELEGRAM BOT DATA MODEL DECIDED (worktree `tenant-telegram-config`,
   spec `specs/TELEGRAM-BOT-MODEL.md`, mirrored in product-mono). Commit
   `b8051b2bd` on this branch put the Mini App URL and commands on

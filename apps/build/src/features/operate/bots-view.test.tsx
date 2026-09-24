@@ -392,6 +392,83 @@ describe("BotsView", () => {
     fetchSpy.mockRestore();
   });
 
+  it("checks the webhook through the BFF route and reports a repair", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        webhook: {
+          urlMatches: false,
+          pendingUpdateCount: 3,
+          lastErrorMessage: "Wrong response from the webhook: 404 Not Found",
+          reasserted: true,
+          warning: null,
+        },
+      }),
+    );
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /check webhook/i }),
+    );
+    const status = await screen.findByTestId("bot-webhook-status");
+    expect(status).toHaveTextContent(
+      "Webhook was not pointed at Aomi; re-pointed now · 3 pending updates · last Telegram error: Wrong response from the webhook: 404 Not Found",
+    );
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/bff/operate/bots/b1/webhook");
+    expect(init?.method).toBe("POST");
+    fetchSpy.mockRestore();
+  });
+
+  it("shows a failed webhook check without a status line", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        Response.json(
+          { error: "Telegram did not answer the webhook query" },
+          { status: 502 },
+        ),
+      );
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /check webhook/i }),
+    );
+    expect(
+      await screen.findByText("Telegram did not answer the webhook query"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("bot-webhook-status")).toBeNull();
+    fetchSpy.mockRestore();
+  });
+
+  it("keeps a saved bot and shows the manager's webhook warning", async () => {
+    mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
+    mockedOperateFetch.mockResolvedValue({ projects: PROJECTS, bots: [BOT] });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        bot: { ...BOT, configurationVersion: 2 },
+        webhookWarning: "Telegram setWebhook failed (502 Bad Gateway)",
+      }),
+    );
+    render(<BotsView />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /change apps/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^save/i }));
+    await screen.findByRole("button", { name: /change apps/i });
+
+    expect(
+      screen.getByText(
+        /saved, but the webhook was not re-asserted: telegram setwebhook failed \(502 bad gateway\)/i,
+      ),
+    ).toBeInTheDocument();
+    fetchSpy.mockRestore();
+  });
+
   it("read mode shows the effective Mini App URL, endpoint and commands", async () => {
     mockSession({ loading: false, signedIn: true, githubLogin: "octocat" });
     mockedOperateFetch.mockResolvedValue({

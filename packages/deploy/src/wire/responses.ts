@@ -5,6 +5,7 @@
  */
 import { DeployError } from "../errors";
 import type {
+  BotWebhookStatus,
   ActivateResult,
   BotRegistration,
   BuilderModelKey,
@@ -276,6 +277,19 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
       b.configuration_version ?? b.configurationVersion ?? 0,
     ),
     createdAt: Number(b.created_at ?? b.createdAt ?? 0),
+  };
+}
+
+export function camelBotWebhookStatus(raw: unknown): BotWebhookStatus {
+  const w = (raw ?? {}) as Record<string, any>;
+  return {
+    urlMatches: Boolean(w.url_matches ?? w.urlMatches),
+    pendingUpdateCount: Number(
+      w.pending_update_count ?? w.pendingUpdateCount ?? 0,
+    ),
+    lastErrorMessage: w.last_error_message ?? w.lastErrorMessage ?? null,
+    reasserted: Boolean(w.reasserted),
+    warning: w.warning ?? null,
   };
 }
 

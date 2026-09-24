@@ -797,7 +797,9 @@ export async function operateBotsUpdateRoute(req: Request) {
     );
   }
   try {
-    const bot = await owned.client.updateUserBot({
+    // The manager re-asserts the Telegram webhook after every save; a
+    // failure there is a warning beside the saved bot, not a failed save.
+    const { webhookWarning, ...bot } = await owned.client.updateUserBot({
       githubUserId: owned.githubUserId,
       botId: body.botId,
       applicationIds,
@@ -805,7 +807,10 @@ export async function operateBotsUpdateRoute(req: Request) {
       threadMode: body.threadMode,
       ...commandConfig,
     });
-    return NextResponse.json({ bot });
+    return NextResponse.json({
+      bot,
+      ...(webhookWarning ? { webhookWarning } : {}),
+    });
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.bots_update", err),
@@ -838,6 +843,36 @@ export async function operateBotsCommandSecretRoute(req: Request) {
   } catch (err) {
     return buildFailures.handle(
       identifyOperateFailure(req, "operate.bots_command_secret", err),
+    ).response;
+  }
+}
+
+/// POST /operate/bots/:botId/webhook → { webhook }. Asks the manager to
+/// compare Telegram's registered webhook with its own URL for the bot and
+/// re-assert it on a mismatch. Only the comparison and Telegram's delivery
+/// stats come back; the URL, secret and token never do.
+export async function operateBotsWebhookRoute(req: Request) {
+  const owned = await ownedSources(req);
+  if ("response" in owned) return owned.response;
+  const segments = new URL(req.url).pathname.split("/");
+  const botId = decodeURIComponent(
+    segments[segments.indexOf("bots") + 1] ?? "",
+  );
+  if (!botId || botId === "webhook") {
+    return NextResponse.json({ error: "missing `botId`" }, { status: 400 });
+  }
+  try {
+    const webhook = await owned.client.checkUserBotWebhook({
+      githubUserId: owned.githubUserId,
+      botId,
+    });
+    return NextResponse.json(
+      { webhook },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (err) {
+    return buildFailures.handle(
+      identifyOperateFailure(req, "operate.bots_webhook", err),
     ).response;
   }
 }

@@ -73,6 +73,16 @@ type BotsPayload = {
   bots?: Bot[];
 };
 
+/** The BFF's `/operate/bots/:id/webhook` result: Telegram's registered
+ *  webhook compared with Aomi's, plus Telegram's own delivery stats. */
+type WebhookCheck = {
+  urlMatches: boolean;
+  pendingUpdateCount: number;
+  lastErrorMessage: string | null;
+  reasserted: boolean;
+  warning?: string | null;
+};
+
 type AppOption = {
   applicationId: number;
   name: string;
@@ -560,6 +570,7 @@ function BotCard({
   onSave,
   onRemove,
   removing,
+  warning,
 }: {
   bot: Bot;
   options: AppOption[];
@@ -573,6 +584,9 @@ function BotCard({
   ) => Promise<void>;
   onRemove: () => void;
   removing: boolean;
+  /** The manager saved the last edit but could not re-point the Telegram
+   *  webhook; shown until a check reports fresh state. */
+  warning: string | null;
 }) {
   const mapped = useMemo(() => bot.apps ?? [], [bot.apps]);
   const initialDraft = useMemo<Draft>(
@@ -595,6 +609,11 @@ function BotCard({
   // Shown once per edit session; never logged, never cached in react-query.
   const [secret, setSecret] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  // Last "Check webhook" result for this mount; the row is keyed on the
+  // configuration version, so a save clears it along with the drafts.
+  const [webhook, setWebhook] = useState<WebhookCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
 
   // Apps still mapped to this bot but gone from the builder's projects. They
   // render as uncheckable-only rows: keeping one selected would 403 at the
@@ -831,6 +850,72 @@ function BotCard({
               ? ` · ${(bot.commands ?? []).map((command) => `/${command}`).join(" ")}`
               : ""}
           </span>
+          {bot.platform === "telegram" ? (
+            <div className="flex w-full flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                disabled={checking || removing}
+                onClick={() => {
+                  setChecking(true);
+                  setCheckError(null);
+                  fetch(API_PATHS.bff.operate.botWebhook(bot.id), {
+                    method: "POST",
+                  })
+                    .then(async (res) => {
+                      const json = (await res.json().catch(() => ({}))) as {
+                        webhook?: WebhookCheck;
+                        error?: string;
+                      };
+                      if (!res.ok || !json.webhook) {
+                        throw new Error(
+                          json.error ||
+                            `Failed to check webhook (${res.status})`,
+                        );
+                      }
+                      setWebhook(json.webhook);
+                    })
+                    .catch((err: unknown) => {
+                      setCheckError(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to check webhook",
+                      );
+                    })
+                    .finally(() => setChecking(false));
+                }}
+                className="border-border hover:bg-accent-hover text-foreground h-7 rounded-full border px-3 text-[11px] font-medium disabled:opacity-50"
+              >
+                {checking ? "Checking..." : "Check webhook"}
+              </button>
+              {checkError ? (
+                <span className="text-danger text-[11px]">{checkError}</span>
+              ) : webhook ? (
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    webhook.urlMatches || webhook.reasserted
+                      ? "text-dim"
+                      : "text-danger",
+                  )}
+                  data-testid="bot-webhook-status"
+                >
+                  {webhook.urlMatches
+                    ? "Webhook OK"
+                    : webhook.reasserted
+                      ? "Webhook was not pointed at Aomi; re-pointed now"
+                      : `Webhook is not pointed at Aomi and could not be re-pointed: ${webhook.warning ?? "unknown error"}`}
+                  {` · ${webhook.pendingUpdateCount} pending update${webhook.pendingUpdateCount === 1 ? "" : "s"}`}
+                  {webhook.lastErrorMessage
+                    ? ` · last Telegram error: ${webhook.lastErrorMessage}`
+                    : ""}
+                </span>
+              ) : warning ? (
+                <span className="text-warning text-[11px]">
+                  Saved, but the webhook was not re-asserted: {warning}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -995,6 +1080,11 @@ export function BotsView() {
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  // Webhook warnings from the last save, per bot: the card that saved is
+  // remounted on its new configuration version, so the note lives here.
+  const [webhookWarnings, setWebhookWarnings] = useState<
+    Record<string, string>
+  >({});
 
   const projects = useMemo(() => payload?.projects ?? [], [payload?.projects]);
   const bots = useMemo(() => payload?.bots ?? [], [payload?.bots]);
@@ -1070,12 +1160,20 @@ export function BotsView() {
       });
       const json = (await res.json().catch(() => ({}))) as {
         bot?: Bot;
+        webhookWarning?: string;
         error?: string;
       };
       if (!res.ok || !json.bot) {
         throw new Error(json.error || `Failed to save apps (${res.status})`);
       }
       const updated = json.bot;
+      const webhookWarning = json.webhookWarning;
+      setWebhookWarnings((current) => {
+        const { [updated.id]: _cleared, ...rest } = current;
+        return webhookWarning
+          ? { ...rest, [updated.id]: webhookWarning }
+          : rest;
+      });
       queryClient.setQueryData<BotsPayload>(queryKey, (current) => ({
         projects: current?.projects ?? projects,
         bots: (current?.bots ?? []).map((b) =>
@@ -1182,6 +1280,7 @@ export function BotsView() {
               }
               onRemove={() => void handleRemove(bot)}
               removing={removingId === bot.id}
+              warning={webhookWarnings[bot.id] ?? null}
             />
           ))}
           {bots.length === 0 && !adding ? (

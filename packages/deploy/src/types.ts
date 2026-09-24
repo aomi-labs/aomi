@@ -47,6 +47,7 @@ export interface AuditEvent {
     | "create_user_bot"
     | "update_user_bot"
     | "reveal_user_bot_command_secret"
+    | "check_user_bot_webhook"
     | "delete_user_bot"
     | "list_builder_model_keys"
     | "save_builder_model_key"
@@ -892,6 +893,28 @@ export interface UpdateUserBotInput extends BuilderBotsInput {
 
 export interface RevealUserBotCommandSecretInput extends BuilderBotsInput {
   botId: string;
+}
+
+/** The saved bot, plus the manager's note when the Telegram webhook could
+ *  not be re-asserted after the save. The save itself is never rolled back. */
+export interface UpdateUserBotResult extends BotRegistration {
+  webhookWarning?: string;
+}
+
+export interface CheckUserBotWebhookInput extends BuilderBotsInput {
+  botId: string;
+}
+
+/** Telegram's registered webhook compared with the deployment's own URL for
+ *  the bot. Never carries the URL, the secret, or the token. */
+export interface BotWebhookStatus {
+  urlMatches: boolean;
+  pendingUpdateCount: number;
+  lastErrorMessage: string | null;
+  /** A mismatch was found and the manager re-asserted the webhook. */
+  reasserted: boolean;
+  /** A mismatch was found but re-asserting failed. */
+  warning: string | null;
 }
 
 export interface DeleteUserBotInput extends BuilderBotsInput {
