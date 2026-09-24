@@ -1,3 +1,11 @@
+# Completed chat answer visibility — 2026-09-24
+
+In the isolated `codex/chat-final-response-visible` frontend worktree, the
+working trace now shows completed prose as the assistant answer when a late tool
+record or empty final-answer boundary would otherwise leave it inside the
+collapsible trace. The late tool stays visible as a step. Focused regression
+checks cover both boundary cases; widget version is 3.0.10.
+
 # GPT-6 model rollout — 2026-09-23
 
 The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
