@@ -55,13 +55,13 @@ flowchart TB
 
 MyCoinDex exposes standard HTTP endpoints. Aomi does not modify them.
 
-| Endpoint | Method | Description |
-| --- | --- | --- |
-| `/prices/{symbol}` | GET | Current token price |
-| `/trades` | POST | Execute a trade |
-| `/portfolio/{userId}` | GET | User portfolio and P&L |
-| `/markets` | GET | Available trading pairs |
-| `/orderbook/{pair}` | GET | Order book depth |
+| Endpoint              | Method | Description             |
+| --------------------- | ------ | ----------------------- |
+| `/prices/{symbol}`    | GET    | Current token price     |
+| `/trades`             | POST   | Execute a trade         |
+| `/portfolio/{userId}` | GET    | User portfolio and P&L  |
+| `/markets`            | GET    | Available trading pairs |
+| `/orderbook/{pair}`   | GET    | Order book depth        |
 
 ## 2. APIs Become AI Tools
 
@@ -91,11 +91,11 @@ Show prices in USD unless the user requests otherwise.
 
 The LLM that powers the assistant. Supported providers:
 
-| Provider | Models |
-| --- | --- |
-| Anthropic | Claude Sonnet, Claude Haiku |
-| OpenAI | GPT-4o, GPT-4o Mini |
-| OpenRouter | Access to 100+ models |
+| Provider   | Models                      |
+| ---------- | --------------------------- |
+| Anthropic  | Claude Sonnet, Claude Haiku |
+| OpenAI     | GPT-4o, GPT-4o Mini         |
+| OpenRouter | Access to 100+ models       |
 
 Models can be changed at runtime via the control API -- no redeployment needed.
 
@@ -109,7 +109,7 @@ The configured app becomes an **app** -- a self-contained assistant environment 
 
 ```
 App:        "mycoindex"
-Endpoint:   POST /v1/agent/chat?app=mycoindex
+Endpoint:   POST /v1/agent/chat
 Tools:      GetTokenPrice, ExecuteTrade, GetPortfolio, ListMarkets
 Preamble:   MyCoinDex trading assistant
 Model:      Claude Sonnet (default, switchable)
@@ -117,16 +117,11 @@ Model:      Claude Sonnet (default, switchable)
 
 Each app is isolated. MyCoinDex's tools, preamble, and configuration do not affect other apps on the platform.
 
-## 5. API Key and Authentication
+## 5. Caller authentication and App selection
 
-MyCoinDex receives an API key scoped to their app. Every request includes:
+Use guest access for evaluation or an exact-resource OAuth grant for account-owned access. Browser embeds use the widget's origin-bound session. Keep authentication separate from the App selector and wallet approval.
 
-```
-X-API-Key: sk-mcd-a1b2c3d4e5f6
-X-Session-Id: 550e8400-e29b-41d4-a716-446655440000
-```
-
-The backend validates the key, confirms it authorizes access to the `mycoindex` app, and proceeds.
+A raw Agent request uses `Authorization: Bearer`, `Content-Type: application/json`, and an `Idempotency-Key`. Its JSON body carries `sessionId`, `message`, and, for Direct routing, `mode: "direct"` plus the App selector. Do not send an App key from browser code.
 
 ## 6. The Request Flow
 
@@ -141,7 +136,7 @@ sequenceDiagram
     participant Tool as MyCoinDex API
 
     User->>Frontend: "What's my ETH position worth?"
-    Frontend->>Aomi: POST /v1/agent/chat?app=mycoindex<br/>X-API-Key: sk-mcd-...<br/>X-Session-Id: session-uuid<br/>{"text": "What's my ETH position worth?"}
+    Frontend->>Aomi: POST /v1/agent/chat<br/>Bearer + Idempotency-Key<br/>sessionId, message, mode, app
 
     Aomi->>LLM: Messages + available tools
     LLM-->>Aomi: ToolCall: GetPortfolio(userId)
@@ -200,27 +195,27 @@ data: {"type":"complete"}
 
 Each event is a JSON object with a `type` field. The frontend processes these to render streaming text, tool call indicators, and completion state.
 
-| Event Type | Purpose |
-| --- | --- |
-| `text` | Incremental text chunk from the LLM |
-| `tool_call` | The model is invoking a tool |
+| Event Type    | Purpose                               |
+| ------------- | ------------------------------------- |
+| `text`        | Incremental text chunk from the LLM   |
+| `tool_call`   | The model is invoking a tool          |
 | `tool_result` | Result returned from a tool execution |
-| `complete` | Response finished |
+| `complete`    | Response finished                     |
 
 ## What You Get
 
-| Capability | Details | Managed By |
-| --- | --- | --- |
-| **AI assistant** | Understands your product, calls your APIs | Aomi |
-| **Streaming chat** | Real-time responses via SSE | Aomi |
-| **Tool execution** | LLM calls your APIs as needed during conversations | Aomi |
-| **Session management** | Persistent threads, history, and state | Aomi |
-| **Multi-model support** | Switch between Claude, GPT-4o, and others at runtime | Aomi |
-| **Wallet integration** | Optional Web3 wallet connect for on-chain actions | Aomi |
-| **Scaling and availability** | Hosted infrastructure, no GPUs or LLM keys to manage | Aomi |
-| **Your API endpoints** | Standard HTTP -- no modifications required | You |
-| **Frontend integration** | Widget, headless, or Telegram | You |
-| **API key security** | Store securely, never expose client-side | You |
+| Capability                   | Details                                              | Managed By |
+| ---------------------------- | ---------------------------------------------------- | ---------- |
+| **AI assistant**             | Understands your product, calls your APIs            | Aomi       |
+| **Streaming chat**           | Real-time responses via SSE                          | Aomi       |
+| **Tool execution**           | LLM calls your APIs as needed during conversations   | Aomi       |
+| **Session management**       | Persistent threads, history, and state               | Aomi       |
+| **Multi-model support**      | Switch between Claude, GPT-4o, and others at runtime | Aomi       |
+| **Wallet integration**       | Optional Web3 wallet connect for on-chain actions    | Aomi       |
+| **Scaling and availability** | Hosted infrastructure, no GPUs or LLM keys to manage | Aomi       |
+| **Your API endpoints**       | Standard HTTP -- no modifications required           | You        |
+| **Frontend integration**     | Widget, headless, or Telegram                        | You        |
+| **API key security**         | Store securely, never expose client-side             | You        |
 
 ## Next Steps
 

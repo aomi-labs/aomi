@@ -1,14 +1,14 @@
 ---
-title: Widget Installation
-description: Install the bundled Aomi widget in a Next.js app.
+title: Widget installation
+description: Install the packaged widget and choose its authentication mode.
 ---
 
-# Widget Installation
-
-The fastest way to embed Aomi is the bundled widget.
+Use `@aomi-labs/widget-lib` to embed the complete widget:
 
 ```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npm install @aomi-labs/widget-lib
 ```
 
-Then follow [Quickstart](/docs/build/quickstart) and [AomiFrame](/docs/build/ui/widget/aomi-frame).
+Follow the [quickstart](/docs/build/quickstart) for a browser-wallet example, or the [canonical installation guide](https://aomi.dev/docs/guides/widget/installation) for Para and Privy. The widget requires an explicit `auth` configuration, API origin, and deployed Application ID. A connected wallet still needs user approval before signing.
+
+The shadcn registry is an alternative for developers who want to own the component source. Use the [AomiFrame reference](/docs/build/ui/widget/aomi-frame) for that integration.

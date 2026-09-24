@@ -1,57 +1,28 @@
 ---
-title: Agentic Application
-description: Understand what Aomi Apps are, why they matter, and how they scope the AI agent's capabilities for both users and builders.
+title: Agentic applications
+description: Choose deployed Apps and keep account access separate from wallet authority.
 ---
 
-# Agentic Application
+An **App** is the deployed unit you select in Aomi. Builders author a plugin with tools, a preamble, and declared configuration; activation makes it available as an App.
 
-An **Agentic Application** (App) defines the isolated environment in which an AI agent operates: the tools it can invoke, the data sources it can access, the model it runs on, and the system prompt that shapes its behavior. Apps are stateless — all runtime state is managed by **AomiRuntime**, the execution harness that hosts them.
+Auto routing uses the caller's available capabilities. Direct routing selects one App explicitly. Discover available Apps from your environment instead of copying a fixed registry from a guide.
 
-When you interact with Aomi, you are always operating within an App. The active App determines the agent's full capability surface. Switching Apps changes the agent entirely.
+## Select an App
 
-## For Users
-
-The App you're in determines what the assistant can do. An agent running in a DeFi App may have access to swap aggregators, liquidity pools, and live price feeds. The same platform running a different App might query social APIs or prediction markets instead. If the assistant cannot perform an action you expect, verify you are in the correct App using the App selector in the control bar.
-
-<iframe width="100%" style={{aspectRatio: "16/9"}} src="https://www.youtube.com/embed/TSXkgjIfuKk" title="Aomi App Selector" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-
-## For Builders
-
-Apps are the unit of agent deployment on the Aomi platform. Each App encapsulates:
-
-- **Tools** — the functions the agent can call
-- **Preamble** — the system prompt defining agent behavior
-- **Model** — the underlying LLM (e.g., `claude-sonnet`, `gpt-4o`)
-- **API key** — scoped credentials, isolated per App
-
-Running multiple Apps means running multiple independent agents. A trading agent, a research agent, and a support bot can operate on the same platform without sharing configuration or credentials.
-
-```
-┌──────────────────────────┐   ┌──────────────────────────┐
-│  App: defi               │   │  App: research            │
-│  tools: [swap,           │   │  tools: [news,            │
-│    liquidity, prices]    │   │    social, docs]          │
-│  model: claude-sonnet    │   │  model: gpt-4o            │
-└──────────────────────────┘   └──────────────────────────┘
+```ts
+await aomi.agent.run("Describe the capabilities of this App.", {
+  target: { mode: "direct", applicationId: selectedApplicationId },
+});
 ```
 
-## The Default App
+This snippet uses the [current client contract](https://aomi.dev/docs/integrate/client-sdk#check-compatibility). The canonical Application ID selects the deployed App. It is distinct from a session ID or a Pipeline catalog slug.
 
-A `default` App is available in all environments without requiring an API key. It provides a baseline agent suitable for testing your integration before deploying a scoped App.
+## Authenticate the caller
 
-## Authentication
+Guests can use the capabilities allowed by the environment. Account-owned calls use an exact-resource OAuth grant or the host's authenticated session. Browser embeds use an origin-bound widget session. A missing or invalid credential returns `401`; insufficient scope or access returns `403`.
 
-Apps are protected by API keys scoped to that App. Requests that fail authentication return:
+Some Apps declare credentials that each signed-in user supplies. Those values are scoped to that account and App and are never a replacement for OAuth. Read [Apps and authentication](/docs/build/namespaces) before managing them.
 
-| Status | Meaning |
-|--------|---------|
-| `401 Unauthorized` | No API key provided |
-| `403 Forbidden` | Key does not authorize this App |
+Connecting a wallet supplies context and signing capabilities. It does not approve unattended transactions. Review typed Actions, durable Commits, or Pipeline requests before signing.
 
-Pass your key via the `X-API-Key` header, or enter it in the API key field of the control bar.
-
-## Further Reading
-
-- [Integration Guide](/docs/build/integration-guide) — full platform pipeline, including App deployment
-- [Building Apps](/docs/build/services/building-apps) — registering tools, preambles, and model config
-- [API Reference](/docs/build/services/api-reference) — authentication headers and App-scoped endpoints
+See [Building Apps](/docs/build/services/building-apps), [API reference](/docs/build/services/api-reference), and the [canonical integration guides](https://aomi.dev/docs/integrate/client-sdk).

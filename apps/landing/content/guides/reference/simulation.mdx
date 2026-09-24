@@ -1,348 +1,64 @@
 ---
 title: Simulation
-description: How Aomi simulates transactions before signing — the Anvil fork pipeline, snapshot management, and wallet approval flow.
+description: Build, simulate, review, and commit typed blockchain operations through the public Pipeline API.
 ---
 
-# Simulation
+# Transaction simulation
 
-Aomi uses a **simulation-first** approach for all on-chain transactions. Before any transaction reaches your wallet for signing, it is executed against a forked copy of the current network state. You review the exact outcome — token changes, gas, contract calls — before approving.
-
-This is how the system prevents LLM-generated transactions from being sent without verification.
-
-## Overview
+Aomi's public Pipeline turns a typed operation into reviewable execution data.
+Clients discover an operation, build its arguments, simulate the resulting
+requests, present the evidence, and commit the reviewed payload.
 
 ```mermaid
 flowchart LR
-    subgraph "Simulation"
-        FORK[Create Fork]
-        SIM[Simulate TX]
-        VERIFY[Verify State]
-    end
-
-    subgraph "Approval"
-        QUEUE[Queue for Wallet]
-        APPROVE[User Approval]
-    end
-
-    subgraph "Execution"
-        BROADCAST[Broadcast]
-        CONFIRM[Confirm]
-    end
-
-    FORK --> SIM
-    SIM --> VERIFY
-    VERIFY --> QUEUE
-    QUEUE --> APPROVE
-    APPROVE --> BROADCAST
-    BROADCAST --> CONFIRM
+    C[Catalog] --> B[Build]
+    B --> S[Simulate]
+    S --> R[Review]
+    R --> X[Commit]
+    X --> F[Committed result]
 ```
 
-## Anvil Integration
+## Stage or build
 
-### ForkProvider
+Use `POST /v1/pipeline/stage` to validate and stage an operation before
+simulation. `POST /v1/pipeline/build` is the combined build path when the
+client wants the complete build envelope directly.
 
-The `aomi-anvil` crate manages Anvil forks for transaction simulation:
+The build envelope carries the normalized operation and the typed requests
+that subsequent steps must preserve. Do not replace these fields with
+caller-authored transaction data.
 
-```mermaid
-flowchart TB
-    subgraph "ForkProvider"
-        ANVIL[Anvil Instance<br/>Managed process]
-        EXTERNAL[External RPC<br/>Existing endpoint]
-    end
+## Simulate
 
-    subgraph "Capabilities"
-        SNAP[Snapshots<br/>State capture]
-        RESET[Reset<br/>Revert to snapshot]
-        IMPERSONATE[Impersonation<br/>Act as any account]
-    end
+`POST /v1/pipeline/simulate` executes the built requests against a safe
+simulation environment. The response contains evidence such as asset changes,
+approval changes, gas or fee estimates, logs, and guard results.
 
-    ANVIL --> SNAP
-    ANVIL --> RESET
-    ANVIL --> IMPERSONATE
+Simulation evidence is an input to review. It is not proof that a later commit
+has succeeded, and it can become stale as chain state changes.
 
-    EXTERNAL --> SNAP
-```
+## Review and commit
 
-### Initialization
+Show the user the simulated operation and its effects before signing. Then
+submit the preserved build payload through `POST /v1/pipeline/commit`.
 
-```rust
-use aomi_anvil::{
-    init_fork_provider, fork_endpoint, ForkProvider,
-    AnvilParams, ForksConfig,
-};
+A successful EVM commit has `status: "committed"`, one `digest`, the typed
+`result`, and the original `requests`. A successful SVM commit has one
+`digest`, typed `results`, and the original `requests`.
 
-// Initialize from configuration
-let config = ForksConfig::from_yaml("config.yaml")?;
-init_fork_providers(config).await?;
+When the same flow runs inside an Agent turn, the runtime represents the review
+boundary as a durable Action. Resolve the Action at its current revision with
+the typed result requested by the server.
 
-// Or initialize a single fork
-let params = AnvilParams {
-    fork_url: "https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY".into(),
-    fork_block_number: Some(18_500_000),
-    chain_id: Some(1),
-    port: Some(8545),
-};
+## Authentication
 
-init_fork_provider(params).await?;
+Pipeline catalog reads use the `pipeline:catalog` scope. Execution routes use
+`pipeline:execute`. Access tokens are exact-resource bound to
+`https://chat.aomi.dev/v1/pipeline`; an Agent token is not interchangeable.
 
-// Get the endpoint
-let rpc_url = fork_endpoint()?;
-println!("Fork running at: {}", rpc_url);
-```
+## Canonical references
 
-### Provider Types
-
-```rust
-// Managed Anvil instance (spawns a local process)
-let provider = ForkProvider::spawn(params).await?;
-assert!(provider.is_managed());
-
-// External RPC (no process management)
-let provider = ForkProvider::external("http://localhost:8545").await?;
-assert!(!provider.is_managed());
-
-// Common interface
-println!("Endpoint: {}", provider.endpoint());
-println!("Block: {}", provider.block_number());
-```
-
-## Snapshots
-
-Snapshots capture the full network state at a point in time and allow reverting after a simulation run.
-
-```mermaid
-sequenceDiagram
-    participant Test
-    participant Fork
-    participant State
-
-    Test->>Fork: Create snapshot
-    Fork->>State: Capture current state
-    State-->>Fork: snapshot_id
-
-    Test->>Fork: Execute transactions
-    Fork->>State: Modify state
-
-    Test->>Fork: Revert to snapshot
-    Fork->>State: Restore captured state
-
-    Note over Fork,State: State reverted to snapshot
-```
-
-```rust
-use aomi_anvil::{fork_snapshot, ForkSnapshot};
-
-// Capture current state
-let snapshot: ForkSnapshot = fork_snapshot()?;
-println!("Snapshot at block: {}", snapshot.block_number());
-
-// Execute some transactions
-execute_test_transactions().await?;
-
-// Revert to snapshot (reinitialize fork)
-shutdown_and_reinit_all().await?;
-```
-
-## Transaction Simulation
-
-### SimulateContractCall Tool
-
-The `SimulateContractCall` tool is the primary mechanism for pre-signing simulation:
-
-```mermaid
-flowchart LR
-    subgraph "Input"
-        TO[Target Address]
-        DATA[Calldata]
-        VALUE[Value]
-    end
-
-    subgraph "Simulation"
-        FORK[Fork at Block]
-        EXEC[Execute TX]
-        TRACE[Capture Trace]
-    end
-
-    subgraph "Output"
-        RESULT[Return Data]
-        LOGS[Event Logs]
-        GAS[Gas Used]
-        CHANGES[State Changes]
-    end
-
-    TO --> FORK
-    DATA --> FORK
-    VALUE --> FORK
-
-    FORK --> EXEC
-    EXEC --> TRACE
-
-    TRACE --> RESULT
-    TRACE --> LOGS
-    TRACE --> GAS
-    TRACE --> CHANGES
-```
-
-```rust
-use aomi_tools::cast::SimulateContractCall;
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SimulateParams {
-    /// Target contract address
-    pub to: String,
-
-    /// Encoded calldata (hex)
-    pub data: String,
-
-    /// Value to send in ETH
-    #[serde(default)]
-    pub value: String,
-
-    /// Sender address to simulate from
-    pub from: String,
-
-    /// Network to simulate on
-    #[serde(default = "default_network")]
-    pub network: String,
-}
-
-#[tool(description = "Simulate a contract call without broadcasting")]
-pub async fn simulate_contract_call(
-    params: SimulateParams,
-) -> Result<SimulationResult, ToolError> {
-    let client = external_clients().await.cast_client(&params.network)?;
-
-    let result = client.simulate(
-        &params.from,
-        &params.to,
-        &params.data,
-        &params.value,
-    ).await?;
-
-    Ok(SimulationResult {
-        success: result.success,
-        return_data: result.output,
-        gas_used: result.gas_used,
-        logs: result.logs,
-    })
-}
-```
-
-### Batch Simulation
-
-```rust
-// Simulate multiple transactions in sequence
-let fork_url = fork_endpoint()?;
-let provider = ProviderBuilder::new().on_http(fork_url.parse()?);
-
-let mut results = Vec::new();
-
-for tx in transactions {
-    // Impersonate sender
-    provider.anvil_impersonate_account(tx.from).await?;
-
-    // Execute transaction
-    let result = provider.send_transaction(tx.clone()).await?;
-    let receipt = result.get_receipt().await?;
-
-    results.push(SimulationResult {
-        tx_hash: receipt.transaction_hash,
-        success: receipt.status(),
-        gas_used: receipt.gas_used,
-    });
-}
-
-// Revert all changes
-shutdown_and_reinit_all().await?;
-```
-
-## Wallet Approval Flow
-
-After simulation succeeds, the transaction is queued for wallet approval:
-
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant Scheduler
-    participant Queue
-    participant UI
-    participant Wallet
-
-    Agent->>Scheduler: SendTransactionToWallet
-    Scheduler->>Queue: Push WalletTxRequest
-
-    Queue-->>UI: SystemEvent::InlineDisplay
-    UI->>Wallet: Show approval modal
-
-    alt User Approves
-        Wallet->>UI: Signed transaction
-        UI->>Queue: Push WalletTxResponse (confirmed)
-        Queue-->>Agent: Inject to history
-        Agent->>Agent: Continue with tx hash
-    else User Rejects
-        Wallet->>UI: Rejection
-        UI->>Queue: Push WalletTxResponse (rejected)
-        Queue-->>Agent: Inject rejection
-        Agent->>Agent: Handle rejection
-    end
-```
-
-## Multi-Network Support
-
-Simulation is supported across all configured networks:
-
-```yaml
-# config.yaml
-networks:
-  ethereum:
-    rpc_url: "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}"
-    chain_id: 1
-
-  base:
-    rpc_url: "https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}"
-    chain_id: 8453
-
-  arbitrum:
-    rpc_url: "https://arb-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}"
-    chain_id: 42161
-
-  testnet:
-    rpc_url: "http://localhost:8545"
-    chain_id: 31337
-```
-
-## Error Handling
-
-| Error | Cause | Resolution |
-| ----- | ----- | ---------- |
-| `ForkNotInitialized` | `init_fork_provider` not called | Initialize before use |
-| `SimulationReverted` | Transaction would fail on-chain | Check calldata and state |
-| `InsufficientFunds` | Not enough ETH/tokens | Fund the account |
-| `GasEstimationFailed` | Complex transaction | Provide manual gas limit |
-| `RpcError` | Network issues | Retry or switch RPC |
-
-## Security Best Practices
-
-```mermaid
-flowchart LR
-    TX[Transaction] --> SIM{Simulate}
-    SIM -->|Success| QUEUE[Queue for Wallet]
-    SIM -->|Failure| REJECT[Reject with Reason]
-    QUEUE --> APPROVE{User Approves?}
-    APPROVE -->|Yes| BROADCAST[Broadcast]
-    APPROVE -->|No| CANCEL[Cancel]
-```
-
-| Practice | Description |
-| -------- | ----------- |
-| **Always simulate** | Never skip the simulation step |
-| **Show state changes** | Display balance deltas clearly |
-| **Require confirmation** | Never auto-execute transactions |
-| **Validate addresses** | Check checksums and formats |
-| **Warn on high value** | Alert for large transfers |
-| **Check approvals** | Verify token approvals before swaps |
-
-## Further Reading
-
-- [Non-Custodial Automation](/docs/non-custodial-wallet) — user-facing explanation of why simulation matters
-- [Wallet Integration](/docs/build/services/wallet-integration) — how to wire up wallet signing in your integration
+- [Simulation response reference](https://aomi.dev/docs/reference/simulation-reference)
+- [Transaction pipeline](https://aomi.dev/docs/concepts/transaction-pipeline)
+- [Pipeline REST API](https://aomi.dev/docs/api-reference/pipeline)
+- [Authentication](https://aomi.dev/docs/api-reference/authentication)
