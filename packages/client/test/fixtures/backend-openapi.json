@@ -55,6 +55,23 @@
         ]
       }
     },
+    "/api/task/build": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "delegatedBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "delegated"
+        ]
+      }
+    },
     "/api/exec/simulate": {
       "post": {
         "responses": {
@@ -366,6 +383,25 @@
         ]
       }
     },
+    "/api/commits/batch": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
     "/api/commits/{commit_id}": {
       "get": {
         "responses": {
@@ -386,6 +422,44 @@
       }
     },
     "/api/commits/{commit_id}/manual": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/wallet-attempts": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      }
+    },
+    "/api/commits/{commit_id}/wallet-attempts/{attempt_id}/report": {
       "post": {
         "responses": {
           "200": {
