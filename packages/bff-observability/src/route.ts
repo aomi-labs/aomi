@@ -109,6 +109,9 @@ function routeDecision(
       ...(routedDecision.responseRetryable !== undefined
         ? { retryable: routedDecision.responseRetryable }
         : {}),
+      ...(routedDecision.responseDeployError
+        ? { deployError: routedDecision.responseDeployError }
+        : {}),
     },
     { status: routedDecision.responseStatus },
   );
