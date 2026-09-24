@@ -105,7 +105,7 @@ function ActivitySidebarContent() {
       key,
       Math.max(
         batchSequence.get(key) ?? 0,
-        tx.action?.sequence ?? tx.sequence ?? 0,
+        tx.sequence ?? tx.action?.sequence ?? 0,
       ),
     );
   }

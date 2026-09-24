@@ -823,6 +823,7 @@ export const AssistantTurnParts: FC = () => {
   if (
     !live &&
     outcome === "complete" &&
+    !ownStopped &&
     answerIndexes.size === 0 &&
     firstToolIndex >= 0
   ) {

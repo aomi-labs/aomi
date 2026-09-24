@@ -511,6 +511,22 @@ describe("unified live transaction review", () => {
       }),
     ).toHaveStyle({ height: "272px" });
   });
+  it("keeps an older batch behind newer work after a result revision", () => {
+    const older = { ...transfer("older"), sequence: 2 };
+    const newer = { ...transfer("newer"), sequence: 5 };
+    runtime.events = [
+      older,
+      newer,
+      { ...older, sequence: 8, revision: 2, state: "completed" },
+    ];
+    runtime.pendingActions = [newer];
+
+    render(<ActivitySidebar />);
+    const rows = screen.getAllByTestId("activity-transaction");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Send newer");
+    expect(rows[1]).toHaveTextContent("Send older");
+  });
   it("shows a signing batch in execution order", () => {
     const requestTransactions = [
       "Redeem all Morpho shares",

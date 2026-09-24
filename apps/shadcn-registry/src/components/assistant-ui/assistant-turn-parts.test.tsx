@@ -220,6 +220,25 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(view.container.querySelector(".aui-working-answer")).toBeNull();
   });
 
+  it.each(["failed", "interrupted"])(
+    "keeps a stopped historical turn's notes in its trace after %s",
+    (terminal) => {
+      state.middleText = "Checking the receipt next.";
+      state.secondTool = true;
+      state.running = false;
+      state.isLast = false;
+      state.events = [
+        { type: "turn_state_changed", turn_id: "turn-1", state: terminal },
+      ];
+
+      const view = render(<AssistantTurnParts />);
+      expect(
+        view.container.querySelector(".aui-working-trace"),
+      ).toContainElement(view.getByText(state.middleText));
+      expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    },
+  );
+
   it("places notes before and between tools in a single chronological trace", () => {
     state.prefixText = "Checking the balance.";
     state.middleText = "The balance read failed; retrying.";
