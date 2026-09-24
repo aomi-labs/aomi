@@ -609,6 +609,13 @@ describe("unified live transaction review", () => {
     view.rerender(<ActivitySidebar />);
     expect(labels()).toEqual(expected);
     expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+
+    runtime.commits = runtime.commits.map((commit, index) => ({
+      ...commit,
+      batch: commit.batch && { ...commit.batch, index: [2, 0, 1][index] },
+    }));
+    view.rerender(<ActivitySidebar />);
+    expect(labels()).toEqual([expected[1], expected[2], expected[0]]);
   });
   it("expands the shared list and distinguishes pending from finalized without Review labels", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({

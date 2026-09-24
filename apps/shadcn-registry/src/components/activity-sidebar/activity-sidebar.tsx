@@ -92,10 +92,10 @@ function ActivitySidebarContent() {
     ).values(),
   ];
   const batchKey = (tx: ActivityTransaction) =>
-    tx.action?.id
-      ? `action:${tx.action.id}`
-      : tx.commit?.batch?.batch_id
-        ? `commit:${tx.commit.batch.batch_id}`
+    tx.commit?.batch?.batch_id
+      ? `commit:${tx.commit.batch.batch_id}`
+      : tx.action?.id
+        ? `action:${tx.action.id}`
         : undefined;
   const batchSequence = new Map<string, number>();
   for (const tx of transactionRows) {
@@ -117,8 +117,8 @@ function ActivitySidebarContent() {
     const key = batchKey(a);
     if (key && key === batchKey(b)) {
       return (
-        (a.actionIndex ?? a.commit?.batch?.index ?? 0) -
-        (b.actionIndex ?? b.commit?.batch?.index ?? 0)
+        (a.commit?.batch?.index ?? a.actionIndex ?? 0) -
+        (b.commit?.batch?.index ?? b.actionIndex ?? 0)
       );
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
