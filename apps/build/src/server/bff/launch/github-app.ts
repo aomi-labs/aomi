@@ -6,11 +6,8 @@ import { authorize } from "@build/server/bff/auth";
 import { buildFailures } from "@build/server/bff/failures";
 
 /**
- * GitHub App access report for the signed-in builder: the Apps Build is
- * configured with, every installation reachable through their owned
- * projects, and — when `?platform=` is given — the platform repository's own
- * installation. A GET with no CSRF gate; the Manager answers with JWT-only
- * GitHub reads, so it is cheap enough for a settings page to re-check.
+ * GitHub App access for the selected platform repository. A GET with no CSRF
+ * gate; the Manager answers with one App-JWT read.
  */
 export async function githubAppInstallationsRoute(req: Request) {
   const auth = await authorize(req);

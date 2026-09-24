@@ -73,6 +73,11 @@ describe("launch error responses", () => {
         permission: "actions:write",
       },
     };
+    const publicDeployError = {
+      code: deployError.code,
+      hint: deployError.hint,
+      retryable: false,
+    };
     const error = new BackendError(
       "deploy",
       502,
@@ -90,7 +95,7 @@ describe("launch error responses", () => {
       error: "GitHub deployment request returned HTTP 403",
       code: "github_app_permission_missing",
       retryable: false,
-      deployError,
+      deployError: publicDeployError,
     });
     const response = launchErrorResponse(error);
     expect(response.status).toBe(502);
@@ -98,7 +103,7 @@ describe("launch error responses", () => {
       error: "GitHub deployment request returned HTTP 403",
       code: "github_app_permission_missing",
       retryable: false,
-      deployError,
+      deployError: publicDeployError,
     });
   });
 
@@ -140,7 +145,11 @@ describe("launch error responses", () => {
     expect(identifyLaunchError(unmarked).response).toMatchObject({
       code: "github_unreachable",
       retryable: true,
-      deployError: { hint: null, retryable: true, details: {} },
+      deployError: {
+        code: "github_unreachable",
+        hint: null,
+        retryable: true,
+      },
     });
   });
 

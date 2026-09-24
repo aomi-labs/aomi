@@ -4,14 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 
 const report = {
-  apps: [
-    {
-      appId: 1001,
-      slug: "aomi-build",
-      declaredPermissions: { actions: "write", contents: "write" },
-    },
-  ],
-  installations: [],
   platform: null,
 };
 

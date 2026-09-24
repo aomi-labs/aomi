@@ -20,6 +20,18 @@ export type LocalAttempt = {
   deployError?: DeployErrorDetail;
 };
 type Page = { attempts: ProjectDeploymentAttempt[]; nextPage?: number | null };
+
+function publicDeployError(raw: unknown): DeployErrorDetail | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const error = raw as Record<string, unknown>;
+  if (typeof error.code !== "string") return undefined;
+  return {
+    code: error.code,
+    hint: typeof error.hint === "string" ? error.hint : null,
+    retryable: error.retryable !== false,
+  };
+}
+
 function savedAttempts(storageKey: string): LocalAttempt[] {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
@@ -34,21 +46,17 @@ function savedAttempts(storageKey: string): LocalAttempt[] {
           typeof item.createdAt === "string",
       )
       .slice(0, 10)
-      .map(({ deployError, ...item }) => ({
-        ...item,
-        // A saved hint is only trusted while it still has the shape the card
-        // renders; anything else is dropped rather than the whole attempt.
-        ...(deployError &&
-        typeof deployError === "object" &&
-        typeof deployError.code === "string" &&
-        typeof deployError.message === "string"
-          ? { deployError: deployError as DeployErrorDetail }
-          : {}),
-        pending: false,
-        message: item.pending
-          ? "Start acknowledgement was interrupted. Reconnect to check GitHub before retrying."
-          : item.message,
-      }));
+      .map(({ deployError, ...item }) => {
+        const safeDeployError = publicDeployError(deployError);
+        return {
+          ...item,
+          ...(safeDeployError ? { deployError: safeDeployError } : {}),
+          pending: false,
+          message: item.pending
+            ? "Start acknowledgement was interrupted. Reconnect to check GitHub before retrying."
+            : item.message,
+        };
+      });
   } catch {
     return [];
   }
@@ -269,12 +277,13 @@ export function useDeploymentAttempts(
         // The BFF forwards the Manager's `deployError` on the body; keeping it
         // lets the card show the hint and, for a GitHub App permission gap,
         // link to the settings page instead of a bare "HTTP 403".
-        const deployError =
+        const deployError = publicDeployError(
           error instanceof LaunchRequestError &&
-          error.body &&
-          typeof error.body === "object"
-            ? (error.body as { deployError?: DeployErrorDetail }).deployError
-            : undefined;
+            error.body &&
+            typeof error.body === "object"
+            ? (error.body as { deployError?: unknown }).deployError
+            : undefined,
+        );
         persist(
           next.map((item) =>
             item.id === current.id

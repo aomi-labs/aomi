@@ -141,11 +141,13 @@ describe("browser deployment handoff", () => {
   it("keeps the Manager's structured reason across refresh so the card can act on it", async () => {
     const deployError = {
       code: "github_app_permission_missing",
-      message:
-        "The Aomi GitHub App cannot dispatch the deployment workflow on `aomi-labs/community-apps`",
       hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
       retryable: false,
-      details: { permission: "actions:write" },
+    };
+    const rawDeployError = {
+      ...deployError,
+      message: "internal message",
+      details: { cause: "internal diagnostic" },
     };
     request.mockImplementation(async (_id, options) => {
       if (options?.action === "start")
@@ -156,7 +158,7 @@ describe("browser deployment handoff", () => {
             error: "GitHub deployment request returned HTTP 403",
             code: "github_app_permission_missing",
             retryable: false,
-            deployError,
+            deployError: rawDeployError,
           },
         );
       return { attempts: [] };

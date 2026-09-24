@@ -206,9 +206,8 @@ function backendResponse(
 
 /**
  * The Manager's error envelope: `{ error, error_code?, deploy_error? }`. Only
- * `error` used to survive this hop, which flattened a structured "the GitHub
- * App lacks `actions: write`" into "returned HTTP 403" by the time it reached
- * a browser.
+ * `error` used to survive this hop. Only the public code, hint and retryability
+ * cross the BFF; diagnostic message/details remain server-side.
  */
 function backendErrorEnvelope(body?: string): {
   error: string | null;
@@ -228,17 +227,12 @@ function backendErrorEnvelope(body?: string): {
         ? (json.deploy_error as Record<string, unknown>)
         : null;
     const deployError =
-      raw && typeof raw.code === "string" && typeof raw.message === "string"
+      raw && typeof raw.code === "string"
         ? {
             code: raw.code,
-            message: raw.message,
             hint: typeof raw.hint === "string" ? raw.hint : null,
             // Absent means "unknown", and an unknown failure keeps its Retry.
             retryable: raw.retryable !== false,
-            details:
-              raw.details && typeof raw.details === "object"
-                ? (raw.details as Record<string, unknown>)
-                : {},
           }
         : null;
     return {

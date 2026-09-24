@@ -232,10 +232,8 @@ export class BackendClient extends BackendPlatformClient {
   }
 
   /**
-   * The GitHub App installations reachable through a builder's owned
-   * projects, each compared against what its App declares; with `platform`,
-   * also the platform repository's installation compared against what a
-   * deploy dispatch needs. Read-only, JWT-only on the Manager side.
+   * The selected platform repository's installation compared against what
+   * publishing and dispatch need. Read-only, JWT-only on the Manager side.
    */
   async listUserGitHubAppInstallations(
     input: ListUserGitHubAppInstallationsInput,

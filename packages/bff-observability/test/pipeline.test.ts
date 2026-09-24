@@ -239,6 +239,11 @@ describe("three-layer failure pipeline", () => {
       retryable: false,
       details: { permission: "actions:write" },
     };
+    const publicDeployError = {
+      code: deployError.code,
+      hint: deployError.hint,
+      retryable: false,
+    };
     const result = createFailurePipeline("build-bff").handle({
       source: "launch",
       error: new BackendError(
@@ -261,13 +266,13 @@ describe("three-layer failure pipeline", () => {
       responseStatus: 502,
       responseCode: "github_app_permission_missing",
       responseRetryable: false,
-      responseDeployError: deployError,
+      responseDeployError: publicDeployError,
     });
     await expect(result.response.json()).resolves.toEqual({
       error: "GitHub deployment request returned HTTP 403",
       code: "github_app_permission_missing",
       retryable: false,
-      deployError,
+      deployError: publicDeployError,
     });
   });
 

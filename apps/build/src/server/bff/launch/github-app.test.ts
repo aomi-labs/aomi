@@ -16,7 +16,7 @@ vi.mock("@build/server/bff/failures", () => ({
 import { githubAppInstallationsRoute } from "./github-app";
 const get = (search = "") =>
   new Request(`https://build.test/api/bff/deployments/github-app${search}`);
-const report = { apps: [], installations: [], platform: null };
+const report = { platform: null };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authorize.mockResolvedValue({ session: { githubUserId: "owner" } });

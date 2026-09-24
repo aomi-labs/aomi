@@ -156,10 +156,8 @@ describe("local attempts", () => {
         detail={localDetail({
           deployError: {
             code: "github_app_permission_missing",
-            message: "The Aomi GitHub App cannot dispatch the workflow",
             hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
             retryable: false,
-            details: { permission: "actions:write" },
           },
         })}
       />,

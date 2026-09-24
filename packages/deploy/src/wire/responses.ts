@@ -12,7 +12,6 @@ import type {
   BuilderModelKeyUsage,
   DeployResult,
   DeploymentStatus,
-  GitHubAppInstallation,
   GitHubAppInstallationsResult,
   GitHubAppPermissionGap,
   PlatformApp,
@@ -483,14 +482,6 @@ function permissionGaps(raw: unknown): GitHubAppPermissionGap[] {
     : [];
 }
 
-function installationAccount(raw: unknown): GitHubAppInstallation["account"] {
-  const account = (raw ?? {}) as Record<string, any>;
-  return {
-    login: String(account.login ?? ""),
-    type: String(account.type ?? ""),
-  };
-}
-
 export function camelGitHubAppInstallations(
   raw: unknown,
 ): GitHubAppInstallationsResult {
@@ -501,68 +492,21 @@ export function camelGitHubAppInstallations(
     | null
     | undefined;
   return {
-    apps: Array.isArray(r.apps)
-      ? r.apps.map((app: Record<string, any>) => ({
-          appId: Number(app?.app_id),
-          slug: String(app?.slug ?? ""),
-          declaredPermissions: permissionLevels(app?.declared_permissions),
-          ...(typeof app?.error === "string" ? { error: app.error } : {}),
-        }))
-      : [],
-    installations: Array.isArray(r.installations)
-      ? r.installations.map(
-          (row: Record<string, any>): GitHubAppInstallation => ({
-            installationId: Number(row?.installation_id),
-            appId: optNumber(row?.app_id),
-            appSlug: optString(row?.app_slug),
-            account: installationAccount(row?.account),
-            repositorySelection: optString(row?.repository_selection),
-            suspended: row?.suspended === true,
-            settingsUrl: optString(row?.settings_url),
-            grantedPermissions: permissionLevels(row?.granted_permissions),
-            missingPermissions: permissionGaps(row?.missing_permissions),
-            repositories: Array.isArray(row?.repositories)
-              ? row.repositories.map(String)
-              : [],
-            status: String(
-              row?.status ?? "error",
-            ) as GitHubAppInstallation["status"],
-            ...(typeof row?.error === "string" ? { error: row.error } : {}),
-          }),
-        )
-      : [],
     platform: platform
       ? {
-          name: String(platform.name ?? ""),
           githubRepo: String(platform.github_repo ?? ""),
           required: permissionLevels(platform.required),
           installation: platformInstallation
             ? {
-                installationId: Number(platformInstallation.installation_id),
-                appId: optNumber(platformInstallation.app_id),
-                appSlug: optString(platformInstallation.app_slug),
-                account: installationAccount(platformInstallation.account),
                 settingsUrl: optString(platformInstallation.settings_url),
-                grantedPermissions: permissionLevels(
-                  platformInstallation.granted_permissions,
-                ),
                 missingPermissions: permissionGaps(
                   platformInstallation.missing_permissions,
                 ),
-                status: String(
-                  platformInstallation.status ?? "error",
-                ) as GitHubAppInstallation["status"],
-                ...(typeof platformInstallation.error === "string"
-                  ? { error: platformInstallation.error }
-                  : {}),
               }
             : null,
           status: String(
             platform.status ?? "error",
           ) as PlatformInstallationStatus["status"],
-          ...(typeof platform.error === "string"
-            ? { error: platform.error }
-            : {}),
         }
       : null,
   };

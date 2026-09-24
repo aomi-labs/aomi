@@ -30,8 +30,8 @@ export type PublicFailure = {
    */
   retryable?: boolean;
   /**
-   * The Manager's structured deploy failure, forwarded verbatim so the
-   * browser can render its hint and branch on its code.
+   * Public fields from the Manager's structured deploy failure. Internal
+   * diagnostic details stay behind the BFF boundary.
    */
   deployError?: DeployErrorDetail;
 };
