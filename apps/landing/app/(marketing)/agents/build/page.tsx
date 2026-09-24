@@ -69,9 +69,9 @@ export default function AgentsBuildPage() {
             <code>cargo add aomi-sdk</code>
           </div>
 
-          <p className={styles.commandLabel}>Frontend with ShadCN</p>
+          <p className={styles.commandLabel}>Frontend widget</p>
           <div className={styles.commandBlock}>
-            <code>npx shadcn add https://aomi.dev/r/aomi-frame.json</code>
+            <code>npm install @aomi-labs/widget-lib</code>
           </div>
 
           <p className={styles.commandLabel}>

@@ -1211,6 +1211,7 @@ describe("BackendClient projects", () => {
                 name: "DEMO_KEY",
                 description: "Credential",
                 required: true,
+                user_own: true,
               },
             ],
           },
@@ -1233,11 +1234,83 @@ describe("BackendClient projects", () => {
         demo: {
           applicationId: 77,
           slots: [
-            { name: "DEMO_KEY", description: "Credential", required: true },
+            {
+              name: "DEMO_KEY",
+              description: "Credential",
+              required: true,
+              user_own: true,
+            },
           ],
         },
       },
     });
+  });
+});
+
+describe("BackendClient GitHub App access", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads the selected platform installation in camelCase", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        platform: {
+          name: "community",
+          github_repo: "aomi-labs/community-apps",
+          required: { actions: "write", contents: "write" },
+          installation: {
+            settings_url:
+              "https://github.com/organizations/aomi-labs/settings/installations/5",
+            missing_permissions: [],
+          },
+          status: "ok",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const audits: AuditEvent[] = [];
+
+    const result = await client((event) =>
+      audits.push(event),
+    ).listUserGitHubAppInstallations({
+      githubUserId: "42",
+      platform: "community",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42&platform=community",
+    );
+    expect(result).toEqual({
+      platform: {
+        githubRepo: "aomi-labs/community-apps",
+        required: { actions: "write", contents: "write" },
+        installation: {
+          settingsUrl:
+            "https://github.com/organizations/aomi-labs/settings/installations/5",
+          missingPermissions: [],
+        },
+        status: "ok",
+      },
+    });
+    expect(audits).toContainEqual(
+      expect.objectContaining({
+        action: "list_user_github_app_installations",
+        platform: "community",
+      }),
+    );
+  });
+
+  it("omits the platform block and query when no platform is given", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ platform: null }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().listUserGitHubAppInstallations({
+      githubUserId: "42",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
+    );
+    expect(result).toEqual({ platform: null });
   });
 });
 

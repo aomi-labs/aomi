@@ -2,6 +2,30 @@ export type GuestSessionProvider = ((options?: {
   forceRefresh?: boolean;
 }) => Promise<string | null>) & { clear(): void };
 
+let browserSessionTransition = Promise.resolve();
+
+/**
+ * Serialize browser operations that replace the same-origin Better Auth
+ * cookie. Without this fence, a guest bootstrap that started just before a
+ * wallet sign-in can finish last and overwrite the newly authenticated
+ * session with an anonymous one.
+ */
+export async function withBrowserSessionTransition<T>(
+  transition: () => Promise<T>,
+): Promise<T> {
+  const previous = browserSessionTransition;
+  let release!: () => void;
+  browserSessionTransition = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await transition();
+  } finally {
+    release();
+  }
+}
+
 export function createGuestSessionProvider(input: {
   baseUrl: string;
   fetch?: typeof fetch;
@@ -46,6 +70,19 @@ function isCrossOriginBrowser(baseUrl: string): boolean {
 }
 
 async function signInAnonymous(
+  fetchImpl: typeof fetch,
+  baseUrl: string,
+  runtime: "cross-origin-browser" | "same-origin-browser" | "server",
+) {
+  if (runtime === "same-origin-browser") {
+    return withBrowserSessionTransition(() =>
+      requestAnonymousSession(fetchImpl, baseUrl, runtime),
+    );
+  }
+  return requestAnonymousSession(fetchImpl, baseUrl, runtime);
+}
+
+async function requestAnonymousSession(
   fetchImpl: typeof fetch,
   baseUrl: string,
   runtime: "cross-origin-browser" | "same-origin-browser" | "server",

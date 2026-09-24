@@ -36,6 +36,7 @@ export interface AuditEvent {
     | "list_user_project_apps"
     | "exchange_github_code"
     | "list_user_projects"
+    | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
     | "list_user_deployments"
@@ -46,6 +47,7 @@ export interface AuditEvent {
     | "list_user_bots"
     | "create_user_bot"
     | "update_user_bot"
+    | "reveal_user_bot_command_secret"
     | "delete_user_bot"
     | "list_builder_model_keys"
     | "save_builder_model_key"
@@ -512,6 +514,54 @@ export interface ListUserProjectsInput extends BearerOverride {
   visibilityGrant?: string;
 }
 
+/**
+ * Structured failure detail the Manager attaches to a deploy-domain error
+ * (`deploy_error` on the wire). Internal message/details are deliberately not
+ * exposed through the BFF.
+ */
+export interface DeployErrorDetail {
+  code: string;
+  hint: string | null;
+  retryable: boolean;
+}
+
+export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
+  githubUserId: string;
+  /** Narrows the report to one platform's repository installation. */
+  platform?: string;
+}
+
+/** A permission the installation grants below what is required of it. */
+export interface GitHubAppPermissionGap {
+  permission: string;
+  required: string;
+  granted: string;
+}
+
+export type PlatformInstallationStatusKind =
+  | "ok"
+  | "missing_permissions"
+  | "suspended"
+  | "not_installed"
+  | "error";
+
+/** The platform repository's own installation, compared against what a
+ *  deploy needs of it. */
+export interface PlatformInstallationStatus {
+  githubRepo: string;
+  required: Record<string, string>;
+  installation: {
+    settingsUrl: string | null;
+    missingPermissions: GitHubAppPermissionGap[];
+  } | null;
+  status: PlatformInstallationStatusKind;
+}
+
+export interface GitHubAppInstallationsResult {
+  /** Null when the read was not narrowed to a platform. */
+  platform: PlatformInstallationStatus | null;
+}
+
 export interface GetUserProjectInput extends BearerOverride {
   githubUserId: string;
   projectId: number;
@@ -824,13 +874,24 @@ export interface BotRegistration {
   platform: string;
   status: string;
   label: string | null;
-  defaultApp: string;
-  defaultAppId?: number;
+  /** The app a new chat starts on; also picks the operating account for a
+   *  handover. */
+  handoverApp: string;
+  handoverAppId?: number;
+  /** null = the Aomi platform default, resolved by the backend at read time. */
+  miniAppUrl: string | null;
+  /** null = custom commands unsupported. Commands post to
+   *  `{commandEndpoint}/{command}`. */
+  commandEndpoint: string | null;
+  commands: string[];
   apps: BotRegistrationApp[];
   platformBotId: string;
   platformUsername: string | null;
   webhookUrl: string | null;
   threadMode: string;
+  /** Bumped by the manager on every registration change; lets a client tell
+   *  a refreshed bot from a re-fetched identical one. */
+  configurationVersion: number;
   createdAt: number;
 }
 
@@ -850,21 +911,36 @@ export interface BuilderBotsInput extends BearerOverride {
 
 export interface CreateUserBotInput extends BuilderBotsInput {
   applicationIds: number[];
-  primaryApplicationId: number;
+  handoverApplicationId: number;
   botPlatform: string;
   credential: string;
   label?: string;
   threadMode?: string;
+  /** Omitted = platform default; null or "" clears. */
+  miniAppUrl?: string | null;
+  /** Omitted = custom commands unsupported; null or "" clears. */
+  commandEndpoint?: string | null;
+  commands?: string[];
 }
 
 export interface UpdateUserBotInput extends BuilderBotsInput {
   botId: string;
   applicationIds: number[];
-  primaryApplicationId: number;
+  handoverApplicationId: number;
   /** Omitted = unchanged; blank clears the label (manager semantics). */
   label?: string;
   /** Omitted = unchanged; "single" | "multi". */
   threadMode?: string;
+  /** Omitted = unchanged; null or "" clears. */
+  miniAppUrl?: string | null;
+  /** Omitted = unchanged; null or "" clears. */
+  commandEndpoint?: string | null;
+  /** Omitted = unchanged; [] clears. */
+  commands?: string[];
+}
+
+export interface RevealUserBotCommandSecretInput extends BuilderBotsInput {
+  botId: string;
 }
 
 export interface DeleteUserBotInput extends BuilderBotsInput {
@@ -1370,11 +1446,13 @@ export interface PromoteResult {
   };
 }
 
-/** A secret an app declares via the SDK's `Secret::new(name, description, required)`. */
+/** A secret slot declared in an app release manifest. */
 export interface SecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** The chat user supplies this value. Absent and false are Builder-owned. */
+  user_own?: boolean;
 }
 
 export interface ReleaseManifestPlugin {

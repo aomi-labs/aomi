@@ -13,7 +13,6 @@ import {
   SearchIcon,
   SendIcon,
   SparklesIcon,
-  TrendingUpIcon,
   WalletIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -114,23 +113,6 @@ export const EVM_SELECTOR_REGISTRY: Record<string, SelectorMeta> = {
     kind: "erc20_metadata",
   },
 };
-
-export const TOPIC_ICON_REGISTRY: ReadonlyArray<readonly [RegExp, LucideIcon]> =
-  [
-    [/simulat/, FlaskConicalIcon],
-    [/^\s*stag|\bstage\b/, LayersIcon],
-    [/^\s*burn/, FlameIcon],
-    [/^\s*(send|commit|execute|submit|broadcast|transfer)/, SendIcon],
-    [/\bswap/, ArrowRightLeftIcon],
-    [/^\s*bridg/, CableIcon],
-    [/\b(sign|approv|allowance)/, PenLineIcon],
-    [/\b(chain context|context|network|gas|block)\b/, GlobeIcon],
-    [/\b(balance|position|portfolio|holding|wallet)/, WalletIcon],
-    [/\b(decimal|symbol|metadata|supply)/, CoinsIcon],
-    [/\b(price|quote|market|value)/, TrendingUpIcon],
-    [/\b(activat|skill)/, SparklesIcon],
-    [/\b(search|find|look ?up|resolve|fetch|get|check|read)/, SearchIcon],
-  ];
 
 export const STAGED_ACTION_ICON_REGISTRY: ReadonlyArray<
   readonly [RegExp, LucideIcon]

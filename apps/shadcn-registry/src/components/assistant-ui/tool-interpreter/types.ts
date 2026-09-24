@@ -4,10 +4,26 @@ import type { ElementType } from "react";
 export type ToolConfidence = "high" | "medium" | "fallback";
 
 export type ToolChip = {
+  key?: string;
   label: string;
-  dot?: string;
+  /** App and skill names, rendered with a graphical separator. */
+  labelParts?: readonly [string, string];
+  /** Stable identity for attribution badges with potentially identical labels. */
+  id?: string;
+  title?: string;
+  skillId?: string;
+  attribution?: "app" | "skill";
   icon?: ElementType;
+  essential?: boolean;
 };
+
+export type ToolOutcome =
+  | "success"
+  | "waiting"
+  | "failed"
+  | "cancelled"
+  | "incomplete"
+  | "unknown";
 
 export type InterpretedToolStep = {
   icon: LucideIcon;
@@ -17,6 +33,7 @@ export type InterpretedToolStep = {
   rawLabel: string;
   /** The tool reported a failure/error status (drives the red-X step marker). */
   failed: boolean;
+  outcome?: ToolOutcome;
 };
 
 export type ToolStepInput = {
@@ -26,6 +43,7 @@ export type ToolStepInput = {
   /** Earlier tool results in the same trace, used to resolve references such
    * as commit `tx_ids` back to the staged transaction's network. */
   relatedResults?: unknown[];
+  attribution?: import("./attribution").TraceAttribution;
 };
 
 export type FactKind =
@@ -36,16 +54,20 @@ export type FactKind =
   | "chain"
   | "cluster"
   | "code"
+  | "compute"
   | "count"
   | "decoded"
   | "gas"
+  | "requirement"
+  | "route"
   | "selector"
   | "skill"
   | "sourceHost"
   | "status"
   | "slot"
   | "token"
-  | "txId";
+  | "txId"
+  | "warning";
 
 export type FactRole =
   | "contract"
@@ -63,9 +85,10 @@ export type FactRole =
   | "spender"
   | "staged"
   | "to"
-  | "tx";
+  | "tx"
+  | "instruction";
 
-export type FactSource = "args" | "decoded" | "label" | "result";
+export type FactSource = "args" | "decoded" | "result";
 
 export type ToolFact = {
   kind: FactKind;

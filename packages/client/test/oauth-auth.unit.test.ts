@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { wrapFetchWithPublicApiAuthorization } from "../src/client";
-import { createGuestSessionProvider } from "../src/guest-auth";
+import {
+  createGuestSessionProvider,
+  withBrowserSessionTransition,
+} from "../src/guest-auth";
 import type { AomiOAuthTokenRequest } from "../src/authorization";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -319,6 +322,63 @@ describe("Better Auth guest bootstrap", () => {
     for (const [, init] of upstream.mock.calls) {
       expect(new Headers(init?.headers).has("authorization")).toBe(false);
     }
+  });
+
+  it("finishes an in-flight guest session before a wallet session transition", async () => {
+    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    let finishGuest!: (response: Response) => void;
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          finishGuest = resolve;
+        }),
+    );
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchImpl as typeof fetch,
+    });
+    const guestRequest = guest({ forceRefresh: true });
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledOnce());
+
+    const walletTransition = vi.fn(async () => undefined);
+    const walletRequest = withBrowserSessionTransition(walletTransition);
+    await Promise.resolve();
+    expect(walletTransition).not.toHaveBeenCalled();
+
+    finishGuest(Response.json({}));
+    await guestRequest;
+    await walletRequest;
+    expect(walletTransition).toHaveBeenCalledOnce();
+  });
+
+  it("makes a guest retry wait for an active wallet session transition", async () => {
+    vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+    let finishWallet!: () => void;
+    const walletRequest = withBrowserSessionTransition(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWallet = resolve;
+        }),
+    );
+    await Promise.resolve();
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ code: "session_exists" }, { status: 409 }),
+      );
+    const guest = createGuestSessionProvider({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchImpl as typeof fetch,
+    });
+    const guestRequest = guest({ forceRefresh: true });
+    await Promise.resolve();
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    finishWallet();
+    await walletRequest;
+    await expect(guestRequest).resolves.toBeNull();
+    expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
   it("fails closed when anonymous session establishment is unavailable", async () => {

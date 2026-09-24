@@ -20,6 +20,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "DELETE",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "DELETE",
     path: "/api/account/apps/:application_id/secrets",
     auth: ["account"],
   },
@@ -145,6 +150,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/account/onchain-policies/:provider",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
     path: "/api/account/scheduled-intents",
     auth: ["account"],
   },
@@ -182,6 +192,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "GET",
     path: "/api/admin/skills/:id",
     auth: ["admin"],
+  },
+  {
+    method: "GET",
+    path: "/api/commits/:commit_id",
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -465,17 +480,7 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
-    path: "/api/widget/v1/aa-operations/:operation_id",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
     path: "/api/widget/v1/execution-profile",
-    auth: ["account","thread"],
-  },
-  {
-    method: "GET",
-    path: "/api/widget/v1/signing-requests",
     auth: ["account","thread"],
   },
   {
@@ -535,6 +540,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/account/apps/:application_id",
+    auth: ["account"],
+  },
+  {
+    method: "POST",
     path: "/api/account/apps/:application_id/secrets",
     auth: ["account"],
   },
@@ -560,22 +570,22 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
-    path: "/api/account/onchain-policies/:provider/attach/confirm",
+    path: "/api/account/onchain-policies/:provider/:binding_id/revoke/confirm",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/onchain-policies/:provider/attach/prepare",
+    path: "/api/account/onchain-policies/:provider/:binding_id/revoke/prepare",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/onchain-policies/:provider/revoke/confirm",
+    path: "/api/account/onchain-policies/:provider/confirm",
     auth: ["account"],
   },
   {
     method: "POST",
-    path: "/api/account/onchain-policies/:provider/revoke/prepare",
+    path: "/api/account/onchain-policies/:provider/prepare",
     auth: ["account"],
   },
   {
@@ -627,6 +637,21 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/bots/telegram/:webhook_secret",
     auth: [],
+  },
+  {
+    method: "POST",
+    path: "/api/bots/telegram/:webhook_secret/binding",
+    auth: [],
+  },
+  {
+    method: "POST",
+    path: "/api/commits",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/commits/:commit_id/manual",
+    auth: ["account","thread"],
   },
   {
     method: "POST",
@@ -862,11 +887,6 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/widget/v1/signing-requests/:request_id",
     auth: ["account","thread"],
-  },
-  {
-    method: "PUT",
-    path: "/api/account/apps",
-    auth: ["account"],
   },
   {
     method: "PUT",

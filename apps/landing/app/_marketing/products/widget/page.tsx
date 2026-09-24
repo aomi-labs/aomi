@@ -9,7 +9,7 @@ import {
 import { WidgetInstallCode } from "./widget-install-code";
 import pageStyles from "./widget-product.module.css";
 
-const INSTALL_COMMAND = "npx shadcn add https://aomi.dev/r/aomi-frame.json";
+const INSTALL_COMMAND = "npm install @aomi-labs/widget-lib";
 
 export const metadata: Metadata = {
   title: "Widget | Aomi",
@@ -203,9 +203,9 @@ export function WidgetProductPageContent({
               <p className={pageStyles.eyebrow}>INSTALL AND CONFIGURE</p>
               <h2>Own the integration. Keep the execution runtime.</h2>
               <p>
-                Install the shadcn source or the package, bind one application
-                ID, and choose the authentication and wallets that already
-                belong in your product.
+                Install the packaged widget, bind one application ID, and choose
+                the authentication and wallets that already belong in your
+                product.
               </p>
               <div className={pageStyles.commandBox} data-liquid-glass>
                 <Code2 aria-hidden className="size-4" />

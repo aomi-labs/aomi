@@ -10,6 +10,10 @@
  */
 
 import { useEffect, useSyncExternalStore } from "react";
+import {
+  MICROUSD_PER_CREDIT,
+  type AomiCreditPosition,
+} from "@aomi-labs/client";
 import { settingsApiFetch } from "./settings-api";
 import { useShellTransport, type ShellRequest } from "../transport";
 
@@ -21,11 +25,36 @@ export type AccountProfile = {
   created_at?: number;
   /** The account's installed apps (`users.applications`). */
   apps?: string[];
+  /** Exact installed hosted application rows. */
+  application_ids?: number[];
 };
 
 export type AccountOverview = {
   user: AccountProfile;
 };
+
+export type CreditAllowance = {
+  used: number;
+  included: number;
+};
+
+export function creditAllowanceFromPosition(
+  position: Partial<AomiCreditPosition> | null | undefined,
+): CreditAllowance | null {
+  if (!position) return null;
+  const included = position.included;
+  if (
+    !included ||
+    !Number.isFinite(included.used_microusd) ||
+    !Number.isFinite(included.limit_microusd)
+  ) {
+    return null;
+  }
+  return {
+    used: included.used_microusd / MICROUSD_PER_CREDIT,
+    included: included.limit_microusd / MICROUSD_PER_CREDIT,
+  };
+}
 
 function createOverviewStore(fetchOverview: ShellRequest) {
   let current: AccountOverview | null = null;
@@ -49,9 +78,20 @@ function createOverviewStore(fetchOverview: ShellRequest) {
   }
 
   /** Apply an installed-app response only to the account that requested it. */
-  function updateAccountApps(userId: string, apps: string[]): void {
+  function updateAccountApps(
+    userId: string,
+    apps: string[],
+    applicationIds?: number[],
+  ): void {
     if (current?.user.user_id !== userId) return;
-    seedAccountOverview({ ...current, user: { ...current.user, apps } });
+    seedAccountOverview({
+      ...current,
+      user: {
+        ...current.user,
+        apps,
+        application_ids: applicationIds ?? current.user.application_ids,
+      },
+    });
   }
 
   /** Drop a snapshot that belongs to a different authenticated account. */
@@ -141,7 +181,7 @@ export function useAccountOverview(): AccountOverview | null {
   }, [data, store]);
   return data;
 }
-/** Shared allowance line — matches mock sidebar/menu and Usage tab copy. */
+/** Shared allowance line for the account menu and Usage surfaces. */
 export function formatAllowanceSummary(used: number, included: number): string {
   const remaining = Math.max(0, included - used);
   return `${remaining.toLocaleString()} left · ${used.toLocaleString()}/${included.toLocaleString()} used`;

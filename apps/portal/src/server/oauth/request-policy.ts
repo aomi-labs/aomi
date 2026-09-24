@@ -239,9 +239,11 @@ async function enforceAomiRegistration(
     }
   } else if (
     requestedResources.length !== 1 ||
-    ![resources.agentRest, resources.pipelineRest].includes(
-      requestedResources[0] as typeof resources.agentRest,
-    )
+    ![
+      resources.agentRest,
+      resources.pipelineRest,
+      resources.accountRest,
+    ].includes(requestedResources[0] as typeof resources.agentRest)
   ) {
     return oauthError(
       "invalid_target",

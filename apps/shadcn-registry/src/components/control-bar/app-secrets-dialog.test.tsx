@@ -15,14 +15,37 @@ const control = vi.hoisted(() => ({
         applicationId: 42,
         label: "OKX",
         secrets: [
-          { name: "OKX_API_KEY", description: "API key", required: true },
-          { name: "OKX_API_SECRET", description: "API secret", required: true },
+          {
+            name: "OKX_API_KEY",
+            description: "API key",
+            required: true,
+            user_own: true,
+          },
+          {
+            name: "OKX_API_SECRET",
+            description: "API secret",
+            required: true,
+            user_own: true,
+          },
           {
             name: "OKX_PASSPHRASE",
             description: "Passphrase",
             required: false,
+            user_own: true,
+          },
+          {
+            name: "OKX_SHARED_ENDPOINT",
+            description: "Configured by the app",
+            required: true,
+            user_own: false,
           },
         ],
+      },
+      {
+        name: "retired-secrets",
+        applicationId: 43,
+        label: "Retired secrets",
+        secrets: [],
       },
     ],
   },
@@ -88,11 +111,17 @@ import { AppSecretsDialog } from "./app-secrets-dialog";
 const status = (overrides: Partial<Record<string, boolean>> = {}) => ({
   application_id: 42,
   app: "okx",
+  ready:
+    (overrides.OKX_API_KEY ?? false) && (overrides.OKX_API_SECRET ?? false),
+  missing_required: ["OKX_API_KEY", "OKX_API_SECRET"].filter(
+    (name) => !overrides[name],
+  ),
   slots: [
     {
       name: "OKX_API_KEY",
       description: "API key",
       required: true,
+      user_own: true,
       configured: overrides.OKX_API_KEY ?? false,
       app_provided: false,
     },
@@ -100,6 +129,7 @@ const status = (overrides: Partial<Record<string, boolean>> = {}) => ({
       name: "OKX_API_SECRET",
       description: "API secret",
       required: true,
+      user_own: true,
       configured: overrides.OKX_API_SECRET ?? false,
       app_provided: false,
     },
@@ -107,6 +137,7 @@ const status = (overrides: Partial<Record<string, boolean>> = {}) => ({
       name: "OKX_PASSPHRASE",
       description: "Passphrase",
       required: false,
+      user_own: true,
       configured: false,
       app_provided: false,
     },
@@ -167,6 +198,7 @@ describe("AppSecretsDialog", () => {
     );
     expect(screen.getAllByText("Saved")).toHaveLength(2);
     expect(screen.getByText("Optional")).toBeInTheDocument();
+    expect(screen.queryByLabelText("OKX_SHARED_ENDPOINT")).toBeNull();
   });
 
   it("removes a saved key and refetches", async () => {
@@ -188,6 +220,52 @@ describe("AppSecretsDialog", () => {
         "data-app-secrets-state",
         "missing",
       ),
+    );
+  });
+
+  it("keeps obsolete stored credentials visible for removal", async () => {
+    control.getCurrentThreadApp.mockReturnValue("retired-secrets");
+    control.getCurrentThreadApplicationId.mockReturnValue(43);
+    control.listAppSecrets
+      .mockResolvedValueOnce({
+        application_id: 43,
+        app: "retired-secrets",
+        ready: true,
+        missing_required: [],
+        slots: [
+          {
+            name: "LEGACY_KEY",
+            description: "Removed from the current manifest",
+            required: false,
+            user_own: true,
+            configured: true,
+            app_provided: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        application_id: 43,
+        app: "retired-secrets",
+        ready: true,
+        missing_required: [],
+        slots: [],
+      });
+
+    render(<AppSecretsDialog />);
+
+    expect(
+      await screen.findByText("This saved credential can only be removed."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("LEGACY_KEY")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Remove LEGACY_KEY"));
+
+    await waitFor(() =>
+      expect(control.deleteAppSecret).toHaveBeenCalledWith(43, "LEGACY_KEY"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("This saved credential can only be removed."),
+      ).toBeNull(),
     );
   });
 

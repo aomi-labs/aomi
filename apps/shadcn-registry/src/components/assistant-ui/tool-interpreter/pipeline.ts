@@ -1,35 +1,8 @@
-import {
-  chainFact,
-  asRecord,
-  asString,
-  topicTokenFact,
-  tokenFact,
-  uniqueFacts,
-} from "./normalize";
-import {
-  matchChainContext,
-  matchError,
-  matchNativeBalance,
-  matchSkillActivation,
-  matchTokenLookup,
-  matchWebSearch,
-} from "./families/simple";
-import {
-  matchEvmPendingApproval,
-  matchEvmSimulation,
-  matchStagedTx,
-} from "./families/evm-tx";
-import {
-  matchLifiApproval,
-  matchLifiQuote,
-  matchLifiSwapPrep,
-} from "./families/lifi";
-import { matchJupiterSwapPrep } from "./families/jupiter";
-import { matchSvmContext, matchSvmTokenHoldings } from "./families/svm";
-import { matchSvmPendingApproval, matchSvmSimulation } from "./families/svm-tx";
-import { matchEvmCall } from "./families/evm-call";
-import { matchTaskDelegation } from "./families/task";
+import { coreToolTitle, declaredToolIdentity } from "./identity";
+import { coreMatchersFor } from "./families";
+import { matchError } from "./families/general/errors";
 import { presentOperation } from "./present";
+import { protocolMatcherFor } from "./protocols";
 import type {
   InterpretedToolStep,
   ToolConfidence,
@@ -37,58 +10,50 @@ import type {
   ToolMatcher,
 } from "./types";
 
-const matchers: ToolMatcher[] = [
-  matchTaskDelegation,
-  matchWebSearch,
-  matchSkillActivation,
-  matchSvmContext,
-  matchSvmTokenHoldings,
-  matchChainContext,
-  matchNativeBalance,
-  matchTokenLookup,
-  matchJupiterSwapPrep,
-  matchLifiSwapPrep,
-  matchLifiQuote,
-  matchLifiApproval,
-  matchSvmSimulation,
-  matchSvmPendingApproval,
-  matchStagedTx,
-  matchEvmSimulation,
-  matchEvmPendingApproval,
-  matchEvmCall,
-  matchError,
-];
+/** Identity selects an adapter; payload shape only determines facts inside it. */
+const matchersFor = (name: string): ToolMatcher[] => {
+  const protocol = protocolMatcherFor(name);
+  return [
+    ...(coreMatchersFor(name) ?? (protocol ? [protocol] : [])),
+    matchError,
+  ];
+};
 
 const fallbackOperation = (ctx: ToolContext) => {
-  const args = asRecord(ctx.parsedArgs);
-  const symbol = asString(args?.symbol);
-  const facts = uniqueFacts(
-    [
-      topicTokenFact(ctx.rawLabel),
-      chainFact(args?.chain_id, args?.chain_name, "args"),
-      symbol ? tokenFact(symbol, "args") : null,
-    ].filter((fact): fact is NonNullable<typeof fact> => fact != null),
-  );
-
-  const confidence: ToolConfidence = facts.length > 0 ? "medium" : "fallback";
+  const name = declaredToolIdentity(ctx.rawLabel);
+  const coreIds: Record<string, string> = {
+    brave_search: "web.search",
+    activate_skills: "skill.activate",
+    get_contract: "evm.contract.lookup.found",
+    encode_and_call: "evm.call.generic",
+    sim_call: "evm.call.generic",
+  };
+  const coreId = Object.hasOwn(coreIds, name) ? coreIds[name] : undefined;
+  const confidence: ToolConfidence = coreId ? "high" : "fallback";
 
   return {
-    id: "fallback",
-    facts,
+    id: coreId ?? "fallback",
+    facts: [],
     confidence,
     rawLabel: ctx.rawLabel,
-    title: /^(?:evm[_ .-])?get[_ .-]erc20[_ .-]balance$/i.test(ctx.rawLabel)
-      ? "Get balance"
-      : undefined,
+    title: coreToolTitle(ctx.rawLabel),
   };
 };
 
 export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
+  const name = declaredToolIdentity(ctx.rawLabel);
   const operation =
-    matchers.reduce<ReturnType<ToolMatcher>>(
+    matchersFor(name).reduce<ReturnType<ToolMatcher>>(
       (matched, matcher) => matched ?? matcher(ctx),
       null,
     ) ?? fallbackOperation(ctx);
 
-  return presentOperation(operation);
+  const coreTitle = coreToolTitle(ctx.rawLabel);
+  const keepsSemanticTitle = operation.id.startsWith("evm.call.erc20.");
+  return presentOperation({
+    ...operation,
+    title: keepsSemanticTitle
+      ? operation.title
+      : (coreTitle ?? operation.title),
+  });
 };

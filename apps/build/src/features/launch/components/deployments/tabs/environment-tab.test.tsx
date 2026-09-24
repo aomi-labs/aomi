@@ -200,6 +200,44 @@ describe("EnvironmentTab", () => {
     );
   });
 
+  it("keeps user-owned slots out of the Builder environment", () => {
+    const requiredDetail = {
+      ...detail,
+      secretsByApp: {
+        demo: [
+          "$SECRET:APP:demo::EXISTING_KEY",
+          "$SECRET:APP:demo::USER_TRADING_KEY",
+        ],
+      },
+      requiredSecrets: {
+        demo: {
+          applicationId: 11,
+          slots: [
+            {
+              name: "BUILDER_KEY",
+              description: "Builder service key.",
+              required: true,
+            },
+            {
+              name: "USER_TRADING_KEY",
+              description: "Each chat user supplies this.",
+              required: true,
+              user_own: true,
+            },
+          ],
+          missing: ["BUILDER_KEY", "USER_TRADING_KEY"],
+        },
+      },
+    } as typeof detail;
+
+    renderTab({ detail: requiredDetail });
+
+    expect(screen.getByText("BUILDER_KEY")).toBeInTheDocument();
+    expect(screen.getByText(/1 required secret missing/i)).toBeInTheDocument();
+    expect(screen.queryByText("USER_TRADING_KEY")).toBeNull();
+    expect(screen.queryByText("Each chat user supplies this.")).toBeNull();
+  });
+
   it("lists an app the gate flagged but the source snapshot predates", () => {
     // A deploy re-syncs the source from the repo, so the required-secret check
     // can name an app this page's `source.apps` does not have yet. Without the

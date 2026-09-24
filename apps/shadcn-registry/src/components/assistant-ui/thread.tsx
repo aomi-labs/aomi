@@ -52,6 +52,7 @@ import {
 } from "@aomi-labs/react";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
+import { AssistantMessageRow } from "./assistant-message-row";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
 import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
@@ -69,6 +70,8 @@ import {
   CapabilityMentionInput,
   useCapabilityComposer,
 } from "@/components/assistant-ui/capability-composer";
+
+import { TraceAttributionProvider } from "./trace-attribution";
 
 export const Thread: FC = () => {
   const composerRuntime = useComposerRuntime();
@@ -91,51 +94,53 @@ export const Thread: FC = () => {
       enabledAppIds={controlBarProps.enabledAppIds}
       routing={controlBarProps.routing}
     >
-      <LazyMotion features={domMax}>
-        <MotionConfig reducedMotion="user">
-          <ThreadPrimitive.Root
-            className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
-            style={{
-              ["--thread-max-width" as string]: "45rem",
-            }}
-          >
-            <PaymentRequiredGate />
-            <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
-                <ThreadPrimitive.Viewport
-                  autoScroll={!isReviewingAction}
-                  className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
-                >
-                  <ThreadPrimitive.If empty>
-                    <ThreadWelcome />
-                  </ThreadPrimitive.If>
+      <TraceAttributionProvider>
+        <LazyMotion features={domMax}>
+          <MotionConfig reducedMotion="user">
+            <ThreadPrimitive.Root
+              className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
+              style={{
+                ["--thread-max-width" as string]: "45rem",
+              }}
+            >
+              <PaymentRequiredGate />
+              <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
+                  <ThreadPrimitive.Viewport
+                    autoScroll={!isReviewingAction}
+                    className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
+                  >
+                    <ThreadPrimitive.If empty>
+                      <ThreadWelcome />
+                    </ThreadPrimitive.If>
 
-                  <ThreadLoadingSkeleton />
+                    <ThreadLoadingSkeleton />
 
-                  <ThreadPrimitive.Messages
-                    components={{
-                      UserMessage,
-                      EditComposer,
-                      AssistantMessage,
-                    }}
-                  />
+                    <ThreadPrimitive.Messages
+                      components={{
+                        UserMessage,
+                        EditComposer,
+                        AssistantMessage,
+                      }}
+                    />
 
-                  <ThreadPrimitive.If empty={false}>
-                    <div className="aui-thread-viewport-spacer min-h-36 grow" />
-                  </ThreadPrimitive.If>
-                </ThreadPrimitive.Viewport>
+                    <ThreadPrimitive.If empty={false}>
+                      <div className="aui-thread-viewport-spacer min-h-36 grow" />
+                    </ThreadPrimitive.If>
+                  </ThreadPrimitive.Viewport>
 
-                {/* The empty state carries its own hero composer (mock layout); the
+                  {/* The empty state carries its own hero composer (mock layout); the
               docked composer appears once a conversation exists. */}
-                <ThreadPrimitive.If empty={false}>
-                  <Composer />
-                </ThreadPrimitive.If>
+                  <ThreadPrimitive.If empty={false}>
+                    <Composer />
+                  </ThreadPrimitive.If>
+                </div>
+                {aomiRuntime && <ActivitySidebar />}
               </div>
-              {aomiRuntime && <ActivitySidebar />}
-            </div>
-          </ThreadPrimitive.Root>
-        </MotionConfig>
-      </LazyMotion>
+            </ThreadPrimitive.Root>
+          </MotionConfig>
+        </LazyMotion>
+      </TraceAttributionProvider>
     </CapabilityComposerProvider>
   );
 };
@@ -404,8 +409,8 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           <ExecutionControl />
-          {/* Renders only when the directly targeted app declares secret
-              slots: the signed-in user's own keys for account-bound venues. */}
+          {/* Renders only when the directly targeted app asks the signed-in
+              user for app credentials. */}
           {!hideAppSecrets && <AppSecretsDialog />}
           {!hideWallet && <ConnectButton />}
           {!hideApiKey && <ApiKeyInput />}
@@ -553,14 +558,7 @@ const AssistantMessage: FC = () => {
         )}
         data-role="assistant"
       >
-        <div className="aui-assistant-message-row flex w-full gap-3 px-3">
-          {!showFinishedEmptyMessage && (
-            <AomiMark
-              size={26}
-              className="text-aomi-fg mt-0.5 shrink-0"
-              aria-hidden
-            />
-          )}
+        <AssistantMessageRow showMark={!showFinishedEmptyMessage}>
           <div className="aui-assistant-message-col min-w-0 flex-1">
             {!showFinishedEmptyMessage && isNotice && (
               <div
@@ -609,7 +607,7 @@ const AssistantMessage: FC = () => {
               </div>
             )}
           </div>
-        </div>
+        </AssistantMessageRow>
       </div>
     </MessagePrimitive.Root>
   );
@@ -666,11 +664,11 @@ const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
       <div
-        className="aui-user-message-root animate-in fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 py-4 duration-150 ease-out first:mt-3 last:mb-5 [&:where(>*)]:col-start-2"
+        className="aui-user-message-root animate-in fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(28px,1fr)_minmax(0,auto)] gap-y-2 px-2 py-4 duration-150 ease-out first:mt-3 last:mb-5 md:grid-cols-[minmax(72px,1fr)_minmax(0,auto)] [&:where(>*)]:col-start-2"
         data-role="user"
       >
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0 max-w-[32rem] justify-self-end">
-          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg break-words rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px]">
+          <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px] [overflow-wrap:anywhere]">
             {isEmpty ? (
               <Skeleton className="aui-user-message-content-skeleton h-4 w-28 rounded-full" />
             ) : (

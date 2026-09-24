@@ -2,7 +2,7 @@
 
 import { useShellTransport } from "../../transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Library, Loader2, X } from "lucide-react";
+import { ArrowLeft, Library, Loader2, X } from "lucide-react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { ModalBackdrop } from "../../../ui/modal-backdrop";
 import { requestCapabilityMention } from "../../../assistant-ui/capability-composer";
@@ -15,8 +15,12 @@ import {
   useAccountOverview,
 } from "../../lib/account-overview";
 import { LibraryDetailPanel } from "./library-detail-panel";
-import { PINNED_APPS } from "./packages-catalog";
-import { setInstalledApps } from "./packages-api";
+import {
+  packageIdentityKey,
+  PINNED_APPS,
+  type CatalogPackage,
+} from "./packages-catalog";
+import { installApp, uninstallApp } from "./packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
 import { directoryModalType } from "./directory-modal-type";
 import {
@@ -55,6 +59,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const [view, setView] = useState<LibraryView>("discover");
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const mutationInFlight = useRef(false);
@@ -62,46 +67,66 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   const accountUserId = account?.user.user_id;
-  const installedBaseline = account?.user.apps ?? null;
-  const installedReady = installedBaseline !== null;
+  const installedReady = catalog !== null && accountUserId != null;
   const installedIds = useMemo(() => {
-    const ids = new Set(installedBaseline ?? []);
-    for (const pinned of PINNED_APPS) ids.add(pinned);
+    const ids = new Set(
+      (catalog ?? [])
+        .filter((app) => app.installed || app.pinned)
+        .map(packageIdentityKey),
+    );
+    for (const pinned of PINNED_APPS) ids.add(`name:${pinned}`);
     return ids;
-  }, [installedBaseline]);
+  }, [catalog]);
 
   const mutateInstalled = useCallback(
-    async (packageId: string, next: string[]) => {
-      if (!installedReady || !accountUserId || mutationInFlight.current) return;
+    async (app: CatalogPackage, install: boolean) => {
+      if (!installedReady || !accountUserId || mutationInFlight.current)
+        return false;
+      if (app.applicationId == null) {
+        setActionError("This app does not expose an installable identity.");
+        return false;
+      }
+      const packageId = packageIdentityKey(app);
       mutationInFlight.current = true;
       setBusyId(packageId);
       setActionError(null);
       try {
-        const apps = await setInstalledApps(next, transport.json);
-        updateAccountApps(accountUserId, apps);
+        const result = install
+          ? await installApp(app.applicationId, transport.json)
+          : await uninstallApp(app.applicationId, transport.json);
+        const previousIds = account?.user.application_ids ?? [];
+        const applicationId = Number(result.application_id);
+        const applicationIds = install
+          ? [...new Set([...previousIds, applicationId])]
+          : previousIds.filter((id) => id !== applicationId);
+        updateAccountApps(accountUserId, result.apps, applicationIds);
+        retryApps();
+        return true;
       } catch (cause) {
         setActionError(
           cause instanceof Error ? cause.message : "Couldn’t update apps",
         );
+        return false;
       } finally {
         mutationInFlight.current = false;
         setBusyId(null);
       }
     },
-    [accountUserId, installedReady, transport, updateAccountApps],
+    [
+      account?.user.application_ids,
+      accountUserId,
+      installedReady,
+      retryApps,
+      transport,
+      updateAccountApps,
+    ],
   );
 
-  const install = (packageId: string) => {
-    void mutateInstalled(packageId, [
-      ...[...installedIds].filter((id) => id !== packageId),
-      packageId,
-    ]);
+  const install = (app: CatalogPackage) => {
+    return mutateInstalled(app, true);
   };
-  const uninstall = (packageId: string) => {
-    void mutateInstalled(
-      packageId,
-      [...installedIds].filter((id) => id !== packageId),
-    );
+  const uninstall = (app: CatalogPackage) => {
+    void mutateInstalled(app, false);
   };
   const trySkill = (skill: SkillSummary) => {
     requestCapabilityMention({ kind: "skill", id: skill.id });
@@ -147,7 +172,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   }, [view, query]);
   const selectedInstalled =
     activeSelection?.kind === "app" &&
-    installedIds.has(activeSelection.item.id);
+    installedIds.has(packageIdentityKey(activeSelection.item));
   const waiting =
     view === "apps" || view === "installed"
       ? catalog === null
@@ -182,8 +207,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         >
           <X className="size-3.5" />
         </button>
-        <div className="grid h-full min-h-0 md:grid-cols-[185px_minmax(0,1fr)_300px]">
-          <aside className="border-aomi-border bg-aomi-bg/40 min-h-0 overflow-y-auto border-r p-3">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[185px_minmax(0,1fr)_300px] md:grid-rows-1">
+          <aside
+            className={`border-aomi-border bg-aomi-bg/40 min-h-0 min-w-0 border-b p-3 md:overflow-y-auto md:border-b-0 md:border-r ${mobileDetailOpen ? "max-md:hidden" : ""}`}
+          >
             <div className="flex items-center gap-2 px-2.5 py-3">
               <Library className="text-aomi-accent size-4" />
               <h1
@@ -193,7 +220,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 Library
               </h1>
             </div>
-            <nav className="mt-3 space-y-0.5" aria-label="Library sections">
+            <nav
+              className="mt-2 flex gap-1 overflow-x-auto md:mt-3 md:block md:space-y-0.5"
+              aria-label="Library sections"
+            >
               {NAV_ITEMS.map((item) => (
                 <SidebarButton
                   key={item.id}
@@ -208,8 +238,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                     item.id === "discover"
                       ? allEntries.length
                       : item.id === "installed"
-                        ? appEntries.filter((entry) =>
-                            installedIds.has(entry.item.id),
+                        ? appEntries.filter(
+                            (entry) =>
+                              entry.kind === "app" &&
+                              installedIds.has(packageIdentityKey(entry.item)),
                           ).length
                         : item.id === "apps"
                           ? appEntries.length
@@ -218,11 +250,14 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 />
               ))}
             </nav>
-            <div className="border-aomi-border mt-5 border-t pt-4">
-              <span className="text-aomi-muted px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]">
+            <div className="border-aomi-border mt-2 md:mt-5 md:border-t md:pt-4">
+              <span className="text-aomi-muted hidden px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:block">
                 Categories
               </span>
-              <nav className="mt-2 space-y-0.5" aria-label="Library categories">
+              <nav
+                className="mt-2 flex gap-1 overflow-x-auto md:block md:space-y-0.5"
+                aria-label="Library categories"
+              >
                 {CATEGORIES.map((category) => (
                   <SidebarButton
                     key={category.id}
@@ -240,7 +275,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             </div>
           </aside>
 
-          <main className="flex min-h-0 min-w-0 flex-col p-4">
+          <main
+            className={`flex min-h-0 min-w-0 flex-col p-4 ${mobileDetailOpen ? "max-md:hidden" : ""}`}
+          >
             <SearchField
               query={query}
               onQueryChange={(next) => {
@@ -250,7 +287,10 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               searchRef={searchRef}
             />
             {actionError ? (
-              <p className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs">
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mt-3 rounded-xl px-3 py-2 text-xs"
+              >
                 {actionError}
               </p>
             ) : null}
@@ -302,14 +342,25 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                         }
                         installed={
                           entry.kind === "app" &&
-                          installedIds.has(entry.item.id)
+                          installedIds.has(packageIdentityKey(entry.item))
                         }
-                        busy={entry.kind === "app" && busyId === entry.item.id}
+                        busy={
+                          entry.kind === "app" &&
+                          busyId === packageIdentityKey(entry.item)
+                        }
                         disabled={!installedReady || busyId !== null}
                         activeChainId={activeChainId}
-                        onSelect={() => setSelectedKey(selectionKey(entry))}
+                        onSelect={() => {
+                          setSelectedKey(selectionKey(entry));
+                          setMobileDetailOpen(true);
+                        }}
                         onInstall={() =>
-                          entry.kind === "app" && install(entry.item.id)
+                          entry.kind === "app" && entry.item.secrets.length > 0
+                            ? (() => {
+                                setSelectedKey(selectionKey(entry));
+                                setMobileDetailOpen(true);
+                              })()
+                            : entry.kind === "app" && void install(entry.item)
                         }
                         onTry={() =>
                           entry.kind === "skill" && trySkill(entry.item)
@@ -322,19 +373,45 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             </div>
           </main>
 
-          <LibraryDetailPanel
-            selection={activeSelection}
-            installed={selectedInstalled}
-            installedReady={installedReady}
-            busy={
-              activeSelection?.kind === "app" &&
-              busyId === activeSelection.item.id
+          <div
+            className={
+              mobileDetailOpen
+                ? "bg-aomi-raised absolute inset-0 z-10 flex min-h-0 flex-col md:static md:z-auto"
+                : "hidden min-h-0 md:flex md:flex-col"
             }
-            activeChainId={activeChainId}
-            onInstall={install}
-            onUninstall={uninstall}
-            onTrySkill={trySkill}
-          />
+          >
+            <button
+              type="button"
+              onClick={() => setMobileDetailOpen(false)}
+              className="border-aomi-border flex shrink-0 items-center gap-2 border-b px-4 py-4 pr-14 text-sm md:hidden"
+            >
+              <ArrowLeft className="size-4" />
+              Back to library
+            </button>
+            {actionError && mobileDetailOpen ? (
+              <p
+                role="alert"
+                className="bg-aomi-surface-2 text-aomi-danger mx-4 mt-3 rounded-xl px-3 py-2 text-xs md:hidden"
+              >
+                {actionError}
+              </p>
+            ) : null}
+            <LibraryDetailPanel
+              key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${mobileDetailOpen}`}
+              selection={activeSelection}
+              installed={selectedInstalled}
+              installedReady={installedReady}
+              busy={
+                activeSelection?.kind === "app" &&
+                busyId === packageIdentityKey(activeSelection.item)
+              }
+              activeChainId={activeChainId}
+              accountUserId={accountUserId}
+              onInstall={install}
+              onUninstall={uninstall}
+              onTrySkill={trySkill}
+            />
+          </div>
         </div>
       </div>
     </div>

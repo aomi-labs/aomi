@@ -1,3 +1,41 @@
+# GPT-6 model rollout — 2026-09-23
+
+The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
+
+# Landing developer examples refresh — 2026-09-24
+
+The landing examples branch now includes current main after the companion docs PR #56 merged. PR #554 keeps examples aligned with current source while labeling published-package and deployed-API compatibility limits.
+
+# Working-trace app and skill attribution — 2026-09-24
+
+PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
+
+# Working trace contract cleanup — 2026-09-23
+
+Follow-up: removed decorative blue dots from text-only data chips, displayed
+Arc account native USDC balance, and split interpretation into EVM, SVM,
+general, and individual protocol adapters. New protocol files are picked up by
+the registry build after one adapter registration. The original PR remains the
+review target.
+
+Created a clean paired frontend/backend worktree from freshly fetched
+`origin/main`. The shared widget now routes tool presentation by declared
+identity, uses one lifecycle layout for EVM and Solana, shows Commit Service
+states and truthful count units, and leaves unknown skill tools neutral.
+Core action names remain stable while active and after results or errors.
+Aave and other supported preparation tools have explicit semantic
+presentations. The maintained contract is in
+`docs/topics/apps/facts/working-trace.md`; backend source is unchanged.
+The widget's 598 tests, focused contract tests, registry build, frontend
+boundary check, trusted-base packed consumer build, and transaction-review
+browser fixture pass. The isolated widget TypeScript check still reports
+pre-existing errors in control-bar and wallet-kit test files unrelated to
+this change.
+
+# Arc protocol support planning — 2026-09-20
+
+Explored Arc mainnet support in the paired `arc-protocol-support-plan` worktrees. Product implementation has not started. Backend-owned plan: `../product-mono/docs/plans/2026-09-20-arc-protocol-support.md`. Existing Arc wallet, chain, icon and explorer support will be reused; proposed frontend work focuses on USDC units, protocol result presentation and authenticated staging verification.
+
 # Current work
 
 **COMMIT SERVICE CLIENT CUTOVER 2026-09-17** — Isolated
@@ -56,8 +94,7 @@ backend or database. The first Tailscale preview used Landing's
 `/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
 Landing's missing route (404). The current managed runtime serves the actual
 `apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
-pointed at `https://chat-staging.aomi.dev` with public Across application
-24895. Read-only inspection confirmed the host fixture's global `h1` rule
+pointed at `https://chat-staging.aomi.dev` with public Across application 24895. Read-only inspection confirmed the host fixture's global `h1` rule
 changes the widget welcome title from its intended 30px to 60px, and its
 global `header` rule caps the internal widget header at 760px and adds a 24px
 bottom margin. The consumer's routing prop visibly offers Auto and Direct,
@@ -2743,3 +2780,10 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
 - Bumped the account package patch version for its shipped budget JSON.
 - Local managed builds are blocked by disk headroom; PR CI is the test gate.
 - Scope is main only. This work does not promote production or publish npm.
+
+## 2026-09-20 — Arc protocol presentation
+
+- Added structured Aave V4, Morpho and Circle protocol result chips, including bridge direction and distinct preparation/attestation statuses.
+- Bound Arc USDC approval display to its six-decimal ERC-20 contract; added Aave V4 and Circle Gateway skill icons.
+- Registered the new interpreter source in the distributable registry and bumped widget-lib to 3.0.2 after syncing the concurrent main release.
+- Focused interpreter/icon tests and trusted-base packed-consumer builds passed. No public API changed; no hosted browser or real-wallet execution is implied by package validation.

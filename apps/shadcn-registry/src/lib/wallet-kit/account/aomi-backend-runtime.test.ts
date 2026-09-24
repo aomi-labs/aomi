@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { withBrowserSessionTransition } from "@aomi-labs/client";
 import {
   buildSiweMessage,
   buildWalletLinkMessage,
@@ -196,14 +197,30 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(result.current.user).toBeUndefined();
     expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
 
-    await act(async () => {
-      await result.current.linkWallet?.({
+    let finishGuestTransition!: () => void;
+    const guestTransition = withBrowserSessionTransition(
+      () =>
+        new Promise<void>((resolve) => {
+          finishGuestTransition = resolve;
+        }),
+    );
+    await Promise.resolve();
+    let signIn!: Promise<void>;
+    act(() => {
+      signIn = result.current.linkWallet!({
         accountId: "rabby-1",
         family: "evm",
         address,
         chainId: 1,
       });
     });
+    await Promise.resolve();
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+    expect(mockState.accountClient?.createSiweNonce).not.toHaveBeenCalled();
+
+    finishGuestTransition();
+    await guestTransition;
+    await act(async () => signIn);
     await waitFor(() =>
       expect(result.current.user?.id).toBe("existing-wallet-owner"),
     );

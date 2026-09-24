@@ -187,4 +187,22 @@ describe("Aomi OAuth resource policy", () => {
     );
     expect(result).toMatchObject({ ok: false, error: "invalid_scope" });
   });
+  it("limits app credential capabilities to authenticated account grants", () => {
+    const resources = aomiOAuthResources(env);
+    const scopes = [
+      "account:apps:read",
+      "account:apps:write",
+      "account:credentials:read",
+      "account:credentials:write",
+    ];
+    expect(
+      validateAomiResourceScopes(resources.accountRest, scopes, env),
+    ).toMatchObject({ ok: true });
+    expect(
+      validateAomiResourceScopes(resources.agentRest, scopes, env),
+    ).toMatchObject({ ok: false });
+    expect(
+      guestScopesForAomiResource(resources.accountRest, scopes, env),
+    ).toEqual([]);
+  });
 });

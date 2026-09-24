@@ -1,6 +1,12 @@
 export type KnownToken = { symbol: string; decimals: number };
 
 const KNOWN_TOKENS: Readonly<Record<string, KnownToken>> = {
+  // Arc's ERC-20 USDC interface uses six decimals. Native gas quantities
+  // represent the same balance at eighteen decimals and are handled separately.
+  "5042:0x3600000000000000000000000000000000000000": {
+    symbol: "USDC",
+    decimals: 6,
+  },
   // Base's canonical native USDC contract, also used by the repository's
   // wallet-impact metadata fixture and chain integrations.
   "8453:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": {

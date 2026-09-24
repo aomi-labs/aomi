@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { LaunchRequestError } from "@aomi-labs/deploy/launch";
 import { useDeploymentAttempts } from "./use-deployment-attempts";
 import { attemptRequest } from "../attempts";
 vi.mock("../attempts", () => ({ attemptRequest: vi.fn() }));
@@ -136,5 +137,73 @@ describe("browser deployment handoff", () => {
         message: "Commit Cargo.lock before deploying",
       }),
     );
+  });
+  it("keeps the Manager's structured reason across refresh so the card can act on it", async () => {
+    const deployError = {
+      code: "github_app_permission_missing",
+      hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
+      retryable: false,
+    };
+    const rawDeployError = {
+      ...deployError,
+      message: "internal message",
+      details: { cause: "internal diagnostic" },
+    };
+    request.mockImplementation(async (_id, options) => {
+      if (options?.action === "start")
+        throw new LaunchRequestError(
+          "GitHub deployment request returned HTTP 403",
+          502,
+          {
+            error: "GitHub deployment request returned HTTP 403",
+            code: "github_app_permission_missing",
+            retryable: false,
+            deployError: rawDeployError,
+          },
+        );
+      return { attempts: [] };
+    });
+    const first = renderHook(() => useDeploymentAttempts(7, "alice"), {
+      wrapper: setup().wrapper,
+    });
+    await act(async () => {
+      await first.result.current.start("main");
+    });
+    expect(first.result.current.local[0]).toMatchObject({
+      pending: false,
+      message: "GitHub deployment request returned HTTP 403",
+      deployError,
+    });
+    first.unmount();
+    const second = renderHook(() => useDeploymentAttempts(7, "alice"), {
+      wrapper: setup().wrapper,
+    });
+    await waitFor(() =>
+      expect(second.result.current.local[0]).toMatchObject({
+        pending: false,
+        message: "GitHub deployment request returned HTTP 403",
+        deployError,
+      }),
+    );
+  });
+  it("drops a saved reason that lost its shape instead of the whole attempt", async () => {
+    localStorage.setItem(
+      "aomi-build:attempts:alice:7",
+      JSON.stringify([
+        {
+          id: "local-1",
+          createdAt: "2026-09-22T00:00:00.000Z",
+          branch: "main",
+          message: "Could not start deployment",
+          pending: false,
+          deployError: { code: 403 },
+        },
+      ]),
+    );
+    const { result } = renderHook(() => useDeploymentAttempts(7, "alice"), {
+      wrapper: setup().wrapper,
+    });
+    await waitFor(() => expect(result.current.local).toHaveLength(1));
+    expect(result.current.local[0]).not.toHaveProperty("deployError");
   });
 });

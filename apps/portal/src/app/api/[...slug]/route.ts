@@ -15,6 +15,15 @@ const ALLOWED_ROUTES: AllowedRoute[] = [
     methods: new Set(["POST"]),
   },
   {
+    pattern: /^\/api\/commits\/[0-9a-f-]+\/wallet-attempts$/i,
+    methods: new Set(["POST"]),
+  },
+  {
+    pattern:
+      /^\/api\/commits\/[0-9a-f-]+\/wallet-attempts\/[0-9a-f-]+\/report$/i,
+    methods: new Set(["POST"]),
+  },
+  {
     pattern: /^\/api\/account(\/.*)?$/,
     methods: new Set(["GET", "POST", "PATCH", "PUT", "DELETE"]),
   },

@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+
 export type RegistryComponent = {
   name: string;
   file: string | string[];
@@ -8,6 +10,15 @@ export type RegistryComponent = {
 };
 
 const REGISTRY_BASE_URL = "https://aomi.dev/r";
+
+const protocolInterpreterFiles = readdirSync(
+  new URL(
+    "./components/assistant-ui/tool-interpreter/protocols/",
+    import.meta.url,
+  ),
+)
+  .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
+  .map((name) => `components/assistant-ui/tool-interpreter/protocols/${name}`);
 
 // Helper to create registry dependency URLs
 const aomi = (name: string) => `${REGISTRY_BASE_URL}/${name}.json`;
@@ -33,6 +44,7 @@ export const registry: RegistryComponent[] = [
     file: [
       "components/aomi-widget.tsx",
       "components/backend-aa-provisioner.tsx",
+      "components/app-secrets/use-app-secrets-state.ts",
       "components/account-shell/components/providers/aomi-session-bridge.tsx",
       "components/account-shell/components/settings/settings-modal.tsx",
       "components/account-shell/components/shell/directory-modal-type.ts",
@@ -67,6 +79,9 @@ export const registry: RegistryComponent[] = [
       "components/account-shell/features/account/wallet-policy-row.tsx",
       "components/account-shell/features/general/general-settings.tsx",
       "components/account-shell/features/general/index.ts",
+      "components/account-shell/features/policy/index.ts",
+      "components/account-shell/features/policy/policy-api.ts",
+      "components/account-shell/features/policy/policy-settings.tsx",
       "components/account-shell/features/usage/credit-bank/credit-bank.tsx",
       "components/account-shell/features/usage/credit-bank/format.ts",
       "components/account-shell/features/usage/credit-bank/index.ts",
@@ -214,6 +229,7 @@ export const registry: RegistryComponent[] = [
       "components/control-bar/network-metadata.ts",
       "components/control-bar/network-select.tsx",
       "components/control-bar/secret-input.tsx",
+      "components/app-secrets/use-app-secrets-state.ts",
       "components/control-bar/app-secrets-dialog.tsx",
       "components/control-bar/payment-required-gate.tsx",
       "components/control-bar/dual-wallet-bar.tsx",
@@ -233,6 +249,7 @@ export const registry: RegistryComponent[] = [
       "components/icons/chain-map.tsx",
       "components/icons/wallet-map.tsx",
       "components/icons/apps/index.tsx",
+      "components/icons/apps/hoodit.tsx",
       "components/icons/apps/sourced-marks.ts",
       "components/icons/skills/index.tsx",
       "components/icons/skills/sourced-marks.ts",
@@ -268,6 +285,7 @@ export const registry: RegistryComponent[] = [
     name: "assistant-thread",
     file: [
       "components/assistant-ui/thread.tsx",
+      "components/assistant-ui/assistant-message-row.tsx",
       "components/assistant-ui/thread-loading.ts",
       "components/assistant-ui/capability-message-text.tsx",
       "components/assistant-ui/capability-composer.tsx",
@@ -282,28 +300,42 @@ export const registry: RegistryComponent[] = [
       "components/control-bar/app-select.tsx",
       "components/control-bar/mode-select.tsx",
       "lib/capabilities/skill-catalog.ts",
+      "lib/capabilities/skill-label.ts",
       "components/assistant-ui/working-trace.tsx",
       "components/assistant-ui/working-trace-rows.tsx",
+      "components/assistant-ui/tool-chip.tsx",
       "components/assistant-ui/working-agent.tsx",
       "components/assistant-ui/tool-interpreter.ts",
       "components/assistant-ui/tool-interpreter/index.ts",
+      "components/assistant-ui/tool-interpreter/attribution.ts",
+      "components/assistant-ui/trace-attribution.tsx",
       "components/assistant-ui/tool-interpreter/types.ts",
       "components/assistant-ui/tool-interpreter/unwrap.ts",
       "components/assistant-ui/tool-interpreter/normalize.ts",
+      "components/assistant-ui/tool-interpreter/identity.ts",
       "components/assistant-ui/tool-interpreter/pipeline.ts",
       "components/assistant-ui/tool-interpreter/token-registry.ts",
-      "components/assistant-ui/tool-interpreter/families/simple.ts",
-      "components/assistant-ui/tool-interpreter/families/evm-call.ts",
-      "components/assistant-ui/tool-interpreter/families/evm-tx.ts",
-      "components/assistant-ui/tool-interpreter/families/svm.ts",
-      "components/assistant-ui/tool-interpreter/families/svm-tx.ts",
-      "components/assistant-ui/tool-interpreter/families/jupiter.ts",
-      "components/assistant-ui/tool-interpreter/families/lifi.ts",
-      "components/assistant-ui/tool-interpreter/families/task.ts",
+      "components/assistant-ui/tool-interpreter/families/index.ts",
+      "components/assistant-ui/tool-interpreter/families/operation.ts",
+      "components/assistant-ui/tool-interpreter/families/general/index.ts",
+      "components/assistant-ui/tool-interpreter/families/general/commit-view.ts",
+      "components/assistant-ui/tool-interpreter/families/general/errors.ts",
+      "components/assistant-ui/tool-interpreter/families/general/search.ts",
+      "components/assistant-ui/tool-interpreter/families/general/skills.ts",
+      "components/assistant-ui/tool-interpreter/families/general/task.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/index.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/account.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/call.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/context.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/contract.ts",
+      "components/assistant-ui/tool-interpreter/families/evm/transactions.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/index.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/context.ts",
+      "components/assistant-ui/tool-interpreter/families/svm/transactions.ts",
+      ...protocolInterpreterFiles,
       "components/assistant-ui/tool-interpreter/present/index.ts",
       "components/assistant-ui/tool-interpreter/present/chips.ts",
       "components/assistant-ui/tool-interpreter/present/descriptors.ts",
-      "components/assistant-ui/tool-interpreter/present/fallback.ts",
       "components/assistant-ui/tool-registry.ts",
       "components/icons/chain-map.tsx",
       "components/icons/chains/index.tsx",
@@ -405,13 +437,19 @@ export const registry: RegistryComponent[] = [
   {
     name: "activity-sidebar",
     file: [
+      "components/icons/auto-mode.tsx",
+      "components/assistant-ui/tool-chip.tsx",
+      "components/assistant-ui/trace-attribution.tsx",
+      "components/assistant-ui/tool-interpreter/attribution.ts",
+      "components/icons/app-map.tsx",
+      "lib/apps/app-identity.ts",
       "components/activity-sidebar/activity-sidebar.tsx",
-      "components/activity-sidebar/commit-review.tsx",
       "components/activity-sidebar/subagent-row.tsx",
       "components/activity-sidebar/transactions.tsx",
       "components/activity-sidebar/activity-panel-context.tsx",
       "components/activity-sidebar/model.ts",
       "lib/capabilities/skill-catalog.ts",
+      "lib/capabilities/skill-label.ts",
       "components/assistant-ui/tool-registry.ts",
       "components/assistant-ui/tool-interpreter/unwrap.ts",
       "components/assistant-ui/tool-interpreter/normalize.ts",
@@ -419,6 +457,7 @@ export const registry: RegistryComponent[] = [
       "components/icons/skills/index.tsx",
       "components/icons/skills/sourced-marks.ts",
       "components/icons/apps/index.tsx",
+      "components/icons/apps/hoodit.tsx",
       "components/icons/apps/sourced-marks.ts",
       "components/activity-sidebar/wallet-review.tsx",
       "components/activity-sidebar/transaction-review.tsx",

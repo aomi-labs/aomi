@@ -77,14 +77,29 @@ export function EnvironmentTab({ detail }: { detail: Detail }) {
   );
 
   const required = app ? detail.requiredSecrets?.[app] : undefined;
-  const missingCount = required?.missing.length ?? 0;
+  const userOwnedNames = new Set(
+    (required?.slots ?? [])
+      .filter((slot) => slot.user_own === true)
+      .map((slot) => slot.name),
+  );
+  const builderCurrentKeys = currentKeys.filter(
+    ({ key }) => !userOwnedNames.has(key),
+  );
 
   // One unified list: declared slots (manifest) merged with configured keys
   // (vault). Missing required slots sort first so the warning reads next to
   // its cause; custom configured keys follow the declared ones.
-  const configuredByKey = new Map(currentKeys.map((k) => [k.key, k.handle]));
-  const declaredNames = new Set((required?.slots ?? []).map((s) => s.name));
-  const declaredRows: VariableRow[] = (required?.slots ?? []).map((slot) => ({
+  const configuredByKey = new Map(
+    builderCurrentKeys.map((key) => [key.key, key.handle] as const),
+  );
+  const builderSlots = (required?.slots ?? []).filter(
+    (slot) => slot.user_own !== true,
+  );
+  const builderSlotNames = new Set(builderSlots.map((slot) => slot.name));
+  const missingCount =
+    required?.missing.filter((name) => builderSlotNames.has(name)).length ?? 0;
+  const declaredNames = new Set(builderSlots.map((slot) => slot.name));
+  const declaredRows: VariableRow[] = builderSlots.map((slot) => ({
     key: slot.name,
     handle: configuredByKey.get(slot.name) ?? null,
     configured: configuredByKey.has(slot.name),
@@ -96,7 +111,7 @@ export function EnvironmentTab({ detail }: { detail: Detail }) {
     (a, b) =>
       Number(b.required && !b.configured) - Number(a.required && !a.configured),
   );
-  const customRows: VariableRow[] = currentKeys
+  const customRows: VariableRow[] = builderCurrentKeys
     .filter(({ key }) => !declaredNames.has(key))
     .map(({ handle, key }) => ({
       key,

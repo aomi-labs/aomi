@@ -96,6 +96,16 @@ export async function accountLoginCommand(
         resource: `${origin}/v1/pipeline` as const,
         scopes: ["pipeline:catalog", "offline_access"],
       },
+      {
+        resource: `${origin}/v1/account` as const,
+        scopes: [
+          "account:apps:read",
+          "account:apps:write",
+          "account:credentials:read",
+          "account:credentials:write",
+          "offline_access",
+        ],
+      },
     ];
     for (const request of grants) {
       const grant = await signInWithOAuthDevice({

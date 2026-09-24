@@ -2,6 +2,7 @@ import {
   isOfficialAppDescriptor,
   type AomiAppDescriptor,
   type AomiFeatureCategory,
+  type AomiSecretSlot,
 } from "@aomi-labs/client";
 import { resolveAppIdentity } from "../../../../lib/apps/app-identity";
 
@@ -14,12 +15,14 @@ export type PackageCategory =
   | "Your packages";
 
 export interface CatalogPackage {
-  /** The wire `AppSpec.name` — what install/uninstall is keyed on. */
+  /** The wire `AppSpec.name`; hosted install identity is `applicationId`. */
   id: string;
   /** Canonical presentation key. Empty for private/custom apps. */
   brandId: string;
   /** Stable hosted-app identity, when supplied by the catalog. */
   applicationId?: AomiAppDescriptor["applicationId"];
+  /** Exact account installation state for this catalog row. */
+  installed: boolean;
   official: boolean;
   featureCatalog: AomiFeatureCategory[];
   name: string;
@@ -33,6 +36,14 @@ export interface CatalogPackage {
   pinned?: boolean;
   /** Exact EVM chains declared by the official release. */
   chainIds: number[];
+  /** Credential slots each signed-in user supplies for this app. */
+  secrets: AomiSecretSlot[];
+}
+
+export function packageIdentityKey(app: CatalogPackage): string {
+  return app.applicationId == null
+    ? `name:${app.id}`
+    : `application:${String(app.applicationId)}`;
 }
 
 export const ARC_TESTNET_CHAIN_ID = 5_042_002;
@@ -172,6 +183,7 @@ export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
     id: app.name,
     brandId: identity.brandId,
     applicationId: identity.applicationId,
+    installed: app.isInstalled === true,
     official,
     featureCatalog: app.featureCatalog ?? [],
     name: identity.displayName,
@@ -188,5 +200,6 @@ export function toCatalogPackage(app: AomiAppDescriptor): CatalogPackage {
       visibility === "personal" ? "Your packages" : (decor.category ?? "More"),
     pinned: PINNED_APPS.has(identity.brandId),
     chainIds: app.chainIds ?? [],
+    secrets: (app.secrets ?? []).filter((slot) => slot.user_own),
   };
 }

@@ -133,26 +133,36 @@ export function TransactionCard({
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
     : (tx.cluster ?? "Solana");
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
+  const commitSigned =
+    tx.commit?.state === "awaiting_broadcast" ||
+    tx.commit?.state === "submitted" ||
+    tx.commit?.state === "confirmed";
   const result = tx.action?.result;
   const leg =
     result?.status === "submitted"
       ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
       : undefined;
   const signed =
+    commitSigned ||
     leg?.status === "submitted" ||
     (result?.status === "signed" && result.outputs.length > 0);
   const rejected =
+    tx.commit?.state === "rejected" ||
     leg?.status === "rejected" ||
     result?.status === "rejected" ||
     tx.action?.state === "rejected";
   const failed =
+    tx.commit?.state === "failed" ||
+    tx.commit?.state === "expired" ||
     tx.stage === "simulation-failed" ||
     (tx.action?.request.type !== "sign" &&
       (tx.action?.request.simulation.status === "failed" ||
         tx.action?.request.simulation.guards.some(
           (guard) => guard.status === "failed",
         )));
-  const terminal = tx.action && tx.action.state !== "pending";
+  const terminal = tx.commit
+    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
+    : tx.action && tx.action.state !== "pending";
   const animating =
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
@@ -160,7 +170,10 @@ export function TransactionCard({
     !signed &&
     !rejected &&
     !terminal &&
-    (active || tx.action?.state === "pending");
+    (active || tx.commit != null || tx.action?.state === "pending");
+  const phases = ["Stage", "Simulate", "Commit", "Signed"]
+    .map((name, index) => ({ name, index }))
+    .filter(({ index }) => tx.kind !== "signature" || index !== 1);
   return (
     <div
       className={cn(
@@ -197,10 +210,13 @@ export function TransactionCard({
           </span>
         </div>
         <div
-          className="mt-2.5 grid grid-cols-4 gap-1.5"
+          className={cn(
+            "mt-2.5 grid gap-1.5",
+            tx.kind === "signature" ? "grid-cols-3" : "grid-cols-4",
+          )}
           aria-label={`Transaction preparation: ${tx.stage}; signing: ${rejected ? "rejected" : signed ? "signed" : "not signed"}`}
         >
-          {["Stage", "Simulate", "Commit", "Signed"].map((name, index) => (
+          {phases.map(({ name, index }) => (
             <div
               key={name}
               title={
@@ -244,11 +260,9 @@ export function TransactionCard({
                   "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
                   (index === 1 && failed) || (index === 3 && rejected)
                     ? "bg-aomi-danger"
-                    : index === 1 && tx.kind === "signature"
-                      ? "bg-aomi-border"
-                      : index <= step || (index === 3 && signed)
-                        ? "bg-aomi-accent"
-                        : "bg-aomi-border",
+                    : index <= step || (index === 3 && signed)
+                      ? "bg-aomi-accent"
+                      : "bg-aomi-border",
                 )}
               />
               <span className="text-aomi-muted mt-1.5 block text-[10px] leading-3">

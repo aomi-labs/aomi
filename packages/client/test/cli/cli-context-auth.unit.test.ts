@@ -73,4 +73,32 @@ describe("CLI explicit API bearer", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+  it("preserves the explicit Pipeline bearer through the payment transport", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        expect(request.url).toBe("https://api.example/v1/pipeline/apps");
+        expect(request.headers.get("authorization")).toBe(
+          "Bearer scoped-api-bearer",
+        );
+        return Response.json({ returned: 0, apps: [] });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = createControlClient(
+      {
+        baseUrl: "https://api.example",
+        accountBearer: "scoped-api-bearer",
+        paymentMethod: "coinbase",
+        privateKey: `0x${"1".repeat(64)}`,
+        secrets: {},
+      },
+      { payment: true },
+    );
+    await client.pipeline.apps.list();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });

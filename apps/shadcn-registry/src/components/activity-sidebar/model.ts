@@ -1,4 +1,4 @@
-import type { Action, Event } from "@aomi-labs/client";
+import type { Action, CommitView, Event } from "@aomi-labs/client";
 import { summarizeSimulation } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
 import { unwrapToolStep } from "../assistant-ui/tool-interpreter/unwrap";
@@ -18,7 +18,27 @@ export type ActivityTransaction = {
   action?: Action;
   actionIndex?: number;
   committedWire?: string;
+  commit?: CommitView;
 };
+
+export function selectReviewCommit(
+  commits: readonly CommitView[],
+  review: ((commitId: string) => unknown) | undefined,
+): CommitView | undefined {
+  if (!review) return undefined;
+  return commits
+    .filter(
+      (commit) =>
+        (commit.state === "needs_signature" ||
+          commit.state === "awaiting_broadcast") &&
+        review(commit.commit_id) !== undefined,
+    )
+    .sort(
+      (a, b) =>
+        (a.batch?.index ?? Number.MAX_SAFE_INTEGER) -
+        (b.batch?.index ?? Number.MAX_SAFE_INTEGER),
+    )[0];
+}
 
 function record(value: unknown): RecordValue | undefined {
   if (typeof value === "string") {
@@ -117,6 +137,7 @@ function sameTransaction(
 export function selectActivity(
   events: readonly Event[],
   pendingActions: readonly Action[] = [],
+  commits: readonly CommitView[] = [],
 ) {
   const ordered = [...events].sort((a, b) => a.sequence - b.sequence);
   const turnId =
@@ -279,7 +300,6 @@ export function selectActivity(
         if (request.type === "execute_svm") {
           const assembled = request.transactions[index];
           match.label = assembled.description || match.label;
-          match.raw = assembled as unknown as RecordValue;
           for (const duplicate of matches.slice(1))
             transactions.splice(transactions.indexOf(duplicate), 1);
         }
@@ -316,6 +336,36 @@ export function selectActivity(
       });
     }
   }
+  for (const commit of commits) {
+    for (const source of commit.batch?.sources ?? []) {
+      if (
+        source.thread_id !== commit.thread_id ||
+        source.chain_family !== commit.chain_family ||
+        source.chain_ref !== commit.chain_ref ||
+        source.stage_id !== commit.stage_id
+      )
+        continue;
+      const match = transactions.find((tx) => {
+        const sourceId =
+          number(tx.raw.pending_tx_id) ?? number(tx.raw.pending_ix_id);
+        const chainRef =
+          tx.family === "evm"
+            ? tx.chainId == null
+              ? undefined
+              : String(tx.chainId)
+            : tx.cluster;
+        return (
+          tx.family === source.chain_family &&
+          sourceId === source.source_id &&
+          chainRef === source.chain_ref
+        );
+      });
+      if (match) {
+        match.stage = "committed";
+        match.commit = commit;
+      }
+    }
+  }
   return {
     turnId,
     agents: Object.values(selectTaskRuns(ordered)),
@@ -327,4 +377,20 @@ export function selectActivity(
       (tx) => tx.turnId === turnId || tx.action?.state === "pending",
     ),
   };
+}
+
+/** Keep compatibility Actions only when no durable source owns that Action. */
+export function selectLegacyReviewAction(
+  events: readonly Event[],
+  actions: readonly Action[],
+  commits: readonly CommitView[],
+): Action | undefined {
+  const activity = selectActivity(events, actions, commits);
+  const durableActionIds = new Set(
+    [...activity.transactions, ...activity.history]
+      .filter((transaction) => transaction.commit)
+      .map((transaction) => transaction.action?.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  return actions.find((action) => !durableActionIds.has(action.id));
 }

@@ -11,7 +11,7 @@ export {
   ACTIVATION_REQUEST_EMBED_COLOR,
 } from "./activation-request";
 
-export { missingRequiredSecrets } from "./secrets";
+export { builderSecretSlots, missingRequiredSecrets } from "./secrets";
 
 export {
   DeployError,
@@ -67,6 +67,12 @@ export type {
   ExchangeGitHubCodeInput,
   GitHubIdentity,
   ListUserProjectsInput,
+  ListUserGitHubAppInstallationsInput,
+  DeployErrorDetail,
+  GitHubAppPermissionGap,
+  PlatformInstallationStatusKind,
+  PlatformInstallationStatus,
+  GitHubAppInstallationsResult,
   ListUserDeploymentsInput,
   ListUserProjectDeploymentsInput,
   ListUserProjectTransactionsInput,
@@ -82,6 +88,7 @@ export type {
   DeleteUserProjectBotInput,
   CreateUserBotInput,
   UpdateUserBotInput,
+  RevealUserBotCommandSecretInput,
   DeleteUserBotInput,
   ProjectSdkUpgradeResult,
   ProjectSdkUpgradeStatusResult,

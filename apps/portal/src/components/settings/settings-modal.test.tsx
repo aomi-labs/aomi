@@ -66,6 +66,13 @@ vi.mock(
   }),
 );
 
+vi.mock(
+  "../../../../shadcn-registry/src/components/account-shell/features/policy",
+  () => ({
+    PolicySettings: () => <div>Policy content</div>,
+  }),
+);
+
 describe("SettingsModal directory shell", () => {
   it("matches the Library frame and keeps navigation in the sidebar", () => {
     render(<SettingsModal onClose={vi.fn()} />);
@@ -102,6 +109,13 @@ describe("SettingsModal directory shell", () => {
     expect(screen.getByText("Account content")).toBeTruthy();
     expect(
       screen.getByText("Wallets, sign-in methods, and signing"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "General" }));
+    fireEvent.click(screen.getByRole("button", { name: "Policy" }));
+    expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(
+      screen.getByText("On-chain permissions for delegated agents"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));

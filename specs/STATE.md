@@ -2,6 +2,26 @@
 
 ## Last Updated
 
+2026-09-22 — TELEGRAM BOT DATA MODEL DECIDED (worktree `tenant-telegram-config`,
+  spec `specs/TELEGRAM-BOT-MODEL.md`, mirrored in product-mono). Commit
+  `b8051b2bd` on this branch put the Mini App URL and commands on
+  `BotRegistrationApp`, and the backend branch stored them in
+  `applications.metadata.telegram` keyed by the primary app: shared across
+  bots by accident, and switching primary wiped the new app's config. Agreed
+  model: the bot owns `mini_app_url` (null = platform default),
+  `command_endpoint` (null = commands unsupported), `commands`, and
+  `handover_app_id` (renamed `default_app_id`); a per-bot HMAC secret derived
+  from the bot id; `/app` restored with `threads.application_id` persisted;
+  BFF validates shape only. IMPLEMENTED in the working tree of both repos
+  (widget: deploy SDK 0.8.0 with `handoverApplicationId`/`miniAppUrl`/
+  `commandEndpoint`/`commands` + `revealUserBotCommandSecret`, BFF operate
+  routes shape-only + `GET /api/bff/operate/bots/:id/command-secret`, bot card
+  seeded from the bot with dirty-tracked save; product-mono: migration
+  `20260922000000_bot_mini_app.sql`, bot-level columns, derived per-bot secret,
+  `/app` panel restored with a bot-owned `bot_thread_selections` table behind `BotThreadService`; the runtime and `DbThread` are untouched). The two branches must
+  land together. `botfatherCommands()` on the Integrations page now advertises
+  exactly the bot's own commands (start/help/app/wallet/transactions/sign).
+
 2026-09-17 — BUILD PROJECTS INDEX vs PROJECT PAGE DISAGREED ABOUT THE SDK
   (worktree `release-fix-build-sdk`, uncommitted). Staging listed project 1663
   as `SDK 5.0.0 / outdated` while its page read `SDK UNKNOWN` with a clean

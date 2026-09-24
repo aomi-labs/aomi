@@ -8,7 +8,10 @@ import { ChevronRight, Shield, UserRound } from "lucide-react";
 import { countDriftedWallets } from "../account/wallet-attention";
 import { useAccountAcl } from "../account/use-account-acl";
 import { walletConnectionSummary } from "../account/wallet-management-model";
-import { useAccountOverview } from "../../lib/account-overview";
+import {
+  creditAllowanceFromPosition,
+  useAccountOverview,
+} from "../../lib/account-overview";
 import { useSettings, type ColorMode } from "../../lib/use-settings";
 import {
   Divider,
@@ -175,14 +178,9 @@ function AccountSummaryCard({
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {
-  const creditsUsed =
-    credits?.included.used_microusd === undefined
-      ? 0
-      : credits.included.used_microusd / 10_000;
-  const creditsIncluded =
-    credits?.included.limit_microusd === undefined
-      ? 0
-      : credits.included.limit_microusd / 10_000;
+  const allowance = creditAllowanceFromPosition(credits);
+  const creditsUsed = allowance?.used ?? 0;
+  const creditsIncluded = allowance?.included ?? 0;
   const remaining = Math.max(0, creditsIncluded - creditsUsed);
   const periodLabel = formatPeriodLabel(credits?.period_utc_month);
   const hasAllowance = creditsIncluded > 0;
@@ -306,12 +304,12 @@ function FlatSettingRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5">
+    <div className="flex flex-col items-start gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
       <div className="min-w-0 flex-1">
         <span className="text-[14px] font-medium leading-none">{label}</span>
         {hint && (
           <span
-            className={`text-aomi-muted mt-1 block truncate text-[12px] leading-snug ${
+            className={`text-aomi-muted mt-1 block text-[12px] leading-snug [overflow-wrap:anywhere] ${
               hintMono ? "font-mono" : ""
             }`}
           >

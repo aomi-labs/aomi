@@ -7,6 +7,7 @@ import {
   Session as ClientSession,
   UserState as UserStateValue,
   type ActionCapabilities,
+  type CommitCapabilities,
   type AgentTarget,
   type AomiClient,
   type UserState,
@@ -22,6 +23,7 @@ type OrchestratorOptions = {
   getClientId?: () => string | undefined;
   inferenceFunding?: AomiInferenceFundingSource;
   getActions?: () => ActionCapabilities | undefined;
+  getCommits?: () => CommitCapabilities | undefined;
   prepareThreadForSend?: (threadId: string) => Promise<void> | void;
   onSendSuccess?: (threadId: string) => void;
   onSendError?: (threadId: string, error: unknown) => Promise<void> | void;
@@ -64,6 +66,7 @@ export function useRuntimeOrchestrator(
         getUserState,
         inferenceFunding: runtime.inferenceFunding,
         actions: runtime.getActions?.(),
+        commits: runtime.getCommits?.(),
       };
       const existing = sessionManager.get(threadId);
       if (existing) {
