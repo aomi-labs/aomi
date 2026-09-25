@@ -140,7 +140,7 @@ const session = new Session(commitClient, { sessionId: probe.sessionId, commits:
     assert.ok(index === 0 || index === 1);
     event("wallet_invoked", { commitId: view.commit_id, index });
     const tx = payload.transaction;
-    const hash = await walletClient.sendTransaction({ account, chain: base, to: tx.to as `0x${string}`, value: 0n,
+    const hash = await walletClient.sendTransaction({ account, chain: base, to: tx.to.toLowerCase() as `0x${string}`, value: 0n,
       data: tx.data as `0x${string}`, gas: BigInt(tx.gas_limit), nonce: payload.nonce,
       maxFeePerGas: BigInt(tx.max_fee_per_gas), maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas),
     } as unknown as Parameters<typeof walletClient.sendTransaction>[0]);
