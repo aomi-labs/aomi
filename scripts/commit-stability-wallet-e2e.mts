@@ -22,7 +22,7 @@ import { resolve, join } from "node:path";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
-import { mintAgentApiBearer } from "../packages/account/src/index.ts";
+import { mintAccountBearer, mintAgentApiBearer } from "../packages/account/src/index.ts";
 import { AomiClient, Session } from "../packages/client/src/index.ts";
 
 const requireEnv = (name: string): string => {
@@ -32,12 +32,13 @@ const requireEnv = (name: string): string => {
 };
 const backendRoot = resolve(requireEnv("AOMI_PRODUCT_ROOT"));
 const apiOrigin = new URL(requireEnv("AOMI_STABILITY_ORIGIN"));
+const commitOrigin = new URL(requireEnv("AOMI_STABILITY_COMMIT_ORIGIN"));
 const rpcOrigin = new URL(requireEnv("AOMI_STABILITY_LOCAL_RPC"));
 const keyFile = resolve(requireEnv("AOMI_STABILITY_LOCAL_KEY_FILE"));
 const evidenceRoot = resolve(requireEnv("AOMI_STABILITY_EVIDENCE"));
 const userId = requireEnv("AOMI_STABILITY_USER_ID");
 const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
-assert.ok(localHosts.has(apiOrigin.hostname) && localHosts.has(rpcOrigin.hostname), "API and execution RPC must be loopback");
+assert.ok(localHosts.has(apiOrigin.hostname) && localHosts.has(commitOrigin.hostname) && localHosts.has(rpcOrigin.hostname), "API, Commit API, and execution RPC must be loopback");
 assert.notEqual(await realpath(keyFile), "/home/aron/Documents/Work/Aomi/.env.key", "funded Base key is forbidden for local fault cases");
 assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "Set AOMI_STABILITY_EXECUTE=1 for the local send");
 const rawKey = await readFile(keyFile, "utf8");
@@ -87,7 +88,7 @@ await writeFile(join(output, "manifest.json"), JSON.stringify({
   databaseMigrationDigest: requireEnv("AOMI_STABILITY_DATABASE_MIGRATION_DIGEST"),
   managerRevision: requireEnv("AOMI_STABILITY_MANAGER_REVISION"),
   anvilBinarySha256: requireEnv("AOMI_STABILITY_ANVIL_SHA256"), forkBlockNumber,
-  origin: apiOrigin.origin, executionRpc: rpcOrigin.origin, chainId: 8453,
+  origin: apiOrigin.origin, commitOrigin: commitOrigin.origin, executionRpc: rpcOrigin.origin, chainId: 8453,
   walletProvider: "disposable local private-key wallet", walletAddress: account.address,
   modelRouting: process.env.AOMI_STABILITY_MODEL ?? "application default",
   applicationId: Number(process.env.AOMI_STABILITY_APPLICATION_ID ?? 8),
@@ -99,16 +100,27 @@ const issuer = (await readFile(join(backendRoot, "aomi/bin/api-server/src/auth.r
   .match(/const BFF_PRIVATE: &\[u8\] = b"([\s\S]*?-----END PRIVATE KEY-----\n)";/);
 assert.ok(issuer, "local development issuer fixture missing");
 process.env.PORTAL_SERVICE_PRIVATE_KEY = issuer[1];
+const oauth = async ({ resource, scopes }: { resource: string; scopes: string[] }) => {
+  const { bearer, expiresAt } = await mintAgentApiBearer(userId, {
+    scope: "agent:read agent:write agent:actions:resolve pipeline:catalog pipeline:execute",
+    resource, client_id: "commit-stability-wallet-e2e", auth_source: "oauth",
+    principal_class: "user", grant_id: `commit-stability-${runId}`,
+  });
+  return { accessToken: bearer, expiresAt: expiresAt * 1000, resource, scopes, tokenType: "Bearer" as const };
+};
 const client = new AomiClient({
   baseUrl: apiOrigin.origin,
   guest: false,
-  oauth: async ({ resource, scopes }) => {
-    const { bearer, expiresAt } = await mintAgentApiBearer(userId, {
-      scope: "agent:read agent:write agent:actions:resolve pipeline:catalog pipeline:execute",
-      resource, client_id: "commit-stability-wallet-e2e", auth_source: "oauth",
-      principal_class: "user", grant_id: `commit-stability-${runId}`,
-    });
-    return { accessToken: bearer, expiresAt: expiresAt * 1000, resource, scopes, tokenType: "Bearer" as const };
+  oauth,
+});
+// Legacy /api/commits uses the account bearer. OAuth covers the public /v1
+// Agent API; the SDK deliberately does not attach it to legacy account routes.
+const commitClient = new AomiClient({
+  baseUrl: commitOrigin.origin,
+  guest: false,
+  getAccountBearer: async () => {
+    const { bearer } = await mintAccountBearer(userId);
+    return bearer;
   },
 });
 
@@ -143,7 +155,7 @@ event("commit_discovered", { sessionId, commitId });
 const recoveryFile = join(evidenceRoot, `recovery-${sessionId}-${commitId}.json`);
 let recovery: { clientRequestId: string; attemptId?: string; transactionId?: string; rejected?: true } | undefined;
 try { recovery = JSON.parse(await readFile(recoveryFile, "utf8")); } catch { /* first attempt */ }
-const session = new Session(client, {
+const session = new Session(commitClient, {
   sessionId,
   commits: {
     recovery: {
@@ -206,9 +218,13 @@ try {
   outcome.blockNumber = receipt.blockNumber.toString();
 } catch (error) {
   outcome.status = "FAIL";
-  const record = error as { code?: unknown; status?: unknown };
-  outcome.observed = `${String(record.code ?? "error")} (${String(record.status ?? "n/a")})`;
-  event("error", { code: String(record.code ?? "error"), status: record.status ?? null });
+  const record = error as { code?: unknown; status?: unknown; name?: unknown; message?: unknown };
+  const detail = String(record.message ?? "")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/0x[0-9a-fA-F]{64,}/g, "[redacted-hex]")
+    .slice(0, 300);
+  outcome.observed = `${String(record.code ?? record.name ?? "error")} (${String(record.status ?? "n/a")}) ${detail}`.trim();
+  event("error", { code: String(record.code ?? record.name ?? "error"), status: record.status ?? null });
 } finally {
   session.close();
   await flush();
