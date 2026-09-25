@@ -571,6 +571,7 @@ function BotCard({
   onRemove,
   removing,
   warning,
+  onWebhookChecked,
 }: {
   bot: Bot;
   options: AppOption[];
@@ -587,6 +588,9 @@ function BotCard({
   /** The manager saved the last edit but could not re-point the Telegram
    *  webhook; shown until a check reports fresh state. */
   warning: string | null;
+  /** A check returned fresh state: the parent drops the saved warning so a
+   *  later remount cannot bring it back. */
+  onWebhookChecked: () => void;
 }) {
   const mapped = useMemo(() => bot.apps ?? [], [bot.apps]);
   const initialDraft = useMemo<Draft>(
@@ -873,6 +877,7 @@ function BotCard({
                         );
                       }
                       setWebhook(json.webhook);
+                      onWebhookChecked();
                     })
                     .catch((err: unknown) => {
                       setCheckError(
@@ -887,9 +892,7 @@ function BotCard({
               >
                 {checking ? "Checking..." : "Check webhook"}
               </button>
-              {checkError ? (
-                <span className="text-danger text-[11px]">{checkError}</span>
-              ) : webhook ? (
+              {webhook ? (
                 <span
                   className={cn(
                     "text-[11px]",
@@ -913,6 +916,9 @@ function BotCard({
                 <span className="text-warning text-[11px]">
                   Saved, but the webhook was not re-asserted: {warning}
                 </span>
+              ) : null}
+              {checkError ? (
+                <span className="text-danger text-[11px]">{checkError}</span>
               ) : null}
             </div>
           ) : null}
@@ -1281,6 +1287,9 @@ export function BotsView() {
               onRemove={() => void handleRemove(bot)}
               removing={removingId === bot.id}
               warning={webhookWarnings[bot.id] ?? null}
+              onWebhookChecked={() =>
+                setWebhookWarnings(({ [bot.id]: _checked, ...rest }) => rest)
+              }
             />
           ))}
           {bots.length === 0 && !adding ? (

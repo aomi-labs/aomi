@@ -230,6 +230,16 @@ describe("BackendClient bots", () => {
     expect(request.method).toBe("POST");
   });
 
+  it("rejects a webhook report that lacks the comparison", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({}), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    await expect(
+      client().checkUserBotWebhook({ githubUserId: "gh-1", botId: "b1" }),
+    ).rejects.toThrow(/missing the webhook status/);
+  });
+
   it("never surfaces a credential field", async () => {
     const fetchImpl = vi.fn(
       async () =>

@@ -280,13 +280,24 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
   };
 }
 
+/** Rejects a report missing its comparison or count rather than inventing
+ *  a "not matching, nothing pending" status the UI would show as fact. */
 export function camelBotWebhookStatus(raw: unknown): BotWebhookStatus {
   const w = (raw ?? {}) as Record<string, any>;
+  const urlMatches = w.url_matches ?? w.urlMatches;
+  const pendingUpdateCount = w.pending_update_count ?? w.pendingUpdateCount;
+  if (
+    typeof urlMatches !== "boolean" ||
+    typeof pendingUpdateCount !== "number"
+  ) {
+    throw new DeployError(
+      "BACKEND",
+      "backend response is missing the webhook status",
+    );
+  }
   return {
-    urlMatches: Boolean(w.url_matches ?? w.urlMatches),
-    pendingUpdateCount: Number(
-      w.pending_update_count ?? w.pendingUpdateCount ?? 0,
-    ),
+    urlMatches,
+    pendingUpdateCount,
     lastErrorMessage: w.last_error_message ?? w.lastErrorMessage ?? null,
     reasserted: Boolean(w.reasserted),
     warning: w.warning ?? null,
