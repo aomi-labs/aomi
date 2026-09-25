@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { Event } from "@aomi-labs/client";
+import type { CommitView, Event } from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
 import { TraceAttributionContext } from "../assistant-ui/trace-attribution";
@@ -381,6 +381,7 @@ describe("unified live transaction review", () => {
   beforeEach(() => {
     runtime.events = [];
     runtime.pendingActions = [];
+    runtime.commits = [];
     runtime.actionAttempts.clear();
     runtime.isRunning = false;
     runtime.executeAction.mockReset().mockResolvedValue(undefined);
@@ -505,8 +506,132 @@ describe("unified live transaction review", () => {
     expect(rows[2]).toHaveTextContent("Send older");
     expect(screen.queryByText("Past transactions")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Transactions, newest first" }),
+      screen.getByRole("region", {
+        name: "Transactions, newest batch first; signing order within each batch",
+      }),
     ).toHaveStyle({ height: "272px" });
+  });
+  it("keeps an older batch behind newer work after a result revision", () => {
+    const older = { ...transfer("older"), sequence: 2 };
+    const newer = { ...transfer("newer"), sequence: 5 };
+    runtime.events = [
+      older,
+      newer,
+      { ...older, sequence: 8, revision: 2, state: "completed" },
+    ];
+    runtime.pendingActions = [newer];
+
+    render(<ActivitySidebar />);
+    const rows = screen.getAllByTestId("activity-transaction");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Send newer");
+    expect(rows[1]).toHaveTextContent("Send older");
+  });
+  it("shows a signing batch in execution order", () => {
+    const requestTransactions = [
+      "Redeem all Morpho shares",
+      "Approve main Spoke to spend USDC",
+      "Aave V4 supply on the main Spoke",
+    ].map((label, index) => ({
+      chain_id: 5042,
+      from: "0x123",
+      to: `0x${index + 1}`,
+      data: "0x",
+      label,
+      kind: "transaction",
+    }));
+    const batch = action({
+      type: "execute_evm",
+      transactions: requestTransactions,
+      simulation: simulation(),
+    });
+    batch.sequence = 4;
+    const staged = requestTransactions.map(
+      (tx, index) =>
+        ({
+          type: "message",
+          event_id: `stage-${index + 1}`,
+          sequence: index + 1,
+          turn_id: batch.turn_id,
+          occurred_at: index + 1,
+          sender: "agent",
+          content: "",
+          tool_name: "evm_stage_tx",
+          tool_result: [
+            "evm_stage_tx",
+            JSON.stringify({
+              ...tx,
+              pending_tx_id: index + 1,
+              current_lifecycle: "queued",
+            }),
+          ],
+        }) as Event,
+    );
+    runtime.events = [...staged, batch];
+    runtime.pendingActions = [batch];
+
+    const view = render(<ActivitySidebar />);
+
+    const labels = () =>
+      screen
+        .getAllByTestId("activity-transaction")
+        .map((row) => row.querySelector("[title]")?.getAttribute("title"));
+    const expected = [
+      "Redeem all Morpho shares",
+      "Approve main Spoke to spend USDC",
+      "Aave V4 supply on the main Spoke",
+    ];
+    expect(labels()).toEqual(expected);
+
+    runtime.events = staged;
+    runtime.pendingActions = [];
+    runtime.commits = requestTransactions.map(
+      (_, index): CommitView => ({
+        version: 1,
+        commit_id: `commit-${index + 1}`,
+        thread_id: "thread-1",
+        stage_id: `evm:${index + 1}`,
+        chain_family: "evm",
+        chain_ref: "5042",
+        signer: "0x123",
+        broadcaster: "wallet",
+        state: "confirmed",
+        transaction_id: `0x${index + 1}`,
+        failure_code: null,
+        batch: {
+          batch_id: "batch-1",
+          index,
+          ordered_stage_ids: requestTransactions.map((_, i) => `evm:${i + 1}`),
+          ordered_commit_ids: requestTransactions.map(
+            (_, i) => `commit-${i + 1}`,
+          ),
+          sources: [
+            {
+              thread_id: "thread-1",
+              chain_family: "evm",
+              chain_ref: "5042",
+              stage_id: `evm:${index + 1}`,
+              source_id: index + 1,
+            },
+          ],
+          predecessor_commit_id: index === 0 ? null : `commit-${index}`,
+          review_digest: "review",
+        },
+        review: null,
+        wallet_attempt: null,
+        action: null,
+      }),
+    );
+    view.rerender(<ActivitySidebar />);
+    expect(labels()).toEqual(expected);
+    expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+
+    runtime.commits = runtime.commits.map((commit, index) => ({
+      ...commit,
+      batch: commit.batch && { ...commit.batch, index: [2, 0, 1][index] },
+    }));
+    view.rerender(<ActivitySidebar />);
+    expect(labels()).toEqual([expected[1], expected[2], expected[0]]);
   });
   it("expands the shared list and distinguishes pending from finalized without Review labels", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({

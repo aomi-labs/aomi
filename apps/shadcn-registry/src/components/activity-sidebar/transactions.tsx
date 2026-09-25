@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Circle, FileSignature, Layers3 } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "../icons/chain-map";
@@ -66,10 +66,12 @@ export function TransactionList({
           onScroll={update}
           tabIndex={0}
           role="region"
-          aria-label="Transactions, newest first"
+          aria-label="Transactions, newest batch first; signing order within each batch"
           className="aui-current-transactions overflow-y-auto overscroll-contain rounded-2xl outline-offset-2 [overflow-anchor:none]"
         >
-          <div className="space-y-2.5">{children}</div>
+          <div className="space-y-2.5">
+            <AnimatePresence>{children}</AnimatePresence>
+          </div>
         </m.div>
         <div
           aria-hidden="true"
@@ -175,7 +177,12 @@ export function TransactionCard({
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);
   return (
-    <div
+    <m.div
+      layout="position"
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+      transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }}
       className={cn(
         "group/tx bg-aomi-surface flex h-[84px] flex-col justify-center rounded-2xl border px-3 py-3 transition-colors duration-200 motion-reduce:transition-none",
         pendingStyle
@@ -272,6 +279,6 @@ export function TransactionCard({
           ))}
         </div>
       </div>
-    </div>
+    </m.div>
   );
 }

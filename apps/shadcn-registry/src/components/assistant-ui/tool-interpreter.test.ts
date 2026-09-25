@@ -318,6 +318,52 @@ describe("tool interpreter", () => {
     ]);
   });
 
+  it("shows the Arc chain first and swap chips for a prepared LI.FI batch", () => {
+    const input = {
+      toolName: "lifi_prepare_swap_batch",
+      argsText: JSON.stringify({
+        chain_id: 5042,
+        from_token: "USDC",
+        to_token: "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1",
+        amount: "5",
+      }),
+    };
+
+    expect(labelsFor(interpretToolStep(input).chips)).toEqual([
+      "Arc",
+      "5 USDC",
+    ]);
+
+    const step = interpretToolStep({
+      ...input,
+      result: {
+        quote_id: "lifi_arc_eurc",
+        from_token: { symbol: "USDC", chain_id: 5042 },
+        to_token: { symbol: "EURC", chain_id: 5042 },
+        from_amount: { raw: "5000000", display: "5 USDC" },
+        estimate: { to_amount_display: "4.385775 EURC" },
+        route: {
+          steps: [
+            {
+              tool: "fly",
+              from_chain_id: 5042,
+              to_chain_id: 5042,
+            },
+          ],
+        },
+        stage_txs: [{ kind: "erc20_approve" }, { kind: "lifi_swap" }],
+      },
+    });
+
+    expect(step.title).toBe("Prepare LI.FI swap");
+    expect(labelsFor(step.chips)).toEqual([
+      "Arc",
+      "USDC -> EURC",
+      "5 USDC",
+      "4.385775 EURC",
+    ]);
+  });
+
   it("recognizes Base chain context", () => {
     const step = interpretToolStep({
       toolName: "get_time_and_onchain_context",
