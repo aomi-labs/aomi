@@ -10,6 +10,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { mintAccountBearer, mintAgentApiBearer } from "../packages/account/src/index.ts";
 import { AomiClient, Session } from "../packages/client/src/index.ts";
+import { isCompleteForTurn } from "./commit-stability-event-fence.mts";
 
 const required = (name: string) => {
   const value = process.env[name];
@@ -234,8 +235,9 @@ try {
     event("chain_effect", { index, usdcBalance: state.usdcBalance.toString(), aUsdcScaledBalance: state.aUsdcScaledBalance.toString(), allowance: state.allowance.toString() });
   }
   const callbackStarted = performance.now();
-  const sawCallbackComplete = () => timeline.some((row) => row.phase === "live_event" && row.eventType === "turn_state_changed"
-    && row.state === "complete" && row.turnId === callbackTurnId && Number(row.sequence) > baselineSequence);
+  const sawCallbackComplete = () => timeline.some((row) => row.phase === "live_event"
+    && isCompleteForTurn({ type: String(row.eventType), state: String(row.state), turn_id: String(row.turnId),
+      sequence: Number(row.sequence) }, callbackTurnId, baselineSequence));
   while (performance.now() - callbackStarted < 120_000 && !sawCallbackComplete()) {
     await new Promise((done) => setTimeout(done, 250));
   }

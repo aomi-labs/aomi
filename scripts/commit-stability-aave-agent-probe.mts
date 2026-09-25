@@ -8,6 +8,7 @@ import { createPublicClient, encodeFunctionData, http, parseAbi } from "viem";
 import { base } from "viem/chains";
 import { mintAccountBearer, mintAgentApiBearer } from "../packages/account/src/index.ts";
 import { AomiClient, Session } from "../packages/client/src/index.ts";
+import { isTerminalForTurn, newestProcessingTurn } from "./commit-stability-event-fence.mts";
 
 const required = (name: string) => {
   const value = process.env[name];
@@ -123,20 +124,25 @@ try {
   let page = resume
     ? await agentClient.agent.poll(sessionId, { waitMs: 0 })
     : await agentClient.agent.start({ sessionId, applicationId, model, message: prompt, userState },
-      { idempotencyKey: s02 ? `natural-confirmation-${sessionId}-${runId}` : `start-${sessionId}` });
+      { idempotencyKey: s02 ? `natural-confirmation-${sessionId}-${s02.simulationSha256.slice(0, 16)}` : `start-${sessionId}` });
   event(resume ? "agent_resume" : "agent_start", { sessionId });
   const commits = new Map<string, NonNullable<(typeof page.commits)>[number]>();
   const started = performance.now();
-  const targetTurnId = s02 && resume ? process.env.AOMI_STABILITY_TARGET_TURN_ID : undefined;
-  if (s02 && resume) assert.ok(targetTurnId?.startsWith("turn_"), "read-only S02 resume requires the natural follow-up turn ID");
+  const targetTurnId = s02
+    ? resume
+      ? process.env.AOMI_STABILITY_TARGET_TURN_ID
+      : newestProcessingTurn(page.events)
+    : undefined;
+  if (s02) assert.ok(targetTurnId?.startsWith("turn_"), "natural confirmation must identify its own turn, never a prior callback");
   while (performance.now() - started < 180_000) {
     for (const item of page.commits ?? []) {
       if (item.commit_id !== s02?.firstCommitId) commits.set(item.commit_id, item);
     }
     for (const item of page.events) event("agent_event", { eventId: item.event_id, eventType: item.type, sequence: item.sequence });
     if (commits.size >= 2) break;
-    if (page.events.some((item) => item.type === "turn_state_changed" && ["complete", "failed", "interrupted"].includes(item.state)
-      && (!s02 || item.turn_id === targetTurnId))) break;
+    if (page.events.some((item) => s02 && targetTurnId
+      ? isTerminalForTurn(item, targetTurnId, 0)
+      : item.type === "turn_state_changed" && ["complete", "failed", "interrupted"].includes(item.state))) break;
     page = await agentClient.agent.poll(sessionId, { cursor: page.cursor, waitMs: 10_000 });
   }
   result.commitIds = [...commits.keys()];
