@@ -10,6 +10,7 @@
  * AOMI_STABILITY_LOCAL_RPC, AOMI_STABILITY_LOCAL_KEY_FILE,
  * AOMI_STABILITY_EVIDENCE, AOMI_STABILITY_USER_ID.
  * AOMI_STABILITY_EXECUTE=1 is the explicit local-send switch.
+ * Run with ./node_modules/.bin/tsx scripts/commit-stability-wallet-e2e.mts.
  */
 import { strict as assert } from "node:assert";
 import { randomUUID } from "node:crypto";

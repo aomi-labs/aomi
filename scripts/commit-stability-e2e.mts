@@ -5,7 +5,7 @@
  * AOMI_PRODUCT_ROOT=/absolute/backend/root \
  * AOMI_STABILITY_ORIGIN=http://127.0.0.1:8086 \
  * AOMI_STABILITY_EVIDENCE=/absolute/evidence/directory \
- * node --experimental-strip-types scripts/commit-stability-e2e.mts
+ * ./node_modules/.bin/tsx scripts/commit-stability-e2e.mts
  *
  * To exercise stage/simulate/commit preparation, also set a local test user,
  * chain and wallet with AOMI_STABILITY_USER_ID, AOMI_STABILITY_CHAIN_ID and
