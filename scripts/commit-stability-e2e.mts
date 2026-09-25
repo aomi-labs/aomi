@@ -53,6 +53,14 @@ function redactedError(error: unknown): string {
   const message = typeof record?.message === "string" ? record.message : "error";
   return `${code} (${status}): ${message.replace(/Bearer\s+\S+|0x[a-fA-F0-9]{64}|https?:\/\/\S+@/g, "[redacted]").slice(0, 180)}`;
 }
+function isBuildIntegrityRejection(error: unknown): boolean {
+  const record = error as { status?: unknown; code?: unknown; details?: unknown };
+  const details = JSON.stringify(record?.details ?? null);
+  return record?.status === 422 &&
+    record?.code === "backend_rejected" &&
+    details.includes("pipeline_build_rejected") &&
+    /(digest|attestation)/i.test(details);
+}
 const cases: Case[] = [];
 function record(input: Omit<Case, "evidence"> & { evidence?: string[] }): void {
   cases.push({ ...input, evidence: input.evidence ?? [] });
@@ -150,7 +158,7 @@ if (!wallet || !/^0x[\da-fA-F]{40}$/.test(wallet) || !Number.isSafeInteger(chain
       record({ id: "P04", runner: "T", preconditions: "simulated Build", action: "change one action value", expected: "integrity rejection, no wallet request", observed: "tampered Build accepted", status: "FAIL" });
     } catch (error) {
       phase("tamper_rejected");
-      record({ id: "P04", runner: "T", preconditions: "simulated Build", action: "change one action value", expected: "integrity rejection, no wallet request", observed: redactedError(error), status: "PASS" });
+      record({ id: "P04", runner: "T", preconditions: "simulated Build", action: "change one action value", expected: "integrity rejection, no wallet request", observed: redactedError(error), status: isBuildIntegrityRejection(error) ? "PASS" : "FAIL" });
     }
     if (process.env.AOMI_STABILITY_PREPARE_COMMIT === "1") {
       const { bearer } = await mintAgentApiBearer(process.env.AOMI_STABILITY_USER_ID ?? "11111111-1111-4111-8111-111111111111", {
