@@ -33,14 +33,20 @@ const agent = new AomiClient({ baseUrl: origin.origin, guest: false,
 });
 const timeline: Record<string, unknown>[] = [];
 const result: Record<string, unknown> = { runId, sessionId, firstCommitId, status: "BLOCKED", stageIds: [], sends: 0 };
-const idsFrom = (value: unknown): string[] => {
-  const matches = JSON.stringify(value ?? "").match(/evm:\d+/g) ?? [];
-  return [...new Set(matches)];
+const toolResult = (value: unknown): Record<string, unknown> | undefined => {
+  const body = Array.isArray(value) ? value[1] : value;
+  if (typeof body !== "string") return undefined;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : undefined;
+  } catch { return undefined; }
 };
 const seen = new Set<string>();
 let page = await agent.agent.poll(sessionId, { waitMs: 0 });
 let latestStage: { ids: string[]; eventId: string; sequence: number } | undefined;
 let simulationEvent: { eventId: string; sequence: number } | undefined;
+const staged: Array<{ id: string; sequence: number; eventId: string }> = [];
+let callbackTurnId: string | undefined;
 const started = performance.now();
 while (performance.now() - started < 180_000) {
   for (const item of page.events) {
@@ -49,12 +55,18 @@ while (performance.now() - started < 180_000) {
     timeline.push({ at: new Date().toISOString(), monotonicMs: performance.now(), eventId: item.event_id,
       sequence: item.sequence, type: item.type, turnId: item.turn_id,
       toolName: item.type === "tool_complete" || item.type === "tool_update" ? item.tool_name : undefined });
-    if (item.type === "tool_complete" && /stage/i.test(item.tool_name)) {
-      const ids = idsFrom(item.result);
-      if (ids.length >= 2) latestStage = { ids, eventId: item.event_id, sequence: item.sequence };
+    if (item.turn_id?.startsWith("broadcast-terminal:")) callbackTurnId = item.turn_id;
+    const name = item.type === "message" ? item.tool_name : item.type === "tool_complete" ? item.tool_name : undefined;
+    const detail = item.type === "message" ? toolResult(item.tool_result) : item.type === "tool_complete" ? toolResult(item.result) : undefined;
+    if (item.turn_id === callbackTurnId && name === "evm_stage_tx" && typeof detail?.pending_tx_id === "number") {
+      staged.push({ id: `evm:${detail.pending_tx_id}`, eventId: item.event_id, sequence: item.sequence });
+      const distinct = [...new Map(staged.map((row) => [row.id, row])).values()].sort((a, b) => a.sequence - b.sequence);
+      if (distinct.length >= 2) latestStage = { ids: distinct.map((row) => row.id), eventId: item.event_id, sequence: item.sequence };
     }
-    if (item.type === "tool_complete" && /simulat/i.test(item.tool_name)) {
-      simulationEvent = { eventId: item.event_id, sequence: item.sequence };
+    if (item.turn_id === callbackTurnId && name === "simulate_batch" && detail?.batch_success === true) {
+      const simulated = Array.isArray(detail.resolved_ids) ? detail.resolved_ids.map((id) => `evm:${id}`) : [];
+      if (latestStage && JSON.stringify(simulated) === JSON.stringify(latestStage.ids))
+        simulationEvent = { eventId: item.event_id, sequence: item.sequence };
     }
   }
   const commits = page.commits ?? [];
