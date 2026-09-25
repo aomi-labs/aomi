@@ -123,6 +123,11 @@ export function DeploymentAttempts({ detail }: { detail: Detail }) {
           >
             {local.message}
           </p>
+          {local.deployError?.hint && (
+            <p className="text-foreground mt-2 text-sm">
+              {local.deployError.hint}
+            </p>
+          )}
           <p className="text-dim mt-1 text-xs">
             {local.branch || "Repository default branch"} ·{" "}
             {local.pending

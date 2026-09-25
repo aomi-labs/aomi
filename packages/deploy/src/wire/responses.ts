@@ -4,6 +4,7 @@
  * mappers live in operate.ts.
  */
 import { DeployError } from "../errors";
+import { optNumber, optString } from "./operate";
 import type {
   BotWebhookStatus,
   ActivateResult,
@@ -12,6 +13,7 @@ import type {
   BuilderModelKeyUsage,
   DeployResult,
   DeploymentStatus,
+  GitHubAppInstallationsResult,
   PlatformApp,
   Project,
   TokenRecord,
@@ -478,6 +480,28 @@ export function camelUserProject(raw: unknown): UserProject {
     ).flatMap((version) =>
       typeof version === "string" && version ? [version] : [],
     ),
+  };
+}
+
+export function camelGitHubAppInstallations(
+  raw: unknown,
+): GitHubAppInstallationsResult {
+  const r = (raw ?? {}) as Record<string, any>;
+  return {
+    status: String(
+      r.status ?? "error",
+    ) as GitHubAppInstallationsResult["status"],
+    repositories: Array.isArray(r.repositories)
+      ? r.repositories.map((repository: Record<string, any>) => ({
+          projectId: Number(repository.project_id),
+          githubRepo: String(repository.github_repo ?? ""),
+          platform: String(repository.platform ?? ""),
+          status: String(
+            repository.status ?? "error",
+          ) as GitHubAppInstallationsResult["repositories"][number]["status"],
+          settingsUrl: optString(repository.settings_url),
+        }))
+      : [],
   };
 }
 

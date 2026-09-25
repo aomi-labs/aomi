@@ -259,17 +259,144 @@ export const recoveryCommits: CommitView[] = durableCommits.map(
           ...view,
           version: 2,
           action: null,
-          failure_code: "commit_wallet_transaction_mismatch",
+          failure_code: "commit_wallet_transaction_nonce_mismatch",
           wallet_attempt: {
             attempt_id: "attempt-1",
             transport: "browser_send",
             state: "mismatched",
             transaction_id: "0xdeadbeef",
-            failure_code: "commit_wallet_transaction_mismatch",
+            failure_code: "commit_wallet_transaction_nonce_mismatch",
           },
         }
       : view,
 );
+
+export const reportedCommits: CommitView[] = durableCommits.map(
+  (view, index) =>
+    index === 0
+      ? {
+          ...view,
+          version: 2,
+          action: null,
+          wallet_attempt: {
+            attempt_id: "attempt-1",
+            transport: "browser_send",
+            state: "reported",
+            transaction_id: "0xdeadbeef",
+            failure_code: null,
+          },
+        }
+      : view,
+);
+
+export const confirmedCommits: CommitView[] = durableCommits.map(
+  (view, index) => ({
+    ...view,
+    version: 3,
+    state: "confirmed",
+    action: null,
+    transaction_id: `0xconfirmed${index + 1}`,
+  }),
+);
+
+/** Deterministic server pages for the real logical-turn projector. */
+export function commitTraceEvents(
+  state: "review" | "reported" | "recovery" | "confirmed" | "failed",
+): Event[] {
+  const events: Event[] = [
+    {
+      type: "message",
+      event_id: "event-commit-admission",
+      sequence: 5,
+      turn_id: "turn-aave-review",
+      occurred_at: 1_790_000_000_005,
+      sender: "agent",
+      content: "",
+      tool_name: "evm_commit_txs",
+      tool_result: [
+        "Commit",
+        JSON.stringify({
+          commits: durableCommits.map((commit) => ({
+            commit_id: commit.commit_id,
+            batch: { batch_id: "batch-1" },
+          })),
+        }),
+      ],
+    } as Event,
+    {
+      type: "turn_state_changed",
+      event_id: "event-initial-complete",
+      sequence: 6,
+      turn_id: "turn-aave-review",
+      occurred_at: 1_790_000_000_006,
+      state: "complete",
+    } as Event,
+  ];
+  if (state === "confirmed") {
+    events.push(
+      {
+        type: "turn_state_changed",
+        event_id: "event-callback-processing",
+        sequence: 7,
+        turn_id: "broadcast-terminal:batch-1",
+        occurred_at: 1_790_000_000_007,
+        state: "processing",
+      } as Event,
+      {
+        type: "tool_complete",
+        event_id: "event-first-receipt",
+        sequence: 8,
+        turn_id: "broadcast-terminal:batch-1",
+        occurred_at: 1_790_000_000_008,
+        id: "receipt-1",
+        call_id: "commit-call",
+        tool_name: "evm_commit_txs",
+        result: {
+          status: "success",
+          commit_id: "commit-1",
+          identifier: { kind: "hash", value: "0xconfirmed1" },
+          pending_ids: [{ id: 1, chain: "evm" }],
+        },
+      } as Event,
+      {
+        type: "tool_complete",
+        event_id: "event-second-receipt",
+        id: "receipt-2",
+        call_id: "commit-call-2",
+        tool_name: "evm_commit_txs",
+        sequence: 9,
+        turn_id: "broadcast-terminal:batch-1",
+        occurred_at: 1_790_000_000_009,
+        result: {
+          status: "success",
+          commit_id: "commit-2",
+          identifier: { kind: "hash", value: "0xconfirmed2" },
+          pending_ids: [{ id: 2, chain: "evm" }],
+        },
+      } as Event,
+      {
+        type: "message",
+        event_id: "event-final-answer",
+        message_key: "broadcast-terminal:batch-1:response",
+        sequence: 10,
+        turn_id: "broadcast-terminal:batch-1",
+        occurred_at: 1_790_000_000_010,
+        sender: "agent",
+        content: "Both transactions confirmed on-chain.",
+        is_streaming: false,
+      } as Event,
+      {
+        type: "turn_state_changed",
+        event_id: "event-callback-complete",
+        sequence: 11,
+        turn_id: "broadcast-terminal:batch-1",
+        occurred_at: 1_790_000_000_011,
+        state: "complete",
+      } as Event,
+    );
+  }
+  return events;
+}
 
 export function failedReviewAction(): Action {
   if (aaveReviewAction.request.type !== "execute_evm") {

@@ -30,6 +30,7 @@ import type {
 } from "./contracts";
 import type {
   DeploymentProgressEvent,
+  GitHubAppInstallationsResult,
   ListDeploymentRecordsResult,
   ProjectSdkUpgradeResult,
   ProjectSdkUpgradeStatusResult,
@@ -265,6 +266,14 @@ function createBaseClient(options: LaunchClientOptions) {
       return launchFetch(
         `${deploymentsPath}/sdk-upgrade-status${projectQuery({ projectId: input.projectId })}`,
         "project SDK upgrade status",
+      );
+    },
+
+    /** GitHub App access for the signed-in builder's connected repositories. */
+    githubAppInstallations(): Promise<GitHubAppInstallationsResult> {
+      return launchFetch(
+        `${deploymentsPath}/github-app`,
+        "GitHub App installations",
       );
     },
 

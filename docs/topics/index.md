@@ -26,6 +26,7 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 
 - [apps/facts/app-surfaces.md](apps/facts/app-surfaces.md): landing, base, portal, and telegram app surfaces
 - [apps/facts/widget-frame.md](apps/facts/widget-frame.md): embeddable Aomi frame composition and UI surface
+- [apps/facts/working-trace.md](apps/facts/working-trace.md): shared lifecycle rows, visible tool names, and neutral fallback
 
 ## Client Runtime
 

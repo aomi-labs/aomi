@@ -1247,6 +1247,72 @@ describe("BackendClient projects", () => {
   });
 });
 
+describe("BackendClient GitHub App access", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads connected source repository access in camelCase", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        status: "action_required",
+        repositories: [
+          {
+            project_id: 7,
+            github_repo: "builder/repo-x",
+            platform: "community",
+            settings_url: "https://github.com/settings/installations/5",
+            status: "missing_permissions",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const audits: AuditEvent[] = [];
+
+    const result = await client((event) =>
+      audits.push(event),
+    ).listUserGitHubAppInstallations({
+      githubUserId: "42",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
+    );
+    expect(result).toEqual({
+      status: "action_required",
+      repositories: [
+        {
+          projectId: 7,
+          githubRepo: "builder/repo-x",
+          platform: "community",
+          settingsUrl: "https://github.com/settings/installations/5",
+          status: "missing_permissions",
+        },
+      ],
+    });
+    expect(audits).toContainEqual(
+      expect.objectContaining({
+        action: "list_user_github_app_installations",
+      }),
+    );
+  });
+
+  it("returns an empty repository report", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ status: "ok", repositories: [] }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().listUserGitHubAppInstallations({
+      githubUserId: "42",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
+    );
+    expect(result).toEqual({ status: "ok", repositories: [] });
+  });
+});
+
 describe("server-only guard", () => {
   it("throws in a browser-like environment", () => {
     const g = globalThis as Record<string, unknown>;

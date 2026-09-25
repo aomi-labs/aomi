@@ -107,11 +107,9 @@ export function RepositoryConnector({
           Connect an existing repository
         </h2>
         <p className="text-dim mt-1 text-sm">
-          Enter the GitHub repository you already own — or the one your partner
-          gave you. It will only be added to{" "}
-          <span className="text-foreground">{platform}</span> after GitHub
-          confirms your access, and you&apos;ll come back to Projects when
-          it&apos;s connected.
+          Enter the GitHub repository you already own. If access is needed,
+          GitHub will ask you to select this repository before it is added to{" "}
+          <span className="text-foreground">{platform}</span>.
         </p>
       </div>
 
@@ -139,7 +137,7 @@ export function RepositoryConnector({
           disabled={connecting || !input.trim()}
           className="bg-primary text-primary-foreground inline-flex h-9 shrink-0 items-center justify-center rounded-md px-3 text-sm font-medium hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {connecting ? "Connecting…" : "Connect"}
+          {connecting ? "Connecting…" : "Connect repository"}
         </button>
       </form>
       {error && (

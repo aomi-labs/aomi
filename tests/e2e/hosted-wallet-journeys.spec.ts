@@ -308,9 +308,7 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
       Boolean(request.simulation?.gas?.units),
   ).toBe(true);
   await expect(review.getByText(/(?: fee$|Estimated gas ·)/)).toBeVisible();
-  await expect(
-    review.getByRole("button", { name: "Send to wallet" }),
-  ).toBeEnabled();
+  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
   expect(wallet.blocked).toEqual([]);
   expect(forbiddenRequests).toEqual([]);
 });

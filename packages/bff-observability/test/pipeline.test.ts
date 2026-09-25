@@ -231,6 +231,51 @@ describe("three-layer failure pipeline", () => {
     expect(sentry.captureException).toHaveBeenCalledWith(error);
   });
 
+  it("forwards the Manager's structured deploy_error on the owned response", async () => {
+    const deployError = {
+      code: "github_app_permission_missing",
+      message: "The Aomi GitHub App cannot dispatch the deployment workflow",
+      hint: "Grant the Aomi GitHub App `actions: write` on the platform repository, then retry.",
+      retryable: false,
+      details: { permission: "actions:write" },
+    };
+    const publicDeployError = {
+      code: deployError.code,
+      hint: deployError.hint,
+      retryable: false,
+    };
+    const result = createFailurePipeline("build-bff").handle({
+      source: "launch",
+      error: new BackendError(
+        "deploy",
+        502,
+        "deploy failed (502)",
+        JSON.stringify({
+          ok: false,
+          error: "GitHub deployment request returned HTTP 403",
+          error_code: "github_app_permission_missing",
+          deploy_error: deployError,
+        }),
+      ),
+      context,
+    });
+
+    expect(result).toMatchObject({
+      action: "log",
+      reason: "upstream_response_failed",
+      responseStatus: 502,
+      responseCode: "github_app_permission_missing",
+      responseRetryable: false,
+      responseDeployError: publicDeployError,
+    });
+    await expect(result.response.json()).resolves.toEqual({
+      error: "GitHub deployment request returned HTTP 403",
+      code: "github_app_permission_missing",
+      retryable: false,
+      deployError: publicDeployError,
+    });
+  });
+
   it("recognizes required-secret failures across deploy package entrypoints", () => {
     const error = new RequiredSecretsCheckError({
       upstream: "github",

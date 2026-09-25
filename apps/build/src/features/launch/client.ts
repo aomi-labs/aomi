@@ -6,6 +6,7 @@
 // leaves the BFF: it reaches the backend through the session-scoped fetch.
 
 import type {
+  GitHubAppInstallationsResult,
   ProjectSdkUpgradeResult,
   ProjectSdkUpgradeStatusResult,
 } from "@aomi-labs/deploy";
@@ -130,6 +131,10 @@ export function deploymentSdkUpgradeStatus(input: {
   projectId: number;
 }): Promise<ProjectSdkUpgradeStatusResult> {
   return client.deployments.sdkUpgradeStatus(input);
+}
+
+export function deploymentGitHubAppInstallations(): Promise<GitHubAppInstallationsResult> {
+  return client.deployments.githubAppInstallations();
 }
 
 export function deploymentHistory(input: {

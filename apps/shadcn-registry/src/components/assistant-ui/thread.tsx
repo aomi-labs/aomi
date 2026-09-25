@@ -71,6 +71,8 @@ import {
   useCapabilityComposer,
 } from "@/components/assistant-ui/capability-composer";
 
+import { TraceAttributionProvider } from "./trace-attribution";
+
 export const Thread: FC = () => {
   const composerRuntime = useComposerRuntime();
   const { threadViewKey } = useThreadContext();
@@ -92,51 +94,53 @@ export const Thread: FC = () => {
       enabledAppIds={controlBarProps.enabledAppIds}
       routing={controlBarProps.routing}
     >
-      <LazyMotion features={domMax}>
-        <MotionConfig reducedMotion="user">
-          <ThreadPrimitive.Root
-            className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
-            style={{
-              ["--thread-max-width" as string]: "45rem",
-            }}
-          >
-            <PaymentRequiredGate />
-            <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
-                <ThreadPrimitive.Viewport
-                  autoScroll={!isReviewingAction}
-                  className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
-                >
-                  <ThreadPrimitive.If empty>
-                    <ThreadWelcome />
-                  </ThreadPrimitive.If>
+      <TraceAttributionProvider>
+        <LazyMotion features={domMax}>
+          <MotionConfig reducedMotion="user">
+            <ThreadPrimitive.Root
+              className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
+              style={{
+                ["--thread-max-width" as string]: "45rem",
+              }}
+            >
+              <PaymentRequiredGate />
+              <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
+                  <ThreadPrimitive.Viewport
+                    autoScroll={!isReviewingAction}
+                    className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
+                  >
+                    <ThreadPrimitive.If empty>
+                      <ThreadWelcome />
+                    </ThreadPrimitive.If>
 
-                  <ThreadLoadingSkeleton />
+                    <ThreadLoadingSkeleton />
 
-                  <ThreadPrimitive.Messages
-                    components={{
-                      UserMessage,
-                      EditComposer,
-                      AssistantMessage,
-                    }}
-                  />
+                    <ThreadPrimitive.Messages
+                      components={{
+                        UserMessage,
+                        EditComposer,
+                        AssistantMessage,
+                      }}
+                    />
 
-                  <ThreadPrimitive.If empty={false}>
-                    <div className="aui-thread-viewport-spacer min-h-36 grow" />
-                  </ThreadPrimitive.If>
-                </ThreadPrimitive.Viewport>
+                    <ThreadPrimitive.If empty={false}>
+                      <div className="aui-thread-viewport-spacer min-h-36 grow" />
+                    </ThreadPrimitive.If>
+                  </ThreadPrimitive.Viewport>
 
-                {/* The empty state carries its own hero composer (mock layout); the
+                  {/* The empty state carries its own hero composer (mock layout); the
               docked composer appears once a conversation exists. */}
-                <ThreadPrimitive.If empty={false}>
-                  <Composer />
-                </ThreadPrimitive.If>
+                  <ThreadPrimitive.If empty={false}>
+                    <Composer />
+                  </ThreadPrimitive.If>
+                </div>
+                {aomiRuntime && <ActivitySidebar />}
               </div>
-              {aomiRuntime && <ActivitySidebar />}
-            </div>
-          </ThreadPrimitive.Root>
-        </MotionConfig>
-      </LazyMotion>
+            </ThreadPrimitive.Root>
+          </MotionConfig>
+        </LazyMotion>
+      </TraceAttributionProvider>
     </CapabilityComposerProvider>
   );
 };

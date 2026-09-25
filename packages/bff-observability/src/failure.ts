@@ -1,4 +1,5 @@
 import type { ProxyFailure } from "@aomi-labs/account";
+import type { DeployErrorDetail } from "@aomi-labs/deploy";
 
 export type BffService = "portal-bff" | "build-bff";
 
@@ -28,6 +29,11 @@ export type PublicFailure = {
    * the user to try again is the wrong instruction.
    */
   retryable?: boolean;
+  /**
+   * Public fields from the Manager's structured deploy failure. Internal
+   * diagnostic details stay behind the BFF boundary.
+   */
+  deployError?: DeployErrorDetail;
 };
 
 export type LocalDiagnosticValue = string | number | boolean | null;
@@ -128,6 +134,7 @@ export type FailureDecision = {
   responseError: string;
   responseCode?: string;
   responseRetryable?: boolean;
+  responseDeployError?: DeployErrorDetail;
   upstream?: BffUpstream;
   upstreamStatus?: number;
   requestError?: RequestErrorDetails;

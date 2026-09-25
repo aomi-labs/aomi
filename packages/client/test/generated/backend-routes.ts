@@ -655,6 +655,21 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/commits/:commit_id/wallet-attempts",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/commits/:commit_id/wallet-attempts/:attempt_id/report",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/commits/batch",
+    auth: ["account","thread"],
+  },
+  {
+    method: "POST",
     path: "/api/exec/run",
     auth: ["account","thread","app_gate","delegated"],
   },
@@ -857,6 +872,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "POST",
     path: "/api/system",
     auth: ["account","thread"],
+  },
+  {
+    method: "POST",
+    path: "/api/task/build",
+    auth: ["delegated"],
   },
   {
     method: "POST",

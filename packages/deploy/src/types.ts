@@ -36,6 +36,7 @@ export interface AuditEvent {
     | "list_user_project_apps"
     | "exchange_github_code"
     | "list_user_projects"
+    | "list_user_github_app_installations"
     | "get_user_project"
     | "get_builder_application"
     | "list_user_deployments"
@@ -512,6 +513,42 @@ export interface ListUserProjectsInput extends BearerOverride {
   githubUserId: string;
   platform?: string;
   visibilityGrant?: string;
+}
+
+/**
+ * Structured failure detail the Manager attaches to a deploy-domain error
+ * (`deploy_error` on the wire). Internal message/details are deliberately not
+ * exposed through the BFF.
+ */
+export interface DeployErrorDetail {
+  code: string;
+  hint: string | null;
+  retryable: boolean;
+}
+
+export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
+  githubUserId: string;
+}
+
+export type GitHubRepositoryAccessStatus =
+  | "ok"
+  | "missing_permissions"
+  | "suspended"
+  | "not_installed"
+  | "error";
+
+/** Live access to one builder-owned repository already connected as a Project. */
+export interface GitHubRepositoryAccess {
+  projectId: number;
+  githubRepo: string;
+  platform: string;
+  status: GitHubRepositoryAccessStatus;
+  settingsUrl: string | null;
+}
+
+export interface GitHubAppInstallationsResult {
+  status: "ok" | "action_required" | "error";
+  repositories: GitHubRepositoryAccess[];
 }
 
 export interface GetUserProjectInput extends BearerOverride {

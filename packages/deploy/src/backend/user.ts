@@ -31,6 +31,8 @@ import type {
   ListUserProjectLogsInput,
   ListUserProjectTransactionsInput,
   ListUserProjectsInput,
+  ListUserGitHubAppInstallationsInput,
+  GitHubAppInstallationsResult,
   ListUserTransactionsInput,
   ActivateResult,
   PromoteResult,
@@ -67,6 +69,7 @@ import {
   camelBotWebhookStatus,
   camelActivateResult,
   camelBuilderModelKey,
+  camelGitHubAppInstallations,
   camelLogCursor,
   camelLogRow,
   camelOperateAppDetail,
@@ -229,6 +232,20 @@ export class BackendClient extends BackendPlatformClient {
         }
       },
       { platform: input.platform },
+    );
+  }
+
+  /** Live GitHub access for the builder's connected source repositories. */
+  async listUserGitHubAppInstallations(
+    input: ListUserGitHubAppInstallationsInput,
+  ): Promise<GitHubAppInstallationsResult> {
+    return this.userGet(
+      input,
+      "installations",
+      "list_user_github_app_installations",
+      camelGitHubAppInstallations,
+      undefined,
+      {},
     );
   }
 

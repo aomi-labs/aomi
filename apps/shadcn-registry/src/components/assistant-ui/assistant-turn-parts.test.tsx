@@ -10,13 +10,25 @@ const state = vi.hoisted(() => ({
   prefixText: "",
   middleText: "",
   secondTool: false,
+  trailingTool: false,
   isLast: true,
+  messageId: "turn:turn-1",
+  events: [] as unknown[],
+  finalAnswerStartIndex: undefined as number | undefined,
+  continuationTurnIds: [] as string[],
 }));
 
 vi.mock("@assistant-ui/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@assistant-ui/react")>()),
   useMessage: (selector: (message: unknown) => unknown) =>
     selector({
+      id: state.messageId,
+      metadata: {
+        custom: {
+          aomiFinalAnswerStartIndex: state.finalAnswerStartIndex,
+          aomiContinuationTurnIds: state.continuationTurnIds,
+        },
+      },
       content: [
         ...(state.prefixText
           ? [{ type: "text" as const, text: state.prefixText }]
@@ -51,6 +63,18 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
         ...(state.answerText
           ? [{ type: "text" as const, text: state.answerText }]
           : []),
+        ...(state.trailingTool
+          ? [
+              {
+                type: "tool-call",
+                argsText: "{}",
+                toolName: "receipt",
+                toolCallId: "late-receipt",
+                args: {},
+                result: { status: "completed" },
+              } satisfies ToolCallMessagePart,
+            ]
+          : []),
       ],
       status: { type: state.running ? "running" : "complete" },
       isLast: state.isLast,
@@ -59,7 +83,10 @@ vi.mock("@assistant-ui/react", async (importOriginal) => ({
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
-  useOptionalAomiRuntime: () => ({ turnState: state.turnState }),
+  useOptionalAomiRuntime: () => ({
+    turnState: state.turnState,
+    events: state.events,
+  }),
   useThreadTaskRuns: () => ({}),
 }));
 
@@ -91,7 +118,12 @@ beforeEach(() => {
   state.prefixText = "";
   state.middleText = "";
   state.secondTool = false;
+  state.trailingTool = false;
   state.isLast = true;
+  state.messageId = "turn:turn-1";
+  state.events = [];
+  state.finalAnswerStartIndex = undefined;
+  state.continuationTurnIds = [];
 });
 
 describe("AssistantTurnParts lifecycle", () => {
@@ -156,6 +188,56 @@ describe("AssistantTurnParts lifecycle", () => {
     ).toHaveTextContent(state.answerText);
     expect(view.getAllByText(state.answerText)).toHaveLength(1);
   });
+
+  it.each([undefined, 3])(
+    "shows the completed answer when a tool arrives late and the boundary is %s",
+    (boundary) => {
+      state.running = false;
+      state.turnState = "complete";
+      state.answerText = "The move on Arc is complete.";
+      state.trailingTool = true;
+      state.finalAnswerStartIndex = boundary;
+
+      const view = render(<AssistantTurnParts />);
+      const trace = view.container.querySelector(".aui-working-trace");
+      const answer = view.getByText(state.answerText);
+      expect(trace).not.toContainElement(answer);
+      expect(answer.closest(".aui-working-answer")).toBeTruthy();
+      expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
+      expect(view.getAllByText(state.answerText)).toHaveLength(1);
+    },
+  );
+
+  it("keeps pre-tool commentary in the trace when no answer follows", () => {
+    state.prefixText = "Checking the balance.";
+    state.running = false;
+    state.turnState = "complete";
+
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.prefixText),
+    );
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+  });
+
+  it.each(["failed", "interrupted"])(
+    "keeps a stopped historical turn's notes in its trace after %s",
+    (terminal) => {
+      state.middleText = "Checking the receipt next.";
+      state.secondTool = true;
+      state.running = false;
+      state.isLast = false;
+      state.events = [
+        { type: "turn_state_changed", turn_id: "turn-1", state: terminal },
+      ];
+
+      const view = render(<AssistantTurnParts />);
+      expect(
+        view.container.querySelector(".aui-working-trace"),
+      ).toContainElement(view.getByText(state.middleText));
+      expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    },
+  );
 
   it("places notes before and between tools in a single chronological trace", () => {
     state.prefixText = "Checking the balance.";
@@ -279,4 +361,157 @@ describe("AssistantTurnParts lifecycle", () => {
       expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
     },
   );
+
+  it("stays Working from commit through wallet confirmation and callback", () => {
+    const callbackId = "broadcast-terminal:batch-1";
+    state.continuationTurnIds = [callbackId];
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+    ];
+    state.running = false;
+    state.turnState = "complete";
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      { type: "turn_state_changed", turn_id: callbackId, state: "processing" },
+    ];
+    state.turnState = "processing";
+    state.finalAnswerStartIndex = 1;
+    state.answerText = "Payment confirmed.";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+    const trace = view.container.querySelector(".aui-working-trace");
+    const answer = view.getByText(state.answerText);
+    expect(trace).not.toContainElement(answer);
+    expect(answer.closest(".aui-working-answer")).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      {
+        type: "message",
+        turn_id: callbackId,
+        message_key: `${callbackId}:response`,
+        sender: "agent",
+        content: state.answerText,
+        is_streaming: false,
+      },
+      { type: "turn_state_changed", turn_id: callbackId, state: "complete" },
+    ];
+    state.turnState = "complete";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
+    expect(view.getByText(state.answerText)).toBe(answer);
+
+    // Completion remains settled when the durable projection rerenders.
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("does not reanimate a completed turn for a later turn's processing", () => {
+    state.running = true;
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: "turn-2", state: "processing" },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("keeps an older commit trace live while a later user turn runs", () => {
+    state.running = false;
+    state.isLast = false;
+    state.turnState = "processing";
+    state.continuationTurnIds = ["broadcast-terminal:batch-1"];
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: "turn-2", state: "processing" },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      {
+        type: "turn_state_changed",
+        turn_id: "broadcast-terminal:batch-1",
+        state: "processing",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+
+    state.events = [
+      ...state.events,
+      {
+        type: "message",
+        turn_id: "broadcast-terminal:batch-1",
+        message_key: "broadcast-terminal:batch-1:response",
+        sender: "agent",
+        content: "Finished.",
+        is_streaming: false,
+      },
+      {
+        type: "turn_state_changed",
+        turn_id: "broadcast-terminal:batch-1",
+        state: "complete",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+  });
+
+  it("keeps nested callback work in one trace until the last callback settles", () => {
+    const firstCallback = "broadcast-terminal:batch-a";
+    const secondCallback = "broadcast-terminal:batch-b";
+    state.running = false;
+    state.turnState = "complete";
+    state.continuationTurnIds = [firstCallback, secondCallback];
+    state.middleText = "The first payment finished; approve the second.";
+    state.secondTool = true;
+    state.answerText = "Both payments finished.";
+    state.finalAnswerStartIndex = 3;
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      { type: "turn_state_changed", turn_id: firstCallback, state: "complete" },
+      {
+        type: "turn_state_changed",
+        turn_id: secondCallback,
+        state: "processing",
+      },
+    ];
+    const view = render(<AssistantTurnParts />);
+    const trace = view.container.querySelector(".aui-working-trace");
+    const answer = view.getByText(state.answerText);
+    expect(view.container.querySelectorAll(".aui-working-trace")).toHaveLength(
+      1,
+    );
+    expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
+    expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
+    expect(trace).toContainElement(view.getByText(state.middleText));
+    expect(trace).not.toContainElement(answer);
+
+    state.events = [
+      ...state.events,
+      {
+        type: "message",
+        turn_id: secondCallback,
+        message_key: `${secondCallback}:response`,
+        sender: "agent",
+        content: state.answerText,
+        is_streaming: false,
+      },
+      {
+        type: "turn_state_changed",
+        turn_id: secondCallback,
+        state: "complete",
+      },
+    ];
+    view.rerender(<AssistantTurnParts />);
+    expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
+    expect(view.getByText(state.answerText)).toBe(answer);
+  });
 });

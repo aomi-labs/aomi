@@ -1,3 +1,51 @@
+# Completed chat answer visibility — 2026-09-24
+
+In the isolated `codex/chat-final-response-visible` frontend worktree, the
+working trace now shows completed prose as the assistant answer when a late tool
+record or empty final-answer boundary would otherwise leave it inside the
+collapsible trace. The late tool stays visible as a step. Focused regression
+checks cover both boundary cases. The activity sidebar now animates arriving
+transaction cards and lists each signing batch in execution order while recent
+batches still lead. Widget version is 3.0.10.
+
+# LI.FI swap chips — 2026-09-24
+
+The current `lifi_prepare_swap_batch` result uses `stage_txs`; the trace adapter now reads that batch shape and shows the chain, token direction, input amount, and expected output. The chain appears first from call arguments while the result is pending. Working trace lifecycle code is unchanged. Widget patch version: 3.0.10.
+
+# GPT-6 model rollout — 2026-09-23
+
+The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
+
+# Landing developer examples refresh — 2026-09-24
+
+The landing examples branch now includes current main after the companion docs PR #56 merged. PR #554 keeps examples aligned with current source while labeling published-package and deployed-API compatibility limits.
+
+# Working-trace app and skill attribution — 2026-09-24
+
+PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
+
+# Working trace contract cleanup — 2026-09-23
+
+Follow-up: removed decorative blue dots from text-only data chips, displayed
+Arc account native USDC balance, and split interpretation into EVM, SVM,
+general, and individual protocol adapters. New protocol files are picked up by
+the registry build after one adapter registration. The original PR remains the
+review target.
+
+Created a clean paired frontend/backend worktree from freshly fetched
+`origin/main`. The shared widget now routes tool presentation by declared
+identity, uses one lifecycle layout for EVM and Solana, shows Commit Service
+states and truthful count units, and leaves unknown skill tools neutral.
+Core action names remain stable while active and after results or errors.
+Aave and other supported preparation tools have explicit semantic
+presentations. The maintained contract is in
+`docs/topics/apps/facts/working-trace.md`; backend source is unchanged.
+The widget's 598 tests, focused contract tests, registry build, frontend
+boundary check, trusted-base packed consumer build, and transaction-review
+browser fixture pass. The isolated widget TypeScript check still reports
+pre-existing errors in control-bar and wallet-kit test files unrelated to
+this change.
+
 # Arc protocol support planning — 2026-09-20
 
 Explored Arc mainnet support in the paired `arc-protocol-support-plan` worktrees. Product implementation has not started. Backend-owned plan: `../product-mono/docs/plans/2026-09-20-arc-protocol-support.md`. Existing Arc wallet, chain, icon and explorer support will be reused; proposed frontend work focuses on USDC units, protocol result presentation and authenticated staging verification.
@@ -60,8 +108,7 @@ backend or database. The first Tailscale preview used Landing's
 `/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
 Landing's missing route (404). The current managed runtime serves the actual
 `apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
-pointed at `https://chat-staging.aomi.dev` with public Across application
-24895. Read-only inspection confirmed the host fixture's global `h1` rule
+pointed at `https://chat-staging.aomi.dev` with public Across application 24895. Read-only inspection confirmed the host fixture's global `h1` rule
 changes the widget welcome title from its intended 30px to 60px, and its
 global `header` rule caps the internal widget header at 760px and adds a 24px
 bottom margin. The consumer's routing prop visibly offers Auto and Direct,

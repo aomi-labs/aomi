@@ -1,5 +1,6 @@
 /** Reviewed sources for locally bundled app marks. */
 export const appIconSources = {
+  hoodit: "https://github.com/aomi-labs/hoodit-apps/blob/76a6a12/app/icon.svg",
   across: "https://across.to/",
   aave: "https://github.com/aave-dao/aave-brand-kit/tree/main/Logo",
   binance:

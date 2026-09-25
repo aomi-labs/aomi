@@ -416,6 +416,11 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   zora: ZoraSkillIcon,
 };
 
+const SKILL_DISPLAY_NAMES: Record<string, string> = {
+  common_erc20: "Common Erc20",
+  lifi_swap: "Lifi Swap",
+};
+
 /** Normalize a capability catalog ID before looking up its visual identity. */
 export function normalizeSkillId(skillId: string): string {
   return skillId
@@ -429,4 +434,8 @@ export function getSkillIcon(
 ): FC<SVGProps<SVGSVGElement>> | undefined {
   if (!skillId) return undefined;
   return SKILL_ICONS[normalizeSkillId(skillId)];
+}
+
+export function getSkillDisplayName(skillId: string): string | undefined {
+  return SKILL_DISPLAY_NAMES[normalizeSkillId(skillId)];
 }

@@ -1,6 +1,9 @@
 import { amountFact, asRecord, asString, uniqueFacts } from "../normalize";
+import { SHAPE_ICONS } from "@/components/assistant-ui/tool-registry";
 import type { ToolFact, ToolMatcher } from "../types";
-import { svmClusterFact } from "./svm";
+import { svmClusterFact } from "../families/svm/context";
+import { validResult } from "./shared";
+import type { ProtocolAdapter } from "./types";
 
 const amountDisplayFact = (
   value: unknown,
@@ -30,7 +33,7 @@ export const matchJupiterSwapPrep: ToolMatcher = ({
   rawLabel,
   resultRecord,
 }) => {
-  if (!resultRecord) return null;
+  if (!validResult(resultRecord)) return null;
   const quote = asRecord(resultRecord.quote);
   if (!quote || !asRecord(quote.input_token) || !asRecord(quote.output_token)) {
     return null;
@@ -52,4 +55,22 @@ export const matchJupiterSwapPrep: ToolMatcher = ({
     confidence: "high",
     rawLabel,
   };
+};
+
+export const jupiter: ProtocolAdapter = {
+  descriptors: {
+    "jupiter.swap.prepare": {
+      title: "fixed",
+      fixedTitle: "Prepare swap",
+      icon: SHAPE_ICONS.swap,
+      chipPlan: [
+        { kind: "cluster" },
+        { kind: "token", role: "primary" },
+        { kind: "amount", role: "primary" },
+        { kind: "amount", role: "secondary" },
+      ],
+    },
+  },
+  tools: ["jupiter_prepare_swap"],
+  match: matchJupiterSwapPrep,
 };
