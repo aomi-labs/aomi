@@ -1,4 +1,5 @@
 import type { AomiClient } from "./client";
+import { getAddress, isAddress } from "viem";
 import type { Wallets } from "./wallet/types";
 import type { components } from "./generated/agent-v1/types";
 import type { ActionRequest } from "./agent/types";
@@ -149,6 +150,10 @@ function isExplicitWalletRejection(error: unknown): boolean {
   return false;
 }
 
+function walletTarget(to: string): `0x${string}` {
+  return isAddress(to) ? to : getAddress(to.toLowerCase());
+}
+
 export function commitCapabilities(
   wallets: Wallets,
   recovery?: CommitRecoveryStore,
@@ -165,6 +170,7 @@ export function commitCapabilities(
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
+            walletTarget(payload.transaction.to);
             await preparePrepared(payload);
           },
           async walletSend(commit, payload, onPhase) {
@@ -172,9 +178,16 @@ export function commitCapabilities(
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
+            const walletPayload = {
+              ...payload,
+              transaction: {
+                ...payload.transaction,
+                to: walletTarget(payload.transaction.to),
+              },
+            };
             return onPhase
-              ? sendPrepared(payload, onPhase)
-              : sendPrepared(payload);
+              ? sendPrepared(walletPayload, onPhase)
+              : sendPrepared(walletPayload);
           },
         }
       : {}),

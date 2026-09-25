@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { getAddress } from "viem";
 
 import { walletCapabilities } from "../src";
 
@@ -70,14 +71,56 @@ describe("walletCapabilities", () => {
     });
   });
 
+  it("normalizes the same EVM target bytes before invoking a wallet", async () => {
+    const mixedCase = "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa";
+    const sendTransaction = vi.fn().mockResolvedValue("0xhash");
+    const capability = walletCapabilities({
+      evm: {
+        address: "0x1111111111111111111111111111111111111111",
+        chainId: 8453,
+        sendTransaction,
+      },
+    }).execute_evm!;
+    const request = {
+      type: "execute_evm" as const,
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x1111111111111111111111111111111111111111",
+          to: mixedCase,
+          data: "0x",
+          label: "Transfer",
+          kind: "call" as const,
+        },
+      ],
+    };
+    await capability(request, signal);
+    expect(sendTransaction).toHaveBeenCalledWith({
+      chainId: 8453,
+      to: getAddress(mixedCase.toLowerCase()),
+      data: "0x",
+      value: undefined,
+    });
+    expect(request.transactions[0].to).toBe(mixedCase);
+
+    await expect(
+      capability(
+        {
+          ...request,
+          transactions: [{ ...request.transactions[0], to: "0xNotAnAddress" }],
+        },
+        signal,
+      ),
+    ).rejects.toThrow();
+    expect(sendTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it("executes complete SVM transactions without consulting runtime state", async () => {
     const switchCluster = vi.fn().mockResolvedValue(undefined);
-    const signAndSendTransaction = vi
-      .fn()
-      .mockResolvedValue({
-        signature: "svm-signature",
-        signedTransaction: "signed",
-      });
+    const signAndSendTransaction = vi.fn().mockResolvedValue({
+      signature: "svm-signature",
+      signedTransaction: "signed",
+    });
     const capability = walletCapabilities({
       svm: {
         address: "payer",

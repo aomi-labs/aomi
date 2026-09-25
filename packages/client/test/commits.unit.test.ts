@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { getAddress } from "viem";
 import {
   commitCapabilities,
   CommitController,
@@ -543,6 +544,46 @@ describe("Commit view surfaces", () => {
     },
   );
 
+  it("rejects malformed wallet targets before attempt creation or provider invocation", async () => {
+    const recovery = recoveryStore();
+    const sendPreparedTransaction = vi.fn();
+    const preparePreparedTransaction = vi.fn();
+    const malformed: CommitView = {
+      ...external,
+      action: {
+        kind: "sign",
+        payload: {
+          ...externalPayload,
+          transaction: { ...externalPayload.transaction, to: "0x1234" },
+        },
+      },
+    };
+    const request = vi.fn(async (_method: string) => malformed);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      malformed.thread_id,
+      {
+        ...commitCapabilities({
+          evm: {
+            address: externalPayload.signer,
+            preparePreparedTransaction,
+            sendPreparedTransaction,
+          },
+        }),
+        recovery: recovery.store,
+      },
+    );
+
+    await expect(controller.execute(malformed.commit_id)).rejects.toThrow();
+    expect(
+      request.mock.calls.filter(([method]) => method === "POST"),
+    ).toHaveLength(0);
+    expect(sendPreparedTransaction).not.toHaveBeenCalled();
+    expect(preparePreparedTransaction).not.toHaveBeenCalled();
+    expect(recovery.records.size).toBe(0);
+    controller.close();
+  });
+
   it("selects advertised browser send only after readiness succeeds", async () => {
     const recovery = recoveryStore();
     const order: string[] = [];
@@ -718,6 +759,57 @@ describe("Commit view surfaces", () => {
     expect(
       commitCapabilities({ evm: { address: payload.signer } }).walletSend,
     ).toBeUndefined();
+  });
+
+  it("keeps reviewed commit payload intact while normalizing wallet-bound target bytes", async () => {
+    const mixedCase = "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa";
+    const sendPreparedTransaction = vi.fn().mockResolvedValue("0xhash");
+    const capabilities = commitCapabilities({
+      evm: {
+        address: externalPayload.signer,
+        preparePreparedTransaction: vi.fn(),
+        sendPreparedTransaction,
+      },
+    });
+    const payload = {
+      ...externalPayload,
+      transaction: { ...externalPayload.transaction, to: mixedCase },
+    };
+    await capabilities.walletSend?.(external, payload);
+    expect(sendPreparedTransaction).toHaveBeenCalledWith({
+      ...payload,
+      transaction: {
+        ...payload.transaction,
+        to: getAddress(mixedCase.toLowerCase()),
+      },
+    });
+    expect(payload.transaction.to).toBe(mixedCase);
+
+    await expect(
+      capabilities.walletSend?.(external, {
+        ...payload,
+        transaction: { ...payload.transaction, to: "0xNotAnAddress" },
+      }),
+    ).rejects.toThrow();
+    expect(sendPreparedTransaction).toHaveBeenCalledTimes(1);
+
+    const preparePreparedTransaction = vi.fn();
+    const preflight = commitCapabilities({
+      evm: {
+        address: externalPayload.signer,
+        preparePreparedTransaction,
+        sendPreparedTransaction,
+      },
+    }).walletSendPreflight!;
+    for (const invalid of ["0x1234", `0x${"g".repeat(40)}`]) {
+      await expect(
+        preflight(external, {
+          ...payload,
+          transaction: { ...payload.transaction, to: invalid },
+        }),
+      ).rejects.toThrow();
+    }
+    expect(preparePreparedTransaction).not.toHaveBeenCalled();
   });
 
   it("republishes when a review arrives after its view", () => {

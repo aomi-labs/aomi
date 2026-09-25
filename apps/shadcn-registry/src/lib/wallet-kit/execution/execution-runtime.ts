@@ -7,6 +7,7 @@ import {
 import type { EvmExecutionRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import type { WalletClient } from "viem";
+import { getAddress, isAddress } from "viem";
 import type { EvmWallet } from "@aomi-labs/client";
 import {
   executeWalletKitTransaction,
@@ -104,6 +105,8 @@ export function buildEvmExecutionRuntime(
       runtime.preparePreparedEvmTransaction ??
       (canSendPreparedTransaction
         ? async (payload) => {
+            const to = payload.transaction.to;
+            if (!isAddress(to)) getAddress(to.toLowerCase());
             if (!activeConnector) {
               await localPreparedClient(payload);
               return;
@@ -132,6 +135,9 @@ export function buildEvmExecutionRuntime(
       (canSendPreparedTransaction
         ? async (payload, onPhase) => {
             const tx = payload.transaction;
+            const to = isAddress(tx.to)
+              ? tx.to
+              : getAddress(tx.to.toLowerCase());
             if (activeConnector && sendTransactionAsync) {
               await selectExternalChain(payload, onPhase);
               // Browser sends use the wallet's current pending nonce. The
@@ -141,7 +147,7 @@ export function buildEvmExecutionRuntime(
                 account: payload.signer as `0x${string}`,
                 chainId: payload.chain_id,
                 connector: activeConnector,
-                to: tx.to as `0x${string}`,
+                to,
                 data: tx.data as `0x${string}`,
                 value: BigInt(tx.value),
               }).catch((error) => {
@@ -158,7 +164,7 @@ export function buildEvmExecutionRuntime(
               account,
               chain,
               type: "eip1559",
-              to: tx.to as `0x${string}`,
+              to,
               data: tx.data as `0x${string}`,
               value: BigInt(tx.value),
               gas: BigInt(tx.gas_limit),
