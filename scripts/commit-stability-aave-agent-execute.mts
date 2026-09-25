@@ -18,6 +18,7 @@ const required = (name: string) => {
   return value;
 };
 assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "local send requires AOMI_STABILITY_EXECUTE=1");
+const rejectSecond = process.env.AOMI_STABILITY_REJECT_SECOND === "1";
 const backendRoot = resolve(required("AOMI_PRODUCT_ROOT"));
 const agentOrigin = new URL(required("AOMI_STABILITY_ORIGIN"));
 const commitOrigin = new URL(required("AOMI_STABILITY_COMMIT_ORIGIN"));
@@ -77,14 +78,14 @@ const revision = (root: string) => execFileSync("git", ["rev-parse", "HEAD"], { 
 const frontendRoot = resolve(import.meta.dirname, "..");
 const timeline: Record<string, unknown>[] = [];
 const event = (phase: string, detail: Record<string, unknown> = {}) => timeline.push({ phase, at: new Date().toISOString(), monotonicMs: performance.now(), ...detail });
-const result: Record<string, unknown> = { runId, status: "BLOCKED", caseIds: ["S01", "P03", "W01", "C01", "C02", "C07"],
+const result: Record<string, unknown> = { runId, status: "BLOCKED", caseIds: rejectSecond ? ["W09"] : ["S01", "P03", "W01", "C01", "C02", "C07"],
   sessionId: probe.sessionId, batchId: probe.batchId, commitIds: probe.commitIds, sends: 0 };
 const flush = async () => {
   await writeFile(join(out, "result.json"), JSON.stringify(result, null, 2) + "\n", { mode: 0o600 });
   await writeFile(join(out, "timeline.jsonl"), timeline.map((row) => JSON.stringify(row)).join("\n") + "\n", { mode: 0o600 });
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify({ schemaVersion: 1, runId, at: new Date().toISOString(),
-  scenario: "Agent durable approval/supply, 90-second inter-leg wait, local fork wallet",
+  scenario: rejectSecond ? "Agent durable batch with confirmed approval and explicit wallet rejection of supply" : "Agent durable approval/supply, 90-second inter-leg wait, local fork wallet",
   backendRuntimeRevision: required("AOMI_STABILITY_BACKEND_RUNTIME_REVISION"),
   frontendRuntimeRevision: required("AOMI_STABILITY_FRONTEND_RUNTIME_REVISION"),
   backendSourceRevision: revision(backendRoot), frontendRunnerRevision: revision(frontendRoot),
@@ -140,6 +141,10 @@ const session = new Session(commitClient, { sessionId: probe.sessionId, commits:
     const index = probe.commitIds?.indexOf(view.commit_id) ?? -1;
     assert.ok(index === 0 || index === 1);
     event("wallet_invoked", { commitId: view.commit_id, index });
+    if (rejectSecond && index === 1) {
+      event("wallet_rejected", { commitId: view.commit_id, index, code: 4001 });
+      throw Object.assign(new Error("disposable wallet rejected second leg before broadcast"), { code: 4001 });
+    }
     const tx = payload.transaction;
     const hash = await walletClient.sendTransaction({ account, chain: base, to: tx.to.toLowerCase() as `0x${string}`, value: 0n,
       data: tx.data as `0x${string}`, gas: BigInt(tx.gas_limit), nonce: payload.nonce,
@@ -198,7 +203,7 @@ try {
   assert.deepEqual(initial.map((v) => v.stage_id), initial[0].batch?.ordered_stage_ids);
   assert.ok(initial.every((v) => v.state === "needs_signature"), "both commits must be unsent before execution");
   for (const [index, id] of probe.commitIds.entries()) {
-    if (index === 1) {
+    if (index === 1 && !rejectSecond) {
       event("second_leg_wait_start", { firstCommitId: probe.commitIds[0] });
       await new Promise((done) => setTimeout(done, 90_000));
       event("second_leg_wait_end", { secondCommitId: id });
@@ -206,6 +211,19 @@ try {
     const before = await session.commits.refresh(id);
     assert.equal(before.state, "needs_signature", "no auto-send occurred");
     const submitted = await session.commits.execute(id);
+    if (rejectSecond && index === 1) {
+      assert.equal(submitted.state, "rejected", "second member must retain explicit wallet rejection");
+      assert.equal(Number(result.sends), 1, "no second on-chain send");
+      const first = await session.commits.refresh(probe.commitIds[0]);
+      assert.equal(first.state, "confirmed", "first confirmed member must survive later rejection");
+      const state = await balances();
+      assert.equal(state.usdcBalance, beforeBalances.usdcBalance, "rejected supply must not move principal");
+      assert.ok(state.allowance >= amount, "confirmed approval must remain effective");
+      event("mixed_batch_state", { firstState: first.state, secondState: submitted.state,
+        usdcBalance: state.usdcBalance.toString(), allowance: state.allowance.toString() });
+      result.mixedOutcome = [first.state, submitted.state];
+      continue;
+    }
     const hash = submitted.transaction_id ?? recovery[id]?.transactionId;
     assert.match(hash ?? "", /^0x[\da-fA-F]{64}$/);
     const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 });
@@ -244,9 +262,13 @@ try {
   const latestPage = await agentClient.agent.poll(probe.sessionId, { waitMs: 0 });
   const sawFinalLive = sawCallbackComplete();
   result.status = sawFinalLive ? "PASS" : "BLOCKED";
-  result.observed = sawFinalLive
-    ? "Exact Agent-reviewed approval/supply batch sent once per member on disposable local fork, with 90s inter-leg wait, both receipts confirmed, intended token effects verified, and live stream final completion received."
-    : "Both exact fork transactions and effects verified, but live callback completion was not observed within 120s; inspect stream/cold readback before classifying callback.";
+  result.observed = rejectSecond
+    ? sawFinalLive
+      ? "First reviewed approval confirmed on the disposable fork; wallet explicitly rejected the second supply before broadcast. First commit/effect remained, second commit rejected, and one live callback completed for the mixed batch. Inspect callback tool payload separately."
+      : "First approval confirmed and second supply rejected without broadcast, but live callback completion was not observed within 120s."
+    : sawFinalLive
+      ? "Exact Agent-reviewed approval/supply batch sent once per member on disposable local fork, with 90s inter-leg wait, both receipts confirmed, intended token effects verified, and live stream final completion received."
+      : "Both exact fork transactions and effects verified, but live callback completion was not observed within 120s; inspect stream/cold readback before classifying callback.";
   result.finalEventTypes = latestPage.events.map((item) => item.type);
   result.liveEventCount = seen.size;
 } catch (error) {
