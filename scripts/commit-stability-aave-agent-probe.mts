@@ -18,13 +18,19 @@ const required = (name: string) => {
 const backendRoot = resolve(required("AOMI_PRODUCT_ROOT"));
 const agentOrigin = new URL(required("AOMI_STABILITY_ORIGIN"));
 const commitOrigin = new URL(required("AOMI_STABILITY_COMMIT_ORIGIN"));
-const rpcOrigin = new URL(required("AOMI_STABILITY_LOCAL_RPC"));
-for (const url of [agentOrigin, commitOrigin, rpcOrigin]) {
+const fundedBase = process.env.AOMI_STABILITY_FUNDED_BASE === "1";
+const rpcOrigin = fundedBase
+  ? new URL((JSON.parse(await readFile(resolve(required("AOMI_STABILITY_BASE_RPC_CONFIG")), "utf8")) as { rpc: Record<string, string> }).rpc["evm:8453"])
+  : new URL(required("AOMI_STABILITY_LOCAL_RPC"));
+for (const url of [agentOrigin, commitOrigin]) {
   assert.ok(["127.0.0.1", "localhost", "::1"].includes(url.hostname), "all origins must be loopback");
 }
+if (fundedBase) assert.ok(rpcOrigin.protocol === "https:" && !["127.0.0.1", "localhost", "::1"].includes(rpcOrigin.hostname), "funded execution must use configured remote Base");
+else assert.ok(["127.0.0.1", "localhost", "::1"].includes(rpcOrigin.hostname), "disposable execution RPC must be loopback");
 const userId = required("AOMI_STABILITY_USER_ID");
 const wallet = required("AOMI_STABILITY_WALLET") as `0x${string}`;
 assert.match(wallet, /^0x[\da-fA-F]{40}$/);
+if (fundedBase) assert.equal(wallet.toLowerCase(), "0x28581d8065da7e25710f25f9dd30f9d361757a7d", "funded wallet address mismatch");
 const model = process.env.AOMI_STABILITY_MODEL ?? "gpt-6-luna";
 const applicationId = Number(process.env.AOMI_STABILITY_APPLICATION_ID ?? 8);
 const amount = 10_000n;
@@ -70,9 +76,9 @@ const manifest = {
   managerRevision: required("AOMI_STABILITY_MANAGER_REVISION"),
   anvilBinarySha256: required("AOMI_STABILITY_ANVIL_SHA256"),
   agentOrigin: agentOrigin.origin, commitOrigin: commitOrigin.origin,
-  executionRpc: rpcOrigin.origin, wallet, chainId: 8453, model, applicationId,
+  executionRpc: fundedBase ? "configured Base provider (credential URL withheld)" : rpcOrigin.origin, wallet, chainId: 8453, model, applicationId,
   naturalConfirmation: Boolean(s02), callbackObservationFile: s02ResultPath ?? null,
-  amountBaseUnits: amount.toString(), realBaseSends: 0, localForkSends: 0,
+  amountBaseUnits: amount.toString(), realBaseSends: 0, localForkSends: 0, fundedBase,
 };
 await writeFile(join(output, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
 const result: Record<string, unknown> = { runId, sessionId, status: "BLOCKED", caseIds: s02 ? ["S02"] : ["S01", "P03"], sends: 0 };
@@ -88,7 +94,9 @@ try {
   assert.equal(await chain.getChainId(), 8453);
   const node = await fetch(rpcOrigin, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "anvil_nodeInfo", params: [] }), signal: AbortSignal.timeout(10_000) });
-  assert.ok(node.ok && (await node.json() as { result?: unknown }).result, "execution RPC must be Anvil");
+  const nodeResponse = await node.json() as { result?: unknown };
+  if (fundedBase) assert.equal(nodeResponse.result, undefined, "funded execution RPC must not be Anvil");
+  else assert.ok(node.ok && nodeResponse.result, "execution RPC must be Anvil");
   const [balance, allowance, block] = await Promise.all([
     chain.readContract({ address: usdc, abi: erc20, functionName: "balanceOf", args: [wallet], authorizationList: undefined }),
     chain.readContract({ address: usdc, abi: erc20, functionName: "allowance", args: [wallet, pool], authorizationList: undefined }),
@@ -208,7 +216,7 @@ try {
 } catch (error) {
   const record = error as { name?: string; message?: string };
   result.status = "FAIL";
-  result.observed = `${record.name ?? "Error"}: ${String(record.message ?? "").replace(/Bearer\s+\S+/gi, "Bearer [redacted]").slice(0, 250)}`;
+  result.observed = `${record.name ?? "Error"}: ${String(record.message ?? "").replaceAll(rpcOrigin.href, "[configured Base provider]").replace(/Bearer\s+\S+/gi, "Bearer [redacted]").slice(0, 250)}`;
   event("probe_error", { name: record.name ?? "Error" });
 } finally {
   await save();

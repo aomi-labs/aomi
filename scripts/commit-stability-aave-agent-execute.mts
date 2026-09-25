@@ -19,18 +19,26 @@ const required = (name: string) => {
 };
 assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "local send requires AOMI_STABILITY_EXECUTE=1");
 const rejectSecond = process.env.AOMI_STABILITY_REJECT_SECOND === "1";
+const fundedBase = process.env.AOMI_STABILITY_FUNDED_BASE === "1";
+assert.ok(!(fundedBase && rejectSecond), "funded wallet cannot run failure injection");
 const backendRoot = resolve(required("AOMI_PRODUCT_ROOT"));
 const agentOrigin = new URL(required("AOMI_STABILITY_ORIGIN"));
 const commitOrigin = new URL(required("AOMI_STABILITY_COMMIT_ORIGIN"));
-const rpcOrigin = new URL(required("AOMI_STABILITY_LOCAL_RPC"));
-for (const url of [agentOrigin, commitOrigin, rpcOrigin]) {
+const rpcOrigin = fundedBase
+  ? new URL((JSON.parse(await readFile(resolve(required("AOMI_STABILITY_BASE_RPC_CONFIG")), "utf8")) as { rpc: Record<string, string> }).rpc["evm:8453"])
+  : new URL(required("AOMI_STABILITY_LOCAL_RPC"));
+for (const url of [agentOrigin, commitOrigin]) {
   assert.ok(["127.0.0.1", "localhost", "::1"].includes(url.hostname), "all origins must be loopback");
 }
+if (fundedBase) assert.ok(rpcOrigin.protocol === "https:" && !["127.0.0.1", "localhost", "::1"].includes(rpcOrigin.hostname), "funded execution must use configured remote Base");
+else assert.ok(["127.0.0.1", "localhost", "::1"].includes(rpcOrigin.hostname), "disposable execution RPC must be loopback");
 const keyFile = await realpath(required("AOMI_STABILITY_LOCAL_KEY_FILE"));
-assert.notEqual(keyFile, "/home/aron/Documents/Work/Aomi/.env.key", "funded wallet forbidden on local fault chain");
+if (fundedBase) assert.equal(keyFile, "/home/aron/Documents/Work/Aomi/.env.key", "funded execution requires only the authorized wallet key file");
+else assert.notEqual(keyFile, "/home/aron/Documents/Work/Aomi/.env.key", "funded wallet forbidden on local fault chain");
 const keyMatch = (await readFile(keyFile, "utf8")).match(/0x[\da-fA-F]{64}/);
 assert.ok(keyMatch, "disposable key missing");
 const account = privateKeyToAccount(keyMatch[0] as `0x${string}`);
+if (fundedBase) assert.equal(account.address.toLowerCase(), "0x28581d8065da7e25710f25f9dd30f9d361757a7d", "funded signer mismatch");
 const probeFile = resolve(required("AOMI_STABILITY_PAIR_PROBE_RESULT"));
 const probe = JSON.parse(await readFile(probeFile, "utf8")) as {
   status: string; sessionId: string; commitIds?: string[]; batchId?: string;
@@ -43,7 +51,9 @@ const walletClient = createWalletClient({ account, chain: base, transport: http(
 assert.equal(await publicClient.getChainId(), 8453);
 const node = await fetch(rpcOrigin, { method: "POST", headers: { "content-type": "application/json" },
   body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "anvil_nodeInfo", params: [] }), signal: AbortSignal.timeout(10_000) });
-assert.ok(node.ok && (await node.json() as { result?: unknown }).result, "RPC must be local Anvil");
+const nodeResponse = await node.json() as { result?: unknown };
+if (fundedBase) assert.equal(nodeResponse.result, undefined, "funded execution RPC must not be Anvil");
+else assert.ok(node.ok && nodeResponse.result, "RPC must be local Anvil");
 
 const usdc = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" as const;
 const pool = "0xa238dd80c259a72e81d7e4664a9801593f98d1c5" as const;
@@ -68,7 +78,7 @@ const balances = async () => {
   ]);
   return { usdcBalance, aUsdcScaledBalance, allowance };
 };
-const beforeBalances = await balances();
+const beforeBalances = await balances().catch((error) => { throw new Error(String((error as Error).message).replaceAll(rpcOrigin.href, "[configured Base provider]")); });
 assert.ok(beforeBalances.usdcBalance >= amount && beforeBalances.allowance < amount, "local fork balance/allowance precondition missing");
 
 const runId = randomUUID();
@@ -91,9 +101,9 @@ await writeFile(join(out, "manifest.json"), JSON.stringify({ schemaVersion: 1, r
   backendSourceRevision: revision(backendRoot), frontendRunnerRevision: revision(frontendRoot),
   databaseMigrationDigest: required("AOMI_STABILITY_DATABASE_MIGRATION_DIGEST"),
   managerRevision: required("AOMI_STABILITY_MANAGER_REVISION"), anvilBinarySha256: required("AOMI_STABILITY_ANVIL_SHA256"),
-  agentOrigin: agentOrigin.origin, commitOrigin: commitOrigin.origin, executionRpc: rpcOrigin.origin,
+  agentOrigin: agentOrigin.origin, commitOrigin: commitOrigin.origin, executionRpc: fundedBase ? "configured Base provider (credential URL withheld)" : rpcOrigin.origin,
   chainId: 8453, walletAddress: account.address, keyFileSha256: createHash("sha256").update(keyFile).digest("hex"),
-  probeResult: probeFile, initialBlock: (await publicClient.getBlockNumber()).toString(), realBaseSends: 0,
+  probeResult: probeFile, initialBlock: (await publicClient.getBlockNumber()).toString(), realBaseSends: 0, fundedBase,
   beforeBalances: Object.fromEntries(Object.entries(beforeBalances).map(([k, v]) => [k, v.toString()])),
 }, null, 2) + "\n", { mode: 0o600 });
 
@@ -114,6 +124,8 @@ const commitClient = new AomiClient({ baseUrl: commitOrigin.origin, guest: false
   getAccountBearer: async () => (await mintAccountBearer(userId)).bearer });
 const recoveryFile = join(out, "recovery.json");
 const recovery: Record<string, { clientRequestId: string; attemptId?: string; transactionId?: string; rejected?: true }> = {};
+let reservedMaxGasWei = 0n;
+let actualGasWei = 0n;
 const session = new Session(commitClient, { sessionId: probe.sessionId, commits: {
   recovery: {
     load: (_thread, id) => recovery[id],
@@ -144,6 +156,16 @@ const session = new Session(commitClient, { sessionId: probe.sessionId, commits:
     if (rejectSecond && index === 1) {
       event("wallet_rejected", { commitId: view.commit_id, index, code: 4001 });
       throw Object.assign(new Error("disposable wallet rejected second leg before broadcast"), { code: 4001 });
+    }
+    if (fundedBase) {
+      const tx = payload.transaction;
+      const maxFee = BigInt(tx.max_fee_per_gas) * BigInt(tx.gas_limit);
+      const balance = await publicClient.getBalance({ address: account.address });
+      const chainNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+      assert.equal(payload.nonce, chainNonce, "funded nonce differs from current Base pending nonce");
+      assert.ok(reservedMaxGasWei + maxFee <= 80_000_000_000_000n, "funded planned gas exceeds 0.00008 ETH cap");
+      assert.ok(balance > maxFee + 100_000_000_000_000n, "funded balance would fall below 0.0001 ETH gas reserve");
+      reservedMaxGasWei += maxFee;
     }
     const tx = payload.transaction;
     const hash = await walletClient.sendTransaction({ account, chain: base, to: tx.to.toLowerCase() as `0x${string}`, value: 0n,
@@ -203,7 +225,7 @@ try {
   assert.deepEqual(initial.map((v) => v.stage_id), initial[0].batch?.ordered_stage_ids);
   assert.ok(initial.every((v) => v.state === "needs_signature"), "both commits must be unsent before execution");
   for (const [index, id] of probe.commitIds.entries()) {
-    if (index === 1 && !rejectSecond) {
+    if (index === 1 && !rejectSecond && !fundedBase) {
       event("second_leg_wait_start", { firstCommitId: probe.commitIds[0] });
       await new Promise((done) => setTimeout(done, 90_000));
       event("second_leg_wait_end", { secondCommitId: id });
@@ -234,6 +256,7 @@ try {
     assert.equal(transaction.input.toLowerCase(), expected[index].data);
     assert.equal(transaction.value, 0n);
     event("receipt", { index, commitId: id, hash, blockNumber: receipt.blockNumber.toString(), gasUsed: receipt.gasUsed.toString(), status: receipt.status });
+    if (fundedBase) actualGasWei += receipt.gasUsed * receipt.effectiveGasPrice;
     let latest = await session.commits.refresh(id);
     const started = performance.now();
     while (performance.now() - started < 120_000 && !["confirmed", "failed", "rejected", "expired"].includes(latest.state)) {
@@ -271,10 +294,15 @@ try {
       : "Both exact fork transactions and effects verified, but live callback completion was not observed within 120s; inspect stream/cold readback before classifying callback.";
   result.finalEventTypes = latestPage.events.map((item) => item.type);
   result.liveEventCount = seen.size;
+  if (fundedBase) {
+    result.realBaseSends = result.sends;
+    result.actualGasWei = actualGasWei.toString();
+    result.reservedMaxGasWei = reservedMaxGasWei.toString();
+  }
 } catch (error) {
   const record = error as { name?: string; message?: string; code?: string };
   result.status = "FAIL";
-  result.observed = `${record.code ?? record.name ?? "Error"}: ${String(record.message ?? "").replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/0x[\da-fA-F]{64,}/g, "[redacted-hex]").slice(0, 260)}`;
+  result.observed = `${record.code ?? record.name ?? "Error"}: ${String(record.message ?? "").replaceAll(rpcOrigin.href, "[configured Base provider]").replace(/Bearer\s+\S+/gi, "Bearer [redacted]").replace(/0x[\da-fA-F]{64,}/g, "[redacted-hex]").slice(0, 260)}`;
   event("execution_error", { name: record.name ?? "Error", code: record.code ?? null });
 } finally {
   controller.abort();
