@@ -111,7 +111,7 @@ try {
   client = new AomiClient({
     baseUrl: apiUrl.origin,
     guest: false,
-    oauth: async () => ({ accessToken: bearer, expiresAt: Number.MAX_SAFE_INTEGER, resource: "pipeline", scopes: ["pipeline:catalog", "pipeline:execute"], tokenType: "Bearer" as const }),
+    oauth: async ({ resource, scopes }) => ({ accessToken: bearer, expiresAt: Number.MAX_SAFE_INTEGER, resource, scopes, tokenType: "Bearer" as const }),
   });
   phase("auth_ready", { principalClass: "local test user" });
 } catch (error) {
@@ -133,7 +133,7 @@ try {
 const wallet = process.env.AOMI_STABILITY_WALLET;
 const chainId = Number(process.env.AOMI_STABILITY_CHAIN_ID ?? 0);
 if (!wallet || !/^0x[\da-fA-F]{40}$/.test(wallet) || !Number.isSafeInteger(chainId) || chainId <= 0) {
-  record({ id: "S01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: "wallet or chain fixture absent", status: "BLOCKED" });
+  record({ id: "T01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "zero-value self-transfer stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: "wallet or chain fixture absent", status: "BLOCKED" });
   record({ id: "P04", runner: "T", preconditions: "simulated Build", action: "change one action value", expected: "integrity rejection, no wallet request", observed: "simulation fixture absent", status: "BLOCKED" });
 } else {
   const action = {
@@ -164,17 +164,17 @@ if (!wallet || !/^0x[\da-fA-F]{40}$/.test(wallet) || !Number.isSafeInteger(chain
       const { bearer } = await mintAgentApiBearer(process.env.AOMI_STABILITY_USER_ID ?? "11111111-1111-4111-8111-111111111111", {
         scope: "pipeline:catalog pipeline:execute", resource: `${apiUrl.origin}/v1/pipeline`, client_id: "commit-stability-e2e", auth_source: "oauth", principal_class: "user", grant_id: `commit-stability-${runId}`,
       });
-      const reloaded = new AomiClient({ baseUrl: apiUrl.origin, guest: false, oauth: async () => ({ accessToken: bearer, expiresAt: Number.MAX_SAFE_INTEGER, resource: "pipeline", scopes: ["pipeline:catalog", "pipeline:execute"], tokenType: "Bearer" as const }) });
+      const reloaded = new AomiClient({ baseUrl: apiUrl.origin, guest: false, oauth: async ({ resource, scopes }) => ({ accessToken: bearer, expiresAt: Number.MAX_SAFE_INTEGER, resource, scopes, tokenType: "Bearer" as const }) });
       const result = await reloaded.pipeline.evm.commit(simulated, { idempotencyKey: `${runId}-unchanged` });
       phase("commit_prepared", { digest: result.digest, requestCount: result.requests.length });
       assert.equal(result.digest, staged.digest);
-      record({ id: "S01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: `digest preserved; actions=${staged.actions.length}; wallet requests=${result.requests.length}; no send`, status: "PASS" });
+      record({ id: "T01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "zero-value self-transfer stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: `digest preserved; actions=${staged.actions.length}; wallet requests=${result.requests.length}; no send`, status: "PASS" });
     } else {
-      record({ id: "S01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: "stage and simulation completed; commit preparation opt-in", status: "BLOCKED" });
+      record({ id: "T01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "zero-value self-transfer stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: "stage and simulation completed; commit preparation opt-in", status: "BLOCKED" });
     }
   } catch (error) {
     phase("pipeline_error", { error: redactedError(error) });
-    record({ id: "S01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: redactedError(error), status: "FAIL" });
+    record({ id: "T01", runner: "T", preconditions: "local test user, EVM wallet, chain", action: "zero-value self-transfer stage, simulate, reconstruct client, prepare unchanged commit", expected: "same digest and ordered IDs", observed: redactedError(error), status: "FAIL" });
     if (!cases.some((row) => row.id === "P04")) record({ id: "P04", runner: "T", preconditions: "simulated Build", action: "change one action value", expected: "integrity rejection, no wallet request", observed: "simulation did not complete", status: "BLOCKED" });
   }
 }
