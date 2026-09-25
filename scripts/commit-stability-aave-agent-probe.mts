@@ -42,11 +42,17 @@ const expected = [
 const runId = randomUUID();
 const sessionId = process.env.AOMI_STABILITY_SESSION_ID ?? `stability-aave-${runId}`;
 const s02ResultPath = process.env.AOMI_STABILITY_S02_CALLBACK_RESULT;
-const s02 = s02ResultPath ? JSON.parse(await readFile(resolve(s02ResultPath), "utf8")) as { status: string; sessionId: string; firstCommitId: string; stageIds: string[] } : undefined;
+const s02 = s02ResultPath ? JSON.parse(await readFile(resolve(s02ResultPath), "utf8")) as {
+  status: string; sessionId: string; firstCommitId: string; stageIds: string[];
+  stageTransactions: Array<{ chain_id: number; from: string; to: string; value: string; data: string }>;
+  simulationSha256: string;
+} : undefined;
 if (s02) {
   assert.equal(s02.status, "PASS", "callback must stage a pair before natural confirmation");
   assert.equal(s02.sessionId, sessionId);
   assert.equal(s02.stageIds.length, 2);
+  assert.equal(s02.stageTransactions.length, 2);
+  assert.match(s02.simulationSha256, /^[0-9a-f]{64}$/);
 }
 const resume = Boolean(process.env.AOMI_STABILITY_SESSION_ID && !s02);
 const output = join(resolve(required("AOMI_STABILITY_EVIDENCE")), runId);
@@ -115,7 +121,8 @@ try {
   const userState = { connection: { is_connected: true, provider: "e2e" }, evm: { address: wallet, chain_id: 8453, broadcaster: "wallet" as const } };
   let page = resume
     ? await agentClient.agent.poll(sessionId, { waitMs: 0 })
-    : await agentClient.agent.start({ sessionId, applicationId, model, message: prompt, userState }, { idempotencyKey: `start-${sessionId}` });
+    : await agentClient.agent.start({ sessionId, applicationId, model, message: prompt, userState },
+      { idempotencyKey: s02 ? `natural-confirmation-${sessionId}-${runId}` : `start-${sessionId}` });
   event(resume ? "agent_resume" : "agent_start", { sessionId });
   const commits = new Map<string, NonNullable<(typeof page.commits)>[number]>();
   const started = performance.now();
@@ -154,6 +161,14 @@ try {
         assert.equal(tx.to.toLowerCase(), expected[index].to);
         assert.equal(tx.data.toLowerCase(), expected[index].data);
         assert.equal(BigInt(tx.value ?? "0"), 0n);
+        if (s02) {
+          const staged = s02.stageTransactions[index];
+          assert.equal(tx.chain_id, staged.chain_id);
+          assert.equal(tx.from.toLowerCase(), staged.from.toLowerCase());
+          assert.equal(tx.to.toLowerCase(), staged.to.toLowerCase());
+          assert.equal(tx.data.toLowerCase(), staged.data.toLowerCase());
+          assert.equal(BigInt(tx.value ?? "0"), BigInt(staged.value));
+        }
       }
       assert.ok(views[0].action?.kind === "sign" || views[0].action?.kind === "start_wallet_send", "first member must be ready for explicit wallet approval");
       for (const [index, view] of views.entries()) {
@@ -174,6 +189,7 @@ try {
       result.batchId = batchId;
       result.commitIds = views.map((v) => v.commit_id);
       result.stageIds = views.map((v) => v.stage_id);
+      if (s02) { result.callbackSimulationSha256 = s02.simulationSha256; result.durableReviewDigest = review.digest; }
       result.states = views.map((v) => v.state);
     } finally {
       session.close();

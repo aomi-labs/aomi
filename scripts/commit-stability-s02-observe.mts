@@ -1,6 +1,6 @@
 /** Read public Agent callback events after the first local-fork self-transfer; never send. */
 import { strict as assert } from "node:assert";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { mintAgentApiBearer } from "../packages/account/src/index.ts";
@@ -45,8 +45,9 @@ const seen = new Set<string>();
 let page = await agent.agent.poll(sessionId, { waitMs: 0 });
 let latestStage: { ids: string[]; eventId: string; sequence: number } | undefined;
 let simulationEvent: { eventId: string; sequence: number } | undefined;
-const staged: Array<{ id: string; sequence: number; eventId: string }> = [];
+const staged: Array<{ id: string; sequence: number; eventId: string; transaction: Record<string, unknown> }> = [];
 let callbackTurnId: string | undefined;
+let simulationSha256: string | undefined;
 const started = performance.now();
 while (performance.now() - started < 180_000) {
   for (const item of page.events) {
@@ -59,7 +60,8 @@ while (performance.now() - started < 180_000) {
     const name = item.type === "message" ? item.tool_name : item.type === "tool_complete" ? item.tool_name : undefined;
     const detail = item.type === "message" ? toolResult(item.tool_result) : item.type === "tool_complete" ? toolResult(item.result) : undefined;
     if (item.turn_id === callbackTurnId && name === "evm_stage_tx" && typeof detail?.pending_tx_id === "number") {
-      staged.push({ id: `evm:${detail.pending_tx_id}`, eventId: item.event_id, sequence: item.sequence });
+      staged.push({ id: `evm:${detail.pending_tx_id}`, eventId: item.event_id, sequence: item.sequence,
+        transaction: { chain_id: detail.chain_id, from: detail.from, to: detail.to, value: detail.value, data: detail.data } });
       const distinct = [...new Map(staged.map((row) => [row.id, row])).values()].sort((a, b) => a.sequence - b.sequence);
       if (distinct.length >= 2) latestStage = { ids: distinct.map((row) => row.id), eventId: item.event_id, sequence: item.sequence };
     }
@@ -67,6 +69,7 @@ while (performance.now() - started < 180_000) {
       const simulated = Array.isArray(detail.resolved_ids) ? detail.resolved_ids.map((id) => `evm:${id}`) : [];
       if (latestStage && JSON.stringify(simulated) === JSON.stringify(latestStage.ids))
         simulationEvent = { eventId: item.event_id, sequence: item.sequence };
+      if (simulationEvent) simulationSha256 = createHash("sha256").update(JSON.stringify(detail.simulation)).digest("hex");
     }
   }
   const commits = page.commits ?? [];
@@ -82,6 +85,8 @@ while (performance.now() - started < 180_000) {
       result.status = "PASS";
       result.observed = "Callback staged exactly two EVM IDs and emitted a later simulation tool result; no follow-up commit or wallet send before natural confirmation. Review exact content after commit.";
       result.stageIds = latestStage.ids;
+      result.stageTransactions = latestStage.ids.map((id) => staged.find((row) => row.id === id)?.transaction);
+      result.simulationSha256 = simulationSha256;
       result.stageEventId = latestStage.eventId;
       result.simulationEventId = simulationEvent.eventId;
     } else {
