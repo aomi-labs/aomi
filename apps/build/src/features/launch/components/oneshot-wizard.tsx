@@ -57,7 +57,7 @@ export function OneshotWizard({
    * Send the browser to GitHub. `authorize` skips the install ceremony for an
    * account that already has the App — see the Install step below.
    */
-  beginInstall: (mode?: "install" | "authorize") => void;
+  beginInstall: (mode: "install" | "authorize", repoName: string) => void;
   installing?: boolean;
   installError?: string | null;
   patch: (patch: Partial<LaunchProgress>) => void;
@@ -70,7 +70,9 @@ export function OneshotWizard({
   const installStatus = installationStatusLabel(progress.installationStatus);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [repoName, setRepoName] = useState(DEFAULT_REPO_NAME);
+  const [repoName, setRepoName] = useState(
+    progress.repoName ?? DEFAULT_REPO_NAME,
+  );
   const repoError = repoNameError(repoName);
 
   const createRepo = async () => {
@@ -145,20 +147,41 @@ export function OneshotWizard({
         <div className="space-y-3">
           <div className="border-input bg-surface-1 space-y-3 rounded-md border p-4">
             <div className="text-foreground text-sm font-medium">
-              Step 1: Install the Aomi GitHub App
+              Step 1: Name your repository
             </div>
             <p className="text-muted-foreground text-sm leading-5">
-              Installs <code>aomi-build-oneshot</code>. It can create a repo in
-              your account from our template and open deploy pull requests.
-              You&apos;ll return here automatically after consent.
+              Aomi will create this repository from <code>{TEMPLATE_REPO}</code>
+              . If access is needed, GitHub will ask you to grant it before the
+              repository is created.
             </p>
+            <label className="block space-y-1.5">
+              <span className="text-foreground text-xs font-medium">
+                Repository name
+              </span>
+              <input
+                value={repoName}
+                onChange={(event) => {
+                  setRepoName(event.target.value);
+                  patch({ repoName: event.target.value });
+                  setCreateError(null);
+                }}
+                disabled={installing}
+                className="border-input bg-background text-foreground focus-visible:ring-ring h-10 w-full max-w-sm rounded-md border px-3 text-sm outline-none focus-visible:ring-2"
+                placeholder={DEFAULT_REPO_NAME}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            {repoError && (
+              <div className="text-destructive text-xs">{repoError}</div>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button
-                onClick={() => beginInstall("install")}
-                disabled={installing}
+                onClick={() => beginInstall("install", repoName.trim())}
+                disabled={installing || Boolean(repoError)}
                 className="h-9 rounded-md px-3 text-sm font-medium"
               >
-                {installing ? "Waiting for GitHub..." : "Install on GitHub"}
+                {installing ? "Waiting for GitHub..." : "Continue on GitHub"}
                 <ExternalLink className="ml-1 h-4 w-4" />
               </Button>
               {/*
@@ -169,8 +192,8 @@ export function OneshotWizard({
                 instead, which does return with an installation id.
               */}
               <Button
-                onClick={() => beginInstall("authorize")}
-                disabled={installing}
+                onClick={() => beginInstall("authorize", repoName.trim())}
+                disabled={installing || Boolean(repoError)}
                 className="bg-surface-2 text-foreground h-9 rounded-md px-3 text-sm font-medium"
               >
                 Already installed — continue
@@ -189,17 +212,18 @@ export function OneshotWizard({
               Step 2: Create your repo
             </div>
             <p className="text-muted-foreground text-sm leading-5">
-              Creates a GitHub repo from <code>{TEMPLATE_REPO}</code> in the
-              account where you installed <code>aomi-build-oneshot</code>.
+              Create the repository in the account where you granted Aomi
+              access.
             </p>
             <label className="block space-y-1.5">
               <span className="text-foreground text-xs font-medium">
-                Repo name
+                Repository name
               </span>
               <input
                 value={repoName}
                 onChange={(event) => {
                   setRepoName(event.target.value);
+                  patch({ repoName: event.target.value });
                   setCreateError(null);
                 }}
                 disabled={creating}

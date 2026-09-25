@@ -133,10 +133,8 @@ export function deploymentSdkUpgradeStatus(input: {
   return client.deployments.sdkUpgradeStatus(input);
 }
 
-export function deploymentGitHubAppInstallations(
-  platform?: string,
-): Promise<GitHubAppInstallationsResult> {
-  return client.deployments.githubAppInstallations({ platform });
+export function deploymentGitHubAppInstallations(): Promise<GitHubAppInstallationsResult> {
+  return client.deployments.githubAppInstallations();
 }
 
 export function deploymentHistory(input: {

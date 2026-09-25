@@ -42,14 +42,8 @@ export const buildQueryKeys = {
     [...buildQueryKeys.all, "account", account, "bots"] as const,
   modelKeys: (account: string) =>
     [...buildQueryKeys.all, "account", account, "model-keys"] as const,
-  githubApp: (account: string, platform?: string | null) =>
-    [
-      ...buildQueryKeys.all,
-      "account",
-      account,
-      "github-app",
-      platform?.trim() || "all",
-    ] as const,
+  githubApp: (account: string) =>
+    [...buildQueryKeys.all, "account", account, "github-app"] as const,
 };
 
 export const buildQueryStaleTime = {

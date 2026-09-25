@@ -231,10 +231,7 @@ export class BackendClient extends BackendPlatformClient {
     );
   }
 
-  /**
-   * The selected platform repository's installation compared against what
-   * publishing and dispatch need. Read-only, JWT-only on the Manager side.
-   */
+  /** Live GitHub access for the builder's connected source repositories. */
   async listUserGitHubAppInstallations(
     input: ListUserGitHubAppInstallationsInput,
   ): Promise<GitHubAppInstallationsResult> {
@@ -243,12 +240,8 @@ export class BackendClient extends BackendPlatformClient {
       "installations",
       "list_user_github_app_installations",
       camelGitHubAppInstallations,
-      (params) => {
-        if (input.platform?.trim()) {
-          params.set("platform", input.platform.trim());
-        }
-      },
-      { platform: input.platform },
+      undefined,
+      {},
     );
   }
 
