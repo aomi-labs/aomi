@@ -40,7 +40,8 @@ const userId = requireEnv("AOMI_STABILITY_USER_ID");
 const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 assert.ok(localHosts.has(apiOrigin.hostname) && localHosts.has(commitOrigin.hostname) && localHosts.has(rpcOrigin.hostname), "API, Commit API, and execution RPC must be loopback");
 assert.notEqual(await realpath(keyFile), "/home/aron/Documents/Work/Aomi/.env.key", "funded Base key is forbidden for local fault cases");
-assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "Set AOMI_STABILITY_EXECUTE=1 for the local send");
+const prepareOnly = process.env.AOMI_STABILITY_PREPARE_ONLY === "1";
+if (!prepareOnly) assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "Set AOMI_STABILITY_EXECUTE=1 for the local send");
 const rawKey = await readFile(keyFile, "utf8");
 const keyMatch = rawKey.match(/0x[0-9a-fA-F]{64}/);
 assert.ok(keyMatch, "disposable key file has no 32-byte EVM private key");
@@ -154,6 +155,16 @@ if (!commitId) {
 }
 assert.ok(commitId);
 event("commit_discovered", { sessionId, commitId });
+if (prepareOnly) {
+  outcome.status = "PASS";
+  outcome.caseIds = ["W05", "W07"];
+  outcome.observed = "Agent created a durable disposable-wallet self-transfer commit; no wallet attempt or chain send was started.";
+  outcome.sessionId = sessionId;
+  outcome.commitId = commitId;
+  await flush();
+  console.log(JSON.stringify({ runId, evidence: output, status: outcome.status, sessionId, commitId }));
+  process.exit(0);
+}
 const recoveryFile = join(evidenceRoot, `recovery-${sessionId}-${commitId}.json`);
 let recovery: { clientRequestId: string; attemptId?: string; transactionId?: string; rejected?: true } | undefined;
 try { recovery = JSON.parse(await readFile(recoveryFile, "utf8")); } catch { /* first attempt */ }
