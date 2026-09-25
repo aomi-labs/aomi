@@ -54,7 +54,8 @@ if (s02) {
   assert.equal(s02.stageTransactions.length, 2);
   assert.match(s02.simulationSha256, /^[0-9a-f]{64}$/);
 }
-const resume = Boolean(process.env.AOMI_STABILITY_SESSION_ID && !s02);
+const resume = process.env.AOMI_STABILITY_RESUME_EXISTING_TURN === "1"
+  || Boolean(process.env.AOMI_STABILITY_SESSION_ID && !s02);
 const output = join(resolve(required("AOMI_STABILITY_EVIDENCE")), runId);
 await mkdir(output, { recursive: true, mode: 0o700 });
 const revision = (root: string) => execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -126,13 +127,16 @@ try {
   event(resume ? "agent_resume" : "agent_start", { sessionId });
   const commits = new Map<string, NonNullable<(typeof page.commits)>[number]>();
   const started = performance.now();
+  const targetTurnId = s02 && resume ? process.env.AOMI_STABILITY_TARGET_TURN_ID : undefined;
+  if (s02 && resume) assert.ok(targetTurnId?.startsWith("turn_"), "read-only S02 resume requires the natural follow-up turn ID");
   while (performance.now() - started < 180_000) {
     for (const item of page.commits ?? []) {
       if (item.commit_id !== s02?.firstCommitId) commits.set(item.commit_id, item);
     }
     for (const item of page.events) event("agent_event", { eventId: item.event_id, eventType: item.type, sequence: item.sequence });
     if (commits.size >= 2) break;
-    if (page.events.some((item) => item.type === "turn_state_changed" && ["complete", "failed", "interrupted"].includes(item.state))) break;
+    if (page.events.some((item) => item.type === "turn_state_changed" && ["complete", "failed", "interrupted"].includes(item.state)
+      && (!s02 || item.turn_id === targetTurnId))) break;
     page = await agentClient.agent.poll(sessionId, { cursor: page.cursor, waitMs: 10_000 });
   }
   result.commitIds = [...commits.keys()];
