@@ -20,7 +20,9 @@ const required = (name: string) => {
 assert.equal(process.env.AOMI_STABILITY_EXECUTE, "1", "local send requires AOMI_STABILITY_EXECUTE=1");
 const rejectSecond = process.env.AOMI_STABILITY_REJECT_SECOND === "1";
 const fundedBase = process.env.AOMI_STABILITY_FUNDED_BASE === "1";
+const resumeSecond = process.env.AOMI_STABILITY_RESUME_SECOND === "1";
 assert.ok(!(fundedBase && rejectSecond), "funded wallet cannot run failure injection");
+assert.ok(!resumeSecond || fundedBase, "resume-second mode is only for the exact funded Base pair");
 const backendRoot = resolve(required("AOMI_PRODUCT_ROOT"));
 const agentOrigin = new URL(required("AOMI_STABILITY_ORIGIN"));
 const commitOrigin = new URL(required("AOMI_STABILITY_COMMIT_ORIGIN"));
@@ -70,16 +72,21 @@ const expected = [
   { to: usdc.toLowerCase(), data: encodeFunctionData({ abi: erc20, functionName: "approve", args: [pool, amount] }).toLowerCase(), maxGas: 100_000 },
   { to: pool.toLowerCase(), data: encodeFunctionData({ abi: aave, functionName: "supply", args: [usdc, amount, account.address, 0] }).toLowerCase(), maxGas: 500_000 },
 ];
-const balances = async () => {
+const balances = async (blockNumber?: bigint) => {
+  const atBlock = blockNumber === undefined ? {} : { blockNumber };
   const [usdcBalance, aUsdcScaledBalance, allowance] = await Promise.all([
-    publicClient.readContract({ address: usdc, abi: erc20, functionName: "balanceOf", args: [account.address], authorizationList: undefined }),
-    publicClient.readContract({ address: aUsdc, abi: aToken, functionName: "scaledBalanceOf", args: [account.address] }),
-    publicClient.readContract({ address: usdc, abi: erc20, functionName: "allowance", args: [account.address, pool], authorizationList: undefined }),
+    publicClient.readContract({ address: usdc, abi: erc20, functionName: "balanceOf", args: [account.address], authorizationList: undefined, ...atBlock }),
+    publicClient.readContract({ address: aUsdc, abi: aToken, functionName: "scaledBalanceOf", args: [account.address], ...atBlock }),
+    publicClient.readContract({ address: usdc, abi: erc20, functionName: "allowance", args: [account.address, pool], authorizationList: undefined, ...atBlock }),
   ]);
   return { usdcBalance, aUsdcScaledBalance, allowance };
 };
-const beforeBalances = await balances().catch((error) => { throw new Error(String((error as Error).message).replaceAll(rpcOrigin.href, "[configured Base provider]")); });
-assert.ok(beforeBalances.usdcBalance >= amount && beforeBalances.allowance < amount, "local fork balance/allowance precondition missing");
+const firstReceipt = resumeSecond
+  ? await publicClient.getTransactionReceipt({ hash: required("AOMI_STABILITY_FIRST_TX_HASH") as `0x${string}` })
+  : undefined;
+if (firstReceipt) assert.equal(firstReceipt.status, "success", "first funded approval receipt must be successful");
+const beforeBalances = await balances(firstReceipt?.blockNumber).catch((error) => { throw new Error(String((error as Error).message).replaceAll(rpcOrigin.href, "[configured Base provider]")); });
+assert.ok(beforeBalances.usdcBalance >= amount && (resumeSecond ? beforeBalances.allowance >= amount : beforeBalances.allowance < amount), "balance/allowance precondition missing");
 
 const runId = randomUUID();
 const out = join(resolve(required("AOMI_STABILITY_EVIDENCE")), runId);
@@ -95,7 +102,7 @@ const flush = async () => {
   await writeFile(join(out, "timeline.jsonl"), timeline.map((row) => JSON.stringify(row)).join("\n") + "\n", { mode: 0o600 });
 };
 await writeFile(join(out, "manifest.json"), JSON.stringify({ schemaVersion: 1, runId, at: new Date().toISOString(),
-  scenario: rejectSecond ? "Agent durable batch with confirmed approval and explicit wallet rejection of supply" : "Agent durable approval/supply, 90-second inter-leg wait, local fork wallet",
+  scenario: resumeSecond ? "Resume exact funded Base batch second leg after first receipt/provider read lag" : rejectSecond ? "Agent durable batch with confirmed approval and explicit wallet rejection of supply" : "Agent durable approval/supply, 90-second inter-leg wait, local fork wallet",
   backendRuntimeRevision: required("AOMI_STABILITY_BACKEND_RUNTIME_REVISION"),
   frontendRuntimeRevision: required("AOMI_STABILITY_FRONTEND_RUNTIME_REVISION"),
   backendSourceRevision: revision(backendRoot), frontendRunnerRevision: revision(frontendRoot),
@@ -103,8 +110,9 @@ await writeFile(join(out, "manifest.json"), JSON.stringify({ schemaVersion: 1, r
   managerRevision: required("AOMI_STABILITY_MANAGER_REVISION"), anvilBinarySha256: required("AOMI_STABILITY_ANVIL_SHA256"),
   agentOrigin: agentOrigin.origin, commitOrigin: commitOrigin.origin, executionRpc: fundedBase ? "configured Base provider (credential URL withheld)" : rpcOrigin.origin,
   chainId: 8453, walletAddress: account.address, keyFileSha256: createHash("sha256").update(keyFile).digest("hex"),
-  probeResult: probeFile, initialBlock: (await publicClient.getBlockNumber()).toString(), realBaseSends: 0, fundedBase,
+  probeResult: probeFile, initialBlock: (await publicClient.getBlockNumber()).toString(), realBaseSends: 0, fundedBase, resumeSecond,
   beforeBalances: Object.fromEntries(Object.entries(beforeBalances).map(([k, v]) => [k, v.toString()])),
+  previousFirstReceiptBlock: firstReceipt?.blockNumber.toString() ?? null,
 }, null, 2) + "\n", { mode: 0o600 });
 
 const issuer = (await readFile(join(backendRoot, "aomi/bin/api-server/src/auth.rs"), "utf8"))
@@ -223,8 +231,16 @@ try {
   assert.deepEqual(initial.map((v) => v.commit_id), probe.commitIds);
   assert.ok(initial.every((v, i) => v.batch?.batch_id === probe.batchId && v.batch.index === i));
   assert.deepEqual(initial.map((v) => v.stage_id), initial[0].batch?.ordered_stage_ids);
-  assert.ok(initial.every((v) => v.state === "needs_signature"), "both commits must be unsent before execution");
+  if (resumeSecond) {
+    const firstHash = required("AOMI_STABILITY_FIRST_TX_HASH");
+    assert.match(firstHash, /^0x[\da-fA-F]{64}$/);
+    assert.equal(initial[0].state, "confirmed", "first commit must already be confirmed");
+    assert.equal(initial[0].transaction_id?.toLowerCase(), firstHash.toLowerCase(), "first durable hash differs from original receipt");
+    assert.equal(initial[1].state, "needs_signature", "second commit must remain the original unsent leg");
+    result.previousFirstHash = firstHash;
+  } else assert.ok(initial.every((v) => v.state === "needs_signature"), "both commits must be unsent before execution");
   for (const [index, id] of probe.commitIds.entries()) {
+    if (resumeSecond && index === 0) continue;
     if (index === 1 && !rejectSecond && !fundedBase) {
       event("second_leg_wait_start", { firstCommitId: probe.commitIds[0] });
       await new Promise((done) => setTimeout(done, 90_000));
@@ -265,7 +281,7 @@ try {
     }
     assert.equal(latest.state, "confirmed", `commit ${index} did not confirm`);
     event("commit_confirmed", { index, commitId: id, version: latest.version, hash });
-    const state = await balances();
+    const state = await balances(receipt.blockNumber);
     if (index === 0) {
       assert.equal(state.usdcBalance, beforeBalances.usdcBalance, "approval changed principal");
       assert.ok(state.allowance >= amount, "approval not effective");
