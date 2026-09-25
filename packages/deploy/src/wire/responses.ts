@@ -6,6 +6,7 @@
 import { DeployError } from "../errors";
 import { optNumber, optString } from "./operate";
 import type {
+  BotWebhookStatus,
   ActivateResult,
   BotRegistration,
   BuilderModelKey,
@@ -278,6 +279,30 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
       b.configuration_version ?? b.configurationVersion ?? 0,
     ),
     createdAt: Number(b.created_at ?? b.createdAt ?? 0),
+  };
+}
+
+/** Rejects a report missing its comparison or count rather than inventing
+ *  a "not matching, nothing pending" status the UI would show as fact. */
+export function camelBotWebhookStatus(raw: unknown): BotWebhookStatus {
+  const w = (raw ?? {}) as Record<string, any>;
+  const urlMatches = w.url_matches ?? w.urlMatches;
+  const pendingUpdateCount = w.pending_update_count ?? w.pendingUpdateCount;
+  if (
+    typeof urlMatches !== "boolean" ||
+    typeof pendingUpdateCount !== "number"
+  ) {
+    throw new DeployError(
+      "BACKEND",
+      "backend response is missing the webhook status",
+    );
+  }
+  return {
+    urlMatches,
+    pendingUpdateCount,
+    lastErrorMessage: w.last_error_message ?? w.lastErrorMessage ?? null,
+    reasserted: Boolean(w.reasserted),
+    warning: w.warning ?? null,
   };
 }
 

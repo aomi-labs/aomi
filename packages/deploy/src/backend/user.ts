@@ -50,7 +50,10 @@ import type {
   SaveBuilderModelKeyInput,
   SetModelKeyGrantsInput,
   UpdateUserBotInput,
+  UpdateUserBotResult,
   RevealUserBotCommandSecretInput,
+  CheckUserBotWebhookInput,
+  BotWebhookStatus,
   UserDeployment,
   UserDeploymentsPage,
   BuilderApplication,
@@ -63,6 +66,7 @@ import type {
 } from "../types";
 import {
   camelBotRegistration,
+  camelBotWebhookStatus,
   camelActivateResult,
   camelBuilderModelKey,
   camelGitHubAppInstallations,
@@ -598,9 +602,12 @@ export class BackendClient extends BackendPlatformClient {
     return camelBotRegistration(raw.bot_registration);
   }
 
-  async updateUserBot(input: UpdateUserBotInput): Promise<BotRegistration> {
+  async updateUserBot(input: UpdateUserBotInput): Promise<UpdateUserBotResult> {
     const { params, bearer } = this.userParams(input);
-    const raw = await this.patch<{ bot_registration?: unknown }>(
+    const raw = await this.patch<{
+      bot_registration?: unknown;
+      webhook_warning?: unknown;
+    }>(
       this.userPath(
         `bots/${encodeURIComponent(required(input.botId, "botId"))}`,
         params,
@@ -618,7 +625,30 @@ export class BackendClient extends BackendPlatformClient {
       bearer,
     );
     await this.audit("update_user_bot", input.actor);
-    return camelBotRegistration(raw.bot_registration);
+    const bot: UpdateUserBotResult = camelBotRegistration(raw.bot_registration);
+    if (typeof raw.webhook_warning === "string" && raw.webhook_warning) {
+      bot.webhookWarning = raw.webhook_warning;
+    }
+    return bot;
+  }
+
+  /** Ask the manager to compare Telegram's registered webhook with its own
+   *  URL for the bot; a mismatch is re-asserted in the same call. */
+  async checkUserBotWebhook(
+    input: CheckUserBotWebhookInput,
+  ): Promise<BotWebhookStatus> {
+    const { params, bearer } = this.userParams(input);
+    const raw = await this.post<{ webhook?: unknown }>(
+      this.userPath(
+        `bots/${encodeURIComponent(required(input.botId, "botId"))}/webhook`,
+        params,
+      ),
+      {},
+      "check_user_bot_webhook",
+      bearer,
+    );
+    await this.audit("check_user_bot_webhook", input.actor);
+    return camelBotWebhookStatus(raw?.webhook);
   }
 
   /** The bot's derived command-signing secret. Never logged or audited with

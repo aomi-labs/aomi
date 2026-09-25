@@ -83,6 +83,17 @@ mapped-app set, so a live `TelegramBot` reloads its config.
   as update), BFF `GET /api/operate/bots/:id/command-secret`, SDK method, UI
   "Reveal" control on the bot card in edit mode. Not returned on create. Never
   logged.
+- Webhook health: registration asserts `setWebhook` once, and anything holding
+  the token can `deleteWebhook` behind Aomi's back (a stale poller did this to
+  @chico_chico_bot on staging), leaving the row `active` with its
+  `webhook_url` intact while Telegram delivers nothing. So the manager
+  re-asserts the webhook after every bot config save (PATCH) and reports a
+  failure as `webhook_warning` beside the saved row, never as a failed save.
+  `POST .../user/bots/:id/webhook` (same ownership check as update) calls
+  `getWebhookInfo`, returns `{ url_matches, pending_update_count,
+  last_error_message, reasserted, warning? }` (never the token, secret or
+  URL) and re-asserts on a mismatch. BFF `POST /api/bff/operate/bots/:id/webhook`,
+  SDK `checkUserBotWebhook`, UI "Check webhook" on the bot card in read mode.
 
 ## Runtime rules
 
