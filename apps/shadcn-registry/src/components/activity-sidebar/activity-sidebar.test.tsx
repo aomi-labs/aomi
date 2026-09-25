@@ -626,12 +626,46 @@ describe("unified live transaction review", () => {
     expect(labels()).toEqual(expected);
     expect(screen.getAllByTitle("Signed")).toHaveLength(3);
 
+    runtime.commits = runtime.commits.map((commit, index) =>
+      index === 0
+        ? {
+            ...commit,
+            continuation: {
+              version: 1 as const,
+              state: "assistant_recovery_required" as const,
+              attempts: 2,
+              reason_code: "effect_reconciliation_required" as const,
+            },
+          }
+        : commit,
+    );
+    view.rerender(<ActivitySidebar />);
+    expect(
+      screen.getByText(
+        "Redeem all Morpho shares: Assistant response needs recovery",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+
     runtime.commits = runtime.commits.map((commit, index) => ({
       ...commit,
       batch: commit.batch && { ...commit.batch, index: [2, 0, 1][index] },
     }));
     view.rerender(<ActivitySidebar />);
     expect(labels()).toEqual([expected[1], expected[2], expected[0]]);
+    runtime.commits = runtime.commits.map((commit) =>
+      commit.continuation
+        ? {
+            ...commit,
+            continuation: {
+              ...commit.continuation,
+              state: "completed" as const,
+            },
+          }
+        : commit,
+    );
+    view.rerender(<ActivitySidebar />);
+    expect(screen.queryByText(/Assistant response needs recovery/)).toBeNull();
   });
   it("expands the shared list and distinguishes pending from finalized without Review labels", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({

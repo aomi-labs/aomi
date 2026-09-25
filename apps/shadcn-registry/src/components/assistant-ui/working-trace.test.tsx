@@ -549,6 +549,82 @@ describe("WorkingTrace", () => {
     expect(container).toHaveTextContent("Show all 2 steps");
   });
 
+  it("preserves a reader's scroll position when a child tool step arrives", () => {
+    const item = (state: TaskRunState) => ({
+      kind: "agent" as const,
+      agentId: state.agentId,
+      run: state,
+      order: 0,
+      key: state.agentId,
+    });
+    const { container, rerender } = render(
+      <WorkingTrace running items={[item(run([]))]} revealed={1} />,
+    );
+    const viewport = container.querySelector<HTMLElement>(
+      ".aui-working-trace-viewport",
+    )!;
+    const setScrollTop = vi.fn();
+    let scrollTop = 80;
+    Object.defineProperties(viewport, {
+      scrollHeight: { configurable: true, get: () => 640 },
+      clientHeight: { configurable: true, get: () => 200 },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+          setScrollTop(value);
+        },
+      },
+    });
+    fireEvent.scroll(viewport);
+    rerender(
+      <WorkingTrace
+        running
+        items={[
+          item(
+            run([
+              {
+                kind: "tool_call",
+                toolName: "get_chain_context",
+                args: null,
+                resultPreview: "",
+                childSeq: 1,
+              },
+            ]),
+          ),
+        ]}
+        revealed={1}
+      />,
+    );
+    expect(setScrollTop).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(80);
+    expect(container).toHaveTextContent("2 steps");
+    expect(container).toHaveTextContent("Get chain context");
+
+    rerender(
+      <WorkingTrace
+        running
+        items={[
+          item(
+            run([
+              {
+                kind: "tool_call",
+                toolName: "get_chain_context",
+                args: null,
+                resultPreview: "Chain context resolved",
+                childSeq: 1,
+              },
+            ]),
+          ),
+        ]}
+        revealed={1}
+      />,
+    );
+    expect(setScrollTop).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(80);
+  });
+
   it("keeps a failed delegation at its transcript position after recovery", () => {
     const failedRun: TaskRunState = {
       ...run([]),

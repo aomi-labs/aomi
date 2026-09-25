@@ -282,16 +282,24 @@ describe("Agent live delivery", () => {
         event_id: "commentary-1",
         sequence: 3,
       };
+      const equalText = {
+        ...final,
+        message_key: `${turn}:draft:separate-note`,
+        event_id: "separate-note-1",
+        sequence: 4,
+      };
       if (order === "live-first")
         controller.enqueue(frame("message", temporary));
-      controller.enqueue(frame("page", page([final, commentary], "cursor-2")));
+      controller.enqueue(
+        frame("page", page([final, commentary, equalText], "cursor-2")),
+      );
       if (order === "final-first")
         controller.enqueue(frame("message", temporary));
       await vi.advanceTimersByTimeAsync(0);
       expect(session.getSnapshot().liveMessages).toEqual([]);
       expect(
         session.getSnapshot().messages.map((message) => message.content),
-      ).toEqual(["Final answer", "Checking the next step"]);
+      ).toEqual(["Final answer", "Checking the next step", "Final answer"]);
       session.close();
     },
   );
