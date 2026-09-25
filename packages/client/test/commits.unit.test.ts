@@ -3,6 +3,7 @@ import {
   commitCapabilities,
   CommitController,
   isTerminalCommit,
+  type CommitCapabilities,
   type CommitRecoveryRecord,
   type CommitRecoveryStore,
   type CommitView,
@@ -117,6 +118,125 @@ const historicalExternal: CommitView = {
 };
 
 describe("Commit view surfaces", () => {
+  it("reports preparation before a provider prompt and clears the local phase after submission", async () => {
+    const recovery = recoveryStore();
+    let releaseWallet!: (hash: string) => void;
+    const walletResponse = new Promise<string>((resolve) => {
+      releaseWallet = resolve;
+    });
+    let latePhase:
+      | ((phase: "switching_chain" | "awaiting_wallet" | "submitting") => void)
+      | undefined;
+    const request = vi.fn(async (method: string, path: string) => {
+      if (method === "GET") return external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      return { ...external, version: 2, state: "submitted" };
+    });
+    const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+      async (_view, _payload, onPhase) => {
+        latePhase = onPhase;
+        onPhase?.("switching_chain");
+        expect(controller.submissionPhase(external.commit_id)).toBe(
+          "switching_chain",
+        );
+        onPhase?.("awaiting_wallet");
+        return walletResponse;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    controller.subscribe(() => {
+      if (controller.submissionPhase(external.commit_id) === "awaiting_wallet")
+        throw new Error("broken presentation observer");
+    });
+    const execution = controller.execute(external.commit_id);
+    expect(controller.submissionPhase(external.commit_id)).toBe("preparing");
+    await vi.waitFor(() =>
+      expect(controller.submissionPhase(external.commit_id)).toBe(
+        "awaiting_wallet",
+      ),
+    );
+    releaseWallet("0xhash");
+    await execution;
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+    latePhase?.("awaiting_wallet");
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+  });
+
+  it("refuses a new attempt when the reviewed guard explicitly blocked execution", async () => {
+    const reviewed = external.review!.request;
+    if (reviewed.type !== "execute_evm") throw new Error("fixture changed");
+    const blocked: CommitView = {
+      ...external,
+      review: {
+        ...external.review!,
+        request: {
+          ...reviewed,
+          transactions: [
+            {
+              chain_id: 8453,
+              from: external.signer,
+              to: externalPayload.transaction.to,
+              data: externalPayload.transaction.data,
+              label: "Reviewed transaction",
+              kind: "withdraw",
+            },
+          ],
+          simulation: {
+            ...reviewed.simulation,
+            status: "passed",
+            guards: [
+              { name: "eligibility", status: "failed", message: "Blocked" },
+            ],
+          },
+        },
+      },
+    };
+    const request = vi.fn(async () => blocked);
+    const walletSend = vi.fn();
+    const recovery = recoveryStore();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      blocked.thread_id,
+      {
+        walletSend,
+        walletSendPreflight: vi.fn(),
+        recovery: recovery.store,
+      },
+    );
+    await expect(controller.execute(blocked.commit_id)).rejects.toThrow(
+      "Execution is blocked",
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(walletSend).not.toHaveBeenCalled();
+    recovery.records.set(blocked.commit_id, {
+      clientRequestId: "saved-before-post",
+    });
+    await expect(controller.execute(blocked.commit_id)).rejects.toThrow(
+      "Execution is blocked",
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(controller.canExecute(blocked)).toBe(false);
+    recovery.records.set(blocked.commit_id, {
+      clientRequestId: "existing-request",
+      attemptId: "existing-attempt",
+      transactionId: "0xexisting",
+    });
+    expect(controller.canExecute(blocked)).toBe(true);
+    controller.close();
+  });
+
   it.each(["refresh", "preflight", "attempt"] as const)(
     "does not invoke a wallet when the session closes during %s",
     async (stage) => {

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import type { CommitController } from "@aomi-labs/client";
+import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useAomiWalletKit } from "../../lib/wallet-kit";
 import { selectLegacyReviewAction, selectReviewCommit } from "./model";
 import { TransactionReview } from "./transaction-review";
@@ -56,20 +57,30 @@ export function WalletReview() {
   const [batchSubmission, setBatchSubmission] =
     useState<BatchSubmission | null>(null);
   const walletAttemptState = liveCommit?.wallet_attempt?.state;
+  const lifecycle = liveCommit
+    ? projectCommitLifecycle(
+        liveCommit,
+        commitController?.submissionPhase?.(liveCommit.commit_id),
+        commitController?.recoveryRecord?.(liveCommit.commit_id),
+      )
+    : undefined;
+  const recoveringExistingAttempt = Boolean(
+    liveCommit?.wallet_attempt ||
+    (liveCommit &&
+      commitController?.recoveryRecord?.(liveCommit.commit_id)?.attemptId),
+  );
   const commitCanExecute = Boolean(
     commitController && liveCommit && commitController.canExecute(liveCommit),
-  );
-  const recoverableWalletOutcome = Boolean(
-    walletAttemptState && commitCanExecute,
   );
   const approving =
     deciding ||
     attempt?.state === "executing" ||
     attempt?.state === "responding" ||
     Boolean(
-      walletAttemptState &&
-      !recoverableWalletOutcome &&
-      ["awaiting_wallet", "reported", "observing"].includes(walletAttemptState),
+      lifecycle &&
+      ["preparing", "switching_chain", "awaiting_wallet", "submitted"].includes(
+        lifecycle.phase,
+      ),
     );
 
   const decide = useCallback(
@@ -257,6 +268,10 @@ export function WalletReview() {
   const commitReview = liveCommit
     ? commitController?.review(liveCommit.commit_id)
     : undefined;
+  const eligibility = reviewEligibility(commitReview);
+  const eligibilityBlocksNewAttempt =
+    !recoveringExistingAttempt &&
+    (eligibility?.state === "blocked" || eligibility?.state === "unresolved");
   const review =
     liveAction ??
     (liveCommit && commitReview
@@ -272,15 +287,13 @@ export function WalletReview() {
     ? walletMismatchMessage(
         liveCommit?.wallet_attempt?.failure_code ?? liveCommit?.failure_code,
       )
-    : recoverableWalletOutcome
-      ? "Wallet transaction found. Continue to verify it."
-      : walletAttemptState === "reported" || walletAttemptState === "observing"
-        ? "Wallet submitted the transaction. Checking on-chain confirmation…"
-        : walletAttemptState
-          ? "Waiting for wallet approval…"
-          : batchSubmission
-            ? "Submitting in order; waiting for each confirmation."
-            : undefined;
+    : eligibilityBlocksNewAttempt && eligibility?.state === "blocked"
+      ? `Execution blocked: ${eligibility.reason ?? "review failed"}`
+      : eligibilityBlocksNewAttempt && eligibility?.state === "unresolved"
+        ? eligibility.reason
+        : lifecycle?.phase === "ready" && batchSubmission
+          ? "Submitting in order; waiting for each confirmation."
+          : lifecycle?.label;
   const activeBatchReview = Boolean(
     batchSubmission &&
     liveCommit?.batch?.batch_id === batchSubmission.batchId &&
@@ -295,13 +308,21 @@ export function WalletReview() {
       review={review}
       supportedChains={wallet.supportedChains}
       approving={approving}
-      approveDisabled={Boolean(liveCommit) && !commitCanExecute}
+      approveDisabled={
+        (Boolean(liveCommit) && !commitCanExecute) ||
+        eligibilityBlocksNewAttempt
+      }
       rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
       status={status}
-      statusTransactionId={
-        liveCommit?.wallet_attempt?.transaction_id ?? undefined
+      statusTransactionId={lifecycle?.transactionId}
+      statusIsError={
+        walletMismatch ||
+        (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
       }
-      statusIsError={walletMismatch}
+      recoveringExistingAttempt={recoveringExistingAttempt}
+      approveLabel={
+        lifecycle?.phase === "checking_submission" ? "Check status" : undefined
+      }
       onApprove={() => void decide(true)}
       onApproveAll={
         showBatchControls && batch && batch.index < batchIds!.length - 1

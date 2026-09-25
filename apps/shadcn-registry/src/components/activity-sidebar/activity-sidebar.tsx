@@ -11,6 +11,7 @@ import {
 } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
+import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
 import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
 import { ToolChipView } from "../assistant-ui/tool-chip";
@@ -75,10 +76,7 @@ function ActivitySidebarContent() {
     pendingCommit ||
     (pending &&
       (pending.request.type === "sign" ||
-        (pending.request.simulation.status !== "failed" &&
-          !pending.request.simulation.guards.some(
-            (guard) => guard.status === "failed",
-          )))),
+        reviewEligibility(pending.request)?.state === "eligible")),
   );
   const expanded = signing || open;
   const current = activity.transactions.filter(
@@ -153,9 +151,13 @@ function ActivitySidebarContent() {
           ),
         ) ||
           Boolean(
-            tx.commit?.wallet_attempt &&
-            ["awaiting_wallet", "reported", "observing"].includes(
-              tx.commit.wallet_attempt.state,
+            tx.commit &&
+            ["preparing", "switching_chain", "awaiting_wallet"].includes(
+              projectCommitLifecycle(
+                tx.commit,
+                commitController?.submissionPhase?.(tx.commit.commit_id),
+                commitController?.recoveryRecord?.(tx.commit.commit_id),
+              ).phase,
             ),
           ))
       }

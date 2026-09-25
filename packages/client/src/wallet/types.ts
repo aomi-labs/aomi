@@ -28,6 +28,9 @@ export interface EvmWallet {
       import("../commits").SignableCommit,
       { kind: "evm_transaction" }
     >,
+    onPhase?: (
+      phase: "switching_chain" | "awaiting_wallet" | "submitting",
+    ) => void,
   ) => Promise<string>;
   signTransaction?: (
     payload: Extract<

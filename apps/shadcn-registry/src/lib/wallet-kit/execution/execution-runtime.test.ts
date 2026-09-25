@@ -61,12 +61,13 @@ describe("buildEvmExecutionRuntime", () => {
       getChainId: vi.fn().mockResolvedValue(1),
     };
     const switchChainAsync = vi.fn().mockResolvedValue(undefined);
+    const sendTransactionAsync = vi.fn().mockResolvedValue("0xhash");
     const evm = {
       activeConnector,
       activeEvmConnection: { address, chainId: 1 },
       chainsById: { [arbitrum.id]: arbitrum },
       getWalletClientFor: vi.fn(),
-      sendTransactionAsync: vi.fn().mockResolvedValue("0xhash"),
+      sendTransactionAsync,
       switchChainAsync,
     } as unknown as EvmWalletRuntime;
 
@@ -89,7 +90,14 @@ describe("buildEvmExecutionRuntime", () => {
       runtime.preparePreparedEvmTransaction?.(payload),
     ).resolves.toBeUndefined();
     expect(switchChainAsync).not.toHaveBeenCalled();
-    await runtime.sendPreparedEvmTransaction?.(payload);
+    const phases: string[] = [];
+    await runtime.sendPreparedEvmTransaction?.(payload, (phase) =>
+      phases.push(phase),
+    );
+    expect(phases).toEqual(["switching_chain", "awaiting_wallet"]);
+    expect(switchChainAsync.mock.invocationCallOrder[0]).toBeLessThan(
+      sendTransactionAsync.mock.invocationCallOrder[0],
+    );
     expect(switchChainAsync).toHaveBeenCalledWith({
       chainId: arbitrum.id,
       connector: activeConnector,

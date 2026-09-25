@@ -10,6 +10,7 @@ import {
   actionRequestSchema,
   agentSchemas,
 } from "./generated/agent-v1/schemas";
+import { reviewEligibility } from "./commit-lifecycle";
 
 export type CommitView = components["schemas"]["CommitView"];
 export type CommitState = CommitView["state"];
@@ -21,6 +22,11 @@ export type CommitWalletAttemptView =
   components["schemas"]["CommitWalletAttemptView"];
 export type CommitWalletAttemptOutcome =
   components["schemas"]["CommitWalletAttemptOutcome"];
+export type CommitSubmissionPhase =
+  | "preparing"
+  | "switching_chain"
+  | "awaiting_wallet"
+  | "submitting";
 export type EvmCommitTransaction = Extract<
   SignableCommit,
   { kind: "evm_transaction" }
@@ -61,6 +67,7 @@ export type CommitCapabilities = {
   walletSend?: (
     commit: CommitView,
     payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
+    onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void,
   ) => Promise<string>;
   walletSendPreflight?: (
     commit: CommitView,
@@ -160,12 +167,14 @@ export function commitCapabilities(
               throw new Error("Connect the expected signing wallet");
             await preparePrepared(payload);
           },
-          async walletSend(commit, payload) {
+          async walletSend(commit, payload, onPhase) {
             if (commit.chain_family !== "evm")
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
-            return sendPrepared(payload);
+            return onPhase
+              ? sendPrepared(payload, onPhase)
+              : sendPrepared(payload);
           },
         }
       : {}),
@@ -250,6 +259,8 @@ export class CommitController {
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<string, Promise<CommitView>>();
+  private submissionPhases = new Map<string, CommitSubmissionPhase>();
+  private phaseGenerations = new Map<string, symbol>();
   private pending = new Map<string, CommitManual>();
   private timer?: ReturnType<typeof setTimeout>;
   private capabilityChangeScheduled = false;
@@ -265,6 +276,10 @@ export class CommitController {
     private capabilities: CommitCapabilities = {},
   ) {}
   all = (): readonly CommitView[] => this.snapshot;
+  submissionPhase = (id: string): CommitSubmissionPhase | undefined =>
+    this.submissionPhases.get(id);
+  recoveryRecord = (id: string): CommitRecoveryRecord | undefined =>
+    this.capabilities.recovery?.load(this.threadId, id);
   review = (id: string): CommitReview | undefined => {
     const view = this.views.get(id);
     return commitReview(view?.review?.request) ?? this.reviews.get(id);
@@ -306,7 +321,16 @@ export class CommitController {
   private changed(): void {
     if (this.closed) return;
     this.snapshot = [...this.views.values()];
-    this.listeners.forEach((listener) => listener());
+    this.notifyListeners();
+  }
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // A UI observer cannot interrupt durable commit reconciliation.
+      }
+    }
   }
   private get available(): CommitCapabilities {
     return { ...this.walletCapabilities, ...this.capabilities };
@@ -333,6 +357,7 @@ export class CommitController {
   }
   canExecute(view: CommitView): boolean {
     if (view.wallet_attempt?.state === "mismatched") return false;
+    if (this.newAttemptIneligible(view)) return false;
     const recovery = this.capabilities.recovery?.load(
       this.threadId,
       view.commit_id,
@@ -376,8 +401,15 @@ export class CommitController {
   execute(id: string): Promise<CommitView> {
     const running = this.attempts.get(id);
     if (running) return running;
+    const generation = Symbol(id);
+    this.phaseGenerations.set(id, generation);
+    this.setSubmissionPhase(id, "preparing");
     const attempt = this.perform(id).finally(() => {
       this.attempts.delete(id);
+      if (this.phaseGenerations.get(id) === generation) {
+        this.phaseGenerations.delete(id);
+        this.setSubmissionPhase(id, undefined);
+      }
     });
     this.attempts.set(id, attempt);
     return attempt;
@@ -393,6 +425,24 @@ export class CommitController {
   private path(id: string): string {
     return `/api/commits/${encodeURIComponent(id)}`;
   }
+  private newAttemptIneligible(view: CommitView): boolean {
+    // A request ID saved before POST is not proof that an attempt was admitted.
+    // Only a durable server attempt or its returned identity may reconcile an
+    // older authorization after eligibility changes.
+    if (view.wallet_attempt || this.recoveryRecord(view.commit_id)?.attemptId)
+      return false;
+    const eligibility = reviewEligibility(this.review(view.commit_id));
+    return eligibility !== undefined && eligibility.state !== "eligible";
+  }
+  private setSubmissionPhase(
+    id: string,
+    phase: CommitSubmissionPhase | undefined,
+  ): void {
+    if (phase === this.submissionPhases.get(id)) return;
+    if (phase) this.submissionPhases.set(id, phase);
+    else this.submissionPhases.delete(id);
+    this.changed();
+  }
   private store(view: CommitView): CommitView {
     if (view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
@@ -406,7 +456,7 @@ export class CommitController {
       this.synthesizedReviews.add(view.commit_id);
     }
     this.snapshot = [...this.views.values()];
-    this.listeners.forEach((listener) => listener());
+    this.notifyListeners();
     return view;
   }
   private async manual(id: string, body: CommitManual): Promise<CommitView> {
@@ -430,6 +480,8 @@ export class CommitController {
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
+    if (this.newAttemptIneligible(view))
+      throw new Error("Execution is blocked by the reviewed simulation");
     const pending = this.pending.get(id);
     if (pending) view = await this.manual(id, pending);
     if (this.closed) throw new Error("Commit session closed");
@@ -561,8 +613,15 @@ export class CommitController {
     if (attempt.request.kind !== "evm_transaction")
       throw new Error("Wallet attempt returned an unsupported payload");
     let transactionId: string;
+    const generation = this.phaseGenerations.get(view.commit_id);
     try {
-      transactionId = await send(view, attempt.request);
+      transactionId = await send(view, attempt.request, (phase) => {
+        if (
+          generation &&
+          this.phaseGenerations.get(view.commit_id) === generation
+        )
+          this.setSubmissionPhase(view.commit_id, phase);
+      });
     } catch (error) {
       if (!isExplicitWalletRejection(error)) throw error;
       record = { ...record, rejected: true };

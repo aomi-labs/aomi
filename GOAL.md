@@ -465,6 +465,14 @@ registry generation, formatting, and `git diff --check` pass.
 
 # Canonical Landing
 
+Current session goal: **COMMIT STREAMING STABILITY 2026-09-25** — implement the
+paired backend/frontend execution plan in `commit-streaming-stability` worktrees.
+The frontend slice projects durable commit and browser wallet phases from one
+SDK boundary, keeps explicit batch submission, rejects an explicitly blocked
+new review while preserving historical attempt recovery, and verifies the
+browser and SDK paths against the local stack. This work remains in progress;
+do not treat a focused unit pass as the full end-to-end acceptance case.
+
 Current session goal: **COMPOSER APP MENTIONS AND WORKING TRACE FIXED
 2026-09-13** — app tags now use the same inline, turn-scoped editor mentions as
 skills and chains, preserving caret placement and clearing on send instead of
