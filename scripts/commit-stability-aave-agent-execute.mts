@@ -52,18 +52,19 @@ const erc20 = parseAbi([
   "function allowance(address owner, address spender) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
 ]);
+const aToken = parseAbi(["function scaledBalanceOf(address owner) view returns (uint256)"]);
 const aave = parseAbi(["function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)"]);
 const expected = [
   { to: usdc.toLowerCase(), data: encodeFunctionData({ abi: erc20, functionName: "approve", args: [pool, amount] }).toLowerCase(), maxGas: 100_000 },
   { to: pool.toLowerCase(), data: encodeFunctionData({ abi: aave, functionName: "supply", args: [usdc, amount, account.address, 0] }).toLowerCase(), maxGas: 500_000 },
 ];
 const balances = async () => {
-  const [usdcBalance, aUsdcBalance, allowance] = await Promise.all([
+  const [usdcBalance, aUsdcScaledBalance, allowance] = await Promise.all([
     publicClient.readContract({ address: usdc, abi: erc20, functionName: "balanceOf", args: [account.address], authorizationList: undefined }),
-    publicClient.readContract({ address: aUsdc, abi: erc20, functionName: "balanceOf", args: [account.address], authorizationList: undefined }),
+    publicClient.readContract({ address: aUsdc, abi: aToken, functionName: "scaledBalanceOf", args: [account.address] }),
     publicClient.readContract({ address: usdc, abi: erc20, functionName: "allowance", args: [account.address, pool], authorizationList: undefined }),
   ]);
-  return { usdcBalance, aUsdcBalance, allowance };
+  return { usdcBalance, aUsdcScaledBalance, allowance };
 };
 const beforeBalances = await balances();
 assert.ok(beforeBalances.usdcBalance >= amount && beforeBalances.allowance < amount, "local fork balance/allowance precondition missing");
@@ -223,9 +224,9 @@ try {
       assert.ok(state.allowance >= amount, "approval not effective");
     } else {
       assert.equal(state.usdcBalance, beforeBalances.usdcBalance - amount, "supply did not transfer exactly 0.01 USDC");
-      assert.ok(state.aUsdcBalance >= beforeBalances.aUsdcBalance + amount, "aUSDC receipt balance did not increase");
+      assert.ok(state.aUsdcScaledBalance > beforeBalances.aUsdcScaledBalance, "aUSDC scaled receipt balance did not increase");
     }
-    event("chain_effect", { index, usdcBalance: state.usdcBalance.toString(), aUsdcBalance: state.aUsdcBalance.toString(), allowance: state.allowance.toString() });
+    event("chain_effect", { index, usdcBalance: state.usdcBalance.toString(), aUsdcScaledBalance: state.aUsdcScaledBalance.toString(), allowance: state.allowance.toString() });
   }
   const callbackStarted = performance.now();
   while (performance.now() - callbackStarted < 120_000 && !timeline.some((row) => row.phase === "live_event" && row.eventType === "turn_state_changed" && row.state === "complete")) {
