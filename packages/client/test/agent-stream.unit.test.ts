@@ -187,6 +187,115 @@ describe("Agent live delivery", () => {
     expect(String(fetch.mock.calls.at(-1)?.[0])).toContain("cursor=cursor-1");
     session.close();
   });
+
+  it("drops an expired stream cursor before reconnecting for durable replay", async () => {
+    vi.useFakeTimers();
+    const controllers: ReadableStreamDefaultController<Uint8Array>[] = [];
+    const fetch = vi.fn(async (_url: string, options: RequestInit) =>
+      options.method === "POST"
+        ? Response.json(page([processing]))
+        : new Response(
+            new ReadableStream({
+              start(c) {
+                controllers.push(c);
+              },
+            }),
+            { headers: { "content-type": "text/event-stream" } },
+          ),
+    );
+    const session = new Session(
+      new AomiClient({
+        baseUrl: "https://portal.example",
+        fetch,
+        guest: false,
+      }),
+      { sessionId: "session-1" },
+    );
+    await session.sendAsync("hello");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(String(fetch.mock.calls[1][0])).toContain("cursor=cursor-1");
+    controllers[0].enqueue(frame("resync", {}));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(controllers).toHaveLength(2);
+    expect(String(fetch.mock.calls[2][0])).not.toContain("cursor=");
+    controllers[1].enqueue(frame("page", page([processing], "cursor-2")));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(session.getSnapshot().cursor).toBe("cursor-2");
+    expect(session.getSnapshot().events).toHaveLength(1);
+    session.close();
+  });
+
+  it.each(["live-first", "final-first"])(
+    "retires only the promoted callback draft when %s frames arrive",
+    async (order) => {
+      vi.useFakeTimers();
+      let controller!: ReadableStreamDefaultController<Uint8Array>;
+      const turn = "broadcast-terminal:batch-1";
+      const fetch = vi.fn(async (_url: string, options: RequestInit) =>
+        options.method === "POST"
+          ? Response.json(page([{ ...processing, turn_id: turn }]))
+          : new Response(
+              new ReadableStream({
+                start(c) {
+                  controller = c;
+                },
+              }),
+              { headers: { "content-type": "text/event-stream" } },
+            ),
+      );
+      const session = new Session(
+        new AomiClient({
+          baseUrl: "https://portal.example",
+          fetch,
+          guest: false,
+        }),
+        { sessionId: "session-1" },
+      );
+      await session.sendAsync("continue");
+      await vi.advanceTimersByTimeAsync(0);
+      const temporary = {
+        type: "message",
+        turn_id: turn,
+        revision: 10,
+        message: {
+          message_key: `${turn}:trace:temporary`,
+          sender: "agent",
+          content: "Final answer draft",
+          is_streaming: true,
+        },
+      };
+      const final = {
+        type: "message",
+        sender: "agent",
+        content: "Final answer",
+        message_key: `${turn}:response`,
+        turn_id: turn,
+        is_streaming: false,
+        event_id: "final-1",
+        sequence: 2,
+        occurred_at: 2,
+      };
+      const commentary = {
+        ...final,
+        message_key: `${turn}:draft:commentary`,
+        content: "Checking the next step",
+        event_id: "commentary-1",
+        sequence: 3,
+      };
+      if (order === "live-first")
+        controller.enqueue(frame("message", temporary));
+      controller.enqueue(frame("page", page([final, commentary], "cursor-2")));
+      if (order === "final-first")
+        controller.enqueue(frame("message", temporary));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(session.getSnapshot().liveMessages).toEqual([]);
+      expect(
+        session.getSnapshot().messages.map((message) => message.content),
+      ).toEqual(["Final answer", "Checking the next step"]);
+      session.close();
+    },
+  );
+
   it.each([401, 403, 404, 405, 501])(
     "fails a non-retryable stream error (%s) without a polling fallback",
     async (status) => {

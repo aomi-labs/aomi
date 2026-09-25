@@ -9,6 +9,7 @@ export type CommitPresentation = {
   phase:
     | "ready"
     | "waiting_predecessor"
+    | "unavailable"
     | "preparing"
     | "switching_chain"
     | "awaiting_wallet"
@@ -22,8 +23,10 @@ export type CommitPresentation = {
   transactionId?: string;
 };
 
-/** Consumes only the eligibility facts already present in a review. An empty
- * guard list can mean no applicable guard, so it is not itself a blocker. */
+/** Consumes only eligibility facts already present in a review. The current
+ * wire contract does not say whether simulation/guards were required when
+ * `simulation` is absent; the client must leave that case to server admission
+ * rather than invent an eligibility rule. An empty guard list is not a blocker. */
 export function reviewEligibility(
   request: ActionRequest | undefined,
 ):
@@ -121,10 +124,12 @@ export function projectCommitLifecycle(
       label: "Checking submission status",
       transactionId,
     };
-  if (!view.action)
+  if (!view.action && view.batch?.predecessor_commit_id)
     return {
       phase: "waiting_predecessor",
       label: "Waiting for previous transaction",
     };
+  if (!view.action)
+    return { phase: "unavailable", label: "Transaction not ready" };
   return { phase: "ready", label: "Ready to submit" };
 }

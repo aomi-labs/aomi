@@ -372,7 +372,7 @@ export class ClientSession {
     } catch (error) {
       if (
         !(error instanceof AgentApiError) ||
-        error.code !== "invalid_cursor"
+        !["invalid_cursor", "cursor_expired"].includes(error.code)
       ) {
         throw error;
       }
@@ -446,6 +446,17 @@ export class ClientSession {
             if (event.message_key) {
               this.liveMessages.delete(event.message_key);
               this.liveRevisions.delete(event.message_key);
+              if (this.isCallbackResponse(event)) {
+                // The final stream is promoted from a temporary trace key to
+                // the durable response key. Retire only that draft; earlier
+                // commentary has its own durable message and remains visible.
+                for (const key of this.liveMessages.keys()) {
+                  if (key.startsWith(`${event.turn_id}:trace:`)) {
+                    this.liveMessages.delete(key);
+                    this.liveRevisions.delete(key);
+                  }
+                }
+              }
             }
             this.applyMessage(event);
             if (
@@ -542,6 +553,7 @@ export class ClientSession {
           } else if (kind === "message") {
             this.applyLiveMessage(data);
           } else if (kind === "resync") {
+            this.cursor = undefined;
             this.streamAbort?.abort();
           }
         },
@@ -596,6 +608,14 @@ export class ClientSession {
     )
       return;
     if (
+      key.startsWith(`${frame.turn_id}:trace:`) &&
+      this.messages.some(
+        (stored) =>
+          this.isCallbackResponse(stored) && stored.turn_id === frame.turn_id,
+      )
+    )
+      return;
+    if (
       !Number.isSafeInteger(frame.revision) ||
       (this.liveRevisions.get(key) ?? -1) >= frame.revision!
     )
@@ -625,6 +645,15 @@ export class ClientSession {
       is_streaming: true,
     });
     this.publish();
+  }
+
+  private isCallbackResponse(message: MessageEvent): boolean {
+    return Boolean(
+      message.turn_id?.startsWith("broadcast-terminal:") &&
+      message.message_key === `${message.turn_id}:response` &&
+      message.sender === "agent" &&
+      message.is_streaming !== true,
+    );
   }
 
   private recordTextReceipt(): void {

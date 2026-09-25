@@ -79,6 +79,31 @@ describe("commit lifecycle projection", () => {
     });
   });
 
+  it("names a predecessor only when the batch contract identifies one", () => {
+    expect(projectCommitLifecycle({ ...ready, action: null })).toMatchObject({
+      phase: "unavailable",
+      label: "Transaction not ready",
+    });
+    expect(
+      projectCommitLifecycle({
+        ...ready,
+        action: null,
+        batch: {
+          batch_id: "batch",
+          index: 1,
+          ordered_stage_ids: ["evm:0", "evm:1"],
+          ordered_commit_ids: ["first", "commit-1"],
+          sources: [],
+          predecessor_commit_id: "first",
+          review_digest: "digest",
+        },
+      }),
+    ).toMatchObject({
+      phase: "waiting_predecessor",
+      label: "Waiting for previous transaction",
+    });
+  });
+
   it("treats explicit failed guards as blockers even after simulation passed", () => {
     const request = {
       type: "execute_evm" as const,
@@ -100,5 +125,13 @@ describe("commit lifecycle projection", () => {
       state: "blocked",
       reason: "Blocked",
     });
+  });
+
+  it("leaves guard applicability to server admission when no simulation is present", () => {
+    expect(
+      reviewEligibility({ type: "execute_evm", transactions: [] } as Parameters<
+        typeof reviewEligibility
+      >[0]),
+    ).toBeUndefined();
   });
 });

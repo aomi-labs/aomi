@@ -27,6 +27,7 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
 });
 
 import {
+  activeWorkDurationMs,
   buildTraceItems,
   MinimalWorkingTrace,
   RenderedText,
@@ -46,6 +47,93 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("shows active Working time and freezes the elapsed duration on completion", () => {
+    vi.useFakeTimers();
+    try {
+      const startedAtMs = Date.now() - 5_000;
+      const view = render(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          startedAtMs={startedAtMs}
+        />,
+      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent(
+        "Elapsed 5s",
+      );
+      act(() => vi.advanceTimersByTime(2_000));
+      expect(view.getByLabelText("Working time")).toHaveTextContent(
+        "Elapsed 7s",
+      );
+      view.rerender(
+        <WorkingTrace
+          running={false}
+          items={[]}
+          revealed={0}
+          startedAtMs={startedAtMs}
+        />,
+      );
+      expect(view.queryByLabelText("Working time")).toBeNull();
+      expect(
+        view.getByRole("button", { name: /Worked for 7s/ }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconstructs active time across reload and pauses for wallet approval", () => {
+    const now = Date.now();
+    const seconds = (ms: number) => ms / 1_000;
+    const events = [
+      {
+        type: "turn_state_changed",
+        turn_id: "turn",
+        state: "processing",
+        occurred_at: seconds(now - 100_000),
+      },
+      {
+        type: "turn_state_changed",
+        turn_id: "turn",
+        state: "awaiting_action",
+        occurred_at: seconds(now - 95_000),
+      },
+      {
+        type: "turn_state_changed",
+        turn_id: "callback",
+        state: "processing",
+        occurred_at: seconds(now - 2_000),
+      },
+    ];
+    expect(activeWorkDurationMs(events, ["turn", "callback"], now)).toBe(7_000);
+    expect(
+      activeWorkDurationMs(events.slice(0, 2), ["turn", "callback"], now),
+    ).toBe(5_000);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(now);
+      const view = render(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          phaseEvents={events}
+          phaseTurnIds={["turn", "callback"]}
+        />,
+      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent(
+        "Active 7s",
+      );
+      act(() => vi.advanceTimersByTime(2_000));
+      expect(view.getByLabelText("Working time")).toHaveTextContent(
+        "Active 9s",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps ownership and transaction facts without an overflow bubble", () => {
     const { getByText, queryByText, container } = render(
       <ToolStepRow

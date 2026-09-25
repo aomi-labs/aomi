@@ -189,6 +189,18 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(view.getAllByText(state.answerText)).toHaveLength(1);
   });
 
+  it("does not infer a historical answer from a later turn's completion", () => {
+    state.running = false;
+    state.isLast = false;
+    state.turnState = "complete";
+    state.answerText = "Still drafting the answer.";
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
+  });
+
   it.each([undefined, 3])(
     "shows the completed answer when a tool arrives late and the boundary is %s",
     (boundary) => {
@@ -311,7 +323,7 @@ describe("AssistantTurnParts lifecycle", () => {
     ).toBeTruthy();
   });
 
-  it("shows the failed-turn fallback without a tool trace", () => {
+  it("keeps partial text in a stopped trace beside the failed-turn fallback", () => {
     state.running = false;
     state.turnState = "failed";
     state.includeTool = false;
@@ -319,7 +331,10 @@ describe("AssistantTurnParts lifecycle", () => {
 
     const view = render(<AssistantTurnParts />);
 
-    expect(view.queryByRole("button")).toBeNull();
+    expect(view.getByRole("button", { name: /Stopped/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
     expect(
       view.getByText(/this run stopped before it could finish/i),
     ).toBeTruthy();

@@ -47,6 +47,56 @@ const formatDuration = (seconds: number): string => {
   return `${m}m ${s}s`;
 };
 
+type WorkPhaseEvent = {
+  type: string;
+  turn_id?: string | null;
+  state?: string;
+  occurred_at?: string | number;
+};
+
+const phaseTimeMs = (value: string | number | undefined): number => {
+  if (typeof value === "number") return value < 1e12 ? value * 1_000 : value;
+  if (typeof value !== "string") return 0;
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? numeric < 1e12
+      ? numeric * 1_000
+      : numeric
+    : Date.parse(value);
+};
+
+/** Sum persisted processing intervals; awaiting wallet approval pauses time. */
+export function activeWorkDurationMs(
+  events: readonly WorkPhaseEvent[],
+  turnIds: readonly string[],
+  nowMs: number,
+): number | null {
+  const ids = new Set(turnIds);
+  const started = new Map<string, number>();
+  let total = 0;
+  let observed = false;
+  for (const event of events) {
+    if (
+      event.type !== "turn_state_changed" ||
+      !event.turn_id ||
+      !ids.has(event.turn_id)
+    )
+      continue;
+    const at = phaseTimeMs(event.occurred_at);
+    if (!Number.isFinite(at) || at <= 0) continue;
+    if (event.state === "processing") {
+      observed = true;
+      if (!started.has(event.turn_id)) started.set(event.turn_id, at);
+    } else {
+      const from = started.get(event.turn_id);
+      if (from !== undefined) total += Math.max(0, at - from);
+      started.delete(event.turn_id);
+    }
+  }
+  for (const from of started.values()) total += Math.max(0, nowMs - from);
+  return observed ? total : null;
+}
+
 /** useLayoutEffect on the client, useEffect on the server (dodges the SSR warning). */
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -186,6 +236,8 @@ export const WorkingTrace: FC<{
    * end), so mount time alone under-reports "Orchestrated for Ns" badly.
    */
   startedAtMs?: number;
+  phaseEvents?: readonly WorkPhaseEvent[];
+  phaseTurnIds?: readonly string[];
 }> = ({
   running,
   outcome = running ? "running" : "complete",
@@ -193,6 +245,8 @@ export const WorkingTrace: FC<{
   revealed,
   collapseReady = true,
   startedAtMs,
+  phaseEvents,
+  phaseTurnIds,
 }) => {
   const [open, setOpen] = useState(running);
   const [expanded, setExpanded] = useState(false);
@@ -217,11 +271,29 @@ export const WorkingTrace: FC<{
   const [elapsed, setElapsed] = useState<number | null>(null);
   const wasRunning = useRef(running);
   const startedAt = useRef<number>(startedAtMs ?? Date.now());
+  const [clockMs, setClockMs] = useState(Date.now);
   // An earlier anchor can arrive after mount (e.g. the first task_started
   // event lands a beat later); only ever move the start backwards.
   if (startedAtMs !== undefined && startedAtMs < startedAt.current) {
     startedAt.current = startedAtMs;
   }
+
+  useEffect(() => {
+    if (!running) return;
+    const update = () => setClockMs(Date.now());
+    update();
+    const timer = setInterval(update, 1_000);
+    return () => clearInterval(timer);
+  }, [running, startedAtMs]);
+
+  const persistedActiveMs =
+    phaseEvents && phaseTurnIds
+      ? activeWorkDurationMs(phaseEvents, phaseTurnIds, clockMs)
+      : null;
+  const runningSeconds = Math.max(
+    0,
+    Math.floor((persistedActiveMs ?? clockMs - startedAt.current) / 1_000),
+  );
 
   // How many items have already played their entrance. Survives the body's
   // collapse/remount (this component stays mounted), so an item only animates
@@ -362,14 +434,18 @@ export const WorkingTrace: FC<{
     return () => clearTimeout(timer);
   }, [collapseReady, fullyRevealed]);
 
+  const completedSeconds =
+    persistedActiveMs === null ? elapsed : persistedActiveMs / 1_000;
   const elapsedLabel =
-    elapsed != null ? ` after ${formatDuration(elapsed)}` : "";
+    completedSeconds != null
+      ? ` after ${formatDuration(completedSeconds)}`
+      : "";
   const label =
     outcome === "running"
       ? "Working"
       : outcome === "complete"
-        ? elapsed != null
-          ? `Worked for ${formatDuration(elapsed)}`
+        ? completedSeconds != null
+          ? `Worked for ${formatDuration(completedSeconds)}`
           : "Worked it out"
         : `Stopped${elapsedLabel}`;
 
@@ -434,6 +510,15 @@ export const WorkingTrace: FC<{
         <span className={cn(WORKING_STATUS_TEXT_CLASS, headerClass)}>
           {label}
         </span>
+        {running && (
+          <span
+            aria-label="Working time"
+            className="text-aomi-muted text-[11px] tabular-nums"
+          >
+            {persistedActiveMs === null ? "Elapsed " : "Active "}
+            {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
+          </span>
+        )}
         {stepCount > 0 ? (
           <span className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none">
             {stepCount} {stepCount === 1 ? "step" : "steps"}
@@ -791,6 +876,14 @@ export const AssistantTurnParts: FC = () => {
     (part) => part.type === "tool-call",
   );
   const firstToolIndex = parts.findIndex((part) => part.type === "tool-call");
+  const explicitAnswerBoundary =
+    typeof finalAnswerStartIndex === "number" &&
+    finalAnswerStartIndex >= 0 &&
+    finalAnswerStartIndex <= parts.length;
+  const answerReady =
+    explicitAnswerBoundary ||
+    ownStatus === "complete" ||
+    (ownStatus === undefined && isLast && runtime?.turnState === "complete");
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -802,14 +895,11 @@ export const AssistantTurnParts: FC = () => {
   // Any live text, including the first part, may still precede a tool call.
   // Completion is the boundary that identifies the final answer; until then
   // keep prose in the trace rather than moving it back when a tool arrives.
-  const traceEnd =
-    typeof finalAnswerStartIndex === "number" &&
-    finalAnswerStartIndex >= 0 &&
-    finalAnswerStartIndex <= parts.length
-      ? finalAnswerStartIndex
-      : live
-        ? parts.length
-        : lastToolIndex + 1;
+  const traceEnd = explicitAnswerBoundary
+    ? finalAnswerStartIndex
+    : !answerReady
+      ? parts.length
+      : lastToolIndex + 1;
   const answerIndexes = new Set(
     parts.flatMap((part, index) =>
       index >= traceEnd && part.type === "text" && part.text.trim()
@@ -821,6 +911,7 @@ export const AssistantTurnParts: FC = () => {
   // completed prose before the boundary. Keep the tool in the trace while
   // showing the last nonempty text as the answer instead of hiding it there.
   if (
+    answerReady &&
     !live &&
     outcome === "complete" &&
     !ownStopped &&
@@ -855,6 +946,8 @@ export const AssistantTurnParts: FC = () => {
           revealed={traceItems.length}
           collapseReady={!live}
           startedAtMs={startedAtMs}
+          phaseEvents={turnEvents}
+          phaseTurnIds={turnId ? [turnId, ...(continuationTurnIds ?? [])] : []}
         />
       )}
       {answerParts.map((part, index) =>
