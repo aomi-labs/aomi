@@ -30,7 +30,7 @@ caller-authored transaction data.
 
 ## Simulate
 
-`POST /v1/pipeline/simulate` executes the built requests against a safe
+`POST /v1/pipeline/evm/simulate` or `POST /v1/pipeline/svm/simulate` executes the built requests against a safe
 simulation environment. The response contains evidence such as asset changes,
 approval changes, gas or fee estimates, logs, and guard results.
 
@@ -40,11 +40,31 @@ has succeeded, and it can become stale as chain state changes.
 ## Review and commit
 
 Show the user the simulated operation and its effects before signing. Then
-submit the preserved build payload through `POST /v1/pipeline/commit`.
+submit the preserved build payload through `POST /v1/pipeline/evm/commit` or
+`POST /v1/pipeline/svm/commit`.
 
-A successful EVM commit has `status: "committed"`, one `digest`, the typed
-`result`, and the original `requests`. A successful SVM commit has one
-`digest`, typed `results`, and the original `requests`.
+Successful portable preparation keeps the legacy `status: "committed"` response
+label for compatibility and adds `preparation_status: "prepared"`, a `digest`,
+and validated `requests` for the caller's wallet. `provider_invoked: false` means
+the wallet has not yet signed or submitted anything. The caller submits the
+requests and tracks receipts; this stateless path creates no durable Agent
+Action or Commit Service operation.
+
+Builds with an older `hmac-sha256:` attestation must be recreated through
+`stage` and simulated again before commit. The server cannot recover required
+review guards from that older attestation, so it will not reuse its verdict.
+This affects transient portable Builds; existing durable Agent commits and
+wallet attempts keep their stored lifecycle.
+
+Portable SVM preparation supports a homogeneous instruction bundle or unsigned
+transaction requests. It simulates each prepared transaction's exact bytes
+independently; an ordered set whose later transactions depend on earlier state
+changes is not supported by this stateless path.
+
+Preparation errors include a stable `code`, `phase`, `retryable`, and
+`next_required_action` so callers can distinguish a blocked review from a
+wallet mismatch or temporary chain access failure. Provider credentials and
+raw signed transaction payloads are not included in these errors.
 
 When the same flow runs inside an Agent turn, the runtime represents the review
 boundary as a durable Action. Resolve the Action at its current revision with

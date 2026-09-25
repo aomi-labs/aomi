@@ -180,6 +180,19 @@ export function AomiRuntimeCore({
         return;
       }
 
+      if (
+        error instanceof AgentApiError &&
+        error.code === "execution_conflict"
+      ) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Account busy",
+          message:
+            "Another operation is still running. Your message is in the composer; send it when that operation finishes.",
+        });
+        return;
+      }
+
       // Every other failure was previously swallowed — the composer text
       // vanished with no feedback at all.
       notificationContext.showNotification({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommitView } from "../src/commits";
 import {
+  projectCommitContinuation,
   projectCommitLifecycle,
   reviewEligibility,
 } from "../src/commit-lifecycle";
@@ -41,6 +42,34 @@ const ready: CommitView = {
 };
 
 describe("commit lifecycle projection", () => {
+  it("keeps terminal chain outcome separate from assistant recovery", () => {
+    const confirmed: CommitView = {
+      ...ready,
+      state: "confirmed",
+      transaction_id: "0xhash",
+      action: null,
+      continuation: {
+        version: 1,
+        state: "assistant_recovery_required",
+        attempts: 2,
+        reason_code: "effect_reconciliation_required",
+      },
+    };
+    expect(projectCommitLifecycle(confirmed)).toMatchObject({
+      phase: "confirmed",
+      label: "Confirmed",
+    });
+    expect(projectCommitContinuation(confirmed)).toBe(
+      "Assistant response needs recovery",
+    );
+    expect(
+      projectCommitContinuation({
+        ...confirmed,
+        continuation: { ...confirmed.continuation!, state: "completed" },
+      }),
+    ).toBeUndefined();
+  });
+
   it("claims wallet approval only after the provider invocation begins", () => {
     expect(projectCommitLifecycle(ready).phase).toBe("ready");
     expect(projectCommitLifecycle(ready, "preparing").label).toBe(

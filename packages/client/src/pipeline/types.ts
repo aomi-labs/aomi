@@ -183,10 +183,14 @@ export interface EvmSimulatedBuild {
 
 export interface EvmCommitResult {
   status: "committed";
+  /** Explicit preparation outcome; status retains its legacy value for compatibility. */
+  preparation_status?: "prepared";
+  provider_invoked?: false;
+  next_required_action?: "submit_wallet_request";
   digest: string;
-  /** Output of the selected commit operation. */
+  /** Legacy output slot; use the preparation fields to decide the next action. */
   result: unknown;
-  /** Wallet intents emitted by stateless execution; these have no durable Action IDs. */
+  /** Submit these with the caller's wallet; they have no durable Agent Action IDs. */
   requests: ActionRequest[];
 }
 
@@ -284,10 +288,14 @@ export interface SvmSimulatedBuild {
 
 export interface SvmCommitResult {
   status: "committed";
+  /** Explicit preparation outcome; status retains its legacy value for compatibility. */
+  preparation_status?: "prepared";
+  provider_invoked?: false;
+  next_required_action?: "submit_wallet_request";
   digest: string;
-  /** Outputs of the selected instruction/transaction commit operations. */
+  /** Legacy output slots; use the preparation fields to decide the next action. */
   results: unknown[];
-  /** Wallet intents emitted by stateless execution; these have no durable Action IDs. */
+  /** Submit these with the caller's wallet; they have no durable Agent Action IDs. */
   requests: ActionRequest[];
 }
 export type PipelineErrorBody = Schemas["ErrorEnvelope"];

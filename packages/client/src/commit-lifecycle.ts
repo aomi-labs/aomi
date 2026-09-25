@@ -23,6 +23,25 @@ export type CommitPresentation = {
   transactionId?: string;
 };
 
+/** Assistant delivery follows a terminal chain result on its own durable path. */
+export function projectCommitContinuation(
+  view: CommitView,
+): string | undefined {
+  if (!view.continuation) return undefined;
+  switch (view.continuation.state) {
+    case "pending":
+      return "Assistant follow-up pending";
+    case "retrying":
+      return "Assistant follow-up retrying";
+    case "assistant_recovery_required":
+      return "Assistant response needs recovery";
+    case "exhausted":
+      return "Assistant response unavailable after retries";
+    case "completed":
+      return undefined;
+  }
+}
+
 /** Consumes only eligibility facts already present in a review. The current
  * wire contract does not say whether simulation/guards were required when
  * `simulation` is absent; the client must leave that case to server admission
