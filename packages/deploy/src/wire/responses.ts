@@ -14,9 +14,7 @@ import type {
   DeployResult,
   DeploymentStatus,
   GitHubAppInstallationsResult,
-  GitHubAppPermissionGap,
   PlatformApp,
-  PlatformInstallationStatus,
   Project,
   TokenRecord,
   UserDeployment,
@@ -474,55 +472,25 @@ export function camelUserProject(raw: unknown): UserProject {
   };
 }
 
-/** Permission name → level maps and the gap rows both arrive as plain
- *  objects; keep only string-valued entries so a malformed row cannot leak a
- *  nested object into the UI. */
-function permissionLevels(raw: unknown): Record<string, string> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  return Object.fromEntries(
-    Object.entries(raw as Record<string, unknown>).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
-    ),
-  );
-}
-
-function permissionGaps(raw: unknown): GitHubAppPermissionGap[] {
-  return Array.isArray(raw)
-    ? raw.map((gap: Record<string, any>) => ({
-        permission: String(gap?.permission ?? ""),
-        required: String(gap?.required ?? ""),
-        granted: String(gap?.granted ?? "none"),
-      }))
-    : [];
-}
-
 export function camelGitHubAppInstallations(
   raw: unknown,
 ): GitHubAppInstallationsResult {
   const r = (raw ?? {}) as Record<string, any>;
-  const platform = r.platform as Record<string, any> | null | undefined;
-  const platformInstallation = platform?.installation as
-    | Record<string, any>
-    | null
-    | undefined;
   return {
-    platform: platform
-      ? {
-          githubRepo: String(platform.github_repo ?? ""),
-          required: permissionLevels(platform.required),
-          installation: platformInstallation
-            ? {
-                settingsUrl: optString(platformInstallation.settings_url),
-                missingPermissions: permissionGaps(
-                  platformInstallation.missing_permissions,
-                ),
-              }
-            : null,
+    status: String(
+      r.status ?? "error",
+    ) as GitHubAppInstallationsResult["status"],
+    repositories: Array.isArray(r.repositories)
+      ? r.repositories.map((repository: Record<string, any>) => ({
+          projectId: Number(repository.project_id),
+          githubRepo: String(repository.github_repo ?? ""),
+          platform: String(repository.platform ?? ""),
           status: String(
-            platform.status ?? "error",
-          ) as PlatformInstallationStatus["status"],
-        }
-      : null,
+            repository.status ?? "error",
+          ) as GitHubAppInstallationsResult["repositories"][number]["status"],
+          settingsUrl: optString(repository.settings_url),
+        }))
+      : [],
   };
 }
 

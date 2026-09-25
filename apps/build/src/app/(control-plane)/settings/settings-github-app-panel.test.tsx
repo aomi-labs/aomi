@@ -5,30 +5,29 @@ import type { GitHubAppInstallationsResult } from "@aomi-labs/deploy";
 vi.mock("@build/features/launch/hooks/use-github-app", () => ({
   useGitHubAppInstallations: vi.fn(),
 }));
-vi.mock("@build/features/launch/use-platform", () => ({
-  usePlatform: vi.fn(),
+vi.mock("@build/features/launch/client", () => ({
+  githubAppInstallUrl: vi.fn(),
+  githubSigninUrl: "/api/auth/github",
 }));
 
 import { useGitHubAppInstallations } from "@build/features/launch/hooks/use-github-app";
-import { usePlatform } from "@build/features/launch/use-platform";
 import { SettingsGitHubAppPanel } from "./settings-github-app-panel";
 
 const useGitHubAppMock = vi.mocked(useGitHubAppInstallations);
-const usePlatformMock = vi.mocked(usePlatform);
-const settingsUrl =
-  "https://github.com/organizations/aomi-labs/settings/installations/139189936";
+const settingsUrl = "https://github.com/settings/installations/139189936";
 
 function report(): GitHubAppInstallationsResult {
   return {
-    platform: {
-      githubRepo: "aomi-labs/community-apps",
-      required: { actions: "write", contents: "write" },
-      installation: {
+    status: "ok",
+    repositories: [
+      {
+        projectId: 7,
+        githubRepo: "builder/repo-x",
+        platform: "community",
         settingsUrl,
-        missingPermissions: [],
+        status: "ok",
       },
-      status: "ok",
-    },
+    ],
   };
 }
 
@@ -44,42 +43,44 @@ function ready(value: GitHubAppInstallationsResult, refetch = vi.fn()) {
 describe("SettingsGitHubAppPanel", () => {
   beforeEach(() => {
     useGitHubAppMock.mockReset();
-    usePlatformMock.mockReset();
-    usePlatformMock.mockReturnValue("community");
   });
 
-  it("shows only the selected platform repository", () => {
+  it("shows connected source repositories and never platform infrastructure", () => {
     const refetch = ready(report());
     render(<SettingsGitHubAppPanel />);
 
-    expect(useGitHubAppMock).toHaveBeenCalledWith("community");
-    expect(screen.getByText("aomi-labs/community-apps")).toBeTruthy();
+    expect(useGitHubAppMock).toHaveBeenCalledWith();
+    expect(screen.getByText("builder/repo-x")).toBeTruthy();
+    expect(screen.queryByText("aomi-labs/community-apps")).toBeNull();
     expect(screen.getByText("Access OK")).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: /Review on GitHub/ }),
-    ).toHaveAttribute("href", settingsUrl);
+    expect(screen.getByRole("link", { name: /Manage/ })).toHaveAttribute(
+      "href",
+      settingsUrl,
+    );
     fireEvent.click(screen.getByRole("button", { name: /Re-check/ }));
     expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it("shows the exact missing deploy permission", () => {
+  it("shows the source permission action without exposing internal repos", () => {
     const value = report();
-    value.platform!.status = "missing_permissions";
-    value.platform!.installation!.missingPermissions = [
-      { permission: "actions", required: "write", granted: "read" },
-    ];
+    value.status = "action_required";
+    value.repositories[0].status = "missing_permissions";
     ready(value);
     render(<SettingsGitHubAppPanel />);
 
     expect(screen.getByText("Permissions missing")).toBeTruthy();
-    expect(screen.getByText("actions: read → write")).toBeTruthy();
+    expect(screen.getByText(/Contents: read/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Review access/ })).toHaveAttribute(
+      "href",
+      settingsUrl,
+    );
   });
 
-  it("does not claim success when no platform is selected", () => {
-    ready({ platform: null });
+  it("explains when there are no connected repositories", () => {
+    ready({ status: "ok", repositories: [] });
     render(<SettingsGitHubAppPanel />);
 
-    expect(screen.getByText(/Select a deployment platform/)).toBeTruthy();
+    expect(screen.getByText(/No repositories are connected yet/)).toBeTruthy();
     expect(screen.queryByText("Access OK")).toBeNull();
   });
 

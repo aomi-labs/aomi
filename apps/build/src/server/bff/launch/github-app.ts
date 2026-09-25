@@ -5,23 +5,16 @@ import { backendClient } from "@build/server/bff/backend";
 import { authorize } from "@build/server/bff/auth";
 import { buildFailures } from "@build/server/bff/failures";
 
-/**
- * GitHub App access for the selected platform repository. A GET with no CSRF
- * gate; the Manager answers with one App-JWT read.
- */
+/** Builder-owned source repository access. A GET has no CSRF gate. */
 export async function githubAppInstallationsRoute(req: Request) {
   const auth = await authorize(req);
   if ("response" in auth) return auth.response;
   const { session } = auth;
   // Ownership identity is the session's alone — never a query parameter.
-  const platform =
-    new URL(req.url).searchParams.get("platform")?.trim() || undefined;
-
   try {
     const client = await backendClient();
     const result = await client.listUserGitHubAppInstallations({
       githubUserId: session.githubUserId,
-      platform,
     });
     // Permission state changes out of band (an org owner accepting a
     // request on GitHub); a cached answer here would keep saying "missing".
@@ -29,7 +22,7 @@ export async function githubAppInstallationsRoute(req: Request) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
-    return buildFailures.handle({
+    const failure = buildFailures.handle({
       source: "launch",
       error,
       context: {
@@ -38,5 +31,9 @@ export async function githubAppInstallationsRoute(req: Request) {
         method: req.method,
       },
     }).response;
+    return NextResponse.json(
+      { error: "Couldn’t check GitHub repository access. Try again." },
+      { status: failure.status },
+    );
   }
 }

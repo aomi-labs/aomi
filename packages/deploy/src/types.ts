@@ -528,39 +528,27 @@ export interface DeployErrorDetail {
 
 export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
   githubUserId: string;
-  /** Narrows the report to one platform's repository installation. */
-  platform?: string;
 }
 
-/** A permission the installation grants below what is required of it. */
-export interface GitHubAppPermissionGap {
-  permission: string;
-  required: string;
-  granted: string;
-}
-
-export type PlatformInstallationStatusKind =
+export type GitHubRepositoryAccessStatus =
   | "ok"
   | "missing_permissions"
   | "suspended"
   | "not_installed"
   | "error";
 
-/** The platform repository's own installation, compared against what a
- *  deploy needs of it. */
-export interface PlatformInstallationStatus {
+/** Live access to one builder-owned repository already connected as a Project. */
+export interface GitHubRepositoryAccess {
+  projectId: number;
   githubRepo: string;
-  required: Record<string, string>;
-  installation: {
-    settingsUrl: string | null;
-    missingPermissions: GitHubAppPermissionGap[];
-  } | null;
-  status: PlatformInstallationStatusKind;
+  platform: string;
+  status: GitHubRepositoryAccessStatus;
+  settingsUrl: string | null;
 }
 
 export interface GitHubAppInstallationsResult {
-  /** Null when the read was not narrowed to a platform. */
-  platform: PlatformInstallationStatus | null;
+  status: "ok" | "action_required" | "error";
+  repositories: GitHubRepositoryAccess[];
 }
 
 export interface GetUserProjectInput extends BearerOverride {

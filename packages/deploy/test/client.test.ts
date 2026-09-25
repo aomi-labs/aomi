@@ -1250,20 +1250,19 @@ describe("BackendClient projects", () => {
 describe("BackendClient GitHub App access", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("reads the selected platform installation in camelCase", async () => {
+  it("reads connected source repository access in camelCase", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
-        platform: {
-          name: "community",
-          github_repo: "aomi-labs/community-apps",
-          required: { actions: "write", contents: "write" },
-          installation: {
-            settings_url:
-              "https://github.com/organizations/aomi-labs/settings/installations/5",
-            missing_permissions: [],
+        status: "action_required",
+        repositories: [
+          {
+            project_id: 7,
+            github_repo: "builder/repo-x",
+            platform: "community",
+            settings_url: "https://github.com/settings/installations/5",
+            status: "missing_permissions",
           },
-          status: "ok",
-        },
+        ],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -1273,34 +1272,34 @@ describe("BackendClient GitHub App access", () => {
       audits.push(event),
     ).listUserGitHubAppInstallations({
       githubUserId: "42",
-      platform: "community",
     });
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42&platform=community",
+      "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
     );
     expect(result).toEqual({
-      platform: {
-        githubRepo: "aomi-labs/community-apps",
-        required: { actions: "write", contents: "write" },
-        installation: {
-          settingsUrl:
-            "https://github.com/organizations/aomi-labs/settings/installations/5",
-          missingPermissions: [],
+      status: "action_required",
+      repositories: [
+        {
+          projectId: 7,
+          githubRepo: "builder/repo-x",
+          platform: "community",
+          settingsUrl: "https://github.com/settings/installations/5",
+          status: "missing_permissions",
         },
-        status: "ok",
-      },
+      ],
     });
     expect(audits).toContainEqual(
       expect.objectContaining({
         action: "list_user_github_app_installations",
-        platform: "community",
       }),
     );
   });
 
-  it("omits the platform block and query when no platform is given", async () => {
-    const fetchMock = vi.fn(async () => Response.json({ platform: null }));
+  it("returns an empty repository report", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({ status: "ok", repositories: [] }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await client().listUserGitHubAppInstallations({
@@ -1310,7 +1309,7 @@ describe("BackendClient GitHub App access", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://staging-api.example.com/api/integrations/github-app/user/installations?github_user_id=42",
     );
-    expect(result).toEqual({ platform: null });
+    expect(result).toEqual({ status: "ok", repositories: [] });
   });
 });
 
