@@ -41,7 +41,14 @@ const expected = [
 ];
 const runId = randomUUID();
 const sessionId = process.env.AOMI_STABILITY_SESSION_ID ?? `stability-aave-${runId}`;
-const resume = Boolean(process.env.AOMI_STABILITY_SESSION_ID);
+const s02ResultPath = process.env.AOMI_STABILITY_S02_CALLBACK_RESULT;
+const s02 = s02ResultPath ? JSON.parse(await readFile(resolve(s02ResultPath), "utf8")) as { status: string; sessionId: string; firstCommitId: string; stageIds: string[] } : undefined;
+if (s02) {
+  assert.equal(s02.status, "PASS", "callback must stage a pair before natural confirmation");
+  assert.equal(s02.sessionId, sessionId);
+  assert.equal(s02.stageIds.length, 2);
+}
+const resume = Boolean(process.env.AOMI_STABILITY_SESSION_ID && !s02);
 const output = join(resolve(required("AOMI_STABILITY_EVIDENCE")), runId);
 await mkdir(output, { recursive: true, mode: 0o700 });
 const revision = (root: string) => execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
@@ -56,10 +63,11 @@ const manifest = {
   anvilBinarySha256: required("AOMI_STABILITY_ANVIL_SHA256"),
   agentOrigin: agentOrigin.origin, commitOrigin: commitOrigin.origin,
   executionRpc: rpcOrigin.origin, wallet, chainId: 8453, model, applicationId,
+  naturalConfirmation: Boolean(s02), callbackObservationFile: s02ResultPath ?? null,
   amountBaseUnits: amount.toString(), realBaseSends: 0, localForkSends: 0,
 };
 await writeFile(join(output, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
-const result: Record<string, unknown> = { runId, sessionId, status: "BLOCKED", caseIds: ["S01", "P03"], sends: 0 };
+const result: Record<string, unknown> = { runId, sessionId, status: "BLOCKED", caseIds: s02 ? ["S02"] : ["S01", "P03"], sends: 0 };
 const timeline: Record<string, unknown>[] = [];
 const event = (phase: string, detail: Record<string, unknown> = {}) => timeline.push({ phase, at: new Date().toISOString(), monotonicMs: performance.now(), ...detail });
 const save = async () => {
@@ -101,7 +109,9 @@ try {
     baseUrl: commitOrigin.origin, guest: false,
     getAccountBearer: async () => (await mintAccountBearer(userId)).bearer,
   });
-  const prompt = `On Base chain 8453, from my connected wallet ${wallet}, prepare exactly these two transactions in order for me to approve: (1) call USDC ${usdc} approve(spender=${pool}, amount=10000 base units); (2) call Aave Pool ${pool} supply(asset=${usdc}, amount=10000 base units, onBehalfOf=${wallet}, referralCode=0). Both native values are zero. Stage, simulate the ordered pair, and commit the already staged pair as one batch. Do not stage a replacement pair, change the amount, execute anything else, or claim the wallet has sent them.`;
+  const prompt = s02
+    ? "Yes, proceed with the transactions you already prepared."
+    : `On Base chain 8453, from my connected wallet ${wallet}, prepare exactly these two transactions in order for me to approve: (1) call USDC ${usdc} approve(spender=${pool}, amount=10000 base units); (2) call Aave Pool ${pool} supply(asset=${usdc}, amount=10000 base units, onBehalfOf=${wallet}, referralCode=0). Both native values are zero. Stage, simulate the ordered pair, and commit the already staged pair as one batch. Do not stage a replacement pair, change the amount, execute anything else, or claim the wallet has sent them.`;
   const userState = { connection: { is_connected: true, provider: "e2e" }, evm: { address: wallet, chain_id: 8453, broadcaster: "wallet" as const } };
   let page = resume
     ? await agentClient.agent.poll(sessionId, { waitMs: 0 })
@@ -110,7 +120,9 @@ try {
   const commits = new Map<string, NonNullable<(typeof page.commits)>[number]>();
   const started = performance.now();
   while (performance.now() - started < 180_000) {
-    for (const item of page.commits ?? []) commits.set(item.commit_id, item);
+    for (const item of page.commits ?? []) {
+      if (item.commit_id !== s02?.firstCommitId) commits.set(item.commit_id, item);
+    }
     for (const item of page.events) event("agent_event", { eventId: item.event_id, eventType: item.type, sequence: item.sequence });
     if (commits.size >= 2) break;
     if (page.events.some((item) => item.type === "turn_state_changed" && ["complete", "failed", "interrupted"].includes(item.state))) break;
@@ -128,6 +140,7 @@ try {
       assert.ok(batchId && views[1].batch?.batch_id === batchId, "commits must belong to one durable batch");
       assert.deepEqual(views.map((v) => v.commit_id), views[0].batch?.ordered_commit_ids);
       assert.deepEqual(views.map((v) => v.stage_id), views[0].batch?.ordered_stage_ids);
+      if (s02) assert.deepEqual(views.map((v) => v.stage_id), s02.stageIds, "natural confirmation must bind the callback's exact staged pair");
       assert.deepEqual(views.map((v) => v.signer.toLowerCase()), [wallet.toLowerCase(), wallet.toLowerCase()]);
       assert.ok(views.every((v) => v.chain_family === "evm" && v.chain_ref === "8453" && v.broadcaster === "wallet"));
       const review = views[0].review;
@@ -155,7 +168,9 @@ try {
       }
       event("durable_pair", { batchId, commitIds: views.map((v) => v.commit_id), stageIds: views.map((v) => v.stage_id), states: views.map((v) => v.state) });
       result.status = "PASS";
-      result.observed = "Agent created one durable ordered two-commit batch; no wallet send. Deferred member payload is rechecked immediately before any later wallet invocation.";
+      result.observed = s02
+        ? "Natural no-ID confirmation bound the exact callback-staged pair as one durable ordered batch; no wallet send. Deferred member payload is rechecked before invocation."
+        : "Agent created one durable ordered two-commit batch; no wallet send. Deferred member payload is rechecked immediately before any later wallet invocation.";
       result.batchId = batchId;
       result.commitIds = views.map((v) => v.commit_id);
       result.stageIds = views.map((v) => v.stage_id);

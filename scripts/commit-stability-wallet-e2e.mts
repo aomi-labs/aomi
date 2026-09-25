@@ -127,7 +127,9 @@ const commitClient = new AomiClient({
 const sessionId = process.env.AOMI_STABILITY_SESSION_ID ?? `stability-${runId}`;
 let commitId = process.env.AOMI_STABILITY_COMMIT_ID;
 if (!commitId) {
-  const prompt = `Send 0 ETH on chain 8453 from my connected wallet ${account.address} to the same address ${account.address}. Prepare and simulate the transaction, then commit the staged transaction in this turn. Do not request a different recipient or amount.`;
+  const prompt = process.env.AOMI_STABILITY_S02_INITIAL === "1"
+    ? `On Base chain 8453, send exactly 0 ETH from my connected wallet ${account.address} to the same address ${account.address}: prepare, simulate, and commit only this zero-value self-transfer now. After it confirms, in the callback prepare and simulate this exact next batch but do not commit or send it until I explicitly confirm in a new message: (1) USDC 0x833589fCD6eDb6E08f4C7C32D4f71b54bdA02913 approve Aave Pool 0xa238Dd80C259a72e81d7e4664a9801593f98d1c5 for 10000 base units; (2) that Pool supply the same 10000 USDC base units on behalf of ${account.address}, referralCode 0. Keep the pair staged in order and tell me it is ready. Do not stage a replacement or commit the second pair before my next message.`
+    : `Send 0 ETH on chain 8453 from my connected wallet ${account.address} to the same address ${account.address}. Prepare and simulate the transaction, then commit the staged transaction in this turn. Do not request a different recipient or amount.`;
   const userState = { connection: { is_connected: true, provider: "e2e" }, evm: { address: account.address, chain_id: 8453, broadcaster: "wallet" } };
   event("agent_start", { sessionId });
   let page = await client.agent.start({
