@@ -155,19 +155,22 @@ let cursor: string | undefined;
 let streamReadyResolve: (() => void) | undefined;
 const streamReady = new Promise<void>((done) => { streamReadyResolve = done; });
 const seen = new Set<string>();
+let highestSequence = 0;
 const streamTask = (async () => {
   while (!controller.signal.aborted) {
     try {
       await agentClient.agent.stream(probe.sessionId, { cursor, signal: controller.signal }, (kind, frame) => {
         const receivedAt = new Date().toISOString();
         if (kind === "page") {
-          const page = frame as { cursor?: string; events?: Array<{ event_id: string; type: string; sequence: number; state?: string }> };
+          const page = frame as { cursor?: string; events?: Array<{ event_id: string; type: string; sequence: number; turn_id?: string | null; state?: string }> };
           cursor = page.cursor ?? cursor;
           streamReadyResolve?.(); streamReadyResolve = undefined;
           for (const item of page.events ?? []) {
             if (seen.has(item.event_id)) continue;
             seen.add(item.event_id);
-            event("live_event", { receivedAt, eventId: item.event_id, sequence: item.sequence, eventType: item.type, state: item.state ?? null });
+            highestSequence = Math.max(highestSequence, item.sequence);
+            event("live_event", { receivedAt, eventId: item.event_id, sequence: item.sequence, turnId: item.turn_id ?? null,
+              eventType: item.type, state: item.state ?? null });
           }
         } else if (kind === "message") {
           const item = frame as { turn_id?: string; revision?: number; message?: { message_key?: string; content?: string } };
@@ -185,7 +188,9 @@ const streamTask = (async () => {
 
 try {
   await Promise.race([streamReady, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("live stream did not yield initial page")), 10_000))]);
-  event("stream_ready", { cursor });
+  const baselineSequence = highestSequence;
+  const callbackTurnId = `broadcast-terminal:${probe.batchId}`;
+  event("stream_ready", { cursor, baselineSequence, callbackTurnId });
   const initial = await Promise.all(probe.commitIds.map((id) => session.commits.refresh(id)));
   assert.deepEqual(initial.map((v) => v.commit_id), probe.commitIds);
   assert.ok(initial.every((v, i) => v.batch?.batch_id === probe.batchId && v.batch.index === i));
@@ -229,11 +234,13 @@ try {
     event("chain_effect", { index, usdcBalance: state.usdcBalance.toString(), aUsdcScaledBalance: state.aUsdcScaledBalance.toString(), allowance: state.allowance.toString() });
   }
   const callbackStarted = performance.now();
-  while (performance.now() - callbackStarted < 120_000 && !timeline.some((row) => row.phase === "live_event" && row.eventType === "turn_state_changed" && row.state === "complete")) {
+  const sawCallbackComplete = () => timeline.some((row) => row.phase === "live_event" && row.eventType === "turn_state_changed"
+    && row.state === "complete" && row.turnId === callbackTurnId && Number(row.sequence) > baselineSequence);
+  while (performance.now() - callbackStarted < 120_000 && !sawCallbackComplete()) {
     await new Promise((done) => setTimeout(done, 250));
   }
   const latestPage = await agentClient.agent.poll(probe.sessionId, { waitMs: 0 });
-  const sawFinalLive = timeline.some((row) => row.phase === "live_event" && row.eventType === "turn_state_changed" && row.state === "complete");
+  const sawFinalLive = sawCallbackComplete();
   result.status = sawFinalLive ? "PASS" : "BLOCKED";
   result.observed = sawFinalLive
     ? "Exact Agent-reviewed approval/supply batch sent once per member on disposable local fork, with 90s inter-leg wait, both receipts confirmed, intended token effects verified, and live stream final completion received."
