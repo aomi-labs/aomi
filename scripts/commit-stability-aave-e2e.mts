@@ -58,7 +58,9 @@ const save = async () => {
 };
 const manifest = {
   schemaVersion: 1, runId, timestamp: new Date().toISOString(),
-  backendRevision: revision(backendRoot), frontendRevision: revision(frontendRoot),
+  backendRevision: process.env.AOMI_STABILITY_BACKEND_RUNTIME_REVISION ?? revision(backendRoot),
+  frontendRevision: process.env.AOMI_STABILITY_FRONTEND_RUNTIME_REVISION ?? revision(frontendRoot),
+  runnerRevision: revision(frontendRoot),
   apiOrigin: apiOrigin.origin, chainId: 8453, forkOrUpstreamBlock: null as string | null,
   wallet, modelRouting: "none", sendsAuthorizedByRunner: false,
 };
@@ -130,7 +132,13 @@ try {
   assert.deepEqual(simulated.actions.map((action) => action.pending_tx_id), stagedIds);
   assert.deepEqual(simulated.actions.map((action) => `${action.to.toLowerCase()}:${action.data.toLowerCase()}`), stagedOrder);
   assert.equal(simulated.digest, staged.digest);
+  assert.equal(simulated.simulation.status, "passed", "ordered approval and supply must simulate successfully");
+  assert.ok(simulated.simulation.guards.every((guard) => guard.status !== "failed"), "failed simulation guard");
   mark("simulate_end", { status: simulated.simulation.status, digest: simulated.digest });
+  result.cases = {
+    P03: allowance < amount ? "PASS" : "BLOCKED: preexisting allowance; dependent-leg simulation not established",
+    S01: "BLOCKED: commit preparation and chain effects not yet observed",
+  };
   const reloaded = new AomiClient({
     baseUrl: apiOrigin.origin, guest: false,
     oauth: async ({ resource, scopes }) => {
@@ -158,13 +166,16 @@ try {
   result.preparedWalletRequests = committed.requests.length;
   result.preparedTransactions = request.transactions.length;
   result.cases = {
-    S01: "BLOCKED: this no-send direct Pipeline probe cannot prove durable staged Action IDs or chain effects",
+    S01: "BLOCKED: this no-send direct Pipeline probe cannot prove chain effects",
     P03: allowance < amount ? "PASS" : "BLOCKED: preexisting allowance; dependent-leg simulation not established",
   };
 } catch (error) {
   const record = error as { code?: unknown; status?: unknown };
   result.status = "FAIL";
   result.observed = `${String(record.code ?? "error")} (${String(record.status ?? "n/a")})`;
+  result.cases = timeline.some((row) => row.phase === "simulate_end")
+    ? { P03: allowance < amount ? "PASS" : "BLOCKED: preexisting allowance", S01: "FAIL: commit preparation rejected" }
+    : { P03: "FAIL: ordered simulation did not pass", S01: "BLOCKED: no prepared commit" };
   mark("error", { code: String(record.code ?? "error"), status: record.status ?? null });
 } finally {
   await save();
