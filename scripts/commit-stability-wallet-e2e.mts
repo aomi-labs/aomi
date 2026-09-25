@@ -47,6 +47,13 @@ const account = privateKeyToAccount(keyMatch[0] as `0x${string}`);
 const publicClient = createPublicClient({ chain: base, transport: http(rpcOrigin.href) });
 const walletClient = createWalletClient({ account, chain: base, transport: http(rpcOrigin.href) });
 assert.equal(await publicClient.getChainId(), 8453, "local execution node must be Base-ID 8453");
+const nodeInfo = await fetch(rpcOrigin, {
+  method: "POST", headers: { "content-type": "application/json" },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "anvil_nodeInfo", params: [] }),
+  signal: AbortSignal.timeout(10_000),
+});
+assert.ok(nodeInfo.ok && (await nodeInfo.json() as { result?: unknown }).result, "execution RPC must be Anvil");
+const forkBlockNumber = (await publicClient.getBlockNumber()).toString();
 const runId = randomUUID();
 const output = resolve(evidenceRoot, runId);
 await mkdir(output, { recursive: true, mode: 0o700 });
@@ -74,7 +81,12 @@ const flush = async () => {
 };
 await writeFile(join(output, "manifest.json"), JSON.stringify({
   schemaVersion: 1, runId, timestamp: new Date().toISOString(), clockBasis: "UTC wall clock and process monotonic time",
-  backendRevision: revision(backendRoot), frontendRevision: revision(frontendRoot),
+  backendRuntimeRevision: requireEnv("AOMI_STABILITY_BACKEND_RUNTIME_REVISION"),
+  frontendRuntimeRevision: requireEnv("AOMI_STABILITY_FRONTEND_RUNTIME_REVISION"),
+  backendSourceRevision: revision(backendRoot), frontendRunnerRevision: revision(frontendRoot),
+  databaseMigrationDigest: requireEnv("AOMI_STABILITY_DATABASE_MIGRATION_DIGEST"),
+  managerRevision: requireEnv("AOMI_STABILITY_MANAGER_REVISION"),
+  anvilBinarySha256: requireEnv("AOMI_STABILITY_ANVIL_SHA256"), forkBlockNumber,
   origin: apiOrigin.origin, executionRpc: rpcOrigin.origin, chainId: 8453,
   walletProvider: "disposable local private-key wallet", walletAddress: account.address,
   modelRouting: process.env.AOMI_STABILITY_MODEL ?? "application default",
