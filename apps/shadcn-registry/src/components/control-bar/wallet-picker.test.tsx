@@ -868,17 +868,38 @@ describe("WalletPicker", () => {
     expect(connectSocial).toHaveBeenCalledWith("google");
   });
 
-  it("shows the account ownership conflict without identifying the other account", () => {
+  it("turns an account ownership conflict into a recovery flow", () => {
+    const privy = vi.fn(async () => undefined);
     renderPicker(
       makeAdapter({
         accountError:
-          "This wallet or sign-in method is already linked to another Aomi account. Sign in to that account, unlink it there, then return here and link it.",
+          "This wallet belongs to another Aomi account. Sign in another way to open that account, then unlink the wallet there.",
+        accountConflict: {
+          code: "already_linked_to_another_account",
+          signalType: "wallet",
+          provider: "para",
+        },
       }),
+      false,
+      true,
+      [
+        {
+          id: "privy",
+          label: "Privy",
+          status: "available",
+          family: "multichain",
+          kind: "social",
+          connect: privy,
+        },
+      ],
     );
 
+    expect(screen.getByText("Resolve account conflict")).toBeVisible();
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Sign in to that account, unlink it there, then return here and link it",
+      "Sign in another way to open that account, then unlink the wallet there",
     );
+    expect(screen.getByText("Sign in another way")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Privy" })).toBeVisible();
     expect(screen.getByRole("alert").textContent).not.toMatch(
       /user-|email|address/i,
     );

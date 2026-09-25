@@ -30,6 +30,7 @@ interface WalletPolicyRowProps {
   onCancel: () => void;
   onRenewDelegation: () => void;
   onRevokeDelegation: (delegationId: string) => void;
+  modes?: readonly SignerMode[];
 }
 
 export function WalletPolicyRow({
@@ -48,6 +49,7 @@ export function WalletPolicyRow({
   onCancel,
   onRenewDelegation,
   onRevokeDelegation,
+  modes,
 }: WalletPolicyRowProps) {
   const selected = draft ?? wallet.desiredMode;
   const pending = draft !== undefined && draft !== wallet.desiredMode;
@@ -65,6 +67,7 @@ export function WalletPolicyRow({
     >
       <div
         role="button"
+        aria-label={`Configure ${wallet.address}`}
         tabIndex={0}
         onClick={onToggle}
         onKeyDown={(e) => {
@@ -80,9 +83,8 @@ export function WalletPolicyRow({
           leading={
             <WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />
           }
-          title={displayName}
-          desc={shortenAddress(wallet.address)}
-          descMono
+          title={shortenAddress(wallet.address)}
+          desc={displayName}
         >
           <span className="flex items-center gap-1">
             <span
@@ -109,6 +111,7 @@ export function WalletPolicyRow({
             selected={selected}
             pending={pending}
             inset
+            modes={modes}
             onSelect={onDraft}
           />
           {!pending &&
@@ -211,10 +214,6 @@ export function WalletPolicyRow({
           {error && (
             <span className="text-aomi-danger text-[13px]">{error}</span>
           )}
-
-          <span className="text-aomi-muted/75 pt-0.5 text-[11px]">
-            Last updated {wallet.lastPermit?.replace(/^you · /, "") ?? "—"}
-          </span>
         </div>
       )}
     </div>

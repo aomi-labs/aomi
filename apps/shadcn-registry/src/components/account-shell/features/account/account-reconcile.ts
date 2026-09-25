@@ -19,7 +19,7 @@ export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   },
   {
     id: "auto",
-    label: "Auto",
+    label: "Automatic signing",
     hint: "The delegated provider authorizes transactions; Hosted submits by default. Application and sponsorship limits still apply.",
   },
   {
