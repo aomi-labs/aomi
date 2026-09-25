@@ -116,23 +116,63 @@ export interface AomiSimulateFee {
 }
 
 export interface AomiSimulateResponse {
-  result: {
-    batch_success: boolean;
-    stateful: boolean;
-    from: string;
-    network: string;
-    total_gas?: number;
-    fee?: AomiSimulateFee;
-    steps: Array<{
-      step: number;
-      label: string;
-      success: boolean;
-      result?: string | null;
-      revert_reason?: string | null;
-      gas_used?: number;
-      tx: { to: string; value_wei: string; value_eth: string; data: string };
-    }>;
-  };
+  result: SimReport;
+  fee: AomiSimulateFee | null;
+}
+
+export interface SimulationCall {
+  to: string;
+  /** Decimal native atomic units; not display units or ERC-20 units. */
+  value: string;
+  data: string;
+  gas_limit: number | null;
+}
+
+export interface SimContext {
+  chain_id: number;
+  sender: string;
+  block_number: number;
+  block_hash: string;
+  engine: string;
+  rules: string;
+  balance_overrides: Array<{ address: string; amount: string }>;
+}
+
+export interface SimulationExecution {
+  status:
+    | { kind: "succeeded" | "reverted" | "failed" }
+    | { kind: "halted"; reason: string };
+  return_data: string;
+  gas_used: number;
+  logs: Array<{ address: string; topics: string[]; data: string }>;
+  native_balance: { before: string; after: string } | null;
+}
+
+export interface SimStep {
+  step: number;
+  chain_id: number;
+  label: string;
+  call: SimulationCall;
+  /** null means skipped after an earlier failure, not an unknown execution. */
+  execution: SimulationExecution | null;
+}
+
+export interface SimReport {
+  contexts: SimContext[];
+  steps: SimStep[];
+}
+
+export interface SimulationError {
+  code:
+    | "invalid_input"
+    | "unavailable"
+    | "incomplete"
+    | "fork_drift"
+    | "world_needs_reopen";
+  message: string;
+  /** Diagnostic only: this report must never satisfy a simulation gate. */
+  partial: SimReport;
+  interrupted_step: number | null;
 }
 
 export type AomiAccountResponse = AomiAccountProfile;
@@ -147,6 +187,8 @@ export interface AomiUser {
   user_id: string;
   username: string | null;
   apps: string[];
+  /** Exact hosted application rows installed by this account. */
+  application_ids?: number[];
   tier: "anon" | "free" | "pro";
   verified_email: string | null;
   status: string;
@@ -256,6 +298,35 @@ export interface AomiOnchainPolicyBinding {
   revoked_at: number | null;
 }
 
+export interface AomiOnchainPolicyProviderCtx {
+  provider: string;
+  chain_ref: string;
+  targets: Record<string, AomiOnchainAddress>;
+  slot_windows: number[];
+  binding: AomiOnchainPolicyBinding | null;
+  chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
+  remaining_native_amount: string | null;
+}
+
+export interface AomiBindOnchainPolicy {
+  binding_id: number | null;
+  owner: AomiOnchainAddress;
+  delegate: AomiOnchainAddress;
+  chain_ref: string;
+  policy: AomiOnchainPolicy;
+  transaction_signature: string | null;
+}
+
+export interface AomiPreparedOnchainPolicy {
+  operation: "attach" | "update" | "current" | "revoke";
+  policy_hash: string | null;
+  operating_address: AomiOnchainAddress;
+  provider_account: AomiOnchainAddress;
+  unsigned_transaction_base64: string | null;
+  last_valid_block_height: number | null;
+  binding: AomiOnchainPolicyBinding | null;
+}
+
 export interface AomiAccountProfile {
   user: AomiUser;
   auth_providers: AomiAuthProvider[];
@@ -349,12 +420,13 @@ export interface AomiUserAppSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** This slot accepts a value owned by the signed-in user. */
+  user_own: boolean;
   /** The current account stored its own value for this slot. */
   configured: boolean;
   /**
-   * The app ships a shared value for this slot (official bundle file or
-   * Build Environment), so a user value is an override rather than a
-   * prerequisite for the app to work.
+   * Retained in the response contract; always false for user-owned slots.
+   * A user-owned credential never falls back to a Builder credential.
    */
   app_provided: boolean;
 }
@@ -364,6 +436,19 @@ export interface AomiUserAppSecrets {
   application_id: number;
   app: string;
   slots: AomiUserAppSecretSlot[];
+  /** Every required user-owned slot currently has a saved value. */
+  ready: boolean;
+  /** Required slot names that still need a value. Values are never returned. */
+  missing_required: string[];
+}
+
+/** POST|DELETE /api/account/apps/:application_id */
+export interface AomiAccountAppMutationResponse {
+  application_id: number;
+  app: string;
+  installed: boolean;
+  /** Legacy runtime-name projection after the atomic mutation. */
+  apps: string[];
 }
 
 /** DELETE /api/account/apps/:application_id/secrets */
@@ -381,6 +466,8 @@ export interface AomiSecretSlot {
   name: string;
   description: string;
   required: boolean;
+  /** Whether each signed-in user supplies their own value. Missing means false. */
+  user_own?: boolean;
 }
 
 /** Hosted application artifact availability reported by the backend catalog. */
@@ -403,6 +490,8 @@ export interface AomiAppDescriptor {
   appReleaseTag?: string | null;
   isActive?: boolean | null;
   isPublic?: boolean | null;
+  /** Exact installed state for this application row. */
+  isInstalled?: boolean | null;
   artifactReady?: boolean | null;
   artifactStatus?: AomiArtifactStatus | null;
   secrets?: AomiSecretSlot[];

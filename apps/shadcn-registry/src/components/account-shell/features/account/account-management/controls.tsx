@@ -1,7 +1,7 @@
 import { Link2, Loader2, Plug, Plus, Trash2, Unplug } from "lucide-react";
 import { shortenAddress } from "../account-api";
 import { WalletProviderAvatar } from "../wallet-brands";
-import type { UnifiedAccountWallet } from "../wallet-management-model";
+import type { ManagedWallet } from "../wallet-management-model";
 
 export function WalletRow({
   wallet,
@@ -12,13 +12,13 @@ export function WalletRow({
   onDisconnect,
   onUnlink,
 }: {
-  wallet: UnifiedAccountWallet;
+  wallet: ManagedWallet;
   pending: string | null;
-  onLink?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onConnect?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onSelect?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onDisconnect?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onUnlink?: (wallet: UnifiedAccountWallet) => Promise<void>;
+  onLink?: (wallet: ManagedWallet) => Promise<void>;
+  onConnect?: (wallet: ManagedWallet) => Promise<void>;
+  onSelect?: (wallet: ManagedWallet) => Promise<void>;
+  onDisconnect?: (wallet: ManagedWallet) => Promise<void>;
+  onUnlink?: (wallet: ManagedWallet) => Promise<void>;
 }) {
   const title =
     wallet.walletName ??
@@ -26,7 +26,19 @@ export function WalletRow({
     (wallet.provider ? titleCase(wallet.provider) : undefined) ??
     (wallet.family === "evm" ? "Ethereum wallet" : "Solana wallet");
   const busy = pending?.endsWith(wallet.key) ?? false;
-  const selectable = Boolean(wallet.connected && !wallet.active && onSelect);
+  const hasAction = (kind: ManagedWallet["actions"][number]["kind"]) =>
+    wallet.actions.some((action) => action.kind === kind);
+  const selectable = Boolean(hasAction("select") && onSelect);
+  const stateDetail =
+    wallet.state === "mismatch"
+      ? "This provider wallet does not match the wallet linked to your account."
+      : wallet.state === "loading"
+        ? "Checking this wallet against your account…"
+        : wallet.state === "offline" && wallet.reason === "provider_unavailable"
+          ? `${wallet.provider ? titleCase(wallet.provider) : "This wallet provider"} is not available on this site.`
+          : wallet.state === "offline"
+            ? "Not connected on this device."
+            : null;
   const walletContent = (
     <>
       <WalletProviderAvatar
@@ -42,12 +54,25 @@ export function WalletRow({
             <StatusBadge label="Connected" tone="connected" />
           ) : null}
           {wallet.linked ? <StatusBadge label="Linked" tone="linked" /> : null}
-          {wallet.active ? <StatusBadge label="Active" tone="active" /> : null}
+          {wallet.operating ? (
+            <StatusBadge label="Active" tone="active" />
+          ) : null}
         </div>
         <span className="text-aomi-muted block truncate font-mono text-[11px]">
           {shortenAddress(wallet.address)} ·{" "}
           {wallet.family === "evm" ? "Ethereum" : "Solana"}
         </span>
+        {stateDetail ? (
+          <span
+            className={`mt-0.5 block text-[11px] ${
+              wallet.state === "mismatch"
+                ? "text-aomi-danger"
+                : "text-aomi-muted"
+            }`}
+          >
+            {stateDetail}
+          </span>
+        ) : null}
       </div>
     </>
   );
@@ -55,17 +80,23 @@ export function WalletRow({
   return (
     <div
       data-wallet-state={
-        wallet.active ? "active" : wallet.connected ? "connected" : "linked"
+        wallet.operating
+          ? "active"
+          : wallet.state === "mismatch"
+            ? "mismatch"
+            : wallet.connected
+              ? "connected"
+              : "linked"
       }
       className={`relative flex items-stretch transition-colors ${
-        wallet.active
+        wallet.operating
           ? "bg-aomi-success/[0.045]"
           : selectable
             ? "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset"
             : ""
       }`}
     >
-      {wallet.active ? (
+      {wallet.operating ? (
         <span
           className="bg-aomi-success absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full shadow-[0_0_12px_rgba(16,185,129,0.45)]"
           aria-hidden="true"
@@ -90,25 +121,27 @@ export function WalletRow({
         {busy ? (
           <Loader2 className="text-aomi-muted size-4 animate-spin" />
         ) : null}
-        {!busy && wallet.connected && !wallet.linked && onLink ? (
+        {!busy && hasAction("link") && onLink && wallet.kind === "external" ? (
           <TextButton onClick={() => void onLink(wallet)}>
             <Link2 size={13} />
             Link
           </TextButton>
         ) : null}
-        {!busy && !wallet.connected && onConnect ? (
+        {!busy &&
+        (hasAction("connect") || hasAction("reauthenticate")) &&
+        onConnect ? (
           <TextButton onClick={() => void onConnect(wallet)}>
             <Plug size={14} />
-            Connect
+            {hasAction("reauthenticate") ? "Sign in again" : "Connect"}
           </TextButton>
         ) : null}
-        {!busy && wallet.connected && onDisconnect ? (
+        {!busy && hasAction("disconnect") && onDisconnect ? (
           <TextButton onClick={() => void onDisconnect(wallet)}>
             <Unplug size={14} />
             Disconnect
           </TextButton>
         ) : null}
-        {!busy && wallet.linked && wallet.accountWalletId && onUnlink ? (
+        {!busy && hasAction("unlink") && wallet.linkedWalletId && onUnlink ? (
           <IconButton
             danger
             label={`Unlink ${title}`}

@@ -556,16 +556,17 @@ async function createControlledUpstream(port) {
           entries: [
             {
               usage_event_id: "fixture-usage-1",
-              operation_id: "fixture-operation-1",
-              application: "default",
+              execution_id: "fixture-operation-1",
+              application_id: null,
               provider: "openai",
               model: "fixture-model",
               input_tokens: 1200,
               output_tokens: 300,
-              inference_funding_source: "platform",
-              gross_charge_microusd: 125_000,
-              included_applied_microusd: 100_000,
-              bank_debit_microusd: 25_000,
+              funding: { kind: "platform", application_id: null },
+              gross: 125_000,
+              included: 100_000,
+              credits: 25_000,
+              details: {},
               occurred_at: 1_700_000_000,
             },
           ],
@@ -575,13 +576,13 @@ async function createControlledUpstream(port) {
       if (url.pathname === "/v1/account/credits" && request.method === "GET") {
         return json(response, 200, {
           period_utc_month: "2026-09",
-          included: {
-            limit_microusd: 10_000_000,
-            used_microusd: 1_250_000,
-          },
-          bank: { balance_microusd: 25_000_000 },
-          activity: [],
-          next_cursor: null,
+          included_limit: 10_000_000,
+          included_used: 1_250_000,
+          included_remaining: 8_750_000,
+          balance: 25_000_000,
+          outstanding_debt: 0,
+          records: [],
+          next_before_id: null,
         });
       }
       if (url.pathname === "/v1/agent/sessions" && request.method === "GET") {

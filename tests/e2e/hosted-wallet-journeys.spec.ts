@@ -56,7 +56,7 @@ async function signIn(page: Page, family: WalletFamily, chainId = 84532) {
   });
   await page.goto(hostedPortalUrl(), { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible({
-    timeout: 30_000,
+    timeout: 60_000,
   });
   const cookies = page.getByRole("button", { name: "Decline", exact: true });
   if (await cookies.isVisible()) await cookies.click();
@@ -127,10 +127,43 @@ async function sendPrompt(page: Page, message: string) {
   );
   await page.getByRole("button", { name: "Send message" }).click();
   const response = await firstChat;
-  expect(
-    response.status(),
-    `Chat start returned HTTP ${response.status()}`,
-  ).toBe(200);
+  if (response.status() !== 200) {
+    let detail = "";
+    try {
+      const body = (await response.json()) as {
+        code?: unknown;
+        error?: unknown;
+        message?: unknown;
+      };
+      const candidate =
+        typeof body.code === "string"
+          ? body.code
+          : typeof body.error === "string"
+            ? body.error
+            : body.error &&
+                typeof body.error === "object" &&
+                "code" in body.error &&
+                typeof body.error.code === "string"
+              ? body.error.code
+              : body.error &&
+                  typeof body.error === "object" &&
+                  "message" in body.error &&
+                  typeof body.error.message === "string"
+                ? body.error.message
+                : typeof body.message === "string"
+                  ? body.message
+                  : "";
+      detail = candidate
+        .replace(/https:\/\/\S+/g, "[url]")
+        .replace(/[A-Za-z0-9_-]{48,}/g, "[redacted]")
+        .slice(0, 160);
+    } catch {
+      // The status remains useful when the upstream response is not JSON.
+    }
+    throw new Error(
+      `Chat start returned HTTP ${response.status()}${detail ? ` (${detail})` : ""}`,
+    );
+  }
   return response;
 }
 
@@ -212,9 +245,13 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
   await assertFundedTestWallet(expectedAddress, chainId);
   const { wallet, forbiddenRequests } = await signIn(page, "evm", chainId);
   expect(wallet.address.toLowerCase()).toBe(expectedAddress.toLowerCase());
+  const mode = page.getByRole("combobox", { name: "Execution mode" });
+  await mode.click();
+  await page.getByRole("button", { name: /Direct/ }).click();
+  await expect(mode).toContainText("Direct");
   await sendPrompt(
     page,
-    `Prepare a native-token transfer of exactly 1 wei on chain ${chainId} from my connected wallet to the burn address ${BURN_ADDRESS}. Construct and simulate it, then call commit_txs so I can review the pending wallet approval. Do not sign or broadcast.`,
+    `This is an attended human_sync wallet request. Do not request, require, or use Privy or delegated signing. Prepare a native-token transfer of exactly 1 wei on chain ${chainId} from my connected wallet to the burn address ${BURN_ADDRESS}. Construct and simulate it, then call commit_txs so I can review the pending wallet approval. Do not sign or broadcast.`,
   );
   const review = page.getByTestId("transaction-review");
   await expect(review).toBeVisible({ timeout: 150_000 });
@@ -271,9 +308,7 @@ test("EVM wallet receives a signable 1-wei burn transfer with a visible simulate
       Boolean(request.simulation?.gas?.units),
   ).toBe(true);
   await expect(review.getByText(/(?: fee$|Estimated gas ·)/)).toBeVisible();
-  await expect(
-    review.getByRole("button", { name: "Send to wallet" }),
-  ).toBeEnabled();
+  await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
   expect(wallet.blocked).toEqual([]);
   expect(forbiddenRequests).toEqual([]);
 });

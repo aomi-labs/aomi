@@ -120,6 +120,43 @@ await aomi.agent.run("Use our hosted research agent", {
 });
 ```
 
+Signed-in clients can manage installed apps and per-user app credentials by
+canonical application ID. Credential responses contain configuration status
+only; saved values are never returned. OAuth clients use the `/v1/account`
+resource with separate `account:apps:read`, `account:apps:write`,
+`account:credentials:read`, and `account:credentials:write` scopes. Credential
+read access reveals setup status only, never saved values.
+
+```ts
+const catalog = await client.listAccountApps(sessionId);
+const app = catalog.find((entry) => entry.name === "credential-demo")!;
+
+await client.setAppCredential(
+  sessionId,
+  app.applicationId!,
+  "DEMO_API_TOKEN",
+  token,
+);
+await client.addAccountApp(sessionId, app.applicationId!);
+
+const status = await client.getAppCredentialsStatus(
+  sessionId,
+  app.applicationId!,
+);
+await client.replaceAppCredential(
+  sessionId,
+  app.applicationId!,
+  "DEMO_API_TOKEN",
+  rotatedToken,
+);
+await client.removeAppCredential(
+  sessionId,
+  app.applicationId!,
+  "DEMO_API_TOKEN",
+);
+await client.removeAccountApp(sessionId, app.applicationId!);
+```
+
 For event-driven Agent integrations, retain the run object:
 
 ```ts
@@ -314,7 +351,14 @@ npx @aomi-labs/client chat "quote this swap" --mode direct --app uniswap
 npx @aomi-labs/client chat "swap 1 ETH for USDC" --model claude-sonnet-4
 npx @aomi-labs/client chat "swap 1 ETH" --verbose        # stream tool calls + responses live
 npx @aomi-labs/client --provider-key anthropic:sk-ant-... --prompt "hello"
-npx @aomi-labs/client app list                           # list available apps
+npx @aomi-labs/client app list                           # account catalog + install status
+npx @aomi-labs/client app available                      # executable Pipeline apps
+npx @aomi-labs/client app add <name-or-id>               # install an account app
+npx @aomi-labs/client app remove <name-or-id>            # uninstall an account app
+npx @aomi-labs/client app credentials status <app>       # redacted setup status
+printf %s "$TOKEN" | npx @aomi-labs/client app credentials set <app> <name>
+npx @aomi-labs/client app credentials replace <app> <name> # silent prompt
+npx @aomi-labs/client app credentials remove <app> <name>
 npx @aomi-labs/client model list                         # list available models
 npx @aomi-labs/client model set claude-sonnet-4          # switch the current session model
 npx @aomi-labs/client session new                        # create a fresh active session
@@ -337,6 +381,10 @@ npx @aomi-labs/client pipeline invoke svm_get_balance --app svm-read-only --argu
 npx @aomi-labs/client pipeline build supply --app aave --arguments @supply.json > build.json
 npx @aomi-labs/client pipeline evm commit build.json
 ```
+
+Credential `set` and `replace` never accept a value argument. They read from a
+silent terminal prompt or stdin, and the CLI does not store the value in its
+local session state.
 
 The root command now mirrors the Rust CLI shape:
 

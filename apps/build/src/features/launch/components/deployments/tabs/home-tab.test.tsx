@@ -54,7 +54,10 @@ describe("HomeTab", () => {
     operateFetch.mockReset();
     operateFetch.mockResolvedValue({ daily: [] });
     (detail.source as { apps: unknown[] }).apps = [];
+    delete (detail.source as { sdkVersion?: string }).sdkVersion;
+    delete (detail.source as { sdkVersions?: string[] }).sdkVersions;
     (detail as { requiredSecrets: unknown }).requiredSecrets = null;
+    (detail as { sdk: unknown }).sdk = null;
   });
 
   it.each([
@@ -83,6 +86,117 @@ describe("HomeTab", () => {
       expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
     },
   );
+
+  it("never shows a clean Live/Ready when the live SDK is outdated", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    (detail.source as { sdkVersion?: string }).sdkVersion = "5.0.0";
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "5.1.0" },
+    };
+
+    renderTab(
+      <HomeTab detail={detail} tabHref={(tab) => `/projects/1?tab=${tab}`} />,
+    );
+
+    const callout = screen.getByTestId("sdk-callout");
+    expect(callout).toHaveTextContent(
+      "Active application built with SDK 5.0.0 — backend requires 5.1.0; redeploy to update.",
+    );
+    expect(screen.getByTestId("sdk-badge")).toHaveTextContent("5.0.0");
+    expect(screen.getByText("Outdated")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+    expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Upgrade to 5.1.0" })[0],
+    ).toHaveAttribute("href", "/projects/1?tab=deployments");
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  it("blocks Ready when an incomplete live summary contains an outdated SDK", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    detail.source!.sdkVersion = null;
+    detail.source!.sdkVersions = ["5.0.0"];
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "5.1.0" },
+    };
+
+    renderTab(<HomeTab detail={detail} />);
+
+    expect(screen.getByText("Outdated")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+    expect(screen.queryByText("Ready")).not.toBeInTheDocument();
+    expect(screen.getByTestId("sdk-callout")).toHaveTextContent(
+      "some runtime SDK records are missing",
+    );
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  it("qualifies Live when the runtime SDK was never recorded", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "5.1.0" },
+    };
+
+    renderTab(<HomeTab detail={detail} />);
+
+    expect(screen.getAllByText("Live").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("sdk-callout")).toHaveTextContent(
+      "Runtime SDK unrecorded for the active application — backend requires 5.1.0.",
+    );
+    expect(screen.getByTestId("sdk-badge")).toHaveTextContent(
+      "Runtime SDK unrecorded",
+    );
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
+
+  it("shows a clean Live/Ready only for a recorded, current SDK", async () => {
+    detail.source!.apps = [
+      {
+        id: 17,
+        name: "my-bot",
+        isActive: true,
+        appReleaseTag: "release-2",
+        loaded: true,
+      },
+    ];
+    (detail.source as { sdkVersion?: string }).sdkVersion = "5.1.0";
+    (detail as { sdk: unknown }).sdk = {
+      sdkStatus: { requiredVersion: "5.1.0" },
+    };
+
+    renderTab(<HomeTab detail={detail} />);
+
+    expect(screen.queryByTestId("sdk-callout")).not.toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(
+      screen.getByText("my-bot is active on aomi-sdk 5.1.0."),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("No traffic yet")).toBeInTheDocument();
+  });
 
   it("shows status cards and a deploy next action when not live", async () => {
     renderTab(

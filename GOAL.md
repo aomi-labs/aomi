@@ -1,4 +1,91 @@
+# Completed chat answer visibility — 2026-09-24
+
+In the isolated `codex/chat-final-response-visible` frontend worktree, the
+working trace now shows completed prose as the assistant answer when a late tool
+record or empty final-answer boundary would otherwise leave it inside the
+collapsible trace. The late tool stays visible as a step. Focused regression
+checks cover both boundary cases. The activity sidebar now animates arriving
+transaction cards and lists each signing batch in execution order while recent
+batches still lead. Widget version is 3.0.10.
+
+# LI.FI swap chips — 2026-09-24
+
+The current `lifi_prepare_swap_batch` result uses `stage_txs`; the trace adapter now reads that batch shape and shows the chain, token direction, input amount, and expected output. The chain appears first from call arguments while the result is pending. Working trace lifecycle code is unchanged. Widget patch version: 3.0.10.
+
+# GPT-6 model rollout — 2026-09-23
+
+The `codex/openai-6-models` paired worktrees move Balanced selection to GPT-6 Sol and add GPT-6 Sol/Luna backend routes. BlockRun remains first, followed by OpenAI and OpenRouter when configured. Keyless mock checks cover supplier fallback; live provider availability remains a deployment check.
+
+# Landing developer examples refresh — 2026-09-24
+
+The landing examples branch now includes current main after the companion docs PR #56 merged. PR #554 keeps examples aligned with current source while labeling published-package and deployed-API compatibility limits.
+
+# Working-trace app and skill attribution — 2026-09-24
+
+PR #662 now integrates app and skill ownership badges with the current working-trace contract. The main trace, delegated trace, and activity sidebar share exact catalog attribution. Iconless data, decorative dots, and text-only overflow bubbles remain hidden; transaction states retain their truthful markers. Widget patch version: 3.0.9. See `docs/trace-attribution/README.md` for the integration contract and checks.
+
+# Working trace contract cleanup — 2026-09-23
+
+Follow-up: removed decorative blue dots from text-only data chips, displayed
+Arc account native USDC balance, and split interpretation into EVM, SVM,
+general, and individual protocol adapters. New protocol files are picked up by
+the registry build after one adapter registration. The original PR remains the
+review target.
+
+Created a clean paired frontend/backend worktree from freshly fetched
+`origin/main`. The shared widget now routes tool presentation by declared
+identity, uses one lifecycle layout for EVM and Solana, shows Commit Service
+states and truthful count units, and leaves unknown skill tools neutral.
+Core action names remain stable while active and after results or errors.
+Aave and other supported preparation tools have explicit semantic
+presentations. The maintained contract is in
+`docs/topics/apps/facts/working-trace.md`; backend source is unchanged.
+The widget's 598 tests, focused contract tests, registry build, frontend
+boundary check, trusted-base packed consumer build, and transaction-review
+browser fixture pass. The isolated widget TypeScript check still reports
+pre-existing errors in control-bar and wallet-kit test files unrelated to
+this change.
+
+# Arc protocol support planning — 2026-09-20
+
+Explored Arc mainnet support in the paired `arc-protocol-support-plan` worktrees. Product implementation has not started. Backend-owned plan: `../product-mono/docs/plans/2026-09-20-arc-protocol-support.md`. Existing Arc wallet, chain, icon and explorer support will be reused; proposed frontend work focuses on USDC units, protocol result presentation and authenticated staging verification.
+
 # Current work
+
+**COMMIT SERVICE CLIENT CUTOVER 2026-09-17** — Isolated
+`codex/commit-service-extraction` pairs with the backend worktree. Added a
+generated tagged Commit view, sign-only wallet capabilities, exact-byte
+Wallet/Venue submission, Hosted status tracking, reconnect discovery, and
+late-confirmation stream draining. Portal exposes three thin commit proxies;
+old AA transaction completion routes are removed while off-chain signing stays.
+Nine supported real-chain routes pass through the rendered CommitReview fixture
+against Anvil/Surfpool, including sponsored ERC-4337. The backend recovery gate
+kills and restarts a separate service process after losing a broadcast response.
+Focused client/Portal tests (30), widget/adapter tests (9), TypeScript checks,
+dependency boundaries, and trusted-base packed consumer compatibility pass.
+Versions: client 0.9.0, React 0.7.0, widget 2.1.0. Browser tests use deterministic
+wallets and a test transport proxy; live-provider and Portal-login verification
+are separate. No publish or deployment performed.
+
+**LIVE BACKEND CONTRACT SYNC 2026-09-17 (IN PROGRESS)** — The frozen frontend
+promotion PR #639 exposed three routes in the deployed production backend that
+were missing from the checked-in route manifest. Refreshed the generated
+backend and manager OpenAPI fixtures from production backend `d2ed26a6` and
+the paired local manager exporter. The refresh also records public skill
+resource routes, delegated session streaming, and four manager attempt
+operations. The live contract gate and CI must pass before cutting a new
+immutable frontend candidate; PR #639 remains an unmerged stale snapshot.
+
+**RELEASE SIMULATION COMPATIBILITY 2026-09-17 (IN PROGRESS)** — Ported the
+Arc simulation client migration onto frontend main `d28c8838` in an isolated
+worktree. The client and CLI consume typed `SimReport` evidence and fail
+closed on empty or skipped results; the widget summarizes the same evidence
+while retaining historical tool display. Client and widget versions are
+`0.8.0` and `2.0.57`. Focused client/widget tests, client and Portal
+typechecks, builds, lint, formatting, full FE lint/typecheck/1,588 tests,
+and packed consumer compatibility pass. GitHub CI, staging browser and wallet
+paths, and the paired backend release remain open gates. The original worktree
+and its uncommitted files are intact.
 
 **WIDGET WALLET RUNTIME FOLLOW-UP 2026-09-14** — In the cross-origin
 consumer on PR #617's Portal preview, a connected Rabby wallet received
@@ -21,8 +108,7 @@ backend or database. The first Tailscale preview used Landing's
 `/embed-playground`; it loads staging metadata but sends `/v1/agent/chat` to
 Landing's missing route (404). The current managed runtime serves the actual
 `apps/widget-consumer` fixture at `https://agent.minuet-salary.ts.net:3443`,
-pointed at `https://chat-staging.aomi.dev` with public Across application
-24895. Read-only inspection confirmed the host fixture's global `h1` rule
+pointed at `https://chat-staging.aomi.dev` with public Across application 24895. Read-only inspection confirmed the host fixture's global `h1` rule
 changes the widget welcome title from its intended 30px to 60px, and its
 global `header` rule caps the internal widget header at 760px and adds a 24px
 bottom margin. The consumer's routing prop visibly offers Auto and Direct,
@@ -2697,3 +2783,21 @@ build`, `CI=true npx -y pnpm@10.28.0 install --frozen-lockfile`, and
   after the wallet-routing PR landed. The merge is conflict-free and all 324
   focused launch/deployment-route tests pass. Template and both platform PRs
   are merged; Manager precedes Build after refreshed CI.
+
+## 2026-09-17 — Post-release SDK and pool fixes
+
+- Integrated Build SDK display and canonical pool-budget fixes on a branch
+  from main; preserved the original uncommitted worktrees.
+- Partial live SDK summaries now flag any known mismatch; historical deployment
+  stamps cannot make an incomplete runtime record look current. Added helper,
+  Home and Chat regression coverage.
+- Bumped the account package patch version for its shipped budget JSON.
+- Local managed builds are blocked by disk headroom; PR CI is the test gate.
+- Scope is main only. This work does not promote production or publish npm.
+
+## 2026-09-20 — Arc protocol presentation
+
+- Added structured Aave V4, Morpho and Circle protocol result chips, including bridge direction and distinct preparation/attestation statuses.
+- Bound Arc USDC approval display to its six-decimal ERC-20 contract; added Aave V4 and Circle Gateway skill icons.
+- Registered the new interpreter source in the distributable registry and bumped widget-lib to 3.0.2 after syncing the concurrent main release.
+- Focused interpreter/icon tests and trusted-base packed-consumer builds passed. No public API changed; no hosted browser or real-wallet execution is implied by package validation.

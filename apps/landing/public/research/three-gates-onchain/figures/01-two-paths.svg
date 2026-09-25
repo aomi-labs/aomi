@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="650" viewBox="0 0 1100 650" role="img" aria-labelledby="title desc">
+  <title id="title">Two paths from intent to consequence</title>
+  <desc id="desc">Coding agents move through intent, build, commit, and deploy, with a human in the loop before build, CI and merge review before commit, and runtime checks before deploy. Financial agents move through intent, build, sign, and settle, with veto points across the latter path.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8f9fb}.card{fill:#fff;stroke:#d9dfe7;stroke-width:1.5}.blue{fill:#e8f1fa;stroke:#77a6d2;stroke-width:1.5}.pink{fill:#fbe9f0;stroke:#dc739b;stroke-width:1.5}.dark{fill:#18202a}.muted{fill:#586675}.label{font:700 15px Arial,sans-serif;letter-spacing:.09em}.stage{font:700 25px Arial,sans-serif}.body{font:16px Arial,sans-serif}.small{font:14px Arial,sans-serif}.num{font:700 13px Arial,sans-serif;letter-spacing:.08em}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#778696"/></marker>
+  </defs>
+  <rect class="bg" width="1100" height="650" rx="20"/>
+  <text class="label muted" x="50" y="60">THE COMPILATION PROBLEM</text>
+  <text class="stage dark" x="50" y="100">The object becomes harder to retract at every transition.</text>
+  <text class="label muted" x="50" y="152">CODING AGENT</text>
+  <g class="num">
+    <rect fill="#e7eef4" x="275" y="166" width="216" height="42" rx="21"/><text fill="#586675" x="293" y="192">0.5  HUMAN IN THE LOOP</text>
+    <rect fill="#e7eef4" x="569" y="166" width="140" height="42" rx="21"/><text fill="#586675" x="587" y="192">1  CI &amp; MERGE</text>
+    <rect fill="#e7eef4" x="837" y="166" width="192" height="42" rx="21"/><text fill="#586675" x="855" y="192">2·3  RUNTIME CHECKS</text>
+  </g>
+  <path d="M383 208V228M639 208V228M933 208V228" stroke="#afbbc6" stroke-width="1.5"/>
+  <g transform="translate(50 233)">
+    <rect class="card" width="225" height="88" rx="12"/><text class="stage dark" x="24" y="38">Intent</text><text class="small muted" x="24" y="65">Request &amp; acceptance criteria</text>
+    <rect class="card" x="257" width="225" height="88" rx="12"/><text class="stage dark" x="281" y="38">Build</text><text class="small muted" x="281" y="65">Proposed code &amp; tests</text>
+    <rect class="card" x="514" width="225" height="88" rx="12"/><text class="stage dark" x="538" y="38">Commit</text><text class="small muted" x="538" y="65">Recorded artifact</text>
+    <rect class="card" x="771" width="225" height="88" rx="12"/><text class="stage dark" x="795" y="38">Deploy</text><text class="small muted" x="795" y="65">Running effect</text>
+    <path d="M226 44H250M483 44H507M740 44H764" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+  <text class="label muted" x="50" y="373">FINANCIAL AGENT</text>
+  <g transform="translate(50 394)">
+    <rect class="blue" width="225" height="100" rx="12"/><text class="stage dark" x="24" y="40">Intent</text><text class="small muted" x="24" y="69">User mandate</text>
+    <rect class="blue" x="257" width="225" height="100" rx="12"/><text class="stage dark" x="281" y="40">Build</text><text class="small muted" x="281" y="69">Exact calls &amp; simulation</text>
+    <rect class="pink" x="514" width="225" height="100" rx="12"/><text class="stage dark" x="538" y="40">Sign</text><text class="small muted" x="538" y="69">Keyholder authorization</text>
+    <rect class="pink" x="771" width="225" height="100" rx="12"/><text class="stage dark" x="795" y="40">Settle</text><text class="small muted" x="795" y="69">Persistent chain state</text>
+    <path d="M226 50H250M483 50H507M740 50H764" stroke="#778696" stroke-width="2" marker-end="url(#arrow)"/>
+  </g>
+  <g class="num">
+    <rect fill="#d4e8f8" x="296" y="526" width="174" height="42" rx="21"/><text fill="#244b70" x="314" y="552">0.5  RUNTIME VETO</text>
+    <rect fill="#f6dce7" x="552" y="526" width="174" height="42" rx="21"/><text fill="#87415d" x="569" y="552">1  WALLET POLICY</text>
+    <rect fill="#f6dce7" x="748" y="526" width="126" height="42" rx="21"/><text fill="#87415d" x="766" y="552">2  MANDATE</text>
+    <rect fill="#f6dce7" x="890" y="526" width="156" height="42" rx="21"/><text fill="#87415d" x="908" y="552">3  ASSERTION</text>
+  </g>
+  <path d="M383 494V519M639 494V519M809 494V519M968 494V519" stroke="#afbbc6" stroke-width="1.5"/>
+  <text class="body muted" x="50" y="614">A veto is meaningful only if the action actually passes through its enforcement point.</text>
+</svg>

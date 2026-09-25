@@ -20,9 +20,11 @@ import {
   cn,
   useOptionalAomiRuntime,
   useThreadTaskRuns,
+  walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
 import {
   agentStepCount,
@@ -74,6 +76,7 @@ const WorkingStep: FC<{
   animate: boolean;
   live: boolean;
 }> = ({ tool, relatedResults, active, animate, live }) => {
+  const attribution = useTraceAttribution();
   const done = tool.result !== undefined;
   const argsText =
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
@@ -81,6 +84,7 @@ const WorkingStep: FC<{
   return (
     <ToolStepRow
       interpretation={interpretToolStep({
+        attribution,
         toolName: tool.toolName,
         argsText,
         result: tool.result,
@@ -697,24 +701,61 @@ export const buildTraceItems = (
 
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
+  const messageId = useMessage((s) => s.id);
   const content = useMessage((s) => s.content);
+  const finalAnswerStartIndex = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiFinalAnswerStartIndex?: number } | undefined)
+        ?.aomiFinalAnswerStartIndex,
+  );
+  const continuationTurnIds = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiContinuationTurnIds?: string[] } | undefined)
+        ?.aomiContinuationTurnIds,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
   const taskRuns = useThreadTaskRuns("turn");
-  const terminal = ["complete", "failed", "interrupted"].includes(
-    runtime?.turnState ?? "",
+  const turnId = messageId.startsWith("turn:")
+    ? messageId.slice("turn:".length)
+    : undefined;
+  const turnEvents = runtime?.events ?? [];
+  const ownState = turnId
+    ? turnEvents.findLast(
+        (event) =>
+          event.type === "turn_state_changed" && event.turn_id === turnId,
+      )
+    : undefined;
+  const ownStatus =
+    ownState?.type === "turn_state_changed" ? ownState.state : undefined;
+  const ownTerminal =
+    ownStatus !== undefined &&
+    ["complete", "failed", "interrupted"].includes(ownStatus);
+  const ownStopped = ownStatus === "failed" || ownStatus === "interrupted";
+  const walletContinuation = walletContinuationPending(
+    continuationTurnIds ?? [],
+    turnEvents,
   );
+  // A commit returns before wallet approval and the backend marks its model
+  // turn complete. Keep this trace live through the durable commit and its
+  // broadcast-terminal continuation. A later turn's processing state must not
+  // reanimate an unrelated completed trace.
   const live =
-    !terminal &&
-    (running ||
+    !ownStopped &&
+    (walletContinuation ||
       (isLast &&
-        ["processing", "awaiting_action"].includes(runtime?.turnState ?? "")));
+        !ownTerminal &&
+        (running ||
+          ["processing", "awaiting_action"].includes(
+            runtime?.turnState ?? "",
+          ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : isLast && runtime?.turnState === "failed"
+    : isLast && (ownStatus === "failed" || runtime?.turnState === "failed")
       ? "failed"
-      : isLast && runtime?.turnState === "interrupted"
+      : isLast &&
+          (ownStatus === "interrupted" || runtime?.turnState === "interrupted")
         ? "interrupted"
         : "complete";
   const delegations = isLast
@@ -749,6 +790,7 @@ export const AssistantTurnParts: FC = () => {
   const lastToolIndex = parts.findLastIndex(
     (part) => part.type === "tool-call",
   );
+  const firstToolIndex = parts.findIndex((part) => part.type === "tool-call");
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -757,16 +799,51 @@ export const AssistantTurnParts: FC = () => {
   const pending = delegations.filter(
     (run) => !run.callId || !represented.has(run.callId),
   );
-  // A live trailing text part may still be followed by another tool. Once the
-  // turn completes, only text after its final tool is the public answer.
+  // Any live text, including the first part, may still precede a tool call.
+  // Completion is the boundary that identifies the final answer; until then
+  // keep prose in the trace rather than moving it back when a tool arrives.
   const traceEnd =
-    live && (lastToolIndex >= 0 || pending.length > 0)
-      ? parts.length
-      : lastToolIndex + 1;
-  const traceItems = buildTraceItems(parts.slice(0, traceEnd), delegations);
-  const answerParts = parts
-    .slice(traceEnd)
-    .filter((part) => part.type === "text");
+    typeof finalAnswerStartIndex === "number" &&
+    finalAnswerStartIndex >= 0 &&
+    finalAnswerStartIndex <= parts.length
+      ? finalAnswerStartIndex
+      : live
+        ? parts.length
+        : lastToolIndex + 1;
+  const answerIndexes = new Set(
+    parts.flatMap((part, index) =>
+      index >= traceEnd && part.type === "text" && part.text.trim()
+        ? [index]
+        : [],
+    ),
+  );
+  // A late tool completion or an empty final-answer marker can leave the
+  // completed prose before the boundary. Keep the tool in the trace while
+  // showing the last nonempty text as the answer instead of hiding it there.
+  if (
+    !live &&
+    outcome === "complete" &&
+    !ownStopped &&
+    answerIndexes.size === 0 &&
+    firstToolIndex >= 0
+  ) {
+    const lastTextIndex = parts.findLastIndex(
+      (part) => part.type === "text" && part.text.trim().length > 0,
+    );
+    if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
+  }
+  const traceItems = buildTraceItems(
+    parts.filter(
+      (part, index) =>
+        part.type === "tool-call" ||
+        (index < traceEnd && !answerIndexes.has(index)),
+    ),
+    delegations,
+  );
+  const answerParts = parts.filter(
+    (part, index): part is TextMessagePart =>
+      part.type === "text" && answerIndexes.has(index),
+  );
   return (
     <>
       {traceItems.length > 0 && (

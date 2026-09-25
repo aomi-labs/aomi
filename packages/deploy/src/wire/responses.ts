@@ -4,6 +4,7 @@
  * mappers live in operate.ts.
  */
 import { DeployError } from "../errors";
+import { optNumber, optString } from "./operate";
 import type {
   ActivateResult,
   BotRegistration,
@@ -11,7 +12,10 @@ import type {
   BuilderModelKeyUsage,
   DeployResult,
   DeploymentStatus,
+  GitHubAppInstallationsResult,
+  GitHubAppPermissionGap,
   PlatformApp,
+  PlatformInstallationStatus,
   Project,
   TokenRecord,
   UserDeployment,
@@ -250,8 +254,15 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
     platform: String(b.platform ?? ""),
     status: String(b.status ?? ""),
     label: b.label ?? null,
-    defaultApp: String(b.default_app ?? b.defaultApp ?? ""),
-    defaultAppId: Number(b.default_app_id ?? b.defaultAppId ?? 0),
+    handoverApp: String(b.handover_app ?? b.handoverApp ?? ""),
+    handoverAppId: Number(b.handover_app_id ?? b.handoverAppId ?? 0),
+    miniAppUrl: b.mini_app_url ?? b.miniAppUrl ?? null,
+    commandEndpoint: b.command_endpoint ?? b.commandEndpoint ?? null,
+    commands: Array.isArray(b.commands)
+      ? b.commands.filter(
+          (command: unknown): command is string => typeof command === "string",
+        )
+      : [],
     apps: ((b.apps ?? []) as Record<string, any>[]).map((app) => ({
       applicationId: Number(app.application_id ?? app.applicationId ?? 0),
       projectId: app.project_id ?? app.projectId ?? null,
@@ -265,6 +276,9 @@ export function camelBotRegistration(raw: unknown): BotRegistration {
     platformUsername: b.platform_username ?? b.platformUsername ?? null,
     webhookUrl: b.webhook_url ?? b.webhookUrl ?? null,
     threadMode: String(b.thread_mode ?? b.threadMode ?? "single"),
+    configurationVersion: Number(
+      b.configuration_version ?? b.configurationVersion ?? 0,
+    ),
     createdAt: Number(b.created_at ?? b.createdAt ?? 0),
   };
 }
@@ -443,6 +457,58 @@ export function camelUserProject(raw: unknown): UserProject {
     ).flatMap((version) =>
       typeof version === "string" && version ? [version] : [],
     ),
+  };
+}
+
+/** Permission name → level maps and the gap rows both arrive as plain
+ *  objects; keep only string-valued entries so a malformed row cannot leak a
+ *  nested object into the UI. */
+function permissionLevels(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+}
+
+function permissionGaps(raw: unknown): GitHubAppPermissionGap[] {
+  return Array.isArray(raw)
+    ? raw.map((gap: Record<string, any>) => ({
+        permission: String(gap?.permission ?? ""),
+        required: String(gap?.required ?? ""),
+        granted: String(gap?.granted ?? "none"),
+      }))
+    : [];
+}
+
+export function camelGitHubAppInstallations(
+  raw: unknown,
+): GitHubAppInstallationsResult {
+  const r = (raw ?? {}) as Record<string, any>;
+  const platform = r.platform as Record<string, any> | null | undefined;
+  const platformInstallation = platform?.installation as
+    | Record<string, any>
+    | null
+    | undefined;
+  return {
+    platform: platform
+      ? {
+          githubRepo: String(platform.github_repo ?? ""),
+          required: permissionLevels(platform.required),
+          installation: platformInstallation
+            ? {
+                settingsUrl: optString(platformInstallation.settings_url),
+                missingPermissions: permissionGaps(
+                  platformInstallation.missing_permissions,
+                ),
+              }
+            : null,
+          status: String(
+            platform.status ?? "error",
+          ) as PlatformInstallationStatus["status"],
+        }
+      : null,
   };
 }
 

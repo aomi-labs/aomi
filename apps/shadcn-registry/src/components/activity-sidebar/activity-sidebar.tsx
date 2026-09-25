@@ -2,10 +2,6 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
-  skillLabel,
-  useSkillCatalog,
-} from "../../lib/capabilities/skill-catalog";
-import {
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -13,10 +9,16 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { ChevronDown, Puzzle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
-import { getSkillIcon } from "../icons/skills";
-import { selectActivity, type ActivityTransaction } from "./model";
+import { useTraceAttribution } from "../assistant-ui/trace-attribution";
+import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
+import { ToolChipView } from "../assistant-ui/tool-chip";
+import {
+  selectActivity,
+  selectReviewCommit,
+  type ActivityTransaction,
+} from "./model";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
@@ -28,8 +30,15 @@ export function ActivitySidebar() {
 }
 
 function ActivitySidebarContent() {
-  const { events, pendingActions, actionAttempts, threadViewKey, isRunning } =
-    useAomiRuntime();
+  const {
+    events,
+    pendingActions,
+    actionAttempts,
+    threadViewKey,
+    isRunning,
+    commits = [],
+    commitController,
+  } = useAomiRuntime();
   const reduceMotion = useReducedMotion();
   const {
     open: panelOpen,
@@ -57,17 +66,19 @@ function ActivitySidebarContent() {
     return () => observer.disconnect();
   }, []);
   const activity = useMemo(
-    () => selectActivity(events, pendingActions),
-    [events, pendingActions],
+    () => selectActivity(events, pendingActions, commits),
+    [events, pendingActions, commits],
   );
   const pending = pendingActions[0];
+  const pendingCommit = selectReviewCommit(commits, commitController?.review);
   const signing = Boolean(
-    pending &&
-    (pending.request.type === "sign" ||
-      (pending.request.simulation.status !== "failed" &&
-        !pending.request.simulation.guards.some(
-          (guard) => guard.status === "failed",
-        ))),
+    pendingCommit ||
+    (pending &&
+      (pending.request.type === "sign" ||
+        (pending.request.simulation.status !== "failed" &&
+          !pending.request.simulation.guards.some(
+            (guard) => guard.status === "failed",
+          )))),
   );
   const expanded = signing || open;
   const current = activity.transactions.filter(
@@ -75,35 +86,78 @@ function ActivitySidebarContent() {
       (!tx.action || tx.action.state === "pending") &&
       (!pending || tx.action?.id === pending.id),
   );
-  const transactions = [
+  const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
     ).values(),
-  ].sort(
-    (a, b) =>
-      (b.sequence ?? b.action?.sequence ?? 0) -
-        (a.sequence ?? a.action?.sequence ?? 0) ||
-      (b.actionIndex ?? 0) - (a.actionIndex ?? 0),
-  );
+  ];
+  const batchKey = (tx: ActivityTransaction) =>
+    tx.commit?.batch?.batch_id
+      ? `commit:${tx.commit.batch.batch_id}`
+      : tx.action?.id
+        ? `action:${tx.action.id}`
+        : undefined;
+  const batchSequence = new Map<string, number>();
+  for (const tx of transactionRows) {
+    const key = batchKey(tx);
+    if (!key) continue;
+    batchSequence.set(
+      key,
+      Math.max(
+        batchSequence.get(key) ?? 0,
+        tx.sequence ?? tx.action?.sequence ?? 0,
+      ),
+    );
+  }
+  const order = (tx: ActivityTransaction) =>
+    batchSequence.get(batchKey(tx) ?? "") ?? tx.sequence ?? 0;
+  const transactions = transactionRows.sort((a, b) => {
+    const recency = order(b) - order(a);
+    if (recency) return recency;
+    const key = batchKey(a);
+    if (key && key === batchKey(b)) {
+      return (
+        (a.commit?.batch?.index ?? a.actionIndex ?? 0) -
+        (b.commit?.batch?.index ?? b.actionIndex ?? 0)
+      );
+    }
+    return (b.sequence ?? 0) - (a.sequence ?? 0);
+  });
   const card = (tx: ActivityTransaction, historical = false) => (
     <TransactionCard
       key={tx.id}
       transaction={tx}
-      reviewing={Boolean(pending && tx.action?.id === pending.id)}
+      reviewing={Boolean(
+        pending
+          ? tx.action?.id === pending.id
+          : pendingCommit?.batch && tx.commit?.batch
+            ? pendingCommit.batch.batch_id === tx.commit.batch.batch_id
+            : pendingCommit?.commit_id === tx.commit?.commit_id,
+      )}
       active={
         !historical &&
-        tx.turnId === activity.turnId &&
-        (isRunning ||
-          pendingActions.some((action) => action.id === tx.action?.id))
+        ((tx.turnId === activity.turnId &&
+          (isRunning ||
+            pendingActions.some((action) => action.id === tx.action?.id))) ||
+          (tx.commit != null &&
+            !["confirmed", "rejected", "failed", "expired"].includes(
+              tx.commit.state,
+            )))
       }
       executing={
         !historical &&
-        Boolean(
+        (Boolean(
           tx.action &&
           ["executing", "responding"].includes(
             actionAttempts.get(tx.action.id)?.state ?? "",
           ),
-        )
+        ) ||
+          Boolean(
+            tx.commit?.wallet_attempt &&
+            ["awaiting_wallet", "reported", "observing"].includes(
+              tx.commit.wallet_attempt.state,
+            ),
+          ))
       }
     />
   );
@@ -112,11 +166,12 @@ function ActivitySidebarContent() {
     activity.skills.length ||
     activity.transactions.length ||
     activity.history.length ||
-    pendingActions.length,
+    pendingActions.length ||
+    commits.length,
   );
   useEffect(() => {
-    setWorthShowing(hasActivity, Boolean(pending));
-  }, [hasActivity, pending, setWorthShowing]);
+    setWorthShowing(hasActivity, Boolean(pending || pendingCommit));
+  }, [hasActivity, pending, pendingCommit, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   const showRail = hasActivity && panelOpen;
   return (
@@ -173,7 +228,7 @@ function ActivitySidebarContent() {
                     <InvokedSkills ids={activity.skills} />
                   </Group>
                 )}
-                {(transactions.length > 0 || pending) && (
+                {(transactions.length > 0 || pending || pendingCommit) && (
                   <section className="py-4" aria-label="Transactions">
                     {signing ? (
                       <h2 className="mb-3 flex items-center gap-2 text-[13px] font-medium">
@@ -235,11 +290,7 @@ function ActivitySidebarContent() {
                               {current.length === 1 ? "" : "s"}.
                             </p>
                           )}
-                          {pending && (
-                            <WalletReview
-                              key={`${pending!.id}:${pending!.revision}`}
-                            />
-                          )}
+                          <WalletReview />
                         </m.div>
                       )}
                     </AnimatePresence>
@@ -302,33 +353,12 @@ function Group({
 }
 
 function InvokedSkills({ ids }: { ids: string[] }) {
-  const { skills } = useSkillCatalog();
+  const attribution = useTraceAttribution();
   return (
     <div className="flex flex-wrap gap-2">
-      {ids.map((id) => {
-        const Icon = getSkillIcon(id) ?? Puzzle;
-        const skill = skills?.find((skill) => skill.id === id);
-        const label = skillLabel(
-          skill ?? {
-            name:
-              id === "common_erc20"
-                ? "ERC-20"
-                : id === "lifi_swap"
-                  ? "LI.FI"
-                  : id,
-          },
-        );
-        return (
-          <span
-            key={id}
-            title={label}
-            className="border-aomi-border bg-aomi-surface inline-flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-[12px]"
-          >
-            <Icon className="size-4 shrink-0" />
-            <span className="truncate">{label}</span>
-          </span>
-        );
-      })}
+      {ids.map((id) => (
+        <ToolChipView key={id} chip={skillChip(id, attribution)} />
+      ))}
     </div>
   );
 }

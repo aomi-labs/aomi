@@ -1,3 +1,4 @@
+import { SimulationApiError } from "./simulation";
 import type {
   AomiAccountProfile,
   AomiAccountResponse,
@@ -16,6 +17,7 @@ import type {
   AomiRequestOptions,
   AomiByokKeyEntry,
   AomiSaveByokKeyResponse,
+  AomiAccountAppMutationResponse,
   AomiSimulateResponse,
   AomiUserAppSecrets,
   GetAccountBearer,
@@ -280,12 +282,27 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     url.pathname === "/v1/account" ||
     url.pathname.startsWith("/v1/account/")
   ) {
-    const scope =
-      url.pathname === "/v1/account/statement"
-        ? "account:usage:read"
-        : url.pathname === "/v1/account/credits/top-up"
-          ? "account:credits:topup"
-          : "account:credits:read";
+    const isAppCredential =
+      /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
+    const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
+    let scope: string;
+    if (isAppCredential) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:credentials:read"
+          : "account:credentials:write";
+    } else if (isAccountApp) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:apps:read"
+          : "account:apps:write";
+    } else if (url.pathname === "/v1/account/statement") {
+      scope = "account:usage:read";
+    } else if (url.pathname === "/v1/account/credits/top-up") {
+      scope = "account:credits:topup";
+    } else {
+      scope = "account:credits:read";
+    }
     return {
       resource: `${origin}/v1/account` as AomiOAuthResource,
       scopes: [scope, ...payment],
@@ -306,22 +323,16 @@ function absoluteBase(baseUrl: string): string {
 // AomiClient
 // =============================================================================
 
-/**
- * Read secret names out of a {@link AomiListSecretsResponse} whichever shape
- * the backend sent.
- *
- * A backend from before per-user app secrets were retired answers
- * `{ by_app: { <app>: [names] } }`; the one after answers `{ names: [...] }`
- * (plus an empty `by_app` for one release). This client ships ahead of the
- * backend, so it has to read both — and a browser tab cached across the
- * cutover will hit each of them in turn.
- */
-function appSecretsPath(applicationId: ApplicationId): string {
+/** Build the credential path for the selected account transport. */
+function appSecretsPath(
+  applicationId: ApplicationId,
+  basePath: string,
+): string {
   const id = String(applicationId ?? "").trim();
   if (!id) {
     throw new Error("applicationId is required for app secrets");
   }
-  return `/api/account/apps/${encodeURIComponent(id)}/secrets`;
+  return `${basePath}/${encodeURIComponent(id)}/secrets`;
 }
 
 /** Best-effort `{ error }` body reader for user-facing failure messages. */
@@ -349,11 +360,15 @@ export class AomiClient {
   private readonly rawFetchImpl: typeof fetch;
   private readonly logger?: Logger;
   private readonly hasAccountAuth: boolean;
+  private readonly accountAppsPath: string;
 
   constructor(options: AomiClientOptions) {
     // Strip trailing slash
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.hasAccountAuth = Boolean(options.getAccountBearer || options.oauth);
+    this.accountAppsPath = options.oauth
+      ? "/v1/account/apps"
+      : "/api/account/apps";
     this.apiKey = options.apiKey;
     const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     // Keep the caller's fetch implementation for tests and browser adapters;
@@ -697,6 +712,68 @@ export class AomiClient {
     return (await response.json()) as AomiAccountResponse;
   }
 
+  /** List the full app catalog available to the signed-in account. */
+  async listAccountApps(sessionId: string): Promise<AomiAppDescriptor[]> {
+    const url = buildApiUrl(this.baseUrl, this.accountAppsPath);
+    const response = await this.fetchImpl(url, {
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to list account apps: HTTP ${response.status}`);
+    }
+
+    const data = (await response.json()) as unknown;
+    if (!Array.isArray(data)) return [];
+    return data
+      .map((item) => normalizeAppDescriptor(item))
+      .filter((item): item is AomiAppDescriptor => item !== null);
+  }
+
+  /** Atomically install one exact application row. */
+  async addAccountApp(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiAccountAppMutationResponse> {
+    const url = buildApiUrl(
+      this.baseUrl,
+      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
+    );
+    const response = await this.fetchImpl(url, {
+      method: "POST",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to install account app: HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as AomiAccountAppMutationResponse;
+  }
+
+  /** Atomically uninstall one exact application row. */
+  async removeAccountApp(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiAccountAppMutationResponse> {
+    const url = buildApiUrl(
+      this.baseUrl,
+      `${this.accountAppsPath}/${encodeURIComponent(String(applicationId))}`,
+    );
+    const response = await this.fetchImpl(url, {
+      method: "DELETE",
+      headers: withSessionHeader(sessionId),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to uninstall account app: HTTP ${response.status}`,
+      );
+    }
+
+    return (await response.json()) as AomiAccountAppMutationResponse;
+  }
+
   /**
    * Mint a Privy browser auth URL bound to the current backend session.
    */
@@ -890,12 +967,10 @@ export class AomiClient {
   // Per-user app secrets (client-supplied API keys)
   // ===========================================================================
   //
-  // An app that wraps an account-bound venue (an exchange, a prediction
-  // market) trades the key owner's own account, so each signed-in user
-  // supplies their own keys for it. Account-scoped and durable on the
-  // backend: a key saved here applies to every thread the account runs on
-  // that app from the next turn, on every fleet host. Distinct from
-  // `ingestSecrets`, which is the ephemeral browser-scoped store.
+  // Apps can ask each signed-in user for their own credentials. These values
+  // are account-scoped and durable on the backend, and are resolved for every
+  // dynamic invocation of that app. Distinct from `ingestSecrets`, which is
+  // the ephemeral browser-scoped store.
 
   /**
    * The slots an app declares with the current account's configuration
@@ -905,7 +980,10 @@ export class AomiClient {
     sessionId: string,
     applicationId: ApplicationId,
   ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       headers: withSessionHeader(sessionId),
     });
@@ -915,6 +993,14 @@ export class AomiClient {
     }
 
     return (await response.json()) as AomiUserAppSecrets;
+  }
+
+  /** Read per-user credential status for one canonical application ID. */
+  getAppCredentialsStatus(
+    sessionId: string,
+    applicationId: ApplicationId,
+  ): Promise<AomiUserAppSecrets> {
+    return this.listAppSecrets(sessionId, applicationId);
   }
 
   /**
@@ -927,7 +1013,10 @@ export class AomiClient {
     applicationId: ApplicationId,
     secrets: Record<string, string>,
   ): Promise<AomiUserAppSecrets> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       method: "POST",
       headers: withSessionHeader(sessionId, {
@@ -946,6 +1035,26 @@ export class AomiClient {
     return (await response.json()) as AomiUserAppSecrets;
   }
 
+  /** Save one declared per-user credential. The value is never returned. */
+  setAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+    value: string,
+  ): Promise<AomiUserAppSecrets> {
+    return this.saveAppSecrets(sessionId, applicationId, { [name]: value });
+  }
+
+  /** Replace one saved credential. The backend uses the same secure upsert. */
+  replaceAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+    value: string,
+  ): Promise<AomiUserAppSecrets> {
+    return this.setAppCredential(sessionId, applicationId, name, value);
+  }
+
   /** Remove one of the current account's own values for an app. */
   async deleteAppSecret(
     sessionId: string,
@@ -954,7 +1063,7 @@ export class AomiClient {
   ): Promise<AomiDeleteSecretResponse> {
     const url = joinApiPath(
       this.baseUrl,
-      `${appSecretsPath(applicationId)}/${encodeURIComponent(name)}`,
+      `${appSecretsPath(applicationId, this.accountAppsPath)}/${encodeURIComponent(name)}`,
     );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
@@ -968,12 +1077,24 @@ export class AomiClient {
     return (await response.json()) as AomiDeleteSecretResponse;
   }
 
+  /** Remove one saved per-user credential by canonical application ID. */
+  removeAppCredential(
+    sessionId: string,
+    applicationId: ApplicationId,
+    name: string,
+  ): Promise<AomiDeleteSecretResponse> {
+    return this.deleteAppSecret(sessionId, applicationId, name);
+  }
+
   /** Remove every value the current account stored for an app. */
   async clearAppSecrets(
     sessionId: string,
     applicationId: ApplicationId,
   ): Promise<AomiClearAppSecretsResponse> {
-    const url = joinApiPath(this.baseUrl, appSecretsPath(applicationId));
+    const url = joinApiPath(
+      this.baseUrl,
+      appSecretsPath(applicationId, this.accountAppsPath),
+    );
     const response = await this.fetchImpl(url, {
       method: "DELETE",
       headers: withSessionHeader(sessionId),
@@ -1036,9 +1157,17 @@ export class AomiClient {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(
-        `HTTP ${response.status}: ${response.statusText}${body ? `\n${body}` : ""}`,
+      const body = await response.json().catch(() => null);
+      const detail = body?.error;
+      throw new SimulationApiError(
+        response.status,
+        detail &&
+          typeof detail.code === "string" &&
+          typeof detail.message === "string" &&
+          Array.isArray(detail.partial?.contexts) &&
+          Array.isArray(detail.partial?.steps)
+          ? detail
+          : undefined,
       );
     }
 

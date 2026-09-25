@@ -6,6 +6,7 @@
 // leaves the BFF: it reaches the backend through the session-scoped fetch.
 
 import type {
+  GitHubAppInstallationsResult,
   ProjectSdkUpgradeResult,
   ProjectSdkUpgradeStatusResult,
 } from "@aomi-labs/deploy";
@@ -33,8 +34,8 @@ import {
   type LaunchRedeployResult,
   type LaunchSdkStatus,
   type LaunchStatus,
+  type RequiredSecretsResult,
 } from "./contracts";
-import type { RequiredSecretsByApp } from "./required-secrets";
 
 export { LaunchRequestError };
 export type { GithubAppOAuthStartResponse };
@@ -132,6 +133,12 @@ export function deploymentSdkUpgradeStatus(input: {
   return client.deployments.sdkUpgradeStatus(input);
 }
 
+export function deploymentGitHubAppInstallations(
+  platform?: string,
+): Promise<GitHubAppInstallationsResult> {
+  return client.deployments.githubAppInstallations({ platform });
+}
+
 export function deploymentHistory(input: {
   projectId: number;
   limit?: number;
@@ -152,10 +159,6 @@ export function deploymentSecrets(input: {
 }): Promise<DeploymentSecretsResult> {
   return client.deployments.secrets(input);
 }
-
-export type RequiredSecretsResult = {
-  byApp: RequiredSecretsByApp;
-};
 
 export function deploymentRequiredSecrets(input: {
   projectId: number;

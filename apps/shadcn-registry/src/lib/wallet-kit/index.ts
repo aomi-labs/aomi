@@ -32,6 +32,11 @@ export type {
   AomiUserRef,
   LinkedAuthAccount,
 } from "./account/types";
+export type {
+  WalletAction,
+  WalletRow,
+  WalletState,
+} from "./composer/wallet-state";
 export {
   AOMI_SESSION_BOOTING_IDENTITY,
   AOMI_SESSION_DISCONNECTED_IDENTITY,
@@ -68,5 +73,8 @@ export {
   useFullTestnet,
 } from "./full-testnet-wallet-routing";
 export { useWalletActivationGuard } from "./use-wallet-activation-guard";
-export { useActionCapabilities } from "./use-action-capabilities";
+export {
+  useActionCapabilities,
+  useCommitCapabilities,
+} from "./use-action-capabilities";
 export { signOutAndDisconnect } from "./account/sign-out";

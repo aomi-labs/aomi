@@ -7,15 +7,10 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import type {
-  AgentSession,
-  AomiClient,
-  UserState,
-} from "@aomi-labs/client";
+import type { AgentSession, AomiClient, UserState } from "@aomi-labs/client";
 import { UserState as UserStateHelpers } from "@aomi-labs/client";
 
 import { useControl, type ControlState } from "../contexts/control-context";
-import { useNotification } from "../contexts/notification-context";
 import type { ThreadContext } from "../contexts/thread-context";
 import { useThreadContext } from "../contexts/thread-context";
 import { useUser } from "../contexts/ext-user-context";
@@ -100,65 +95,32 @@ type ThreadListContext = {
   user: UserState;
 };
 
-function stableStateString(state: UserState): string {
-  return JSON.stringify(state ?? {});
+/**
+ * Apply a fetched thread list without rolling back local changes made while
+ * the request was in flight. Server fields remain authoritative, while
+ * composer control belongs to the live client state.
+ */
+export function mergeThreadListMetadata(
+  fetched: Map<string, ThreadMetadata>,
+  latest: Map<string, ThreadMetadata>,
+): Map<string, ThreadMetadata> {
+  const merged = new Map<string, ThreadMetadata>();
+
+  for (const [threadId, metadata] of fetched) {
+    merged.set(threadId, {
+      ...metadata,
+      control: latest.get(threadId)?.control ?? metadata.control,
+    });
+  }
+  for (const [threadId, metadata] of latest) {
+    if (!merged.has(threadId)) merged.set(threadId, metadata);
+  }
+
+  return merged;
 }
 
-function useWalletStateNotifications(user: UserState) {
-  const { showNotification } = useNotification();
-  const walletSnapshot = useCallback(
-    (nextUser: UserState) => ({
-      connection: {
-        // Serialize exactly the backend ProviderState. FE-local and account
-        // identity fields are deliberately not forwarded here.
-        is_connected: UserStateHelpers.isConnected(nextUser) ?? false,
-        provider: UserStateHelpers.provider(nextUser) ?? undefined,
-        provider_label:
-          typeof nextUser.connection?.provider_label === "string"
-            ? nextUser.connection.provider_label
-            : undefined,
-        auth_method: UserStateHelpers.authMethod(nextUser) ?? undefined,
-      },
-      evm: {
-        address: UserStateHelpers.address(nextUser),
-        chain_id: UserStateHelpers.chainId(nextUser),
-        ens_name:
-          typeof nextUser.evm?.ens_name === "string"
-            ? nextUser.evm.ens_name
-            : undefined,
-      },
-      svm: {
-        address: UserStateHelpers.svmAddress(nextUser),
-        cluster: nextUser.svm?.cluster,
-        wallet_name: nextUser.svm?.wallet_name,
-        transport: nextUser.svm?.transport,
-        capabilities: nextUser.svm?.capabilities,
-      },
-    }),
-    [],
-  );
-
-  const lastWalletStateRef = useRef(walletSnapshot(user));
-
-  useEffect(() => {
-    const nextWalletState = walletSnapshot(user);
-    const prevWalletState = lastWalletStateRef.current;
-    if (
-      stableStateString(prevWalletState as UserState) ===
-      stableStateString(nextWalletState as UserState)
-    ) {
-      return;
-    }
-    lastWalletStateRef.current = nextWalletState;
-    const wasConnected = prevWalletState.connection.is_connected;
-    const isConnected = nextWalletState.connection.is_connected;
-    if (wasConnected !== isConnected) {
-      showNotification({
-        type: "wallet",
-        title: isConnected ? "Wallet connected" : "Wallet disconnected",
-      });
-    }
-  }, [showNotification, user, walletSnapshot]);
+export function initRemoteThreadControl() {
+  return { ...initThreadControl(), agentMode: "auto" as const };
 }
 
 function useRemoteThreadListSync(
@@ -240,9 +202,7 @@ function useRemoteThreadListSync(
         void Promise.all(
           prefetchThreadIds.map(async (threadId) => {
             if (cancelled || !remoteThreadIdsRef.current.has(threadId)) return;
-            if (
-              sessionManager.get(threadId)?.getSnapshot().messages.length
-            ) {
+            if (sessionManager.get(threadId)?.getSnapshot().messages.length) {
               return;
             }
 
@@ -330,7 +290,12 @@ function useRemoteThreadListSync(
             title,
             status: thread.archived ? "archived" : "regular",
             lastActiveAt: lastActive,
-            control: existingControl ?? initThreadControl(),
+            // Session summaries do not expose the execution target. Mark an
+            // unseen remote thread as explicitly Auto so a device-wide Direct
+            // preference cannot present the first app as its historical
+            // target. Threads created in this client retain their exact local
+            // control through existingControl and the commit-time merge.
+            control: existingControl ?? initRemoteThreadControl(),
           });
 
           const match = title.match(/^Chat (\d+)$/);
@@ -360,7 +325,9 @@ function useRemoteThreadListSync(
             remoteThreadIds.has(threadId),
           ),
         );
-        currentContext.setThreadMetadata(newMetadata);
+        currentContext.setThreadMetadata((latestMetadata) =>
+          mergeThreadListMetadata(newMetadata, latestMetadata),
+        );
         if (maxChatNum > baseThreadCount) {
           currentContext.setThreadCnt(maxChatNum);
         }
@@ -488,7 +455,6 @@ export function useThreadListSync({
     setIsThreadLoading,
   };
 
-  useWalletStateNotifications(user);
   return useRemoteThreadListSync(
     context,
     sessions,

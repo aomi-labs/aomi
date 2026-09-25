@@ -162,7 +162,10 @@ export type {
   AomiBrowserGrantOptions,
   AomiDeviceVerification,
 } from "./oauth";
-export { createGuestSessionProvider } from "./guest-auth";
+export {
+  createGuestSessionProvider,
+  withBrowserSessionTransition,
+} from "./guest-auth";
 export type { GuestSessionProvider } from "./guest-auth";
 export {
   AccountCredentialUnavailableError,
@@ -236,14 +239,17 @@ export type {
   AomiAccountRecordStatus,
   AomiAuthProvider,
   AomiAuthPurpose,
+  AomiBindOnchainPolicy,
   AomiChainKind,
   AomiDelegatedAccount,
   AomiOnchainAddress,
   AomiOnchainPolicy,
   AomiOnchainPolicyBinding,
+  AomiOnchainPolicyProviderCtx,
   AomiOnchainPolicyRule,
   AomiOperatingAccount,
   AomiPolicyWindow,
+  AomiPreparedOnchainPolicy,
   AomiProviderBinding,
   AomiSigningPolicy,
   AomiUser,
@@ -256,6 +262,7 @@ export type {
   AomiClearAppSecretsResponse,
   AomiUserAppSecretSlot,
   AomiUserAppSecrets,
+  AomiAccountAppMutationResponse,
   AomiListByokKeysResponse,
   AomiSaveByokKeyResponse,
   AomiDeleteSecretResponse,
@@ -264,6 +271,12 @@ export type {
   AomiSecretSlot,
   AomiSimulateFee,
   AomiSimulateResponse,
+  SimulationCall,
+  SimContext,
+  SimulationExecution,
+  SimStep,
+  SimReport,
+  SimulationError,
   Logger,
 } from "./types";
 export {
@@ -397,3 +410,5 @@ export type {
   ExecuteWalletCallsParams,
   NormalizedSimulatedFee,
 } from "./aa";
+export { summarizeSimulation, SimulationApiError } from "./simulation";
+export * from "./commits";

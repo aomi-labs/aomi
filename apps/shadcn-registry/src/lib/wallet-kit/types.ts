@@ -17,7 +17,7 @@ import type {
   UpdateLinkedAccountInput,
   UpdateWalletInput,
 } from "./account/types";
-import type { WalletModalRow } from "./composer/merge-wallet-rows";
+import type { WalletRow } from "./composer/wallet-state";
 
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 export type WalletFamily = "evm" | "svm";
@@ -272,8 +272,8 @@ export type AomiWalletKit = {
 
   /** All wallet accounts known to the adapter, tagged by family. */
   accounts: readonly AomiAccount[];
-  /** Unified picker rows: live accounts, stored account-runtime rows, and options. */
-  walletModalRows?: readonly WalletModalRow[];
+  /** Canonical account-aware wallet state. Transport-only accounts stay above. */
+  wallets: readonly WalletRow[];
   accountStatus?: AccountRuntimeStatus;
   accountError?: string;
   /** The current Portal session is temporary and must not own linked wallets. */
@@ -350,11 +350,12 @@ export type AomiWalletKit = {
     payload: WalletTxPayload,
     execution?: AomiTransactionExecution,
   ) => Promise<AomiTxResult>;
+  sendPreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["sendPreparedTransaction"];
+  preparePreparedEvmTransaction?: import("@aomi-labs/client").EvmWallet["preparePreparedTransaction"];
+  signEvmTransaction?: import("@aomi-labs/client").EvmWallet["signTransaction"];
   signTypedData?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;
-  /** Live message-signing capability, not merely a linked account record. */
-  canSignFor?: (family: "evm" | "svm", address: string) => boolean;
   signMessage?: (
     payload: WalletEip712Payload,
   ) => Promise<{ signature: string }>;

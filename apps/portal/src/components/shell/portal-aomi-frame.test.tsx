@@ -36,9 +36,19 @@ const runtimeState = vi.hoisted(() => ({
     createThread: vi.fn(async () => "thread-new"),
   },
 }));
+const controlState = vi.hoisted(() => ({
+  appDescriptors: [] as Array<{
+    name: string;
+    applicationId?: number | string | null;
+  }>,
+}));
+const accountOverviewState = vi.hoisted(() => ({
+  current: null as null | { user: { user_id: string; apps?: string[] } },
+}));
 
 vi.mock("@aomi-labs/react", () => ({
   useAomiRuntime: () => runtimeState.current,
+  useControl: () => ({ state: controlState }),
   usePerThreadControl: () => ({ actions: { onAppSelect: vi.fn() } }),
 }));
 
@@ -113,7 +123,7 @@ vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
   ),
   PackagesModal: () => <div data-testid="packages-modal" />,
   SettingsModal: () => <div data-testid="settings-modal" />,
-  useAccountOverview: () => null,
+  useAccountOverview: () => accountOverviewState.current,
   usePortalWalletAccountMenu: () => undefined,
 }));
 
@@ -129,6 +139,7 @@ vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
 
 describe("PortalAomiFrame account bootstrap", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     frameInstances.next = 0;
     backendUrlState.current = "https://api.example.test";
@@ -141,6 +152,8 @@ describe("PortalAomiFrame account bootstrap", () => {
       applicationId: null,
       locked: false,
     };
+    controlState.appDescriptors = [];
+    accountOverviewState.current = null;
   });
 
   it("waits for the initial account lookup before mounting the frame", async () => {
@@ -204,6 +217,78 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
+  it("shows the real Chat frame while guest identity is still resolving", async () => {
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    let resolveSession!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveSession = resolve;
+          }),
+      ),
+    );
+
+    render(<PortalAomiFrame />);
+
+    expect(screen.getByTestId("portal-shell")).toBeVisible();
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-account-session-available",
+      "false",
+    );
+
+    resolveSession(
+      Response.json({ user: { id: "guest-1", isAnonymous: true } }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert"),
+    );
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-account-session-available",
+      "true",
+    );
+  });
+
+  it("unblocks the real Chat frame when guest lookup times out", async () => {
+    vi.useFakeTimers();
+    backendUrlState.current = "/";
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: undefined,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+
+    render(<PortalAomiFrame />);
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_000);
+    });
+
+    expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
   it("loads guest-owned threads only after Better Auth confirms this browser's anonymous session", async () => {
     backendUrlState.current = "/";
     walletKitState.current = {
@@ -226,10 +311,14 @@ describe("PortalAomiFrame account bootstrap", () => {
         "true",
       ),
     );
-    expect(fetch).toHaveBeenCalledWith("/api/auth/get-session", {
-      credentials: "same-origin",
-      cache: "no-store",
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/get-session",
+      expect.objectContaining({
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
+    );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-persist-thread",
       "false",
@@ -272,6 +361,42 @@ describe("PortalAomiFrame account bootstrap", () => {
         targets: [
           { mode: "auto" },
           { mode: "direct", apps: [{ app: "default" }] },
+        ],
+        defaultMode: "auto",
+      },
+    );
+  });
+
+  it("routes an installed hosted app by canonical application ID", () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    accountOverviewState.current = {
+      user: {
+        user_id: "acct-a",
+        apps: ["default", "credential-demo"],
+        application_ids: [16],
+      },
+    };
+    controlState.appDescriptors = [
+      { name: "default", applicationId: null },
+      { name: "credential-demo", applicationId: 16 },
+    ];
+
+    render(<PortalAomiFrame />);
+
+    expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
+      {
+        targets: [
+          { mode: "auto" },
+          {
+            mode: "direct",
+            apps: [
+              { app: "default" },
+              { app: "credential-demo", applicationId: 16 },
+            ],
+          },
         ],
         defaultMode: "auto",
       },
@@ -368,7 +493,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-show-sidebar",
-      "false",
+      "true",
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-agent-target",
@@ -387,6 +512,7 @@ describe("PortalAomiFrame account bootstrap", () => {
           },
         ],
         defaultMode: "direct",
+        showFixedControls: true,
       },
     );
   });

@@ -2,6 +2,7 @@ import type {
   AomiAppDescriptor,
   AomiArtifactStatus,
   AomiFeatureCategory,
+  AomiSecretSlot,
 } from "./types";
 
 const ARTIFACT_STATUSES = new Set<AomiArtifactStatus>([
@@ -18,6 +19,20 @@ const FEATURE_CATEGORIES = new Set<AomiFeatureCategory>([
   "wallets",
   "developer",
 ]);
+
+function normalizeSecretSlot(item: unknown): AomiSecretSlot | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const raw = item as Record<string, unknown>;
+  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!name) return null;
+  return {
+    name,
+    description:
+      typeof raw.description === "string" ? raw.description.trim() : "",
+    required: raw.required === true,
+    user_own: raw.user_own === true || raw.userOwn === true,
+  };
+}
 
 /**
  * Canonical home for app-descriptor identity logic. The backend speaks
@@ -89,6 +104,11 @@ export function normalizeAppDescriptor(
   } else if (typeof raw.is_public === "boolean") {
     descriptor.isPublic = raw.is_public;
   }
+  if (typeof raw.isInstalled === "boolean") {
+    descriptor.isInstalled = raw.isInstalled;
+  } else if (typeof raw.is_installed === "boolean") {
+    descriptor.isInstalled = raw.is_installed;
+  }
   if (typeof raw.artifactReady === "boolean") {
     descriptor.artifactReady = raw.artifactReady;
   } else if (typeof raw.artifact_ready === "boolean") {
@@ -101,7 +121,11 @@ export function normalizeAppDescriptor(
   ) {
     descriptor.artifactStatus = artifactStatus as AomiArtifactStatus;
   }
-  descriptor.secrets = Array.isArray(raw.secrets) ? raw.secrets : [];
+  descriptor.secrets = Array.isArray(raw.secrets)
+    ? raw.secrets
+        .map(normalizeSecretSlot)
+        .filter((slot): slot is AomiSecretSlot => slot !== null)
+    : [];
   const rawChainIds = raw.chainIds ?? raw.chain_ids;
   if (Array.isArray(rawChainIds)) {
     descriptor.chainIds = [
@@ -124,6 +148,7 @@ export function normalizeAppDescriptor(
     "app_release_tag",
     "is_active",
     "is_public",
+    "is_installed",
     "artifact_ready",
     "artifact_status",
     "chain_ids",

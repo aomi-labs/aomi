@@ -7,7 +7,8 @@
     "src/**/*.ts",
     "test/pipeline-sdk.typecheck.ts",
     "test/agent-target.typecheck.ts",
-    "test/agent-events.typecheck.ts"
+    "test/agent-events.typecheck.ts",
+    "test/app-descriptor.typecheck.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

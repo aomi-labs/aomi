@@ -6,11 +6,16 @@
     "description": "Intent enters the runtime; one ordered stream of concrete Events leaves it. Actions are durable Events whose nested ActionRequest requires a client response."
   },
   "x-aomi-route-manifest": [
+    "DELETE /v1/account/apps/{applicationId}",
+    "DELETE /v1/account/apps/{applicationId}/secrets",
+    "DELETE /v1/account/apps/{applicationId}/secrets/{name}",
     "DELETE /v1/agent/sessions/{sessionId}",
     "GET /.well-known/api-catalog",
     "GET /health",
     "GET /openapi.json",
     "GET /ready",
+    "GET /v1/account/apps",
+    "GET /v1/account/apps/{applicationId}/secrets",
     "GET /v1/account/credits",
     "GET /v1/account/statement",
     "GET /v1/agent/chat/{sessionId}",
@@ -48,6 +53,8 @@
     "GET /v1/pipeline/svm/stage",
     "GET /v1/pipeline/svm/token-holdings",
     "PATCH /v1/agent/sessions/{sessionId}",
+    "POST /v1/account/apps/{applicationId}",
+    "POST /v1/account/apps/{applicationId}/secrets",
     "POST /v1/account/credits/top-up",
     "POST /v1/agent/chat",
     "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
@@ -943,6 +950,24 @@
           },
           {
             "$ref": "#/components/parameters/PipelineOperation"
+          },
+          {
+            "name": "application_id",
+            "in": "query",
+            "description": "Numeric registered application identity, required for hosted apps; used for admission funding and source-bound backend resolution.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "description": "Optional platform hint; must match the registered application.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -2363,6 +2388,340 @@
           }
         ]
       }
+    },
+    "/v1/account/apps": {
+      "get": {
+        "operationId": "listAccountApps",
+        "description": "List available apps and exact installed state",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List available apps and exact installed state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:apps:read"]
+          }
+        ]
+      }
+    },
+    "/v1/account/apps/{applicationId}": {
+      "post": {
+        "operationId": "installAccountApp",
+        "description": "Install an app after checking required user credentials",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Install an app after checking required user credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:apps:write"]
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "uninstallAccountApp",
+        "description": "Remove an app installation",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remove an app installation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:apps:write"]
+          }
+        ]
+      }
+    },
+    "/v1/account/apps/{applicationId}/secrets": {
+      "get": {
+        "operationId": "listAccountAppSecrets",
+        "description": "Read credential declarations and presence, never values",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read credential declarations and presence, never values",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credentials:read"]
+          }
+        ]
+      },
+      "post": {
+        "operationId": "saveAccountAppSecrets",
+        "description": "Save the authenticated account's declared credentials",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Save the authenticated account's declared credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["secrets"],
+                "properties": {
+                  "secrets": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 64,
+                    "additionalProperties": {
+                      "type": "string",
+                      "writeOnly": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credentials:write"]
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "clearAccountAppSecrets",
+        "description": "Remove all credentials for this account and app",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remove all credentials for this account and app",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credentials:write"]
+          }
+        ]
+      }
+    },
+    "/v1/account/apps/{applicationId}/secrets/{name}": {
+      "delete": {
+        "operationId": "deleteAccountAppSecret",
+        "description": "Remove one credential for this account and app",
+        "parameters": [
+          {
+            "name": "applicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remove one credential for this account and app",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:credentials:write"]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2663,6 +3022,495 @@
           }
         }
       },
+      "CommitSourceRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "thread_id",
+          "chain_family",
+          "chain_ref",
+          "stage_id",
+          "source_id"
+        ],
+        "properties": {
+          "thread_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "CommitReviewSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "revision", "digest", "request", "legs"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "digest": {
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ActionRequest"
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequest"
+            }
+          }
+        }
+      },
+      "CommitBatchMember": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batch_id",
+          "index",
+          "ordered_stage_ids",
+          "ordered_commit_ids",
+          "sources",
+          "predecessor_commit_id",
+          "review_digest"
+        ],
+        "properties": {
+          "batch_id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ordered_stage_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ordered_commit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitSourceRef"
+            }
+          },
+          "predecessor_commit_id": {
+            "type": ["string", "null"]
+          },
+          "review_digest": {
+            "type": "string"
+          }
+        }
+      },
+      "CommitWalletAttemptStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "transport",
+          "state",
+          "transaction_id",
+          "failure_code"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CommitTransport": {
+        "type": "string",
+        "enum": ["sign_and_broadcast", "browser_send"]
+      },
+      "CommitWalletAttemptRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "review_digest",
+          "client_request_id",
+          "transport"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "review_digest": {
+            "type": "string"
+          },
+          "client_request_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          }
+        }
+      },
+      "CommitWalletAttemptView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "commit_id",
+          "transport",
+          "state",
+          "request",
+          "may_invoke_wallet"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/CommitTransport"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["awaiting_wallet", "reported", "observing", "mismatched"]
+          },
+          "request": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SignableCommit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "may_invoke_wallet": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CommitWalletAttemptOutcome": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "transaction_id"],
+            "properties": {
+              "kind": {
+                "const": "transaction"
+              },
+              "transaction_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "rejected"
+              }
+            }
+          }
+        ]
+      },
+      "CommitView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "commit_id",
+          "thread_id",
+          "stage_id",
+          "chain_family",
+          "chain_ref",
+          "signer",
+          "broadcaster",
+          "state",
+          "action",
+          "transaction_id",
+          "failure_code",
+          "batch",
+          "review",
+          "wallet_attempt"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "commit_id": {
+            "type": "string"
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "chain_family": {
+            "type": "string",
+            "enum": ["evm", "svm"]
+          },
+          "chain_ref": {
+            "type": "string"
+          },
+          "signer": {
+            "type": "string"
+          },
+          "broadcaster": {
+            "type": "string",
+            "enum": ["wallet", "hosted", "venue"],
+            "description": "Selected submitter. Auto selects hosted before assembly; an explicit wallet selection is invalid for Auto. App policy still bounds this choice."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "needs_signature",
+              "awaiting_broadcast",
+              "submitted",
+              "confirmed",
+              "rejected",
+              "failed",
+              "expired"
+            ]
+          },
+          "supported_transports": {
+            "type": "array",
+            "description": "Additive capability advertisement. Absence on an older cached view means the legacy sign-and-broadcast route.",
+            "items": {
+              "$ref": "#/components/schemas/CommitTransport"
+            }
+          },
+          "transaction_id": {
+            "type": ["string", "null"]
+          },
+          "failure_code": {
+            "type": ["string", "null"]
+          },
+          "batch": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitBatchMember"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitReviewSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wallet_attempt": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CommitWalletAttemptStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "payload"],
+                "properties": {
+                  "kind": {
+                    "const": "sign"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "signed_transaction", "transaction_id"],
+                "properties": {
+                  "kind": {
+                    "const": "broadcast"
+                  },
+                  "signed_transaction": {
+                    "type": "string"
+                  },
+                  "transaction_id": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "description": "Historical cached-view compatibility; new views use sign plus supported_transports.",
+                "deprecated": true,
+                "additionalProperties": false,
+                "required": ["kind", "payload", "review_digest"],
+                "properties": {
+                  "kind": {
+                    "const": "start_wallet_send"
+                  },
+                  "payload": {
+                    "$ref": "#/components/schemas/SignableCommit"
+                  },
+                  "review_digest": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "SignableCommit": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "nonce", "transaction"],
+            "properties": {
+              "kind": {
+                "const": "evm_transaction"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "nonce": {
+                "type": "integer"
+              },
+              "transaction": {
+                "type": "object",
+                "required": [
+                  "to",
+                  "value",
+                  "data",
+                  "gas_limit",
+                  "max_fee_per_gas",
+                  "max_priority_fee_per_gas"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "string"
+                  },
+                  "gas_limit": {
+                    "type": "integer"
+                  },
+                  "max_fee_per_gas": {
+                    "type": "string"
+                  },
+                  "max_priority_fee_per_gas": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "chain_id", "signer", "requests"],
+            "properties": {
+              "kind": {
+                "const": "user_operation"
+              },
+              "chain_id": {
+                "type": "integer"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "requests": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["kind", "message", "raw_payload"],
+                  "properties": {
+                    "kind": {
+                      "const": "personal_sign"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "raw_payload": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["kind", "signer", "transaction_base64"],
+            "properties": {
+              "kind": {
+                "const": "svm_transaction"
+              },
+              "signer": {
+                "type": "string"
+              },
+              "transaction_base64": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "EventPage": {
         "type": "object",
         "required": ["session_id", "cursor", "events", "has_more"],
@@ -2682,6 +3530,12 @@
           },
           "has_more": {
             "type": "boolean"
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitView"
+            }
           }
         }
       },
@@ -4882,6 +5736,10 @@
               "agent:actions:resolve": "Resolve a durable Agent Action",
               "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
+              "account:apps:read": "Read available applications and installed state",
+              "account:apps:write": "Install and remove applications",
+              "account:credentials:read": "Read credential declarations and presence without values",
+              "account:credentials:write": "Save and remove owned application credentials",
               "account:credits:read": "Read included allowance and Credit Bank activity",
               "account:credits:topup": "Buy durable Credit Bank value through x402",
               "account:usage:read": "Read priced account usage",

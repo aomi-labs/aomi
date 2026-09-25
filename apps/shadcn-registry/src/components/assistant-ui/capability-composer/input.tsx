@@ -447,9 +447,9 @@ export const CapabilityMentionInput: FC<{
     <>
       <div className="relative">
         <div className={`${className} flex flex-wrap items-baseline gap-x-1`}>
-          <div className="relative min-w-[80px] flex-1">
+          <div className="relative grid min-w-0 flex-1">
             {!hasText ? (
-              <span className="text-aomi-muted pointer-events-none absolute left-0 top-0">
+              <span className="text-aomi-muted pointer-events-none col-start-1 row-start-1 min-w-0 [overflow-wrap:anywhere]">
                 {placeholder}
               </span>
             ) : null}
@@ -470,7 +470,7 @@ export const CapabilityMentionInput: FC<{
               suppressContentEditableWarning
               onInput={syncEditor}
               onKeyDown={handleKeyDown}
-              className="min-h-[30px] w-full outline-none"
+              className="col-start-1 row-start-1 min-h-[30px] w-full min-w-0 outline-none [overflow-wrap:anywhere]"
             />
           </div>
         </div>

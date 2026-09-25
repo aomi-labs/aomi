@@ -7,11 +7,11 @@ import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { ChevronRight, Shield, UserRound } from "lucide-react";
 import { countDriftedWallets } from "../account/wallet-attention";
 import { useAccountAcl } from "../account/use-account-acl";
+import { walletConnectionSummary } from "../account/wallet-management-model";
 import {
-  buildUnifiedAccountWallets,
-  walletConnectionSummary,
-} from "../account/wallet-management-model";
-import { useAccountOverview } from "../../lib/account-overview";
+  creditAllowanceFromPosition,
+  useAccountOverview,
+} from "../../lib/account-overview";
 import { useSettings, type ColorMode } from "../../lib/use-settings";
 import {
   Divider,
@@ -67,15 +67,7 @@ export function GeneralSettings({
   const walletAttentionCount =
     acl.status === "ready" ? countDriftedWallets(acl.wallets) : 0;
 
-  const wallets = useMemo(
-    () =>
-      buildUnifiedAccountWallets({
-        accounts: adapter.accounts ?? [],
-        linkedWallets: adapter.accountWallets ?? [],
-        policies: acl.wallets,
-      }),
-    [acl.wallets, adapter.accountWallets, adapter.accounts],
-  );
+  const wallets = adapter.wallets;
   const connectedWallets = wallets.filter((wallet) => wallet.connected).length;
   const linkedWallets = wallets.filter((wallet) => wallet.linked).length;
   const linkedWalletStatus = walletConnectionSummary(wallets);
@@ -186,14 +178,9 @@ function AccountSummaryCard({
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {
-  const creditsUsed =
-    credits?.included.used_microusd === undefined
-      ? 0
-      : credits.included.used_microusd / 10_000;
-  const creditsIncluded =
-    credits?.included.limit_microusd === undefined
-      ? 0
-      : credits.included.limit_microusd / 10_000;
+  const allowance = creditAllowanceFromPosition(credits);
+  const creditsUsed = allowance?.used ?? 0;
+  const creditsIncluded = allowance?.included ?? 0;
   const remaining = Math.max(0, creditsIncluded - creditsUsed);
   const periodLabel = formatPeriodLabel(credits?.period_utc_month);
   const hasAllowance = creditsIncluded > 0;
@@ -317,12 +304,12 @@ function FlatSettingRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5">
+    <div className="flex flex-col items-start gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
       <div className="min-w-0 flex-1">
         <span className="text-[14px] font-medium leading-none">{label}</span>
         {hint && (
           <span
-            className={`text-aomi-muted mt-1 block truncate text-[12px] leading-snug ${
+            className={`text-aomi-muted mt-1 block text-[12px] leading-snug [overflow-wrap:anywhere] ${
               hintMono ? "font-mono" : ""
             }`}
           >

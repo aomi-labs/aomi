@@ -50,7 +50,9 @@ function AppAction({
       onClick={onInstall}
       disabled={disabled || !available}
       aria-label={
-        available ? `Add ${app.name}` : `Switch network to add ${app.name}`
+        available
+          ? `Add ${app.name} from catalog`
+          : `Switch network to add ${app.name}`
       }
       className="border-aomi-border hover:bg-aomi-hover flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors disabled:opacity-40"
     >
@@ -105,8 +107,8 @@ export function CatalogRow({
           <SkillIdentity skillId={selection.item.id} />
         )}
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="truncate text-[14px] font-semibold">
+          <span className="flex flex-wrap items-center gap-1 md:gap-2">
+            <span className="text-[14px] font-semibold [overflow-wrap:anywhere]">
               {selectionName(selection)}
             </span>
             <KindLabel kind={selection.kind} />
@@ -116,12 +118,14 @@ export function CatalogRow({
               </span>
             ) : null}
           </span>
-          <span className="text-aomi-muted mt-0.5 block truncate text-[12px]">
+          <span className="text-aomi-muted mt-0.5 line-clamp-2 block text-[12px] [overflow-wrap:anywhere]">
             {selectionDescription(selection)}
           </span>
         </span>
       </button>
-      <ChainMarks chainIds={selection.item.chainIds} />
+      <span className="hidden md:block">
+        <ChainMarks chainIds={selection.item.chainIds} />
+      </span>
       {app ? (
         <AppAction
           app={app}

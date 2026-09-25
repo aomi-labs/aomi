@@ -6,7 +6,7 @@ import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";
 import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
 import { chatAppUrl } from "@build/lib/chat-url";
 import { EmptyPanel } from "../ui/state-panels";
-import { sdkCompatibility, sourceSdkVersion } from "../sdk-compatibility";
+import { projectSdk } from "../sdk-compatibility";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 
@@ -18,7 +18,7 @@ export function ChatTab({ detail }: { detail: Detail }) {
 
   const lifecycle = deploymentLifecycleFromProject(source);
   const requiredSdk = detail.sdk?.sdkStatus.requiredVersion ?? null;
-  if (sdkCompatibility(sourceSdkVersion(source), requiredSdk) === "outdated") {
+  if (projectSdk(source, requiredSdk).outdated) {
     return (
       <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-4 py-10 text-center">
         <div>

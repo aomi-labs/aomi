@@ -91,6 +91,9 @@ function decision(
     ...(response.retryable !== undefined
       ? { responseRetryable: response.retryable }
       : {}),
+    ...(response.deployError
+      ? { responseDeployError: response.deployError }
+      : {}),
     ...(failure.upstream ? { upstream: failure.upstream } : {}),
     ...(failure.upstreamStatus !== undefined
       ? { upstreamStatus: failure.upstreamStatus }

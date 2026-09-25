@@ -7,7 +7,8 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Plus, Star, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
+import type React from "react";
 import { useGitHubSession } from "@build/components/control-plane/github-session-context";
 import {
   GitHubSignInPanel,
@@ -42,12 +43,19 @@ type Bot = {
   platform: string;
   status: string;
   label?: string | null;
-  defaultApp: string;
+  handoverApp: string;
+  /** null = the Aomi platform default. */
+  miniAppUrl?: string | null;
+  /** null = custom commands unsupported. */
+  commandEndpoint?: string | null;
+  commands?: string[];
   apps?: BotApp[];
   platformBotId?: string;
   platformUsername?: string | null;
   webhookUrl?: string | null;
   threadMode: string;
+  /** Bumped by the manager on every change; the card is keyed on it. */
+  configurationVersion?: number;
   createdAt: number;
 };
 
@@ -73,8 +81,58 @@ type AppOption = {
 
 type Draft = {
   selected: number[];
+  /** The handover app: new chats start here. */
   primary: number | null;
 };
+
+/** Bot-level command config as typed. Only fields that differ from the
+ *  seed are sent, so an untouched card never rewrites what the manager has. */
+type CommandDraft = {
+  miniAppUrl: string;
+  commandEndpoint: string;
+  commands: string;
+};
+
+/** The PATCH/POST fragment for a command draft: URL fields send `null` when
+ *  cleared, `commands` is the normalised list. Fields whose seed matches are
+ *  omitted (= unchanged). */
+function commandPatch(
+  draft: CommandDraft,
+  seed: CommandDraft,
+): {
+  miniAppUrl?: string | null;
+  commandEndpoint?: string | null;
+  commands?: string[];
+} {
+  const url = (value: string) => value.trim() || null;
+  return {
+    ...(url(draft.miniAppUrl) !== url(seed.miniAppUrl)
+      ? { miniAppUrl: url(draft.miniAppUrl) }
+      : {}),
+    ...(url(draft.commandEndpoint) !== url(seed.commandEndpoint)
+      ? { commandEndpoint: url(draft.commandEndpoint) }
+      : {}),
+    ...(commandList(draft.commands).join(" ") !==
+    commandList(seed.commands).join(" ")
+      ? { commands: commandList(draft.commands) }
+      : {}),
+  };
+}
+
+function commandSeed(bot?: Bot): CommandDraft {
+  return {
+    miniAppUrl: bot?.miniAppUrl ?? "",
+    commandEndpoint: bot?.commandEndpoint ?? "",
+    commands: (bot?.commands ?? []).join(", "),
+  };
+}
+
+function commandList(value: string): string[] {
+  return value
+    .split(/[\s,]+/)
+    .map((command) => command.trim().replace(/^\/+/, "").toLowerCase())
+    .filter(Boolean);
+}
 
 function projectLabel(project: BotProject) {
   return (
@@ -205,7 +263,7 @@ function AppTable({
               <th className={cn(TH, "w-11")} aria-label="Attached" />
               <th className={TH}>App</th>
               <th className={TH}>Project</th>
-              <th className={cn(TH, "w-24")}>Primary</th>
+              <th className={cn(TH, "w-28")}>Handover app</th>
             </tr>
           </thead>
           <tbody className="divide-border divide-y">
@@ -260,7 +318,7 @@ function AppTable({
                         onChange={() =>
                           onChange({ ...draft, primary: app.applicationId })
                         }
-                        aria-label={`Make ${app.name} (${app.projectLabel}) primary`}
+                        aria-label={`Make ${app.name} (${app.projectLabel}) the handover app`}
                       />
                       <RadioGlyph checked={isPrimary} disabled={!isChecked} />
                     </label>
@@ -313,6 +371,9 @@ function AppTable({
           </tbody>
         </table>
       </div>
+      <p className="text-dim mt-2 text-[11px]">
+        Handover app: new chats start here.
+      </p>
       {ghostSelected.length > 0 ? (
         <p className="text-warning mt-2 text-xs">
           Uncheck the apps that are no longer available to save.
@@ -405,6 +466,74 @@ function ProviderRail({
 
 // ── bot card ────────────────────────────────────────────────────────────────
 
+function BotCommandFields({
+  draft,
+  onChange,
+  disabled,
+  children,
+}: {
+  draft: CommandDraft;
+  onChange: (next: CommandDraft) => void;
+  disabled?: boolean;
+  /** Extra control rendered under the fields (the reveal-secret row). */
+  children?: React.ReactNode;
+}) {
+  const id = useId();
+  const field = (
+    key: keyof CommandDraft,
+    label: string,
+    input: { type: "url" | "text"; placeholder: string },
+    help: string,
+  ) => (
+    <div className="space-y-2 text-xs">
+      <label htmlFor={`${id}-${key}`} className="text-dim block text-[13px]">
+        {label}
+      </label>
+      <input
+        id={`${id}-${key}`}
+        type={input.type}
+        placeholder={input.placeholder}
+        value={draft[key]}
+        disabled={disabled}
+        onChange={(event) => onChange({ ...draft, [key]: event.target.value })}
+        className="border-border bg-surface text-foreground h-9 w-full rounded-md border px-3 text-xs"
+      />
+      <p className="text-dim text-[11px]">{help}</p>
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-3">
+        {field(
+          "miniAppUrl",
+          "Mini App URL",
+          { type: "url", placeholder: "Aomi default" },
+          "Opened by /wallet. Leave blank for the Aomi default.",
+        )}
+        {field(
+          "commandEndpoint",
+          "Command endpoint",
+          { type: "url", placeholder: "https://api.example.com/commands" },
+          "Custom commands post to this URL as /{command}.",
+        )}
+        {field(
+          "commands",
+          "Custom commands",
+          { type: "text", placeholder: "b, p, r, chart" },
+          "Custom commands are handled by the bot's command service, without an agent turn.",
+        )}
+      </div>
+      {commandList(draft.commands).length > 0 &&
+      !draft.commandEndpoint.trim() ? (
+        <p className="text-warning text-xs">
+          Custom commands need a command endpoint.
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: string }) {
   const active = status === "active";
   return (
@@ -437,7 +566,11 @@ function BotCard({
   editing: boolean;
   onBeginEdit: () => void;
   onCancel: () => void;
-  onSave: (draft: Draft, threadMode: string) => Promise<void>;
+  onSave: (
+    draft: Draft,
+    threadMode: string,
+    commandConfig: ReturnType<typeof commandPatch>,
+  ) => Promise<void>;
   onRemove: () => void;
   removing: boolean;
 }) {
@@ -454,8 +587,14 @@ function BotCard({
   );
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [draftThreadMode, setDraftThreadMode] = useState(bot.threadMode);
+  // Seeded from the bot, never from an app: the config is bot-level.
+  const seed = commandSeed(bot);
+  const [commandDraft, setCommandDraft] = useState<CommandDraft>(seed);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Shown once per edit session; never logged, never cached in react-query.
+  const [secret, setSecret] = useState<string | null>(null);
+  const [revealing, setRevealing] = useState(false);
 
   // Apps still mapped to this bot but gone from the builder's projects. They
   // render as uncheckable-only rows: keeping one selected would 403 at the
@@ -472,6 +611,8 @@ function BotCard({
     draft.selected.length > 0 &&
     draft.primary !== null &&
     !ghostStillSelected &&
+    (commandList(commandDraft.commands).length === 0 ||
+      commandDraft.commandEndpoint.trim().length > 0) &&
     !saving;
 
   const displayName = displayBotName(bot);
@@ -549,11 +690,68 @@ function BotCard({
             ghostApps={ghostApps}
             disabled={saving}
           />
+          <div className="mt-5">
+            <BotCommandFields
+              draft={commandDraft}
+              onChange={setCommandDraft}
+              disabled={saving}
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={saving || revealing}
+                  onClick={() => {
+                    setRevealing(true);
+                    setError(null);
+                    fetch(API_PATHS.bff.operate.botCommandSecret(bot.id))
+                      .then(async (res) => {
+                        const json = (await res.json().catch(() => ({}))) as {
+                          commandSecret?: string;
+                          error?: string;
+                        };
+                        if (!res.ok || !json.commandSecret) {
+                          throw new Error(
+                            json.error ||
+                              `Failed to reveal secret (${res.status})`,
+                          );
+                        }
+                        setSecret(json.commandSecret);
+                      })
+                      .catch((err: unknown) => {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to reveal secret",
+                        );
+                      })
+                      .finally(() => setRevealing(false));
+                  }}
+                  className="border-border hover:bg-accent-hover text-foreground h-8 rounded-full border px-3.5 text-xs font-medium disabled:opacity-50"
+                >
+                  {revealing ? "Revealing..." : "Reveal command secret"}
+                </button>
+                {secret ? (
+                  <input
+                    type="text"
+                    readOnly
+                    value={secret}
+                    aria-label="Command secret"
+                    onFocus={(event) => event.currentTarget.select()}
+                    className="border-border bg-surface text-foreground h-8 min-w-0 flex-1 rounded-md border px-3 font-mono text-xs"
+                  />
+                ) : (
+                  <span className="text-dim text-[11px]">
+                    Signs every command request as x-aomi-signature.
+                  </span>
+                )}
+              </div>
+            </BotCommandFields>
+          </div>
           <div className="mt-6 flex items-center justify-between gap-4">
             <span className="text-dim text-xs">
               {draft.selected.length}{" "}
-              {draft.selected.length === 1 ? "app" : "apps"} attached · primary
-              answers new threads; users switch with /app
+              {draft.selected.length === 1 ? "app" : "apps"} attached · users
+              switch with /app
             </span>
             <div className="flex items-center gap-3">
               {error ? (
@@ -565,6 +763,8 @@ function BotCard({
                 onClick={() => {
                   setDraft(initialDraft);
                   setDraftThreadMode(bot.threadMode);
+                  setCommandDraft(seed);
+                  setSecret(null);
                   setError(null);
                   onCancel();
                 }}
@@ -578,7 +778,12 @@ function BotCard({
                 onClick={() => {
                   setSaving(true);
                   setError(null);
-                  onSave(draft, draftThreadMode)
+                  onSave(
+                    draft,
+                    draftThreadMode,
+                    commandPatch(commandDraft, seed),
+                  )
+                    .then(() => setSecret(null))
                     .catch((err: unknown) => {
                       setError(
                         err instanceof Error
@@ -616,6 +821,16 @@ function BotCard({
               ) : null}
             </span>
           ))}
+          <span
+            className="text-dim w-full truncate pt-1 font-mono text-[11px]"
+            data-testid="bot-command-summary"
+          >
+            Mini App: {bot.miniAppUrl ?? "Aomi default"}
+            {bot.commandEndpoint ? ` · endpoint: ${bot.commandEndpoint}` : ""}
+            {(bot.commands ?? []).length
+              ? ` · ${(bot.commands ?? []).map((command) => `/${command}`).join(" ")}`
+              : ""}
+          </span>
         </div>
       )}
     </div>
@@ -636,12 +851,14 @@ function AddBotCard({
     token: string;
     threadMode: string;
     draft: Draft;
+    commandConfig: ReturnType<typeof commandPatch>;
   }) => Promise<void>;
 }) {
   const [label, setLabel] = useState("");
   const [token, setToken] = useState("");
   const [threadMode, setThreadMode] = useState("single");
   const [draft, setDraft] = useState<Draft>({ selected: [], primary: null });
+  const [commandDraft, setCommandDraft] = useState<CommandDraft>(commandSeed());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -649,7 +866,9 @@ function AddBotCard({
     !busy &&
     token.trim().length > 0 &&
     draft.selected.length > 0 &&
-    draft.primary !== null;
+    draft.primary !== null &&
+    (commandList(commandDraft.commands).length === 0 ||
+      commandDraft.commandEndpoint.trim().length > 0);
 
   return (
     <div className="border-border-hover bg-surface-1 rounded-md border">
@@ -686,6 +905,11 @@ function AddBotCard({
             />
           </label>
         </div>
+        <BotCommandFields
+          draft={commandDraft}
+          onChange={setCommandDraft}
+          disabled={busy}
+        />
         <div className="space-y-3">
           <div className="flex justify-end">
             <ThreadModeControl
@@ -718,7 +942,14 @@ function AddBotCard({
             onClick={() => {
               setBusy(true);
               setError(null);
-              onRegister({ label: label.trim(), token, threadMode, draft })
+              onRegister({
+                label: label.trim(),
+                token,
+                threadMode,
+                draft,
+                // Against an empty seed: only filled fields are sent.
+                commandConfig: commandPatch(commandDraft, commandSeed()),
+              })
                 .catch((err: unknown) => {
                   setError(
                     err instanceof Error
@@ -788,6 +1019,7 @@ export function BotsView() {
       token: string;
       threadMode: string;
       draft: Draft;
+      commandConfig: ReturnType<typeof commandPatch>;
     }) => {
       const res = await fetch(botsUrl(), {
         method: "POST",
@@ -797,7 +1029,8 @@ export function BotsView() {
           label: input.label || undefined,
           threadMode: input.threadMode,
           applicationIds: input.draft.selected,
-          primaryApplicationId: input.draft.primary,
+          handoverApplicationId: input.draft.primary,
+          ...input.commandConfig,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -818,15 +1051,21 @@ export function BotsView() {
   );
 
   const handleSaveApps = useCallback(
-    async (bot: Bot, draft: Draft, threadMode: string) => {
+    async (
+      bot: Bot,
+      draft: Draft,
+      threadMode: string,
+      commandConfig: ReturnType<typeof commandPatch>,
+    ) => {
       const res = await fetch(botsUrl(), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           botId: bot.id,
           applicationIds: draft.selected,
-          primaryApplicationId: draft.primary,
+          handoverApplicationId: draft.primary,
           threadMode,
+          ...commandConfig,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -926,15 +1165,20 @@ export function BotsView() {
       ) : (
         <div className="flex flex-col gap-6">
           {bots.map((bot) => (
+            // Keyed on the configuration version so a bot refreshed from the
+            // server (another admin's save, or our own) remounts the card
+            // with fresh seeds. Drafts are only ever compared against the
+            // seed they were taken from, so a stale draft can never restore
+            // an older config during an unrelated save.
             <BotCard
-              key={bot.id}
+              key={`${bot.id}:${bot.configurationVersion ?? 0}`}
               bot={bot}
               options={options}
               editing={editingId === bot.id}
               onBeginEdit={() => setEditingId(bot.id)}
               onCancel={() => setEditingId(null)}
-              onSave={(draft, threadMode) =>
-                handleSaveApps(bot, draft, threadMode)
+              onSave={(draft, threadMode, commandConfig) =>
+                handleSaveApps(bot, draft, threadMode, commandConfig)
               }
               onRemove={() => void handleRemove(bot)}
               removing={removingId === bot.id}

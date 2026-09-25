@@ -1,10 +1,17 @@
 import { vi } from "vitest";
-import type { Action, Event } from "@aomi-labs/client";
+import type {
+  Action,
+  CommitController,
+  CommitView,
+  Event,
+} from "@aomi-labs/client";
 
 const runtime = vi.hoisted(() => ({
   pendingActions: [] as Action[],
   actionAttempts: new Map(),
   events: [] as Event[],
+  commits: [] as CommitView[],
+  commitController: undefined as CommitController | undefined,
   isRunning: false,
   turnState: undefined as string | undefined,
   executeAction: vi.fn(),
@@ -35,17 +42,6 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
     },
   };
 });
-
-vi.mock("../../lib/capabilities/skill-catalog", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../lib/capabilities/skill-catalog")
-  >()),
-  useSkillCatalog: () => ({
-    skills: [{ id: "aave", name: "aave" }],
-    loading: false,
-    error: null,
-  }),
-}));
 
 vi.mock("../../lib/wallet-kit", () => ({
   useAomiWalletKit: () => ({

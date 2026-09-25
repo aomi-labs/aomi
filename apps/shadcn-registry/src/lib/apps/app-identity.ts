@@ -61,6 +61,7 @@ const CURATED_APP_INFO = {
   etherscan: entry("Etherscan", "E", APP_CATEGORIES.analytics),
   github: entry("GitHub", "GH", APP_CATEGORIES.custom),
   gmx: entry("GMX", "G", APP_CATEGORIES.perps),
+  hoodit: entry("Hoodit", "H", APP_CATEGORIES.analytics),
   hyperliquid: entry("Hyperliquid", "HL", APP_CATEGORIES.perps),
   jupiter: entry("Jupiter", "J", APP_CATEGORIES.dex),
   kaito: entry("Kaito", "K", APP_CATEGORIES.social),

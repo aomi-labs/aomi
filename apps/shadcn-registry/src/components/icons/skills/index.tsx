@@ -380,6 +380,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   dummy: FlaskConicalIcon,
   krexa: KrexaSkillIcon,
   aave: AaveSkillIcon,
+  aave_v4: AaveSkillIcon,
   across: AcrossSkillIcon,
   aerodrome: AerodromeSkillIcon,
   arbitrum_bridge: ArbitrumBridgeSkillIcon,
@@ -388,6 +389,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   convex: ConvexSkillIcon,
   curve: CurveSkillIcon,
   cctp: CctpSkillIcon,
+  circle_gateway: CctpSkillIcon,
   // Common ERC-20 exposes standard token operations, so reuse the same coin
   // mark shown for unknown ERC-20 assets in transaction and trace UI.
   common_erc20: CoinsIcon,
@@ -414,6 +416,11 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   zora: ZoraSkillIcon,
 };
 
+const SKILL_DISPLAY_NAMES: Record<string, string> = {
+  common_erc20: "Common Erc20",
+  lifi_swap: "Lifi Swap",
+};
+
 /** Normalize a capability catalog ID before looking up its visual identity. */
 export function normalizeSkillId(skillId: string): string {
   return skillId
@@ -427,4 +434,8 @@ export function getSkillIcon(
 ): FC<SVGProps<SVGSVGElement>> | undefined {
   if (!skillId) return undefined;
   return SKILL_ICONS[normalizeSkillId(skillId)];
+}
+
+export function getSkillDisplayName(skillId: string): string | undefined {
+  return SKILL_DISPLAY_NAMES[normalizeSkillId(skillId)];
 }

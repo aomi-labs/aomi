@@ -107,9 +107,6 @@ export function StatementView() {
     ? (overview.user.verified_email ?? overview.user.user_id)
     : "—";
   const identityKey = overview?.user.public_key;
-  const showAllowance =
-    statement.isCurrentMonth && month.payment.allowanceCredits.included > 0;
-
   return (
     <div className="h-screen overflow-y-auto">
       <div className="bg-aomi-bg text-aomi-fg min-h-full font-sans">
@@ -155,7 +152,10 @@ export function StatementView() {
 
           <AllowanceSettlementSection
             month={month}
-            showAllowance={showAllowance}
+            showAllowance={statement.isCurrentMonth}
+            allowanceStatus={statement.allowanceStatus}
+            allowanceError={statement.allowanceError}
+            onRetryAllowance={statement.retryAllowance}
           />
 
           <section className="flex flex-col gap-3">

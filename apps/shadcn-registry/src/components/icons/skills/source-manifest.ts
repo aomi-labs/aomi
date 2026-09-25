@@ -3,6 +3,8 @@
  * contributor does not silently substitute an invented protocol logo.
  */
 export const skillIconSources = {
+  circle_gateway:
+    "https://cdn.prod.website-files.com/668c08d1b8a9330bd1d786ad/669a20df8ac2810a6dd50e67_favicon-256.svg",
   cctp: "https://cdn.prod.website-files.com/668c08d1b8a9330bd1d786ad/669a20df8ac2810a6dd50e67_favicon-256.svg",
 
   krexa: "https://krexa.xyz/images/krexa-logo.webp",
@@ -18,6 +20,7 @@ export const skillIconSources = {
   debridge:
     "https://raw.githubusercontent.com/0xa3k5/web3icons/64e21e68cc6eaa36ff9d0a135ca2c809a759ccd6/raw-svgs/tokens/mono/DBR.svg",
   avantis: "https://www.avantisfi.com/images/avantis-logo.svg",
+  aave_v4: "https://github.com/aave-dao/aave-brand-kit/tree/main/Logo",
   aave: "https://github.com/aave-dao/aave-brand-kit/tree/main/Logo",
   across: "https://across.to/",
   aerodrome: "https://aerodrome.finance/svg/AERO/favicon.svg",

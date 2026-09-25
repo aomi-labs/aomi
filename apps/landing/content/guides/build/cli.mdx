@@ -1,23 +1,21 @@
 ---
-title: Build CLI
-description: Install and use the Aomi CLI while building or validating an integration.
+title: Client CLI
+description: Use the npm client CLI to validate a deployed App without confusing it with the Rust builder toolchain.
 ---
 
-# Build CLI
+# Client CLI
 
-Use the Aomi CLI when you need to validate prompts, inspect sessions, simulate execution, or verify that an app configuration works end to end.
-
-## Install
+The npm `aomi` command talks to a running Aomi environment. Use it after your App is available in that environment to inspect discovery, run a Direct Agent turn, or call Pipeline operations.
 
 ```bash
-npm install -g @aomi-labs/client
-```
-
-## Verify
-
-```bash
+npm install -g @aomi-labs/client@latest
 aomi --version
-aomi --prompt "what is the price of ETH?"
+
+aomi pipeline app my-app
+aomi pipeline operations --app my-app
+aomi chat "exercise the new tool" --mode direct --app my-app --new-session
 ```
 
-For the full command surface, read [CLI Reference](/docs/reference/cli).
+Use the Rust `aomi-build` toolchain to scaffold, compile, and ship the plugin itself. The npm client does not replace the builder workflow.
+
+For the complete client surface, see the canonical [Client CLI reference](https://aomi.dev/docs/reference/client-cli). For authoring commands, see the [builder toolchain](https://aomi.dev/docs/build/toolchain/aomi-build).

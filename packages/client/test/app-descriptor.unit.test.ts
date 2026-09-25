@@ -28,4 +28,35 @@ describe("Library app descriptor contract", () => {
     expect(isOfficialAppDescriptor(community!)).toBe(false);
     expect(appIdentityKey(official!)).not.toBe(appIdentityKey(community!));
   });
+
+  it("normalizes user-owned secret declarations and defaults ownership off", () => {
+    expect(
+      normalizeAppDescriptor({
+        name: "venue",
+        secrets: [
+          {
+            name: " VENUE_KEY ",
+            description: " Personal API key ",
+            required: true,
+            user_own: true,
+          },
+          { name: "SHARED_TOKEN", required: true },
+          { name: "", user_own: true },
+        ],
+      })?.secrets,
+    ).toEqual([
+      {
+        name: "VENUE_KEY",
+        description: "Personal API key",
+        required: true,
+        user_own: true,
+      },
+      {
+        name: "SHARED_TOKEN",
+        description: "",
+        required: true,
+        user_own: false,
+      },
+    ]);
+  });
 });

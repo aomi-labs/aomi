@@ -6,7 +6,8 @@ area: auth
 review_after_days: 30
 sources_of_truth:
   - apps/shadcn-registry/src/lib/wallet-kit/context.tsx
-  - apps/portal/src/features/account/use-account-acl.ts
+  - apps/shadcn-registry/src/lib/wallet-kit/composer/wallet-state.ts
+  - apps/shadcn-registry/src/components/account-shell/features/account/use-account-acl.ts
   - packages/client/src/user-state/index.ts
   - packages/client/src/session/index.ts
 ---
@@ -21,19 +22,44 @@ The explicit provider choice is remembered on this browser. Restore it before
 mounting an SDK; a reload must neither open login again nor briefly exchange
 credentials from a different default provider.
 
-Settings uses the same host selector for linked embedded-wallet Connect and
-Add method. A Para row opens Para even when Privy is mounted, and vice versa.
-Without that host option, only the matching mounted provider may reconnect;
-an unavailable provider fails explicitly instead of opening another provider.
+The composer is the account-aware authority for wallet state. It intersects
+live transport connections with the account's linked wallets, provider signer
+readiness, and one stored selection per account and family. The resulting rows
+and operating wallet are consumed directly by the picker, Settings, identity
+publication, and signing-policy controls. The registry remains transport-only.
 
-Settings distinguishes linked account records from live signing capability.
-`canSignFor(family, address)` supports provider-owned wallets that are not the
-globally selected transaction account. Authorization and bind requests name the
-exact signer. Para resolves that address to its SDK wallet ID, signs EIP-712 once
-and checks EVM recovery, or signs Solana message bytes unchanged. Its Web SDK
-returns Ed25519 signatures in base64. A mode stays pending until the existing
-backend permit commit succeeds; no UI availability check replaces backend
-linked-owner, exact-wallet, expiry, or version checks.
+For a signed-in account, an operating wallet must be linked and locally
+signable. Embedded wallets additionally require a hydrated provider signer and
+an exact server-attested address match. A connected external wallet may remain
+unlinked and expose Link, but it is not published to the agent. A connected
+embedded address that is not attested is a mismatch and must reauthenticate; it
+never falls back to challenge-linking. Linked embedded wallets whose provider
+is not mounted remain visible with an explanation and Unlink, but no dead-end
+Connect action. Guests may operate connected external wallets only.
+
+Selection is stored in localStorage by canonical account id and family. A
+valid stored selection wins; temporary unavailability retains it and produces
+no operating wallet. A permanently invalid selection is cleared. With no
+stored selection, exactly one eligible wallet is selected; multiple eligible
+wallets require an explicit choice. Connecting another wallet never takes over,
+while an explicit successful Link records that wallet as the selection.
+
+Authorization and bind requests name the exact operating signer. Para resolves
+that address to its SDK wallet ID, signs EIP-712 once and checks EVM recovery,
+or signs Solana message bytes unchanged. Its Web SDK returns Ed25519 signatures
+in base64. A mode stays pending until the existing backend permit commit
+succeeds; no UI availability check replaces backend linked-owner, exact-wallet,
+expiry, or version checks.
+
+## Widget library 3.0 migration
+
+`@aomi-labs/widget-lib` 3.0 changes `AomiWalletKit.identity.address` and
+`identity.svmAddress` from the transport-active addresses to the account-aware
+operating addresses. Either is absent when no linked, signable selection exists.
+Transport state remains available through `accounts`; canonical UI/domain state
+is exposed through `wallets`. The old `walletModalRows` contract was removed.
+Consumers that fund, quote, prepare, or sign must read `identity.*`, while
+connection-management UI should project `wallets`.
 
 Auto-approve (`client_auto`) is caller-side behavior. It is not server Auto and
 does not create delegation or enable an agent wallet.

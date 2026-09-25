@@ -7,27 +7,19 @@
 import { BadgeCheck, Bot, Copy, ExternalLink } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@build/lib/utils";
-import { ThreadModeControl } from "./thread-mode-control";
 
-export type BotThreadMode = "single" | "multi";
-
-/** The /setcommands list we tell builders to paste into BotFather. The
- *  `thread` line follows the bot's thread mode: single-thread bots render a
- *  read-only conversation view (the panel blocks switching with a toast), so
- *  only multi-thread bots may advertise switching. */
-export function botfatherCommands(threadMode: BotThreadMode): string {
+/** The /setcommands list we tell builders to paste into BotFather: exactly
+ *  the commands the bot handles itself (the Telegram crate's panels, and the
+ *  reserved list the backend refuses as custom commands). Custom commands a
+ *  builder adds to their bot are theirs to advertise. */
+export function botfatherCommands(): string {
   return [
     "start - Start the bot",
-    threadMode === "multi"
-      ? "thread - View and switch threads"
-      : "thread - View your conversation",
+    "help - Show what the bot can do",
+    "app - View or switch the app this chat runs on",
     "wallet - Connect or manage wallet",
-    "permission - View or change what the agent may sign",
-    "tx - Review pending transactions",
-    "app - View or change app",
-    "model - View or change model",
-    "network - View or select network",
-    "disconnect - Disconnect this thread",
+    "transactions - Review transactions",
+    "sign - Sign a pending action",
   ].join("\n");
 }
 
@@ -92,7 +84,6 @@ function BotFatherGuide({ commands }: { commands: string }) {
 }
 
 export function TelegramHowItWorks() {
-  const [threadMode, setThreadMode] = useState<BotThreadMode>("single");
   const steps: { title: ReactNode; body: ReactNode }[] = [
     {
       title: "Create a bot in BotFather",
@@ -114,11 +105,11 @@ export function TelegramHowItWorks() {
     },
     {
       title: "Register it here",
-      body: "Paste the token, attach one or more of your apps, and pick the primary. We verify the token with Telegram and activate the webhook automatically.",
+      body: "Paste the token, attach one or more of your apps, and pick the handover app. We verify the token with Telegram and activate the webhook automatically.",
     },
     {
       title: "Users just chat",
-      body: "Anyone who messages your bot uses their own Aomi identity, wallets, and threads. The primary app answers new conversations; /app switches between attached apps.",
+      body: "Anyone who messages your bot uses their own Aomi identity, wallets, and threads. New conversations start on the handover app; /app switches between attached apps.",
     },
     {
       title: "Users choose how their agent signs",
@@ -151,17 +142,8 @@ export function TelegramHowItWorks() {
               </li>
             ))}
           </ol>
-          <div className="pl-9">
-            <ThreadModeControl
-              value={threadMode}
-              onChange={(next) =>
-                setThreadMode(next === "multi" ? "multi" : "single")
-              }
-              tooltip="Match your bot's thread mode — the command list on the right follows it. Single thread keeps the bot to one conversation, so /thread only views it; multiple threads lets users create and switch threads with /thread."
-            />
-          </div>
         </div>
-        <BotFatherGuide commands={botfatherCommands(threadMode)} />
+        <BotFatherGuide commands={botfatherCommands()} />
       </div>
     </section>
   );

@@ -23,7 +23,7 @@ import {
 } from "../settings-rows";
 import {
   walletConnectionSummary,
-  type UnifiedAccountWallet,
+  type ManagedWallet,
 } from "../wallet-management-model";
 
 import {
@@ -43,7 +43,7 @@ export type AddSignInOption = {
 
 type AccountManagementProps = {
   user?: AomiUserRef;
-  wallets: UnifiedAccountWallet[];
+  wallets: ManagedWallet[];
   signInMethods: LinkedAuthAccount[];
   canAddWallet: boolean;
   addSignInOptions: AddSignInOption[];
@@ -52,11 +52,11 @@ type AccountManagementProps = {
   onRenameAccount?: (displayName: string) => Promise<void>;
   onAddWallet: () => void;
   onAddSignIn: (option: AddSignInOption) => Promise<void>;
-  onLinkWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onConnectWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onSelectWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onDisconnectWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
-  onUnlinkWallet?: (wallet: UnifiedAccountWallet) => Promise<void>;
+  onLinkWallet?: (wallet: ManagedWallet) => Promise<void>;
+  onConnectWallet?: (wallet: ManagedWallet) => Promise<void>;
+  onSelectWallet?: (wallet: ManagedWallet) => Promise<void>;
+  onDisconnectWallet?: (wallet: ManagedWallet) => Promise<void>;
+  onUnlinkWallet?: (wallet: ManagedWallet) => Promise<void>;
   onUnlinkSignIn?: (account: LinkedAuthAccount) => Promise<void>;
   onSignOut?: () => Promise<void>;
   onDeleteAccount?: () => Promise<void>;

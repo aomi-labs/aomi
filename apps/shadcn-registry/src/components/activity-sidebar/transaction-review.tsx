@@ -11,17 +11,35 @@ import {
   simulationCostSummary,
 } from "./presentation";
 
+export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
+  request: ActionRequest;
+};
+
 export function TransactionReview({
-  action,
+  review,
   supportedChains,
   approving = false,
+  approveDisabled = false,
+  rejectDisabled = false,
+  status,
+  statusTransactionId,
+  statusIsError = false,
   onApprove,
+  onApproveAll,
+  batchProgress,
   onReject,
 }: {
-  action: Action;
+  review: TransactionReviewData;
   supportedChains?: readonly SupportedChain[];
   approving?: boolean;
+  approveDisabled?: boolean;
+  rejectDisabled?: boolean;
+  status?: string;
+  statusTransactionId?: string;
+  statusIsError?: boolean;
   onApprove: () => void;
+  onApproveAll?: () => void;
+  batchProgress?: { current: number; total: number; submitting: boolean };
   onReject: () => void;
 }) {
   const reviewRef = useRef<HTMLElement>(null);
@@ -36,14 +54,14 @@ export function TransactionReview({
         rail.getBoundingClientRect().bottom;
       if (overflow > 0) rail.scrollTop += overflow + 16;
     }
-  }, [action.id, action.revision]);
+  }, [review.id, review.revision]);
   const simulation =
-    action.request.type === "sign" ? undefined : action.request.simulation;
+    review.request.type === "sign" ? undefined : review.request.simulation;
   const warnings = visibleSimulationWarnings(simulation);
   const failed =
     simulation?.status === "failed" ||
     simulation?.guards.some((guard) => guard.status === "failed");
-  const request = action.request;
+  const request = review.request;
   const signers =
     request.type === "sign"
       ? [request.signer]
@@ -54,7 +72,7 @@ export function TransactionReview({
     <section
       ref={reviewRef}
       data-testid="transaction-review"
-      data-action-id={action.id}
+      data-action-id={review.id}
       aria-label="Wallet impact"
       className="text-aomi-fg animate-in fade-in-0 slide-in-from-top-2 mt-3 min-w-0 duration-300 motion-reduce:animate-none"
     >
@@ -69,7 +87,7 @@ export function TransactionReview({
       )}
       <div className="space-y-3">
         <ImpactPanel
-          key={`${action.id}-${action.revision}`}
+          key={`${review.id}-${review.revision}`}
           request={request}
           balanceChanges={simulation?.balanceChanges ?? []}
           approvals={simulation?.approvals ?? []}
@@ -112,29 +130,84 @@ export function TransactionReview({
           </pre>
         </details>
       )}
+      {status && (
+        <p
+          role={statusIsError ? "alert" : "status"}
+          className="text-aomi-muted mt-3 text-[11px]"
+        >
+          {status}
+          {statusTransactionId && (
+            <span className="mt-1 block break-all font-mono">
+              Transaction: {statusTransactionId}
+            </span>
+          )}
+        </p>
+      )}
       <footer
-        className={failed ? "mt-3" : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"}
+        className={
+          failed
+            ? "mt-3"
+            : onApproveAll && batchProgress
+              ? "mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2"
+              : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"
+        }
       >
         <Button
           type="button"
           variant="outline"
           onClick={onReject}
-          disabled={approving}
+          disabled={approving || rejectDisabled}
           className="border-aomi-border bg-aomi-raised text-aomi-muted hover:bg-aomi-hover h-10 rounded-full text-[12px]"
         >
           {failed ? "Reject request" : "Reject"}
         </Button>
-        {!failed && (
-          <Button
-            type="button"
-            onClick={onApprove}
-            disabled={approving}
-            className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
-          >
-            <Wallet className="size-4" />
-            {approving ? "Waiting for wallet…" : "Send to wallet"}
-          </Button>
-        )}
+        {!failed &&
+          (onApproveAll && batchProgress ? (
+            <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
+              <Button
+                type="button"
+                onClick={onApprove}
+                disabled={
+                  approving || approveDisabled || batchProgress.submitting
+                }
+                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 min-w-0 flex-1 rounded-none px-3 text-[12px] hover:opacity-90"
+              >
+                {approving
+                  ? "Waiting…"
+                  : `Submit ${batchProgress.current} of ${batchProgress.total}`}
+              </Button>
+              <span
+                className="bg-aomi-bg/25 my-2 w-px shrink-0"
+                aria-hidden="true"
+              />
+              <Button
+                type="button"
+                onClick={onApproveAll}
+                disabled={
+                  approving || approveDisabled || batchProgress.submitting
+                }
+                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 shrink-0 rounded-none px-3 text-[12px] hover:opacity-90"
+              >
+                {batchProgress.submitting ? "Submitting…" : "Submit all"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              onClick={onApprove}
+              disabled={
+                approving || approveDisabled || batchProgress?.submitting
+              }
+              className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
+            >
+              <Wallet className="size-4" />
+              {approving
+                ? "Waiting for wallet…"
+                : batchProgress
+                  ? `Submit ${batchProgress.current} of ${batchProgress.total}`
+                  : "Submit"}
+            </Button>
+          ))}
       </footer>
     </section>
   );

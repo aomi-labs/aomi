@@ -11,6 +11,7 @@ import {
 import {
   AgentApiError,
   type ActionCapabilities,
+  type CommitCapabilities,
   type AgentTarget,
   type AomiClient,
 } from "@aomi-labs/client";
@@ -28,7 +29,11 @@ import {
   clearPersistedThreadId,
   writePersistedThreadId,
 } from "./thread-persistence";
-import { projectAssistantMessages, projectRuntimeMessages } from "./utils";
+import {
+  logicalTurnRunning,
+  projectAssistantMessages,
+  projectRuntimeMessages,
+} from "./utils";
 import { appendCapabilityHints } from "./capability-hints";
 
 /** Deduplicate in-flight async work keyed by thread id. */
@@ -70,6 +75,7 @@ export type AomiRuntimeCoreProps = {
   aomiClient: AomiClient;
   agentTarget?: AgentTarget;
   actions?: ActionCapabilities;
+  commits?: CommitCapabilities;
   accountSessionAvailable?: boolean;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
@@ -84,6 +90,7 @@ export function AomiRuntimeCore({
   aomiClient,
   agentTarget,
   actions: actionCapabilities,
+  commits: commitCapabilities,
   accountSessionAvailable = false,
   restoredThreadId,
   threadPersistenceKey,
@@ -124,6 +131,7 @@ export function AomiRuntimeCore({
     },
     getClientId: () => getControlState().clientId ?? undefined,
     getActions: () => actionCapabilities,
+    getCommits: () => commitCapabilities,
     onSendSuccess: (threadId) => {
       const wasRemote = remoteThreadIdsRef.current.has(threadId);
       remoteThreadIdsRef.current.add(threadId);
@@ -186,8 +194,6 @@ export function AomiRuntimeCore({
   });
 
   const actions = useActions(currentSession);
-  const isRunning =
-    snapshot.isSubmitting || snapshot.turnState === "processing";
 
   // ---------------------------------------------------------------------------
   // Refs for stable access
@@ -287,6 +293,12 @@ export function AomiRuntimeCore({
         snapshot.liveMessages,
       ),
     [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
+  );
+  const isRunning = logicalTurnRunning(
+    snapshot.events,
+    currentMessages,
+    snapshot.turnState,
+    snapshot.isSubmitting,
   );
 
   useEffect(() => {
@@ -490,6 +502,8 @@ export function AomiRuntimeCore({
 
       // Action API
       pendingActions: actions.pendingActions,
+      commits: snapshot.commits,
+      commitController: currentSession?.commits,
       actionAttempts: actions.actionAttempts,
       hasBlockingActions: actions.hasBlockingActions,
       executeAction: actions.executeAction,

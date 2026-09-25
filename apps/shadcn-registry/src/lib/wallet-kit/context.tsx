@@ -22,6 +22,7 @@ const DISCONNECTED_WALLET_KIT: AomiWalletKit = {
   canOpenAccountUI: false,
   canDisconnect: false,
   accounts: [],
+  wallets: [],
   selectAccount: async () => undefined,
   evmWallets: [],
   solanaWallets: [],

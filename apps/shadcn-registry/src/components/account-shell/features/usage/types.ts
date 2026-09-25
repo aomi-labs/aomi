@@ -1,14 +1,8 @@
 /**
- * Per-app usage statement types — ported from the design mock.
- * The fixture (./fixture.ts) is stub data; see docs/SETTINGS-REDESIGN-GAPS.md.
+ * Shared per-app usage statement view model.
  */
 
-/**
- * Rich per-app usage fixture (mirrors `user-fixture.json` at the repo root).
- * A user is charged on three subjects — model, tool use, outcome — each
- * attributed to the app it ran under. The flat `usage` block above
- * (`UsageStatement`) is a drop-in-compatible rollup of the same data.
- */
+/** Static account details used by the first-party theme-audit fixture. */
 export interface UsageAccount {
   userId: string;
   handle: string;
@@ -67,7 +61,7 @@ export interface AppSettings {
 /** One model line within an app's Section A group (`apps[].model.byModel[]`). */
 export interface AppModelRow {
   model: string;
-  /** Live statement dimensions; optional only for legacy design fixtures. */
+  /** Live statement dimensions; optional in static design fixtures. */
   provider?: string;
   paymentMethod?: string;
   turns: number;
@@ -160,7 +154,7 @@ export interface MonthlyStatement {
   columnTotals: UsageColumnTotals;
 }
 
-/** The full statement fixture shape — matches `user-fixture.json` 1:1. */
+/** Full statement fixture used by the first-party theme-audit surface. */
 export interface UsageFixtureData {
   account: UsageAccount;
   /** Newest month first. */

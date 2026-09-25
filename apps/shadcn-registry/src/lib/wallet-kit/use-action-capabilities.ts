@@ -10,6 +10,10 @@ import {
   normalizeSolanaCluster,
   parseChainId,
   walletCapabilities,
+  commitCapabilities,
+  type CommitCapabilities,
+  type CommitRecoveryRecord,
+  type CommitRecoveryStore,
   type ActionCapabilities,
   type EvmWallet,
   type SvmWallet,
@@ -18,6 +22,60 @@ import {
 } from "@aomi-labs/client";
 
 import { useAomiWalletKit } from "./context";
+import { createPublicClient, http } from "viem";
+
+export function useCommitCapabilities(): CommitCapabilities {
+  const wallet = useAomiWalletKit();
+  return useMemo(
+    () =>
+      commitCapabilities(
+        {
+          ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
+          ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
+        },
+        browserCommitRecoveryStore(),
+      ),
+    [wallet],
+  );
+}
+
+function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
+  if (typeof window === "undefined") return undefined;
+  const key = (threadId: string, commitId: string) =>
+    `aomi:commit-recovery:${encodeURIComponent(threadId)}:${encodeURIComponent(commitId)}`;
+  return {
+    load(threadId, commitId) {
+      try {
+        const value = window.localStorage.getItem(key(threadId, commitId));
+        if (!value) return undefined;
+        const record = JSON.parse(value) as Partial<CommitRecoveryRecord>;
+        return typeof record.clientRequestId === "string"
+          ? {
+              clientRequestId: record.clientRequestId,
+              ...(typeof record.attemptId === "string"
+                ? { attemptId: record.attemptId }
+                : {}),
+              ...(typeof record.transactionId === "string"
+                ? { transactionId: record.transactionId }
+                : {}),
+              ...(record.rejected === true ? { rejected: true as const } : {}),
+            }
+          : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    save(threadId, commitId, record) {
+      window.localStorage.setItem(
+        key(threadId, commitId),
+        JSON.stringify(record),
+      );
+    },
+    remove(threadId, commitId) {
+      window.localStorage.removeItem(key(threadId, commitId));
+    },
+  };
+}
 
 /** Adapts wallet-kit methods into the wallet subroutines used by ActionHandler. */
 export function useActionCapabilities(): ActionCapabilities {
@@ -63,6 +121,19 @@ function evmWallet(wallet: ReturnType<typeof useAomiWalletKit>): EvmWallet {
 
   return {
     address,
+    preparePreparedTransaction: wallet.preparePreparedEvmTransaction,
+    sendPreparedTransaction: wallet.sendPreparedEvmTransaction,
+    signTransaction: wallet.signEvmTransaction,
+    broadcastTransaction: async (bytes, chainId) => {
+      const chain = wallet.supportedChains?.find(
+        (chain) => chain.id === chainId,
+      );
+      if (!chain) throw new Error("Commit chain is not configured");
+      return createPublicClient({
+        chain,
+        transport: http(),
+      }).sendRawTransaction({ serializedTransaction: bytes as `0x${string}` });
+    },
     chainId: () => wallet.identity.chainId,
     switchChain: (chainId) => switchEvm(wallet, chainId),
     sendCalls,
@@ -99,6 +170,16 @@ function svmWallet(wallet: ReturnType<typeof useAomiWalletKit>): SvmWallet {
 
   return {
     address,
+    broadcastTransaction: async (bytes, cluster) => {
+      const network = wallet.supportedNetworks?.solana.find(
+        (network) => network.cluster === cluster,
+      );
+      if (!network) throw new Error("Commit cluster is not configured");
+      const connection = new SolanaConnection(network.rpcHttpUrl, "confirmed");
+      return connection.sendRawTransaction(decodeBase64(bytes), {
+        skipPreflight: false,
+      });
+    },
     cluster: () => wallet.selectedSolanaNetwork?.cluster,
     switchCluster: (cluster) => switchSvm(wallet, cluster),
     signTransaction: wallet.signSolanaTransaction

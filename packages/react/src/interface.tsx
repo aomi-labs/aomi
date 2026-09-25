@@ -7,6 +7,8 @@ import type {
   Action,
   ActionAttempt,
   ActionResult,
+  CommitController,
+  CommitView,
   AomiInferenceFundingSource,
   AomiSimulateResponse,
   Event,
@@ -26,6 +28,8 @@ import type {
 // =============================================================================
 
 export type AomiRuntimeApi = {
+  commits?: readonly CommitView[];
+  commitController?: CommitController;
   /** Shared authenticated account transport configured by the runtime. */
   account: AccountTransport;
   // -------------------------------------------------------------------------

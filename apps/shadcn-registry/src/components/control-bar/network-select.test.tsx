@@ -111,6 +111,7 @@ function createHarnessAdapter(options?: {
     canOpenAccountUI: Boolean(options?.connected),
     canDisconnect: false,
     accounts: [],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     supportedChains: harnessEvmChains,
     supportedNetworks: {
@@ -411,23 +412,22 @@ describe("NetworkSelect", () => {
     expect(screen.queryByRole("button", { name: /testnets/i })).toBeNull();
   });
 
-  it("connects without a family selection", async () => {
-    const onConnect = vi.fn();
+  it("opens the wallet picker without a family selection", async () => {
     render(
       <ExtUserProvider>
         <AomiWalletNetworkPreferencesProvider
           evmChains={evmChains}
           solanaNetworks={solanaNetworks}
         >
-          <Harness onConnect={onConnect} />
+          <Harness />
         </AomiWalletNetworkPreferencesProvider>
       </ExtUserProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
 
-    await waitFor(() => {
-      expect(onConnect).toHaveBeenCalled();
-    });
+    expect(
+      await screen.findByRole("dialog", { name: "Sign in to Aomi" }),
+    ).toBeTruthy();
   });
 });

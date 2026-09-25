@@ -8,6 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { AomiWalletKit } from "@/lib/wallet-kit";
+import { ConnectButton } from "./connect-button";
 import { DualWalletBar } from "./dual-wallet-bar";
 
 const openPicker = vi.fn();
@@ -35,7 +36,7 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
 });
 
 const adapterState: {
-  current: Pick<AomiWalletKit, "identity" | "accounts" | "walletModalRows"> & {
+  current: Pick<AomiWalletKit, "identity" | "accounts" | "wallets"> & {
     selectAccount: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
     signOutAccount: ReturnType<typeof vi.fn>;
@@ -59,16 +60,7 @@ const adapterState: {
         active: true as boolean,
       },
     ],
-    walletModalRows: [
-      {
-        id: "metamask",
-        label: "MetaMask",
-        family: "evm" as const,
-        source: "live" as const,
-        status: "active" as const,
-        actions: [],
-      },
-    ],
+    wallets: [],
     selectAccount: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     signOutAccount: vi.fn(async () => undefined),
@@ -403,4 +395,19 @@ describe("DualWalletBar account menu", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     warn.mockRestore();
   });
+});
+
+it("keeps the account menu available without wallet picker rows", () => {
+  const rows = adapterState.current.walletModalRows;
+  adapterState.current.walletModalRows = [];
+  const onManageAccount = vi.fn();
+  try {
+    render(<ConnectButton accountMenu={{ enabled: true, onManageAccount }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.click(screen.getByText("Manage account"));
+    expect(onManageAccount).toHaveBeenCalledOnce();
+    expect(openPicker).not.toHaveBeenCalled();
+  } finally {
+    adapterState.current.walletModalRows = rows;
+  }
 });

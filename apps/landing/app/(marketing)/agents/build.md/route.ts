@@ -40,32 +40,35 @@ const FRONTEND_SECTION = `
 
 If the user also asked for a chat UI to interact with the app you just built, you have two options.
 
-### Option A — Bundled widget (fastest, "ChatGPT-style" out of the box)
+### Option A — Packaged widget (fastest, "ChatGPT-style" out of the box)
 
-Install the prebuilt \`AomiFrame\` widget into a Next.js + Tailwind + shadcn project:
+Install the published widget package:
 
 \`\`\`bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npm install @aomi-labs/widget-lib
 \`\`\`
 
-Then render it on a page:
+Then render it in a client component:
 
 \`\`\`tsx
-import { AomiFrame } from "@/components/aomi-frame";
+"use client";
 
-export default function ChatPage() {
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
+
+export default function AssistantPage() {
   return (
-    <div style={{ height: "100vh" }}>
-      <AomiFrame
-        backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL!}
-        height="100%"
-      />
-    </div>
+    <AomiWidget
+      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
+      applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
+      auth={{ kind: "browser_wallet" }}
+      height="100dvh"
+    />
   );
 }
 \`\`\`
 
-Set \`NEXT_PUBLIC_BACKEND_URL=https://api.aomi.dev\` in \`.env.local\`. To target the app you just built instead of the default, pass \`app="<your-app-name>"\` to \`AomiFrame\` or set it from the ControlBar UI.
+Set \`NEXT_PUBLIC_AOMI_API_URL=https://chat.aomi.dev\` and the deployed App's canonical \`NEXT_PUBLIC_AOMI_APPLICATION_ID\` in \`.env.local\`. The Application ID selects an activated App; it is not an API key. Browser-wallet mode uses an origin-bound session, and users approve wallet actions explicitly.
 
 Full quickstart with wallet integration: <https://aomi.dev/docs/build/quickstart.md>
 
@@ -138,7 +141,9 @@ export async function GET() {
       // Drop the file's own H1 — we provide section headings instead.
       .replace(/^#\s.+\n+/, "");
     parts.push(`${heading}\n\n`);
-    parts.push(`<!-- source: github.com/aomi-labs/skills:aomi-build/${rel} -->\n\n`);
+    parts.push(
+      `<!-- source: github.com/aomi-labs/skills:aomi-build/${rel} -->\n\n`,
+    );
     parts.push(stripped);
     parts.push("\n");
   }
@@ -148,7 +153,8 @@ export async function GET() {
   return new Response(parts.join(""), {
     headers: {
       "content-type": "text/markdown; charset=utf-8",
-      "cache-control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      "cache-control":
+        "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }

@@ -31,6 +31,8 @@ import type {
   ListUserProjectLogsInput,
   ListUserProjectTransactionsInput,
   ListUserProjectsInput,
+  ListUserGitHubAppInstallationsInput,
+  GitHubAppInstallationsResult,
   ListUserTransactionsInput,
   ActivateResult,
   PromoteResult,
@@ -48,6 +50,7 @@ import type {
   SaveBuilderModelKeyInput,
   SetModelKeyGrantsInput,
   UpdateUserBotInput,
+  RevealUserBotCommandSecretInput,
   UserDeployment,
   UserDeploymentsPage,
   BuilderApplication,
@@ -62,6 +65,7 @@ import {
   camelBotRegistration,
   camelActivateResult,
   camelBuilderModelKey,
+  camelGitHubAppInstallations,
   camelLogCursor,
   camelLogRow,
   camelOperateAppDetail,
@@ -227,6 +231,27 @@ export class BackendClient extends BackendPlatformClient {
     );
   }
 
+  /**
+   * The selected platform repository's installation compared against what
+   * publishing and dispatch need. Read-only, JWT-only on the Manager side.
+   */
+  async listUserGitHubAppInstallations(
+    input: ListUserGitHubAppInstallationsInput,
+  ): Promise<GitHubAppInstallationsResult> {
+    return this.userGet(
+      input,
+      "installations",
+      "list_user_github_app_installations",
+      camelGitHubAppInstallations,
+      (params) => {
+        if (input.platform?.trim()) {
+          params.set("platform", input.platform.trim());
+        }
+      },
+      { platform: input.platform },
+    );
+  }
+
   async getUserProject(input: GetUserProjectInput): Promise<UserProject> {
     if (!Number.isSafeInteger(input.projectId) || input.projectId <= 0) {
       throw new Error("projectId must be a positive integer");
@@ -344,7 +369,16 @@ export class BackendClient extends BackendPlatformClient {
                 return typeof name === "string" &&
                   typeof description === "string" &&
                   typeof requiredFlag === "boolean"
-                  ? [{ name, description, required: requiredFlag }]
+                  ? [
+                      {
+                        name,
+                        description,
+                        required: requiredFlag,
+                        ...(rawSlot.user_own === true
+                          ? { user_own: true }
+                          : {}),
+                      },
+                    ]
                   : [];
               }),
             },
@@ -556,10 +590,13 @@ export class BackendClient extends BackendPlatformClient {
       {
         platform: required(input.botPlatform, "botPlatform"),
         application_ids: input.applicationIds,
-        primary_application_id: input.primaryApplicationId,
+        handover_application_id: input.handoverApplicationId,
         label: input.label,
         credential,
         thread_mode: input.threadMode,
+        mini_app_url: input.miniAppUrl,
+        command_endpoint: input.commandEndpoint,
+        commands: input.commands,
       },
       "create_user_bot",
       bearer,
@@ -577,15 +614,36 @@ export class BackendClient extends BackendPlatformClient {
       ),
       {
         application_ids: input.applicationIds,
-        primary_application_id: input.primaryApplicationId,
+        handover_application_id: input.handoverApplicationId,
         label: input.label,
         thread_mode: input.threadMode,
+        mini_app_url: input.miniAppUrl,
+        command_endpoint: input.commandEndpoint,
+        commands: input.commands,
       },
       "update_user_bot",
       bearer,
     );
     await this.audit("update_user_bot", input.actor);
     return camelBotRegistration(raw.bot_registration);
+  }
+
+  /** The bot's derived command-signing secret. Never logged or audited with
+   *  its value; the caller shows it once. */
+  async revealUserBotCommandSecret(
+    input: RevealUserBotCommandSecretInput,
+  ): Promise<{ commandSecret: string }> {
+    const { params, bearer } = this.userParams(input);
+    const raw = await this.get<{ command_secret?: unknown }>(
+      this.userPath(
+        `bots/${encodeURIComponent(required(input.botId, "botId"))}/command-secret`,
+        params,
+      ),
+      "reveal_user_bot_command_secret",
+      bearer,
+    );
+    await this.audit("reveal_user_bot_command_secret", input.actor);
+    return { commandSecret: String(raw?.command_secret ?? "") };
   }
 
   async deleteUserBot(input: DeleteUserBotInput): Promise<void> {
