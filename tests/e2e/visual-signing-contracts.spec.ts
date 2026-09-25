@@ -174,6 +174,213 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   await expect(page.getByTestId("activity-transaction")).toHaveCount(1);
 });
 
+test("controlled delayed child activity keeps the answer and a scrolled-up reader in place", async ({
+  page,
+}) => {
+  await signIn(page);
+  const prompt = "controlled delayed child browser fixture";
+  const turnId = "controlled-active-turn";
+  const agentId = "controlled-child-agent";
+  const callId = "controlled-child-call";
+  let sequence = 0;
+  const event = (
+    type: string,
+    data: Record<string, unknown>,
+    turn = turnId,
+  ) => ({
+    turn_id: turn,
+    event_id: `controlled-${++sequence}`,
+    occurred_at: fixedNow.getTime() / 1_000,
+    sequence,
+    type,
+    ...data,
+  });
+  const history = Array.from({ length: 12 }, (_, index) => [
+    event(
+      "message",
+      {
+        sender: "user",
+        content: `Earlier question ${index + 1}`,
+        message_key: `earlier-user-${index}`,
+      },
+      `earlier-${index}`,
+    ),
+    event(
+      "message",
+      {
+        sender: "agent",
+        content: `Earlier answer ${index + 1}. ${"A readable prior result. ".repeat(8)}`,
+        message_key: `earlier-answer-${index}`,
+      },
+      `earlier-${index}`,
+    ),
+  ]).flat();
+  const initial = [
+    ...history,
+    event("message", {
+      sender: "user",
+      content: prompt,
+      message_key: "controlled-user",
+    }),
+    event("message", {
+      sender: "agent",
+      content: "Controlled progress stays visible while the child works.",
+      message_key: "controlled-progress",
+    }),
+    event("task_started", {
+      call_id: callId,
+      agent_id: agentId,
+      label: "Controlled child",
+      app: "default",
+      resumed: false,
+    }),
+    event("turn_state_changed", { state: "processing" }),
+  ];
+  const firstChild = event("task_activity", {
+    call_id: callId,
+    agent_id: agentId,
+    child_seq: 1,
+    kind: "tool_call",
+    tool_name: "get_chain_context",
+    args: null,
+    result_preview: "Context ready",
+  });
+  const secondChild = event("task_activity", {
+    call_id: callId,
+    agent_id: agentId,
+    child_seq: 2,
+    kind: "tool_call",
+    tool_name: "estimate_fee",
+    args: null,
+    result_preview: "Fee ready",
+  });
+  const finished = [
+    event("task_completed", {
+      call_id: callId,
+      agent_id: agentId,
+      app: "default",
+      status: "completed",
+      message: "Child finished",
+      staged_count: 0,
+      steps: 2,
+      duration_ms: 2_000,
+    }),
+    event("message", {
+      sender: "agent",
+      content: "Controlled final answer is ready.",
+      message_key: "controlled-final",
+    }),
+    event("turn_state_changed", { state: "complete" }),
+  ];
+  const pages = [[firstChild], [firstChild, secondChild], finished];
+  const gates = pages.map(() => {
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { ready, release };
+  });
+  let sessionId = "";
+  let streamNumber = 0;
+  await page.route("**/v1/agent/chat", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const body = route.request().postDataJSON() as {
+      sessionId?: string;
+      message?: string;
+    };
+    if (body.message !== prompt) return route.continue();
+    sessionId = body.sessionId ?? "";
+    expect(sessionId).toBeTruthy();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        session_id: sessionId,
+        cursor: String(initial.at(-1)!.sequence),
+        events: initial,
+        has_more: false,
+      }),
+    });
+  });
+  await page.route(
+    /\/v1\/agent\/chat\/[^/]+\/stream(?:\?|$)/,
+    async (route) => {
+      const index = streamNumber++;
+      if (index >= pages.length) {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body: "",
+        });
+        return;
+      }
+      await gates[index]!.ready;
+      const events = pages[index]!;
+      const pageData = {
+        session_id: sessionId,
+        cursor: String(events.at(-1)!.sequence),
+        events,
+        has_more: false,
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `event: page\ndata: ${JSON.stringify(pageData)}\n\n`,
+      });
+    },
+  );
+
+  await sendPrompt(page, prompt, {
+    expectReply: false,
+    expectComposerReady: false,
+  });
+  const trace = page.locator(".aui-working-trace").last();
+  await expect(trace).toContainText("Controlled progress stays visible");
+  await expect(
+    page
+      .locator(".aui-working-answer")
+      .filter({ hasText: "Controlled progress" }),
+  ).toHaveCount(0);
+  gates[0]!.release();
+  await expect(trace).toContainText("Get chain context");
+  await expect(trace.locator(".aui-working-trace-header")).toContainText(
+    "3 steps",
+  );
+
+  const viewport = page.locator(".aui-thread-viewport");
+  await expect
+    .poll(() =>
+      viewport.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    )
+    .toBeGreaterThan(100);
+  await viewport.evaluate((element) => {
+    element.scrollTop = 80;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollTop))
+    .toBe(80);
+  const before = await viewport.evaluate((element) => element.scrollTop);
+
+  gates[1]!.release();
+  await expect(trace).toContainText("Estimate fee");
+  await expect(trace.locator(".aui-working-trace-header")).toContainText(
+    "4 steps",
+  );
+  await expect(trace).toContainText("Controlled progress stays visible");
+  const after = await viewport.evaluate((element) => element.scrollTop);
+  expect(Math.abs(after - before)).toBeLessThan(4);
+
+  gates[2]!.release();
+  await expect(
+    page
+      .locator(".aui-working-answer")
+      .filter({ hasText: "Controlled final answer is ready." }),
+  ).toHaveCount(1);
+});
+
 async function openActionThread(page: Page): Promise<void> {
   await page.getByRole("button", { name: actionPrompt, exact: true }).click();
 }
