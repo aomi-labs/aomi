@@ -418,6 +418,243 @@ test("controlled delayed child activity follows inner layout growth without movi
   ).toHaveCount(1);
 });
 
+test("unfinished callback transactions animate beside a completed sibling through later confirmation", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const prompt = "controlled callback transaction progress";
+  const events = callbackEvents.map((event) => {
+    if (event.type !== "message") return event;
+    if (event.sender === "user") return { ...event, content: prompt };
+    if (event.tool_name === "evm_stage_tx") {
+      const result = JSON.parse(event.tool_result![1]);
+      return {
+        ...event,
+        tool_result: [
+          "evm_stage_tx",
+          JSON.stringify({
+            ...result,
+            current_lifecycle: "queued",
+            chain_id: 8453,
+            label: ["", "Completed transfer", "Approve USDC", "Supply USDC"][
+              result.pending_tx_id
+            ],
+            kind: "transaction",
+          }),
+        ],
+      };
+    }
+    if (event.tool_name === "simulate_batch")
+      return {
+        ...event,
+        tool_result: [
+          "simulate_batch",
+          JSON.stringify({
+            resolved_ids: event.sequence === 9 ? [1] : [2, 3],
+            simulation: { batch_success: true },
+          }),
+        ],
+      };
+    return event;
+  });
+  const commit = (id: number, state: string) => ({
+    commit_id: id === 1 ? "fixture-commit" : `pair-commit-${id}`,
+    thread_id: "controlled-session",
+    stage_id: `evm:${id}`,
+    chain_family: "evm",
+    chain_ref: "8453",
+    state,
+    version: state === "confirmed" ? 2 : 1,
+    metadata: {},
+    action: null,
+    review: null,
+    wallet_attempt: null,
+    batch: {
+      batch_id: id === 1 ? "fixture-batch" : "confirmed-pair",
+      index: id === 1 ? 0 : id - 2,
+      ordered_commit_ids:
+        id === 1 ? ["fixture-commit"] : ["pair-commit-2", "pair-commit-3"],
+      ordered_stage_ids: id === 1 ? ["evm:1"] : ["evm:2", "evm:3"],
+      sources: [
+        {
+          thread_id: "controlled-session",
+          chain_family: "evm",
+          chain_ref: "8453",
+          stage_id: `evm:${id}`,
+          source_id: id,
+        },
+      ],
+      predecessor_commit_id: id === 3 ? "pair-commit-2" : null,
+      review_digest: "controlled-review",
+    },
+  });
+  const later = (sequence: number, state: string) => ({
+    type: "turn_state_changed",
+    event_id: `later-${sequence}`,
+    sequence,
+    turn_id: "later-confirmation",
+    occurred_at: 1790408700 + sequence,
+    state,
+  });
+  const pages = [
+    {
+      events: events.filter((event) => event.sequence === 30),
+      commits: [commit(1, "confirmed")],
+    },
+    {
+      events: events.filter((event) => event.sequence >= 31),
+      commits: [commit(1, "confirmed")],
+    },
+    {
+      events: [
+        {
+          type: "message",
+          event_id: "later-user",
+          sequence: 33,
+          turn_id: "later-confirmation",
+          occurred_at: 1790408733,
+          sender: "user",
+          content: "Commit the prepared pair",
+        },
+        later(34, "processing"),
+      ],
+      commits: [
+        commit(1, "confirmed"),
+        commit(2, "needs_signature"),
+        commit(3, "needs_signature"),
+      ],
+    },
+    {
+      events: [later(35, "complete")],
+      commits: [
+        commit(1, "confirmed"),
+        commit(2, "confirmed"),
+        commit(3, "confirmed"),
+      ],
+    },
+  ];
+  const gates = pages.map(() => {
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return { ready, release };
+  });
+  let sessionId = "",
+    stream = 0;
+  const data = (entries: unknown[], commits: unknown[]) => ({
+    session_id: sessionId,
+    cursor: String((entries.at(-1) as { sequence: number }).sequence),
+    events: entries,
+    commits: commits.map((view) => {
+      const value = view as ReturnType<typeof commit>;
+      return {
+        ...value,
+        thread_id: sessionId,
+        batch: {
+          ...value.batch,
+          sources: value.batch.sources.map((source) => ({
+            ...source,
+            thread_id: sessionId,
+          })),
+        },
+      };
+    }),
+    has_more: false,
+  });
+  await page.route(/\/v1\/agent\/chat(?:\?|$)/, async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.message === "Commit the prepared pair") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(data(pages[2]!.events, pages[2]!.commits)),
+      });
+      return;
+    }
+    if (body.message !== prompt) return route.continue();
+    sessionId = body.sessionId;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        data(
+          events.filter((event) => event.sequence <= 28),
+          [commit(1, "confirmed")],
+        ),
+      ),
+    });
+  });
+  await page.route(
+    /\/v1\/agent\/chat\/[^/]+\/stream(?:\?|$)/,
+    async (route) => {
+      const index = stream++;
+      if (index >= pages.length)
+        return route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body: "",
+        });
+      await gates[index]!.ready;
+      const next = pages[index]!;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `event: page\ndata: ${JSON.stringify(data(next.events, next.commits))}\n\n`,
+      });
+    },
+  );
+  await sendPrompt(page, prompt, {
+    expectReply: false,
+    expectComposerReady: false,
+  });
+  const card = (label: string) =>
+    page
+      .locator('[data-testid="activity-transaction"]')
+      .filter({ has: page.locator(`[title="${label}"]`) });
+  const active = (label: string) =>
+    card(label).locator('[data-active-phase="true"]');
+  await expect(card("Completed transfer")).toHaveCount(1);
+  await expect(active("Completed transfer")).toHaveCount(0);
+  await expect(active("Approve USDC")).toHaveCount(1);
+  await expect(active("Supply USDC")).toHaveCount(1);
+  const position = await active("Approve USDC").evaluate(
+    (element) => getComputedStyle(element).backgroundPosition,
+  );
+  await expect
+    .poll(() =>
+      active("Approve USDC").evaluate(
+        (element) => getComputedStyle(element).backgroundPosition,
+      ),
+    )
+    .not.toBe(position);
+  gates[0]!.release();
+  await expect(
+    card("Approve USDC").locator('[title="Simulate"] [data-active-phase]'),
+  ).toHaveCount(1);
+  gates[1]!.release();
+  await expect(
+    page.getByRole("button", { name: "Stop", exact: true }),
+  ).toHaveCount(0);
+  await expect(active("Approve USDC")).toHaveCount(1);
+  await sendPrompt(page, "Commit the prepared pair", {
+    expectReply: false,
+    expectComposerReady: false,
+  });
+  gates[2]!.release();
+  await expect(
+    card("Approve USDC").locator('[title="Commit"] [data-active-phase]'),
+  ).toHaveCount(1);
+  await expect(
+    card("Supply USDC").locator('[title="Commit"] [data-active-phase]'),
+  ).toHaveCount(1);
+  await expect(active("Completed transfer")).toHaveCount(0);
+  gates[3]!.release();
+  await expect(active("Approve USDC")).toHaveCount(0);
+  await expect(active("Supply USDC")).toHaveCount(0);
+});
+
 test("saved wallet callback reload reuses tool resources and unlocks the same session after completion", async ({
   page,
 }) => {

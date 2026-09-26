@@ -36,7 +36,6 @@ function ActivitySidebarContent() {
     pendingActions,
     actionAttempts,
     threadViewKey,
-    isRunning,
     commits = [],
     commitController,
   } = useAomiRuntime();
@@ -121,7 +120,7 @@ function ActivitySidebarContent() {
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
   });
-  const card = (tx: ActivityTransaction, historical = false) => (
+  const card = (tx: ActivityTransaction) => (
     <TransactionCard
       key={tx.id}
       transaction={tx}
@@ -132,34 +131,26 @@ function ActivitySidebarContent() {
             ? pendingCommit.batch.batch_id === tx.commit.batch.batch_id
             : pendingCommit?.commit_id === tx.commit?.commit_id,
       )}
-      active={
-        !historical &&
-        ((tx.turnId === activity.turnId &&
-          (isRunning ||
-            pendingActions.some((action) => action.id === tx.action?.id))) ||
-          (tx.commit != null &&
-            !["confirmed", "rejected", "failed", "expired"].includes(
-              tx.commit.state,
-            )))
-      }
+      // Unfinished cards keep their phase indicator active while waiting too.
+      // Terminal/signed/rejected/failed states are stopped per card below.
+      active
       executing={
-        !historical &&
-        (Boolean(
+        Boolean(
           tx.action &&
           ["executing", "responding"].includes(
             actionAttempts.get(tx.action.id)?.state ?? "",
           ),
         ) ||
-          Boolean(
-            tx.commit &&
-            ["preparing", "switching_chain", "awaiting_wallet"].includes(
-              projectCommitLifecycle(
-                tx.commit,
-                commitController?.submissionPhase?.(tx.commit.commit_id),
-                commitController?.recoveryRecord?.(tx.commit.commit_id),
-              ).phase,
-            ),
-          ))
+        Boolean(
+          tx.commit &&
+          ["preparing", "switching_chain", "awaiting_wallet"].includes(
+            projectCommitLifecycle(
+              tx.commit,
+              commitController?.submissionPhase?.(tx.commit.commit_id),
+              commitController?.recoveryRecord?.(tx.commit.commit_id),
+            ).phase,
+          ),
+        )
       }
     />
   );
@@ -275,16 +266,7 @@ function ActivitySidebarContent() {
                             newestId={transactions[0]?.id}
                             count={transactions.length}
                           >
-                            {transactions.map((tx) =>
-                              card(
-                                tx,
-                                Boolean(
-                                  tx.action
-                                    ? tx.action.state !== "pending"
-                                    : tx.turnId !== activity.turnId,
-                                ),
-                              ),
-                            )}
+                            {transactions.map((tx) => card(tx))}
                           </TransactionList>
                           <WalletReview />
                         </m.div>
