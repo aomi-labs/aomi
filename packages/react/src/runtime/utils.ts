@@ -297,8 +297,10 @@ export function logicalTurnRunning(
   messages: readonly ThreadMessageLike[],
   turnState?: TurnState,
   isSubmitting = false,
+  pendingUserMessage?: string,
 ): boolean {
-  if (isSubmitting) return true;
+  // An accepted start can precede its durable user event in a later page.
+  if (isSubmitting || pendingUserMessage) return true;
   // A late callback completion belongs to its original operation. It must
   // neither stop a newer user turn nor let a stale global state keep Stop on
   // a logical operation whose own durable callback has already completed.

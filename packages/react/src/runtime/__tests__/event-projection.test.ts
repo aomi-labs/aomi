@@ -27,6 +27,27 @@ const meta = (
   type,
 });
 
+it("keeps an accepted optimistic turn running before its durable user event", () => {
+  const events = callbackEvents;
+  expect(
+    logicalTurnRunning(
+      events,
+      projectAssistantMessages(events),
+      "processing",
+      false,
+      "Proceed with the prepared pair",
+    ),
+  ).toBe(true);
+  expect(
+    logicalTurnRunning(
+      events,
+      projectAssistantMessages(events),
+      "processing",
+      false,
+    ),
+  ).toBe(false);
+});
+
 describe("projectAssistantMessages", () => {
   it("rehydrates the saved cross-turn wallet result as one call and settles its callback", () => {
     const projected = projectAssistantMessages(callbackEvents);

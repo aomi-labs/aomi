@@ -312,6 +312,7 @@ export function AomiRuntimeCore({
     currentMessages,
     snapshot.turnState,
     snapshot.isSubmitting,
+    snapshot.pendingUserMessage,
   );
 
   useEffect(() => {
