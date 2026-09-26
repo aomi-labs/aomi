@@ -9,7 +9,7 @@ import { createPublicClient, createWalletClient, encodeFunctionData, http, parse
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { mintAccountBearer, mintAgentApiBearer } from "../packages/account/src/index.ts";
-import { AomiClient, Session } from "../packages/client/src/index.ts";
+import { AomiClient, Session, normalizeEvmWalletTarget } from "../packages/client/src/index.ts";
 import { isCompleteForTurn } from "./commit-stability-event-fence.mts";
 
 const required = (name: string) => {
@@ -176,7 +176,7 @@ const session = new Session(commitClient, { sessionId: probe.sessionId, commits:
       reservedMaxGasWei += maxFee;
     }
     const tx = payload.transaction;
-    const hash = await walletClient.sendTransaction({ account, chain: base, to: tx.to.toLowerCase() as `0x${string}`, value: 0n,
+    const hash = await walletClient.sendTransaction({ account, chain: base, to: normalizeEvmWalletTarget(tx.to), value: 0n,
       data: tx.data as `0x${string}`, gas: BigInt(tx.gas_limit), nonce: payload.nonce,
       maxFeePerGas: BigInt(tx.max_fee_per_gas), maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas),
     } as unknown as Parameters<typeof walletClient.sendTransaction>[0]);
@@ -229,7 +229,7 @@ try {
   event("stream_ready", { cursor, baselineSequence, callbackTurnId });
   const initial = await Promise.all(probe.commitIds.map((id) => session.commits.refresh(id)));
   assert.deepEqual(initial.map((v) => v.commit_id), probe.commitIds);
-  assert.ok(initial.every((v, i) => v.batch?.batch_id === probe.batchId && v.batch.index === i));
+  assert.ok(initial.every((v, i) => v.batch?.batch_id === probe.batchId && v.batch?.index === i));
   assert.deepEqual(initial.map((v) => v.stage_id), initial[0].batch?.ordered_stage_ids);
   if (resumeSecond) {
     const firstHash = required("AOMI_STABILITY_FIRST_TX_HASH");

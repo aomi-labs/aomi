@@ -174,10 +174,10 @@ const toolPart = (
 /**
  * The backend's event ledger bridges INLINE (sync-executed) tool steps as agent
  * `message` events carrying a `[topic, payload]` tuple in `tool_result`
- * (declared on the client's MessageEvent shape). Until the recorder emits
- * real tool_update/tool_complete events for inline tools, this is the only
- * wire shape those steps arrive in; drop it and every trace renders as an
- * empty "Working" shell.
+ * (declared on the client's MessageEvent shape). These transcript results can
+ * coexist with typed tool_update/tool_complete progress, including a later
+ * wallet callback updating the originating call. Keep both wire paths and
+ * reconcile them by call identity.
  */
 const inlineToolResult = (event: MessageEvent) => {
   // Declared on the type, but the wire is untrusted — validate before use.

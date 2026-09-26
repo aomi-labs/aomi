@@ -8,7 +8,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { mintAccountBearer } from "../packages/account/src/index.ts";
-import { AomiClient, Session } from "../packages/client/src/index.ts";
+import { AomiClient, Session, normalizeEvmWalletTarget } from "../packages/client/src/index.ts";
 
 const required = (name: string) => { const value = process.env[name]; assert.ok(value, `${name} is required`); return value; };
 const backendRoot = resolve(required("AOMI_PRODUCT_ROOT"));
@@ -72,7 +72,7 @@ const capabilities = { recovery,
     walletInvocations++;
     assert.equal(walletInvocations, 1, "unknown outcome must never invoke wallet again");
     const tx = payload.transaction;
-    observerHash = await wallet.sendTransaction({ account, chain: base, to: tx.to.toLowerCase() as `0x${string}`,
+    observerHash = await wallet.sendTransaction({ account, chain: base, to: normalizeEvmWalletTarget(tx.to),
       value: 0n, data: "0x", gas: BigInt(tx.gas_limit), nonce: payload.nonce,
       maxFeePerGas: BigInt(tx.max_fee_per_gas), maxPriorityFeePerGas: BigInt(tx.max_priority_fee_per_gas) });
     throw new Error("injected_provider_response_loss_after_broadcast");
