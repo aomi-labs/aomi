@@ -138,9 +138,10 @@ export async function signInThroughUi(
     svmSecretKey?: string;
     rejectSignatures?: boolean;
     navigate?: boolean;
+    wallet?: Awaited<ReturnType<typeof installBrowserWallet>>;
   },
 ) {
-  const wallet = await installBrowserWallet(page, {
+  const wallet = input.wallet ?? await installBrowserWallet(page, {
     family: input.family,
     pageOrigin: input.pageOrigin,
     evmPrivateKeys: input.privateKeys,

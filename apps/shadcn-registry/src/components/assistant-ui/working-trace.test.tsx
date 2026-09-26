@@ -47,6 +47,23 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("keeps an explicitly opened completed trace open past automatic collapse", () => {
+    vi.useFakeTimers();
+    try {
+      const view = render(
+        <WorkingTrace running={false} items={[]} revealed={0} collapseReady />,
+      );
+      const header = view.getByRole("button", { name: /Worked it out/ });
+      fireEvent.click(header);
+      expect(header).toHaveAttribute("aria-expanded", "true");
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(header).toHaveAttribute("aria-expanded", "true");
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows active Working time and freezes the elapsed duration on completion", () => {
     vi.useFakeTimers();
     try {

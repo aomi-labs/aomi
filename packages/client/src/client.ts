@@ -488,6 +488,7 @@ export class AomiClient {
         headers,
         body: encodeJsonBody(options?.body),
         signal: options?.signal,
+        cache: options?.cache,
       },
     );
 

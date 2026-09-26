@@ -129,6 +129,11 @@ export function AomiRuntimeProvider({
             actions={actions}
             commits={commits}
             restoredThreadId={restoredThreadId}
+            resourceScopeKey={buildThreadPersistenceKey({
+              backendUrl,
+              applicationId,
+              scope: threadPersistenceScope,
+            })}
             threadPersistenceKey={resolvedThreadPersistenceKey}
           >
             {children}
@@ -155,6 +160,7 @@ type AomiRuntimeInnerProps = {
   commits?: CommitCapabilities;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
+  resourceScopeKey?: string;
 };
 
 function AomiRuntimeInner({
@@ -169,6 +175,7 @@ function AomiRuntimeInner({
   commits,
   restoredThreadId,
   threadPersistenceKey,
+  resourceScopeKey,
 }: Readonly<AomiRuntimeInnerProps>) {
   const threadContext = useThreadContext();
 
@@ -190,6 +197,7 @@ function AomiRuntimeInner({
         actions={actions}
         commits={commits}
         restoredThreadId={restoredThreadId}
+        resourceScopeKey={resourceScopeKey}
         threadPersistenceKey={threadPersistenceKey}
       >
         {children}

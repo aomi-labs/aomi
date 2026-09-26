@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { expect, test, type Page } from "@playwright/test";
 import { createSiweMessage } from "viem/siwe";
 import { privateKeyToAccount } from "viem/accounts";
+import { installBrowserWallet } from "./hosted-wallet-fixture";
 import {
   expectVerifiedBffRecord,
   fixtureKeys,
@@ -72,6 +73,62 @@ test("packaged guest widget uses readable CORS, a verified BFF assertion, and no
   expect(JSON.stringify(history)).not.toContain(
     "anonymous cross-origin contract",
   );
+});
+
+test("retained resource inspection is explicit, scoped, inert, and cleared on principal change", async ({
+  page,
+}) => {
+  const wallet = await installBrowserWallet(page, {
+    family: "evm",
+    pageOrigin: consumerOrigin,
+    evmPrivateKeys: [keys.evm[0]!],
+  });
+  await page.goto(consumerOrigin, { waitUntil: "domcontentloaded" });
+  const issued = waitForWidgetSession(page, "/api/auth/widget/guest");
+  await sendPrompt(page, "inspect the retained resource contract");
+  const guest = await issued;
+  const resourceRecords = async () =>
+    (await upstreamRecords()).filter((record) =>
+      record.path.endsWith("/resources/read"),
+    );
+  expect(await resourceRecords()).toHaveLength(0);
+  await page.getByRole("button", { name: /Worked it out|Worked for/ }).click();
+  await page.locator(".aui-working-step-header").click();
+  await expect(
+    page.getByRole("button", { name: "Inspect", exact: true }),
+  ).toBeVisible();
+  expect(await resourceRecords()).toHaveLength(0);
+  const read = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith("/resources/read"),
+  );
+  await page.getByRole("button", { name: "Inspect", exact: true }).click();
+  expect((await read).headers()["cache-control"]).toContain("no-store");
+  await expect(page.getByText(/Retained scoped text <script>/)).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { resourceTextExecuted?: boolean })
+          .resourceTextExecuted,
+    ),
+  ).toBeUndefined();
+  const records = await resourceRecords();
+  expect(records).toHaveLength(1);
+  expectVerifiedBffRecord(
+    records[0],
+    guest.session.user.id,
+    "session",
+    "guest",
+  );
+  await signInThroughUi(page, {
+    family: "evm",
+    pageOrigin: consumerOrigin,
+    challengeOrigin: portalOrigin,
+    privateKeys: [keys.evm[0]!],
+    navigate: false,
+    wallet,
+  });
+  await expect(page.getByText(/Retained scoped text <script>/)).toHaveCount(0);
+  expect(await resourceRecords()).toHaveLength(1);
 });
 
 test("an invalid explicit widget credential fails closed and preserves upstream errors", async ({

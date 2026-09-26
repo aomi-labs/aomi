@@ -1,3 +1,13 @@
+export type {
+  ResourceDescriptor,
+  ResourceList,
+  ResourceRead,
+  ResourceView,
+  ListResourcesOptions,
+  ReadResourceOptions,
+} from "./resources/types";
+export { parseResourceResult, resourceResultForCall } from "./resources/result";
+export type { ResourceLink, ResourceResult } from "./resources/result";
 // =============================================================================
 // Client
 // =============================================================================
@@ -19,7 +29,11 @@ export type {
   AomiCreditTopUpResult,
 } from "./account/credits";
 export { AomiCreditApiError } from "./account/credits";
-export { AgentApiError, AgentTransport } from "./agent/transport";
+export {
+  AgentApiError,
+  AgentTransport,
+  AgentResourcesTransport,
+} from "./agent/transport";
 export {
   EvmPipelineTransport,
   PipelineApiError,

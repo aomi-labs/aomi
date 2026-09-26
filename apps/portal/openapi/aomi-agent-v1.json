@@ -22,6 +22,8 @@
     "GET /v1/agent/chat/{sessionId}/stream",
     "GET /v1/agent/sessions",
     "GET /v1/agent/sessions/{sessionId}",
+    "GET /v1/agent/sessions/{sessionId}/resources",
+    "GET /v1/agent/sessions/{sessionId}/resources/read",
     "GET /v1/pipeline",
     "GET /v1/pipeline/apps",
     "GET /v1/pipeline/apps/{app}",
@@ -2879,6 +2881,196 @@
           }
         ]
       }
+    },
+    "/v1/agent/sessions/{sessionId}/resources": {
+      "get": {
+        "operationId": "listResources",
+        "tags": ["Agent"],
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "producer",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "related_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized retained data; private, no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Resource type, domain, freshness or cursor mismatch"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "description": "Resource not found in authorized scope"
+          },
+          "409": {
+            "description": "Resource conflict"
+          },
+          "410": {
+            "description": "Retained tombstone"
+          },
+          "503": {
+            "description": "Resource store unavailable"
+          }
+        }
+      }
+    },
+    "/v1/agent/sessions/{sessionId}/resources/read": {
+      "get": {
+        "operationId": "readResource",
+        "tags": ["Agent"],
+        "security": [
+          {
+            "aomiOAuth": ["agent:read"]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized retained data; private, no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceRead"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Resource type, domain, freshness or cursor mismatch"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "description": "Resource not found in authorized scope"
+          },
+          "409": {
+            "description": "Resource conflict"
+          },
+          "410": {
+            "description": "Retained tombstone"
+          },
+          "503": {
+            "description": "Resource store unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3864,6 +4056,7 @@
                 "type": ["string", "null"]
               },
               "tool_arguments": {},
+              "model_output": {},
               "is_streaming": {
                 "type": "boolean"
               }
@@ -3917,7 +4110,8 @@
               "tool_name": {
                 "type": "string"
               },
-              "result": {}
+              "result": {},
+              "model_output": {}
             }
           }
         ]
@@ -3943,7 +4137,8 @@
               "tool_name": {
                 "type": "string"
               },
-              "result": {}
+              "result": {},
+              "model_output": {}
             }
           }
         ]
@@ -6044,6 +6239,204 @@
           "step": {
             "type": ["integer", "null"],
             "minimum": 1
+          }
+        }
+      },
+      "ResourceDescriptor": {
+        "type": "object",
+        "required": [
+          "uri",
+          "kind",
+          "mime_type",
+          "name",
+          "byte_length",
+          "digest",
+          "created_at",
+          "expires_at",
+          "action_expires_at"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "pattern": "^aomi://[a-z0-9-]+/[a-z-]+/[0-9a-f]{32}$"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "digest": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "action_expires_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      },
+      "ResourceRef": {
+        "type": "object",
+        "required": ["uri"],
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "type": "string",
+            "pattern": "^aomi://[a-z0-9-]+/[a-z-]+/[0-9a-f]{32}$"
+          }
+        }
+      },
+      "ResourceDependency": {
+        "type": "object",
+        "required": ["resource", "relation", "name"],
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/ResourceRef"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ResourceLink": {
+        "type": "object",
+        "required": ["uri", "kind", "name"],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "pattern": "^aomi://[a-z0-9-]+/[a-z-]+/[0-9a-f]{32}$"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ResourceChild": {
+        "type": "object",
+        "required": ["resource", "relation", "name"],
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/ResourceLink"
+          },
+          "relation": {
+            "type": "string"
+          },
+          "name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ResourceView": {
+        "type": "string",
+        "enum": ["summary", "content", "children"]
+      },
+      "ListResources": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": ["string", "null"]
+          },
+          "producer": {
+            "type": ["string", "null"]
+          },
+          "related_to": {
+            "type": ["string", "null"]
+          },
+          "query": {
+            "type": ["string", "null"]
+          },
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "limit": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "ReadResource": {
+        "type": "object",
+        "required": ["uri"],
+        "additionalProperties": false,
+        "properties": {
+          "uri": {
+            "type": "string",
+            "pattern": "^aomi://[a-z0-9-]+/[a-z-]+/[0-9a-f]{32}$"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ResourceView"
+          },
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "limit": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 65536
+          }
+        }
+      },
+      "ResourceList": {
+        "type": "object",
+        "required": ["resources"],
+        "properties": {
+          "resources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceDescriptor"
+            }
+          },
+          "next_cursor": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ResourceRead": {
+        "type": "object",
+        "required": ["resource", "view", "summary", "complete"],
+        "properties": {
+          "resource": {
+            "$ref": "#/components/schemas/ResourceDescriptor"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ResourceView"
+          },
+          "summary": {},
+          "content": {},
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResourceChild"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": ["string", "null"]
           }
         }
       }
