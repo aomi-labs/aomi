@@ -1,5 +1,7 @@
 import type { components } from "../generated/agent-v1/types";
-import type { ActionRequest } from "../agent/types";
+import type { TransactionSafetyMode } from "../transaction-safety";
+import type { CommitView } from "../commits";
+import type { Action, ActionRequest } from "../agent/types";
 
 type Schemas = components["schemas"];
 
@@ -52,6 +54,8 @@ export interface PipelineOperationInvocation<
 }
 
 export interface PipelineExecutionScope {
+  /** EVM preparation policy; omitted initial requests use Balanced. */
+  transactionSafetyMode?: TransactionSafetyMode;
   app?: string;
   skills?: string[];
 }
@@ -74,6 +78,8 @@ export interface PipelineBuildOrigin {
 export type PipelineBuildProvenance = PipelineBuildOrigin;
 
 export interface PipelineMutationOptions {
+  /** EVM request-boundary override; later omission inherits the sealed Build mode. */
+  transactionSafetyMode?: TransactionSafetyMode;
   idempotencyKey?: string;
   paymentSignature?: string;
 }
@@ -160,6 +166,9 @@ export type EvmStagedAction = Schemas["AssembledEvmTransaction"];
 export type EvmPresentedAction = EvmStagedAction & { chainFamily: "evm" };
 
 export interface EvmStagedBuild {
+  /** Server-authored guard receipts sealed into the Build; preserve unchanged. */
+  readonly guardEvidence?: Record<string, unknown>;
+  transactionSafetyMode?: TransactionSafetyMode;
   version: 2;
   status: "staged";
   actions: EvmStagedAction[];
@@ -170,6 +179,9 @@ export interface EvmStagedBuild {
 }
 
 export interface EvmSimulatedBuild {
+  /** Server-authored guard receipts sealed into the Build; preserve unchanged. */
+  readonly guardEvidence?: Record<string, unknown>;
+  transactionSafetyMode?: TransactionSafetyMode;
   version: 2;
   status: "simulated";
   actions: EvmStagedAction[];
@@ -185,13 +197,17 @@ export interface EvmCommitResult {
   status: "committed";
   /** Explicit preparation outcome; status retains its legacy value for compatibility. */
   preparation_status?: "prepared";
+  /** This preparation call does not invoke the provider; CommitViews retain actual lifecycle state. */
   provider_invoked?: false;
-  next_required_action?: "submit_wallet_request";
+  next_required_action?: "submit_wallet_request" | "continue_commit_cohort";
   digest: string;
   /** Legacy output slot; use the preparation fields to decide the next action. */
   result: unknown;
-  /** Submit these with the caller's wallet; they have no durable Agent Action IDs. */
+  /** Server-owned durable requests. Continue through Commit Service. */
   requests: ActionRequest[];
+  thread_id?: string;
+  actions?: Action[];
+  commits?: CommitView[];
 }
 
 export type SvmAccountMeta =
@@ -295,7 +311,7 @@ export interface SvmCommitResult {
   digest: string;
   /** Legacy output slots; use the preparation fields to decide the next action. */
   results: unknown[];
-  /** Submit these with the caller's wallet; they have no durable Agent Action IDs. */
+  /** Server-owned durable requests. Continue through Commit Service. */
   requests: ActionRequest[];
 }
 export type PipelineErrorBody = Schemas["ErrorEnvelope"];

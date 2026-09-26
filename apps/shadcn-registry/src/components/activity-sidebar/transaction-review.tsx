@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
+import { reviewEligibility } from "@aomi-labs/client";
 import { Wallet, Fuel } from "lucide-react";
 import { Button } from "../ui/button";
 import { ImpactPanel } from "./wallet-impact";
@@ -28,6 +29,7 @@ export function TransactionReview({
   recoveringExistingAttempt = false,
   onApprove,
   onApproveAll,
+  approveAllDisabled = false,
   batchProgress,
   onReject,
 }: {
@@ -43,6 +45,7 @@ export function TransactionReview({
   recoveringExistingAttempt?: boolean;
   onApprove: () => void;
   onApproveAll?: () => void;
+  approveAllDisabled?: boolean;
   batchProgress?: { current: number; total: number; submitting: boolean };
   onReject: () => void;
 }) {
@@ -61,11 +64,14 @@ export function TransactionReview({
   }, [review.id, review.revision]);
   const simulation =
     review.request.type === "sign" ? undefined : review.request.simulation;
+  const eligibility = reviewEligibility(review.request);
   const warnings = visibleSimulationWarnings(simulation);
+  const simulationFailed =
+    simulation?.status === "failed" ||
+    simulation?.guards.some((guard) => guard.status === "failed");
   const failed =
     !recoveringExistingAttempt &&
-    (simulation?.status === "failed" ||
-      simulation?.guards.some((guard) => guard.status === "failed"));
+    (eligibility ? eligibility.state !== "eligible" : simulationFailed);
   const request = review.request;
   const signers =
     request.type === "sign"
@@ -98,7 +104,7 @@ export function TransactionReview({
           approvals={simulation?.approvals ?? []}
           supportedChains={supportedChains}
           showNetwork
-          failed={failed ?? false}
+          failed={simulationFailed ?? false}
         />
         {request.type === "sign" ? (
           <SigningRequestMetadata request={request} />
@@ -189,7 +195,10 @@ export function TransactionReview({
                 type="button"
                 onClick={onApproveAll}
                 disabled={
-                  approving || approveDisabled || batchProgress.submitting
+                  approving ||
+                  approveDisabled ||
+                  approveAllDisabled ||
+                  batchProgress.submitting
                 }
                 className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 shrink-0 rounded-none px-3 text-[12px] hover:opacity-90"
               >

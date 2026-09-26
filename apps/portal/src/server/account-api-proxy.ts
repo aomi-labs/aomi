@@ -3,6 +3,7 @@ import "server-only";
 import { mintAgentApiBearer } from "@aomi-labs/account";
 import { configuredAgentApiUrl } from "@portal/server/agent-api-proxy";
 import { accountAppsScope } from "@portal/server/account-apps-policy";
+import { transactionSafetyScope } from "@portal/server/transaction-safety-policy";
 import type { ApiPrincipal } from "@portal/server/oauth/principal";
 
 const ACCOUNT_PATHS = new Set([
@@ -36,7 +37,9 @@ export async function proxyAccountApi(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
   const incoming = new URL(request.url);
-  const appScope = accountAppsScope(request.method, incoming.pathname);
+  const appScope =
+    accountAppsScope(request.method, incoming.pathname) ??
+    transactionSafetyScope(request.method, incoming.pathname);
   if (!ACCOUNT_PATHS.has(incoming.pathname) && !appScope) {
     return Response.json(
       { error: { code: "not_found", message: "Not found" } },
@@ -53,7 +56,7 @@ export async function proxyAccountApi(
       {
         error: {
           code: "insufficient_scope",
-          message: "App access is not authorized",
+          message: "Account operation is not authorized",
         },
       },
       { status: 403 },

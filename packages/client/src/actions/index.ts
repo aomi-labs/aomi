@@ -11,3 +11,5 @@ export type {
   ActionResultFor,
   ActionType,
 } from "./capabilities";
+
+export { requiresSignatureAdmission, MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE } from "./capabilities";

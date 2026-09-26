@@ -6,6 +6,42 @@ import { walletCapabilities } from "../src";
 const signal = new AbortController().signal;
 
 describe("walletCapabilities", () => {
+  it("keeps raw wallet message consent signing available outside execution Actions", async () => {
+    const signMessage = vi.fn().mockResolvedValue("0xconsent");
+    const capability = walletCapabilities({ evm: {
+      address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chainId: 1, signMessage,
+    } }).sign;
+    await expect(capability!({
+      type: "sign", requestId: "consent", chainFamily: "evm", executionKind: "message",
+      signer: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", chainId: 1,
+      description: "Account consent", payloads: [{ kind: "evm_personal", message: "0x01" }],
+    }, signal)).resolves.toEqual({ status: "signed", outputs: [{ id: "payload_1", signature: "0xconsent" }] });
+    expect(signMessage).toHaveBeenCalledOnce();
+  });
+
+  it.each([[], ["durable-stage"]])(
+    "refuses direct sends for durable references %j",
+    async (commitStages) => {
+      const switchChain = vi.fn();
+      const sendCalls = vi.fn();
+      const capability = walletCapabilities({
+        evm: {
+          address: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          chainId: 10,
+          switchChain,
+          sendCalls,
+        },
+      }).execute_evm;
+      await expect(
+        capability!(
+          { type: "execute_evm", commitStages, transactions: [] },
+          signal,
+        ),
+      ).rejects.toThrow("Commit Service");
+      expect(switchChain).not.toHaveBeenCalled();
+      expect(sendCalls).not.toHaveBeenCalled();
+    },
+  );
   it("executes a complete EVM Action through the active wallet", async () => {
     const switchChain = vi.fn().mockResolvedValue(undefined);
     const sendCalls = vi.fn().mockResolvedValue({

@@ -307,6 +307,7 @@ export class CommitController {
     private client: AomiClient,
     readonly threadId: string,
     private capabilities: CommitCapabilities = {},
+    private readonly routeFamily: "agent" | "pipeline" = "agent",
   ) {}
   all = (): readonly CommitView[] => this.snapshot;
   submissionPhase = (id: string): CommitSubmissionPhase | undefined =>
@@ -466,7 +467,11 @@ export class CommitController {
     this.listeners.clear();
   }
   private path(id: string): string {
-    return `/api/commits/${encodeURIComponent(id)}`;
+    const root =
+      this.routeFamily === "pipeline"
+        ? "/v1/pipeline/evm/commits"
+        : "/api/commits";
+    return `${root}/${encodeURIComponent(id)}`;
   }
   private newAttemptIneligible(view: CommitView): boolean {
     // A request ID saved before POST is not proof that an attempt was admitted.
@@ -536,7 +541,9 @@ export class CommitController {
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     if (this.newAttemptIneligible(view))
-      throw new Error("Execution is blocked by the reviewed simulation");
+      throw new Error(
+        "Execution is blocked by the current reviewed eligibility",
+      );
     const pending = this.pending.get(id);
     if (pending) view = await this.manual(id, pending);
     if (this.closed) throw new Error("Commit session closed");

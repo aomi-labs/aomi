@@ -464,6 +464,7 @@ export function AomiRuntimeCore({
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
     () => ({
       account: aomiClient.account,
+      transactionSafety: aomiClient.transactionSafety,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
