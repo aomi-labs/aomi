@@ -4,7 +4,22 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(74);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(75);
+    expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
+    expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
+      operationId: "buildTask",
+      security: [{ aomiOAuth: ["task:build"] }],
+    });
+    const methods = new Set(["get", "post", "put", "patch", "delete"]);
+    const routes = Object.entries(publicApi.paths).flatMap(
+      ([path, operations]) =>
+        Object.keys(operations)
+          .filter((method) => methods.has(method))
+          .map((method) => `${method.toUpperCase()} ${path}`),
+    );
+    expect([...publicApi["x-aomi-route-manifest"]].sort()).toEqual(
+      routes.sort(),
+    );
     expect(
       publicApi["x-aomi-route-manifest"].filter((route) =>
         route.includes("/v1/account/apps"),
