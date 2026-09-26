@@ -26,6 +26,8 @@ function executeEvm(wallet: EvmWallet) {
     request: Extract<ActionRequest, { type: "execute_evm" }>,
     signal: AbortSignal,
   ): Promise<Extract<ActionResult, { status: "submitted" }>> => {
+    if ("commitStages" in request)
+      throw new Error("Durable transactions must use Commit Service");
     const { transactions } = request;
     const first = transactions[0];
     if (!first) throw new Error("EVM Action contains no transactions");

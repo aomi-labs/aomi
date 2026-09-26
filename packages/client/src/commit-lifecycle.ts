@@ -51,6 +51,22 @@ export function reviewEligibility(
 ):
   | { state: "eligible" | "blocked" | "unresolved"; reason?: string }
   | undefined {
+  if (request?.transactionSafety) {
+    const { decision, authority } = request.transactionSafety;
+    const eligibility =
+      authority.eligibility !== "eligible"
+        ? authority.eligibility
+        : decision.eligibility;
+    return {
+      state: eligibility === "waiting" ? "unresolved" : eligibility,
+      reason:
+        eligibility === "eligible"
+          ? undefined
+          : authority.eligibility !== "eligible"
+            ? authority.reasonCode
+            : decision.reasonCode,
+    };
+  }
   if (!request || request.type === "sign" || !request.simulation)
     return undefined;
   const simulation = request.simulation;

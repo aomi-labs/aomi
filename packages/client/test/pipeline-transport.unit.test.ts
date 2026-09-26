@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AomiClient, PipelineApiError } from "../src";
+import { AomiClient, PipelineApiError, type EvmStagedBuild } from "../src";
 
 describe("PipelineTransport", () => {
   it("uses the canonical filesystem discovery routes", async () => {
-    const fetch = vi.fn().mockImplementation(async () =>
-      Response.json({ kind: "directory", path: "/v1/pipeline", entries: [] }),
-    );
+    const fetch = vi
+      .fn()
+      .mockImplementation(async () =>
+        Response.json({ kind: "directory", path: "/v1/pipeline", entries: [] }),
+      );
     const pipeline = new AomiClient({
       baseUrl: "https://portal.example/",
       fetch,
@@ -140,5 +142,61 @@ describe("PipelineTransport", () => {
       retryable: true,
     });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EVM request transaction safety", () => {
+  it.each([undefined, "guarded_only", "balanced", "unrestricted"] as const)(
+    "carries %s only when selected by the caller",
+    async (mode) => {
+      const fetch = vi.fn().mockImplementation(async () => Response.json({}));
+      const pipeline = new AomiClient({
+        baseUrl: "https://portal.example",
+        fetch,
+        guest: false,
+      }).pipeline;
+      await pipeline.evm.build({
+        operation: "read",
+        arguments: {},
+        ...(mode ? { transactionSafetyMode: mode } : {}),
+      });
+      await pipeline.evm.stage({
+        actions: [],
+        ...(mode ? { transactionSafetyMode: mode } : {}),
+      });
+      for (const [, init] of fetch.mock.calls as [string, RequestInit][]) {
+        const body = JSON.parse(init.body as string);
+        if (mode) expect(body.transactionSafetyMode).toBe(mode);
+        else expect(body).not.toHaveProperty("transactionSafetyMode");
+      }
+    },
+  );
+  it("preserves sealed mode during simulation and sends an explicit override separately", async () => {
+    const fetch = vi.fn().mockImplementation(async () => Response.json({}));
+    const pipeline = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch,
+      guest: false,
+    }).pipeline;
+    const build: EvmStagedBuild = {
+      version: 2,
+      status: "staged",
+      actions: [],
+      origin: { app: "test", operations: [] },
+      expiresAt: 1,
+      digest: "digest",
+      attestation: "sealed",
+      transactionSafetyMode: "guarded_only",
+    };
+    await pipeline.evm.simulate(build);
+    await pipeline.evm.simulate(build, { transactionSafetyMode: "balanced" });
+    expect(JSON.parse(fetch.mock.calls[0][1].body as string)).toEqual({
+      build,
+    });
+    expect(JSON.parse(fetch.mock.calls[1][1].body as string)).toEqual({
+      build,
+      transactionSafetyMode: "balanced",
+    });
+    expect(build.transactionSafetyMode).toBe("guarded_only");
   });
 });

@@ -66,6 +66,30 @@ describe("canonical Pipeline BFF route", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe(origin);
   });
 
+  it("requires execution scope for durable lifecycle reads", async () => {
+    const principal = {
+      canonicalUserId: "owner",
+      scopes: ["pipeline:execute"],
+      resource: "https://portal.example/v1/pipeline",
+      authSource: "oauth",
+      principalClass: "user",
+    };
+    mocks.resolveApiPrincipal.mockResolvedValue(principal);
+    mocks.proxyAgentApi.mockResolvedValue(new Response("ok"));
+    const request = new Request(
+      "https://portal.example/v1/pipeline/evm/commits/00000000-0000-0000-0000-000000000001",
+      { headers: { "x-thread-id": "standalone-owner-scope" } },
+    );
+    expect((await GET(request)).status).toBe(200);
+    expect(mocks.resolveApiPrincipal).toHaveBeenCalledWith(
+      expect.objectContaining({ requiredScopes: ["pipeline:execute"] }),
+    );
+    expect(mocks.proxyAgentApi).toHaveBeenCalledWith(request, {
+      ...principal,
+      scopes: ["pipeline:execute"],
+    });
+  });
+
   it.each([GET, POST])("delegates every supported method", async (handler) => {
     const principal = {
       canonicalUserId: "canonical-user",

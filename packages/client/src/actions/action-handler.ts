@@ -1,6 +1,13 @@
 import type { Action, ActionResult } from "../agent/types";
+import type { CommitController, CommitView } from "../commits";
 import { TypedEventEmitter } from "../event";
-import { canExecute, execute, type ActionCapabilities } from "./capabilities";
+import {
+  canExecute,
+  execute,
+  requiresSignatureAdmission,
+  MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
+  type ActionCapabilities,
+} from "./capabilities";
 
 export type ActionAttemptState = "executing" | "responding" | "failed";
 
@@ -39,6 +46,7 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
   constructor(
     private capabilities: ActionCapabilities,
     private readonly respond: ActionResponder,
+    private readonly commits?: CommitController,
   ) {
     super();
   }
@@ -107,6 +115,22 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
 
   canExecute(id: string): boolean {
     const action = this.actions.get(id);
+    if (
+      action?.request.type === "execute_evm" &&
+      "commitStages" in action.request
+    ) {
+      try {
+        const next = this.linkedViews(action).find(
+          (view) => view.state !== "confirmed",
+        );
+        return (
+          action.state === "pending" &&
+          Boolean(next && this.commits?.canExecute(next))
+        );
+      } catch {
+        return false;
+      }
+    }
     return Boolean(
       action &&
       action.state === "pending" &&
@@ -115,6 +139,8 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
   }
 
   execute(id: string): Promise<Action> {
+    const linked = this.pendingAction(id);
+    if (linkedStages(linked)) return this.executeLinked(linked);
     const current = this.attempts.get(id);
     if (current?.promise) return current.promise;
     if (current?.result)
@@ -151,6 +177,12 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
     const current = this.attempts.get(id);
     if (current?.promise) return current.promise;
     const action = this.pendingAction(id);
+    if (linkedStages(action))
+      throw new Error(
+        "Durable transactions report outcomes through Commit Service",
+      );
+    if (result.status === "signed" && requiresSignatureAdmission(action.request))
+      throw new Error(MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE);
     const attempt =
       current ??
       ({
@@ -166,6 +198,8 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
   }
 
   reject(id: string, reason = "Request rejected"): Promise<Action> {
+    const action = this.pendingAction(id);
+    if (linkedStages(action)) return this.rejectLinked(action);
     return this.submitResult(id, { status: "rejected", reason });
   }
 
@@ -192,6 +226,69 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
     this.removeAllListeners();
   }
 
+  private linkedViews(action: Action): CommitView[] {
+    const stages = linkedStages(action);
+    if (
+      !stages ||
+      !this.commits ||
+      action.request.type !== "execute_evm" ||
+      stages.length !== action.request.transactions.length ||
+      new Set(stages).size !== stages.length
+    ) {
+      throw new Error("Durable transaction preparation is still loading");
+    }
+    const views = stages.map((stage) => {
+      const matches = this.commits!.all().filter(
+        (view) => view.stage_id === stage,
+      );
+      if (matches.length !== 1)
+        throw new Error("Durable transaction preparation is still loading");
+      return matches[0]!;
+    });
+    if (
+      views.some(
+        (view, index) =>
+          view.thread_id !== this.commits!.threadId ||
+          (views.length > 1 &&
+            (!view.batch ||
+              view.batch.index !== index ||
+              view.batch.batch_id !== views[0]!.batch?.batch_id ||
+              view.batch.ordered_stage_ids.some(
+                (stage, position) => stage !== stages[position],
+              ) ||
+              view.batch.ordered_stage_ids.length !== stages.length ||
+              view.batch.ordered_commit_ids.some(
+                (id, position) => id !== views[position]?.commit_id,
+              ) ||
+              view.batch.ordered_commit_ids.length !== views.length)),
+      )
+    ) {
+      throw new Error("Durable transaction cohort identity mismatch");
+    }
+    return views;
+  }
+
+  private async executeLinked(action: Action): Promise<Action> {
+    const views = this.linkedViews(action);
+    for (const view of views) {
+      const current = await this.commits!.refresh(view.commit_id);
+      if (current.state === "confirmed") continue;
+      if (current.state === "submitted") return this.get(action.id) ?? action;
+      const next = await this.commits!.execute(view.commit_id);
+      if (next.state !== "confirmed") break;
+    }
+    return this.get(action.id) ?? action;
+  }
+
+  private async rejectLinked(action: Action): Promise<Action> {
+    for (const view of this.linkedViews(action)) {
+      const current = await this.commits!.refresh(view.commit_id);
+      if (current.state === "confirmed") continue;
+      await this.commits!.reject(view.commit_id);
+    }
+    return this.get(action.id) ?? action;
+  }
+
   private sendResult(action: Action, attempt: Attempt): Promise<Action> {
     if (attempt.promise) return attempt.promise;
     return this.track(action.id, attempt, async () => {
@@ -210,11 +307,13 @@ export class ActionHandler extends TypedEventEmitter<ActionHandlerEvents> {
     attempt.error = undefined;
     this.emit("attempt_changed", publicAttempt(attempt));
 
-    return this.respond(action, attempt.result, attempt.idempotencyKey).then((next) => {
-      this.ingest(next);
-      this.emit("resolved", next);
-      return next;
-    });
+    return this.respond(action, attempt.result, attempt.idempotencyKey).then(
+      (next) => {
+        this.ingest(next);
+        this.emit("resolved", next);
+        return next;
+      },
+    );
   }
 
   private track(
@@ -254,4 +353,20 @@ function publicAttempt(attempt: Attempt): ActionAttempt {
     state: attempt.state,
     ...(attempt.error === undefined ? {} : { error: attempt.error }),
   };
+}
+
+function linkedStages(action: Action): string[] | undefined {
+  if (
+    action.request.type !== "execute_evm" ||
+    !("commitStages" in action.request)
+  )
+    return undefined;
+  const stages = action.request.commitStages;
+  if (
+    !Array.isArray(stages) ||
+    !stages.length ||
+    stages.some((stage) => typeof stage !== "string" || !stage)
+  )
+    throw new Error("Invalid durable transaction references");
+  return stages;
 }

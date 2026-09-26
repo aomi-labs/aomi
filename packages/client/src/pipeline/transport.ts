@@ -49,7 +49,12 @@ export class EvmPipelineTransport {
   ): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/build", {
       headers: mutationHeaders(options),
-      body: jsonBody(input),
+      body: jsonBody({
+        ...input,
+        ...(options.transactionSafetyMode === undefined
+          ? {}
+          : { transactionSafetyMode: options.transactionSafetyMode }),
+      }),
     });
   }
 
@@ -59,7 +64,12 @@ export class EvmPipelineTransport {
   ): Promise<EvmStagedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/stage", {
       headers: mutationHeaders(options),
-      body: jsonBody(input),
+      body: jsonBody({
+        ...input,
+        ...(options.transactionSafetyMode === undefined
+          ? {}
+          : { transactionSafetyMode: options.transactionSafetyMode }),
+      }),
     });
   }
 
@@ -69,7 +79,12 @@ export class EvmPipelineTransport {
   ): Promise<EvmSimulatedBuild> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/simulate", {
       headers: mutationHeaders(options),
-      body: { build: jsonBody(build) },
+      body: {
+        build: jsonBody(build),
+        ...(options.transactionSafetyMode === undefined
+          ? {}
+          : { transactionSafetyMode: options.transactionSafetyMode }),
+      },
     });
   }
 
@@ -79,7 +94,12 @@ export class EvmPipelineTransport {
   ): Promise<EvmCommitResult> {
     return json(this.requestResponse, "POST", "/v1/pipeline/evm/commit", {
       headers: commitHeaders(build.digest, options),
-      body: { build: jsonBody(build) },
+      body: {
+        build: jsonBody(build),
+        ...(options.transactionSafetyMode === undefined
+          ? {}
+          : { transactionSafetyMode: options.transactionSafetyMode }),
+      },
     });
   }
 }

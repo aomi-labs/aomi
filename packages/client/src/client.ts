@@ -30,6 +30,7 @@ import { normalizeAppDescriptor } from "./app-descriptor";
 import { UserState } from "./user-state";
 import { AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
+import { TransactionSafetyTransport } from "./transaction-safety";
 import { AccountTransport } from "./account/credits";
 import type {
   AomiOAuthTokenProvider,
@@ -272,7 +273,10 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     return {
       resource: `${origin}/v1/pipeline` as AomiOAuthResource,
       scopes: [
-        method === "GET" ? "pipeline:catalog" : "pipeline:execute",
+        method === "GET" &&
+        !url.pathname.startsWith("/v1/pipeline/evm/commits/")
+          ? "pipeline:catalog"
+          : "pipeline:execute",
         ...payment,
       ],
       method: method.toUpperCase(),
@@ -286,7 +290,12 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
     const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
     let scope: string;
-    if (isAppCredential) {
+    if (url.pathname.startsWith("/v1/account/transaction-safety")) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:transaction-safety:read"
+          : "account:transaction-safety:write";
+    } else if (isAppCredential) {
       scope =
         method.toUpperCase() === "GET"
           ? "account:credentials:read"
@@ -354,6 +363,7 @@ export class AomiClient {
   readonly agent: AgentTransport;
   readonly pipeline: PipelineTransport;
   readonly account: AccountTransport;
+  readonly transactionSafety: TransactionSafetyTransport;
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
@@ -425,6 +435,10 @@ export class AomiClient {
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
+    );
+    this.transactionSafety = new TransactionSafetyTransport(
+      (method, path, requestOptions) =>
+        this.requestResponse(method, path, requestOptions),
     );
     this.account = new AccountTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),

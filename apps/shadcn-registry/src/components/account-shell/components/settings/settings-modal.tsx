@@ -14,7 +14,7 @@ import { ModalBackdrop } from "../../../ui/modal-backdrop";
 import { GeneralSettings } from "../../features/general";
 import { AccountSettings } from "../../features/account";
 import { UsageSettings } from "../../features/usage";
-import { PolicySettings } from "../../features/policy";
+import { PolicyPage } from "../../features/policy";
 import { directoryModalType } from "../shell/directory-modal-type";
 import {
   useAomiSession,
@@ -44,7 +44,7 @@ const NAV: {
   {
     id: "policy",
     label: "Policy",
-    description: "On-chain permissions for delegated agents",
+    description: "Transaction safety and on-chain permissions",
     Icon: ShieldCheck,
   },
   {
@@ -213,7 +213,7 @@ export function SettingsModal({
         return (
           <>
             {errorBanner}
-            <PolicySettings />
+            <PolicyPage />
           </>
         );
     }

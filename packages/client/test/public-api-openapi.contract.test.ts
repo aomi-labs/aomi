@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(75);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(83);
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
       operationId: "buildTask",
@@ -56,6 +56,39 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     }
     expect(publicApi.paths["/v1/pipeline/mcp"].post.operationId).toBe(
       "pipelineMcp",
+    );
+  });
+
+  it("binds public durable Pipeline continuations to execution scope and canonical reviews", () => {
+    const paths = publicApi.paths;
+    const operations = [
+      paths["/v1/pipeline/evm/commits/{commitId}"].get,
+      paths["/v1/pipeline/evm/commits/{commitId}/manual"].post,
+      paths["/v1/pipeline/evm/commits/{commitId}/wallet-attempts"].post,
+      paths[
+        "/v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report"
+      ].post,
+    ];
+    for (const operation of operations) {
+      expect(operation.security).toEqual([{ aomiOAuth: ["pipeline:execute"] }]);
+      expect(operation.parameters).toContainEqual(
+        expect.objectContaining({
+          name: "x-thread-id",
+          in: "header",
+          required: true,
+        }),
+      );
+    }
+    expect(
+      publicApi.components.schemas.PipelineEvmCommitResult.properties,
+    ).toMatchObject({
+      actions: { items: { $ref: "#/components/schemas/Action" } },
+      commits: { items: { $ref: "#/components/schemas/CommitView" } },
+      thread_id: { type: "string" },
+      requests: { items: { $ref: "#/components/schemas/ActionRequest" } },
+    });
+    expect(publicApi.components.schemas.TaskSummary.required).toContain(
+      "transactionSafety",
     );
   });
 

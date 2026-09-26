@@ -20,7 +20,10 @@ async function handle(request: Request): Promise<Response> {
   const resource = aomiOAuthResources().pipelineRest;
   try {
     const requiredScopes = [
-      request.method === "GET" ? "pipeline:catalog" : "pipeline:execute",
+      request.method === "GET" &&
+      !new URL(request.url).pathname.startsWith("/v1/pipeline/evm/commits/")
+        ? "pipeline:catalog"
+        : "pipeline:execute",
       ...(request.headers.has("payment-signature") ? ["payments:submit"] : []),
     ];
     const principal = await resolveApiPrincipal({
