@@ -8,6 +8,11 @@ import {
   upstreamRecords,
 } from "./browser-contract-helpers";
 
+import {
+  callbackEvents,
+  callbackFinalText,
+} from "../fixtures/commit-callback-events";
+
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
 const keys = fixtureKeys();
 const fixedNow = new Date("2026-09-16T12:00:00.000Z");
@@ -379,6 +384,130 @@ test("controlled delayed child activity keeps the answer and a scrolled-up reade
       .locator(".aui-working-answer")
       .filter({ hasText: "Controlled final answer is ready." }),
   ).toHaveCount(1);
+});
+
+test("saved wallet callback reload reuses tool resources and unlocks the same session after completion", async ({
+  page,
+}) => {
+  await signIn(page);
+  const sessionId = "saved-callback-browser-contract";
+  const title = "Saved callback preparation";
+  let completed = false;
+  let release!: () => void;
+  const terminalGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const pageData = (events: typeof callbackEvents) => ({
+    session_id: sessionId,
+    cursor: String(events.at(-1)?.sequence ?? 0),
+    events,
+    has_more: false,
+  });
+  await page.route("**/v1/agent/sessions**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        sessions: [
+          {
+            id: sessionId,
+            title,
+            updatedAt: fixedNow.getTime(),
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      }),
+    }),
+  );
+  await page.route(
+    /\/v1\/agent\/chat\/saved-callback-browser-contract(?:\?|$)/,
+    (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get("cursor");
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          pageData(
+            cursor
+              ? []
+              : callbackEvents.filter(
+                  (event) => completed || event.sequence < 32,
+                ),
+          ),
+        ),
+      });
+    },
+  );
+  await page.route(
+    /\/v1\/agent\/chat\/saved-callback-browser-contract\/stream(?:\?|$)/,
+    async (route) => {
+      await terminalGate;
+      completed = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `event: page\ndata: ${JSON.stringify(pageData(callbackEvents.filter((event) => event.sequence === 32)))}\n\n`,
+      });
+    },
+  );
+  // Restore an existing saved session; no new model turn or wallet action.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: title, exact: true }).click();
+  const trace = page.locator(".aui-working-trace");
+  await expect(trace).toContainText(callbackFinalText, { timeout: 30_000 });
+  await expect(page.locator(".aui-working-answer")).toHaveCount(0);
+  await expect(trace.locator(".aui-working-step")).toHaveCount(8);
+  await expect(
+    page.getByRole("button", { name: "Stop generating" }),
+  ).toBeVisible();
+  await expect(page.getByText(/Duplicate key|Runtime Error/i)).toHaveCount(0);
+  expect(errors).toEqual([]);
+
+  const unsentDraft = "Yes, proceed with the prepared transactions.";
+  await page.getByRole("textbox", { name: "Message input" }).fill(unsentDraft);
+  release();
+  const answer = page.locator(".aui-working-answer");
+  await expect(answer).toHaveCount(1);
+  await expect(answer).toHaveText(callbackFinalText);
+  await expect(trace).toContainText(
+    "I will stage the approval and supply in order.",
+  );
+  await expect(trace).not.toContainText(callbackFinalText);
+  await expect(
+    page.getByRole("button", { name: "Stop generating" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Send message" }),
+  ).toBeVisible();
+
+  await expect(page.getByRole("textbox", { name: "Message input" })).toHaveText(
+    unsentDraft,
+  );
+  await expect(
+    page.getByRole("button", { name: "Send message" }),
+  ).toBeEnabled();
+
+  // A new ClientSession reduces the same saved terminal events after reload.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: title, exact: true }).click();
+  await expect(page.locator(".aui-working-answer")).toHaveCount(1);
+  await expect(page.locator(".aui-working-answer")).toHaveText(
+    callbackFinalText,
+  );
+  await expect(page.locator(".aui-working-step")).toHaveCount(8);
+  await expect(
+    page.getByRole("button", { name: "Stop generating" }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Message input" })
+    .fill("An unsent follow-up is ready");
+  await expect(
+    page.getByRole("button", { name: "Send message" }),
+  ).toBeEnabled();
+  expect(errors).toEqual([]);
 });
 
 async function openActionThread(page: Page): Promise<void> {

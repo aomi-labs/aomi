@@ -286,7 +286,7 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected !== 14 ||
+    stats.expected !== 15 ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
