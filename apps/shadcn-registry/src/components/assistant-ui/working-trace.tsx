@@ -880,10 +880,14 @@ export const AssistantTurnParts: FC = () => {
     typeof finalAnswerStartIndex === "number" &&
     finalAnswerStartIndex >= 0 &&
     finalAnswerStartIndex <= parts.length;
+  // A response key identifies which prose is the answer, not whether the
+  // operation has finished. Parent completion precedes wallet callbacks, and
+  // response text can arrive before the callback's durable complete event.
   const answerReady =
-    explicitAnswerBoundary ||
-    ownStatus === "complete" ||
-    (ownStatus === undefined && isLast && runtime?.turnState === "complete");
+    !live &&
+    !ownStopped &&
+    (ownStatus === "complete" ||
+      (ownStatus === undefined && isLast && runtime?.turnState === "complete"));
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -895,18 +899,26 @@ export const AssistantTurnParts: FC = () => {
   // Any live text, including the first part, may still precede a tool call.
   // Completion is the boundary that identifies the final answer; until then
   // keep prose in the trace rather than moving it back when a tool arrives.
-  const traceEnd = explicitAnswerBoundary
-    ? finalAnswerStartIndex
-    : !answerReady
-      ? parts.length
+  const traceEnd = !answerReady
+    ? parts.length
+    : explicitAnswerBoundary
+      ? finalAnswerStartIndex
       : lastToolIndex + 1;
-  const answerIndexes = new Set(
-    parts.flatMap((part, index) =>
-      index >= traceEnd && part.type === "text" && part.text.trim()
-        ? [index]
-        : [],
-    ),
-  );
+  // Only one message is the final answer. Earlier narration can follow the
+  // last tool too; a transient tool-free interval is not an answer boundary.
+  const finalTextIndex = answerReady
+    ? explicitAnswerBoundary &&
+      parts[finalAnswerStartIndex]?.type === "text" &&
+      (parts[finalAnswerStartIndex] as TextMessagePart).text.trim()
+      ? finalAnswerStartIndex
+      : parts.findLastIndex(
+          (part, index) =>
+            index >= traceEnd &&
+            part.type === "text" &&
+            Boolean(part.text.trim()),
+        )
+    : -1;
+  const answerIndexes = new Set(finalTextIndex >= 0 ? [finalTextIndex] : []);
   // A late tool completion or an empty final-answer marker can leave the
   // completed prose before the boundary. Keep the tool in the trace while
   // showing the last nonempty text as the answer instead of hiding it there.
@@ -924,11 +936,7 @@ export const AssistantTurnParts: FC = () => {
     if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
   }
   const traceItems = buildTraceItems(
-    parts.filter(
-      (part, index) =>
-        part.type === "tool-call" ||
-        (index < traceEnd && !answerIndexes.has(index)),
-    ),
+    parts.filter((part, index) => !answerIndexes.has(index)),
     delegations,
   );
   const answerParts = parts.filter(

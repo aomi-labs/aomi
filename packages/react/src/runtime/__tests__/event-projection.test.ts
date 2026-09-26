@@ -7,6 +7,12 @@ import {
   projectRuntimeMessages,
   walletContinuationPending,
 } from "../utils";
+import {
+  callbackEvents,
+  callbackCall,
+  callbackRoot,
+  callbackTurn,
+} from "../../../../../tests/fixtures/commit-callback-events";
 import { appendCapabilityHints } from "../capability-hints";
 
 const meta = (
@@ -22,6 +28,102 @@ const meta = (
 });
 
 describe("projectAssistantMessages", () => {
+  it("rehydrates the saved cross-turn wallet result as one call and settles its callback", () => {
+    const projected = projectAssistantMessages(callbackEvents);
+    const assistant = projected.find(
+      (message) => message.id === `turn:${callbackRoot}`,
+    )!;
+    const parts = assistant.content as Array<{
+      type: string;
+      toolCallId?: string;
+      toolName?: string;
+      result?: unknown;
+    }>;
+    expect(
+      parts.filter((part) => part.toolCallId === callbackCall),
+    ).toHaveLength(1);
+    expect(
+      parts.find((part) => part.toolCallId === callbackCall)?.result,
+    ).toMatchObject({ status: "success" });
+    expect(
+      parts.filter((part) => part.toolName === "evm_stage_tx"),
+    ).toHaveLength(3);
+    expect(
+      new Set(
+        parts
+          .filter((part) => part.type === "tool-call")
+          .map((part) => part.toolCallId),
+      ).size,
+    ).toBe(parts.filter((part) => part.type === "tool-call").length);
+    expect(logicalTurnRunning(callbackEvents, projected, "processing")).toBe(
+      false,
+    );
+    const beforeComplete = callbackEvents.filter(
+      (event) => event.sequence < 32,
+    );
+    expect(
+      logicalTurnRunning(
+        beforeComplete,
+        projectAssistantMessages(beforeComplete),
+        "complete",
+      ),
+    ).toBe(true);
+    expect(
+      projectAssistantMessages([
+        ...callbackEvents,
+        callbackEvents.find((event) => event.sequence === 15)!,
+      ]),
+    ).toEqual(projected);
+  });
+
+  it("does not stop a new active user turn when an older callback completes late", () => {
+    const events: Event[] = [
+      ...callbackEvents.filter((event) => event.sequence < 32),
+      {
+        ...meta(33, "message", "new-user-turn"),
+        type: "message",
+        sender: "user",
+        content: "A new question",
+      },
+      {
+        ...meta(34, "turn_state_changed", "new-user-turn"),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(35, "turn_state_changed", callbackTurn),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+    ];
+    expect(
+      logicalTurnRunning(events, projectAssistantMessages(events), "complete"),
+    ).toBe(true);
+  });
+
+  it("preserves a legacy inline call when a same-name typed call has no shared identity", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "legacy-read",
+        tool_name: "read",
+        tool_result: ["read", "{}"],
+      },
+      {
+        ...meta(2, "tool_complete", "turn-1"),
+        type: "tool_complete",
+        id: "typed-read",
+        call_id: "distinct-read",
+        tool_name: "read",
+        result: {},
+      },
+    ];
+    expect(projectAssistantMessages(events)[0]?.content).toHaveLength(2);
+  });
+
   it("keeps frontend capability hints out of optimistic and canonical user messages", () => {
     const hinted = appendCapabilityHints("swap one eth", {
       policy: "auto",
@@ -291,6 +393,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "commit-admission",
+        tool_call_id: "commit-call",
         tool_name: "evm_commit_txs",
         tool_result: ["Commit", JSON.stringify(admission)],
       },
@@ -687,6 +790,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "inline-quote",
+        tool_call_id: "typed-quote",
         tool_name: "quote",
         tool_result: ["Quote", '{"price":"old"}'],
       },
@@ -798,6 +902,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "tool-step-1",
+        tool_call_id: "call-1",
         tool_name: "get_balance",
         tool_result: ["Read balance", '{"balance_eth":"6.64"}'],
       },
