@@ -38,6 +38,7 @@ describe("Agent live delivery", () => {
     vi.useFakeTimers();
     let delivered = false;
     const callbackTurn = "broadcast-terminal:callback-batch";
+    let callbackReader!: ReadableStreamDefaultController<Uint8Array>;
     const view = () => ({
       version: 1,
       commit_id: "callback-commit",
@@ -113,13 +114,13 @@ describe("Agent live delivery", () => {
         return new Response(
           new ReadableStream({
             start(controller) {
+              callbackReader = controller;
               controller.enqueue(
                 frame("page", {
-                  ...page(callbackEvents, "callback-cursor"),
+                  ...page(callbackEvents.slice(0, 1), "callback-cursor"),
                   commits: [view()],
                 }),
               );
-              controller.close();
             },
           }),
           { headers: { "content-type": "text/event-stream" } },
@@ -151,6 +152,11 @@ describe("Agent live delivery", () => {
             (message) => message.message_key === `${callbackTurn}:response`,
           ),
       ).toBe(true);
+      expect(session.getSnapshot().isStreaming).toBe(true);
+      callbackReader.enqueue(
+        frame("page", page(callbackEvents.slice(1), "completed-cursor")),
+      );
+      await vi.advanceTimersByTimeAsync(1);
       expect(session.getSnapshot().isStreaming).toBe(false);
       await vi.advanceTimersByTimeAsync(5_000);
       expect(

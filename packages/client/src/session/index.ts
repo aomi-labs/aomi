@@ -684,6 +684,17 @@ export class ClientSession {
       (this.turnState === "processing" || this.turnState === "awaiting_action")
     )
       return false;
+    if (this.hasCompletedCallback(turnId)) return true;
+    // Delivery polling carries metadata only. Wake the existing bounded drain
+    // once when known delivery finishes beyond the original event window.
+    this.commitDrainAfter = this.events.at(-1)?.sequence ?? 0;
+    this.terminalTurnId = turnId;
+    this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
+    this.startStreaming();
+    return true;
+  }
+
+  private hasCompletedCallback(turnId: string): boolean {
     const latestState = this.events.findLast(
       (event) =>
         event.type === "turn_state_changed" && event.turn_id === turnId,
@@ -697,19 +708,11 @@ export class ClientSession {
         this.isCallbackResponse(event) &&
         event.content.trim().length > 0,
     );
-    if (
+    return (
       latestState?.type === "turn_state_changed" &&
       latestState.state === "complete" &&
       hasAnswer
-    )
-      return true;
-    // Delivery polling carries metadata only. Wake the existing bounded drain
-    // once when known delivery finishes beyond the original event window.
-    this.commitDrainAfter = this.events.at(-1)?.sequence ?? 0;
-    this.terminalTurnId = turnId;
-    this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
-    this.startStreaming();
-    return true;
+    );
   }
 
   private isCallbackResponse(message: MessageEvent): boolean {
@@ -770,6 +773,8 @@ export class ClientSession {
   private hasTerminalAnswer(): boolean {
     const turnId = this.terminalTurnId;
     if (!turnId) return false;
+    if (turnId.startsWith("broadcast-terminal:"))
+      return this.hasCompletedCallback(turnId);
     return this.events.some(
       (event) =>
         event.type === "message" &&
