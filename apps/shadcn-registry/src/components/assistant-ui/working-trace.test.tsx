@@ -54,12 +54,20 @@ describe("WorkingTrace", () => {
       const view = render(
         <WorkingTrace
           running
-          items={[]}
-          revealed={0}
+          items={[{ kind: "note", key: "note", text: "Checking the request" }]}
+          revealed={1}
           startedAtMs={startedAtMs}
         />,
       );
       expect(view.getByLabelText("Working time")).toHaveTextContent("5s");
+      expect(view.getByLabelText("Working time")).toHaveClass(
+        "inline-flex",
+        "items-center",
+        "leading-none",
+      );
+      expect(view.getByText("1 step").className).toBe(
+        view.getByLabelText("Working time").className,
+      );
       act(() => vi.advanceTimersByTime(2_000));
       expect(view.getByLabelText("Working time")).toHaveTextContent("7s");
       view.rerender(

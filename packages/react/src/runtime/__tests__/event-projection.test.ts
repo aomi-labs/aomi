@@ -981,3 +981,19 @@ describe("projectAssistantMessages", () => {
     ]);
   });
 });
+
+it("targets the completed callback response rather than its projected parent for rerun", () => {
+  const answer = projectAssistantMessages(callbackEvents).find(
+    (message) => message.id === `turn:${callbackRoot}`,
+  );
+  expect(answer?.metadata?.custom?.aomiResponseMessageKey).toBe(
+    `${callbackTurn}:response`,
+  );
+  const beforeComplete = callbackEvents.filter((event) => event.sequence < 32);
+  const pending = projectAssistantMessages(beforeComplete).find(
+    (message) => message.id === `turn:${callbackRoot}`,
+  );
+  expect(pending?.metadata?.custom?.aomiResponseMessageKey).not.toBe(
+    `${callbackTurn}:response`,
+  );
+});

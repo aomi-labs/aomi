@@ -18,6 +18,7 @@ import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
 import type { AomiClientOptions } from "../types";
 import type {
+  SendOptions,
   SendResult,
   SessionOptions,
   SessionRuntimeOptions,
@@ -28,6 +29,7 @@ export { aaModeFromExecutionKind } from "../aa/policy";
 export type {
   Event,
   EventPage,
+  SendOptions,
   SendResult,
   SessionOptions,
   SessionRuntimeOptions,
@@ -62,6 +64,7 @@ export class ClientSession {
   private turnState?: TurnState;
   private startOperation?: {
     message: string;
+    regenerate?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
   };
@@ -195,8 +198,8 @@ export class ClientSession {
     return () => this.listeners.delete(listener);
   };
 
-  async send(message: string): Promise<SendResult> {
-    const page = await this.submit(message);
+  async send(message: string, options: SendOptions = {}): Promise<SendResult> {
+    const page = await this.submit(message, options);
     if (this.isTerminal()) {
       this.drainTerminalPage(page);
       // The drain may still be polling for the trailing final message /
@@ -211,8 +214,11 @@ export class ClientSession {
     });
   }
 
-  async sendAsync(message: string): Promise<EventPage> {
-    const page = await this.submit(message);
+  async sendAsync(
+    message: string,
+    options: SendOptions = {},
+  ): Promise<EventPage> {
+    const page = await this.submit(message, options);
     if (this.isTerminal()) {
       this.drainTerminalPage(page);
       return page;
@@ -295,15 +301,25 @@ export class ClientSession {
     this.listeners.clear();
   }
 
-  private async submit(message: string): Promise<EventPage> {
+  private async submit(
+    message: string,
+    options: SendOptions,
+  ): Promise<EventPage> {
     this.assertOpen();
+    if (options.regenerate !== undefined && !options.regenerate.trim()) {
+      throw new TypeError(
+        "regenerate requires a completed assistant message key",
+      );
+    }
     const text = message.trim();
     if (!text) throw new TypeError("message is required");
     const operation: NonNullable<ClientSession["startOperation"]> =
-      this.startOperation?.message === text
+      this.startOperation?.message === text &&
+      this.startOperation.regenerate === options.regenerate
         ? this.startOperation
         : {
             message: text,
+            regenerate: options.regenerate,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
           };
     this.startOperation = operation;
@@ -340,6 +356,7 @@ export class ClientSession {
           sessionId: this.sessionId,
           clientId: this.clientId,
           message: text,
+          ...(operation.regenerate ? { regenerate: operation.regenerate } : {}),
           ...target,
           ...(this.model ? { model: this.model } : {}),
           ...(state

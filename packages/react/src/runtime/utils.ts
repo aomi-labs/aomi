@@ -138,6 +138,7 @@ type AssistantProjection = {
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
   finalAnswerStartIndex?: number;
+  responseMessageKey?: string;
 };
 
 /** Insert a part once per key, replacing it in place on re-delivery. */
@@ -357,6 +358,18 @@ export function projectAssistantMessages(
 ): ThreadMessageLike[] {
   const output: Array<ThreadMessageLike | AssistantProjection> = [];
   const assistantTurns = new Map<string, AssistantProjection>();
+  const terminalTurns = new Map<
+    string,
+    { state: TurnState; sequence: number }
+  >();
+  for (const event of events) {
+    if (event.type === "turn_state_changed" && event.turn_id) {
+      terminalTurns.set(event.turn_id, {
+        state: event.state,
+        sequence: event.sequence,
+      });
+    }
+  }
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
@@ -425,6 +438,15 @@ export function projectAssistantMessages(
           ) {
             projection.finalAnswerStartIndex ??= projection.parts.length;
           }
+          const terminal = terminalTurns.get(event.turn_id ?? "");
+          if (
+            event.message_key &&
+            event.content.trim() &&
+            event.is_streaming !== true &&
+            terminal?.state === "complete" &&
+            terminal.sequence > event.sequence
+          )
+            projection.responseMessageKey = event.message_key;
           upsertPart(projection, projection.textParts, key, {
             type: "text",
             text: event.content,
@@ -475,10 +497,15 @@ export function projectAssistantMessages(
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
-        ...(entry.finalAnswerStartIndex !== undefined || callbackTurns
+        ...(entry.finalAnswerStartIndex !== undefined ||
+        callbackTurns ||
+        entry.responseMessageKey
           ? {
               metadata: {
                 custom: {
+                  ...(entry.responseMessageKey
+                    ? { aomiResponseMessageKey: entry.responseMessageKey }
+                    : {}),
                   ...(entry.finalAnswerStartIndex !== undefined
                     ? { aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex }
                     : {}),

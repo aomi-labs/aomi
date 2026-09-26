@@ -3030,6 +3030,12 @@
             "minLength": 1,
             "maxLength": 32000
           },
+          "regenerate": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Durable completed assistant message_key in this session. Append a response-only restatement with all tools disabled; preserve history and transaction outcomes."
+          },
           "applicationId": {
             "type": ["integer", "null"]
           },

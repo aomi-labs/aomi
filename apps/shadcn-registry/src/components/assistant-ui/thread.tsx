@@ -736,8 +736,8 @@ const EditComposer: FC = () => {
             </Button>
           </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send asChild>
-            <Button size="sm" aria-label="Update message">
-              Update
+            <Button size="sm" aria-label="Save and resend">
+              Save and resend
             </Button>
           </ComposerPrimitive.Send>
         </div>

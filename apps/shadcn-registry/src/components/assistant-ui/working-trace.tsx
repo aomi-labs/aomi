@@ -538,7 +538,7 @@ export const WorkingTrace: FC<{
         {running && (
           <span
             aria-label="Working time"
-            className="text-aomi-muted text-[11px] tabular-nums"
+            className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none"
           >
             {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
           </span>

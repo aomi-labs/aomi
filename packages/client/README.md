@@ -313,6 +313,8 @@ new integrations should use `target` so routing intent is unambiguous.
 | `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
 | `close()`             | Stop streaming and release listeners                              |
 
+To reconsider a completed assistant answer, pass `{ regenerate: messageKey }` as the second argument to `send` or `sendAsync`. The key must identify a completed assistant message in the same session. The server appends a new answer with all tools disabled; it preserves the original conversation and transaction outcomes.
+
 #### Snapshot
 
 ```ts

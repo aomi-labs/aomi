@@ -319,6 +319,7 @@ export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SendOptions,
   SendResult,
 } from "./session";
 
