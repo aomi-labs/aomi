@@ -103,6 +103,7 @@ export class ClientSession {
   private snapshot: SessionSnapshot;
   private applyingPage = false;
   private pendingCommits = new Set<string>();
+  private pendingContinuations = new Map<string, "pending" | "completed">();
   private commitDrainAfter?: number;
 
   constructor(
@@ -152,6 +153,21 @@ export class ClientSession {
             this.terminalTurnId = this.turnId;
             this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
             this.startStreaming();
+          }
+          const callbackTurnId = `broadcast-terminal:${view.batch?.batch_id ?? view.commit_id}`;
+          if (
+            view.continuation?.state === "pending" ||
+            view.continuation?.state === "retrying"
+          ) {
+            this.pendingContinuations.set(callbackTurnId, "pending");
+          } else if (
+            view.continuation?.state === "completed" &&
+            this.pendingContinuations.has(callbackTurnId)
+          ) {
+            this.pendingContinuations.set(callbackTurnId, "completed");
+            this.resumeCompletedCallbacks();
+          } else {
+            this.pendingContinuations.delete(callbackTurnId);
           }
         }
         if (!this.applyingPage) this.publish();
@@ -358,6 +374,7 @@ export class ClientSession {
       throw error;
     } finally {
       this.isSubmitting = false;
+      this.resumeCompletedCallbacks();
       this.publish();
     }
   }
@@ -647,6 +664,54 @@ export class ClientSession {
     this.publish();
   }
 
+  private resumeCompletedCallbacks(): void {
+    for (const [turnId, state] of this.pendingContinuations) {
+      if (state === "completed" && this.resumeCompletedCallback(turnId))
+        this.pendingContinuations.delete(turnId);
+    }
+  }
+
+  private resumeCompletedCallback(turnId: string): boolean {
+    if (
+      this.closed ||
+      this.streamingActive ||
+      this.isSubmitting ||
+      this.pendingUserMessage
+    )
+      return false;
+    if (
+      this.turnId !== turnId &&
+      (this.turnState === "processing" || this.turnState === "awaiting_action")
+    )
+      return false;
+    const latestState = this.events.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    const hasAnswer = this.events.some(
+      (event) =>
+        event.type === "message" &&
+        event.turn_id === turnId &&
+        latestState !== undefined &&
+        event.sequence < latestState.sequence &&
+        this.isCallbackResponse(event) &&
+        event.content.trim().length > 0,
+    );
+    if (
+      latestState?.type === "turn_state_changed" &&
+      latestState.state === "complete" &&
+      hasAnswer
+    )
+      return true;
+    // Delivery polling carries metadata only. Wake the existing bounded drain
+    // once when known delivery finishes beyond the original event window.
+    this.commitDrainAfter = this.events.at(-1)?.sequence ?? 0;
+    this.terminalTurnId = turnId;
+    this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
+    this.startStreaming();
+    return true;
+  }
+
   private isCallbackResponse(message: MessageEvent): boolean {
     return Boolean(
       message.turn_id?.startsWith("broadcast-terminal:") &&
@@ -678,6 +743,7 @@ export class ClientSession {
     this.pendingUserMessage = undefined;
     this.stopStreaming();
     this.resolvePending();
+    this.resumeCompletedCallbacks();
   }
 
   private drainTerminalPage(page: EventPage): void {

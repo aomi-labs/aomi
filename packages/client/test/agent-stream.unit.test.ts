@@ -34,6 +34,367 @@ const frame = (event: string, value: unknown) =>
 afterEach(() => vi.useRealTimers());
 
 describe("Agent live delivery", () => {
+  it("reads the exact callback answer when delivery completes after the legacy drain window", async () => {
+    vi.useFakeTimers();
+    let delivered = false;
+    const callbackTurn = "broadcast-terminal:callback-batch";
+    const view = () => ({
+      version: 1,
+      commit_id: "callback-commit",
+      thread_id: "session-1",
+      stage_id: "evm:1",
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "wallet",
+      broadcaster: "wallet",
+      state: "confirmed",
+      transaction_id: "hash",
+      failure_code: null,
+      batch: {
+        batch_id: "callback-batch",
+        index: 0,
+        ordered_stage_ids: ["evm:1"],
+        ordered_commit_ids: ["callback-commit"],
+        sources: [],
+        predecessor_commit_id: null,
+        review_digest: "review",
+      },
+      review: null,
+      wallet_attempt: null,
+      action: null,
+      continuation: {
+        version: 1,
+        revision: delivered ? 1 : 0,
+        state: delivered ? "completed" : "pending",
+        attempts: delivered ? 1 : 0,
+      },
+    });
+    const rootEvents = [
+      {
+        type: "message",
+        sender: "agent",
+        content: "Submitted",
+        is_streaming: false,
+        event_id: "parent-answer",
+        sequence: 1,
+        turn_id: "turn-1",
+        occurred_at: 1,
+      },
+      {
+        ...processing,
+        state: "complete",
+        event_id: "parent-complete",
+        sequence: 2,
+      },
+    ];
+    const callbackEvents = [
+      {
+        type: "message",
+        sender: "agent",
+        content: "Confirmed; next pair is prepared.",
+        is_streaming: false,
+        message_key: `${callbackTurn}:response`,
+        event_id: "callback-answer",
+        sequence: 3,
+        turn_id: callbackTurn,
+        occurred_at: 3,
+      },
+      {
+        ...processing,
+        state: "complete",
+        event_id: "callback-complete",
+        sequence: 4,
+        turn_id: callbackTurn,
+      },
+    ];
+    const fetch = vi.fn(async (url: string) => {
+      if (url.includes("/api/commits/")) return Response.json(view());
+      if (url.includes("/stream"))
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                frame("page", {
+                  ...page(callbackEvents, "callback-cursor"),
+                  commits: [view()],
+                }),
+              );
+              controller.close();
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        );
+      return Response.json({ ...page(rootEvents), commits: [view()] });
+    });
+    const session = new Session(
+      new AomiClient({
+        baseUrl: "https://portal.example",
+        fetch,
+        guest: false,
+      }),
+      { sessionId: "session-1" },
+    );
+    try {
+      await session.fetchCurrentState();
+      expect(session.getSnapshot().isStreaming).toBe(false);
+      expect(session.getSnapshot().isSubmitting).toBe(false);
+      await vi.advanceTimersByTimeAsync(61_000);
+      delivered = true;
+      await vi.advanceTimersByTimeAsync(1_001);
+      expect(session.getSnapshot().commits[0].continuation?.state).toBe(
+        "completed",
+      );
+      expect(
+        session
+          .getSnapshot()
+          .messages.some(
+            (message) => message.message_key === `${callbackTurn}:response`,
+          ),
+      ).toBe(true);
+      expect(session.getSnapshot().isStreaming).toBe(false);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(
+        fetch.mock.calls.filter(([url]) => url.includes("/stream")),
+      ).toHaveLength(1);
+    } finally {
+      session.close();
+    }
+  });
+
+  it.each(["hydrated", "retrying", "closed"] as const)(
+    "does not reopen event delivery for %s callback metadata",
+    async (mode) => {
+      vi.useFakeTimers();
+      const callbackTurn = "broadcast-terminal:known-commit";
+      const view = (state: string, revision: number) => ({
+        version: 1,
+        commit_id: "known-commit",
+        thread_id: "session-1",
+        stage_id: "evm:1",
+        chain_family: "evm",
+        chain_ref: "8453",
+        signer: "wallet",
+        broadcaster: "wallet",
+        state: "confirmed",
+        transaction_id: "hash",
+        failure_code: null,
+        batch: null,
+        review: null,
+        wallet_attempt: null,
+        action: null,
+        continuation: { version: 1, revision, state, attempts: 1 },
+      });
+      const events =
+        mode === "hydrated"
+          ? [
+              {
+                type: "message",
+                sender: "agent",
+                content: "Confirmed",
+                is_streaming: false,
+                message_key: `${callbackTurn}:response`,
+                event_id: "answer",
+                sequence: 1,
+                turn_id: callbackTurn,
+                occurred_at: 1,
+              },
+              {
+                ...processing,
+                state: "complete",
+                sequence: 2,
+                turn_id: callbackTurn,
+              },
+            ]
+          : [{ ...processing, state: "complete", sequence: 2 }];
+      const fetch = vi.fn(async (url: string) => {
+        if (url.includes("/api/commits/"))
+          return Response.json(
+            view(mode === "retrying" ? "retrying" : "completed", 1),
+          );
+        return Response.json({
+          ...page(events),
+          commits: [view("pending", 0)],
+        });
+      });
+      const session = new Session(
+        new AomiClient({
+          baseUrl: "https://portal.example",
+          fetch,
+          guest: false,
+        }),
+        { sessionId: "session-1" },
+      );
+      try {
+        await session.fetchCurrentState();
+        if (mode === "closed") session.close();
+        await vi.advanceTimersByTimeAsync(5_001);
+        expect(
+          fetch.mock.calls.filter(([url]) => url.includes("/stream")),
+        ).toHaveLength(0);
+        expect(session.getSnapshot().isStreaming).toBe(false);
+        if (mode === "closed")
+          expect(
+            fetch.mock.calls.filter(([url]) => url.includes("/api/commits/")),
+          ).toHaveLength(0);
+      } finally {
+        session.close();
+      }
+    },
+  );
+
+  it("leaves an unrelated active user turn in charge when old callback delivery completes", async () => {
+    vi.useFakeTimers();
+    let delivered = false;
+    let activeReader!: ReadableStreamDefaultController<Uint8Array>;
+    let streamCount = 0;
+    const callbackTurn = "broadcast-terminal:old-commit";
+    const view = () => ({
+      version: 1,
+      commit_id: "old-commit",
+      thread_id: "session-1",
+      stage_id: "evm:1",
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "wallet",
+      broadcaster: "wallet",
+      state: "confirmed",
+      transaction_id: "hash",
+      failure_code: null,
+      batch: null,
+      review: null,
+      wallet_attempt: null,
+      action: null,
+      continuation: {
+        version: 1,
+        revision: delivered ? 1 : 0,
+        state: delivered ? "completed" : "pending",
+        attempts: 1,
+      },
+    });
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.includes("/api/commits/")) return Response.json(view());
+      if (options?.method === "POST")
+        return Response.json(
+          page([
+            {
+              ...processing,
+              event_id: "new-processing",
+              sequence: 3,
+              turn_id: "new-user-turn",
+            },
+          ]),
+        );
+      if (url.includes("/stream"))
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              if (++streamCount === 1) {
+                activeReader = controller;
+                return;
+              }
+              controller.enqueue(
+                frame(
+                  "page",
+                  page([
+                    {
+                      type: "message",
+                      event_id: "old-callback-answer",
+                      sequence: 6,
+                      turn_id: callbackTurn,
+                      occurred_at: 6,
+                      sender: "agent",
+                      content: "Old callback delivered",
+                      message_key: `${callbackTurn}:response`,
+                      is_streaming: false,
+                    },
+                    {
+                      ...processing,
+                      event_id: "old-callback-complete",
+                      sequence: 7,
+                      turn_id: callbackTurn,
+                      state: "complete",
+                    },
+                  ]),
+                ),
+              );
+              controller.close();
+            },
+          }),
+          {
+            headers: { "content-type": "text/event-stream" },
+          },
+        );
+      return Response.json({
+        ...page([{ ...processing, state: "complete", sequence: 2 }]),
+        commits: [view()],
+      });
+    });
+    const session = new Session(
+      new AomiClient({
+        baseUrl: "https://portal.example",
+        fetch,
+        guest: false,
+      }),
+      { sessionId: "session-1" },
+    );
+    try {
+      await session.fetchCurrentState();
+      await session.sendAsync("new independent request");
+      await vi.advanceTimersByTimeAsync(1);
+      delivered = true;
+      await vi.advanceTimersByTimeAsync(1_001);
+      expect(session.getSnapshot().commits[0].continuation?.state).toBe(
+        "completed",
+      );
+      expect(session.getSnapshot().isStreaming).toBe(true);
+      expect(session.getSnapshot().pendingUserMessage).toBe(
+        "new independent request",
+      );
+      expect(
+        fetch.mock.calls.filter(([url]) => url.includes("/stream")),
+      ).toHaveLength(1);
+      activeReader.enqueue(
+        frame(
+          "page",
+          page([
+            {
+              type: "message",
+              event_id: "new-answer",
+              sequence: 4,
+              turn_id: "new-user-turn",
+              occurred_at: 4,
+              sender: "agent",
+              content: "Independent request complete",
+              is_streaming: false,
+            },
+            {
+              ...processing,
+              event_id: "new-complete",
+              sequence: 5,
+              turn_id: "new-user-turn",
+              state: "complete",
+            },
+          ]),
+        ),
+      );
+      await vi.advanceTimersByTimeAsync(1);
+      expect(
+        session
+          .getSnapshot()
+          .messages.filter(
+            (message) => message.message_key === `${callbackTurn}:response`,
+          ),
+      ).toHaveLength(1);
+      expect(session.getSnapshot().isStreaming).toBe(false);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(
+        fetch.mock.calls.filter(([url]) => url.includes("/stream")),
+      ).toHaveLength(2);
+    } finally {
+      session.close();
+    }
+  });
+
   it("decodes split UTF-8 and CRLF frames without waiting for EOF, and cancels the reader", async () => {
     let controller!: ReadableStreamDefaultController<Uint8Array>;
     const cancel = vi.fn();
