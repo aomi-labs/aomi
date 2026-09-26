@@ -419,8 +419,8 @@ describe("unified live transaction review", () => {
       screen.queryByRole("button", { name: /^Transactions/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Wallet request: 1 transaction/),
-    ).toBeInTheDocument();
+      screen.queryByText(/Wallet request: 1 transaction/),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("first"),
@@ -641,10 +641,10 @@ describe("unified live transaction review", () => {
     );
     view.rerender(<ActivitySidebar />);
     expect(
-      screen.getByText(
+      screen.queryByText(
         "Redeem all Morpho shares: Assistant response needs recovery",
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.getAllByTitle("Signed")).toHaveLength(3);
 
     runtime.commits = runtime.commits.map((commit, index) => ({

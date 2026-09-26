@@ -260,6 +260,9 @@ try {
       "--project=browser-contracts",
       "--workers=1",
       "--reporter=list,html,json",
+      ...(process.env.BROWSER_CONTRACT_FOCUS === "working-text-growth"
+        ? ["--grep=controlled delayed child activity"]
+        : []),
       ...(process.env.UPDATE_BROWSER_SNAPSHOTS === "1"
         ? ["--update-snapshots"]
         : []),
@@ -286,13 +289,14 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected !== 15 ||
+    stats.expected !==
+      (process.env.BROWSER_CONTRACT_FOCUS === "working-text-growth" ? 1 : 15) ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
   ) {
     throw new Error(
-      `Browser contract suite failed or omitted mandatory scenarios (expected=13, exit=${code}, stats=${JSON.stringify(stats)})`,
+      `Browser contract suite failed or omitted mandatory scenarios (expected=${process.env.BROWSER_CONTRACT_FOCUS === "working-text-growth" ? 1 : 15}, exit=${code}, stats=${JSON.stringify(stats)})`,
     );
   }
   console.log(

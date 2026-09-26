@@ -260,9 +260,8 @@ export const WorkingTrace: FC<{
   // expand/collapse tween. Measuring the body keeps the result stable while the
   // viewport is capped or its max-height animation is in flight.
   const bodyRef = useRef<HTMLDivElement>(null);
-  // Live traces follow new steps while the reader is at the bottom. Scrolling up
-  // opts out until they return to the newest step, so a tool update never yanks
-  // an older row out from under the pointer.
+  // Completed traces respect inner reader scrolling. Live capped traces follow
+  // every content resize; Show all is the explicit inspection view.
   const followLatestRef = useRef(true);
   const prevOpen = useRef(open);
   const prevWindowed = useRef(!expanded);
@@ -379,9 +378,9 @@ export const WorkingTrace: FC<{
     anim.oncancel = settle;
   }, [expanded]);
 
-  // Start/restart a capped trace at its newest step. While it stays open, only
-  // follow streamed additions when the reader has not scrolled away from the
-  // bottom. This also restores the recent-step view after "Collapse to recent".
+  // Keep live work at its newest step. Finished traces follow only while the
+  // reader remains at the bottom; Show all is an uncapped inspection view.
+  // Collapsing back to the recent window restores its latest-step position.
   useIsomorphicLayoutEffect(() => {
     const viewport = viewportRef.current;
     const reopened = open && !prevOpen.current;
@@ -392,11 +391,37 @@ export const WorkingTrace: FC<{
     prevWindowed.current = windowed;
 
     if (!viewport || !open || !windowed || animating) return;
-    if (followLatestRef.current) {
+    if (running || followLatestRef.current) {
       viewport.scrollTop = viewport.scrollHeight;
       setHasContentBelow(false);
     }
-  }, [animating, open, revealed, revealedChildStepCount, windowed]);
+  }, [animating, open, revealed, revealedChildStepCount, windowed, running]);
+
+  // Streaming text can grow without adding a step. Observe its actual layout,
+  // and follow the inner window while working; Show all remains an inspection view.
+  useIsomorphicLayoutEffect(() => {
+    const body = bodyRef.current;
+    const viewport = viewportRef.current;
+    if (
+      !body ||
+      !viewport ||
+      !open ||
+      !windowed ||
+      typeof ResizeObserver === "undefined"
+    )
+      return;
+    const resize = () => {
+      setOverflowing(body.offsetHeight - WORKING_WINDOW_PX > 24);
+      if (!animating && (running || followLatestRef.current)) {
+        viewport.scrollTop = viewport.scrollHeight;
+        setHasContentBelow(false);
+      }
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(body);
+    resize();
+    return () => observer.disconnect();
+  }, [open, windowed, running, animating]);
 
   useEffect(() => () => animRef.current?.cancel(), []);
 
@@ -515,7 +540,6 @@ export const WorkingTrace: FC<{
             aria-label="Working time"
             className="text-aomi-muted text-[11px] tabular-nums"
           >
-            {persistedActiveMs === null ? "Elapsed " : "Active "}
             {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
           </span>
         )}

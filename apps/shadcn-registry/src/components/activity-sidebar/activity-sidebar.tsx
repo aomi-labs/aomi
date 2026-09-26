@@ -11,11 +11,7 @@ import {
 } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
-import {
-  projectCommitContinuation,
-  projectCommitLifecycle,
-  reviewEligibility,
-} from "@aomi-labs/client";
+import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
 import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
 import { ToolChipView } from "../assistant-ui/tool-chip";
@@ -26,7 +22,6 @@ import {
 } from "./model";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
-import { friendlyTransactionLabel } from "./presentation";
 import { WalletReview } from "./wallet-review";
 import { useActivityPanel } from "./activity-panel-context";
 
@@ -125,18 +120,6 @@ function ActivitySidebarContent() {
       );
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
-  });
-  const assistantFollowUps = transactions.flatMap((tx) => {
-    const status = tx.commit && projectCommitContinuation(tx.commit);
-    return status
-      ? [
-          {
-            id: tx.id,
-            label: friendlyTransactionLabel(tx.label, tx.kind),
-            status,
-          },
-        ]
-      : [];
   });
   const card = (tx: ActivityTransaction, historical = false) => (
     <TransactionCard
@@ -303,25 +286,6 @@ function ActivitySidebarContent() {
                               ),
                             )}
                           </TransactionList>
-                          {assistantFollowUps.length > 0 && (
-                            <ul
-                              className="text-aomi-muted mt-3 space-y-1 text-[11px]"
-                              aria-label="Assistant follow-up"
-                              aria-live="polite"
-                            >
-                              {assistantFollowUps.map((followUp) => (
-                                <li key={followUp.id}>
-                                  {followUp.label}: {followUp.status}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {pending && transactions.length > current.length && (
-                            <p className="text-aomi-muted mt-3 text-[11px]">
-                              Wallet request: {current.length} transaction
-                              {current.length === 1 ? "" : "s"}.
-                            </p>
-                          )}
                           <WalletReview />
                         </m.div>
                       )}

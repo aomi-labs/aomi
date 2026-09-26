@@ -179,7 +179,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   await expect(page.getByTestId("activity-transaction")).toHaveCount(1);
 });
 
-test("controlled delayed child activity keeps the answer and a scrolled-up reader in place", async ({
+test("controlled delayed child activity follows inner layout growth without moving the outer reader", async ({
   page,
 }) => {
   await signIn(page);
@@ -368,6 +368,38 @@ test("controlled delayed child activity keeps the answer and a scrolled-up reade
     .poll(() => viewport.evaluate((element) => element.scrollTop))
     .toBe(80);
   const before = await viewport.evaluate((element) => element.scrollTop);
+
+  // Layout-only growth in the actual mounted WorkingTrace: no new step or
+  // mocked stream acceptance is claimed by this assertion.
+  await trace
+    .locator(".aui-working-note p")
+    .first()
+    .evaluate((element) => {
+      element.textContent = `Controlled progress stays visible while the child works. ${"Growing streamed paragraph with wrapped lines. ".repeat(100)} Last streamed line is visible.`;
+    });
+  await expect(trace).toContainText("Last streamed line is visible.");
+  await expect(trace.locator(".aui-working-trace-header")).toContainText(
+    "3 steps",
+  );
+  const inner = trace.locator(".aui-working-trace-viewport");
+  await expect
+    .poll(() =>
+      inner.evaluate((element) => element.scrollHeight - element.clientHeight),
+    )
+    .toBeGreaterThan(100);
+  await expect
+    .poll(() =>
+      inner.evaluate(
+        (element) =>
+          element.scrollHeight - element.clientHeight - element.scrollTop,
+      ),
+    )
+    .toBeLessThan(3);
+  expect(
+    Math.abs(
+      (await viewport.evaluate((element) => element.scrollTop)) - before,
+    ),
+  ).toBeLessThan(4);
 
   gates[1]!.release();
   await expect(trace).toContainText("Estimate fee");

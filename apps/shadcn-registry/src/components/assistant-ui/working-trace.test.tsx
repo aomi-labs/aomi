@@ -59,13 +59,9 @@ describe("WorkingTrace", () => {
           startedAtMs={startedAtMs}
         />,
       );
-      expect(view.getByLabelText("Working time")).toHaveTextContent(
-        "Elapsed 5s",
-      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("5s");
       act(() => vi.advanceTimersByTime(2_000));
-      expect(view.getByLabelText("Working time")).toHaveTextContent(
-        "Elapsed 7s",
-      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("7s");
       view.rerender(
         <WorkingTrace
           running={false}
@@ -122,13 +118,9 @@ describe("WorkingTrace", () => {
           phaseTurnIds={["turn", "callback"]}
         />,
       );
-      expect(view.getByLabelText("Working time")).toHaveTextContent(
-        "Active 7s",
-      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("7s");
       act(() => vi.advanceTimersByTime(2_000));
-      expect(view.getByLabelText("Working time")).toHaveTextContent(
-        "Active 9s",
-      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("9s");
     } finally {
       vi.useRealTimers();
     }
@@ -549,7 +541,7 @@ describe("WorkingTrace", () => {
     expect(container).toHaveTextContent("Show all 2 steps");
   });
 
-  it("preserves a reader's scroll position when a child tool step arrives", () => {
+  it("keeps the live inner window at the latest child step", () => {
     const item = (state: TaskRunState) => ({
       kind: "agent" as const,
       agentId: state.agentId,
@@ -597,8 +589,8 @@ describe("WorkingTrace", () => {
         revealed={1}
       />,
     );
-    expect(setScrollTop).not.toHaveBeenCalled();
-    expect(viewport.scrollTop).toBe(80);
+    expect(setScrollTop).toHaveBeenCalledWith(640);
+    expect(viewport.scrollTop).toBe(640);
     expect(container).toHaveTextContent("2 steps");
     expect(container).toHaveTextContent("Get chain context");
 
@@ -621,8 +613,8 @@ describe("WorkingTrace", () => {
         revealed={1}
       />,
     );
-    expect(setScrollTop).not.toHaveBeenCalled();
-    expect(viewport.scrollTop).toBe(80);
+    expect(setScrollTop).toHaveBeenCalledWith(640);
+    expect(viewport.scrollTop).toBe(640);
   });
 
   it("keeps a failed delegation at its transcript position after recovery", () => {
