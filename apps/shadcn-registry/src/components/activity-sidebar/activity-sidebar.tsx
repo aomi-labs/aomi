@@ -78,11 +78,6 @@ function ActivitySidebarContent() {
         reviewEligibility(pending.request)?.state === "eligible")),
   );
   const expanded = signing || open;
-  const current = activity.transactions.filter(
-    (tx) =>
-      (!tx.action || tx.action.state === "pending") &&
-      (!pending || tx.action?.id === pending.id),
-  );
   const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
