@@ -8,6 +8,10 @@ import {
 } from "@portal/server/widget-auth/response";
 
 const ALLOWED_ROUTES: AllowedRoute[] = [
+  {
+    pattern: /^\/api\/thread\/transaction-safety$/,
+    methods: new Set(["GET", "PUT"]),
+  },
   { pattern: /^\/api\/commits$/, methods: new Set(["POST"]) },
   { pattern: /^\/api\/commits\/[0-9a-f-]+$/i, methods: new Set(["GET"]) },
   {

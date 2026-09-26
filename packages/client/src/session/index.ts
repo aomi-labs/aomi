@@ -131,6 +131,11 @@ export class ClientSession {
     this.inferenceFunding = sessionOptions?.inferenceFunding;
     this.clientId = sessionOptions?.clientId ?? crypto.randomUUID();
     this.logger = sessionOptions?.logger;
+    this.commits = new CommitController(
+      this.client,
+      this.sessionId,
+      sessionOptions?.commits,
+    );
     this.actions = new ActionHandler(
       sessionOptions?.actions ?? {},
       (action, result, idempotencyKey) =>
@@ -141,11 +146,7 @@ export class ClientSession {
           result,
           idempotencyKey,
         ),
-    );
-    this.commits = new CommitController(
-      this.client,
-      this.sessionId,
-      sessionOptions?.commits,
+      this.commits,
     );
     this.actionUnsubscribers.push(
       this.commits.subscribe(() => {

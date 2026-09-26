@@ -1,3 +1,5 @@
+import type { AomiClient } from "../client";
+import { CommitController, type CommitCapabilities } from "../commits";
 import type {
   EvmPipelineTransport,
   PipelineOperationTransport,
@@ -26,7 +28,83 @@ import type {
 import { EvmBuild, EvmStaged, SvmBuild, SvmStaged } from "./build";
 
 export class AomiEvmPipeline {
-  constructor(readonly raw: EvmPipelineTransport) {}
+  constructor(
+    readonly raw: EvmPipelineTransport,
+    private readonly client?: AomiClient,
+    private readonly capabilities: CommitCapabilities = {},
+  ) {}
+
+  /** Continue the exact prepared cohort through the durable Commit lifecycle. */
+  commits(
+    preparation: EvmCommitResult,
+    capabilities = this.capabilities,
+  ): CommitController {
+    if (
+      !this.client ||
+      !preparation.thread_id ||
+      !preparation.actions?.length ||
+      !preparation.commits?.length
+    )
+      throw new Error("Durable Pipeline continuation is unavailable");
+    const refs = preparation.requests.flatMap((request) => {
+      if (request.type !== "execute_evm" || !request.commitStages?.length)
+        throw new Error("Pipeline request has no durable commit stages");
+      if (request.commitStages.length !== request.transactions.length)
+        throw new Error("Pipeline cohort cardinality mismatch");
+      return request.commitStages;
+    });
+    if (
+      preparation.actions.length !== preparation.requests.length ||
+      new Set(preparation.actions.map((action) => action.id)).size !==
+        preparation.actions.length ||
+      preparation.actions.some(
+        (action, index) =>
+          !action.id ||
+          JSON.stringify(action.request) !==
+            JSON.stringify(preparation.requests[index]),
+      )
+    )
+      throw new Error("Pipeline Action identity mismatch");
+    const savedViews = preparation.commits;
+    const views = refs.map((stage) => {
+      const matches = savedViews.filter((view) => view.stage_id === stage);
+      if (matches.length !== 1)
+        throw new Error("Pipeline cohort identity mismatch");
+      return matches[0]!;
+    });
+    if (
+      new Set(refs).size !== refs.length ||
+      refs.length !== preparation.commits.length ||
+      new Set(views.map((view) => view.commit_id)).size !== views.length ||
+      views.some(
+        (view, index) =>
+          view.chain_family !== "evm" ||
+          view.thread_id !== preparation.thread_id ||
+          view.stage_id !== refs[index] ||
+          (views.length > 1 &&
+            (!view.batch ||
+              view.batch.index !== index ||
+              view.batch.batch_id !== views[0]?.batch?.batch_id ||
+              view.batch.ordered_stage_ids.length !== refs.length ||
+              view.batch.ordered_stage_ids.some(
+                (stage, position) => stage !== refs[position],
+              ) ||
+              view.batch.ordered_commit_ids.length !== views.length ||
+              view.batch.ordered_commit_ids.some(
+                (id, position) => id !== views[position]?.commit_id,
+              ))),
+      )
+    )
+      throw new Error("Pipeline cohort identity mismatch");
+    const controller = new CommitController(
+      this.client,
+      preparation.thread_id,
+      capabilities,
+      "pipeline",
+    );
+    for (const view of views) controller.ingest(view);
+    return controller;
+  }
 
   async build(
     input: PipelineOperationBuildInput | EvmDirectInput,
@@ -51,6 +129,7 @@ export class AomiEvmPipeline {
         : {
             app: input.app,
             skills: input.skills,
+            transactionSafetyMode: input.transactionSafetyMode,
             actions: input.calls.map((call) => ({
               to: call.to,
               chain_id: input.chainId,
@@ -208,8 +287,12 @@ export class AomiPipeline {
   readonly evm: AomiEvmPipeline;
   readonly svm: AomiSvmPipeline;
 
-  constructor(readonly raw: PipelineTransport) {
-    this.evm = new AomiEvmPipeline(raw.evm);
+  constructor(
+    readonly raw: PipelineTransport,
+    client?: AomiClient,
+    capabilities?: CommitCapabilities,
+  ) {
+    this.evm = new AomiEvmPipeline(raw.evm, client, capabilities);
     this.svm = new AomiSvmPipeline(raw.svm);
   }
 

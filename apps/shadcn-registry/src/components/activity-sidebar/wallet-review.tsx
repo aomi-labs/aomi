@@ -2,7 +2,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import type { CommitController } from "@aomi-labs/client";
-import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
+import {
+  projectCommitLifecycle,
+  reviewEligibility,
+  requiresSignatureAdmission,
+  MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
+} from "@aomi-labs/client";
 import { useAomiWalletKit } from "../../lib/wallet-kit";
 import { selectLegacyReviewAction, selectReviewCommit } from "./model";
 import { TransactionReview } from "./transaction-review";
@@ -282,18 +287,23 @@ export function WalletReview() {
         }
       : undefined);
   if (!review) return null;
+  const signatureAdmissionUnavailable = requiresSignatureAdmission(
+    review.request,
+  );
   const walletMismatch = walletAttemptState === "mismatched";
-  const status = walletMismatch
-    ? walletMismatchMessage(
-        liveCommit?.wallet_attempt?.failure_code ?? liveCommit?.failure_code,
-      )
-    : eligibilityBlocksNewAttempt && eligibility?.state === "blocked"
-      ? `Execution blocked: ${eligibility.reason ?? "review failed"}`
-      : eligibilityBlocksNewAttempt && eligibility?.state === "unresolved"
-        ? eligibility.reason
-        : lifecycle?.phase === "ready" && batchSubmission
-          ? "Submitting in order; waiting for each confirmation."
-          : lifecycle?.label;
+  const status = signatureAdmissionUnavailable
+    ? MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE
+    : walletMismatch
+      ? walletMismatchMessage(
+          liveCommit?.wallet_attempt?.failure_code ?? liveCommit?.failure_code,
+        )
+      : eligibilityBlocksNewAttempt && eligibility?.state === "blocked"
+        ? `Execution blocked: ${eligibility.reason ?? "review failed"}`
+        : eligibilityBlocksNewAttempt && eligibility?.state === "unresolved"
+          ? eligibility.reason
+          : lifecycle?.phase === "ready" && batchSubmission
+            ? "Submitting in order; waiting for each confirmation."
+            : lifecycle?.label;
   const activeBatchReview = Boolean(
     batchSubmission &&
     liveCommit?.batch?.batch_id === batchSubmission.batchId &&
@@ -303,19 +313,31 @@ export function WalletReview() {
   );
   const showBatchControls = batchIsReviewed || activeBatchReview;
 
+  const remaining = batchIds
+    ?.slice(batch?.index ?? 0)
+    .map((id) => commitController?.review(id)) ?? [review.request];
+  const cohortBlocked = remaining.some(
+    (request) =>
+      !request ||
+      reviewEligibility(request)?.state === "blocked" ||
+      reviewEligibility(request)?.state === "unresolved",
+  );
   return (
     <TransactionReview
       review={review}
+      approveAllDisabled={cohortBlocked}
       supportedChains={wallet.supportedChains}
       approving={approving}
       approveDisabled={
         (Boolean(liveCommit) && !commitCanExecute) ||
-        eligibilityBlocksNewAttempt
+        eligibilityBlocksNewAttempt ||
+        signatureAdmissionUnavailable
       }
       rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
       status={status}
       statusTransactionId={lifecycle?.transactionId}
       statusIsError={
+        signatureAdmissionUnavailable ||
         walletMismatch ||
         (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
       }

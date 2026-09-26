@@ -111,7 +111,11 @@ export type {
   TurnState,
   TurnStateChangedEvent,
 } from "./agent/types";
-export { ActionHandler } from "./actions";
+export {
+  ActionHandler,
+  requiresSignatureAdmission,
+  MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
+} from "./actions";
 export type {
   ActionAttempt,
   ActionAttemptState,
@@ -137,6 +141,7 @@ export {
 export type {
   AomiAuthorizationChallenge,
   AomiAuthorizationPermit,
+  AomiExecutionConstraints,
   AomiAuthorizationState,
   AomiEnsureBoundResult,
   AuthorizationPoster,
@@ -415,3 +420,16 @@ export type {
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
 export * from "./commit-lifecycle";
+
+export {
+  TransactionSafetyTransport,
+  transactionSafetyProjection,
+  transactionSafetyPolicy,
+} from "./transaction-safety";
+export type {
+  TransactionSafetyMode,
+  TransactionSafetyPolicy,
+  TransactionSafetyAssessment,
+  TransactionSafetyDecision,
+  TransactionSafetyProjection,
+} from "./transaction-safety";

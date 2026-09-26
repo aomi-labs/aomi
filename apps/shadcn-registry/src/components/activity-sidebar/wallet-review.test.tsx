@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -436,7 +437,9 @@ describe("WalletReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Transaction: 0xtransaction",
     );
-    for (const button of screen.getAllByRole("button"))
+    for (const button of within(
+      screen.getByTestId("transaction-review"),
+    ).getAllByRole("button"))
       expect(button).toBeDisabled();
     await mismatchController.execute(mismatched.commit_id);
     expect(reports).toBe(2);
@@ -676,6 +679,18 @@ describe("WalletReview", () => {
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
     );
+  });
+
+  it("explains the ordinary manual signature limitation before opening the wallet", () => {
+    runtime.pendingActions = [action({
+      type: "sign", requestId: "ordinary-sign", chainFamily: "evm", executionKind: "message",
+      signer: "0x1111111111111111111111111111111111111111", chainId: 1,
+      description: "Sign permit", payloads: [{ kind: "evm_personal", message: "0x01" }],
+    })];
+    render(<ActivitySidebar />);
+    expect(screen.getByText(/fresh safety admission cannot be claimed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+    expect(runtime.executeAction).not.toHaveBeenCalled();
   });
 
   it("renders the canonical simulation nested in an Action request", () => {

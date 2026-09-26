@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "../../apps/shadcn-registry/src/themes/default.css";
+@source "../../apps/shadcn-registry/src/components";
+body {
+  margin: 0;
+  font-family: system-ui;
+  background: var(--aomi-bg);
+  color: var(--aomi-fg);
+}
