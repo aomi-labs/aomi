@@ -199,7 +199,7 @@ describe("WalletReview", () => {
     ];
     rerender(<ActivitySidebar />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Wallet submitted the transaction. Checking on-chain confirmation…",
+      "Submitted; confirming",
     );
     expect(screen.getByRole("status")).toHaveTextContent(
       "Transaction: 0xdeadbeef",
@@ -395,9 +395,9 @@ describe("WalletReview", () => {
     controller.ingest(awaiting);
     view.rerender(<ActivitySidebar />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Wallet transaction found. Continue to verify it.",
+      "Checking submission status",
     );
-    const retry = screen.getByRole("button", { name: "Submit" });
+    const retry = screen.getByRole("button", { name: "Check status" });
     expect(retry).toBeEnabled();
     fireEvent.click(retry);
 

@@ -1,4 +1,5 @@
 import type { ActionResult } from "../agent/types";
+import { normalizeEvmWalletTarget } from "./target";
 import type { ActionCapabilities } from "../actions";
 import type { ActionRequest } from "../agent/types";
 import type {
@@ -37,6 +38,13 @@ function executeEvm(wallet: EvmWallet) {
     ) {
       throw new Error("The active EVM wallet does not match the Action");
     }
+    const calls = transactions.map(({ to, data, value }) => ({
+      // EVM addresses are bytes; a malformed mixed-case checksum must not
+      // change the reviewed target or prevent the wallet from receiving it.
+      to: normalizeEvmWalletTarget(to),
+      data,
+      value,
+    }));
     if (chainId(wallet) !== first.chain_id) {
       if (!wallet.switchChain) {
         throw new Error(`EVM wallet cannot switch to chain ${first.chain_id}`);
@@ -44,12 +52,6 @@ function executeEvm(wallet: EvmWallet) {
       await wallet.switchChain(first.chain_id);
     }
     assertActive(signal);
-
-    const calls = transactions.map(({ to, data, value }) => ({
-      to,
-      data,
-      value,
-    }));
     const hashes: string[] = [];
     if (wallet.sendCalls) {
       hashes.push(

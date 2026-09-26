@@ -319,6 +319,7 @@ export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SendOptions,
   SendResult,
 } from "./session";
 
@@ -341,6 +342,7 @@ export {
   parseChainId,
 } from "./wallet-utils";
 export { walletCapabilities } from "./wallet/capabilities";
+export { normalizeEvmWalletTarget } from "./wallet/target";
 export { walletUserState } from "./wallet/user-state";
 export type {
   EvmWallet,
@@ -412,3 +414,4 @@ export type {
 } from "./aa";
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
+export * from "./commit-lifecycle";

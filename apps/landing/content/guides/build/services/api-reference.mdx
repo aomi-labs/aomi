@@ -90,6 +90,13 @@ The backend validates Action ownership, revision CAS, expiry, idempotency, and
 request/result compatibility before appending the new Action revision and
 resuming the turn.
 
+A durable transaction's `CommitView.version` tracks its chain lifecycle.
+The optional `continuation` tracks assistant delivery separately: its `version`
+is the schema version, while `revision` orders delivery updates. Older servers
+may omit `revision`, which clients treat as zero. A confirmed transaction can
+still have a pending or retrying continuation; that does not authorize another
+wallet submission.
+
 ## Interrupt
 
 ```http
@@ -121,6 +128,6 @@ second transcript or lifecycle authority.
 
 ## Pipeline
 
-The `/v1/pipeline/*` surface is stateless. It discovers operations and carries portable version 2 Builds through stage, simulate, and explicit commit. Commit returns `status: "committed"`, `digest`, operation output, and `requests: ActionRequest[]`; these have no durable Agent Action IDs. The caller owns wallet execution and receipt tracking.
+The `/v1/pipeline/*` surface is stateless. It discovers operations and carries portable version 2 Builds through stage, simulate, and explicit commit. Commit revalidates the Build and returns the legacy `status: "committed"` label plus `preparation_status: "prepared"`, `digest`, `provider_invoked: false`, and `requests: ActionRequest[]`. These have no durable Agent Action IDs. The caller submits them with its wallet and tracks receipts.
 
 Use `/v1/agent/mcp` for Agent MCP and `/v1/pipeline/mcp` for Pipeline MCP, each with its own exact-resource OAuth grant. Read the [canonical API reference](https://aomi.dev/docs/api-reference/overview) and the selected origin's `/openapi.json`; source, npm, and deployments can differ during a release.

@@ -20,10 +20,12 @@ export function TransactionReview({
   supportedChains,
   approving = false,
   approveDisabled = false,
+  approveLabel,
   rejectDisabled = false,
   status,
   statusTransactionId,
   statusIsError = false,
+  recoveringExistingAttempt = false,
   onApprove,
   onApproveAll,
   batchProgress,
@@ -33,10 +35,12 @@ export function TransactionReview({
   supportedChains?: readonly SupportedChain[];
   approving?: boolean;
   approveDisabled?: boolean;
+  approveLabel?: string;
   rejectDisabled?: boolean;
   status?: string;
   statusTransactionId?: string;
   statusIsError?: boolean;
+  recoveringExistingAttempt?: boolean;
   onApprove: () => void;
   onApproveAll?: () => void;
   batchProgress?: { current: number; total: number; submitting: boolean };
@@ -59,8 +63,9 @@ export function TransactionReview({
     review.request.type === "sign" ? undefined : review.request.simulation;
   const warnings = visibleSimulationWarnings(simulation);
   const failed =
-    simulation?.status === "failed" ||
-    simulation?.guards.some((guard) => guard.status === "failed");
+    !recoveringExistingAttempt &&
+    (simulation?.status === "failed" ||
+      simulation?.guards.some((guard) => guard.status === "failed"));
   const request = review.request;
   const signers =
     request.type === "sign"
@@ -173,7 +178,7 @@ export function TransactionReview({
                 className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 min-w-0 flex-1 rounded-none px-3 text-[12px] hover:opacity-90"
               >
                 {approving
-                  ? "Waiting…"
+                  ? "Working…"
                   : `Submit ${batchProgress.current} of ${batchProgress.total}`}
               </Button>
               <span
@@ -202,10 +207,12 @@ export function TransactionReview({
             >
               <Wallet className="size-4" />
               {approving
-                ? "Waiting for wallet…"
-                : batchProgress
-                  ? `Submit ${batchProgress.current} of ${batchProgress.total}`
-                  : "Submit"}
+                ? "Working…"
+                : approveLabel
+                  ? approveLabel
+                  : batchProgress
+                    ? `Submit ${batchProgress.current} of ${batchProgress.total}`
+                    : "Submit"}
             </Button>
           ))}
       </footer>

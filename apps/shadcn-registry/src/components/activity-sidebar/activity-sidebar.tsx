@@ -11,6 +11,7 @@ import {
 } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
+import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
 import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
 import { ToolChipView } from "../assistant-ui/tool-chip";
@@ -35,7 +36,6 @@ function ActivitySidebarContent() {
     pendingActions,
     actionAttempts,
     threadViewKey,
-    isRunning,
     commits = [],
     commitController,
   } = useAomiRuntime();
@@ -75,17 +75,9 @@ function ActivitySidebarContent() {
     pendingCommit ||
     (pending &&
       (pending.request.type === "sign" ||
-        (pending.request.simulation.status !== "failed" &&
-          !pending.request.simulation.guards.some(
-            (guard) => guard.status === "failed",
-          )))),
+        reviewEligibility(pending.request)?.state === "eligible")),
   );
   const expanded = signing || open;
-  const current = activity.transactions.filter(
-    (tx) =>
-      (!tx.action || tx.action.state === "pending") &&
-      (!pending || tx.action?.id === pending.id),
-  );
   const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
@@ -123,7 +115,7 @@ function ActivitySidebarContent() {
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
   });
-  const card = (tx: ActivityTransaction, historical = false) => (
+  const card = (tx: ActivityTransaction) => (
     <TransactionCard
       key={tx.id}
       transaction={tx}
@@ -134,30 +126,26 @@ function ActivitySidebarContent() {
             ? pendingCommit.batch.batch_id === tx.commit.batch.batch_id
             : pendingCommit?.commit_id === tx.commit?.commit_id,
       )}
-      active={
-        !historical &&
-        ((tx.turnId === activity.turnId &&
-          (isRunning ||
-            pendingActions.some((action) => action.id === tx.action?.id))) ||
-          (tx.commit != null &&
-            !["confirmed", "rejected", "failed", "expired"].includes(
-              tx.commit.state,
-            )))
-      }
+      // Unfinished cards keep their phase indicator active while waiting too.
+      // Terminal/signed/rejected/failed states are stopped per card below.
+      active
       executing={
-        !historical &&
-        (Boolean(
+        Boolean(
           tx.action &&
           ["executing", "responding"].includes(
             actionAttempts.get(tx.action.id)?.state ?? "",
           ),
         ) ||
-          Boolean(
-            tx.commit?.wallet_attempt &&
-            ["awaiting_wallet", "reported", "observing"].includes(
-              tx.commit.wallet_attempt.state,
-            ),
-          ))
+        Boolean(
+          tx.commit &&
+          ["preparing", "switching_chain", "awaiting_wallet"].includes(
+            projectCommitLifecycle(
+              tx.commit,
+              commitController?.submissionPhase?.(tx.commit.commit_id),
+              commitController?.recoveryRecord?.(tx.commit.commit_id),
+            ).phase,
+          ),
+        )
       }
     />
   );
@@ -273,23 +261,8 @@ function ActivitySidebarContent() {
                             newestId={transactions[0]?.id}
                             count={transactions.length}
                           >
-                            {transactions.map((tx) =>
-                              card(
-                                tx,
-                                Boolean(
-                                  tx.action
-                                    ? tx.action.state !== "pending"
-                                    : tx.turnId !== activity.turnId,
-                                ),
-                              ),
-                            )}
+                            {transactions.map((tx) => card(tx))}
                           </TransactionList>
-                          {pending && transactions.length > current.length && (
-                            <p className="text-aomi-muted mt-3 text-[11px]">
-                              Wallet request: {current.length} transaction
-                              {current.length === 1 ? "" : "s"}.
-                            </p>
-                          )}
                           <WalletReview />
                         </m.div>
                       )}

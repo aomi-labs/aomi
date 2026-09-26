@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { getAddress } from "viem";
 import { arbitrum } from "viem/chains";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
@@ -61,12 +62,13 @@ describe("buildEvmExecutionRuntime", () => {
       getChainId: vi.fn().mockResolvedValue(1),
     };
     const switchChainAsync = vi.fn().mockResolvedValue(undefined);
+    const sendTransactionAsync = vi.fn().mockResolvedValue("0xhash");
     const evm = {
       activeConnector,
       activeEvmConnection: { address, chainId: 1 },
       chainsById: { [arbitrum.id]: arbitrum },
       getWalletClientFor: vi.fn(),
-      sendTransactionAsync: vi.fn().mockResolvedValue("0xhash"),
+      sendTransactionAsync,
       switchChainAsync,
     } as unknown as EvmWalletRuntime;
 
@@ -89,7 +91,14 @@ describe("buildEvmExecutionRuntime", () => {
       runtime.preparePreparedEvmTransaction?.(payload),
     ).resolves.toBeUndefined();
     expect(switchChainAsync).not.toHaveBeenCalled();
-    await runtime.sendPreparedEvmTransaction?.(payload);
+    const phases: string[] = [];
+    await runtime.sendPreparedEvmTransaction?.(payload, (phase) =>
+      phases.push(phase),
+    );
+    expect(phases).toEqual(["switching_chain", "awaiting_wallet"]);
+    expect(switchChainAsync.mock.invocationCallOrder[0]).toBeLessThan(
+      sendTransactionAsync.mock.invocationCallOrder[0],
+    );
     expect(switchChainAsync).toHaveBeenCalledWith({
       chainId: arbitrum.id,
       connector: activeConnector,
@@ -184,6 +193,55 @@ describe("buildEvmExecutionRuntime", () => {
       value: 9n,
     });
     expect(sendTransactionAsync.mock.calls[0]?.[0]).not.toHaveProperty("nonce");
+  });
+
+  it("passes byte-equivalent targets to the browser provider and rejects malformed targets", async () => {
+    const address = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const mixedCase = "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa";
+    const sendTransactionAsync = vi.fn().mockResolvedValue("0xhash");
+    const evm = {
+      activeConnector: { id: "wallet" },
+      activeEvmConnection: { address, chainId: arbitrum.id },
+      chainsById: { [arbitrum.id]: arbitrum },
+      getWalletClientFor: vi.fn(),
+      sendTransactionAsync,
+    } as unknown as EvmWalletRuntime;
+    const runtime = buildEvmExecutionRuntime(evm);
+    const send = runtime.sendPreparedEvmTransaction!;
+    const payload = {
+      kind: "evm_transaction" as const,
+      chain_id: arbitrum.id,
+      signer: address,
+      nonce: 7,
+      transaction: {
+        to: mixedCase,
+        value: "0",
+        data: "0x",
+        gas_limit: 21_000,
+        max_fee_per_gas: "2",
+        max_priority_fee_per_gas: "1",
+      },
+    };
+    await expect(
+      runtime.preparePreparedEvmTransaction?.(payload),
+    ).resolves.toBeUndefined();
+    await send(payload);
+    expect(sendTransactionAsync.mock.calls[0]?.[0].to).toBe(
+      getAddress(mixedCase.toLowerCase()),
+    );
+    expect(payload.transaction.to).toBe(mixedCase);
+
+    for (const invalid of ["0x1234", `0x${"g".repeat(40)}`]) {
+      const malformed = {
+        ...payload,
+        transaction: { ...payload.transaction, to: invalid },
+      };
+      await expect(
+        runtime.preparePreparedEvmTransaction?.(malformed),
+      ).rejects.toThrow();
+      await expect(send(malformed)).rejects.toThrow();
+    }
+    expect(sendTransactionAsync).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a stale selected account before sending", async () => {

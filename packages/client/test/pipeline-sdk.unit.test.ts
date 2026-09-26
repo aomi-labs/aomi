@@ -165,8 +165,14 @@ describe("Pipeline SDK lifecycle", () => {
       if (url.endsWith("/commit")) {
         return Response.json({
           status: "committed",
+          preparation_status: "prepared",
+          provider_invoked: false,
+          next_required_action: "submit_wallet_request",
           digest: evmSimulated.digest,
-          result: { submitted: true },
+          result: {
+            provider_invoked: false,
+            next_required_action: "submit_wallet_request",
+          },
           requests: [],
         });
       }
@@ -199,6 +205,8 @@ describe("Pipeline SDK lifecycle", () => {
     expect(simulated.expiresAt).toBe(evmSimulated.expiresAt);
     expect(simulated.attestation).toBe(evmSimulated.attestation);
     expect(receipt.status).toBe("committed");
+    expect(receipt.preparation_status).toBe("prepared");
+    expect(receipt.provider_invoked).toBe(false);
     const keys = fetch.mock.calls.map(([, init]) =>
       new Headers(init?.headers).get("idempotency-key"),
     );
@@ -309,22 +317,27 @@ describe("Pipeline SDK lifecycle", () => {
     expect(staged.toJSON()).toEqual(evmStaged);
   });
 
-  it("preserves venue transaction bytes and returns canonical SVM wallet intents", async () => {
+  it("preserves staged transaction bytes and returns SVM wallet intents", async () => {
     const request: Action["request"] = {
       type: "execute_svm",
       transactions: [],
       simulation: svmSimulated.simulation,
     };
-    const committed = {
+    const prepared = {
       status: "committed",
       digest: svmSimulated.digest,
-      results: [{ ok: true }],
+      results: [
+        {
+          provider_invoked: false,
+          next_required_action: "submit_wallet_request",
+        },
+      ],
       requests: [request],
     };
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(Response.json(svmStaged))
-      .mockResolvedValueOnce(Response.json(committed));
+      .mockResolvedValueOnce(Response.json(prepared));
     const pipeline = new AomiClient({
       baseUrl: "https://api.example",
       fetch,
@@ -335,7 +348,7 @@ describe("Pipeline SDK lifecycle", () => {
       transaction: {
         tx: "AQ==",
         preserve_blockhash: true,
-        broadcaster: "venue" as const,
+        broadcaster: "wallet" as const,
       },
     };
     await pipeline.stage(input);
@@ -345,7 +358,7 @@ describe("Pipeline SDK lifecycle", () => {
     expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
       build: svmSimulated,
     });
-    expect(result).toEqual(committed);
+    expect(result).toEqual(prepared);
     expect(result.requests[0].type).toBe("execute_svm");
   });
 
@@ -487,7 +500,10 @@ describe("Pipeline SDK lifecycle", () => {
         return Response.json({
           status: "committed",
           digest: evmSimulated.digest,
-          result: {},
+          result: {
+            provider_invoked: false,
+            next_required_action: "submit_wallet_request",
+          },
           requests: [],
         });
       }
@@ -546,7 +562,10 @@ describe("Pipeline SDK lifecycle", () => {
         return Response.json({
           status: "committed",
           digest: evmSimulated.digest,
-          result: {},
+          result: {
+            provider_invoked: false,
+            next_required_action: "submit_wallet_request",
+          },
           requests: [action.request],
         });
       }

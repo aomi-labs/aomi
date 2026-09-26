@@ -105,6 +105,66 @@ describe("preparation route selection", () => {
       session.close();
     }
   });
+  it.each(["", " \n\t"])(
+    "rejects invalid regeneration target %j before request or optimistic state",
+    async (regenerate) => {
+      const client = new AomiClient({
+        baseUrl: "https://example.test",
+        guest: false,
+      });
+      const start = vi.spyOn(client.agent, "start");
+      const session = new Session(client, { sessionId: "test" });
+      try {
+        await expect(
+          session.sendAsync("Supply USDC", { regenerate }),
+        ).rejects.toThrow("regenerate requires");
+        expect(start).not.toHaveBeenCalled();
+        expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
+        expect(session.getSnapshot().isSubmitting).toBe(false);
+      } finally {
+        session.close();
+      }
+    },
+  );
+  it("keeps regeneration target in the uncertain start identity", async () => {
+    const client = new AomiClient({
+      baseUrl: "https://example.test",
+      guest: false,
+    });
+    const start = vi
+      .spyOn(client.agent, "start")
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValue({
+        session_id: "test",
+        events: [],
+        cursor: "1",
+        has_more: false,
+      });
+    const session = new Session(client, { sessionId: "test" });
+    try {
+      await expect(
+        session.sendAsync("Reconsider", { regenerate: "callback:response" }),
+      ).rejects.toThrow("response lost");
+      await session.sendAsync("Reconsider", {
+        regenerate: "callback:response",
+      });
+      expect(start.mock.calls[1]).toEqual(start.mock.calls[0]);
+      expect(start.mock.calls[0]![0]).toMatchObject({
+        regenerate: "callback:response",
+      });
+      await session.sendAsync("Reconsider", {
+        regenerate: "different:response",
+      });
+      expect(start.mock.calls[2]![1]!.idempotencyKey).not.toBe(
+        start.mock.calls[0]![1]!.idempotencyKey,
+      );
+      expect(start.mock.calls[2]![0]).toMatchObject({
+        regenerate: "different:response",
+      });
+    } finally {
+      session.close();
+    }
+  });
   it.each(["evm", "svm"] as const)(
     "keeps signing independent of all three %s submitters",
     (chain) => {

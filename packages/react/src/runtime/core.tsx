@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
-  type AppendMessage,
 } from "@assistant-ui/react";
 
 import {
@@ -34,7 +33,7 @@ import {
   projectAssistantMessages,
   projectRuntimeMessages,
 } from "./utils";
-import { appendCapabilityHints } from "./capability-hints";
+import { messageActions } from "./message-actions";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -54,16 +53,6 @@ async function runSingleFlight(
       flights.delete(threadId);
     }
   }
-}
-
-function appendMessageText(message: AppendMessage): string {
-  return message.content
-    .filter(
-      (part): part is Extract<typeof part, { type: "text" }> =>
-        part.type === "text",
-    )
-    .map((part) => part.text)
-    .join("\n");
 }
 
 // =============================================================================
@@ -176,6 +165,19 @@ export function AomiRuntimeCore({
           title: "Conversation unavailable",
           message:
             "This conversation is no longer accessible. Start a new chat and send your message again.",
+        });
+        return;
+      }
+
+      if (
+        error instanceof AgentApiError &&
+        error.code === "execution_conflict"
+      ) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Account busy",
+          message:
+            "Another operation is still running. Your message is in the composer; send it when that operation finishes.",
         });
         return;
       }
@@ -299,6 +301,7 @@ export function AomiRuntimeCore({
     currentMessages,
     snapshot.turnState,
     snapshot.isSubmitting,
+    snapshot.pendingUserMessage,
   );
 
   useEffect(() => {
@@ -345,24 +348,18 @@ export function AomiRuntimeCore({
     messages: currentMessages,
     isLoading: isThreadLoading,
     isRunning,
-    onNew: async (message: AppendMessage) => {
-      const text = appendMessageText(message);
-      if (text) {
-        try {
-          const hintedText = appendCapabilityHints(
-            text,
-            message.runConfig?.custom?.aomiCapabilityHints,
-          );
-          await orchestratorSendMessage(
-            hintedText,
-            threadContext.currentThreadId,
-          );
-        } catch (error) {
-          console.error("Failed to send message:", error);
-          restoreComposerTextRef.current(text);
-        }
-      }
-    },
+    ...messageActions({
+      messages: currentMessages,
+      send: (text, options) =>
+        orchestratorSendMessage(text, threadContext.currentThreadId, options),
+      restore: (text) => restoreComposerTextRef.current(text),
+      unavailable: (message) =>
+        notificationContext.showNotification({
+          type: "error",
+          title: "Message action unavailable",
+          message,
+        }),
+    }),
     onCancel: async () => {
       await orchestratorCancel(threadContext.currentThreadId);
     },

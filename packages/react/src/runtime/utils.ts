@@ -138,6 +138,7 @@ type AssistantProjection = {
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
   finalAnswerStartIndex?: number;
+  responseMessageKey?: string;
 };
 
 /** Insert a part once per key, replacing it in place on re-delivery. */
@@ -152,7 +153,11 @@ const upsertPart = (
     registry.set(key, projection.parts.length);
     projection.parts.push(part);
   } else {
-    projection.parts[index] = part;
+    const previous = projection.parts[index];
+    projection.parts[index] =
+      previous?.type === "tool-call" && part.type === "tool-call"
+        ? { ...previous, ...part, args: part.args ?? previous.args }
+        : part;
   }
 };
 
@@ -170,10 +175,10 @@ const toolPart = (
 /**
  * The backend's event ledger bridges INLINE (sync-executed) tool steps as agent
  * `message` events carrying a `[topic, payload]` tuple in `tool_result`
- * (declared on the client's MessageEvent shape). Until the recorder emits
- * real tool_update/tool_complete events for inline tools, this is the only
- * wire shape those steps arrive in; drop it and every trace renders as an
- * empty "Working" shell.
+ * (declared on the client's MessageEvent shape). These transcript results can
+ * coexist with typed tool_update/tool_complete progress, including a later
+ * wallet callback updating the originating call. Keep both wire paths and
+ * reconcile them by call identity.
  */
 const inlineToolResult = (event: MessageEvent) => {
   // Declared on the type, but the wire is untrusted — validate before use.
@@ -293,24 +298,41 @@ export function logicalTurnRunning(
   messages: readonly ThreadMessageLike[],
   turnState?: TurnState,
   isSubmitting = false,
+  pendingUserMessage?: string,
 ): boolean {
-  if (
-    isSubmitting ||
-    turnState === "processing" ||
-    turnState === "awaiting_action"
-  ) {
-    return true;
-  }
-  const lastMessage = messages.at(-1);
+  // An accepted start can precede its durable user event in a later page.
+  if (isSubmitting || pendingUserMessage) return true;
+  // A late callback completion belongs to its original operation. It must
+  // neither stop a newer user turn nor let a stale global state keep Stop on
+  // a logical operation whose own durable callback has already completed.
+  const latestUserTurn = events.findLast(
+    (event) => event.type === "message" && event.sender === "user",
+  )?.turn_id;
+  const ownState = latestUserTurn
+    ? events.findLast(
+        (event) =>
+          event.type === "turn_state_changed" &&
+          event.turn_id === latestUserTurn,
+      )
+    : undefined;
+  const state =
+    ownState?.type === "turn_state_changed" ? ownState.state : turnState;
+  const latestMessage = latestUserTurn
+    ? messages.find((message) => message.id === `turn:${latestUserTurn}`)
+    : messages.at(-1);
   const continuationTurnIds =
-    lastMessage?.role === "assistant"
+    latestMessage?.role === "assistant"
       ? (
-          lastMessage.metadata?.custom as
+          latestMessage.metadata?.custom as
             | { aomiContinuationTurnIds?: string[] }
             | undefined
         )?.aomiContinuationTurnIds
       : undefined;
-  return walletContinuationPending(continuationTurnIds ?? [], events);
+  return (
+    state === "processing" ||
+    state === "awaiting_action" ||
+    walletContinuationPending(continuationTurnIds ?? [], events)
+  );
 }
 
 /** Walk callback ancestry without allowing malformed cycles to merge turns. */
@@ -336,6 +358,18 @@ export function projectAssistantMessages(
 ): ThreadMessageLike[] {
   const output: Array<ThreadMessageLike | AssistantProjection> = [];
   const assistantTurns = new Map<string, AssistantProjection>();
+  const terminalTurns = new Map<
+    string,
+    { state: TurnState; sequence: number }
+  >();
+  for (const event of events) {
+    if (event.type === "turn_state_changed" && event.turn_id) {
+      terminalTurns.set(event.turn_id, {
+        state: event.state,
+        sequence: event.sequence,
+      });
+    }
+  }
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
@@ -358,20 +392,9 @@ export function projectAssistantMessages(
   const turnKeys = wireTurnKeys.map((turnKey) =>
     rootTurn(turnKey, continuationOwners),
   );
-  // Inline results only ever arrive as `tool_result` message events, so an
-  // inline part may be suppressed only when the SAME tool also produced a
-  // typed completion in the turn — suppressing per turn would drop a sync
-  // tool's only trace whenever any other tool in the turn completed typed.
-  const typedToolKey = (turn: string, toolName: string) =>
-    `${turn}::${toolName}`;
-  const typedToolCompletions = new Set(
-    events.flatMap((event, index) =>
-      event.type === "tool_complete" && event.tool_name !== "task"
-        ? [typedToolKey(wireTurnKeys[index]!, event.tool_name)]
-        : [],
-    ),
-  );
-
+  // Inline transcript results and typed progress are revisions of the same
+  // persisted call, even when a wallet callback has a different wire turn.
+  // A tool name alone is not identity: repeated calls must remain distinct.
   const assistantTurn = (event: Event, index: number): AssistantProjection => {
     const key = turnKeys[index]!;
     const existing = assistantTurns.get(key);
@@ -400,18 +423,12 @@ export function projectAssistantMessages(
         const key = event.message_key ?? event.event_id;
         const toolResult = inlineToolResult(event);
         if (toolResult) {
-          if (
-            !typedToolCompletions.has(
-              typedToolKey(wireTurnKeys[index]!, toolResult.toolName),
-            )
-          ) {
-            upsertPart(
-              projection,
-              projection.toolParts,
-              key,
-              inlineToolPart(toolResult, key, event.tool_call_id),
-            );
-          }
+          upsertPart(
+            projection,
+            projection.toolParts,
+            event.tool_call_id ?? `inline:${key}`,
+            inlineToolPart(toolResult, key, event.tool_call_id),
+          );
         } else {
           if (
             continuationOwners.has(event.turn_id ?? "") &&
@@ -421,6 +438,15 @@ export function projectAssistantMessages(
           ) {
             projection.finalAnswerStartIndex ??= projection.parts.length;
           }
+          const terminal = terminalTurns.get(event.turn_id ?? "");
+          if (
+            event.message_key &&
+            event.content.trim() &&
+            event.is_streaming !== true &&
+            terminal?.state === "complete" &&
+            terminal.sequence > event.sequence
+          )
+            projection.responseMessageKey = event.message_key;
           upsertPart(projection, projection.textParts, key, {
             type: "text",
             text: event.content,
@@ -471,10 +497,15 @@ export function projectAssistantMessages(
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
-        ...(entry.finalAnswerStartIndex !== undefined || callbackTurns
+        ...(entry.finalAnswerStartIndex !== undefined ||
+        callbackTurns ||
+        entry.responseMessageKey
           ? {
               metadata: {
                 custom: {
+                  ...(entry.responseMessageKey
+                    ? { aomiResponseMessageKey: entry.responseMessageKey }
+                    : {}),
                   ...(entry.finalAnswerStartIndex !== undefined
                     ? { aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex }
                     : {}),

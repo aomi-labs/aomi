@@ -1,4 +1,5 @@
 import type { AomiClient } from "./client";
+import { normalizeEvmWalletTarget } from "./wallet/target";
 import type { Wallets } from "./wallet/types";
 import type { components } from "./generated/agent-v1/types";
 import type { ActionRequest } from "./agent/types";
@@ -10,6 +11,7 @@ import {
   actionRequestSchema,
   agentSchemas,
 } from "./generated/agent-v1/schemas";
+import { reviewEligibility } from "./commit-lifecycle";
 
 export type CommitView = components["schemas"]["CommitView"];
 export type CommitState = CommitView["state"];
@@ -21,6 +23,11 @@ export type CommitWalletAttemptView =
   components["schemas"]["CommitWalletAttemptView"];
 export type CommitWalletAttemptOutcome =
   components["schemas"]["CommitWalletAttemptOutcome"];
+export type CommitSubmissionPhase =
+  | "preparing"
+  | "switching_chain"
+  | "awaiting_wallet"
+  | "submitting";
 export type EvmCommitTransaction = Extract<
   SignableCommit,
   { kind: "evm_transaction" }
@@ -61,6 +68,7 @@ export type CommitCapabilities = {
   walletSend?: (
     commit: CommitView,
     payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
+    onPhase?: (phase: Exclude<CommitSubmissionPhase, "preparing">) => void,
   ) => Promise<string>;
   walletSendPreflight?: (
     commit: CommitView,
@@ -78,6 +86,30 @@ const COMMIT_CAPABILITY_KEYS = [
 ] as const satisfies readonly (keyof CommitCapabilities)[];
 export const isTerminalCommit = (view: CommitView): boolean =>
   ["confirmed", "rejected", "failed", "expired"].includes(view.state);
+
+const continuationRevision = (view: CommitView): number =>
+  view.continuation?.revision ?? 0;
+function preservesContinuation(
+  current: CommitView,
+  incoming: CommitView,
+): boolean {
+  const currentRevision = continuationRevision(current);
+  const incomingRevision = continuationRevision(incoming);
+  if (currentRevision !== incomingRevision)
+    return currentRevision > incomingRevision;
+  if (current.continuation?.revision !== undefined) return true;
+  // Capability bootstrap accepts the first explicit stamp, but a snapshot
+  // taken before an already observed completion must not undo that delivery.
+  return (
+    incoming.continuation?.revision !== undefined &&
+    current.continuation?.state === "completed" &&
+    incoming.continuation.state !== "completed"
+  );
+}
+const needsCommitRefresh = (view: CommitView): boolean =>
+  !isTerminalCommit(view) ||
+  view.continuation?.state === "pending" ||
+  view.continuation?.state === "retrying";
 
 function commitReview(value: unknown): CommitReview | undefined {
   try {
@@ -158,14 +190,24 @@ export function commitCapabilities(
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
+            normalizeEvmWalletTarget(payload.transaction.to);
             await preparePrepared(payload);
           },
-          async walletSend(commit, payload) {
+          async walletSend(commit, payload, onPhase) {
             if (commit.chain_family !== "evm")
               throw new Error("External wallet send requires an EVM commit");
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
-            return sendPrepared(payload);
+            const walletPayload = {
+              ...payload,
+              transaction: {
+                ...payload.transaction,
+                to: normalizeEvmWalletTarget(payload.transaction.to),
+              },
+            };
+            return onPhase
+              ? sendPrepared(walletPayload, onPhase)
+              : sendPrepared(walletPayload);
           },
         }
       : {}),
@@ -250,6 +292,8 @@ export class CommitController {
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
   private attempts = new Map<string, Promise<CommitView>>();
+  private submissionPhases = new Map<string, CommitSubmissionPhase>();
+  private phaseGenerations = new Map<string, symbol>();
   private pending = new Map<string, CommitManual>();
   private timer?: ReturnType<typeof setTimeout>;
   private capabilityChangeScheduled = false;
@@ -265,6 +309,10 @@ export class CommitController {
     private capabilities: CommitCapabilities = {},
   ) {}
   all = (): readonly CommitView[] => this.snapshot;
+  submissionPhase = (id: string): CommitSubmissionPhase | undefined =>
+    this.submissionPhases.get(id);
+  recoveryRecord = (id: string): CommitRecoveryRecord | undefined =>
+    this.capabilities.recovery?.load(this.threadId, id);
   review = (id: string): CommitReview | undefined => {
     const view = this.views.get(id);
     return commitReview(view?.review?.request) ?? this.reviews.get(id);
@@ -306,7 +354,16 @@ export class CommitController {
   private changed(): void {
     if (this.closed) return;
     this.snapshot = [...this.views.values()];
-    this.listeners.forEach((listener) => listener());
+    this.notifyListeners();
+  }
+  private notifyListeners(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // A UI observer cannot interrupt durable commit reconciliation.
+      }
+    }
   }
   private get available(): CommitCapabilities {
     return { ...this.walletCapabilities, ...this.capabilities };
@@ -314,8 +371,16 @@ export class CommitController {
   ingest(view: CommitView): void {
     if (this.closed || view.thread_id !== this.threadId) return;
     const existing = this.views.get(view.commit_id);
-    // A replayed tool result cannot roll a live/terminal view backwards.
-    if (existing && existing.version >= view.version) return;
+    // Chain and assistant delivery have independent monotonic revisions.
+    if (existing && existing.version >= view.version) {
+      if (
+        preservesContinuation(existing, view) ||
+        (continuationRevision(existing) === continuationRevision(view) &&
+          view.continuation?.revision === undefined)
+      )
+        return;
+      view = { ...existing, continuation: view.continuation };
+    }
     this.store(view);
     this.schedule();
   }
@@ -333,6 +398,7 @@ export class CommitController {
   }
   canExecute(view: CommitView): boolean {
     if (view.wallet_attempt?.state === "mismatched") return false;
+    if (this.newAttemptIneligible(view)) return false;
     const recovery = this.capabilities.recovery?.load(
       this.threadId,
       view.commit_id,
@@ -371,13 +437,22 @@ export class CommitController {
     });
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
-    return this.store(view);
+    const current = this.store(view);
+    this.schedule();
+    return current;
   }
   execute(id: string): Promise<CommitView> {
     const running = this.attempts.get(id);
     if (running) return running;
+    const generation = Symbol(id);
+    this.phaseGenerations.set(id, generation);
+    this.setSubmissionPhase(id, "preparing");
     const attempt = this.perform(id).finally(() => {
       this.attempts.delete(id);
+      if (this.phaseGenerations.get(id) === generation) {
+        this.phaseGenerations.delete(id);
+        this.setSubmissionPhase(id, undefined);
+      }
     });
     this.attempts.set(id, attempt);
     return attempt;
@@ -393,11 +468,41 @@ export class CommitController {
   private path(id: string): string {
     return `/api/commits/${encodeURIComponent(id)}`;
   }
+  private newAttemptIneligible(view: CommitView): boolean {
+    // A request ID saved before POST is not proof that an attempt was admitted.
+    // Only a durable server attempt or its returned identity may reconcile an
+    // older authorization after eligibility changes.
+    if (view.wallet_attempt || this.recoveryRecord(view.commit_id)?.attemptId)
+      return false;
+    const eligibility = reviewEligibility(this.review(view.commit_id));
+    return eligibility !== undefined && eligibility.state !== "eligible";
+  }
+  private setSubmissionPhase(
+    id: string,
+    phase: CommitSubmissionPhase | undefined,
+  ): void {
+    if (phase === this.submissionPhases.get(id)) return;
+    if (phase) this.submissionPhases.set(id, phase);
+    else this.submissionPhases.delete(id);
+    this.changed();
+  }
   private store(view: CommitView): CommitView {
     if (view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
     const current = this.views.get(view.commit_id);
-    if (current && current.version > view.version) return current;
+    if (current) {
+      // Stamped metadata is immutable at its revision; unstamped refreshes
+      // retain compatibility until the first authoritative stamp arrives.
+      const continuation = preservesContinuation(current, view)
+        ? current.continuation
+        : view.continuation;
+      if (current.version > view.version) {
+        if (continuation === current.continuation) return current;
+        view = { ...current, continuation };
+      } else if (continuation !== view.continuation) {
+        view = { ...view, continuation };
+      }
+    }
     if (this.closed) return view;
     this.views.set(view.commit_id, view);
     const compatibilityReview = legacySvmReview(view);
@@ -406,7 +511,7 @@ export class CommitController {
       this.synthesizedReviews.add(view.commit_id);
     }
     this.snapshot = [...this.views.values()];
-    this.listeners.forEach((listener) => listener());
+    this.notifyListeners();
     return view;
   }
   private async manual(id: string, body: CommitManual): Promise<CommitView> {
@@ -430,6 +535,8 @@ export class CommitController {
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
+    if (this.newAttemptIneligible(view))
+      throw new Error("Execution is blocked by the reviewed simulation");
     const pending = this.pending.get(id);
     if (pending) view = await this.manual(id, pending);
     if (this.closed) throw new Error("Commit session closed");
@@ -561,8 +668,15 @@ export class CommitController {
     if (attempt.request.kind !== "evm_transaction")
       throw new Error("Wallet attempt returned an unsupported payload");
     let transactionId: string;
+    const generation = this.phaseGenerations.get(view.commit_id);
     try {
-      transactionId = await send(view, attempt.request);
+      transactionId = await send(view, attempt.request, (phase) => {
+        if (
+          generation &&
+          this.phaseGenerations.get(view.commit_id) === generation
+        )
+          this.setSubmissionPhase(view.commit_id, phase);
+      });
     } catch (error) {
       if (!isExplicitWalletRejection(error)) throw error;
       record = { ...record, rejected: true };
@@ -597,17 +711,13 @@ export class CommitController {
     return current;
   }
   private schedule(): void {
-    if (
-      this.closed ||
-      this.timer ||
-      !this.snapshot.some((view) => !isTerminalCommit(view))
-    )
+    if (this.closed || this.timer || !this.snapshot.some(needsCommitRefresh))
       return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       void Promise.all(
         this.snapshot
-          .filter((view) => !isTerminalCommit(view))
+          .filter(needsCommitRefresh)
           .map((view) => this.refresh(view.commit_id).catch(() => undefined)),
       ).finally(() => this.schedule());
     }, 1000);

@@ -79,7 +79,8 @@
     "POST /v1/pipeline/svm/program",
     "POST /v1/pipeline/svm/simulate",
     "POST /v1/pipeline/svm/stage",
-    "POST /v1/pipeline/svm/token-holdings"
+    "POST /v1/pipeline/svm/token-holdings",
+    "POST /v1/task/build"
   ],
   "paths": {
     "/health": {
@@ -1256,7 +1257,7 @@
       },
       "post": {
         "operationId": "buildevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1321,7 +1322,7 @@
       },
       "post": {
         "operationId": "stageevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1386,7 +1387,7 @@
       },
       "post": {
         "operationId": "simulateevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1451,7 +1452,7 @@
       },
       "post": {
         "operationId": "commitevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1520,7 +1521,7 @@
       },
       "post": {
         "operationId": "buildsvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1585,7 +1586,7 @@
       },
       "post": {
         "operationId": "stagesvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1650,7 +1651,7 @@
       },
       "post": {
         "operationId": "simulatesvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1715,7 +1716,7 @@
       },
       "post": {
         "operationId": "commitsvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates, then prepares wallet requests without creating a thread or invoking a provider. The caller submits and tracks them.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1924,7 +1925,7 @@
       },
       "post": {
         "operationId": "readEvmTokenHoldings",
-        "description": "Read an ERC-20 token balance for a holder. A token filter is required today; unfiltered enumeration is not yet supported on EVM.",
+        "description": "Discover nonzero ERC-20 holdings on one configured Alchemy Portfolio network, with exact decimal USD ranking, filters and live pagination. Excludes native currency and NFTs.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2387,6 +2388,162 @@
             "aomiOAuth": ["pipeline:execute"]
           }
         ]
+      }
+    },
+    "/v1/task/build": {
+      "post": {
+        "operationId": "buildTask",
+        "security": [
+          {
+            "aomiOAuth": ["task:build"]
+          }
+        ],
+        "description": "Authenticated natural-language task preparation. First request freezes an unsigned payload and returns a payment challenge valid for at most five minutes and never beyond the frozen build expiry without calldata. Retrieval requires the same principal, quoteId and private retrievalToken plus Payment-Signature, or recovery of an already accepted purchase. Supplying Payment-Signature additionally requires payments:submit scope. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Payment-Signature",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["intent", "chainId", "sender"],
+                    "properties": {
+                      "intent": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 8000
+                      },
+                      "chainId": {
+                        "type": "integer",
+                        "enum": [5042, 5042002]
+                      },
+                      "sender": {
+                        "type": "string"
+                      },
+                      "payer": {
+                        "type": "string"
+                      },
+                      "constraints": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "maxOutgoingUsdcWei": {
+                            "type": "string",
+                            "pattern": "^[0-9]+$",
+                            "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
+                          },
+                          "maxGasUnits": {
+                            "type": "integer",
+                            "format": "uint64",
+                            "minimum": 0,
+                            "description": "Maximum simulated gas units across all actions."
+                          },
+                          "allowedTargets": {
+                            "type": "array",
+                            "default": [],
+                            "items": {
+                              "type": "string",
+                              "pattern": "^0x[0-9a-fA-F]{40}$"
+                            },
+                            "description": "If nonempty, every action target must be in this allowlist."
+                          },
+                          "minimumReceived": {
+                            "type": "array",
+                            "default": [],
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["asset", "amount"],
+                              "properties": {
+                                "asset": {
+                                  "type": "string",
+                                  "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
+                                },
+                                "amount": {
+                                  "type": "string",
+                                  "pattern": "^[0-9]+$",
+                                  "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "description": "Required in body or Idempotency-Key header."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["quoteId", "retrievalToken"],
+                    "properties": {
+                      "quoteId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "retrievalToken": {
+                        "type": "string",
+                        "writeOnly": true
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact frozen JSON artifact bytes (build, report, safe summary and pricing), released only after payment acceptance. Payment-Response is returned when available; accepted is distinct from batch settlement."
+          },
+          "202": {
+            "description": "Payment submitted or ambiguous; retry the same quote/token for recovery. Artifact remains private."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Safe summary, pricing, quoteId, expiresAt, SHA-256 payloadHash, EdDSA attestation, retrievalToken and base64 Gateway paymentRequired. No build/calldata/full report.",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Request key conflict, active preparation, or incompatible payment replay."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/v1/account/apps": {
@@ -2873,6 +3030,12 @@
             "minLength": 1,
             "maxLength": 32000
           },
+          "regenerate": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Durable completed assistant message_key in this session. Append a response-only restatement with all tools disabled; preserve history and transaction outcomes."
+          },
           "applicationId": {
             "type": ["integer", "null"]
           },
@@ -3250,6 +3413,43 @@
           }
         ]
       },
+      "CommitContinuationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "state", "attempts"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "retrying",
+              "completed",
+              "assistant_recovery_required",
+              "exhausted"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "effect_reconciliation_required",
+              "empty_assistant_result",
+              "continuation_retry_exhausted"
+            ]
+          }
+        }
+      },
       "CommitView": {
         "type": "object",
         "additionalProperties": false,
@@ -3353,6 +3553,9 @@
                 "type": "null"
               }
             ]
+          },
+          "continuation": {
+            "$ref": "#/components/schemas/CommitContinuationView"
           },
           "action": {
             "oneOf": [
@@ -4870,57 +5073,136 @@
       },
       "PipelineEvmTokenHoldingsRequest": {
         "type": "object",
-        "required": ["chain_id", "token_address"],
         "properties": {
           "chain_id": {
             "type": "integer",
             "minimum": 1,
-            "description": "EVM chain ID to read."
-          },
-          "token_address": {
-            "type": "string",
-            "description": "ERC-20 token contract address. Required — holdings enumeration without a token filter is not yet supported on EVM."
+            "description": "Configured EVM chain with Alchemy Portfolio indexing enabled."
           },
           "holder_address": {
             "type": ["string", "null"],
-            "description": "Holder to read. Defaults to the connected EVM wallet."
+            "description": "Optional wallet address. Omit to use the backend-resolved execution account; pass an explicit address to inspect that address exactly."
           },
-          "block_tag": {
+          "limit": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Page size (default 20). For top N assets, set N here and sort_by=usd_value, sort_order=desc."
+          },
+          "cursor": {
             "type": ["string", "null"],
-            "description": "Optional block tag; defaults to latest."
+            "description": "Opaque next_cursor from the previous response. Keep chain, holder, filters and sorting unchanged. Pages are live, not a snapshot."
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": ["usd_value", "symbol", "token_address"],
+            "description": "Default usd_value. Never rank different tokens by raw balance."
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Default desc. Unknown USD values always sort last under usd_value."
+          },
+          "query": {
+            "type": ["string", "null"],
+            "maxLength": 256,
+            "description": "Case-insensitive substring of token symbol, name or contract address."
+          },
+          "min_usd_value": {
+            "type": ["string", "null"],
+            "description": "Nonnegative decimal string filtering known USD values. Unknown values are retained if include_unpriced=true."
+          },
+          "include_unpriced": {
+            "type": ["boolean", "null"],
+            "description": "Default true: keep assets with unknown USD value, including missing decimals. False excludes them."
           }
-        }
+        },
+        "required": ["chain_id"]
       },
       "PipelineEvmTokenHoldingsResult": {
         "type": "object",
         "required": [
           "chain_id",
-          "token",
           "holder",
-          "balance_raw",
-          "balance",
-          "decimals"
+          "source",
+          "complete",
+          "items",
+          "total_matching",
+          "next_cursor",
+          "warnings"
         ],
         "properties": {
           "chain_id": {
             "type": "integer"
           },
-          "token": {
-            "type": "string"
-          },
           "holder": {
             "type": "string"
           },
-          "balance_raw": {
+          "source": {
             "type": "string",
-            "description": "Raw base-unit amount; may exceed f64 precision."
+            "enum": ["alchemy_portfolio"]
           },
-          "balance": {
-            "type": "string",
-            "description": "Decimal-adjusted numeric string."
+          "complete": {
+            "type": "boolean",
+            "description": "True when all indexer pages were traversed; incomplete traversal returns an error. Does not imply price coverage or a stable snapshot."
           },
-          "decimals": {
+          "total_matching": {
             "type": "integer"
+          },
+          "next_cursor": {
+            "type": ["string", "null"]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "token_address",
+                "symbol",
+                "name",
+                "decimals",
+                "balance_raw",
+                "balance",
+                "price_usd",
+                "value_usd",
+                "price_updated_at"
+              ],
+              "properties": {
+                "token_address": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "decimals": {
+                  "type": ["integer", "null"]
+                },
+                "balance_raw": {
+                  "type": "string"
+                },
+                "balance": {
+                  "type": ["string", "null"]
+                },
+                "price_usd": {
+                  "type": ["string", "null"]
+                },
+                "value_usd": {
+                  "type": ["string", "null"]
+                },
+                "price_updated_at": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
           }
         }
       },
@@ -5413,7 +5695,7 @@
           },
           "attestation": {
             "type": "string",
-            "description": "Server authentication of the Build, its owner, and app scope."
+            "description": "Server authentication of the Build owner, app scope, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
           }
         }
       },
@@ -5423,15 +5705,37 @@
         "required": ["status", "digest", "result", "requests"],
         "properties": {
           "status": {
-            "const": "committed"
+            "const": "committed",
+            "description": "Legacy response label; wallet submission has not occurred."
+          },
+          "preparation_status": {
+            "const": "prepared"
+          },
+          "provider_invoked": {
+            "const": false
+          },
+          "next_required_action": {
+            "const": "submit_wallet_request"
           },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
-          "result": {},
+          "result": {
+            "type": "object",
+            "required": ["provider_invoked", "next_required_action"],
+            "properties": {
+              "provider_invoked": {
+                "const": false
+              },
+              "next_required_action": {
+                "const": "submit_wallet_request"
+              }
+            }
+          },
           "requests": {
-            "type": "array"
+            "type": "array",
+            "description": "Validated wallet intents; no durable Agent Action IDs. The wallet provider has not been invoked."
           }
         }
       },
@@ -5441,17 +5745,39 @@
         "required": ["status", "digest", "results", "requests"],
         "properties": {
           "status": {
-            "const": "committed"
+            "const": "committed",
+            "description": "Legacy response label; wallet submission has not occurred."
+          },
+          "preparation_status": {
+            "const": "prepared"
+          },
+          "provider_invoked": {
+            "const": false
+          },
+          "next_required_action": {
+            "const": "submit_wallet_request"
           },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
           "results": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider_invoked": {
+                  "const": false
+                },
+                "next_required_action": {
+                  "const": "submit_wallet_request"
+                }
+              }
+            }
           },
           "requests": {
-            "type": "array"
+            "type": "array",
+            "description": "Validated wallet intents; no durable Agent Action IDs. The wallet provider has not been invoked. SVM transactions are exact-byte simulated independently; ordered cross-transaction state dependencies are unsupported."
           }
         }
       },
@@ -5735,6 +6061,7 @@
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
               "agent:actions:resolve": "Resolve a durable Agent Action",
               "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
+              "task:build": "Prepare and purchase an immutable unsigned task artifact",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
               "account:apps:read": "Read available applications and installed state",
               "account:apps:write": "Install and remove applications",
@@ -5754,6 +6081,7 @@
         "x-aomi-resources": {
           "agent": "https://chat.aomi.dev/v1/agent",
           "pipeline": "https://chat.aomi.dev/v1/pipeline",
+          "task": "https://chat.aomi.dev/v1/task",
           "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
           "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
           "account": "https://chat.aomi.dev/v1/account"

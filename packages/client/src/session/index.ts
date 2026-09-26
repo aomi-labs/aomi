@@ -18,6 +18,7 @@ import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
 import type { AomiClientOptions } from "../types";
 import type {
+  SendOptions,
   SendResult,
   SessionOptions,
   SessionRuntimeOptions,
@@ -28,6 +29,7 @@ export { aaModeFromExecutionKind } from "../aa/policy";
 export type {
   Event,
   EventPage,
+  SendOptions,
   SendResult,
   SessionOptions,
   SessionRuntimeOptions,
@@ -62,6 +64,7 @@ export class ClientSession {
   private turnState?: TurnState;
   private startOperation?: {
     message: string;
+    regenerate?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
   };
@@ -103,6 +106,7 @@ export class ClientSession {
   private snapshot: SessionSnapshot;
   private applyingPage = false;
   private pendingCommits = new Set<string>();
+  private pendingContinuations = new Map<string, "pending" | "completed">();
   private commitDrainAfter?: number;
 
   constructor(
@@ -153,6 +157,24 @@ export class ClientSession {
             this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
             this.startStreaming();
           }
+          // Only the callback owner projects delivery metadata. A sibling
+          // shares the batch identity but cannot cancel its owner's wake.
+          if (!view.continuation) continue;
+          const callbackTurnId = `broadcast-terminal:${view.batch?.batch_id ?? view.commit_id}`;
+          if (
+            view.continuation?.state === "pending" ||
+            view.continuation?.state === "retrying"
+          ) {
+            this.pendingContinuations.set(callbackTurnId, "pending");
+          } else if (
+            view.continuation?.state === "completed" &&
+            this.pendingContinuations.has(callbackTurnId)
+          ) {
+            this.pendingContinuations.set(callbackTurnId, "completed");
+            this.resumeCompletedCallbacks();
+          } else {
+            this.pendingContinuations.delete(callbackTurnId);
+          }
         }
         if (!this.applyingPage) this.publish();
       }),
@@ -176,8 +198,8 @@ export class ClientSession {
     return () => this.listeners.delete(listener);
   };
 
-  async send(message: string): Promise<SendResult> {
-    const page = await this.submit(message);
+  async send(message: string, options: SendOptions = {}): Promise<SendResult> {
+    const page = await this.submit(message, options);
     if (this.isTerminal()) {
       this.drainTerminalPage(page);
       // The drain may still be polling for the trailing final message /
@@ -192,8 +214,11 @@ export class ClientSession {
     });
   }
 
-  async sendAsync(message: string): Promise<EventPage> {
-    const page = await this.submit(message);
+  async sendAsync(
+    message: string,
+    options: SendOptions = {},
+  ): Promise<EventPage> {
+    const page = await this.submit(message, options);
     if (this.isTerminal()) {
       this.drainTerminalPage(page);
       return page;
@@ -276,15 +301,25 @@ export class ClientSession {
     this.listeners.clear();
   }
 
-  private async submit(message: string): Promise<EventPage> {
+  private async submit(
+    message: string,
+    options: SendOptions,
+  ): Promise<EventPage> {
     this.assertOpen();
+    if (options.regenerate !== undefined && !options.regenerate.trim()) {
+      throw new TypeError(
+        "regenerate requires a completed assistant message key",
+      );
+    }
     const text = message.trim();
     if (!text) throw new TypeError("message is required");
     const operation: NonNullable<ClientSession["startOperation"]> =
-      this.startOperation?.message === text
+      this.startOperation?.message === text &&
+      this.startOperation.regenerate === options.regenerate
         ? this.startOperation
         : {
             message: text,
+            regenerate: options.regenerate,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
           };
     this.startOperation = operation;
@@ -321,6 +356,7 @@ export class ClientSession {
           sessionId: this.sessionId,
           clientId: this.clientId,
           message: text,
+          ...(operation.regenerate ? { regenerate: operation.regenerate } : {}),
           ...target,
           ...(this.model ? { model: this.model } : {}),
           ...(state
@@ -358,6 +394,7 @@ export class ClientSession {
       throw error;
     } finally {
       this.isSubmitting = false;
+      this.resumeCompletedCallbacks();
       this.publish();
     }
   }
@@ -372,7 +409,7 @@ export class ClientSession {
     } catch (error) {
       if (
         !(error instanceof AgentApiError) ||
-        error.code !== "invalid_cursor"
+        !["invalid_cursor", "cursor_expired"].includes(error.code)
       ) {
         throw error;
       }
@@ -446,6 +483,17 @@ export class ClientSession {
             if (event.message_key) {
               this.liveMessages.delete(event.message_key);
               this.liveRevisions.delete(event.message_key);
+              if (this.isCallbackResponse(event)) {
+                // The final stream is promoted from a temporary trace key to
+                // the durable response key. Retire only that draft; earlier
+                // commentary has its own durable message and remains visible.
+                for (const key of this.liveMessages.keys()) {
+                  if (key.startsWith(`${event.turn_id}:trace:`)) {
+                    this.liveMessages.delete(key);
+                    this.liveRevisions.delete(key);
+                  }
+                }
+              }
             }
             this.applyMessage(event);
             if (
@@ -542,6 +590,7 @@ export class ClientSession {
           } else if (kind === "message") {
             this.applyLiveMessage(data);
           } else if (kind === "resync") {
+            this.cursor = undefined;
             this.streamAbort?.abort();
           }
         },
@@ -596,6 +645,14 @@ export class ClientSession {
     )
       return;
     if (
+      key.startsWith(`${frame.turn_id}:trace:`) &&
+      this.messages.some(
+        (stored) =>
+          this.isCallbackResponse(stored) && stored.turn_id === frame.turn_id,
+      )
+    )
+      return;
+    if (
       !Number.isSafeInteger(frame.revision) ||
       (this.liveRevisions.get(key) ?? -1) >= frame.revision!
     )
@@ -627,6 +684,66 @@ export class ClientSession {
     this.publish();
   }
 
+  private resumeCompletedCallbacks(): void {
+    for (const [turnId, state] of this.pendingContinuations) {
+      if (state === "completed" && this.resumeCompletedCallback(turnId))
+        this.pendingContinuations.delete(turnId);
+    }
+  }
+
+  private resumeCompletedCallback(turnId: string): boolean {
+    if (
+      this.closed ||
+      this.streamingActive ||
+      this.isSubmitting ||
+      this.pendingUserMessage
+    )
+      return false;
+    if (
+      this.turnId !== turnId &&
+      (this.turnState === "processing" || this.turnState === "awaiting_action")
+    )
+      return false;
+    if (this.hasCompletedCallback(turnId)) return true;
+    // Delivery polling carries metadata only. Wake the existing bounded drain
+    // once when known delivery finishes beyond the original event window.
+    this.commitDrainAfter = this.events.at(-1)?.sequence ?? 0;
+    this.terminalTurnId = turnId;
+    this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
+    this.startStreaming();
+    return true;
+  }
+
+  private hasCompletedCallback(turnId: string): boolean {
+    const latestState = this.events.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    const hasAnswer = this.events.some(
+      (event) =>
+        event.type === "message" &&
+        event.turn_id === turnId &&
+        latestState !== undefined &&
+        event.sequence < latestState.sequence &&
+        this.isCallbackResponse(event) &&
+        event.content.trim().length > 0,
+    );
+    return (
+      latestState?.type === "turn_state_changed" &&
+      latestState.state === "complete" &&
+      hasAnswer
+    );
+  }
+
+  private isCallbackResponse(message: MessageEvent): boolean {
+    return Boolean(
+      message.turn_id?.startsWith("broadcast-terminal:") &&
+      message.message_key === `${message.turn_id}:response` &&
+      message.sender === "agent" &&
+      message.is_streaming !== true,
+    );
+  }
+
   private recordTextReceipt(): void {
     if (
       this.timing &&
@@ -649,6 +766,7 @@ export class ClientSession {
     this.pendingUserMessage = undefined;
     this.stopStreaming();
     this.resolvePending();
+    this.resumeCompletedCallbacks();
   }
 
   private drainTerminalPage(page: EventPage): void {
@@ -675,6 +793,8 @@ export class ClientSession {
   private hasTerminalAnswer(): boolean {
     const turnId = this.terminalTurnId;
     if (!turnId) return false;
+    if (turnId.startsWith("broadcast-terminal:"))
+      return this.hasCompletedCallback(turnId);
     return this.events.some(
       (event) =>
         event.type === "message" &&

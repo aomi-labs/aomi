@@ -47,6 +47,56 @@ const formatDuration = (seconds: number): string => {
   return `${m}m ${s}s`;
 };
 
+type WorkPhaseEvent = {
+  type: string;
+  turn_id?: string | null;
+  state?: string;
+  occurred_at?: string | number;
+};
+
+const phaseTimeMs = (value: string | number | undefined): number => {
+  if (typeof value === "number") return value < 1e12 ? value * 1_000 : value;
+  if (typeof value !== "string") return 0;
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? numeric < 1e12
+      ? numeric * 1_000
+      : numeric
+    : Date.parse(value);
+};
+
+/** Sum persisted processing intervals; awaiting wallet approval pauses time. */
+export function activeWorkDurationMs(
+  events: readonly WorkPhaseEvent[],
+  turnIds: readonly string[],
+  nowMs: number,
+): number | null {
+  const ids = new Set(turnIds);
+  const started = new Map<string, number>();
+  let total = 0;
+  let observed = false;
+  for (const event of events) {
+    if (
+      event.type !== "turn_state_changed" ||
+      !event.turn_id ||
+      !ids.has(event.turn_id)
+    )
+      continue;
+    const at = phaseTimeMs(event.occurred_at);
+    if (!Number.isFinite(at) || at <= 0) continue;
+    if (event.state === "processing") {
+      observed = true;
+      if (!started.has(event.turn_id)) started.set(event.turn_id, at);
+    } else {
+      const from = started.get(event.turn_id);
+      if (from !== undefined) total += Math.max(0, at - from);
+      started.delete(event.turn_id);
+    }
+  }
+  for (const from of started.values()) total += Math.max(0, nowMs - from);
+  return observed ? total : null;
+}
+
 /** useLayoutEffect on the client, useEffect on the server (dodges the SSR warning). */
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -186,6 +236,8 @@ export const WorkingTrace: FC<{
    * end), so mount time alone under-reports "Orchestrated for Ns" badly.
    */
   startedAtMs?: number;
+  phaseEvents?: readonly WorkPhaseEvent[];
+  phaseTurnIds?: readonly string[];
 }> = ({
   running,
   outcome = running ? "running" : "complete",
@@ -193,6 +245,8 @@ export const WorkingTrace: FC<{
   revealed,
   collapseReady = true,
   startedAtMs,
+  phaseEvents,
+  phaseTurnIds,
 }) => {
   const [open, setOpen] = useState(running);
   const [expanded, setExpanded] = useState(false);
@@ -206,9 +260,8 @@ export const WorkingTrace: FC<{
   // expand/collapse tween. Measuring the body keeps the result stable while the
   // viewport is capped or its max-height animation is in flight.
   const bodyRef = useRef<HTMLDivElement>(null);
-  // Live traces follow new steps while the reader is at the bottom. Scrolling up
-  // opts out until they return to the newest step, so a tool update never yanks
-  // an older row out from under the pointer.
+  // Completed traces respect inner reader scrolling. Live capped traces follow
+  // every content resize; Show all is the explicit inspection view.
   const followLatestRef = useRef(true);
   const prevOpen = useRef(open);
   const prevWindowed = useRef(!expanded);
@@ -217,11 +270,29 @@ export const WorkingTrace: FC<{
   const [elapsed, setElapsed] = useState<number | null>(null);
   const wasRunning = useRef(running);
   const startedAt = useRef<number>(startedAtMs ?? Date.now());
+  const [clockMs, setClockMs] = useState(Date.now);
   // An earlier anchor can arrive after mount (e.g. the first task_started
   // event lands a beat later); only ever move the start backwards.
   if (startedAtMs !== undefined && startedAtMs < startedAt.current) {
     startedAt.current = startedAtMs;
   }
+
+  useEffect(() => {
+    if (!running) return;
+    const update = () => setClockMs(Date.now());
+    update();
+    const timer = setInterval(update, 1_000);
+    return () => clearInterval(timer);
+  }, [running, startedAtMs]);
+
+  const persistedActiveMs =
+    phaseEvents && phaseTurnIds
+      ? activeWorkDurationMs(phaseEvents, phaseTurnIds, clockMs)
+      : null;
+  const runningSeconds = Math.max(
+    0,
+    Math.floor((persistedActiveMs ?? clockMs - startedAt.current) / 1_000),
+  );
 
   // How many items have already played their entrance. Survives the body's
   // collapse/remount (this component stays mounted), so an item only animates
@@ -307,9 +378,9 @@ export const WorkingTrace: FC<{
     anim.oncancel = settle;
   }, [expanded]);
 
-  // Start/restart a capped trace at its newest step. While it stays open, only
-  // follow streamed additions when the reader has not scrolled away from the
-  // bottom. This also restores the recent-step view after "Collapse to recent".
+  // Keep live work at its newest step. Finished traces follow only while the
+  // reader remains at the bottom; Show all is an uncapped inspection view.
+  // Collapsing back to the recent window restores its latest-step position.
   useIsomorphicLayoutEffect(() => {
     const viewport = viewportRef.current;
     const reopened = open && !prevOpen.current;
@@ -320,11 +391,37 @@ export const WorkingTrace: FC<{
     prevWindowed.current = windowed;
 
     if (!viewport || !open || !windowed || animating) return;
-    if (followLatestRef.current) {
+    if (running || followLatestRef.current) {
       viewport.scrollTop = viewport.scrollHeight;
       setHasContentBelow(false);
     }
-  }, [animating, open, revealed, revealedChildStepCount, windowed]);
+  }, [animating, open, revealed, revealedChildStepCount, windowed, running]);
+
+  // Streaming text can grow without adding a step. Observe its actual layout,
+  // and follow the inner window while working; Show all remains an inspection view.
+  useIsomorphicLayoutEffect(() => {
+    const body = bodyRef.current;
+    const viewport = viewportRef.current;
+    if (
+      !body ||
+      !viewport ||
+      !open ||
+      !windowed ||
+      typeof ResizeObserver === "undefined"
+    )
+      return;
+    const resize = () => {
+      setOverflowing(body.offsetHeight - WORKING_WINDOW_PX > 24);
+      if (!animating && (running || followLatestRef.current)) {
+        viewport.scrollTop = viewport.scrollHeight;
+        setHasContentBelow(false);
+      }
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(body);
+    resize();
+    return () => observer.disconnect();
+  }, [open, windowed, running, animating]);
 
   useEffect(() => () => animRef.current?.cancel(), []);
 
@@ -362,14 +459,18 @@ export const WorkingTrace: FC<{
     return () => clearTimeout(timer);
   }, [collapseReady, fullyRevealed]);
 
+  const completedSeconds =
+    persistedActiveMs === null ? elapsed : persistedActiveMs / 1_000;
   const elapsedLabel =
-    elapsed != null ? ` after ${formatDuration(elapsed)}` : "";
+    completedSeconds != null
+      ? ` after ${formatDuration(completedSeconds)}`
+      : "";
   const label =
     outcome === "running"
       ? "Working"
       : outcome === "complete"
-        ? elapsed != null
-          ? `Worked for ${formatDuration(elapsed)}`
+        ? completedSeconds != null
+          ? `Worked for ${formatDuration(completedSeconds)}`
           : "Worked it out"
         : `Stopped${elapsedLabel}`;
 
@@ -434,6 +535,14 @@ export const WorkingTrace: FC<{
         <span className={cn(WORKING_STATUS_TEXT_CLASS, headerClass)}>
           {label}
         </span>
+        {running && (
+          <span
+            aria-label="Working time"
+            className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none"
+          >
+            {runningSeconds === 0 ? "0s" : formatDuration(runningSeconds)}
+          </span>
+        )}
         {stepCount > 0 ? (
           <span className="text-aomi-muted inline-flex items-center text-[11px] font-normal tabular-nums leading-none">
             {stepCount} {stepCount === 1 ? "step" : "steps"}
@@ -791,6 +900,18 @@ export const AssistantTurnParts: FC = () => {
     (part) => part.type === "tool-call",
   );
   const firstToolIndex = parts.findIndex((part) => part.type === "tool-call");
+  const explicitAnswerBoundary =
+    typeof finalAnswerStartIndex === "number" &&
+    finalAnswerStartIndex >= 0 &&
+    finalAnswerStartIndex <= parts.length;
+  // A response key identifies which prose is the answer, not whether the
+  // operation has finished. Parent completion precedes wallet callbacks, and
+  // response text can arrive before the callback's durable complete event.
+  const answerReady =
+    !live &&
+    !ownStopped &&
+    (ownStatus === "complete" ||
+      (ownStatus === undefined && isLast && runtime?.turnState === "complete"));
   const represented = new Set(
     parts
       .filter((part) => part.type === "tool-call")
@@ -802,25 +923,31 @@ export const AssistantTurnParts: FC = () => {
   // Any live text, including the first part, may still precede a tool call.
   // Completion is the boundary that identifies the final answer; until then
   // keep prose in the trace rather than moving it back when a tool arrives.
-  const traceEnd =
-    typeof finalAnswerStartIndex === "number" &&
-    finalAnswerStartIndex >= 0 &&
-    finalAnswerStartIndex <= parts.length
+  const traceEnd = !answerReady
+    ? parts.length
+    : explicitAnswerBoundary
       ? finalAnswerStartIndex
-      : live
-        ? parts.length
-        : lastToolIndex + 1;
-  const answerIndexes = new Set(
-    parts.flatMap((part, index) =>
-      index >= traceEnd && part.type === "text" && part.text.trim()
-        ? [index]
-        : [],
-    ),
-  );
+      : lastToolIndex + 1;
+  // Only one message is the final answer. Earlier narration can follow the
+  // last tool too; a transient tool-free interval is not an answer boundary.
+  const finalTextIndex = answerReady
+    ? explicitAnswerBoundary &&
+      parts[finalAnswerStartIndex]?.type === "text" &&
+      (parts[finalAnswerStartIndex] as TextMessagePart).text.trim()
+      ? finalAnswerStartIndex
+      : parts.findLastIndex(
+          (part, index) =>
+            index >= traceEnd &&
+            part.type === "text" &&
+            Boolean(part.text.trim()),
+        )
+    : -1;
+  const answerIndexes = new Set(finalTextIndex >= 0 ? [finalTextIndex] : []);
   // A late tool completion or an empty final-answer marker can leave the
   // completed prose before the boundary. Keep the tool in the trace while
   // showing the last nonempty text as the answer instead of hiding it there.
   if (
+    answerReady &&
     !live &&
     outcome === "complete" &&
     !ownStopped &&
@@ -833,11 +960,7 @@ export const AssistantTurnParts: FC = () => {
     if (lastTextIndex > firstToolIndex) answerIndexes.add(lastTextIndex);
   }
   const traceItems = buildTraceItems(
-    parts.filter(
-      (part, index) =>
-        part.type === "tool-call" ||
-        (index < traceEnd && !answerIndexes.has(index)),
-    ),
+    parts.filter((part, index) => !answerIndexes.has(index)),
     delegations,
   );
   const answerParts = parts.filter(
@@ -855,6 +978,8 @@ export const AssistantTurnParts: FC = () => {
           revealed={traceItems.length}
           collapseReady={!live}
           startedAtMs={startedAtMs}
+          phaseEvents={turnEvents}
+          phaseTurnIds={turnId ? [turnId, ...(continuationTurnIds ?? [])] : []}
         />
       )}
       {answerParts.map((part, index) =>
