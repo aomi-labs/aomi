@@ -23,6 +23,7 @@ import {
   walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
+import { resourceResultForCall } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -127,6 +128,11 @@ const WorkingStep: FC<{
   live: boolean;
 }> = ({ tool, relatedResults, active, animate, live }) => {
   const attribution = useTraceAttribution();
+  const runtime = useOptionalAomiRuntime();
+  const resourceResult = resourceResultForCall(
+    runtime?.events ?? [],
+    tool.toolCallId,
+  );
   const done = tool.result !== undefined;
   const argsText =
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
@@ -137,10 +143,11 @@ const WorkingStep: FC<{
         attribution,
         toolName: tool.toolName,
         argsText,
-        result: tool.result,
+        result: resourceResult?.summary ?? tool.result,
         relatedResults,
       })}
       argsText={argsText}
+      toolCallId={tool.toolCallId}
       detailText={done ? toDetailString(tool.result) : undefined}
       done={done}
       active={active}
@@ -249,6 +256,7 @@ export const WorkingTrace: FC<{
   phaseTurnIds,
 }) => {
   const [open, setOpen] = useState(running);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const [hasContentBelow, setHasContentBelow] = useState(false);
@@ -455,8 +463,14 @@ export const WorkingTrace: FC<{
   // trace must stay open through approval and the resumed model turn.
   useEffect(() => {
     if (!fullyRevealed || !collapseReady) return;
-    const timer = setTimeout(() => setOpen(false), 500);
-    return () => clearTimeout(timer);
+    collapseTimer.current = setTimeout(() => {
+      collapseTimer.current = null;
+      setOpen(false);
+    }, 500);
+    return () => {
+      if (collapseTimer.current !== null) clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    };
   }, [collapseReady, fullyRevealed]);
 
   const completedSeconds =
@@ -505,7 +519,12 @@ export const WorkingTrace: FC<{
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          // An explicit reader action cancels the pending automatic collapse.
+          if (collapseTimer.current !== null) clearTimeout(collapseTimer.current);
+          collapseTimer.current = null;
+          setOpen((o) => !o);
+        }}
         aria-expanded={open}
         className={cn(
           "aui-working-trace-header flex items-center gap-2 border text-left text-sm transition-[height,padding,border-radius,border-color,background-color] duration-300 ease-out motion-reduce:transition-none",

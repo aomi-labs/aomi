@@ -997,3 +997,37 @@ it("targets the completed callback response rather than its projected parent for
     `${callbackTurn}:response`,
   );
 });
+
+it("preserves issued resource envelopes in typed events and serialized history", () => {
+  const result = {
+    resource: { uri: "aomi://local/results/opaque-id", kind: "data.json@1" },
+    summary: { count: 3 },
+    resources: {},
+  };
+  const events: Event[] = [
+    {
+      ...meta(1, "tool_complete", "resource-turn"),
+      type: "tool_complete",
+      id: "call",
+      call_id: "call",
+      tool_name: "read",
+      result,
+    },
+    {
+      ...meta(2, "message", "history-turn"),
+      type: "message",
+      sender: "agent",
+      content: "",
+      tool_name: "read",
+      tool_result: ["read", JSON.stringify(result)],
+    },
+  ];
+  const projected = projectAssistantMessages(events);
+  const results = projected
+    .flatMap(
+      (message) => message.content as Array<{ type: string; result?: unknown }>,
+    )
+    .filter((part) => part.type === "tool-call")
+    .map((part) => part.result);
+  expect(results).toEqual([result, result]);
+});

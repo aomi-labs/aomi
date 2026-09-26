@@ -83,7 +83,7 @@ export const matchStagedTx: ToolMatcher = ({
   const selector = data ? selectorFact(data) : null;
   const selectorMeta = selector ? EVM_SELECTOR_REGISTRY[selector.value] : null;
   const kind = asString(resultRecord?.kind) ?? asString(args?.kind);
-  const action = selectorMeta?.chip ?? kind;
+  const action = selectorMeta?.chip ?? asString(resultRecord?.action) ?? kind;
   const pendingTxId = asNumber(resultRecord?.pending_tx_id);
 
   return op(`evm.tx.stage.${stagedActionId(action ?? "custom")}`, rawLabel, [
@@ -96,7 +96,7 @@ export const matchStagedTx: ToolMatcher = ({
           source: selectorMeta ? "decoded" : "result",
         }
       : null,
-    pendingTxId != null
+    pendingTxId != null || resultRecord?.status === "staged"
       ? {
           kind: "count",
           role: "tx",
@@ -104,7 +104,8 @@ export const matchStagedTx: ToolMatcher = ({
           source: "result",
         }
       : null,
-    failedFact(resultRecord) ?? statusFact(resultRecord?.current_lifecycle),
+    failedFact(resultRecord) ??
+      statusFact(resultRecord?.current_lifecycle ?? resultRecord?.status),
   ]);
 };
 
@@ -147,7 +148,12 @@ export const matchEvmSimulation: ToolMatcher = ({
   if (!namedSimulation && !chain) return null;
 
   const explicitBatchSuccess =
-    summary?.passed ?? sim?.batch_success ?? resultRecord?.batch_success;
+    summary?.passed ??
+    sim?.batch_success ??
+    resultRecord?.batch_success ??
+    (typeof resultRecord?.success === "boolean"
+      ? resultRecord.success
+      : undefined);
   const simulationStatus =
     resultRecord?.simulation_incomplete === true
       ? "incomplete"
@@ -167,7 +173,10 @@ export const matchEvmSimulation: ToolMatcher = ({
   const resolvedIds = Array.isArray(resultRecord?.resolved_ids)
     ? resultRecord.resolved_ids
     : null;
-  const txCount = resolvedIds?.length ?? (requestedIds.length || undefined);
+  const txCount =
+    asNumber(resultRecord?.transaction_count) ??
+    resolvedIds?.length ??
+    (requestedIds.length || undefined);
 
   return op("evm.tx.simulate_batch", rawLabel, [
     chain,

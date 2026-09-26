@@ -58,7 +58,8 @@ export const matchSvmStage: ToolMatcher = ({
     name === "svm_stage_ix"
       ? (countFact(resultRecord?.ix_ids, "instruction") ??
         countFact(args?.instructions, "instruction"))
-      : asNumber(resultRecord?.pending_tx_id) != null
+      : asNumber(resultRecord?.pending_tx_id) != null ||
+          resultRecord?.status === "staged"
         ? {
             kind: "count" as const,
             role: "tx" as const,
@@ -99,8 +100,12 @@ export const matchSvmSimulation: ToolMatcher = ({
       ? statusFact("incomplete")
       : simulation && "err" in simulation
         ? statusFact(simulation.err == null ? "passed" : "failed")
-        : null);
-  const compute = asNumber(simulation?.units_consumed);
+        : typeof resultRecord?.success === "boolean"
+          ? statusFact(resultRecord.success ? "passed" : "failed")
+          : null);
+  const compute = asNumber(
+    simulation?.units_consumed ?? resultRecord?.units_consumed,
+  );
   return op("svm.tx.simulate_batch", rawLabel, [
     clusterFact(resultRecord?.cluster),
     simulation

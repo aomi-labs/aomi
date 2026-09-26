@@ -13,6 +13,9 @@ import {
 import { cn } from "@aomi-labs/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import type { InterpretedToolStep } from "@/components/assistant-ui/tool-interpreter";
+import { ResourceResultView } from "./resource-result";
+import { resourceResultForCall } from "@aomi-labs/client";
+import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import { ToolChipView } from "./tool-chip";
 
 export { ToolChipView } from "./tool-chip";
@@ -57,6 +60,7 @@ export const ToolStepRow: FC<{
   interpretation: InterpretedToolStep;
   argsText?: string;
   detailText?: string;
+  toolCallId?: string;
   done: boolean;
   active: boolean;
   animate: boolean;
@@ -66,14 +70,23 @@ export const ToolStepRow: FC<{
   interpretation,
   argsText,
   detailText,
+  toolCallId,
   done,
   active,
   animate,
   animateUpdates = false,
   className,
 }) => {
+  const runtime = useOptionalAomiRuntime();
+  const resourceResult = resourceResultForCall(
+    runtime?.events ?? [],
+    toolCallId,
+  );
   const [open, setOpen] = useState(false);
-  const hasDetail = detailText !== undefined || argsText !== undefined;
+  const hasDetail =
+    resourceResult !== undefined ||
+    detailText !== undefined ||
+    argsText !== undefined;
   const Icon = interpretation.icon;
   const outcome =
     interpretation.outcome ?? (interpretation.failed ? "failed" : "success");
@@ -174,6 +187,12 @@ export const ToolStepRow: FC<{
       {open && hasDetail && (
         <div className="aui-working-step-detail mb-1.5 ml-[26px] mt-4 flex flex-col gap-1.5">
           {argsText && <pre className={DETAIL_BOX_CLASS}>{argsText}</pre>}
+          {resourceResult && (
+            <ResourceResultView
+              result={resourceResult}
+              toolCallId={toolCallId}
+            />
+          )}
           {detailText !== undefined && (
             <pre className={DETAIL_BOX_CLASS}>{detailText}</pre>
           )}

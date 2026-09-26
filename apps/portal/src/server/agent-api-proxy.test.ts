@@ -32,13 +32,33 @@ describe("Agent API proxy", () => {
   it("passes live chunks and timing headers without buffering the response", async () => {
     vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082");
     let controller!: ReadableStreamDefaultController<Uint8Array>;
-    const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
-    const upstream = vi.fn().mockResolvedValue(new Response(body, { headers: { "content-type": "text/event-stream", "server-timing": "backend;dur=5", "x-accel-buffering": "no" } }));
-    const request = new Request("https://portal.example/v1/agent/chat/session/stream");
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      },
+    });
+    const upstream = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(body, {
+          headers: {
+            "content-type": "text/event-stream",
+            "server-timing": "backend;dur=5",
+            "x-accel-buffering": "no",
+          },
+        }),
+      );
+    const request = new Request(
+      "https://portal.example/v1/agent/chat/session/stream",
+    );
     const response = await proxyAgentApi(request, principal, upstream);
     const reader = response.body!.getReader();
-    controller.enqueue(new TextEncoder().encode("event: message\ndata: {}\n\n"));
-    expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: message");
+    controller.enqueue(
+      new TextEncoder().encode("event: message\ndata: {}\n\n"),
+    );
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(
+      "event: message",
+    );
     expect(response.headers.get("server-timing")).toContain("backend;dur=5");
     expect(response.headers.get("server-timing")).toContain("bff_prepare;dur=");
     expect(response.headers.get("x-accel-buffering")).toBe("no");
@@ -201,4 +221,39 @@ describe("Agent API proxy", () => {
     expect(response.status).toBe(404);
     expect(upstream).not.toHaveBeenCalled();
   });
+});
+
+it("preserves resource envelopes and private cache policy at the authenticated boundary", async () => {
+  vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082");
+  mocks.mintAgentApiBearer.mockResolvedValue({ bearer: "resource-reader" });
+  const body = JSON.stringify({
+    resource: { uri: "aomi://local/results/opaque-id", kind: "data.json@1" },
+    summary: { row_count: 10 },
+    resources: {},
+  });
+  const upstream = vi.fn().mockResolvedValue(
+    new Response(body, {
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "private, no-store",
+        "set-cookie": "not-forwarded=1",
+      },
+    }),
+  );
+  const response = await proxyAgentApi(
+    new Request(
+      "https://portal.example/v1/agent/sessions/thread/resources/read?uri=aomi%3A%2F%2Flocal%2Fresults%2Fopaque-id",
+      {
+        headers: { authorization: "Bearer public", cookie: "private=1" },
+      },
+    ),
+    { ...principal, scopes: ["agent:read"] },
+    upstream,
+  );
+  expect(await response.text()).toBe(body);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  const forwarded = new Headers(upstream.mock.calls[0][1].headers);
+  expect(forwarded.get("authorization")).toBe("Bearer resource-reader");
+  expect(forwarded.get("cookie")).toBeNull();
+  expect(response.headers.get("set-cookie")).toBeNull();
 });

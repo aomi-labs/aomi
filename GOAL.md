@@ -1,3 +1,7 @@
+# Resource presentation implementation
+
+Current session goal: **RESOURCE SDK AND SHARED PRESENTATION 2026-09-26** — add read-only authenticated resource discovery/inspection to the SDK and shared widget, consume the trusted compact event projection, preserve complete event/history and wallet-review contracts, and verify against the immutable frontend PR #675 head `5a3d9afeeea73ef916e60c57f289badd815a13bd`. Work uses the paired `resource-system` worktrees on backend PR #1194 and frontend PR #675. Generated contracts, focused transport/event/widget tests, typecheck, lint, dependency boundaries, and packed consumers pass. The full browser gate passes all 17 mandatory scenarios, including explicit inert resource inspection and principal-change body clearing; logs are retained under `output/resources`. This is controlled transport/browser contract coverage, not a deployed backend authorization claim. Backend resource lifecycle, recovery, and model acceptance work remains in progress. No deployment or production changes are authorized by this implementation.
+
 # Completed chat answer visibility — 2026-09-24
 
 In the isolated `codex/chat-final-response-visible` frontend worktree, the

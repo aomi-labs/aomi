@@ -1322,3 +1322,12 @@ describe("tool interpreter", () => {
     expect(step.failed).toBe(true);
   });
 });
+
+it("interprets an explicitly supplied resource summary without loading transaction bodies", () => {
+  const interpretation = interpretToolStep({
+    toolName: "simulate_batch",
+    result: { success: false, chain_id: 8453, transaction_count: 2 },
+  });
+  expect(interpretation.outcome).toBe("failed");
+  expect(interpretation.chips.map((chip) => chip.label)).toContain("2 txs");
+});

@@ -79,6 +79,10 @@ const fixturePrivateKey =
   "-----BEGIN PRIVATE KEY-----\n" +
   "MC4CAQAwBQYDK2VwBCIEIA3YGS2n6pAbisXZxFbDPdncGRxMXI2m4eJN2gNSf+wi\n" +
   "-----END PRIVATE KEY-----";
+const resourceFixtureUri =
+  "aomi://browser-contract/staged-transactions/0123456789abcdef0123456789abcdef";
+const resourceFixtureText =
+  "Retained scoped text <script>window.resourceTextExecuted = true</script>";
 
 let postgresPort;
 let nextProcess;
@@ -296,13 +300,13 @@ try {
         process.env.BROWSER_CONTRACT_FOCUS,
       )
         ? 1
-        : 16) ||
+        : 17) ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
   ) {
     throw new Error(
-      `Browser contract suite failed or omitted mandatory scenarios (expected=${["working-text-growth", "transaction-progress"].includes(process.env.BROWSER_CONTRACT_FOCUS) ? 1 : 16}, exit=${code}, stats=${JSON.stringify(stats)})`,
+      `Browser contract suite failed or omitted mandatory scenarios (expected=${["working-text-growth", "transaction-progress"].includes(process.env.BROWSER_CONTRACT_FOCUS) ? 1 : 17}, exit=${code}, stats=${JSON.stringify(stats)})`,
     );
   }
   console.log(
@@ -618,17 +622,19 @@ async function createControlledUpstream(port) {
         const events =
           body.message === "prepare the deterministic wallet review"
             ? actionFixtureEvents(turn, body.message, evmAddresses[0])
-            : [
-                event(turn, 1, "message", {
-                  sender: "user",
-                  content: body.message,
-                }),
-                event(turn, 2, "message", {
-                  sender: "agent",
-                  content: `Controlled reply for ${body.message}`,
-                }),
-                event(turn, 3, "turn_state_changed", { state: "complete" }),
-              ];
+            : body.message === "inspect the retained resource contract"
+              ? resourceFixtureEvents(turn, body.message)
+              : [
+                  event(turn, 1, "message", {
+                    sender: "user",
+                    content: body.message,
+                  }),
+                  event(turn, 2, "message", {
+                    sender: "agent",
+                    content: `Controlled reply for ${body.message}`,
+                  }),
+                  event(turn, 3, "turn_state_changed", { state: "complete" }),
+                ];
         threads.set(sessionId, {
           owner: principal.sub,
           prompt: body.message,
@@ -641,6 +647,40 @@ async function createControlledUpstream(port) {
           cursor: "3",
           events,
           has_more: false,
+        });
+      }
+      const resourceRead = url.pathname.match(
+        /^\/v1\/agent\/sessions\/([^/]+)\/resources\/read$/,
+      );
+      if (resourceRead && request.method === "GET") {
+        const thread = threads.get(decodeURIComponent(resourceRead[1]));
+        if (
+          !thread ||
+          thread.owner !== principal.sub ||
+          url.searchParams.get("uri") !== resourceFixtureUri
+        ) {
+          return json(response, 404, { error: { code: "resource_not_found" } });
+        }
+        response.setHeader("cache-control", "no-store");
+        return json(response, 200, {
+          resource: {
+            uri: resourceFixtureUri,
+            kind: "evm.staged-transaction@1",
+            mime_type: "text/plain",
+            name: "Retained EVM transfer",
+            byte_length: Buffer.byteLength(resourceFixtureText),
+            digest: createHash("sha256")
+              .update(resourceFixtureText)
+              .digest("hex"),
+            created_at: "2026-09-26T00:00:00Z",
+            expires_at: null,
+            action_expires_at: null,
+          },
+          view: "content",
+          summary: { count: 1 },
+          content: { encoding: "text", data: resourceFixtureText },
+          children: [],
+          complete: true,
         });
       }
       const poll = url.pathname.match(/^\/v1\/agent\/chat\/([^/]+)$/);
@@ -801,6 +841,47 @@ function event(turn, sequence, type, data) {
     type,
     ...data,
   };
+}
+
+function resourceFixtureEvents(turn, prompt) {
+  return [
+    event(turn, 1, "message", { sender: "user", content: prompt }),
+    event(turn, 2, "message", {
+      sender: "agent",
+      content: "",
+      tool_call_id: `resource-call-${turn}`,
+      tool_name: "evm_stage_tx",
+      tool_arguments: { source: { uri: resourceFixtureUri } },
+      tool_result: [
+        "evm_stage_tx",
+        JSON.stringify({
+          pending_tx_id: 7,
+          chain_id: 8453,
+          from: "0x0000000000000000000000000000000000000001",
+          to: "0x0000000000000000000000000000000000000002",
+          value: "1",
+          data: "0x",
+          label: "Retained EVM transfer",
+          kind: "native_transfer",
+          current_lifecycle: "queued",
+        }),
+      ],
+      model_output: {
+        resource: {
+          uri: resourceFixtureUri,
+          kind: "evm.staged-transaction@1",
+          name: "Retained EVM transfer",
+        },
+        summary: { action: "stage", transaction_count: 1, chain_id: 8453 },
+        resources: {},
+      },
+    }),
+    event(turn, 3, "message", {
+      sender: "agent",
+      content: `Controlled reply for ${prompt}`,
+    }),
+    event(turn, 4, "turn_state_changed", { state: "complete" }),
+  ];
 }
 
 function actionFixtureEvents(turn, prompt, from) {

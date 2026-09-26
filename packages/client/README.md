@@ -761,3 +761,34 @@ $ npx @aomi-labs/client session close           # clears the active local sessio
 
 Session files live under `~/.aomi/sessions/` by default, with an active session
 pointer stored in the state root.
+
+### Retained tool resources
+
+The trusted `model_output` event field can contain a compact `summary`, a root
+`resource`, and named `resources`. These links identify retained values; they do
+not grant access. `resourceResultForCall(events, callId)` selects the declared
+projection without loading its content. `parseResourceResult(value)` validates
+an explicitly supplied resource envelope; arbitrary raw tool JSON is not a
+trusted projection. Full tool results remain available to authorized history,
+review, and host consumers.
+
+Use the Agent transport to inspect a resource in its authorized conversation:
+
+```ts
+const page = await client.agent.resources.list(sessionId, { limit: 20 });
+const value = await client.agent.resources.read(
+  sessionId,
+  page.resources[0].uri,
+  {
+    view: "content",
+  },
+);
+```
+
+Listing supports `kind`, `producer`, `related_to`, `query`, `cursor`, and `limit`.
+Reading supports `summary`, `content`, and `children` views, plus a continuation
+cursor and limit. Content inspection is bounded; `complete` and `next_cursor`
+state whether more data exists. Fetches use the exact Agent read grant and
+`no-store`; no resource-body cache survives an identity or conversation change.
+Resource errors such as `resource_gone` remain `AgentApiError` values. Inspection
+is read-only and never refreshes, stages, signs, or submits a transaction.

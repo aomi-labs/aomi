@@ -15,7 +15,10 @@ import type {
   TurnState,
   UserState,
 } from "@aomi-labs/client";
-import type { AccountTransport } from "@aomi-labs/client";
+import type {
+  AccountTransport,
+  AgentResourcesTransport,
+} from "@aomi-labs/client";
 export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import type { ThreadMetadata } from "./state/thread-store";
 import type {
@@ -32,6 +35,10 @@ export type AomiRuntimeApi = {
   commitController?: CommitController;
   /** Shared authenticated account transport configured by the runtime. */
   account: AccountTransport;
+  /** Read-only retained values using the current authenticated client. */
+  resources?: AgentResourcesTransport;
+  /** Changes with the host principal/application scope, even on the same thread. */
+  resourceScopeKey?: string;
   // -------------------------------------------------------------------------
   // USER API
   // -------------------------------------------------------------------------

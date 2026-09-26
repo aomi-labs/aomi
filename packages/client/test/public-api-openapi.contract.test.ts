@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(75);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(77);
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
       operationId: "buildTask",
@@ -43,6 +43,8 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       "GET /v1/agent/chat/{sessionId}/stream",
       "GET /v1/agent/sessions",
       "GET /v1/agent/sessions/{sessionId}",
+      "GET /v1/agent/sessions/{sessionId}/resources",
+      "GET /v1/agent/sessions/{sessionId}/resources/read",
       "PATCH /v1/agent/sessions/{sessionId}",
       "POST /v1/agent/chat",
       "POST /v1/agent/chat/{sessionId}/actions/{actionId}/result",
@@ -57,6 +59,28 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(publicApi.paths["/v1/pipeline/mcp"].post.operationId).toBe(
       "pipelineMcp",
     );
+  });
+
+  it("keeps resource inspection scoped to Agent read grants and concrete page types", () => {
+    for (const [path, operationId, schema] of [
+      ["/v1/agent/sessions/{sessionId}/resources", "listResources", "ResourceList"],
+      ["/v1/agent/sessions/{sessionId}/resources/read", "readResource", "ResourceRead"],
+    ] as const) {
+      expect(publicApi.paths[path].get).toMatchObject({
+        operationId,
+        security: [{ aomiOAuth: ["agent:read"] }],
+        responses: {
+          "200": {
+            description: "Authorized retained data; private, no-store",
+            content: {
+              "application/json": {
+                schema: { $ref: `#/components/schemas/${schema}` },
+              },
+            },
+          },
+        },
+      });
+    }
   });
 
   it("defines one concrete Event stream with Action as an Event", () => {

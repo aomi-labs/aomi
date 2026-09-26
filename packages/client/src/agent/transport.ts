@@ -1,3 +1,9 @@
+import type {
+  ListResourcesOptions,
+  ReadResourceOptions,
+  ResourceList,
+  ResourceRead,
+} from "../resources/types";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 import type {
   Action,
@@ -32,12 +38,14 @@ export class AgentApiError extends Error {
 
 export class AgentTransport {
   readonly sessions: AgentSessionsTransport;
+  readonly resources: AgentResourcesTransport;
 
   constructor(
     private readonly requestResponse: RequestResponse,
     private readonly defaultInferenceFunding?: AomiInferenceFundingSource,
   ) {
     this.sessions = new AgentSessionsTransport(requestResponse);
+    this.resources = new AgentResourcesTransport(requestResponse);
   }
 
   start(
@@ -100,7 +108,9 @@ export class AgentTransport {
       throw new TypeError("Expected an Agent event stream");
     }
     const reader = response.body.getReader();
-    const cancel = () => { void reader.cancel().catch(() => {}); };
+    const cancel = () => {
+      void reader.cancel().catch(() => {});
+    };
     options.signal.addEventListener("abort", cancel, { once: true });
     const decoder = new TextDecoder();
     let buffer = "";
@@ -180,6 +190,39 @@ export class AgentTransport {
   ): Promise<T> {
     return parseAgentResponse<T>(
       await this.requestResponse(method, path, options),
+    );
+  }
+}
+
+/** Read-only, thread-authorized access to retained values. No client cache. */
+export class AgentResourcesTransport {
+  constructor(private readonly requestResponse: RequestResponse) {}
+
+  async list(
+    sessionId: string,
+    options: ListResourcesOptions = {},
+  ): Promise<ResourceList> {
+    return parseAgentResponse(
+      await this.requestResponse(
+        "GET",
+        `/v1/agent/sessions/${encodeURIComponent(sessionId)}/resources`,
+        { sessionId, cache: "no-store", query: options },
+      ),
+    );
+  }
+
+  async read(
+    sessionId: string,
+    uri: string,
+    options: ReadResourceOptions = {},
+  ): Promise<ResourceRead> {
+    const { signal, ...query } = options;
+    return parseAgentResponse(
+      await this.requestResponse(
+        "GET",
+        `/v1/agent/sessions/${encodeURIComponent(sessionId)}/resources/read`,
+        { sessionId, cache: "no-store", signal, query: { uri, ...query } },
+      ),
     );
   }
 }
@@ -302,7 +345,12 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
   throw new AgentApiError(
     response.status,
     code,
-    code.replaceAll("_", " "),
+    typeof raw === "object" &&
+      raw !== null &&
+      "message" in raw &&
+      typeof raw.message === "string"
+      ? raw.message
+      : code.replaceAll("_", " "),
     response.status === 408 ||
       response.status === 429 ||
       response.status >= 500,

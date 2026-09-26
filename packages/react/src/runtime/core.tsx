@@ -68,6 +68,7 @@ export type AomiRuntimeCoreProps = {
   accountSessionAvailable?: boolean;
   restoredThreadId?: string;
   threadPersistenceKey?: string | null;
+  resourceScopeKey?: string;
 };
 
 // =============================================================================
@@ -83,6 +84,7 @@ export function AomiRuntimeCore({
   accountSessionAvailable = false,
   restoredThreadId,
   threadPersistenceKey,
+  resourceScopeKey,
 }: Readonly<AomiRuntimeCoreProps>) {
   const threadContext = useThreadContext();
   const notificationContext = useNotification();
@@ -464,6 +466,8 @@ export function AomiRuntimeCore({
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
     () => ({
       account: aomiClient.account,
+      resources: aomiClient.agent.resources,
+      resourceScopeKey,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
@@ -514,6 +518,8 @@ export function AomiRuntimeCore({
     [
       userContext,
       aomiClient.account,
+      aomiClient.agent.resources,
+      resourceScopeKey,
       threadContext.currentThreadId,
       threadContext.threadViewKey,
       threadContext.allThreadsMetadata,

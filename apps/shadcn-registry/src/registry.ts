@@ -303,6 +303,7 @@ export const registry: RegistryComponent[] = [
       "lib/capabilities/skill-label.ts",
       "components/assistant-ui/working-trace.tsx",
       "components/assistant-ui/working-trace-rows.tsx",
+      "components/assistant-ui/resource-result.tsx",
       "components/assistant-ui/tool-chip.tsx",
       "components/assistant-ui/working-agent.tsx",
       "components/assistant-ui/tool-interpreter.ts",
@@ -394,8 +395,16 @@ export const registry: RegistryComponent[] = [
 
   {
     name: "assistant-tool-fallback",
-    file: "components/assistant-ui/tool-fallback.tsx",
-    dependencies: ["@assistant-ui/react", "lucide-react"],
+    file: [
+      "components/assistant-ui/tool-fallback.tsx",
+      "components/assistant-ui/resource-result.tsx",
+    ],
+    dependencies: [
+      "@assistant-ui/react",
+      "@aomi-labs/client",
+      "@aomi-labs/react",
+      "lucide-react",
+    ],
     registryDependencies: ["button"],
     description: "Fallback renderer for assistant tool calls.",
   },
