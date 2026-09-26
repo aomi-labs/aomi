@@ -87,6 +87,30 @@ const COMMIT_CAPABILITY_KEYS = [
 export const isTerminalCommit = (view: CommitView): boolean =>
   ["confirmed", "rejected", "failed", "expired"].includes(view.state);
 
+const continuationRevision = (view: CommitView): number =>
+  view.continuation?.revision ?? 0;
+function preservesContinuation(
+  current: CommitView,
+  incoming: CommitView,
+): boolean {
+  const currentRevision = continuationRevision(current);
+  const incomingRevision = continuationRevision(incoming);
+  if (currentRevision !== incomingRevision)
+    return currentRevision > incomingRevision;
+  if (current.continuation?.revision !== undefined) return true;
+  // Capability bootstrap accepts the first explicit stamp, but a snapshot
+  // taken before an already observed completion must not undo that delivery.
+  return (
+    incoming.continuation?.revision !== undefined &&
+    current.continuation?.state === "completed" &&
+    incoming.continuation.state !== "completed"
+  );
+}
+const needsCommitRefresh = (view: CommitView): boolean =>
+  !isTerminalCommit(view) ||
+  view.continuation?.state === "pending" ||
+  view.continuation?.state === "retrying";
+
 function commitReview(value: unknown): CommitReview | undefined {
   try {
     assertActionRequest(value);
@@ -347,8 +371,16 @@ export class CommitController {
   ingest(view: CommitView): void {
     if (this.closed || view.thread_id !== this.threadId) return;
     const existing = this.views.get(view.commit_id);
-    // A replayed tool result cannot roll a live/terminal view backwards.
-    if (existing && existing.version >= view.version) return;
+    // Chain and assistant delivery have independent monotonic revisions.
+    if (existing && existing.version >= view.version) {
+      if (
+        preservesContinuation(existing, view) ||
+        (continuationRevision(existing) === continuationRevision(view) &&
+          view.continuation?.revision === undefined)
+      )
+        return;
+      view = { ...existing, continuation: view.continuation };
+    }
     this.store(view);
     this.schedule();
   }
@@ -405,7 +437,9 @@ export class CommitController {
     });
     if (view.commit_id !== id)
       throw new Error("Commit response identity mismatch");
-    return this.store(view);
+    const current = this.store(view);
+    this.schedule();
+    return current;
   }
   execute(id: string): Promise<CommitView> {
     const running = this.attempts.get(id);
@@ -456,7 +490,19 @@ export class CommitController {
     if (view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
     const current = this.views.get(view.commit_id);
-    if (current && current.version > view.version) return current;
+    if (current) {
+      // Stamped metadata is immutable at its revision; unstamped refreshes
+      // retain compatibility until the first authoritative stamp arrives.
+      const continuation = preservesContinuation(current, view)
+        ? current.continuation
+        : view.continuation;
+      if (current.version > view.version) {
+        if (continuation === current.continuation) return current;
+        view = { ...current, continuation };
+      } else if (continuation !== view.continuation) {
+        view = { ...view, continuation };
+      }
+    }
     if (this.closed) return view;
     this.views.set(view.commit_id, view);
     const compatibilityReview = legacySvmReview(view);
@@ -665,17 +711,13 @@ export class CommitController {
     return current;
   }
   private schedule(): void {
-    if (
-      this.closed ||
-      this.timer ||
-      !this.snapshot.some((view) => !isTerminalCommit(view))
-    )
+    if (this.closed || this.timer || !this.snapshot.some(needsCommitRefresh))
       return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       void Promise.all(
         this.snapshot
-          .filter((view) => !isTerminalCommit(view))
+          .filter(needsCommitRefresh)
           .map((view) => this.refresh(view.commit_id).catch(() => undefined)),
       ).finally(() => this.schedule());
     }, 1000);

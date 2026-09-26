@@ -119,6 +119,343 @@ const historicalExternal: CommitView = {
 };
 
 describe("Commit view surfaces", () => {
+  it("merges newer callback delivery without changing equal-version chain or review data", () => {
+    const controller = new CommitController({} as AomiClient, "thread");
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 1,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    controller.ingest(pending);
+    controller.ingest({
+      ...pending,
+      state: "failed",
+      failure_code: "stale-chain",
+      continuation: {
+        version: 1,
+        revision: 2,
+        state: "completed",
+        attempts: 1,
+      },
+    });
+    expect(controller.all()[0]).toEqual({
+      ...pending,
+      continuation: {
+        version: 1,
+        revision: 2,
+        state: "completed",
+        attempts: 1,
+      },
+    });
+    controller.ingest(pending);
+    controller.ingest({ ...pending, continuation: undefined });
+    expect(controller.all()[0].continuation?.state).toBe("completed");
+    controller.close();
+  });
+
+  it("keeps a newer continuation through a delayed refresh and a newer chain version", async () => {
+    const current: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 3,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    const stale = {
+      ...current,
+      version: current.version + 1,
+      continuation: {
+        version: 1 as const,
+        revision: 2,
+        state: "retrying" as const,
+        attempts: 1,
+      },
+    };
+    const controller = new CommitController(
+      { request: vi.fn(async () => stale) } as unknown as AomiClient,
+      "thread",
+    );
+    controller.ingest(current);
+    const refreshed = await controller.refresh(current.commit_id);
+    expect(refreshed.version).toBe(stale.version);
+    expect(refreshed.continuation).toEqual(current.continuation);
+    controller.close();
+  });
+
+  it("preserves stamped equal-revision metadata but accepts legacy refreshes and initial terminal revision zero", async () => {
+    const stamped: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    let response: CommitView = {
+      ...stamped,
+      version: 4,
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    const controller = new CommitController(
+      { request: vi.fn(async () => response) } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      controller.ingest(stamped);
+      expect(
+        (await controller.refresh(stamped.commit_id)).continuation,
+      ).toEqual(stamped.continuation);
+      response = {
+        ...response,
+        commit_id: "legacy",
+        continuation: {
+          version: 1,
+          state: "completed",
+          attempts: 1,
+        },
+      };
+      controller.ingest({
+        ...response,
+        continuation: { version: 1, state: "pending", attempts: 0 },
+      });
+      expect((await controller.refresh("legacy")).continuation?.state).toBe(
+        "completed",
+      );
+      controller.ingest({ ...submitted, commit_id: "initial" });
+      controller.ingest({
+        ...stamped,
+        commit_id: "initial",
+        version: 4,
+        continuation: {
+          version: 1,
+          revision: 0,
+          state: "pending",
+          attempts: 0,
+        },
+      });
+      expect(
+        controller.all().find((view) => view.commit_id === "initial")
+          ?.continuation,
+      ).toMatchObject({ revision: 0, state: "pending" });
+    } finally {
+      controller.close();
+    }
+  });
+
+  it("bootstraps an authoritative revision stamp without regressing completed legacy delivery", async () => {
+    const legacy: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    const completed: CommitView = {
+      ...legacy,
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    let response = completed;
+    const controller = new CommitController(
+      { request: vi.fn(async () => response) } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      controller.ingest(legacy);
+      controller.ingest(completed);
+      expect(controller.all()[0].continuation).toEqual(completed.continuation);
+      controller.ingest(legacy);
+      response = { ...legacy, version: legacy.version + 1 };
+      expect((await controller.refresh(legacy.commit_id)).continuation).toEqual(
+        completed.continuation,
+      );
+      const refreshId = "bootstrap-refresh";
+      controller.ingest({ ...legacy, commit_id: refreshId });
+      response = { ...completed, commit_id: refreshId };
+      expect((await controller.refresh(refreshId)).continuation).toEqual(
+        completed.continuation,
+      );
+      const settledId = "legacy-completed";
+      controller.ingest({
+        ...completed,
+        commit_id: settledId,
+        continuation: {
+          version: 1,
+          state: "completed",
+          attempts: 1,
+        },
+      });
+      response = {
+        ...legacy,
+        commit_id: settledId,
+        continuation: {
+          version: 1,
+          revision: 0,
+          state: "pending",
+          attempts: 0,
+        },
+      };
+      controller.ingest(response);
+      expect((await controller.refresh(settledId)).continuation?.state).toBe(
+        "completed",
+      );
+    } finally {
+      controller.close();
+    }
+  });
+
+  it("merges both axes independently, including legacy metadata and other commit identities", () => {
+    const controller = new CommitController({} as AomiClient, "thread");
+    const current: CommitView = {
+      ...submitted,
+      continuation: {
+        version: 1,
+        revision: 3,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    controller.ingest(current);
+    controller.ingest({
+      ...current,
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { version: 1, revision: 2, state: "retrying", attempts: 1 },
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { revision: 3, state: "completed" },
+    });
+    controller.ingest({
+      ...current,
+      version: 2,
+      state: "needs_signature",
+      continuation: {
+        version: 1,
+        revision: 4,
+        state: "assistant_recovery_required",
+        attempts: 2,
+      },
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { revision: 4, state: "assistant_recovery_required" },
+    });
+    controller.ingest({
+      ...current,
+      version: 5,
+      state: "confirmed",
+      continuation: undefined,
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 5,
+      continuation: { revision: 4 },
+    });
+    controller.ingest({
+      ...current,
+      commit_id: "another",
+      state: "confirmed",
+      continuation: { version: 1, revision: 0, state: "pending", attempts: 0 },
+    });
+    expect(
+      controller.all().find((view) => view.commit_id === "another")
+        ?.continuation,
+    ).toMatchObject({ revision: 0, state: "pending" });
+    controller.close();
+  });
+
+  it("polls terminal commits while callback delivery is pending and stops when completed", async () => {
+    vi.useFakeTimers();
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce({
+        ...pending,
+        continuation: {
+          version: 1,
+          revision: 1,
+          state: "completed",
+          attempts: 1,
+        },
+      });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      await controller.refresh(pending.commit_id);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(controller.all()[0].continuation?.state).toBe("completed");
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(request).toHaveBeenCalledTimes(2);
+    } finally {
+      controller.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["completed", "assistant_recovery_required", "exhausted"] as const)(
+    "does not poll settled callback state %s or legacy terminal views",
+    async (state) => {
+      vi.useFakeTimers();
+      const request = vi.fn();
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        "thread",
+      );
+      try {
+        controller.ingest({ ...submitted, state: "confirmed" });
+        controller.ingest({
+          ...submitted,
+          version: submitted.version + 1,
+          state: "confirmed",
+          continuation: { version: 1, revision: 2, state, attempts: 1 },
+        });
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(request).not.toHaveBeenCalled();
+      } finally {
+        controller.close();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("reports preparation before a provider prompt and clears the local phase after submission", async () => {
     const recovery = recoveryStore();
     let releaseWallet!: (hash: string) => void;

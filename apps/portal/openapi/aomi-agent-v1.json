@@ -3416,6 +3416,10 @@
             "type": "integer",
             "const": 1
           },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
           "state": {
             "type": "string",
             "enum": [

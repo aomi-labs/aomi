@@ -90,6 +90,13 @@ The backend validates Action ownership, revision CAS, expiry, idempotency, and
 request/result compatibility before appending the new Action revision and
 resuming the turn.
 
+A durable transaction's `CommitView.version` tracks its chain lifecycle.
+The optional `continuation` tracks assistant delivery separately: its `version`
+is the schema version, while `revision` orders delivery updates. Older servers
+may omit `revision`, which clients treat as zero. A confirmed transaction can
+still have a pending or retrying continuation; that does not authorize another
+wallet submission.
+
 ## Interrupt
 
 ```http
