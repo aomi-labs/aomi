@@ -154,6 +154,9 @@ export class ClientSession {
             this.terminalDrainUntil = Date.now() + TERMINAL_EVENT_DRAIN_MS;
             this.startStreaming();
           }
+          // Only the callback owner projects delivery metadata. A sibling
+          // shares the batch identity but cannot cancel its owner's wake.
+          if (!view.continuation) continue;
           const callbackTurnId = `broadcast-terminal:${view.batch?.batch_id ?? view.commit_id}`;
           if (
             view.continuation?.state === "pending" ||
