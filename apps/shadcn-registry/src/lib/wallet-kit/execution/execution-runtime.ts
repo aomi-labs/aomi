@@ -7,7 +7,7 @@ import {
 import type { EvmExecutionRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import type { WalletClient } from "viem";
-import { getAddress, isAddress } from "viem";
+import { normalizeEvmWalletTarget } from "@aomi-labs/client";
 import type { EvmWallet } from "@aomi-labs/client";
 import {
   executeWalletKitTransaction,
@@ -105,8 +105,7 @@ export function buildEvmExecutionRuntime(
       runtime.preparePreparedEvmTransaction ??
       (canSendPreparedTransaction
         ? async (payload) => {
-            const to = payload.transaction.to;
-            if (!isAddress(to)) getAddress(to.toLowerCase());
+            normalizeEvmWalletTarget(payload.transaction.to);
             if (!activeConnector) {
               await localPreparedClient(payload);
               return;
@@ -135,9 +134,7 @@ export function buildEvmExecutionRuntime(
       (canSendPreparedTransaction
         ? async (payload, onPhase) => {
             const tx = payload.transaction;
-            const to = isAddress(tx.to)
-              ? tx.to
-              : getAddress(tx.to.toLowerCase());
+            const to = normalizeEvmWalletTarget(tx.to);
             if (activeConnector && sendTransactionAsync) {
               await selectExternalChain(payload, onPhase);
               // Browser sends use the wallet's current pending nonce. The

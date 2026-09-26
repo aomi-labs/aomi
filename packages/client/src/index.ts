@@ -341,6 +341,7 @@ export {
   parseChainId,
 } from "./wallet-utils";
 export { walletCapabilities } from "./wallet/capabilities";
+export { normalizeEvmWalletTarget } from "./wallet/target";
 export { walletUserState } from "./wallet/user-state";
 export type {
   EvmWallet,

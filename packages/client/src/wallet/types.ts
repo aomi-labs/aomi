@@ -29,7 +29,7 @@ export interface EvmWallet {
       { kind: "evm_transaction" }
     >,
     onPhase?: (
-      phase: "switching_chain" | "awaiting_wallet" | "submitting",
+      phase: Exclude<import("../commits").CommitSubmissionPhase, "preparing">,
     ) => void,
   ) => Promise<string>;
   signTransaction?: (

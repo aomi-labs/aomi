@@ -1,5 +1,5 @@
 import type { ActionResult } from "../agent/types";
-import { getAddress, isAddress } from "viem";
+import { normalizeEvmWalletTarget } from "./target";
 import type { ActionCapabilities } from "../actions";
 import type { ActionRequest } from "../agent/types";
 import type {
@@ -41,7 +41,7 @@ function executeEvm(wallet: EvmWallet) {
     const calls = transactions.map(({ to, data, value }) => ({
       // EVM addresses are bytes; a malformed mixed-case checksum must not
       // change the reviewed target or prevent the wallet from receiving it.
-      to: isAddress(to) ? to : getAddress(to.toLowerCase()),
+      to: normalizeEvmWalletTarget(to),
       data,
       value,
     }));
