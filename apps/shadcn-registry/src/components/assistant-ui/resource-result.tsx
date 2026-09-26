@@ -150,7 +150,7 @@ function ResourceLinkView({
               <button
                 type="button"
                 className="mt-1 underline"
-                onClick={() => void inspect(state.read.next_cursor)}
+                onClick={() => void inspect(state.read.next_cursor ?? undefined)}
               >
                 Next page
               </button>
