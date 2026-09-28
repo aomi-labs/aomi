@@ -77,6 +77,7 @@ export function WalletReview() {
   const commitCanExecute = Boolean(
     commitController && liveCommit && commitController.canExecute(liveCommit),
   );
+  const checkingSubmission = lifecycle?.phase === "checking_submission";
   const approving =
     deciding ||
     attempt?.state === "executing" ||
@@ -106,7 +107,10 @@ export function WalletReview() {
           if (approved) await executeAction(liveAction.id);
           else await rejectAction(liveAction.id, "Request rejected");
         } else if (liveCommit && commitController) {
-          if (approved) await commitController.execute(liveCommit.commit_id);
+          if (approved && checkingSubmission && !commitCanExecute)
+            await commitController.refresh(liveCommit.commit_id);
+          else if (approved)
+            await commitController.execute(liveCommit.commit_id);
           else await commitController.reject(liveCommit.commit_id);
         }
         return true;
@@ -125,6 +129,8 @@ export function WalletReview() {
     },
     [
       approving,
+      checkingSubmission,
+      commitCanExecute,
       commitController,
       executeAction,
       liveAction,
@@ -329,7 +335,7 @@ export function WalletReview() {
       supportedChains={wallet.supportedChains}
       approving={approving}
       approveDisabled={
-        (Boolean(liveCommit) && !commitCanExecute) ||
+        (Boolean(liveCommit) && !commitCanExecute && !checkingSubmission) ||
         eligibilityBlocksNewAttempt ||
         signatureAdmissionUnavailable
       }

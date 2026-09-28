@@ -44,6 +44,7 @@ export type CommitRecoveryRecord = {
   attemptId?: string;
   transactionId?: string;
   rejected?: true;
+  rejection?: Extract<CommitWalletAttemptOutcome, { kind: "rejected" }>;
 };
 export type CommitRecoveryStore = {
   load: (
@@ -168,7 +169,7 @@ function isExplicitWalletRejection(error: unknown): boolean {
   while (candidate && typeof candidate === "object" && !seen.has(candidate)) {
     seen.add(candidate);
     const current = candidate as { code?: unknown; cause?: unknown };
-    if (current.code === 4001) return true;
+    if (current.code === 4001 || current.code === "4001") return true;
     candidate = current.cause;
   }
   return false;
@@ -598,7 +599,7 @@ export class CommitController {
       attempt.attempt_id,
       recovered.transactionId
         ? { kind: "transaction", transaction_id: recovered.transactionId }
-        : { kind: "rejected" },
+        : (recovered.rejection ?? { kind: "rejected" }),
     );
   }
   private canStartWalletSend(): boolean {
@@ -643,7 +644,7 @@ export class CommitController {
           record.attemptId,
           record.transactionId
             ? { kind: "transaction", transaction_id: record.transactionId }
-            : { kind: "rejected" },
+            : (record.rejection ?? { kind: "rejected" }),
         );
       throw new Error("Wallet send outcome is being reconciled");
     }
@@ -676,9 +677,13 @@ export class CommitController {
     if (attempt.request.kind !== "evm_transaction")
       throw new Error("Wallet attempt returned an unsupported payload");
     let transactionId: string;
+    let rejectionPhase: "chain_switch" | "transaction_request" | undefined;
     const generation = this.phaseGenerations.get(view.commit_id);
     try {
       transactionId = await send(view, attempt.request, (phase) => {
+        if (phase === "switching_chain") rejectionPhase = "chain_switch";
+        if (phase === "awaiting_wallet" || phase === "submitting")
+          rejectionPhase = "transaction_request";
         if (
           generation &&
           this.phaseGenerations.get(view.commit_id) === generation
@@ -687,11 +692,19 @@ export class CommitController {
       });
     } catch (error) {
       if (!isExplicitWalletRejection(error)) throw error;
-      record = { ...record, rejected: true };
+      const rejection = {
+        kind: "rejected" as const,
+        ...(rejectionPhase ? { phase: rejectionPhase } : {}),
+        provider_code: "4001" as const,
+        reason_category: "user_rejected" as const,
+      } satisfies CommitWalletAttemptOutcome;
+      record = { ...record, rejected: true, rejection };
       recovery.save(this.threadId, view.commit_id, record);
-      return this.reportWalletOutcome(view.commit_id, attempt.attempt_id, {
-        kind: "rejected",
-      });
+      return this.reportWalletOutcome(
+        view.commit_id,
+        attempt.attempt_id,
+        rejection,
+      );
     }
     if (!transactionId) throw new Error("Wallet returned no transaction hash");
     record = { ...record, transactionId };

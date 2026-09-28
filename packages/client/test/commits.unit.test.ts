@@ -847,18 +847,23 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
-  it.each([false, true])(
-    "reports an explicit provider rejection through its bound attempt (wrapped: %s)",
-    async (wrapped) => {
+  it.each([
+    [false, "switching_chain", "chain_switch", 4001],
+    [true, "awaiting_wallet", "transaction_request", 4001],
+    [false, "awaiting_wallet", "transaction_request", "4001"],
+  ] as const)(
+    "reports a %s wrapped provider rejection during %s with phase %s and code %s",
+    async (wrapped, submissionPhase, rejectionPhase, providerCode) => {
       const recovery = recoveryStore();
-      const rejected = { code: 4001 };
-      const walletSend = vi
-        .fn()
-        .mockRejectedValue(
-          wrapped
+      const rejected = { code: providerCode };
+      const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+        async (_commit, _payload, onPhase) => {
+          onPhase?.(submissionPhase);
+          throw wrapped
             ? new Error("Wallet request failed", { cause: rejected })
-            : rejected,
-        );
+            : rejected;
+        },
+      );
       const request = vi.fn(async (method: string, path: string, options) => {
         if (method === "GET") return external;
         if (path.endsWith("/wallet-attempts"))
@@ -870,7 +875,12 @@ describe("Commit view surfaces", () => {
             request: externalPayload,
             may_invoke_wallet: true,
           };
-        expect(options.body).toEqual({ kind: "rejected" });
+        expect(options.body).toEqual({
+          kind: "rejected",
+          phase: rejectionPhase,
+          provider_code: "4001",
+          reason_category: "user_rejected",
+        });
         return { ...external, version: 2, state: "rejected", action: null };
       });
       const controller = new CommitController(
@@ -887,6 +897,72 @@ describe("Commit view surfaces", () => {
       controller.close();
     },
   );
+
+  it("replays the same rejection diagnostics after a lost report response", async () => {
+    const recovery = recoveryStore();
+    const rejected = { code: 4001 };
+    const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+      async (_commit, _payload, onPhase) => {
+        onPhase?.("awaiting_wallet");
+        throw rejected;
+      },
+    );
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    let reports = 0;
+    const request = vi.fn(async (method: string, path: string, options) => {
+      if (method === "GET") return reports ? awaiting : external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      expect(options.body).toEqual({
+        kind: "rejected",
+        phase: "transaction_request",
+        provider_code: "4001",
+        reason_category: "user_rejected",
+      });
+      reports += 1;
+      if (reports === 1) throw new Error("lost report response");
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "lost report response",
+    );
+    expect(recovery.records.get(external.commit_id)?.rejection).toEqual({
+      kind: "rejected",
+      phase: "transaction_request",
+      provider_code: "4001",
+      reason_category: "user_rejected",
+    });
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      {
+        state: "rejected",
+      },
+    );
+    expect(reports).toBe(2);
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
 
   it.each([
     "Connect the expected signing wallet",

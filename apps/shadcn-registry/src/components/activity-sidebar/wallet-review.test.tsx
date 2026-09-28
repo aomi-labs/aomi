@@ -396,7 +396,7 @@ describe("WalletReview", () => {
     controller.ingest(awaiting);
     view.rerender(<ActivitySidebar />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Checking submission status",
+      "Wallet outcome unknown; check status before submitting again",
     );
     const retry = screen.getByRole("button", { name: "Check status" });
     expect(retry).toBeEnabled();
@@ -445,6 +445,69 @@ describe("WalletReview", () => {
     expect(reports).toBe(2);
     expect(walletSend).toHaveBeenCalledTimes(1);
     mismatchController.close();
+  });
+
+  it("checks an uncertain wallet attempt without requesting another send", async () => {
+    const commit: CommitView = {
+      version: 2,
+      commit_id: "uncertain-commit",
+      thread_id: "thread-1",
+      stage_id: "evm:1",
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "0x1111111111111111111111111111111111111111",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: {
+        version: 1,
+        revision: 1,
+        digest: "review-1",
+        request: {
+          type: "execute_evm",
+          transactions: [],
+          simulation: simulation(),
+        },
+        legs: [],
+      },
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+      action: null,
+    };
+    const request = vi.fn(async () => commit);
+    const walletSend = vi.fn();
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { walletSend, walletSendPreflight: vi.fn() },
+    );
+    controller.ingest(commit);
+    controller.ingestReview(commit.commit_id, commit.review!.request);
+    const execute = vi.spyOn(controller, "execute");
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+    render(<WalletReview />);
+
+    const checkStatus = screen.getByRole("button", { name: "Check status" });
+    expect(checkStatus).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Wallet outcome unknown; check status before submitting again",
+    );
+    const requestsBeforeClick = request.mock.calls.length;
+    fireEvent.click(checkStatus);
+    await waitFor(() =>
+      expect(request.mock.calls.length).toBeGreaterThan(requestsBeforeClick),
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(walletSend).not.toHaveBeenCalled();
+    controller.close();
   });
 
   it("renders and approves a reviewless durable Solana commit", async () => {

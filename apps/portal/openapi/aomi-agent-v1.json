@@ -3811,6 +3811,18 @@
           },
           "failure_code": {
             "type": ["string", "null"]
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["chain_switch", "transaction_request"]
+          },
+          "provider_code": {
+            "type": "string",
+            "enum": ["4001"]
+          },
+          "reason_category": {
+            "type": "string",
+            "enum": ["user_rejected"]
           }
         }
       },
@@ -3905,6 +3917,18 @@
             "properties": {
               "kind": {
                 "const": "rejected"
+              },
+              "phase": {
+                "type": "string",
+                "enum": ["chain_switch", "transaction_request"]
+              },
+              "provider_code": {
+                "type": "string",
+                "enum": ["4001"]
+              },
+              "reason_category": {
+                "type": "string",
+                "enum": ["user_rejected"]
               }
             }
           }

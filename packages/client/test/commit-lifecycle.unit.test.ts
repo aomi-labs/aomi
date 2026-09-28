@@ -91,8 +91,39 @@ describe("commit lifecycle projection", () => {
           transaction_id: null,
           failure_code: null,
         },
-      }).phase,
-    ).toBe("checking_submission");
+      }),
+    ).toMatchObject({
+      phase: "checking_submission",
+      label: "Wallet outcome unknown; check status before submitting again",
+    });
+  });
+
+  it("distinguishes manual rejection from wallet switch and transaction refusals", () => {
+    expect(
+      projectCommitLifecycle({ ...ready, state: "rejected", action: null }),
+    ).toMatchObject({ label: "Request rejected" });
+    for (const [phase, label] of [
+      ["chain_switch", "Wallet rejected the network switch"],
+      ["transaction_request", "Wallet rejected the transaction request"],
+    ] as const) {
+      expect(
+        projectCommitLifecycle({
+          ...ready,
+          state: "rejected",
+          action: null,
+          wallet_attempt: {
+            attempt_id: "attempt-1",
+            transport: "browser_send",
+            state: "awaiting_wallet",
+            transaction_id: null,
+            failure_code: null,
+            phase,
+            provider_code: "4001",
+            reason_category: "user_rejected",
+          },
+        }),
+      ).toMatchObject({ phase: "rejected", label });
+    }
   });
 
   it("keeps known chain outcomes ahead of transient local phases", () => {

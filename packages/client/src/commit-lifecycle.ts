@@ -108,8 +108,20 @@ export function projectCommitLifecycle(
     undefined;
   if (view.state === "confirmed")
     return { phase: "confirmed", label: "Confirmed", transactionId };
-  if (view.state === "rejected")
-    return { phase: "rejected", label: "Rejected", transactionId };
+  if (view.state === "rejected") {
+    const rejectionPhase = view.wallet_attempt?.phase;
+    const label =
+      view.wallet_attempt?.reason_category === "user_rejected"
+        ? rejectionPhase === "chain_switch"
+          ? "Wallet rejected the network switch"
+          : rejectionPhase === "transaction_request"
+            ? "Wallet rejected the transaction request"
+            : "Wallet rejected the request"
+        : view.wallet_attempt
+          ? "Wallet request rejected"
+          : "Request rejected";
+    return { phase: "rejected", label, transactionId };
+  }
   if (view.state === "failed")
     return {
       phase: "failed",
@@ -156,7 +168,7 @@ export function projectCommitLifecycle(
   if (view.wallet_attempt || recovery)
     return {
       phase: "checking_submission",
-      label: "Checking submission status",
+      label: "Wallet outcome unknown; check status before submitting again",
       transactionId,
     };
   if (!view.action && view.batch?.predecessor_commit_id)
