@@ -296,6 +296,7 @@ export class CommitController {
   private phaseGenerations = new Map<string, symbol>();
   private pending = new Map<string, CommitManual>();
   private timer?: ReturnType<typeof setTimeout>;
+  private polling = false;
   private capabilityChangeScheduled = false;
   private closed = false;
   private walletCapabilities: Pick<
@@ -711,15 +712,24 @@ export class CommitController {
     return current;
   }
   private schedule(): void {
-    if (this.closed || this.timer || !this.snapshot.some(needsCommitRefresh))
+    if (
+      this.closed ||
+      this.timer ||
+      this.polling ||
+      !this.snapshot.some(needsCommitRefresh)
+    )
       return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
+      this.polling = true;
       void Promise.all(
         this.snapshot
           .filter(needsCommitRefresh)
           .map((view) => this.refresh(view.commit_id).catch(() => undefined)),
-      ).finally(() => this.schedule());
+      ).finally(() => {
+        this.polling = false;
+        this.schedule();
+      });
     }, 1000);
   }
 }

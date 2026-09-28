@@ -430,6 +430,47 @@ describe("Commit view surfaces", () => {
     }
   });
 
+  it("waits for every commit in a polling round before starting another", async () => {
+    vi.useFakeTimers();
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: { version: 1, revision: 0, state: "pending", attempts: 0 },
+    };
+    const slow = { ...pending, commit_id: "slow" };
+    let releaseSlow!: (view: CommitView) => void;
+    let slowRequests = 0;
+    const request = vi.fn(async (_method: string, path: string) => {
+      if (!path.includes("slow")) return pending;
+      slowRequests++;
+      if (slowRequests === 1)
+        return new Promise<CommitView>((resolve) => {
+          releaseSlow = resolve;
+        });
+      return slow;
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      controller.ingest(pending);
+      controller.ingest(slow);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(slowRequests).toBe(1);
+
+      releaseSlow(slow);
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(request).toHaveBeenCalledTimes(4);
+      expect(slowRequests).toBe(2);
+    } finally {
+      controller.close();
+      vi.useRealTimers();
+    }
+  });
+
   it.each(["completed", "assistant_recovery_required", "exhausted"] as const)(
     "does not poll settled callback state %s or legacy terminal views",
     async (state) => {
