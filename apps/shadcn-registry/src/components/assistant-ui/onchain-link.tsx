@@ -3,7 +3,7 @@ import { cn } from "@aomi-labs/react";
 import { ExternalLink } from "lucide-react";
 import type { ComponentPropsWithoutRef } from "react";
 
-import { getChainIcon } from "@/components/icons/chain-map";
+import { EtherscanIcon } from "@/components/icons/apps";
 
 type ExplorerKind = "tx" | "address" | "token" | "block";
 
@@ -88,19 +88,29 @@ export function OnchainLink({
       </a>
     );
   }
-  const ChainIcon = getChainIcon(explorer.chainId) ?? ExternalLink;
+  const explorerHost = new URL(explorer.href).hostname;
+  const Icon = [
+    "etherscan.io",
+    "basescan.org",
+    "arbiscan.io",
+    "optimistic.etherscan.io",
+    "bscscan.com",
+    "polygonscan.com",
+  ].includes(explorerHost)
+    ? EtherscanIcon
+    : ExternalLink;
   return (
     <a
       href={explorer.href}
       {...props}
       className={cn(
-        "aui-md-a text-aomi-accent border-aomi-accent/20 bg-aomi-accent/10 hover:bg-aomi-accent/15 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 align-baseline font-medium underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2",
+        "aui-md-a text-aomi-accent relative top-px mx-0.5 inline-flex max-w-full items-center gap-1 align-baseline font-medium no-underline hover:underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2",
         className,
       )}
       target="_blank"
       rel="noopener noreferrer"
     >
-      <ChainIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
       <span className="min-w-0 break-all">{children}</span>
       <span className="sr-only"> on {explorer.chainName} explorer</span>
     </a>
