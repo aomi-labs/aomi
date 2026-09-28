@@ -2,7 +2,9 @@ import {
   amountFact,
   asRecord,
   asString,
+  chainFact,
   chainFactFromRecord,
+  statusFact,
   tokenFact,
   uniqueFacts,
 } from "../normalize";
@@ -18,8 +20,10 @@ const op = (
   id: string,
   rawLabel: string,
   facts: Array<ToolFact | null>,
+  title?: string,
 ): ToolOperation => ({
   id,
+  title,
   facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
   confidence: "high",
   rawLabel,
@@ -62,6 +66,37 @@ const tokenPairFact = (
   };
 };
 
+const isBridgeRoute = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+): boolean => {
+  const source = result?.source_chain_id ?? result?.chain_id ?? args?.chain_id;
+  const destination = result?.destination_chain_id ?? args?.to_chain_id;
+  return (
+    source != null &&
+    destination != null &&
+    String(source) !== String(destination)
+  );
+};
+
+const locationFact = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+): ToolFact | null => {
+  const source = result?.source_chain_id ?? result?.chain_id ?? args?.chain_id;
+  const destination = result?.destination_chain_id ?? args?.to_chain_id;
+  const from = chainFact(source);
+  const to = chainFact(destination);
+  if (from && to && from.value !== to.value) {
+    return {
+      kind: "route",
+      value: `${from.label} → ${to.label}`,
+      source: "result",
+    };
+  }
+  return from ?? chainFactFromRecord(result);
+};
+
 export const matchLifiQuote: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!validResult(resultRecord)) return null;
   const fromToken = asRecord(resultRecord.from_token);
@@ -71,12 +106,17 @@ export const matchLifiQuote: ToolMatcher = ({ rawLabel, resultRecord }) => {
     return null;
   }
 
-  return op("lifi.quote", rawLabel, [
-    chainFactFromRecord(resultRecord),
-    amountDisplayFact(resultRecord.from_amount, "primary"),
-    amountTextFact(estimate.to_amount_display, "secondary"),
-    tokenPairFact(fromToken, toToken),
-  ]);
+  return op(
+    "lifi.quote",
+    rawLabel,
+    [
+      locationFact(resultRecord),
+      amountDisplayFact(resultRecord.from_amount, "primary"),
+      amountTextFact(estimate.to_amount_display, "secondary"),
+      tokenPairFact(fromToken, toToken),
+    ],
+    isBridgeRoute(resultRecord) ? "Quote LI.FI bridge" : undefined,
+  );
 };
 
 export const matchLifiApproval: ToolMatcher = ({ rawLabel, resultRecord }) => {
@@ -99,15 +139,21 @@ export const matchLifiSwapPrep: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!validResult(resultRecord) || !asString(resultRecord.quote_id))
     return null;
   const stageTx = asRecord(resultRecord.stage_tx);
-  if (stageTx?.kind !== "lifi_swap") return null;
+  if (stageTx?.kind !== "lifi_swap" && stageTx?.kind !== "lifi_bridge")
+    return null;
 
   const estimate = asRecord(resultRecord.estimate);
-  return op("lifi.swap.prepare", rawLabel, [
-    chainFactFromRecord(resultRecord),
-    amountDisplayFact(resultRecord.from_amount, "primary"),
-    amountTextFact(estimate?.to_amount_display, "secondary"),
-    tokenPairFact(resultRecord.from_token, resultRecord.to_token),
-  ]);
+  return op(
+    "lifi.swap.prepare",
+    rawLabel,
+    [
+      locationFact(resultRecord),
+      amountDisplayFact(resultRecord.from_amount, "primary"),
+      amountTextFact(estimate?.to_amount_display, "secondary"),
+      tokenPairFact(resultRecord.from_token, resultRecord.to_token),
+    ],
+    isBridgeRoute(resultRecord) ? "Prepare LI.FI bridge" : undefined,
+  );
 };
 
 export const matchLifiSwapBatch: ToolMatcher = ({
@@ -125,12 +171,26 @@ export const matchLifiSwapBatch: ToolMatcher = ({
       ? `${requestedAmount} ${fromToken}`
       : requestedAmount;
 
-  return op("lifi.swap.prepare", rawLabel, [
-    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
-    tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
-    amountDisplayFact(resultRecord?.from_amount, "primary") ??
-      amountTextFact(requestedDisplay, "primary"),
-    amountTextFact(estimate?.to_amount_display, "secondary"),
+  return op(
+    "lifi.swap.prepare",
+    rawLabel,
+    [
+      locationFact(resultRecord, args),
+      tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
+      amountDisplayFact(resultRecord?.from_amount, "primary") ??
+        amountTextFact(requestedDisplay, "primary"),
+      amountTextFact(estimate?.to_amount_display, "secondary"),
+    ],
+    isBridgeRoute(resultRecord, args) ? "Prepare LI.FI bridge" : undefined,
+  );
+};
+
+export const matchLifiStatus: ToolMatcher = ({ rawLabel, resultRecord }) => {
+  if (!validResult(resultRecord) || !asString(resultRecord.commit_id))
+    return null;
+  return op("lifi.bridge.status", rawLabel, [
+    locationFact(resultRecord),
+    statusFact(resultRecord.state),
   ]);
 };
 
@@ -151,6 +211,7 @@ export const lifi: ProtocolAdapter = {
       fixedTitle: "Quote LI.FI swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
+        { kind: "route" },
         { kind: "chain" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
@@ -162,11 +223,18 @@ export const lifi: ProtocolAdapter = {
       fixedTitle: "Prepare LI.FI swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
+        { kind: "route" },
         { kind: "chain" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
       ],
+    },
+    "lifi.bridge.status": {
+      title: "fixed",
+      fixedTitle: "Check LI.FI transfer",
+      icon: SHAPE_ICONS.swap,
+      chipPlan: [{ kind: "route" }, { kind: "chain" }, { kind: "status" }],
     },
   },
   tools: [
@@ -174,6 +242,7 @@ export const lifi: ProtocolAdapter = {
     "lifi_prepare_approval_tx",
     "lifi_prepare_swap_tx",
     "lifi_prepare_swap_batch",
+    "lifi_get_status",
   ],
   match: (ctx) => {
     switch (ctx.rawLabel.toLowerCase().trim()) {
@@ -183,6 +252,8 @@ export const lifi: ProtocolAdapter = {
         return matchLifiApproval(ctx);
       case "lifi_prepare_swap_batch":
         return matchLifiSwapBatch(ctx);
+      case "lifi_get_status":
+        return matchLifiStatus(ctx);
       default:
         return matchLifiSwapPrep(ctx);
     }

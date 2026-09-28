@@ -308,6 +308,8 @@ export const registry: RegistryComponent[] = [
       "components/assistant-ui/working-trace-rows.tsx",
       "components/assistant-ui/tool-chip.tsx",
       "components/assistant-ui/working-agent.tsx",
+      "components/assistant-ui/markdown-text.tsx",
+      "components/assistant-ui/onchain-link.tsx",
       "components/assistant-ui/tool-interpreter.ts",
       "components/assistant-ui/tool-interpreter/index.ts",
       "components/assistant-ui/tool-interpreter/attribution.ts",
@@ -344,6 +346,7 @@ export const registry: RegistryComponent[] = [
       "components/icons/chains/index.tsx",
     ],
     dependencies: [
+      "@aomi-labs/client",
       "@aomi-labs/react",
       "@assistant-ui/react",
       "@assistant-ui/react-markdown",
@@ -355,8 +358,7 @@ export const registry: RegistryComponent[] = [
       aomi("agent-routing"),
       aomi("activity-sidebar"),
       aomi("control-bar"),
-      // From assistant-ui (unchanged)
-      assistantUI("markdown-text"),
+      // From assistant-ui
       assistantUI("tooltip-icon-button"),
       // Attachment: our own version compatible with @assistant-ui/react 0.14.x
       aomi("attachment"),
@@ -442,6 +444,8 @@ export const registry: RegistryComponent[] = [
     file: [
       "components/icons/auto-mode.tsx",
       "components/assistant-ui/tool-chip.tsx",
+      "components/assistant-ui/markdown-text.tsx",
+      "components/assistant-ui/onchain-link.tsx",
       "components/assistant-ui/trace-attribution.tsx",
       "components/assistant-ui/tool-interpreter/attribution.ts",
       "components/icons/app-map.tsx",
@@ -474,13 +478,15 @@ export const registry: RegistryComponent[] = [
       "@aomi-labs/client",
       "@aomi-labs/react",
       "@assistant-ui/react",
+      "@assistant-ui/react-markdown",
       "lucide-react",
       "viem",
       "motion",
+      "remark-gfm",
     ],
     registryDependencies: [
       aomi("aomi-wallet-kit"),
-      assistantUI("markdown-text"),
+      assistantUI("tooltip-icon-button"),
       "button",
     ],
     description:

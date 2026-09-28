@@ -57,6 +57,55 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([]);
   });
 
+  it("shows LI.FI bridge source, destination, and durable status", () => {
+    const quote = interpretToolStep({
+      toolName: "lifi_get_quote",
+      result: {
+        quote_id: "quote-1",
+        chain_id: 8453,
+        source_chain_id: 8453,
+        destination_chain_id: 42161,
+        from_token: { symbol: "USDC" },
+        to_token: { symbol: "USDC" },
+        from_amount: { display: "2 USDC" },
+        estimate: { to_amount_display: "1.9 USDC" },
+      },
+    });
+    expect(quote.title).toBe("Quote LI.FI bridge");
+    expect(labelsFor(quote.chips)).toContain("Base → Arbitrum");
+
+    const preparation = interpretToolStep({
+      toolName: "lifi_prepare_swap_batch",
+      argsText: JSON.stringify({
+        chain_id: 8453,
+        to_chain_id: 42161,
+        from_token: "USDC",
+        amount: "2",
+      }),
+      result: {
+        source_chain_id: 8453,
+        destination_chain_id: 42161,
+        from_token: { symbol: "USDC" },
+        to_token: { symbol: "USDC" },
+      },
+    });
+    expect(preparation.title).toBe("Prepare LI.FI bridge");
+    expect(labelsFor(preparation.chips)).toContain("Base → Arbitrum");
+
+    const status = interpretToolStep({
+      toolName: "lifi_get_status",
+      result: {
+        commit_id: "commit-1",
+        source_chain_id: 8453,
+        destination_chain_id: 42161,
+        state: "partial",
+      },
+    });
+    expect(status.title).toBe("Check LI.FI transfer");
+    expect(labelsFor(status.chips)).toEqual(["Base → Arbitrum", "Partial"]);
+    expect(status.outcome).toBe("incomplete");
+  });
+
   it("unwraps routed tool envelopes before matching", () => {
     const step = interpretToolStep({
       toolName: "get_time_and_onchain_context",
