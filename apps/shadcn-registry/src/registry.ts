@@ -99,6 +99,7 @@ export const registry: RegistryComponent[] = [
       "components/account-shell/lib/account-overview.ts",
       "components/account-shell/lib/settings-api.ts",
       "components/account-shell/lib/use-settings.ts",
+      "components/account-shell/link.tsx",
       "components/account-shell/transport.tsx",
       "components/account-shell/widget-shell.tsx",
       "lib/wallet-kit/providers/privy/privy-delegation-context.ts",
