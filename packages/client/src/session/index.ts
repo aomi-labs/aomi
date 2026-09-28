@@ -209,6 +209,10 @@ export class ClientSession {
     } else if (this.turnState !== "awaiting_action" || page.has_more) {
       this.startStreaming();
     }
+    // A high-level run may hand off a durable commit and close this session
+    // while the submitted page is still unwinding. Do not park a new waiter
+    // after close() has already drained pending sends.
+    if (this.closed) return this.result();
     return new Promise((resolve, reject) => {
       this.pendingResolve = resolve;
       this.pendingReject = reject;

@@ -43,6 +43,10 @@ type WalletRejection = Extract<
   CommitWalletAttemptOutcome,
   { kind: "rejected" }
 >;
+export type CommitExecutionReview = {
+  expectedVersion: number;
+  expectedReviewDigest?: string;
+};
 export type CommitRecoveryRecord = {
   clientRequestId: string;
   attemptId?: string;
@@ -65,10 +69,12 @@ export type CommitRecoveryStore = {
 /** Wallet operations available to the durable Commit lifecycle. */
 export type CommitCapabilities = {
   sign?: (commit: CommitView, payload: SignableCommit) => Promise<string[]>;
+  canSign?: (commit: CommitView, payload: SignableCommit) => boolean;
   walletBroadcast?: (
     commit: CommitView,
     signedBytes: string,
   ) => Promise<string>;
+  canWalletBroadcast?: (commit: CommitView) => boolean;
   venueBroadcast?: (commit: CommitView, signedBytes: string) => Promise<string>;
   walletSend?: (
     commit: CommitView,
@@ -79,14 +85,21 @@ export type CommitCapabilities = {
     commit: CommitView,
     payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
   ) => Promise<void>;
+  canWalletSend?: (
+    commit: CommitView,
+    payload: Extract<SignableCommit, { kind: "evm_transaction" }>,
+  ) => boolean;
   recovery?: CommitRecoveryStore;
 };
 const COMMIT_CAPABILITY_KEYS = [
   "sign",
+  "canSign",
   "walletBroadcast",
+  "canWalletBroadcast",
   "venueBroadcast",
   "walletSend",
   "walletSendPreflight",
+  "canWalletSend",
   "recovery",
 ] as const satisfies readonly (keyof CommitCapabilities)[];
 export const isTerminalCommit = (view: CommitView): boolean =>
@@ -211,6 +224,19 @@ function isExplicitWalletRejection(error: unknown): boolean {
   return false;
 }
 
+function payloadMatchesCommit(
+  commit: CommitView,
+  payload: SignableCommit,
+): boolean {
+  if (payload.kind === "svm_transaction")
+    return commit.chain_family === "svm" && payload.signer === commit.signer;
+  return (
+    commit.chain_family === "evm" &&
+    payload.signer.toLowerCase() === commit.signer.toLowerCase() &&
+    payload.chain_id === Number(commit.chain_ref)
+  );
+}
+
 export function commitCapabilities(
   wallets: Wallets,
   recovery?: CommitRecoveryStore,
@@ -218,21 +244,53 @@ export function commitCapabilities(
   const evm = wallets.evm;
   const sendPrepared = evm?.sendPreparedTransaction;
   const preparePrepared = evm?.preparePreparedTransaction;
+  const canSign = (commit: CommitView, payload: SignableCommit): boolean => {
+    if (!payloadMatchesCommit(commit, payload)) return false;
+    if (payload.kind === "svm_transaction")
+      return Boolean(
+        wallets.svm?.signTransaction &&
+        commit.chain_family === "svm" &&
+        wallets.svm.address === commit.signer,
+      );
+    return Boolean(
+      commit.chain_family === "evm" &&
+      evm?.address.toLowerCase() === commit.signer.toLowerCase() &&
+      (payload.kind === "evm_transaction"
+        ? evm?.signTransaction
+        : evm?.signMessage),
+    );
+  };
+  const canWalletBroadcast = (commit: CommitView): boolean =>
+    commit.chain_family === "evm"
+      ? Boolean(evm?.broadcastTransaction)
+      : Boolean(wallets.svm?.broadcastTransaction);
   return {
     recovery,
+    canSign,
+    canWalletBroadcast,
     ...(evm && sendPrepared && preparePrepared
       ? {
+          canWalletSend(commit, payload) {
+            return (
+              payloadMatchesCommit(commit, payload) &&
+              evm.address.toLowerCase() === commit.signer.toLowerCase()
+            );
+          },
           async walletSendPreflight(commit, payload) {
-            if (commit.chain_family !== "evm")
-              throw new Error("External wallet send requires an EVM commit");
+            if (!payloadMatchesCommit(commit, payload))
+              throw new Error(
+                "Prepared commit payload does not match its signer or chain",
+              );
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
             normalizeEvmWalletTarget(payload.transaction.to);
             await preparePrepared(payload);
           },
           async walletSend(commit, payload, onPhase) {
-            if (commit.chain_family !== "evm")
-              throw new Error("External wallet send requires an EVM commit");
+            if (!payloadMatchesCommit(commit, payload))
+              throw new Error(
+                "Prepared commit payload does not match its signer or chain",
+              );
             if (evm.address.toLowerCase() !== commit.signer.toLowerCase())
               throw new Error("Connect the expected signing wallet");
             const walletPayload = {
@@ -249,6 +307,10 @@ export function commitCapabilities(
         }
       : {}),
     async sign(commit, payload) {
+      if (!payloadMatchesCommit(commit, payload))
+        throw new Error(
+          "Prepared commit payload does not match its signer or chain",
+        );
       const wallet = commit.chain_family === "evm" ? wallets.evm : wallets.svm;
       if (
         !wallet ||
@@ -328,7 +390,14 @@ export class CommitController {
   private synthesizedReviews = new Set<string>();
   private snapshot: readonly CommitView[] = [];
   private listeners = new Set<() => void>();
-  private attempts = new Map<string, Promise<CommitView>>();
+  private attempts = new Map<
+    string,
+    {
+      promise: Promise<CommitView>;
+      kind: "execute" | "submitSigned" | "submitBroadcast";
+      review?: CommitExecutionReview;
+    }
+  >();
   private submissionPhases = new Map<string, CommitSubmissionPhase>();
   private phaseGenerations = new Map<string, symbol>();
   private pending = new Map<string, CommitManual>();
@@ -437,24 +506,29 @@ export class CommitController {
       (recovery.transactionId || recovery.rejected)
     )
       return true;
+    const walletSend = this.browserSendSelection(view);
+    const canStartWalletSend =
+      walletSend &&
+      this.canStartWalletSend() &&
+      (this.available.canWalletSend?.(view, walletSend.payload) ?? true);
     switch (view.action?.kind) {
       case "sign":
         return Boolean(
-          (this.browserSendSelection(view) && this.canStartWalletSend()) ||
-          this.available.sign,
+          canStartWalletSend ||
+          (this.available.sign &&
+            (this.available.canSign?.(view, view.action.payload) ?? true)),
         );
       case "broadcast":
         return Boolean(
           view.broadcaster === "wallet"
-            ? this.available.walletBroadcast
+            ? this.available.walletBroadcast &&
+                (this.available.canWalletBroadcast?.(view) ?? true)
             : view.broadcaster === "venue"
               ? this.available.venueBroadcast
               : undefined,
         );
       case "start_wallet_send":
-        return (
-          Boolean(this.browserSendSelection(view)) && this.canStartWalletSend()
-        );
+        return Boolean(canStartWalletSend);
       default:
         return false;
     }
@@ -469,20 +543,124 @@ export class CommitController {
     this.schedule();
     return current;
   }
-  execute(id: string): Promise<CommitView> {
+  execute(id: string, review?: CommitExecutionReview): Promise<CommitView> {
     const running = this.attempts.get(id);
-    if (running) return running;
+    if (running) {
+      if (
+        running.kind !== "execute" ||
+        running.review?.expectedVersion !== review?.expectedVersion ||
+        running.review?.expectedReviewDigest !== review?.expectedReviewDigest
+      )
+        return Promise.reject(
+          new Error("Commit review changed; refresh and review it again"),
+        );
+      return running.promise;
+    }
     const generation = Symbol(id);
     this.phaseGenerations.set(id, generation);
     this.setSubmissionPhase(id, "preparing");
-    const attempt = this.perform(id).finally(() => {
+    const attempt = this.perform(id, review).finally(() => {
       this.attempts.delete(id);
       if (this.phaseGenerations.get(id) === generation) {
         this.phaseGenerations.delete(id);
         this.setSubmissionPhase(id, undefined);
       }
     });
-    this.attempts.set(id, attempt);
+    this.attempts.set(id, { promise: attempt, kind: "execute", review });
+    return attempt;
+  }
+  /** Report bytes produced by an external signer for the reviewed version. */
+  submitSigned(
+    id: string,
+    payloads: string[],
+    review: CommitExecutionReview,
+  ): Promise<CommitView> {
+    return this.submitExternal(id, review, "submitSigned", async (view) => {
+      if (view.state !== "needs_signature" || view.action?.kind !== "sign")
+        throw new Error("Commit is not awaiting external signatures");
+      if (!payloadMatchesCommit(view, view.action.payload))
+        throw new Error(
+          "Prepared commit payload does not match its signer or chain",
+        );
+      const expected =
+        view.action.payload.kind === "user_operation"
+          ? view.action.payload.requests.length
+          : 1;
+      if (
+        !Array.isArray(payloads) ||
+        payloads.length !== expected ||
+        payloads.some(
+          (payload) => typeof payload !== "string" || !payload.trim(),
+        )
+      )
+        throw new Error(
+          `Commit requires ${expected} signed payload${expected === 1 ? "" : "s"}`,
+        );
+      return this.manual(id, { kind: "signed", payloads });
+    });
+  }
+  /** Report a previously broadcast transaction after reviewing its exact ID. */
+  submitBroadcast(
+    id: string,
+    transactionId: string,
+    review: CommitExecutionReview,
+  ): Promise<CommitView> {
+    return this.submitExternal(
+      id,
+      review,
+      "submitBroadcast",
+      async (view) => {
+        if (
+          view.state !== "awaiting_broadcast" ||
+          view.action?.kind !== "broadcast"
+        )
+          throw new Error("Commit is not awaiting external broadcast");
+        if (transactionId !== view.action.transaction_id)
+          throw new Error(
+            "Broadcast transaction does not match the reviewed commit",
+          );
+        return this.manual(id, {
+          kind: "broadcast",
+          transaction_id: transactionId,
+        });
+      },
+      (view) => {
+        if (view.state !== "submitted" && view.state !== "confirmed")
+          return false;
+        if (transactionId !== view.transaction_id)
+          throw new Error(
+            "Broadcast transaction does not match the reviewed commit",
+          );
+        return true;
+      },
+    );
+  }
+  private submitExternal(
+    id: string,
+    review: CommitExecutionReview,
+    kind: "submitSigned" | "submitBroadcast",
+    submit: (view: CommitView) => Promise<CommitView>,
+    alreadyReported?: (view: CommitView) => boolean,
+  ): Promise<CommitView> {
+    if (this.closed) return Promise.reject(new Error("Commit session closed"));
+    if (this.attempts.has(id))
+      return Promise.reject(
+        new Error("A commit operation is already in progress"),
+      );
+    const attempt = (async () => {
+      const view = await this.refresh(id);
+      // Receipt observation can outrun a caller's broadcast report. A matching
+      // authoritative hash is already the requested outcome; never POST again.
+      if (alreadyReported?.(view)) return view;
+      this.assertReviewed(view, review);
+      if (view.review && review.expectedReviewDigest === undefined)
+        throw new Error(
+          "Commit review digest is required for external submission",
+        );
+      if (this.closed) throw new Error("Commit session closed");
+      return submit(view);
+    })().finally(() => this.attempts.delete(id));
+    this.attempts.set(id, { promise: attempt, kind, review });
     return attempt;
   }
   async reject(id: string): Promise<CommitView> {
@@ -552,9 +730,13 @@ export class CommitController {
     this.schedule();
     return current;
   }
-  private async perform(id: string): Promise<CommitView> {
+  private async perform(
+    id: string,
+    review?: CommitExecutionReview,
+  ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
     let view = await this.refresh(id);
+    if (review) this.assertReviewed(view, review);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;
@@ -596,6 +778,17 @@ export class CommitController {
       view = await this.manual(id, { kind: "broadcast", transaction_id: hash });
     }
     return view;
+  }
+  private assertReviewed(
+    view: CommitView,
+    review: CommitExecutionReview,
+  ): void {
+    if (
+      view.version !== review.expectedVersion ||
+      (review.expectedReviewDigest !== undefined &&
+        view.review?.digest !== review.expectedReviewDigest)
+    )
+      throw new Error("Commit review changed; refresh and review it again");
   }
   private async recoverWalletOutcome(view: CommitView): Promise<CommitView> {
     const recovery = this.capabilities.recovery;

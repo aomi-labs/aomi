@@ -532,6 +532,246 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
+  it("advertises only wallet operations available for the commit chain", () => {
+    const empty = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      unsigned.thread_id,
+      commitCapabilities({}),
+    );
+    expect(empty.canExecute(unsigned)).toBe(false);
+    expect(empty.canExecute(signed)).toBe(false);
+    empty.close();
+
+    const evmOnly = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      unsigned.thread_id,
+      commitCapabilities({
+        evm: {
+          address: external.signer,
+          signTransaction: vi.fn(),
+          broadcastTransaction: vi.fn(),
+        },
+      }),
+    );
+    expect(evmOnly.canExecute(unsigned)).toBe(false);
+    expect(evmOnly.canExecute(external)).toBe(true);
+    expect(evmOnly.canExecute(signed)).toBe(false);
+    expect(
+      evmOnly.canExecute({
+        ...external,
+        action: {
+          kind: "sign",
+          payload: {
+            ...externalPayload,
+            signer: "0x3333333333333333333333333333333333333333",
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      evmOnly.canExecute({
+        ...external,
+        action: {
+          kind: "sign",
+          payload: { ...externalPayload, chain_id: 1 },
+        },
+      }),
+    ).toBe(false);
+    evmOnly.close();
+
+    const wrongWallet = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: "0x3333333333333333333333333333333333333333",
+            preparePreparedTransaction: vi.fn(),
+            sendPreparedTransaction: vi.fn(),
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    expect(wrongWallet.canExecute(external)).toBe(false);
+    wrongWallet.close();
+  });
+
+  it("does not use a wallet when the reviewed commit changed before execution", async () => {
+    const signTransaction = vi.fn();
+    const refreshed = {
+      ...external,
+      version: 2,
+      review: { ...external.review!, digest: "new-digest" },
+    };
+    const request = vi.fn().mockResolvedValue(refreshed);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(
+      controller.execute(external.commit_id, {
+        expectedVersion: external.version,
+        expectedReviewDigest: external.review!.digest,
+      }),
+    ).rejects.toThrow("Commit review changed; refresh and review it again");
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("rejects a mismatched prepared payload before invoking the wallet", async () => {
+    const signTransaction = vi.fn();
+    const mismatched = {
+      ...external,
+      action: {
+        kind: "sign" as const,
+        payload: {
+          ...externalPayload,
+          signer: "0x3333333333333333333333333333333333333333",
+        },
+      },
+    };
+    const controller = new CommitController(
+      {
+        request: vi.fn().mockResolvedValue(mismatched),
+      } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "Prepared commit payload does not match its signer or chain",
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
+  });
+
+  it("accepts external signatures only for the reviewed version and sign action", async () => {
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return unsigned;
+        expect(options?.body).toEqual({
+          kind: "signed",
+          payloads: ["signed-by-external-wallet"],
+        });
+        return signed;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      unsigned.thread_id,
+    );
+    await expect(
+      controller.submitSigned(
+        unsigned.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: unsigned.version,
+        },
+      ),
+    ).resolves.toMatchObject({ state: "awaiting_broadcast" });
+    expect(request).toHaveBeenCalledTimes(2);
+    await expect(
+      controller.submitSigned(
+        unsigned.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: unsigned.version,
+        },
+      ),
+    ).rejects.toThrow("Commit review changed; refresh and review it again");
+    expect(request).toHaveBeenCalledTimes(3);
+    controller.close();
+  });
+
+  it("requires the durable digest when externally submitting a reviewed commit", async () => {
+    const request = vi.fn().mockResolvedValue(external);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+    );
+    await expect(
+      controller.submitSigned(
+        external.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: external.version,
+        },
+      ),
+    ).rejects.toThrow(
+      "Commit review digest is required for external submission",
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("accepts an external broadcast report only for the prepared transaction", async () => {
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return signed;
+        expect(options?.body).toEqual({
+          kind: "broadcast",
+          transaction_id: "chain-sig",
+        });
+        return submitted;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      signed.thread_id,
+    );
+    await expect(
+      controller.submitBroadcast(signed.commit_id, "wrong-hash", {
+        expectedVersion: signed.version,
+      }),
+    ).rejects.toThrow(
+      "Broadcast transaction does not match the reviewed commit",
+    );
+    await expect(
+      controller.submitBroadcast(signed.commit_id, "chain-sig", {
+        expectedVersion: signed.version,
+      }),
+    ).resolves.toMatchObject({ state: "submitted" });
+    expect(request).toHaveBeenCalledTimes(3);
+    controller.close();
+  });
+
+  it.each(["submitted", "confirmed"] as const)(
+    "treats an already %s matching broadcast as an idempotent report",
+    async (state) => {
+      const observed = {
+        ...submitted,
+        state,
+        version: state === "confirmed" ? 4 : submitted.version,
+      };
+      const request = vi.fn().mockResolvedValue(observed);
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        observed.thread_id,
+      );
+      await expect(
+        controller.submitBroadcast(observed.commit_id, "chain-sig", {
+          expectedVersion: signed.version,
+        }),
+      ).resolves.toMatchObject({ state });
+      expect(request).toHaveBeenCalledTimes(1);
+      await expect(
+        controller.submitBroadcast(observed.commit_id, "wrong-hash", {
+          expectedVersion: signed.version,
+        }),
+      ).rejects.toThrow(
+        "Broadcast transaction does not match the reviewed commit",
+      );
+      expect(request).toHaveBeenCalledTimes(2);
+      controller.close();
+    },
+  );
+
   it.each(["refresh", "preflight", "attempt"] as const)(
     "does not invoke a wallet when the session closes during %s",
     async (stage) => {

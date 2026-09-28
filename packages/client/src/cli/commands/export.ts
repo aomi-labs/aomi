@@ -1,6 +1,7 @@
 import { getAddress, type Address } from "viem";
 
 import type { Action } from "../../agent/types";
+import { isTerminalCommit, type CommitView } from "../../commits";
 import { CliSession } from "../cli-session";
 import { toEip5792SendCallsParams, type Eip5792CallInput } from "../eip5792";
 import { fatal } from "../errors";
@@ -22,13 +23,14 @@ export async function exportCommand(
 ): Promise<void> {
   if (selectors.length === 0) {
     fatal(
-      "Usage: aomi tx export <action-id> [<action-id> ...]\nRun `aomi tx list` to see pending Actions.",
+      "Usage: aomi tx export <id> [<id> ...] [--format commit|eip5792|moss|metamask]\nRun `aomi tx list` to see pending commits and Actions.",
     );
   }
 
+  const commitFormat = rawFormat?.trim().toLowerCase() === "commit";
   let format: WalletExportFormat;
   try {
-    format = parseWalletExportFormat(rawFormat);
+    format = parseWalletExportFormat(commitFormat ? undefined : rawFormat);
   } catch (error) {
     fatal(errorMessage(error));
   }
@@ -39,6 +41,42 @@ export async function exportCommand(
   const session = cli.createClientSession(config);
   try {
     await session.fetchCurrentState();
+    if (commitFormat) {
+      if (selectors.length !== 1) {
+        throw new Error("Export one durable commit at a time.");
+      }
+      const view = resolveCommit(session.commits.all(), selectors[0]);
+      if (!session.commits.review(view.commit_id) || !view.review?.digest) {
+        throw new Error(
+          `Commit "${view.commit_id}" has no durable review to export.`,
+        );
+      }
+      if (view.action?.kind !== "sign" && view.action?.kind !== "broadcast") {
+        throw new Error(
+          `Commit "${view.commit_id}" has no external signer action to export.`,
+        );
+      }
+      process.stdout.write(
+        `${JSON.stringify({ format: "aomi.commit.v1", commit: view }, null, 2)}\n`,
+      );
+      return;
+    }
+    const commit = session.commits
+      ?.all()
+      .find(
+        (view) =>
+          !isTerminalCommit(view) &&
+          selectors.some(
+            (selector) =>
+              view.commit_id === selector ||
+              view.commit_id.startsWith(selector),
+          ),
+      );
+    if (commit) {
+      throw new Error(
+        `Commit "${commit.commit_id}" cannot be exported as a legacy Action. Its exact reviewed payload must use the Commit Service signing flow.`,
+      );
+    }
     const actions = resolveEvmActions(session.actions.pending(), selectors);
     const params = toSendCallsParams(actions, cli.publicKey);
     process.stdout.write(
@@ -49,6 +87,22 @@ export async function exportCommand(
   } finally {
     session.close();
   }
+}
+
+function resolveCommit(
+  commits: readonly CommitView[],
+  selector: string,
+): CommitView {
+  const matches = commits.filter(
+    (view) =>
+      !isTerminalCommit(view) &&
+      (view.commit_id === selector || view.commit_id.startsWith(selector)),
+  );
+  if (matches.length > 1)
+    throw new Error(`Commit selector "${selector}" is ambiguous.`);
+  const view = matches[0];
+  if (!view) throw new Error(`Pending commit "${selector}" was not found.`);
+  return view;
 }
 
 function resolveEvmActions(

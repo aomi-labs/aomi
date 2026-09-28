@@ -10,6 +10,47 @@ import type { AomiOAuthTokenRequest } from "../src/authorization";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("public API OAuth transport", () => {
+  it("requests Agent scopes for durable Commit reads and responses", async () => {
+    const upstream = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("{}", { status: 200 }),
+    );
+    const oauth = vi.fn(async (request: AomiOAuthTokenRequest) => ({
+      accessToken: "agent-token",
+      expiresAt: Date.now() + 60_000,
+      resource: request.resource,
+      scopes: request.scopes,
+    }));
+    const authorized = wrapFetchWithPublicApiAuthorization({
+      fetch: upstream as typeof fetch,
+      baseUrl: "https://chat.aomi.dev",
+      oauth,
+    });
+
+    await authorized("https://chat.aomi.dev/api/commits/commit-1", {
+      method: "GET",
+    });
+    await authorized("https://chat.aomi.dev/api/commits/commit-1/manual", {
+      method: "POST",
+    });
+
+    expect(oauth).toHaveBeenNthCalledWith(1, {
+      resource: "https://chat.aomi.dev/v1/agent",
+      scopes: ["agent:read"],
+      forceRefresh: false,
+    });
+    expect(oauth).toHaveBeenNthCalledWith(2, {
+      resource: "https://chat.aomi.dev/v1/agent",
+      scopes: ["agent:actions:resolve"],
+      forceRefresh: false,
+    });
+    for (const call of upstream.mock.calls) {
+      expect(new Headers(call[1]?.headers).get("authorization")).toBe(
+        "Bearer agent-token",
+      );
+    }
+  });
+
   it("requests the exact Agent resource and route scope", async () => {
     const upstream = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) => {

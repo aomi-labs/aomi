@@ -112,6 +112,7 @@ describe("CLI BetterAuth SIWE auth", () => {
       () => 1_000,
     );
     await expect(validProvider()).resolves.toBe("session-token");
+    expect(validProvider.required).toBe(true);
 
     const expiredProvider = createCliAuthTokenProvider(
       () => ({
@@ -122,7 +123,14 @@ describe("CLI BetterAuth SIWE auth", () => {
       }),
       () => 10_000,
     );
-    await expect(expiredProvider()).resolves.toBeUndefined();
+    expect(expiredProvider.required).toBe(true);
+    await expect(expiredProvider()).rejects.toThrow(/session has expired/i);
+
+    const externalBearer = createCliAuthTokenProvider(() => ({
+      accountBearer: "scoped-oauth-token",
+    }));
+    expect(externalBearer.required).toBeUndefined();
+    await expect(externalBearer()).resolves.toBe("scoped-oauth-token");
   });
 
   it("signs in through BetterAuth SIWS and persists the canonical account session", async () => {

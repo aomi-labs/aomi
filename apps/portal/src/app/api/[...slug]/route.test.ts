@@ -2,6 +2,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { aomiOAuthResources } from "@portal/server/oauth/resources";
 import { GET, POST } from "./route";
 
 const listApps = vi.fn();
@@ -11,6 +12,18 @@ const launchConfigMock = vi.hoisted(() => ({
 const canonicalSessionMock = vi.hoisted(() => ({
   userId: null as string | null,
 }));
+const commitPrincipalMock = vi.hoisted(() => ({
+  canonicalUserId: "oauth-user-1",
+  grantedScopes: [] as string[],
+  fail: null as null | { status: number; code: string },
+  calls: [] as Array<{ resource: string; requiredScopes: readonly string[] }>,
+}));
+const bearerMintMock = vi.hoisted(() =>
+  vi.fn(async (userId: string) => ({
+    bearer: `test-bearer:${userId}`,
+    expiresAt: 0,
+  })),
+);
 const telemetry = vi.hoisted(() => ({
   capture: vi.fn(),
   log: vi.fn(),
@@ -54,15 +67,49 @@ vi.mock("@portal/server/canonical-session", () => ({
   resolveCanonicalUserId: vi.fn(async () => canonicalSessionMock.userId),
 }));
 
+vi.mock("@portal/server/oauth/principal", () => {
+  class ApiPrincipalError extends Error {
+    constructor(
+      readonly status: number,
+      readonly code: string,
+    ) {
+      super(code);
+    }
+  }
+  return {
+    ApiPrincipalError,
+    resolveApiPrincipal: vi.fn(
+      async (input: {
+        resource: string;
+        requiredScopes: readonly string[];
+      }) => {
+        commitPrincipalMock.calls.push(input);
+        if (commitPrincipalMock.fail) {
+          const failure = commitPrincipalMock.fail;
+          throw new ApiPrincipalError(failure.status, failure.code);
+        }
+        if (
+          input.requiredScopes.some(
+            (scope) => !commitPrincipalMock.grantedScopes.includes(scope),
+          )
+        ) {
+          throw new ApiPrincipalError(403, "insufficient_scope");
+        }
+        return { canonicalUserId: commitPrincipalMock.canonicalUserId };
+      },
+    ),
+    apiAuthError: vi.fn((error: ApiPrincipalError) =>
+      Response.json({ error: { code: error.code } }, { status: error.status }),
+    ),
+  };
+});
+
 // `createBackendProxy` imports the mint from the account package's internal
 // module, so mock that dependency directly. Mocking only the package barrel
 // leaves the proxy's lexical import real and makes this test depend on a local
 // PORTAL_SERVICE_PRIVATE_KEY that CI intentionally does not provide.
 vi.mock("../../../../../../packages/account/src/bearer", () => ({
-  mintAccountBearer: vi.fn(async () => ({
-    bearer: "test-bearer",
-    expiresAt: 0,
-  })),
+  mintAccountBearer: bearerMintMock,
 }));
 
 vi.mock("@portal/server/backend-url", () => ({
@@ -81,14 +128,14 @@ vi.mock("@portal/server/bff/launch/config", () => ({
   }),
 }));
 
-function apiRequest(path: string, method = "GET") {
+function apiRequest(path: string, method = "GET", headers?: HeadersInit) {
   const url = new URL(`https://chat-staging.aomi.dev${path}`);
   const slug = url.pathname
     .replace(/^\/api\/?/, "")
     .split("/")
     .filter(Boolean);
   return [
-    new NextRequest(url, { method }),
+    new NextRequest(url, { method, headers }),
     { params: Promise.resolve({ slug }) },
   ] as const;
 }
@@ -106,6 +153,11 @@ describe("portal API proxy", () => {
     vi.restoreAllMocks();
     launchConfigMock.catalogPlatforms = [];
     canonicalSessionMock.userId = null;
+    commitPrincipalMock.canonicalUserId = "oauth-user-1";
+    commitPrincipalMock.grantedScopes = [];
+    commitPrincipalMock.fail = null;
+    commitPrincipalMock.calls = [];
+    bearerMintMock.mockClear();
     listApps.mockReset();
     telemetry.capture.mockReset();
     telemetry.log.mockReset();
@@ -260,6 +312,156 @@ describe("portal API proxy", () => {
     expect(
       (await GET(...apiRequest(`/api/commits/${id}/wallet-attempts`))).status,
     ).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("mints the canonical OAuth principal for commit reads and mutations with exact agent scopes", async () => {
+    commitPrincipalMock.grantedScopes = ["agent:read", "agent:actions:resolve"];
+    const fetchMock = vi.fn(async () => Response.json({ state: "pending" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "11111111-2222-4333-8444-555555555555";
+    const attemptId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+    const oauth = { authorization: "DPoP oauth-token", dpop: "proof" };
+    const resource = aomiOAuthResources().agentRest;
+
+    expect(
+      (await GET(...apiRequest(`/api/commits/${id}`, "GET", oauth))).status,
+    ).toBe(200);
+    expect(
+      (await POST(...apiRequest("/api/commits", "POST", oauth))).status,
+    ).toBe(200);
+    expect(
+      (await POST(...apiRequest(`/api/commits/${id}/manual`, "POST", oauth)))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await POST(
+          ...apiRequest(`/api/commits/${id}/wallet-attempts`, "POST", oauth),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await POST(
+          ...apiRequest(
+            `/api/commits/${id}/wallet-attempts/${attemptId}/report`,
+            "POST",
+            oauth,
+          ),
+        )
+      ).status,
+    ).toBe(200);
+    expect(commitPrincipalMock.calls).toEqual([
+      {
+        resource,
+        requiredScopes: ["agent:read"],
+        request: expect.any(NextRequest),
+        sessionScopes: expect.any(Array),
+      },
+      {
+        resource,
+        requiredScopes: ["agent:actions:resolve"],
+        request: expect.any(NextRequest),
+        sessionScopes: expect.any(Array),
+      },
+      {
+        resource,
+        requiredScopes: ["agent:actions:resolve"],
+        request: expect.any(NextRequest),
+        sessionScopes: expect.any(Array),
+      },
+      {
+        resource,
+        requiredScopes: ["agent:actions:resolve"],
+        request: expect.any(NextRequest),
+        sessionScopes: expect.any(Array),
+      },
+      {
+        resource,
+        requiredScopes: ["agent:actions:resolve"],
+        request: expect.any(NextRequest),
+        sessionScopes: expect.any(Array),
+      },
+    ]);
+    expect(bearerMintMock).toHaveBeenCalledTimes(5);
+    expect(bearerMintMock).toHaveBeenCalledWith("oauth-user-1");
+    for (const call of fetchMock.mock.calls as unknown[][]) {
+      const init = call[1] as RequestInit | undefined;
+      expect(new Headers(init?.headers).get("authorization")).toBe(
+        "Bearer test-bearer:oauth-user-1",
+      );
+    }
+  });
+
+  it("uses the explicit widget session principal for a commit even with a different cookie session", async () => {
+    canonicalSessionMock.userId = "cookie-user";
+    commitPrincipalMock.canonicalUserId = "widget-user";
+    commitPrincipalMock.grantedScopes = ["agent:read"];
+    const fetchMock = vi.fn(async () => Response.json({ state: "pending" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      ...apiRequest(
+        "/api/commits/11111111-2222-4333-8444-555555555555",
+        "GET",
+        { authorization: "Bearer aomi_wst_example" },
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(bearerMintMock).toHaveBeenCalledWith("widget-user");
+    const init = (fetchMock.mock.calls as unknown[][])[0]?.[1] as
+      | RequestInit
+      | undefined;
+    expect(new Headers(init?.headers).get("authorization")).toBe(
+      "Bearer test-bearer:widget-user",
+    );
+  });
+
+  it("rejects insufficient-scope and invalid explicit commit credentials before proxying", async () => {
+    canonicalSessionMock.userId = "cookie-user";
+    const fetchMock = vi.fn(async () => Response.json({ state: "pending" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const id = "11111111-2222-4333-8444-555555555555";
+    commitPrincipalMock.grantedScopes = ["agent:read"];
+    const insufficient = await POST(
+      ...apiRequest(`/api/commits/${id}/manual`, "POST", {
+        authorization: "DPoP read-only-token",
+        dpop: "proof",
+      }),
+    );
+    expect(insufficient.status).toBe(403);
+    await expect(insufficient.json()).resolves.toEqual({
+      error: { code: "insufficient_scope" },
+    });
+
+    commitPrincipalMock.fail = { status: 401, code: "invalid_token" };
+    const invalid = await GET(
+      ...apiRequest(`/api/commits/${id}`, "GET", {
+        authorization: "Bearer invalid-opaque-token",
+      }),
+    );
+    expect(invalid.status).toBe(401);
+    await expect(invalid.json()).resolves.toEqual({
+      error: { code: "invalid_token" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(bearerMintMock).not.toHaveBeenCalled();
+  });
+
+  it("does not accept a commit OAuth grant on generic account proxy routes", async () => {
+    commitPrincipalMock.grantedScopes = ["agent:read"];
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      ...apiRequest("/api/account", "GET", {
+        authorization: "DPoP oauth-token",
+        dpop: "proof",
+      }),
+    );
+    expect(response.status).toBe(401);
+    expect(commitPrincipalMock.calls).toHaveLength(0);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
