@@ -290,7 +290,7 @@ describe("tool interpreter", () => {
       "Base",
       "USDC -> ETH",
       "0.05 USDC",
-      "0.0000285146 ETH",
+      "0.00003 ETH",
     ]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
@@ -363,7 +363,7 @@ describe("tool interpreter", () => {
       "Base",
       "USDC -> ETH",
       "0.05 USDC",
-      "0.0000285146 ETH",
+      "0.00003 ETH",
     ]);
   });
 
@@ -380,6 +380,7 @@ describe("tool interpreter", () => {
 
     expect(labelsFor(interpretToolStep(input).chips)).toEqual([
       "Arc",
+      "USDC -> 0xbef5…21c1",
       "5 USDC",
     ]);
 
@@ -409,7 +410,7 @@ describe("tool interpreter", () => {
       "Arc",
       "USDC -> EURC",
       "5 USDC",
-      "4.385775 EURC",
+      "4.38578 EURC",
     ]);
   });
 

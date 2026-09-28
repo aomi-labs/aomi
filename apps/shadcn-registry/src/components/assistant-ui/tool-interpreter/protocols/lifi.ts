@@ -29,6 +29,32 @@ const op = (
   rawLabel,
 });
 
+// Keep full precision in tool data; round only the visible trace chips.
+const roundedAmount = (value: string | undefined): string | undefined => {
+  if (!value) return value;
+  const match = value.match(/^(\d+)(?:\.(\d+))?(.*)$/);
+  if (!match) return value;
+  const [, whole, fraction = "", suffix] = match;
+  if (fraction.length <= 5) return value;
+  const scaled = BigInt(whole) * 100000n + BigInt(fraction.slice(0, 5));
+  const rounded = scaled + (fraction[5] >= "5" ? 1n : 0n);
+  if (rounded === 0n && /[1-9]/.test(whole + fraction)) {
+    return `<0.00001${suffix}`;
+  }
+  const decimals = (rounded % 100000n)
+    .toString()
+    .padStart(5, "0")
+    .replace(/0+$/, "");
+  return `${rounded / 100000n}${decimals ? `.${decimals}` : ""}${suffix}`;
+};
+
+const requestedTokenLabel = (value: unknown): string | undefined => {
+  const token = asString(value);
+  return token?.startsWith("0x")
+    ? `${token.slice(0, 6)}…${token.slice(-4)}`
+    : token;
+};
+
 const displayAmount = (value: unknown): string | undefined =>
   asString(asRecord(value)?.display);
 
@@ -36,7 +62,7 @@ const amountDisplayFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
-  const fact = amountFact(displayAmount(value));
+  const fact = amountFact(roundedAmount(displayAmount(value)));
   return fact ? { ...fact, role } : null;
 };
 
@@ -44,7 +70,7 @@ const amountTextFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
-  const fact = amountFact(asString(value));
+  const fact = amountFact(roundedAmount(asString(value)));
   return fact ? { ...fact, role } : null;
 };
 
@@ -164,10 +190,14 @@ export const matchLifiSwapBatch: ToolMatcher = ({
   if (resultRecord && !validResult(resultRecord)) return null;
   const args = asRecord(parsedArgs);
   const estimate = asRecord(resultRecord?.estimate);
-  const fromToken = asString(args?.from_token);
+  const fromToken =
+    tokenSymbol(resultRecord?.from_token) ??
+    requestedTokenLabel(args?.from_token);
+  const toToken =
+    tokenSymbol(resultRecord?.to_token) ?? requestedTokenLabel(args?.to_token);
   const requestedAmount = asString(args?.amount);
   const requestedDisplay =
-    requestedAmount && fromToken && !fromToken.startsWith("0x")
+    requestedAmount && fromToken
       ? `${requestedAmount} ${fromToken}`
       : requestedAmount;
 
@@ -176,7 +206,8 @@ export const matchLifiSwapBatch: ToolMatcher = ({
     rawLabel,
     [
       locationFact(resultRecord, args),
-      tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
+      tokenPairFact(resultRecord?.from_token, resultRecord?.to_token) ??
+        tokenPairFact({ symbol: fromToken }, { symbol: toToken }),
       amountDisplayFact(resultRecord?.from_amount, "primary") ??
         amountTextFact(requestedDisplay, "primary"),
       amountTextFact(estimate?.to_amount_display, "secondary"),
