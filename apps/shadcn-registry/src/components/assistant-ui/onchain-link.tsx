@@ -104,7 +104,7 @@ export function OnchainLink({
       href={explorer.href}
       {...props}
       className={cn(
-        "aui-md-a text-aomi-accent relative top-px mx-0.5 inline-flex max-w-full items-center gap-1 align-baseline font-medium no-underline hover:underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2",
+        "aui-md-a text-aomi-accent relative top-px mx-0.5 inline-flex max-w-full items-center gap-1 align-baseline font-medium no-underline underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2",
         className,
       )}
       target="_blank"
