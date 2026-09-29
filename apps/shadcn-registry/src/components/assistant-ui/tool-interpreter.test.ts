@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   BracesIcon,
   CoinsIcon,
+  FileTextIcon,
+  GlobeIcon,
   PencilLineIcon,
   PuzzleIcon,
+  SearchIcon,
 } from "lucide-react";
 
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -30,7 +33,7 @@ describe("tool interpreter", () => {
     });
   });
 
-  it("recognizes web search results", () => {
+  it("shows legacy web search result domains", () => {
     const step = interpretToolStep({
       toolName: "brave_search",
       result: {
@@ -39,12 +42,18 @@ describe("tool interpreter", () => {
           "",
           "1. ETHUSD - Ethereum Price Chart - TradingView",
           "   URL: https://www.tradingview.com/symbols/ETHUSD/",
+          "2. Ethereum price today",
+          "   URL: https://coinmarketcap.com/currencies/ethereum/",
         ].join("\n"),
       },
     });
 
     expect(step.title).toBe("Search web");
-    expect(labelsFor(step.chips)).toEqual([]);
+    expect(labelsFor(step.chips)).toEqual([
+      "tradingview.com",
+      "coinmarketcap.com",
+    ]);
+    expect(step.chips.every((chip) => chip.icon === GlobeIcon)).toBe(true);
   });
 
   it("wraps plain text results before matching", () => {
@@ -59,7 +68,125 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Search web");
-    expect(labelsFor(step.chips)).toEqual([]);
+    expect(labelsFor(step.chips)).toEqual(["tradingview.com"]);
+  });
+
+  it("shows the top three unique web_search result domains", () => {
+    const result = (url: string, host?: string) => ({
+      title: "Result",
+      url,
+      ...(host ? { host } : {}),
+      snippet: "…",
+    });
+    const step = interpretToolStep({
+      toolName: "web_search",
+      argsText: JSON.stringify({ topic: "eth", query: "eth price" }),
+      result: {
+        query: "eth price",
+        provider: "firecrawl",
+        results: [
+          result("https://www.coindesk.com/a", "coindesk.com"),
+          result("https://WWW.CoinDesk.com/b"),
+          result("https://docs.base.org/x", "WWW.Docs.Base.org"),
+          result("https://www.theblock.co/y"),
+          result("https://decrypt.co/z", "decrypt.co"),
+        ],
+      },
+    });
+
+    expect(step.title).toBe("Search web");
+    expect(labelsFor(step.chips)).toEqual([
+      "coindesk.com",
+      "docs.base.org",
+      "theblock.co",
+    ]);
+    expect(step.chips.every((chip) => chip.icon === GlobeIcon)).toBe(true);
+  });
+
+  it("shows the query while a web search is pending", () => {
+    const query = "latest ethereum pectra upgrade activation date on mainnet";
+    const step = interpretToolStep({
+      toolName: "web_search",
+      argsText: JSON.stringify({ topic: "eth", query, limit: 5 }),
+    });
+
+    expect(step.title).toBe("Search web");
+    expect(step.chips).toHaveLength(1);
+    expect(step.chips[0]).toMatchObject({
+      label: "latest ethereum pectra upgrade…",
+      title: query,
+      icon: SearchIcon,
+    });
+  });
+
+  it("keeps the query chip when a web search finds nothing", () => {
+    const step = interpretToolStep({
+      toolName: "web_search",
+      argsText: JSON.stringify({ topic: "x", query: "zzqx token" }),
+      result: {
+        query: "zzqx token",
+        provider: "brave",
+        results: [],
+        note: "No web results found.",
+      },
+    });
+
+    expect(step.title).toBe("Search web");
+    expect(labelsFor(step.chips)).toEqual(["zzqx token"]);
+  });
+
+  it("shows the query for docs search text results", () => {
+    const step = interpretToolStep({
+      toolName: "search_docs",
+      argsText: JSON.stringify({ query: "swap router" }),
+      result: "[V3 Docs] SwapRouter (0.82)\nExact input swaps…",
+    });
+
+    expect(step.title).toBe("Search docs");
+    expect(labelsFor(step.chips)).toEqual(["swap router"]);
+  });
+
+  it("shows the host web_fetch actually read after redirects", () => {
+    const step = interpretToolStep({
+      toolName: "web_fetch",
+      argsText: JSON.stringify({ topic: "docs", url: "https://t.co/abc" }),
+      result: {
+        url: "https://t.co/abc",
+        final_url: "https://www.example.org/post",
+        host: "example.org",
+        title: "Post",
+        content: "…",
+        truncated: false,
+        provider: "direct",
+      },
+    });
+
+    expect(step.title).toBe("Read page");
+    expect(step.icon).toBe(FileTextIcon);
+    expect(labelsFor(step.chips)).toEqual(["example.org"]);
+    expect(step.chips[0].icon).toBe(GlobeIcon);
+
+    const withoutHost = interpretToolStep({
+      toolName: "web_fetch",
+      result: {
+        url: "https://t.co/abc",
+        final_url: "https://www.example.org/post",
+      },
+    });
+    expect(labelsFor(withoutHost.chips)).toEqual(["example.org"]);
+  });
+
+  it("shows the requested host while web_fetch is pending", () => {
+    const step = interpretToolStep({
+      toolName: "web_fetch",
+      argsText: JSON.stringify({
+        topic: "docs",
+        url: "https://www.docs.uniswap.org/sdk",
+      }),
+    });
+
+    expect(step.title).toBe("Read page");
+    expect(labelsFor(step.chips)).toEqual(["docs.uniswap.org"]);
   });
 
   it("shows LI.FI bridge source, destination, and durable status", () => {
@@ -303,11 +430,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Check active skills");
-    expect(labelsFor(step.chips)).toEqual([
-      "Aave",
-      "Common Erc20",
-      "LI.FI",
-    ]);
+    expect(labelsFor(step.chips)).toEqual(["Aave", "Common Erc20", "LI.FI"]);
     expect(step.chips[0].icon).toBe(getSkillIcon("aave"));
     expect(step.failed).toBe(false);
 

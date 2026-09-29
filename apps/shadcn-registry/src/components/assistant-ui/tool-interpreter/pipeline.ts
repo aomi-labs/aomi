@@ -22,7 +22,9 @@ const matchersFor = (name: string): ToolMatcher[] => {
 const fallbackOperation = (ctx: ToolContext) => {
   const name = declaredToolIdentity(ctx.rawLabel);
   const coreIds: Record<string, string> = {
+    web_search: "web.search",
     brave_search: "web.search",
+    web_fetch: "web.fetch",
     activate_skills: "skill.activate",
     get_contract: "evm.contract.lookup.found",
     encode_and_call: "evm.call.generic",

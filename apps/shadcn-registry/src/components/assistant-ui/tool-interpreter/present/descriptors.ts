@@ -274,7 +274,14 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Search web",
     icon: SHAPE_ICONS.search,
-    chipPlan: [{ kind: "count", role: "results" }, { kind: "sourceHost" }],
+    // Result domains replace the query once the search returns any.
+    chipPlan: [{ kind: "sourceHost", repeat: true }, { kind: "query" }],
+  },
+  "web.fetch": {
+    title: "fixed",
+    fixedTitle: "Read page",
+    icon: SHAPE_ICONS.webPage,
+    chipPlan: [{ kind: "sourceHost" }],
   },
 };
 

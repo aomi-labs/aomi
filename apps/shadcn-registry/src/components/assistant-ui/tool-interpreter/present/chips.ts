@@ -11,9 +11,11 @@ import {
   CoinsIcon,
   FileCode2Icon,
   FuelIcon,
+  GlobeIcon,
   HashIcon,
   ListOrderedIcon,
   ReceiptTextIcon,
+  SearchIcon,
   TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
@@ -176,9 +178,6 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
           icon: ReceiptTextIcon,
         };
       }
-      if (fact.role === "results") {
-        return { label: `${fact.value} results` };
-      }
       if (fact.role === "staged") {
         return { label: `staged ${fact.value}`, icon: SHAPE_ICONS.staged };
       }
@@ -203,8 +202,17 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "skill":
       return skillChip(fact.value);
+    case "query":
+      return {
+        label:
+          fact.value.length > 32
+            ? `${fact.value.slice(0, 31).trimEnd()}…`
+            : fact.value,
+        title: fact.value,
+        icon: SearchIcon,
+      };
     case "sourceHost":
-      return { label: fact.label ?? fact.value };
+      return { label: fact.label ?? fact.value, icon: GlobeIcon };
     case "status":
       return statusChip(fact.value);
     case "threshold":

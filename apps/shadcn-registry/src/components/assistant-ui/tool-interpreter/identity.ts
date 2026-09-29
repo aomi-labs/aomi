@@ -24,7 +24,9 @@ const coreTitles: Record<string, string> = {
   svm_commit_txs: "Commit transactions",
   evm_commit_message: "Sign message",
   svm_sign_data: "Sign message",
-  brave_search: "Search web",
+  web_search: "Search web",
+  brave_search: "Search web", // Persisted threads before the web_search rename.
+  web_fetch: "Read page",
   search_docs: "Search docs",
   activate_skills: "Activate skill",
   sleep: "Sleep",
