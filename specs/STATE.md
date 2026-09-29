@@ -2,7 +2,43 @@
 
 ## Last Updated
 
-2026-09-29 — WALLET REVIEW + NETWORK PILL POLISH (worktree
+2026-09-29 — SIDEBAR ACCOUNT CHIP CLEANUP (worktree `agent-usefulness`,
+  uncommitted). `DualWalletBar` uses one chip shape (`@container rounded-xl
+  border p-3`) and `ChevronsUpDownIcon` whether signed out or signed in, so
+  signing in no longer shrinks the chip or swaps in `UnfoldVerticalIcon`.
+  The account menu's "Switch network" row is gone end to end
+  (`onSwitchNetwork`/`networkLabel` removed from `WalletAccountMenuOptions`,
+  `AccountMenu`, and `usePortalWalletAccountMenu`; the network pill is
+  read-only now). `ConnectButton` keeps the picker chip while the kit is
+  `booting` instead of flashing the disabled legacy `SingleConnectButton`
+  ("Connect Wallet" from `formatAddress(undefined)`): browser probe 18
+  legacy frames → 0. Also reconciled the ported `settings-modal.test.tsx`
+  with this branch (`PolicyPage` mock, "Transaction safety…" copy).
+  Verified: widget vitest src/components + src/lib 697/697 (3 new chip/menu/
+  booting tests; the chip and booting ones fail on the old code), portal
+  vitest src/components + src/features 238/238, lib + portal tsc, eslint.
+
+Previous: 2026-09-29 — PARA FIRST-SELECT WHITE SCREEN (worktree `agent-usefulness`,
+  uncommitted; also carries the uncommitted `work/wallet-issue-validation`
+  account/signing changes). Choosing Para the first time in a page blanked
+  the whole portal for 1.4s+ (seconds on a cold dev compile): Para's SDK
+  lazily imports `@getpara/evm-wallet-connectors`/`cosmos-wallet-connectors`
+  and its external-wallet providers `return null` until they load, and
+  `ParaProvider` wraps the entire app. `ParaAuthLayer` (`para-plugin.tsx`) now
+  keeps the host app rendered beside a `ParaProvider` whose only child is a
+  `ParaConnectorsLoaded` sentinel, then moves the app under it (fixed slots
+  keep the ParaProvider instance); a page-global flag mirrors the SDK's
+  never-reset loading flags so later mounts go straight in, and the startup
+  watchdog arms only after the connectors load. Browser probe: Para switch
+  blank frames ~84 → ~15, matching the Privy switch. Remaining ~100–250ms
+  blip on any provider switch is `PortalAomiFrame`'s `hasResolvedInitialAccount`
+  gate re-arming on remount (left alone: identity-scoped). Dev log's "Fast
+  Refresh had to perform a full reload when …@coinbase/wallet-sdk… changed" is
+  Turbopack's first compile of that lazy connector chunk (dev only). Verified:
+  wallet-kit providers vitest 79/79 (new regression test fails on the old
+  code), lib tsc, eslint.
+
+Previous: 2026-09-29 — WALLET REVIEW + NETWORK PILL POLISH (worktree
   `agent-usefulness`, uncommitted). Activity sidebar: raw "Transaction
   details"/"Simulation details" JSON dropdowns removed (the "Signing request"
   dump stays for sign requests; it is the only place the payload shows); the

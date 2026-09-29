@@ -8,6 +8,7 @@ import type {
 import {
   Check,
   LogOut,
+  UserRoundMinus,
   Pencil,
   Plus,
   Trash2,
@@ -22,17 +23,18 @@ import {
   settingsPanelClass,
 } from "../settings-rows";
 import {
+  accountDisplayName,
   walletConnectionSummary,
   type ManagedWallet,
 } from "../wallet-management-model";
 
 import {
   IconButton,
-  OptionGrid,
   StatusBadge,
   TextButton,
   titleCase,
   WalletRow,
+  WalletActionsMenu,
 } from "./controls";
 
 export type AddSignInOption = {
@@ -43,6 +45,8 @@ export type AddSignInOption = {
 
 type AccountManagementProps = {
   user?: AomiUserRef;
+  /** Session-derived presentation hint; never persisted as account email. */
+  displayEmailHint?: string;
   wallets: ManagedWallet[];
   signInMethods: LinkedAuthAccount[];
   canAddWallet: boolean;
@@ -64,15 +68,14 @@ type AccountManagementProps = {
 
 export function AccountManagement({
   user,
+  displayEmailHint,
   wallets,
   signInMethods,
   canAddWallet,
-  addSignInOptions,
   pending,
   error,
   onRenameAccount,
   onAddWallet,
-  onAddSignIn,
   onLinkWallet,
   onConnectWallet,
   onSelectWallet,
@@ -84,8 +87,20 @@ export function AccountManagement({
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [addSignInOpen, setAddSignInOpen] = useState(false);
-  const visibleName = user?.displayName ?? user?.email ?? "Aomi account";
+  const identityWallets = new Map<string, string>();
+  for (const account of signInMethods) {
+    if (account.provider !== "privy" && account.provider !== "para") continue;
+    const wallet = wallets.find(
+      (wallet) =>
+        wallet.provider === account.provider &&
+        (wallet.linked || wallet.kind === "embedded"),
+    );
+    if (wallet) identityWallets.set(account.id, wallet.key);
+  }
+  const separateIdentities = signInMethods.filter(
+    (account) => !identityWallets.has(account.id),
+  );
+  const visibleName = accountDisplayName(user, displayEmailHint);
   const connectedWalletCount = wallets.filter(
     (wallet) => wallet.connected,
   ).length;
@@ -179,19 +194,21 @@ export function AccountManagement({
         </div>
       </section>
 
-      <section className="flex flex-col gap-2">
+      <section className="flex flex-col gap-2 [&_h3]:shrink-0">
         <SettingsSectionHeading
-          title="Wallets"
+          title="Wallets & access"
+          className="flex-wrap sm:flex-nowrap"
+          hint="Connected: available on this device. Linked: saved to your Aomi account and usable for sign-in. Active: selected for use with Aomi, one per family (EVM and SVM). Click an eligible wallet to make it active. Disconnect only ends the device connection; unlink removes account access without deleting the wallet or its funds."
           detail={`${wallets.length} total · ${connectedWalletCount} connected now`}
           action={
             canAddWallet ? (
               <button
                 type="button"
                 onClick={onAddWallet}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
+                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-[11px] font-medium transition-colors"
               >
                 <Plus size={13} />
-                Add wallet
+                Add more
               </button>
             ) : undefined
           }
@@ -210,85 +227,51 @@ export function AccountManagement({
                   onSelect={onSelectWallet}
                   onDisconnect={onDisconnectWallet}
                   onUnlink={onUnlinkWallet}
+                  signInMethods={signInMethods.filter(
+                    (account) => identityWallets.get(account.id) === wallet.key,
+                  )}
+                  onUnlinkSignIn={onUnlinkSignIn}
                 />
               </div>
             ))
-          ) : (
+          ) : !separateIdentities.length ? (
             <p className="text-aomi-muted px-4 py-5 text-[13px]">
               No wallets are connected or linked yet.
             </p>
-          )}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <SettingsSectionHeading
-          title="Sign-in methods"
-          detail={
-            signInMethods.length ? `${signInMethods.length} linked` : undefined
-          }
-          action={
-            addSignInOptions.length ? (
-              <button
-                type="button"
-                onClick={() => setAddSignInOpen((open) => !open)}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
+          ) : null}
+          {separateIdentities.map((account, index) => (
+            <div key={account.id}>
+              {wallets.length > 0 || index > 0 ? <Divider /> : null}
+              <SettingRow
+                className="px-4"
+                leading={
+                  <WalletProviderAvatar markKey={account.provider} size={16} />
+                }
+                title={titleCase(account.provider)}
+                desc={
+                  account.displayLabel ?? account.email ?? "Account sign-in"
+                }
               >
-                <Plus size={13} />
-                Add method
-              </button>
-            ) : undefined
-          }
-        />
-
-        {addSignInOpen ? (
-          <OptionGrid
-            options={addSignInOptions}
-            pending={pending}
-            prefix="add-sign-in"
-            onSelect={(option) => void onAddSignIn(option)}
-          />
-        ) : null}
-
-        <div className={settingsPanelClass}>
-          {signInMethods.length ? (
-            signInMethods.map((account, index) => (
-              <div key={account.id}>
-                {index > 0 ? <Divider /> : null}
-                <SettingRow
-                  className="px-4"
-                  leading={
-                    <WalletProviderAvatar
-                      markKey={account.provider}
-                      size={16}
-                    />
-                  }
-                  title={
-                    account.displayLabel ??
-                    account.email ??
-                    titleCase(account.provider)
-                  }
-                  desc={titleCase(account.provider)}
-                >
+                <div className="flex items-center gap-2">
+                  <StatusBadge label="Linked" tone="linked" />
                   {onUnlinkSignIn ? (
-                    <TextButton
-                      danger
+                    <WalletActionsMenu
+                      label={`Actions for ${titleCase(account.provider)} sign-in`}
+                      disabled={pending !== null}
                       busy={pending === `unlink-identity:${account.id}`}
-                      onClick={() => void onUnlinkSignIn(account)}
-                    >
-                      Unlink
-                    </TextButton>
-                  ) : (
-                    <StatusBadge label="Linked" tone="linked" />
-                  )}
-                </SettingRow>
-              </div>
-            ))
-          ) : (
-            <p className="text-aomi-muted px-4 py-5 text-[13px]">
-              Your wallet is currently your only sign-in method.
-            </p>
-          )}
+                      actions={[
+                        {
+                          label: `Unlink ${titleCase(account.provider)} sign-in`,
+                          icon: <UserRoundMinus size={15} />,
+                          onSelect: () => void onUnlinkSignIn(account),
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </div>
+              </SettingRow>
+            </div>
+          ))}
         </div>
       </section>
 

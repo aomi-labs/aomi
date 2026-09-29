@@ -32,6 +32,7 @@ import {
   pickPrivyEmbeddedEvmUserWallet,
   privyLoginMethodsToOptions,
   useSafePrivy,
+  useSafePrivyIdentityToken,
   useSafeSignTransaction,
   useSafeSmartWallets,
   useSafeSvmWallets,
@@ -68,10 +69,13 @@ export function AomiPrivyPluginProvider({
   externalSvmWallet,
 }: AomiPrivyPluginProviderProps) {
   const privy = useSafePrivy();
+  const identityToken = useSafePrivyIdentityToken();
   const { client: smartWalletClient, getClientForChain } =
     useSafeSmartWallets();
-  const { wallets: solanaWallets } = useSafeSvmWallets();
-  const { wallets: connectedWallets } = useSafeWallets();
+  const { wallets: solanaWallets, ready: solanaWalletsReady } =
+    useSafeSvmWallets();
+  const { wallets: connectedWallets, ready: connectedWalletsReady } =
+    useSafeWallets();
   const { signTransaction: signPrivyTransaction } = useSafeSignTransaction();
   const contextSvmWallet = useSafeSvmWallet();
   const [activeSolanaAddress, setActiveSolanaAddress] = useState<
@@ -185,14 +189,14 @@ export function AomiPrivyPluginProvider({
       },
       logout: privy.logout,
       getCredential:
-        (privy.getIdentityToken ?? privy.getAccessToken)
+        (identityToken || privy.getAccessToken)
           ? async (): Promise<AomiAccountCredential | null> => {
-              const identityToken = (await privy.getIdentityToken?.())?.trim();
-              if (identityToken) {
+              const signedIdentityToken = identityToken?.trim();
+              if (signedIdentityToken) {
                 return {
                   provider: "privy",
                   tokenKind: "identity_token",
-                  providerToken: identityToken,
+                  providerToken: signedIdentityToken,
                 };
               }
               const accessToken = (await privy.getAccessToken?.())?.trim();
@@ -208,11 +212,11 @@ export function AomiPrivyPluginProvider({
     }),
     [
       authMethod,
+      identityToken,
       loginMethods,
       primaryLabel,
       privy.authenticated,
       privy.getAccessToken,
-      privy.getIdentityToken,
       privy.login,
       privy.logout,
       privy.ready,
@@ -278,6 +282,56 @@ export function AomiPrivyPluginProvider({
   });
   const executionRuntime = useMemo<ExecutionRuntime>(
     () => ({
+      providerSettled: (family, provider) =>
+        provider === "privy" &&
+        privy.ready &&
+        (family === "evm" ? connectedWalletsReady : solanaWalletsReady),
+      canSelectFor: (family, address) => {
+        if (family !== "evm" || !privy.ready || !privy.authenticated) {
+          return false;
+        }
+        const target = address.toLowerCase();
+        return Boolean(
+          externalSignerActive &&
+          embeddedEvmWallet?.address.toLowerCase() === target &&
+          !evmRuntime.registryState.intents.providerSessionDetached &&
+          !evmRuntime.registryState.intents.droppedAddresses.includes(target) &&
+          typeof embeddedEvmWallet.getEthereumProvider === "function" &&
+          typeof signPrivyTransaction === "function",
+        );
+      },
+      canSignFor: (family, address) => {
+        if (!privy.ready || !privy.authenticated) return false;
+        if (family === "svm") {
+          return Boolean(
+            svmWallet.connected &&
+            svmWallet.publicKey === address &&
+            svmWallet.signMessage &&
+            svmWallet.signTransaction,
+          );
+        }
+        const target = address.toLowerCase();
+        if (
+          evmRuntime.registryState.intents.providerSessionDetached ||
+          evmRuntime.registryState.intents.droppedAddresses.includes(target)
+        ) {
+          return false;
+        }
+        return Boolean(
+          (embeddedSigner &&
+            embeddedSigner.owner.toLowerCase() === target &&
+            typeof embeddedSigner.wallet.getEthereumProvider === "function" &&
+            typeof signPrivyTransaction === "function") ||
+          (smartWalletSigner?.account?.address.toLowerCase() === target &&
+            typeof smartWalletSigner.signTypedData === "function" &&
+            typeof smartWalletSigner.sendTransaction === "function" &&
+            execution?.aa !== "off") ||
+          (externalSignerActive &&
+            evmRuntime.activeEvmConnection?.address.toLowerCase() === target &&
+            evmRuntime.signTypedDataAsync &&
+            evmRuntime.sendTransactionAsync),
+        );
+      },
       evm: buildEvmExecutionRuntime(evmRuntime, {
         // The embedded EOA has no wagmi connector, so the shared sign-only
         // path finds no wallet client for it and rejects the commit.
@@ -395,12 +449,19 @@ export function AomiPrivyPluginProvider({
     }),
     [
       embeddedSigner,
+      embeddedEvmWallet,
       evmRuntime,
       execution,
+      externalSignerActive,
       getClientForChain,
+      connectedWalletsReady,
+      privy.authenticated,
+      privy.ready,
       signPrivyTransaction,
       smartAddress,
       smartWalletSigner,
+      solanaWalletsReady,
+      svmWallet,
     ],
   );
   const accountRuntime = useResolvedAccountRuntime({

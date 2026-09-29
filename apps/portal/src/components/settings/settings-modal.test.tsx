@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsModal } from "../../../../shadcn-registry/src/components/account-shell/components/settings/settings-modal";
 
@@ -69,11 +69,15 @@ vi.mock(
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/policy",
   () => ({
-    PolicySettings: () => <div>Policy content</div>,
+    PolicyPage: () => <div>Policy content</div>,
   }),
 );
 
 describe("SettingsModal directory shell", () => {
+  afterEach(() => {
+    session.status = "ready";
+  });
+
   it("matches the Library frame and keeps navigation in the sidebar", () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
@@ -107,15 +111,13 @@ describe("SettingsModal directory shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByText("Account content")).toBeTruthy();
-    expect(
-      screen.getByText("Wallets, sign-in methods, and signing"),
-    ).toBeTruthy();
+    expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Policy" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
     expect(
-      screen.getByText("On-chain permissions for delegated agents"),
+      screen.getByText("Transaction safety and on-chain permissions"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
@@ -129,6 +131,21 @@ describe("SettingsModal directory shell", () => {
     render(<SettingsModal onClose={onClose} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes when an account session ends while settings is open", () => {
+    const onClose = vi.fn();
+    const view = render(
+      <SettingsModal onClose={onClose} initialTab="account" />,
+    );
+
+    session.status = "establishing";
+    view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
+    expect(onClose).not.toHaveBeenCalled();
+
+    session.status = "anonymous";
+    view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

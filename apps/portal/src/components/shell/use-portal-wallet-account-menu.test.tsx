@@ -6,7 +6,19 @@ import { seedAccountOverview } from "../../../../shadcn-registry/src/components/
 
 const walletKitState = vi.hoisted(() => ({
   current: {
-    identity: { isConnected: true, chainId: 1 },
+    identity: {
+      status: "connected",
+      isConnected: true,
+      chainId: 1,
+      sessionProvider: undefined as "privy" | "para" | undefined,
+      walletProviderSubject: undefined as string | undefined,
+      primaryLabel: undefined as string | undefined,
+    },
+    accountLinkedAccounts: [] as {
+      id: string;
+      provider: string;
+      subject: string;
+    }[],
     accountGuest: false,
     accounts: [{ id: "para", walletName: "Para", active: true }],
     accountUser: undefined as
@@ -80,6 +92,10 @@ describe("usePortalWalletAccountMenu account wiring", () => {
     walletKitState.current.accountUser = undefined;
     walletKitState.current.accountGuest = false;
     walletKitState.current.accountError = undefined;
+    walletKitState.current.identity.sessionProvider = undefined;
+    walletKitState.current.identity.walletProviderSubject = undefined;
+    walletKitState.current.identity.primaryLabel = undefined;
+    walletKitState.current.accountLinkedAccounts = [];
     walletKitState.current.connect.mockClear();
     walletKitState.current.disconnect.mockClear();
     walletKitState.current.openAccountUI.mockClear();
@@ -119,6 +135,62 @@ describe("usePortalWalletAccountMenu account wiring", () => {
     expect(menu?.secondaryLine).toBe("Loading allowance…");
     menu?.onManageAccount?.();
     expect(onManageAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the matching Privy session email in the sidebar and menu label", () => {
+    walletKitState.current.accountUser = {
+      id: "acct-a",
+      displayName: "privy user",
+    };
+    walletKitState.current.identity.sessionProvider = "privy";
+    walletKitState.current.identity.walletProviderSubject = "privy-subject";
+    walletKitState.current.identity.primaryLabel = "alice@example.com";
+    walletKitState.current.accountLinkedAccounts = [
+      { id: "identity-a", provider: "privy", subject: "privy-subject" },
+    ];
+
+    expect(readMenu()?.primaryLine).toBe("alice@example.com");
+  });
+
+  it("prefers the canonical email over a matching session display hint", () => {
+    walletKitState.current.accountUser = {
+      id: "acct-a",
+      displayName: "Para user",
+      email: "verified@example.com",
+    };
+    walletKitState.current.identity.sessionProvider = "para";
+    walletKitState.current.identity.walletProviderSubject = "para-subject";
+    walletKitState.current.identity.primaryLabel = "hint@example.com";
+    walletKitState.current.accountLinkedAccounts = [
+      { id: "identity-a", provider: "para", subject: "para-subject" },
+    ];
+
+    expect(readMenu()?.primaryLine).toBe("verified@example.com");
+  });
+
+  it("preserves a chosen name ahead of account and session emails", () => {
+    walletKitState.current.accountUser = {
+      id: "acct-a",
+      displayName: "Alice",
+      email: "verified@example.com",
+    };
+
+    expect(readMenu()?.primaryLine).toBe("Alice");
+  });
+
+  it("does not show another linked identity's session label", () => {
+    walletKitState.current.accountUser = {
+      id: "acct-a",
+      displayName: "privy user",
+    };
+    walletKitState.current.identity.sessionProvider = "privy";
+    walletKitState.current.identity.walletProviderSubject = "other-subject";
+    walletKitState.current.identity.primaryLabel = "other@example.com";
+    walletKitState.current.accountLinkedAccounts = [
+      { id: "identity-a", provider: "privy", subject: "privy-subject" },
+    ];
+
+    expect(readMenu()?.primaryLine).toBe("Aomi account");
   });
 
   it("leaves session and wallet teardown to widget-lib", () => {

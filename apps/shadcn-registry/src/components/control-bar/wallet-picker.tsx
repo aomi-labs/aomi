@@ -43,6 +43,10 @@ import {
 } from "../../lib/wallet-kit";
 import type { AomiWalletKit, WalletFamily } from "../../lib/wallet-kit/types";
 import type { WalletAction as WalletRowAction } from "../../lib/wallet-kit/composer/wallet-state";
+import {
+  accountDisplayName as resolveAccountDisplayName,
+  providerEmailDisplayHint,
+} from "../../lib/wallet-kit/account/display";
 import { ModalBackdrop } from "../ui/modal-backdrop";
 import { WalletIconSlot } from "./wallet-icon-slot";
 import {
@@ -525,6 +529,7 @@ export function WalletPicker() {
     identity.walletProviderSubject ||
     connectedAccounts.some((account) => account.manageable),
   );
+  const recoveringAccountConflict = Boolean(adapter.accountConflict);
   const supportedEvmChains =
     adapter.supportedNetworks?.evm ?? adapter.supportedChains ?? [];
   // Host provider choices: while no provider account exists they are ways to
@@ -546,39 +551,45 @@ export function WalletPicker() {
           actions: [
             {
               kind: "authenticate",
-              label: providerAccountConnected ? "Link" : "Sign in",
+              label:
+                providerAccountConnected && !recoveringAccountConflict
+                  ? "Link"
+                  : "Sign in",
             },
           ],
         }))
     : providerAccountConnected
       ? []
       : providerSignInOptions;
-  const socialSectionLabel = providerAccountConnected
-    ? "Link another provider"
-    : "Other ways to sign in";
+  const socialSectionLabel = recoveringAccountConflict
+    ? "Sign in another way"
+    : providerAccountConnected
+      ? "Link another provider"
+      : "Other ways to sign in";
   const hasAccountManagement = Boolean(adapter.accountUser);
   const accountView = hasAccountManagement && view === "account";
-  const accountDisplayName =
-    adapter.accountUser?.displayName ??
-    accountProfileEmail(adapter.accountUser) ??
-    identity.primaryLabel ??
-    identity.authValue ??
-    providerBrandLabel ??
-    "Your account";
+  const accountDisplayName = resolveAccountDisplayName(
+    adapter.accountUser,
+    providerEmailDisplayHint(identity, adapter.accountLinkedAccounts ?? []),
+  );
   const needsFirstWalletLink = Boolean(
     hasConnectedWallets &&
     (!adapter.accountUser || (adapter.accountWallets?.length ?? 0) === 0),
   );
-  const pickerTitle = needsFirstWalletLink
-    ? "Finish signing in"
-    : hasConnectedWallets
-      ? "Add a wallet"
-      : "Sign in to Aomi";
-  const pickerDescription = needsFirstWalletLink
-    ? "Verify the connected wallet to finish setting up your account."
-    : hasConnectedWallets
-      ? "Connect another wallet to this account."
-      : "Choose a wallet or another sign-in method.";
+  const pickerTitle = recoveringAccountConflict
+    ? "Resolve account conflict"
+    : needsFirstWalletLink
+      ? "Finish signing in"
+      : hasConnectedWallets
+        ? "Add a wallet"
+        : "Sign in to Aomi";
+  const pickerDescription = recoveringAccountConflict
+    ? "Sign in another way to open the account that owns this wallet."
+    : needsFirstWalletLink
+      ? "Verify the connected wallet to finish setting up your account."
+      : hasConnectedWallets
+        ? "Connect another wallet to this account."
+        : "Choose a wallet or another sign-in method.";
 
   // Pop back to the wallet manager if the signed account becomes unavailable.
   useEffect(() => {
@@ -838,7 +849,7 @@ export function WalletPicker() {
               Add another wallet
             </span>
             <span className="text-aomi-muted block truncate text-[11px]">
-              Choose a different Ethereum or Solana wallet
+              Choose a different EVM or SVM wallet
             </span>
           </span>
           <ChevronDownIcon
@@ -1656,14 +1667,6 @@ function isVisibleLinkedAccount(account: LinkedAccountRow): boolean {
     account.provider !== "siws" &&
     account.provider !== "email"
   );
-}
-
-function accountProfileEmail(
-  user: AomiWalletKit["accountUser"],
-): string | undefined {
-  return user?.email && !isSyntheticAomiEmail(user.email)
-    ? user.email
-    : undefined;
 }
 
 function formatAccountDisplayName(value: string): string {

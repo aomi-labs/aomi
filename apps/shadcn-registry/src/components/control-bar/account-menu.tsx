@@ -21,7 +21,6 @@ export type AccountMenuProps = {
   walletLabel?: string;
   allowanceLine?: string;
   noticeLine?: string;
-  networkLabel?: string;
   themeLabel?: string;
   wallets?: readonly {
     id: string;
@@ -31,7 +30,6 @@ export type AccountMenuProps = {
   }[];
   onClose: () => void;
   onManageAccount?: () => void;
-  onSwitchNetwork?: () => void;
   onToggleTheme?: () => void;
   onOpenSettings?: () => void;
   onOpenDeployments?: () => void;
@@ -72,12 +70,10 @@ export function AccountMenu({
   walletLabel,
   allowanceLine,
   noticeLine,
-  networkLabel,
   themeLabel,
   wallets = [],
   onClose,
   onManageAccount,
-  onSwitchNetwork,
   onToggleTheme,
   onOpenSettings,
   onOpenDeployments,
@@ -102,9 +98,6 @@ export function AccountMenu({
   if (!open) return null;
 
   const shortAddress = address ? formatWalletAddress(address) : undefined;
-  const networkTrailing = networkLabel
-    ? `${networkLabel.slice(0, 8)} ›`
-    : "Network ›";
   const canQuickSwitch = wallets.length > 0 && Boolean(onSelectWallet);
 
   const selectWallet = async (id: string, active: boolean) => {
@@ -259,7 +252,7 @@ export function AccountMenu({
                   <span className="border-aomi-border flex size-[22px] items-center justify-center rounded-full border">
                     <PlusIcon size={12} />
                   </span>
-                  Add wallet
+                  Add more
                 </button>
               ) : null}
             </div>
@@ -284,13 +277,6 @@ export function AccountMenu({
             label="Manage account"
             trailing="›"
             onClick={onManageAccount}
-          />
-        ) : null}
-        {onSwitchNetwork ? (
-          <MenuRow
-            label="Switch network"
-            trailing={networkTrailing}
-            onClick={onSwitchNetwork}
           />
         ) : null}
         {onToggleTheme ? (

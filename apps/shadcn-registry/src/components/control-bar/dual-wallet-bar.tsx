@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, type FC } from "react";
-import { ChevronsUpDownIcon, UnfoldVerticalIcon } from "lucide-react";
+import { ChevronsUpDownIcon } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import {
   useAomiWalletKit,
@@ -187,16 +187,9 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
     "inline-flex w-full items-center justify-between gap-2.5 whitespace-nowrap text-left transition-colors",
     "border-aomi-border text-aomi-fg hover:bg-aomi-hover/80 bg-transparent",
     "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-    accountMenuEnabled
-      ? "rounded-lg border p-2.5"
-      : "@container rounded-xl border p-3",
+    // One chip shape for every state so signing in does not resize it.
+    "@container rounded-xl border p-3",
     className,
-  );
-
-  const chipChevron = accountMenuEnabled ? (
-    <UnfoldVerticalIcon className="text-aomi-muted size-4 shrink-0" />
-  ) : (
-    <ChevronsUpDownIcon className="text-aomi-muted size-4 shrink-0" />
   );
 
   return (
@@ -286,7 +279,7 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
               </span>
             </span>
           )}
-          {chipChevron}
+          <ChevronsUpDownIcon className="text-aomi-muted size-4 shrink-0" />
         </button>
 
         {accountMenuEnabled ? (
@@ -297,12 +290,10 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
             noticeLine={accountMenu?.noticeLine}
-            networkLabel={accountMenu?.networkLabel ?? networkDetail}
             themeLabel={accountMenu?.themeLabel}
             wallets={quickSwitchWallets}
             onClose={() => setMenuOpen(false)}
             onManageAccount={wrapMenuAction(accountMenu?.onManageAccount)}
-            onSwitchNetwork={wrapMenuAction(accountMenu?.onSwitchNetwork)}
             onToggleTheme={wrapMenuAction(accountMenu?.onToggleTheme)}
             onOpenSettings={wrapMenuAction(accountMenu?.onOpenSettings)}
             onOpenDeployments={wrapMenuAction(accountMenu?.onOpenDeployments)}

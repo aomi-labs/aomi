@@ -59,7 +59,7 @@ const inactiveWallet: ManagedWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
-  it("opens the canonical wallet chooser from Add wallet", () => {
+  it("opens the canonical wallet chooser from Add more", () => {
     const onAddWallet = vi.fn();
     render(
       <AccountManagement
@@ -74,7 +74,7 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
 
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
@@ -142,7 +142,7 @@ describe("AccountManagement wallet actions", () => {
     expect(screen.queryByDisplayValue("Temporary")).toBeNull();
   });
 
-  it("shows Connect with an icon for offline wallets and Disconnect for live wallets", () => {
+  it("offers offline and live wallet actions in their row menus", () => {
     const onConnectWallet = vi.fn(async () => undefined);
     const onDisconnectWallet = vi.fn(async () => undefined);
     const onSelectWallet = vi.fn(async () => undefined);
@@ -163,32 +163,26 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    const connect = screen.getByRole("button", { name: "Connect" });
-    const disconnect = screen.getAllByRole("button", {
-      name: "Disconnect",
-    })[0];
-    expect(connect.querySelector("svg")).toBeTruthy();
-    expect(disconnect.querySelector("svg")).toBeTruthy();
+    expect(screen.queryByRole("menuitem")).toBeNull();
     expect(screen.queryByRole("button", { name: "Use" })).toBeNull();
     expect(
       screen.getByText("3 linked wallets · 1 not connected on this device"),
     ).toBeTruthy();
 
     const selectWallet = screen.getByRole("button", {
-      name: "Make Coinbase Wallet active",
+      name: "Make 0xc0ff active",
     });
-    expect(
-      document.querySelector('[data-wallet-state="active"]')?.className,
-    ).toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).not.toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).toContain("hover:bg-aomi-hover");
 
-    fireEvent.click(connect);
-    fireEvent.click(disconnect);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for MetaMask 1 0xe9ba" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Connect" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for Rabby 0xda65" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    expect(onSelectWallet).not.toHaveBeenCalled();
     fireEvent.click(selectWallet);
     expect(onConnectWallet).toHaveBeenCalledWith(linkedWallet);
     expect(onDisconnectWallet).toHaveBeenCalledWith(connectedWallet);

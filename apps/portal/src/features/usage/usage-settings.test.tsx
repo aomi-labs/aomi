@@ -82,6 +82,11 @@ describe("usage settings wiring", () => {
     expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/80.*500.*used/)).toBeTruthy();
     expect(screen.getByText("Credit Bank")).toBeTruthy();
+    const settlement = screen.getByText(/Paid via monthly allowance/);
+    expect(settlement.textContent).toContain(
+      "Compute fully covered by your allowance ($0.80 applied).",
+    );
+    expect(settlement.textContent).not.toContain("On-chain fees");
   });
 
   it("composes allowance from Credit Bank instead of the profile response", async () => {

@@ -9,6 +9,7 @@ import type {
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { useShellTransport } from "../../transport";
+import { ProviderPolicySettings } from "../account/provider-policy-settings";
 import {
   atomicToSol,
   confirmPolicy,
@@ -42,6 +43,15 @@ function short(address?: string): string {
 }
 
 export function PolicySettings() {
+  return (
+    <>
+      <ProviderPolicySettings />
+      <OnchainPolicySettings />
+    </>
+  );
+}
+
+function OnchainPolicySettings() {
   const wallet = useAomiWalletKit();
   const { json: request } = useShellTransport();
   const network = chainRef(wallet.identity.svmCluster);

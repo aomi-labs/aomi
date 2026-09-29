@@ -465,6 +465,26 @@ registry generation, formatting, and `git diff --check` pass.
 
 # Canonical Landing
 
+Current session goal: **WALLET ISSUE FIXES 2026-09-27 (LOCAL)** — applied
+PR #653's account/signing UX onto fresh frontend main `c882c841` in
+`work/wallet-issue-validation`, then fixed #678's embedded network preference
+loop, #679/#680's exact-address Privy signer readiness, #681's empty settlement
+clause, and Base Sepolia's missing icon. Automatic signing now shows failed
+revocation and directs attention to the correct wallet controls. Widget version
+is 3.0.11. All 161 unique focused/integration tests, frontend typecheck, widget build
+and scoped ESLint pass; the final 12 readiness tests also passed on rerun.
+Guest network changes and the Base Sepolia mark/badge passed browser review.
+The isolated main backend has compiled and is healthy; an earlier
+inference that main lacked the API server was incorrect. Signed-in browser
+verification of this candidate remains pending: Privy rejects the Tailscale
+origin before OTP. Privy currently allows only localhost:3000 and
+127.0.0.1:3000; both Tailscale:3448 and localhost:3010 are rejected. The
+user's other port-3000 worktree was left untouched; adding the exact review
+origin or authorizing the dashboard change awaits the user. Local Para selection
+also raised ParaApiError before its modal; the cause is unverified. Earlier
+production Privy login does not verify these local fixes. No commit, PR, publish or deployment was made. See
+`docs/issue-validation-2026-09-27.md` for evidence and remaining checks.
+
 Current session goal: **COMMIT STREAMING STABILITY 2026-09-25** — implement the
 paired backend/frontend execution plan in `commit-streaming-stability` worktrees.
 The frontend slice projects durable commit and browser wallet phases from one

@@ -30,7 +30,11 @@ const wallet: WalletPolicy = {
   authVersion: 1,
   canUseAuto: true,
 };
-function view(current: WalletPolicy, onCommit = vi.fn(async () => {})) {
+function view(
+  current: WalletPolicy,
+  onCommit = vi.fn(async () => {}),
+  overrides: Partial<Parameters<typeof AccountSigningView>[0]> = {},
+) {
   return (
     <AccountSigningView
       wallets={[current]}
@@ -42,11 +46,14 @@ function view(current: WalletPolicy, onCommit = vi.fn(async () => {})) {
       canConnectPrivy={false}
       onConnectPrivy={vi.fn()}
       onRenewDelegation={vi.fn()}
+      {...overrides}
     />
   );
 }
 async function review(label: string) {
-  fireEvent.click(screen.getByText("Privy"));
+  fireEvent.click(
+    screen.getByRole("button", { name: `Configure ${wallet.address}` }),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: new RegExp(`^${label} `) }),
   );
@@ -60,7 +67,6 @@ describe("policy confirmation", () => {
   it.each([
     ["manual", "Auto-approve", "client_auto"],
     ["client_auto", "Manual", "manual"],
-    ["manual", "Auto", "auto"],
     ["manual", "Locked", "denied"],
   ] as const)(
     "requires confirmation from %s to %s",
@@ -82,6 +88,25 @@ describe("policy confirmation", () => {
       expect(commit).toHaveBeenCalledExactlyOnceWith(current, to, challenge);
     },
   );
+  it("moves automatic signing out of the normal policy choices", async () => {
+    const commit = vi.fn(async () => {});
+    render(view(wallet, commit));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Configure ${wallet.address}` }),
+    );
+    expect(
+      screen.queryByRole("button", { name: /^Automatic signing / }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Set up" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Confirm signing policy",
+    });
+    await act(async () =>
+      fireEvent.click(within(dialog).getByText("Sign to approve")),
+    );
+    expect(commit).toHaveBeenCalledExactlyOnceWith(wallet, "auto", challenge);
+  });
   it("Escape dismisses without signing and retry requires fresh confirmation", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
@@ -103,8 +128,8 @@ describe("policy confirmation", () => {
     await act(async () => fireEvent.click(screen.getByText("Sign to approve")));
     expect(commit).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Review the updated policy before signing/),
-    ).toBeTruthy();
+      screen.getAllByText(/Review the updated policy before signing/).length,
+    ).toBeGreaterThan(0);
   });
   it("consumes confirmation once even if clicked twice", async () => {
     const commit = vi.fn(async () => {});
@@ -116,5 +141,67 @@ describe("policy confirmation", () => {
       fireEvent.click(confirm);
     });
     expect(commit).toHaveBeenCalledOnce();
+  });
+  it("shows a failed automatic delegation revoke on the affected wallet", async () => {
+    const delegation = {
+      id: "privy-delegation",
+      provider: "Privy",
+      providerKey: "privy",
+      address: { chain: "evm" as const, address: wallet.address },
+      scope: "EVM",
+      kind: "provider",
+      status: "active" as const,
+    };
+    const revoke = vi.fn(async () => {
+      throw new Error("Delegation could not be revoked. Try again.");
+    });
+    render(
+      view(
+        { ...wallet, desiredMode: "auto", delegationActive: true },
+        undefined,
+        { delegatedAccounts: [delegation], onRevokeDelegation: revoke },
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Revoke delegation" }),
+      ),
+    );
+    expect(revoke).toHaveBeenCalledExactlyOnceWith(delegation);
+    const row = document.getElementById(`automatic-wallet-${wallet.id}`)!;
+    expect(
+      within(row).getByText("Delegation could not be revoked. Try again."),
+    ).toBeTruthy();
+    expect(
+      within(row)
+        .getByRole("button", { name: "Revoke delegation" })
+        .hasAttribute("disabled"),
+    ).toBe(false);
+  });
+  it("directs attention to a drifted automatic wallet and opens its controls", () => {
+    vi.useFakeTimers();
+    try {
+      const scrollTo = vi.fn();
+      const rendered = render(
+        <div className="overflow-y-auto">
+          {view({ ...wallet, desiredMode: "auto", delegationActive: false })}
+        </div>,
+      );
+      const container = rendered.container.querySelector(".overflow-y-auto")!;
+      Object.defineProperty(container, "scrollTo", { value: scrollTo });
+      fireEvent.click(screen.getByRole("button", { name: "Fix" }));
+      const row = document.getElementById(`automatic-wallet-${wallet.id}`)!;
+      expect(
+        within(row).getByRole("button", { name: "Turn off" }),
+      ).toBeTruthy();
+      expect(row.className).toContain("ring-1");
+      act(() => vi.advanceTimersByTime(80));
+      expect(scrollTo).toHaveBeenCalledOnce();
+      act(() => vi.advanceTimersByTime(1520));
+      expect(row.className).not.toContain("ring-1");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -731,11 +731,24 @@ export async function buildAccountResponse(input: {
     listIdentitiesForUser(input.user.id, input.db),
     listWalletsForUser(input.user.id, input.db),
   ]);
+  // A verified email is a separate login identity in the account graph. Older
+  // profiles may have no primary_email even though that identity is linked.
+  // Expose it on reads without changing the user's chosen display name.
+  const verifiedEmail = identities
+    .filter(
+      (identity) =>
+        identity.provider === "email" && identity.verifiedAt && identity.email,
+    )
+    .sort(
+      (left, right) =>
+        left.linkedAt.getTime() - right.linkedAt.getTime() ||
+        left.id.localeCompare(right.id),
+    )[0]?.email;
   return {
     user: {
       id: input.user.id,
       displayName: input.user.displayName ?? undefined,
-      email: input.user.primaryEmail ?? undefined,
+      email: input.user.primaryEmail ?? verifiedEmail ?? undefined,
       avatarUrl: input.user.avatarUrl ?? undefined,
     },
     linkedAccounts: identities.map(toLinkedAccount),
@@ -955,6 +968,7 @@ function mapIdentity(row: Row): DbAomiAuthIdentity {
     email: optionalString(metadata.email),
     displayLabel: optionalString(metadata.display_label),
     providerMetadata: metadata,
+    verifiedAt: row.verified_at == null ? null : secondsToDate(row.verified_at),
     linkedAt: secondsToDate(row.created_at),
     lastSeenAt: secondsToDate(row.updated_at),
     revokedAt: null,

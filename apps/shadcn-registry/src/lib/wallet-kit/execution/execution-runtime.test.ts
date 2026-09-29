@@ -190,7 +190,7 @@ describe("buildEvmExecutionRuntime", () => {
       connector: activeConnector,
       to: "0x1111111111111111111111111111111111111111",
       data: "0x1234",
-      value: 9n,
+      value: BigInt(9),
     });
     expect(sendTransactionAsync.mock.calls[0]?.[0]).not.toHaveProperty("nonce");
   });
@@ -359,10 +359,10 @@ describe("buildEvmExecutionRuntime", () => {
       type: "eip1559",
       to: "0x1111111111111111111111111111111111111111",
       data: "0x",
-      value: 0n,
-      gas: 21_000n,
-      maxFeePerGas: 2n,
-      maxPriorityFeePerGas: 1n,
+      value: BigInt(0),
+      gas: BigInt(21_000),
+      maxFeePerGas: BigInt(2),
+      maxPriorityFeePerGas: BigInt(1),
     });
     expect(sendTransaction.mock.calls[0]?.[0]).not.toHaveProperty("nonce");
     expect(sendTransactionAsync).not.toHaveBeenCalled();
