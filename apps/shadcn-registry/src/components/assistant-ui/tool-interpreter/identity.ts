@@ -27,6 +27,7 @@ const coreTitles: Record<string, string> = {
   brave_search: "Search web",
   search_docs: "Search docs",
   activate_skills: "Activate skill",
+  sleep: "Sleep",
   get_contract: "Get contract details",
   svm_get_program: "Get program details",
   encode_and_call: "Call contract",
@@ -37,12 +38,12 @@ const coreTitles: Record<string, string> = {
   sim_revert: "Revert simulation",
   sim_close: "Close simulation",
   get_erc20_balance: "Get balance",
-  get_erc20_holdings: "Get token holdings",
+  get_erc20_holdings: "Get holdings",
   get_account_info: "Get account details",
   svm_get_account_info: "Get account details",
   svm_get_context: "Check network",
   get_time_and_onchain_context: "Check network",
-  svm_get_token_holdings: "Get token holdings",
+  svm_get_token_holdings: "Get holdings",
   sync_chain: "Sync network",
 };
 

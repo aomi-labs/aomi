@@ -327,6 +327,7 @@ export const registry: RegistryComponent[] = [
       "components/assistant-ui/tool-interpreter/families/general/errors.ts",
       "components/assistant-ui/tool-interpreter/families/general/search.ts",
       "components/assistant-ui/tool-interpreter/families/general/skills.ts",
+      "components/assistant-ui/tool-interpreter/families/general/sleep.ts",
       "components/assistant-ui/tool-interpreter/families/general/task.ts",
       "components/assistant-ui/tool-interpreter/families/evm/index.ts",
       "components/assistant-ui/tool-interpreter/families/evm/account.ts",

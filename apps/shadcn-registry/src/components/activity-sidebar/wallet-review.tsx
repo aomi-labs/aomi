@@ -1,5 +1,12 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useAomiRuntime } from "@aomi-labs/react";
 import type { CommitController } from "@aomi-labs/client";
 import {
@@ -31,6 +38,9 @@ function walletMismatchMessage(failureCode: string | null | undefined): string {
 }
 
 /** Presents the next durable Action and submits only an explicit user choice. */
+// The transaction card's progress bar already shows these phases.
+const QUIET_PHASES = new Set(["ready", "preparing", "submitted"]);
+
 export function WalletReview() {
   const {
     pendingActions,
@@ -292,7 +302,7 @@ export function WalletReview() {
           request: commitReview,
         }
       : undefined);
-  if (!review) return null;
+  if (!review) return <ReviewPresence />;
   const signatureAdmissionUnavailable = requiresSignatureAdmission(
     review.request,
   );
@@ -309,7 +319,9 @@ export function WalletReview() {
           ? eligibility.reason
           : lifecycle?.phase === "ready" && batchSubmission
             ? "Submitting in order; waiting for each confirmation."
-            : lifecycle?.label;
+            : lifecycle && QUIET_PHASES.has(lifecycle.phase)
+              ? undefined
+              : lifecycle?.label;
   const activeBatchReview = Boolean(
     batchSubmission &&
     liveCommit?.batch?.batch_id === batchSubmission.batchId &&
@@ -329,47 +341,74 @@ export function WalletReview() {
       reviewEligibility(request)?.state === "unresolved",
   );
   return (
-    <TransactionReview
-      review={review}
-      approveAllDisabled={cohortBlocked}
-      supportedChains={wallet.supportedChains}
-      approving={approving}
-      approveDisabled={
-        (Boolean(liveCommit) && !commitCanExecute && !checkingSubmission) ||
-        eligibilityBlocksNewAttempt ||
-        signatureAdmissionUnavailable
-      }
-      rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
-      status={status}
-      statusTransactionId={lifecycle?.transactionId}
-      statusIsError={
-        signatureAdmissionUnavailable ||
-        walletMismatch ||
-        (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
-      }
-      recoveringExistingAttempt={recoveringExistingAttempt}
-      approveLabel={
-        lifecycle?.phase === "checking_submission" ? "Check status" : undefined
-      }
-      onApprove={() => void decide(true)}
-      onApproveAll={
-        showBatchControls && batch && batch.index < batchIds!.length - 1
-          ? submitAll
-          : undefined
-      }
-      batchProgress={
-        showBatchControls && batch
-          ? {
-              current: batch.index + 1,
-              total: batchIds!.length,
-              submitting: Boolean(batchSubmission),
-            }
-          : undefined
-      }
-      onReject={() => {
-        setBatchSubmission(null);
-        void decide(false);
-      }}
-    />
+    <ReviewPresence>
+      <TransactionReview
+        review={review}
+        approveAllDisabled={cohortBlocked}
+        supportedChains={wallet.supportedChains}
+        approving={approving}
+        approveDisabled={
+          (Boolean(liveCommit) && !commitCanExecute && !checkingSubmission) ||
+          eligibilityBlocksNewAttempt ||
+          signatureAdmissionUnavailable
+        }
+        rejectDisabled={Boolean(liveCommit && !liveCommit.action)}
+        status={status}
+        statusIsError={
+          signatureAdmissionUnavailable ||
+          walletMismatch ||
+          (eligibilityBlocksNewAttempt && eligibility?.state === "blocked")
+        }
+        recoveringExistingAttempt={recoveringExistingAttempt}
+        approveLabel={
+          lifecycle?.phase === "checking_submission"
+            ? "Check status"
+            : undefined
+        }
+        onApprove={() => void decide(true)}
+        onApproveAll={
+          showBatchControls && batch && batch.index < batchIds!.length - 1
+            ? submitAll
+            : undefined
+        }
+        batchProgress={
+          showBatchControls && batch
+            ? {
+                current: batch.index + 1,
+                total: batchIds!.length,
+                submitting: Boolean(batchSubmission),
+              }
+            : undefined
+        }
+        onReject={() => {
+          setBatchSubmission(null);
+          void decide(false);
+        }}
+      />
+    </ReviewPresence>
+  );
+}
+
+/** Entry is the review's own fade-in; this keeps it mounted long enough to
+ * collapse smoothly once it has been signed, rejected, or superseded. */
+function ReviewPresence({ children }: { children?: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <AnimatePresence initial={false}>
+      {children && (
+        <m.div
+          key="wallet-review"
+          initial={false}
+          exit={{ height: 0, opacity: 0, y: -4 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.24,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="overflow-hidden"
+        >
+          {children}
+        </m.div>
+      )}
+    </AnimatePresence>
   );
 }

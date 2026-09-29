@@ -24,7 +24,6 @@ export function TransactionReview({
   approveLabel,
   rejectDisabled = false,
   status,
-  statusTransactionId,
   statusIsError = false,
   recoveringExistingAttempt = false,
   onApprove,
@@ -40,7 +39,6 @@ export function TransactionReview({
   approveLabel?: string;
   rejectDisabled?: boolean;
   status?: string;
-  statusTransactionId?: string;
   statusIsError?: boolean;
   recoveringExistingAttempt?: boolean;
   onApprove: () => void;
@@ -125,19 +123,11 @@ export function TransactionReview({
           </div>
         </dl>
       </div>
-      <details className="text-aomi-muted mt-3 text-[11px]">
-        <summary className="cursor-pointer">
-          {request.type === "sign" ? "Signing request" : "Transaction details"}
-        </summary>
-        <pre className="bg-aomi-surface mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg p-2">
-          {JSON.stringify(request, null, 2)}
-        </pre>
-      </details>
-      {simulation && (
-        <details className="text-aomi-muted mt-2 text-[11px]">
-          <summary className="cursor-pointer">Simulation details</summary>
-          <pre className="bg-aomi-surface mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-lg p-2">
-            {JSON.stringify(simulation, null, 2)}
+      {request.type === "sign" && (
+        <details className="text-aomi-muted mt-3 text-[11px]">
+          <summary className="cursor-pointer">Signing request</summary>
+          <pre className="bg-aomi-surface mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg p-2">
+            {JSON.stringify(request, null, 2)}
           </pre>
         </details>
       )}
@@ -147,11 +137,6 @@ export function TransactionReview({
           className="text-aomi-muted mt-3 text-[11px]"
         >
           {status}
-          {statusTransactionId && (
-            <span className="mt-1 block break-all font-mono">
-              Transaction: {statusTransactionId}
-            </span>
-          )}
         </p>
       )}
       <footer

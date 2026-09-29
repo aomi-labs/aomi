@@ -62,9 +62,9 @@ describe("trace attribution", () => {
       expect(
         step.chips.find((chip) => chip.attribution === "skill"),
       ).toMatchObject({
-        label: "Lifi Swap",
+        label: "LI.FI",
         icon: getSkillIcon("lifi_swap"),
-        title: "Skill: Lifi Swap",
+        title: "Skill: LI.FI",
       });
       expect(step.failed).toBe(Boolean(result && "error" in result));
     }
@@ -89,7 +89,7 @@ describe("trace attribution", () => {
       "USDC -> ETH",
       "10 USDC",
       "0.002 ETH",
-      "Lifi Swap",
+      "LI.FI",
     ]);
   });
 
@@ -257,7 +257,7 @@ describe("trace attribution", () => {
           rejected: [["hoodit/markets", "unavailable"]],
         },
       }).chips.map((chip) => chip.label),
-    ).toEqual(["Lifi Swap"]);
+    ).toEqual(["LI.FI"]);
   });
 
   it("keeps same-named skills from different apps distinct", () => {

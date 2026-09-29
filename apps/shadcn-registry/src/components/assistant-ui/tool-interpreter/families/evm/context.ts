@@ -1,4 +1,9 @@
-import { chainFact } from "../../normalize";
+import {
+  asInteger,
+  asRecord,
+  chainFact,
+  chainFactFromRecord,
+} from "../../normalize";
 import type { ToolMatcher } from "../../types";
 import { operation } from "../operation";
 
@@ -22,6 +27,26 @@ export const matchChainContext: ToolMatcher = ({ rawLabel, resultRecord }) => {
           value: String(resultRecord.block_number),
           source: "result",
         }
+      : null,
+  ]);
+};
+
+export const matchSyncChain: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (resultRecord?.is_error === true || resultRecord?.error) return null;
+  const args = asRecord(parsedArgs);
+  const chain =
+    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args");
+  const block = asInteger(resultRecord?.block_number);
+  if (!chain && block == null) return null;
+
+  return operation("evm.context", rawLabel, [
+    chain,
+    block != null
+      ? { kind: "block", value: String(block), source: "result" }
       : null,
   ]);
 };

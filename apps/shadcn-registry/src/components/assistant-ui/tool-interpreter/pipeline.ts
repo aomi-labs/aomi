@@ -49,7 +49,9 @@ export const interpretToolContext = (ctx: ToolContext): InterpretedToolStep => {
     ) ?? fallbackOperation(ctx);
 
   const coreTitle = coreToolTitle(ctx.rawLabel);
-  const keepsSemanticTitle = operation.id.startsWith("evm.call.erc20.");
+  const keepsSemanticTitle =
+    operation.id.startsWith("evm.call.erc20.") ||
+    operation.id === "skill.check";
   return presentOperation({
     ...operation,
     title: keepsSemanticTitle

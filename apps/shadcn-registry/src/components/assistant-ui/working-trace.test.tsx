@@ -853,5 +853,5 @@ it("keeps ownership badges visible in the mother and delegated trace", () => {
       />
     </TraceAttributionContext.Provider>,
   );
-  expect(getAllByText("Lifi Swap")).toHaveLength(2);
+  expect(getAllByText("LI.FI")).toHaveLength(2);
 });

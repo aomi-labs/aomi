@@ -63,42 +63,35 @@ export const matchErc20Balance: ToolMatcher = ({ rawLabel, resultRecord }) => {
   ]);
 };
 
-export const matchErc20Holdings: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!resultRecord || !Array.isArray(resultRecord.items)) return null;
-  if (typeof resultRecord.complete !== "boolean") return null;
+/** The backend returns this many holdings per chain when `limit` is null. */
+const DEFAULT_LIMIT = 20;
 
-  const holder = addressFact(resultRecord.holder, "owner");
-  const total = asInteger(resultRecord.total_matching);
-  const shown = resultRecord.items.length;
-  if (!holder || total == null || total < shown) return null;
-
-  const warningCount = Array.isArray(resultRecord.warnings)
-    ? resultRecord.warnings.length
-    : 0;
-  const countLabel =
-    shown === total
-      ? `${total.toLocaleString("en-US")} holding${total === 1 ? "" : "s"}`
-      : `${shown.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} holdings`;
-
+/** Chips mirror the request: the chain when one is chosen, how many holdings
+ * it fetches and, when set, what it searched for. The reply itself reports the amounts. */
+export const matchErc20Holdings: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (
+    resultRecord &&
+    !Array.isArray(resultRecord.items) &&
+    !Array.isArray(resultRecord.chains)
+  )
+    return null;
+  const args = asRecord(parsedArgs) ?? {};
+  const limit = asInteger(args.limit) ?? DEFAULT_LIMIT;
+  const query = asString(args.query)?.trim();
   return operation("evm.account.erc20_holdings", rawLabel, [
-    chainFactFromRecord(resultRecord),
+    args.chain_id != null ? chainFactFromRecord(args, "args") : null,
     {
-      kind: "count",
-      role: "results",
-      value: String(shown),
-      label: countLabel,
-      source: "result",
+      kind: "threshold",
+      value: String(limit),
+      label: `Top ${limit}`,
+      source: "args",
     },
-    holder,
-    resultRecord.complete === false
-      ? statusFact("incomplete")
-      : warningCount > 0
-        ? {
-            kind: "warning",
-            value: String(warningCount),
-            label: `${warningCount} warning${warningCount === 1 ? "" : "s"}`,
-            source: "result",
-          }
-        : null,
+    query
+      ? { kind: "token", value: query, label: query, source: "args" }
+      : null,
   ]);
 };

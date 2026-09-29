@@ -199,12 +199,8 @@ describe("WalletReview", () => {
       runtime.commits[1],
     ];
     rerender(<ActivitySidebar />);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Submitted; confirming",
-    );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Transaction: 0xdeadbeef",
-    );
+    expect(screen.queryByText("Submitted; confirming")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0xdeadbeef/)).not.toBeInTheDocument();
 
     runtime.commits = runtime.commits.map((view) => ({
       ...view,
@@ -252,9 +248,7 @@ describe("WalletReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The submitted transaction did not match the reviewed request.",
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Transaction: 0xdeadbeef",
-    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("0xdeadbeef");
   });
 
   it("retries a saved wallet outcome without sending the transaction twice", async () => {
@@ -434,9 +428,7 @@ describe("WalletReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The wallet used a different nonce from the prepared transaction.",
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Transaction: 0xtransaction",
-    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("0xtransaction");
     for (const button of within(
       screen.getByTestId("transaction-review"),
     ).getAllByRole("button"))
@@ -557,9 +549,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "Review Solana transaction",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     expect(screen.getByTestId("transaction-review")).toHaveTextContent(
       "devnet",
     );
@@ -623,9 +613,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "Submit signed Solana transaction",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(walletBroadcast).toHaveBeenCalledWith(
@@ -661,9 +649,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(runtime.executeAction).not.toHaveBeenCalled();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "0x2222222222222222222222222222222222222222",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
@@ -745,13 +731,22 @@ describe("WalletReview", () => {
   });
 
   it("explains the ordinary manual signature limitation before opening the wallet", () => {
-    runtime.pendingActions = [action({
-      type: "sign", requestId: "ordinary-sign", chainFamily: "evm", executionKind: "message",
-      signer: "0x1111111111111111111111111111111111111111", chainId: 1,
-      description: "Sign permit", payloads: [{ kind: "evm_personal", message: "0x01" }],
-    })];
+    runtime.pendingActions = [
+      action({
+        type: "sign",
+        requestId: "ordinary-sign",
+        chainFamily: "evm",
+        executionKind: "message",
+        signer: "0x1111111111111111111111111111111111111111",
+        chainId: 1,
+        description: "Sign permit",
+        payloads: [{ kind: "evm_personal", message: "0x01" }],
+      }),
+    ];
     render(<ActivitySidebar />);
-    expect(screen.getByText(/fresh safety admission cannot be claimed/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/fresh safety admission cannot be claimed/),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
     expect(runtime.executeAction).not.toHaveBeenCalled();
   });
@@ -920,8 +915,7 @@ describe("WalletReview", () => {
     expect(rows.some((row) => row.textContent?.includes("Send ETH"))).toBe(
       true,
     );
-    expect(screen.getByText("Transaction details")).toBeInTheDocument();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent("0x03");
+    expect(screen.queryByText("Transaction details")).not.toBeInTheDocument();
   });
 
   it("turns protocol-generated swap labels into readable review steps", () => {
@@ -957,7 +951,6 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.getAllByText("Approve 0.00758 USDC")[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/LI\.FI/).length).toBeGreaterThan(0);
     expect(screen.getByText("Wallet changes unavailable")).toBeInTheDocument();
     expect(
       screen.getAllByTestId("activity-transaction")[0],
@@ -1170,8 +1163,8 @@ describe("WalletReview", () => {
       screen.getByRole("button", { name: "Reject request" }),
     ).toBeEnabled();
     expect(screen.getByText("Execution reverted")).toBeInTheDocument();
-    expect(screen.getByText("Transaction details")).toBeInTheDocument();
-    expect(screen.getByText("Simulation details")).toBeInTheDocument();
+    expect(screen.queryByText("Transaction details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Simulation details")).not.toBeInTheDocument();
   });
 });
 

@@ -462,7 +462,7 @@ describe("active transaction presentation", () => {
     );
     for (const title of [
       "App: Hoodit / Skill: Portfolio",
-      "Skill: Lifi Swap",
+      "Skill: LI.FI",
     ]) {
       const badges = screen.getAllByTitle(title);
       expect(badges).toHaveLength(2);

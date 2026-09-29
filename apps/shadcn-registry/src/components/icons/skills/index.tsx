@@ -418,7 +418,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
 
 const SKILL_DISPLAY_NAMES: Record<string, string> = {
   common_erc20: "Common Erc20",
-  lifi_swap: "Lifi Swap",
+  lifi_swap: "LI.FI",
 };
 
 /** Normalize a capability catalog ID before looking up its visual identity. */

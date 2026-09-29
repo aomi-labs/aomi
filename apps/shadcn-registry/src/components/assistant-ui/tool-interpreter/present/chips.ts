@@ -4,12 +4,15 @@ import {
   ArrowUpRightIcon,
   BanIcon,
   BlocksIcon,
+  BracesIcon,
   CircleCheckIcon,
   CircleXIcon,
   ClockIcon,
   CoinsIcon,
+  FileCode2Icon,
   FuelIcon,
   HashIcon,
+  ListOrderedIcon,
   ReceiptTextIcon,
   TriangleAlertIcon,
   UserIcon,
@@ -150,6 +153,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? humanize(fact.value), icon: SolanaIcon };
     case "code":
       return { label: fact.label ?? fact.value };
+    case "contract":
+      return { label: shortenAddress(fact.value), icon: FileCode2Icon };
     case "compute":
       return {
         label: `${formatInteger(fact.value)} compute units`,
@@ -188,6 +193,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "gas":
       return { label: `${formatInteger(fact.value)} gas`, icon: FuelIcon };
+    case "function":
+      return { label: fact.label ?? fact.value, icon: BracesIcon };
     case "requirement":
       return { label: fact.label ?? fact.value, icon: ClockIcon };
     case "route":
@@ -200,6 +207,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "status":
       return statusChip(fact.value);
+    case "threshold":
+      return { label: fact.label ?? fact.value, icon: ListOrderedIcon };
     case "slot":
       return {
         label: fact.label ?? formatInteger(fact.value),

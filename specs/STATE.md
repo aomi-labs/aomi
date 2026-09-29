@@ -2,7 +2,24 @@
 
 ## Last Updated
 
-2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
+2026-09-29 — WALLET REVIEW + NETWORK PILL POLISH (worktree
+  `agent-usefulness`, uncommitted). Activity sidebar: raw "Transaction
+  details"/"Simulation details" JSON dropdowns removed (the "Signing request"
+  dump stays for sign requests; it is the only place the payload shows); the
+  review status no longer prints the tx hash or the progress labels
+  (`ready`/`preparing`/`submitted`) that the tx card's step bar already shows;
+  `WalletReview` wraps its output in `ReviewPresence` (AnimatePresence) so the
+  review collapses smoothly on sign/reject. `NetworkSelect` no longer switches
+  networks: an "All networks" pill with a stacked logo row opens (hover or
+  click) a read-only grid of supported mainnets, testnets folded into a count.
+  Follow-ups: holdings trace row is "Get holdings" with chain (when
+  chosen), `Top <limit>` and query chips; the LI.FI skill label is "LI.FI";
+  the network pill's logo stack always ends on Solana; working-trace chips
+  for sync, contract lookups and generic calls. Verified: vitest
+  src/components + src/lib 660/660, eslint; tsc still reports pre-existing
+  wallet test errors (dual-wallet-bar, wallet-picker).
+
+Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
   branch `codex/bot-webhook-reassert` off origin/main, uncommitted). The
   webhook was only ever asserted at registration; an external `deleteWebhook`

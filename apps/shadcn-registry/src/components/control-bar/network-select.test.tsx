@@ -172,244 +172,110 @@ function Harness({
 }
 
 describe("NetworkSelect", () => {
-  it("selects Robinhood Chain through the EVM wallet runtime", async () => {
+  function renderSelect(options?: {
+    evmChains?: readonly Chain[];
+    solanaNetworks?: readonly SvmNetworkOption[];
+  }) {
+    const chains = options?.evmChains ?? evmChainsMulti;
+    const solana = options?.solanaNetworks ?? solanaNetworks;
     const selectNetwork = vi.fn();
     render(
       <ExtUserProvider>
         <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChainsWithRobinhood}
-          solanaNetworks={[]}
+          evmChains={chains}
+          solanaNetworks={solana}
         >
           <Harness
             adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              evmChains: evmChainsWithRobinhood,
-              solanaNetworks: [],
+              evmChains: chains,
+              solanaNetworks: solana,
               onSelectNetwork: selectNetwork,
             })}
           />
         </AomiWalletNetworkPreferencesProvider>
       </ExtUserProvider>,
     );
+    return { selectNetwork };
+  }
 
-    fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(screen.getByRole("option", { name: /Robinhood Chain/i }));
-
-    await waitFor(() => {
-      expect(selectNetwork).toHaveBeenCalledWith({
-        family: "evm",
-        chainId: 4663,
-      });
+  it("presents every supported network without offering a switch", () => {
+    const { selectNetwork } = renderSelect({
+      evmChains: evmChainsWithRobinhood,
     });
+
+    const trigger = screen.getByRole("button", { name: "Supported networks" });
+    expect(trigger).toHaveTextContent("All networks");
+    fireEvent.click(trigger);
+
+    const list = screen.getByRole("list", { name: "Supported networks" });
+    expect(list).toHaveTextContent("Base");
+    expect(list).toHaveTextContent("Robinhood Chain");
+    expect(list).toHaveTextContent("Solana");
+    expect(screen.getByText("Every network, no switching")).toBeTruthy();
+    expect(screen.queryByRole("option")).toBeNull();
+
+    fireEvent.click(screen.getByText("Robinhood Chain"));
+    expect(selectNetwork).not.toHaveBeenCalled();
   });
 
-  it("labels Solana mainnet as Solana in the closed trigger", () => {
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChains}
-          solanaNetworks={solanaNetworks}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              svmAddress: "So11111111111111111111111111111111111111112",
-              solanaCluster: "solana:mainnet",
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
-
-    const trigger = screen.getByRole("combobox");
-    expect(trigger.textContent).toMatch(/Solana/);
-    expect(trigger.textContent).not.toMatch(/Mainnet/);
-  });
-
-  it("selects a Solana network from the unified list when both families are connected", async () => {
-    const selectNetwork = vi.fn();
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChains}
-          solanaNetworks={solanaNetworks}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              svmAddress: "So11111111111111111111111111111111111111112",
-              onSelectNetwork: selectNetwork,
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
-
-    fireEvent.click(screen.getByRole("combobox"));
-    // Both families connected -> EVM + Solana groups render together, no tab.
-    expect(screen.getByRole("option", { name: /Base/i })).toBeTruthy();
-    fireEvent.click(screen.getByRole("option", { name: /^Solana$/i }));
-
-    await waitFor(() => {
-      expect(selectNetwork).toHaveBeenCalledWith({
-        family: "svm",
-        networkId: "solana-mainnet",
-      });
+  it("always ends the logo stack on Solana", () => {
+    renderSelect({
+      evmChains: [
+        ...evmChainsWithRobinhood,
+        {
+          id: 42161,
+          name: "Arbitrum One",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: { default: { http: ["https://arb.example"] } },
+        },
+        {
+          id: 10,
+          name: "OP Mainnet",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: { default: { http: ["https://op.example"] } },
+        },
+      ],
     });
+
+    const stack = [
+      ...screen
+        .getByRole("button", { name: "Supported networks" })
+        .querySelectorAll("[data-network]"),
+    ].map((node) => node.getAttribute("data-network"));
+    expect(stack).toHaveLength(4);
+    expect(stack[3]).toBe("solana:solana-mainnet");
   });
 
-  it("shows the connected Solana cluster instead of a stale preference", () => {
-    globalThis.localStorage?.setItem(
-      "aomi.wallet-preferences.default",
-      JSON.stringify({ selectedSolanaNetworkId: "solana-mainnet" }),
-    );
+  it("folds testnets into a count instead of listing them", () => {
+    renderSelect({ evmChains: evmChainsWithTestnet });
 
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChains}
-          solanaNetworks={solanaNetworks}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              svmAddress: "So11111111111111111111111111111111111111112",
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Supported networks" }));
 
-    expect(screen.getByRole("combobox").textContent).toMatch(/Base.*Devnet/);
+    const list = screen.getByRole("list", { name: "Supported networks" });
+    expect(list).not.toHaveTextContent("Base Sepolia");
+    expect(list).not.toHaveTextContent("Solana Devnet");
+    expect(screen.getByText(/Plus 2 testnets/)).toBeTruthy();
   });
 
-  it("confirms destructive Para-style Solana network switches", async () => {
-    const selectNetwork = vi.fn();
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChains}
-          solanaNetworks={solanaNetworks}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              svmAddress: "So11111111111111111111111111111111111111112",
-              solanaReconnect: true,
-              onSelectNetwork: selectNetwork,
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
+  it("opens on mouse hover", async () => {
+    renderSelect();
 
-    fireEvent.click(screen.getByRole("combobox"));
-    // Solana-only connection -> no EVM rows, no family tab.
-    expect(screen.queryByRole("option", { name: /Base/i })).toBeNull();
-    fireEvent.click(screen.getByRole("option", { name: /^Solana$/i }));
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "Supported networks" }),
+      { pointerType: "mouse" },
+    );
 
     expect(
-      screen.getByText(/needs to reconnect to change clusters/i),
+      await screen.findByRole("list", { name: "Supported networks" }),
     ).toBeTruthy();
-    expect(selectNetwork).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch network" }));
-
-    await waitFor(() => {
-      expect(selectNetwork).toHaveBeenCalledWith({
-        family: "svm",
-        networkId: "solana-mainnet",
-      });
-    });
   });
 
-  it("shows Solana networks when only an EVM wallet is connected", async () => {
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChainsMulti}
-          solanaNetworks={solanaNetworks}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              evmChains: evmChainsMulti,
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
+  it("hides itself when only one network is supported", () => {
+    renderSelect({ evmChains: evmChains, solanaNetworks: [] });
 
-    fireEvent.click(screen.getByRole("combobox"));
-    expect(screen.getByRole("option", { name: /Base/i })).toBeTruthy();
-    expect(screen.getByRole("option", { name: /Ethereum/i })).toBeTruthy();
-    expect(screen.getByRole("option", { name: /^Solana$/i })).toBeTruthy();
-    expect(screen.queryByText("Networks")).toBeNull();
-    expect(screen.queryByText(/EVM network/i)).toBeNull();
-    expect(screen.getByText("L1 · ETH")).toBeTruthy();
-    expect(screen.getByText("L2 · ETH")).toBeTruthy();
-    expect(screen.getByText("Devnet · SOL")).toBeTruthy();
-  });
-
-  it("folds testnets behind a toggle and reveals them on demand", async () => {
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChainsWithTestnet}
-          solanaNetworks={[]}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              chainId: 8453,
-              evmChains: evmChainsWithTestnet,
-              solanaNetworks: [],
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
-
-    fireEvent.click(screen.getByRole("combobox"));
-    // Testnet hidden by default; the toggle advertises how many are folded.
-    expect(screen.queryByRole("option", { name: /Base Sepolia/i })).toBeNull();
-    const toggle = screen.getByRole("button", { name: /show testnets/i });
-    expect(toggle.textContent).toMatch(/1 hidden/i);
-
-    fireEvent.click(toggle);
-    expect(screen.getByRole("option", { name: /Base Sepolia/i })).toBeTruthy();
-  });
-
-  it("keeps testnets visible when the active network is a testnet", async () => {
-    render(
-      <ExtUserProvider>
-        <AomiWalletNetworkPreferencesProvider
-          evmChains={evmChainsWithTestnet}
-          solanaNetworks={[]}
-        >
-          <Harness
-            adapter={createHarnessAdapter({
-              connected: true,
-              address: "0xda6f0000000000000000000000000000000000f0",
-              chainId: 84532,
-              evmChains: evmChainsWithTestnet,
-              solanaNetworks: [],
-            })}
-          />
-        </AomiWalletNetworkPreferencesProvider>
-      </ExtUserProvider>,
-    );
-
-    fireEvent.click(screen.getByRole("combobox"));
-    // On a testnet -> its row must stay visible, and the toggle is suppressed
-    // (you can't hide the network you're currently on).
-    expect(screen.getByRole("option", { name: /Base Sepolia/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /testnets/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Supported networks" }),
+    ).toBeNull();
   });
 
   it("opens the wallet picker without a family selection", async () => {
