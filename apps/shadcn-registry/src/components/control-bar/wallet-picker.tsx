@@ -525,6 +525,7 @@ export function WalletPicker() {
     identity.walletProviderSubject ||
     connectedAccounts.some((account) => account.manageable),
   );
+  const recoveringAccountConflict = Boolean(adapter.accountConflict);
   const supportedEvmChains =
     adapter.supportedNetworks?.evm ?? adapter.supportedChains ?? [];
   // Host provider choices: while no provider account exists they are ways to
@@ -546,16 +547,21 @@ export function WalletPicker() {
           actions: [
             {
               kind: "authenticate",
-              label: providerAccountConnected ? "Link" : "Sign in",
+              label:
+                providerAccountConnected && !recoveringAccountConflict
+                  ? "Link"
+                  : "Sign in",
             },
           ],
         }))
     : providerAccountConnected
       ? []
       : providerSignInOptions;
-  const socialSectionLabel = providerAccountConnected
-    ? "Link another provider"
-    : "Other ways to sign in";
+  const socialSectionLabel = recoveringAccountConflict
+    ? "Sign in another way"
+    : providerAccountConnected
+      ? "Link another provider"
+      : "Other ways to sign in";
   const hasAccountManagement = Boolean(adapter.accountUser);
   const accountView = hasAccountManagement && view === "account";
   const accountDisplayName =
@@ -569,16 +575,20 @@ export function WalletPicker() {
     hasConnectedWallets &&
     (!adapter.accountUser || (adapter.accountWallets?.length ?? 0) === 0),
   );
-  const pickerTitle = needsFirstWalletLink
-    ? "Finish signing in"
-    : hasConnectedWallets
-      ? "Add a wallet"
-      : "Sign in to Aomi";
-  const pickerDescription = needsFirstWalletLink
-    ? "Verify the connected wallet to finish setting up your account."
-    : hasConnectedWallets
-      ? "Connect another wallet to this account."
-      : "Choose a wallet or another sign-in method.";
+  const pickerTitle = recoveringAccountConflict
+    ? "Resolve account conflict"
+    : needsFirstWalletLink
+      ? "Finish signing in"
+      : hasConnectedWallets
+        ? "Add a wallet"
+        : "Sign in to Aomi";
+  const pickerDescription = recoveringAccountConflict
+    ? "Sign in another way to open the account that owns this wallet."
+    : needsFirstWalletLink
+      ? "Verify the connected wallet to finish setting up your account."
+      : hasConnectedWallets
+        ? "Connect another wallet to this account."
+        : "Choose a wallet or another sign-in method.";
 
   // Pop back to the wallet manager if the signed account becomes unavailable.
   useEffect(() => {

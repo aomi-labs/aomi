@@ -283,6 +283,7 @@ export function AomiWalletKitComposer({
       wallets: walletState.wallets,
       accountStatus: account.status,
       accountError: account.error,
+      accountConflict: account.conflict,
       accountGuest: account.guest,
       // Temporary Better Auth guests are a transport principal, never an
       // account-management principal. Keep that boundary at the adapter too,

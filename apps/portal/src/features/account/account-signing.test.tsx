@@ -46,7 +46,9 @@ function view(current: WalletPolicy, onCommit = vi.fn(async () => {})) {
   );
 }
 async function review(label: string) {
-  fireEvent.click(screen.getByText("Privy"));
+  fireEvent.click(
+    screen.getByRole("button", { name: `Configure ${wallet.address}` }),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: new RegExp(`^${label} `) }),
   );
@@ -60,7 +62,6 @@ describe("policy confirmation", () => {
   it.each([
     ["manual", "Auto-approve", "client_auto"],
     ["client_auto", "Manual", "manual"],
-    ["manual", "Auto", "auto"],
     ["manual", "Locked", "denied"],
   ] as const)(
     "requires confirmation from %s to %s",
@@ -82,6 +83,25 @@ describe("policy confirmation", () => {
       expect(commit).toHaveBeenCalledExactlyOnceWith(current, to, challenge);
     },
   );
+  it("moves automatic signing out of the normal policy choices", async () => {
+    const commit = vi.fn(async () => {});
+    render(view(wallet, commit));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Configure ${wallet.address}` }),
+    );
+    expect(
+      screen.queryByRole("button", { name: /^Automatic signing / }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Set up" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Confirm signing policy",
+    });
+    await act(async () =>
+      fireEvent.click(within(dialog).getByText("Sign to approve")),
+    );
+    expect(commit).toHaveBeenCalledExactlyOnceWith(wallet, "auto", challenge);
+  });
   it("Escape dismisses without signing and retry requires fresh confirmation", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
@@ -103,8 +123,8 @@ describe("policy confirmation", () => {
     await act(async () => fireEvent.click(screen.getByText("Sign to approve")));
     expect(commit).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Review the updated policy before signing/),
-    ).toBeTruthy();
+      screen.getAllByText(/Review the updated policy before signing/).length,
+    ).toBeGreaterThan(0);
   });
   it("consumes confirmation once even if clicked twice", async () => {
     const commit = vi.fn(async () => {});

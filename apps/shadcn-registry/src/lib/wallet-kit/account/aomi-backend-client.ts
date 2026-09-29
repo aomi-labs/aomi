@@ -1,6 +1,10 @@
 import type { AomiAccountCredential } from "../types";
 import type { SvmCluster } from "../types";
-import type { AccountRuntime, AccountWallet } from "./types";
+import type {
+  AccountConflictSignal,
+  AccountRuntime,
+  AccountWallet,
+} from "./types";
 
 export type AomiBackendAccountResponse = {
   /** A temporary Better Auth guest. It is intentionally not an account owner. */
@@ -51,14 +55,11 @@ export type AomiBackendNonceResponse = {
   uri?: string;
 };
 
-/** Which signal the backend refused to move between accounts. */
-export type AomiAccountConflictSignal = "wallet" | "identity" | "email";
-
 export class AomiAccountRequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: string | null,
-    readonly signalType: AomiAccountConflictSignal | null = null,
+    readonly signalType: AccountConflictSignal | null = null,
   ) {
     super(formatAccountRequestError(status, code, signalType));
     this.name = "AomiAccountRequestError";
@@ -298,9 +299,7 @@ function extractErrorCode(error: unknown): string | null {
   return null;
 }
 
-function extractConflictSignal(
-  error: unknown,
-): AomiAccountConflictSignal | null {
+function extractConflictSignal(error: unknown): AccountConflictSignal | null {
   if (!error || typeof error !== "object" || !("signalType" in error)) {
     return null;
   }
@@ -310,24 +309,24 @@ function extractConflictSignal(
     : null;
 }
 
-const CONFLICT_MESSAGES: Record<AomiAccountConflictSignal, string> = {
+const CONFLICT_MESSAGES: Record<AccountConflictSignal, string> = {
   wallet:
-    "This wallet address is already linked to another Aomi account. Sign in to that account, unlink the wallet there, then return here and link it.",
+    "This wallet belongs to another Aomi account. Sign in another way to open that account, then unlink the wallet there.",
   identity:
-    "This sign-in method is already linked to another Aomi account. Sign in to that account, unlink it there, then return here and link it.",
+    "This sign-in method belongs to another Aomi account. Sign in another way to open that account.",
   email:
-    "This email is already linked to another Aomi account. Sign in to that account, unlink it there, then return here and link it.",
+    "This email belongs to another Aomi account. Sign in another way to open that account.",
 };
 
 function formatAccountRequestError(
   status: number,
   code: string | null,
-  signalType: AomiAccountConflictSignal | null,
+  signalType: AccountConflictSignal | null,
 ): string {
   if (status === 409 && code === "already_linked_to_another_account") {
     return (
       (signalType ? CONFLICT_MESSAGES[signalType] : undefined) ??
-      "This wallet or sign-in method is already linked to another Aomi account. Sign in to that account, unlink it there, then return here and link it."
+      "This wallet or sign-in method belongs to another Aomi account. Sign in another way to open that account."
     );
   }
   return code ?? `Request failed: ${status}`;
