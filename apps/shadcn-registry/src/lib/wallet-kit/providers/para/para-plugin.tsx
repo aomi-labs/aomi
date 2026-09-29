@@ -123,10 +123,12 @@ function isParaAuth(auth: AuthConfig | undefined): boolean {
 function ParaAuthLayer({
   auth,
   children,
+  placeholder,
   providers,
 }: {
   auth?: AuthConfig;
   children: ReactNode;
+  placeholder?: ReactNode;
   providers?: ProvidersConfig;
 }) {
   const enabled = isParaAuth(auth);
@@ -253,12 +255,15 @@ function ParaAuthLayer({
   }
 
   // Until the connector libraries load, ParaProvider renders nothing, and it
-  // wraps the whole host app. Keep the app on screen beside it (Para hooks here
-  // are all context-safe) and move it under ParaProvider once they arrive. The
-  // fixed slots keep the ParaProvider instance stable across that move.
+  // wraps the whole host app. Keep the app on screen beside it as the booting
+  // placeholder, and mount the wallet runtimes (`children`) only under
+  // ParaProvider once they arrive: mounting them beside it first would run
+  // wagmi's reconnect in a config that is then thrown away, and wagmi skips the
+  // real config's reconnect while that one is in flight. The fixed slots keep
+  // the ParaProvider instance stable across the switch.
   return (
     <>
-      {connectorsLoaded ? null : children}
+      {connectorsLoaded ? null : placeholder}
       <ParaProvider
         key={startupAttempt}
         paraClientConfig={paraClientConfig}

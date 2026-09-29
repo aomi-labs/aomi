@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { act } from "react";
+import { act, useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A tiny external store so the mocked `useParaStatus` can flip `isReady` at
@@ -90,13 +90,17 @@ vi.mock("@getpara/react-sdk", async () => {
 // Imported after the mocks are registered.
 const { paraPlugin } = await import("./para-plugin");
 
-function renderLayer(plugin = paraPlugin) {
+function renderLayer(
+  plugin = paraPlugin,
+  children: ReactNode = <div>widget-body</div>,
+) {
   return render(
     <>
       {plugin.wrap?.({
         auth: { provider: "para", methods: ["google"] },
         providers: { para: { apiKey: "test-api-key" } },
-        children: <div>widget-body</div>,
+        children,
+        placeholder: <div>booting-host</div>,
       })}
     </>,
   );
@@ -184,15 +188,25 @@ describe("Para connector loading", () => {
     vi.useRealTimers();
   });
 
-  it("keeps the host app on screen while Para loads its connectors, then moves it under ParaProvider", async () => {
+  it("shows the booting host while Para loads its connectors, then mounts the wallet runtimes once under ParaProvider", async () => {
     // A fresh module, so no earlier mount has recorded the connectors as loaded.
     vi.resetModules();
     const { paraPlugin: coldParaPlugin } = await import("./para-plugin");
     paraLibs.setLoaded(false);
-    renderLayer(coldParaPlugin);
+    // Stands in for WagmiProvider: every mount runs a reconnect, and wagmi
+    // skips it while an earlier mount's reconnect is still in flight.
+    let runtimeMounts = 0;
+    function WalletRuntime() {
+      useEffect(() => {
+        runtimeMounts += 1;
+      }, []);
+      return <div>widget-body</div>;
+    }
+    renderLayer(coldParaPlugin, <WalletRuntime />);
 
-    expect(screen.getByText("widget-body")).toBeTruthy();
+    expect(screen.getByText("booting-host")).toBeTruthy();
     expect(screen.queryByTestId("para-provider")).toBeNull();
+    expect(runtimeMounts).toBe(0);
     // Download time is not a startup failure.
     act(() => {
       vi.advanceTimersByTime(10_000);
@@ -202,10 +216,11 @@ describe("Para connector loading", () => {
     act(() => {
       paraLibs.setLoaded(true);
     });
-    expect(screen.getAllByText("widget-body")).toHaveLength(1);
+    expect(screen.queryByText("booting-host")).toBeNull();
     expect(screen.getByTestId("para-provider").textContent).toContain(
       "widget-body",
     );
+    expect(runtimeMounts).toBe(1);
   });
 });
 
