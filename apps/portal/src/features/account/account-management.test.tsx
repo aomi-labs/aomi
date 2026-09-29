@@ -67,10 +67,8 @@ describe("AccountManagement wallet actions", () => {
         wallets={[]}
         signInMethods={[]}
         canAddWallet
-        addSignInOptions={[]}
         pending={null}
         onAddWallet={onAddWallet}
-        onAddSignIn={async () => undefined}
       />,
     );
 
@@ -87,11 +85,9 @@ describe("AccountManagement wallet actions", () => {
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onRenameAccount={onRenameAccount}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
       />,
     );
 
@@ -121,11 +117,9 @@ describe("AccountManagement wallet actions", () => {
         wallets={[]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onRenameAccount={async () => undefined}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
       />,
     );
 
@@ -142,7 +136,7 @@ describe("AccountManagement wallet actions", () => {
     expect(screen.queryByDisplayValue("Temporary")).toBeNull();
   });
 
-  it("offers offline and live wallet actions in their row menus", () => {
+  it("offers Connect inline for an offline wallet and keeps disconnect in the row menu", () => {
     const onConnectWallet = vi.fn(async () => undefined);
     const onDisconnectWallet = vi.fn(async () => undefined);
     const onSelectWallet = vi.fn(async () => undefined);
@@ -153,10 +147,8 @@ describe("AccountManagement wallet actions", () => {
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
         onConnectWallet={onConnectWallet}
         onDisconnectWallet={onDisconnectWallet}
         onSelectWallet={onSelectWallet}
@@ -173,11 +165,8 @@ describe("AccountManagement wallet actions", () => {
       name: "Make 0xc0ff active",
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Actions for MetaMask 1 0xe9ba" }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Connect" }));
-    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByText("Not on this device")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Actions for Rabby 0xda65" }),
     );

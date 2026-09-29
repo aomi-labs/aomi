@@ -36,11 +36,8 @@ const runtimeState = vi.hoisted(() => ({
     createThread: vi.fn(async () => "thread-new"),
   },
 }));
-const controlState = vi.hoisted(() => ({
-  appDescriptors: [] as Array<{
-    name: string;
-    applicationId?: number | string | null;
-  }>,
+const settingsOpenRequest = vi.hoisted(() => ({
+  current: undefined as undefined | ((tab: string) => void),
 }));
 const accountOverviewState = vi.hoisted(() => ({
   current: null as null | { user: { user_id: string; apps?: string[] } },
@@ -48,8 +45,6 @@ const accountOverviewState = vi.hoisted(() => ({
 
 vi.mock("@aomi-labs/react", () => ({
   useAomiRuntime: () => runtimeState.current,
-  useControl: () => ({ state: controlState }),
-  usePerThreadControl: () => ({ actions: { onAppSelect: vi.fn() } }),
 }));
 
 vi.mock("@aomi-labs/widget-lib", async () => {
@@ -97,10 +92,11 @@ vi.mock("@aomi-labs/widget-lib", async () => {
       Composer: ({
         controlBarProps,
       }: {
-        controlBarProps?: { routing?: unknown };
+        controlBarProps?: { routing?: unknown; initialAppTag?: unknown };
       }) => (
         <div
           data-routing={JSON.stringify(controlBarProps?.routing)}
+          data-app-tag={JSON.stringify(controlBarProps?.initialAppTag ?? null)}
           data-testid="composer"
         />
       ),
@@ -122,9 +118,14 @@ vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
     </button>
   ),
   PackagesModal: () => <div data-testid="packages-modal" />,
-  SettingsModal: () => <div data-testid="settings-modal" />,
+  SettingsModal: ({ initialTab }: { initialTab?: string }) => (
+    <div data-testid="settings-modal" data-tab={initialTab} />
+  ),
   useAccountOverview: () => accountOverviewState.current,
   usePortalWalletAccountMenu: () => undefined,
+  useSettingsOpenRequest: (open: (tab: string) => void) => {
+    settingsOpenRequest.current = open;
+  },
 }));
 
 // Renders in place so the assertion below can check where the overlay is
@@ -152,8 +153,8 @@ describe("PortalAomiFrame account bootstrap", () => {
       applicationId: null,
       locked: false,
     };
-    controlState.appDescriptors = [];
     accountOverviewState.current = null;
+    settingsOpenRequest.current = undefined;
   });
 
   it("waits for the initial account lookup before mounting the frame", async () => {
@@ -349,57 +350,63 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
-  it("offers Auto and Direct while keeping Auto as the Portal default", () => {
-    walletKitState.current = {
-      accountStatus: "ready",
-      accountUser: { id: "acct-a" },
-    };
-    render(<PortalAomiFrame />);
-
-    expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
-      {
-        targets: [
-          { mode: "auto" },
-          { mode: "direct", apps: [{ app: "default" }] },
-        ],
-        defaultMode: "auto",
-      },
-    );
-  });
-
-  it("routes an installed hosted app by canonical application ID", () => {
+  it("runs Auto only, with no Direct targets, even with installed apps", () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
     };
     accountOverviewState.current = {
-      user: {
-        user_id: "acct-a",
-        apps: ["default", "credential-demo"],
-        application_ids: [16],
-      },
+      user: { user_id: "acct-a", apps: ["default", "credential-demo"] },
     };
-    controlState.appDescriptors = [
-      { name: "default", applicationId: null },
-      { name: "credential-demo", applicationId: 16 },
-    ];
 
     render(<PortalAomiFrame />);
 
     expect(JSON.parse(screen.getByTestId("composer").dataset.routing!)).toEqual(
-      {
-        targets: [
-          { mode: "auto" },
-          {
-            mode: "direct",
-            apps: [
-              { app: "default" },
-              { app: "credential-demo", applicationId: 16 },
-            ],
-          },
-        ],
-        defaultMode: "auto",
-      },
+      { targets: [{ mode: "auto" }] },
+    );
+  });
+
+  it("pre-tags an unlocked ?app= link instead of routing it Direct", () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    requestedAppState.current = {
+      app: "credential-demo",
+      applicationId: "16",
+      locked: false,
+    };
+
+    render(<PortalAomiFrame />);
+
+    const composer = screen.getByTestId("composer");
+    expect(JSON.parse(composer.dataset.routing!)).toEqual({
+      targets: [{ mode: "auto" }],
+    });
+    expect(JSON.parse(composer.dataset.appTag!)).toEqual({
+      app: "credential-demo",
+      applicationId: 16,
+    });
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-agent-target",
+      "",
+    );
+  });
+
+  it("opens Settings on the tab an in-chat control requests", async () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    render(<PortalAomiFrame />);
+
+    await act(async () => {
+      settingsOpenRequest.current?.("policy");
+    });
+
+    expect(screen.getByTestId("settings-modal")).toHaveAttribute(
+      "data-tab",
+      "policy",
     );
   });
 
@@ -512,8 +519,10 @@ describe("PortalAomiFrame account bootstrap", () => {
           },
         ],
         defaultMode: "direct",
-        showFixedControls: true,
       },
+    );
+    expect(JSON.parse(screen.getByTestId("composer").dataset.appTag!)).toBe(
+      null,
     );
   });
 });

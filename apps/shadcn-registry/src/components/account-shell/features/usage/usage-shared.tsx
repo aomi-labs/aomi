@@ -10,6 +10,7 @@ import type {
   UsagePeriod,
 } from "./types";
 import { ExternalLink } from "lucide-react";
+import { SectionHeader } from "../../../ui/aomi/section-header";
 
 /* ---------------------------------------------------------------------- */
 /* Formatting                                                              */
@@ -509,21 +510,22 @@ export function StatTile({
 }
 
 export const USAGE_MATRIX_HINT =
-  "Hover a cell for counts · — means not billed · $0 + app key = app BYOK";
+  "Hover a cell for counts. — means not billed. $0 with an app key means the app uses its own key.";
 
+const SPEND_BREAKDOWN_HINT =
+  "Compute is models plus tool calls, billed against your allowance. On-chain fees settle separately, in-token, on your transactions.";
+
+/** Usage's section heading: the shared `SectionHeader` with Usage's prop names. */
 export function SectionHeading({
   title,
+  detail,
   hint,
 }: {
   title: string;
+  detail?: string;
   hint?: string;
 }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 px-0.5">
-      <span className="text-[12px] font-semibold leading-none">{title}</span>
-      {hint && <span className="text-aomi-muted text-[11px]">{hint}</span>}
-    </div>
-  );
+  return <SectionHeader title={title} detail={detail} help={hint} />;
 }
 
 export function PeriodTotalHero({
@@ -609,7 +611,12 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
     <section className="flex flex-col gap-2.5">
       <SectionHeading
         title="Spend breakdown"
-        hint={`${computeShare}% compute · ${onchainShare}% on-chain`}
+        detail={`${computeShare}% compute · ${onchainShare}% on-chain`}
+        hint={
+          summary.managedMarkupUsd > 0
+            ? `${SPEND_BREAKDOWN_HINT} Compute includes ${usd(summary.managedMarkupUsd)} managed markup on third-party apps.`
+            : SPEND_BREAKDOWN_HINT
+        }
       />
       <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
         <StatTile
@@ -632,17 +639,6 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
           }
         />
       </div>
-      <p className="text-aomi-muted px-0.5 text-[12px] leading-snug">
-        Compute subtotal {usd(summary.computeUsd)} (models + tools)
-        {summary.managedMarkupUsd > 0 && (
-          <>
-            {" "}
-            · includes {usd(summary.managedMarkupUsd)} managed markup on
-            third-party apps
-          </>
-        )}
-        . On-chain fees settle separately in-token on your transactions.
-      </p>
     </section>
   );
 }
@@ -670,7 +666,10 @@ export function AllowanceSettlementSection({
 
   return (
     <section className="flex flex-col gap-2.5">
-      <SectionHeading title="Allowance & settlement" />
+      <SectionHeading
+        title="Allowance & settlement"
+        detail="How usage is paid"
+      />
       <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
         {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
           <>

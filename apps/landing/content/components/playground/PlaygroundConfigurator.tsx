@@ -29,7 +29,7 @@ type PlaygroundState = {
   walletPosition: WalletPosition;
   controlPlacement: ControlPlacement;
   showModel: boolean;
-  showApp: boolean;
+  showSafety: boolean;
   showApiKey: boolean;
   showWallet: boolean;
   showNetwork: boolean;
@@ -40,7 +40,7 @@ const DEFAULT_STATE: PlaygroundState = {
   walletPosition: "footer",
   controlPlacement: "header",
   showModel: true,
-  showApp: true,
+  showSafety: true,
   showApiKey: false,
   showWallet: false,
   showNetwork: true,
@@ -55,12 +55,12 @@ function generateCode(s: PlaygroundState): string {
     s.walletPosition === "hidden" ? "null" : `"${s.walletPosition}"`;
 
   const hasAnyControl =
-    s.showModel || s.showApp || s.showApiKey || s.showWallet || s.showNetwork;
+    s.showModel || s.showSafety || s.showApiKey || s.showWallet || s.showNetwork;
 
   const controlBarEntries: string[] = [];
   if (!s.showNetwork) controlBarEntries.push("hideNetwork: true");
   if (!s.showModel) controlBarEntries.push("hideModel: true");
-  if (!s.showApp) controlBarEntries.push("hideApp: true");
+  if (!s.showSafety) controlBarEntries.push("hideSafety: true");
   if (!s.showApiKey) controlBarEntries.push("hideApiKey: true");
   if (s.showWallet) controlBarEntries.push("hideWallet: false");
 
@@ -186,9 +186,9 @@ const LayoutPanel: FC<{
           onChange={(v) => update({ showModel: v })}
         />
         <Checkbox
-          label="App"
-          checked={state.showApp}
-          onChange={(v) => update({ showApp: v })}
+          label="Safety"
+          checked={state.showSafety}
+          onChange={(v) => update({ showSafety: v })}
         />
         <Checkbox
           label="API Key"
@@ -256,7 +256,7 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
     () => ({
       hideNetwork: !state.showNetwork,
       hideModel: !state.showModel,
-      hideApp: !state.showApp,
+      hideSafety: !state.showSafety,
       hideApiKey: !state.showApiKey,
       hideWallet: !state.showWallet,
     }),
@@ -265,7 +265,7 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
 
   const hasAnyControl =
     state.showModel ||
-    state.showApp ||
+    state.showSafety ||
     state.showApiKey ||
     state.showWallet ||
     state.showNetwork;

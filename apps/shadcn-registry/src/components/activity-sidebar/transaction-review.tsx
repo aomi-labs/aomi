@@ -3,14 +3,26 @@ import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility } from "@aomi-labs/client";
 import { Wallet, Fuel } from "lucide-react";
-import { Button } from "../ui/button";
+import { cn } from "@aomi-labs/react";
+import { AomiButton, aomiButton } from "../ui/aomi/button";
 import { ImpactPanel } from "./wallet-impact";
 import {
   type SupportedChain,
   visibleSimulationWarnings,
   compact,
   simulationCostSummary,
+  focusRing,
 } from "./presentation";
+
+/** The review actions keep their pill shape: they are the panel's one decision. */
+const reviewButtonClass = cn(focusRing, "h-10 rounded-full");
+// One half of the "Submit n of m | Submit all" split button. No size variant:
+// the shared pill container owns the radius, so the halves stay square.
+const splitSegment = cn(
+  aomiButton({ variant: "primary", size: null }),
+  focusRing,
+  "type-control h-10 rounded-none px-3",
+);
 
 export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
   request: ActionRequest;
@@ -86,7 +98,7 @@ export function TransactionReview({
       className="text-aomi-fg animate-in fade-in-0 slide-in-from-top-2 mt-3 min-w-0 duration-300 motion-reduce:animate-none"
     >
       {warnings.length > 0 && (
-        <div className="border-aomi-warning/20 bg-aomi-warning/5 text-aomi-warning mb-3 rounded-xl border p-3 text-[12px]">
+        <div className="border-aomi-warning/20 bg-aomi-warning/5 text-aomi-warning rounded-card type-meta mb-3 border p-3">
           {warnings.map((warning, index) => (
             <p key={index} className="break-words">
               {warning}
@@ -107,12 +119,12 @@ export function TransactionReview({
         {request.type === "sign" ? (
           <SigningRequestMetadata request={request} />
         ) : null}
-        <dl className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-[11px]">
+        <dl className="type-meta flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           {[...new Set(signers)].filter(Boolean).map((signer) => (
             <div key={signer} className="flex items-center gap-2">
               <Wallet className="text-aomi-muted size-3.5 shrink-0" />
               <dt className="sr-only">Signing wallet</dt>
-              <dd title={signer} className="truncate">
+              <dd title={signer} className="type-address truncate">
                 {compact(signer)}
               </dd>
             </div>
@@ -124,9 +136,13 @@ export function TransactionReview({
         </dl>
       </div>
       {request.type === "sign" && (
-        <details className="text-aomi-muted mt-3 text-[11px]">
-          <summary className="cursor-pointer">Signing request</summary>
-          <pre className="bg-aomi-surface mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-lg p-2">
+        <details className="type-meta text-aomi-muted mt-3">
+          <summary
+            className={cn(focusRing, "rounded-control w-fit cursor-pointer")}
+          >
+            Signing request
+          </summary>
+          <pre className="bg-aomi-surface rounded-control mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all p-2">
             {JSON.stringify(request, null, 2)}
           </pre>
         </details>
@@ -134,7 +150,7 @@ export function TransactionReview({
       {status && (
         <p
           role={statusIsError ? "alert" : "status"}
-          className="text-aomi-muted mt-3 text-[11px]"
+          className="type-meta text-aomi-muted mt-3"
         >
           {status}
         </p>
@@ -148,35 +164,35 @@ export function TransactionReview({
               : "mt-3 grid grid-cols-[1fr_1.7fr] gap-2"
         }
       >
-        <Button
-          type="button"
-          variant="outline"
+        <AomiButton
+          variant="danger"
+          className={reviewButtonClass}
           onClick={onReject}
           disabled={approving || rejectDisabled}
-          className="border-aomi-border bg-aomi-raised text-aomi-muted hover:bg-aomi-hover h-10 rounded-full text-[12px]"
         >
           {failed ? "Reject request" : "Reject"}
-        </Button>
+        </AomiButton>
         {!failed &&
           (onApproveAll && batchProgress ? (
             <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
-              <Button
+              <button
                 type="button"
                 onClick={onApprove}
                 disabled={
                   approving || approveDisabled || batchProgress.submitting
                 }
-                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 min-w-0 flex-1 rounded-none px-3 text-[12px] hover:opacity-90"
+                className={`${splitSegment} min-w-0 flex-1`}
               >
                 {approving
                   ? "Working…"
-                  : `Submit ${batchProgress.current} of ${batchProgress.total}`}
-              </Button>
+                  : (approveLabel ??
+                    `Submit ${batchProgress.current} of ${batchProgress.total}`)}
+              </button>
               <span
                 className="bg-aomi-bg/25 my-2 w-px shrink-0"
                 aria-hidden="true"
               />
-              <Button
+              <button
                 type="button"
                 onClick={onApproveAll}
                 disabled={
@@ -185,21 +201,21 @@ export function TransactionReview({
                   approveAllDisabled ||
                   batchProgress.submitting
                 }
-                className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 shrink-0 rounded-none px-3 text-[12px] hover:opacity-90"
+                className={splitSegment}
               >
                 {batchProgress.submitting ? "Submitting…" : "Submit all"}
-              </Button>
+              </button>
             </div>
           ) : (
-            <Button
-              type="button"
+            <AomiButton
+              variant="primary"
+              className={reviewButtonClass}
               onClick={onApprove}
               disabled={
                 approving || approveDisabled || batchProgress?.submitting
               }
-              className="bg-aomi-fg text-aomi-bg hover:bg-aomi-fg h-10 rounded-full text-[12px] hover:opacity-90"
             >
-              <Wallet className="size-4" />
+              <Wallet />
               {approving
                 ? "Working…"
                 : approveLabel
@@ -207,7 +223,7 @@ export function TransactionReview({
                   : batchProgress
                     ? `Submit ${batchProgress.current} of ${batchProgress.total}`
                     : "Submit"}
-            </Button>
+            </AomiButton>
           ))}
       </footer>
     </section>
@@ -241,7 +257,7 @@ function SigningRequestMetadata({
 
   if (facts.length === 0 && !request.fees?.length) return null;
   return (
-    <dl className="border-aomi-border bg-aomi-raised grid gap-2 rounded-xl border p-3 text-[11px]">
+    <dl className="border-aomi-border bg-aomi-raised rounded-card type-meta grid gap-2 border p-3">
       {facts.map((fact) => (
         <div
           key={fact.label}

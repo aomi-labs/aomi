@@ -135,15 +135,21 @@ import { ModelSelect } from "@/components/control-bar";
 <ModelSelect placeholder="Choose model" className="w-[200px]" />
 ```
 
-### AppSelect
+### SafetySelect
 
-Dropdown to select the app (AI agent/application).
+Per-chat transaction safety (Strict, Balanced, Yolo). Renders only for a
+signed-in account. In the composer, a level picked on a new chat is saved
+before the first message is sent; placed elsewhere, it unlocks after the first
+message. Yolo asks for confirmation and can never be the account default.
 
 ```tsx
-import { AppSelect } from "@/components/control-bar";
+import { SafetySelect } from "@/components/control-bar";
 
-<AppSelect placeholder="Choose agent" className="w-[200px]" />
+<SafetySelect />
 ```
+
+There is no app or mode selector: agent routing is a host setting (the
+`routing` control bar prop).
 
 ### ApiKeyInput
 
@@ -217,7 +223,7 @@ aomi-frame
 │   └── sidebar (shadcn)
 ├── control-bar/
 │   ├── model-select
-│   ├── app-select
+│   ├── safety-select
 │   ├── api-key-input
 │   ├── wallet-connect
 │   └── network-select

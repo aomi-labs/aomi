@@ -30,6 +30,7 @@ import {
   approvalTitle,
   approvalScope,
   compact,
+  focusRing,
 } from "./presentation";
 const REVIEW_PAGE_SIZE = 2;
 
@@ -52,7 +53,10 @@ function ReviewPager({
         type="button"
         onClick={() => onMove(-1)}
         aria-label={`Previous ${subject}`}
-        className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-6 items-center justify-center rounded-full transition-colors"
+        className={cn(
+          focusRing,
+          "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-6 items-center justify-center rounded-full transition-colors",
+        )}
       >
         <ChevronLeft className="size-3" />
       </button>
@@ -63,7 +67,10 @@ function ReviewPager({
         type="button"
         onClick={() => onMove(1)}
         aria-label={`Next ${subject}`}
-        className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-6 items-center justify-center rounded-full transition-colors"
+        className={cn(
+          focusRing,
+          "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-6 items-center justify-center rounded-full transition-colors",
+        )}
       >
         <ChevronRight className="size-3" />
       </button>
@@ -116,10 +123,10 @@ export function ImpactPanel({
       aria-label="Simulated wallet impact"
       data-change-count={balanceChanges.length}
       data-approval-count={approvals.length}
-      className={cn("bg-aomi-surface flex min-w-0 flex-col rounded-[14px] p-3")}
+      className="bg-aomi-surface rounded-card flex min-w-0 flex-col p-3"
     >
       <div className="mb-2 flex items-center gap-2 px-1">
-        <p className="text-aomi-muted flex-1 text-[12px] font-medium">
+        <p className="type-meta text-aomi-muted flex-1 font-medium">
           {heading}
         </p>
         {pages > 1 ? (
@@ -161,14 +168,14 @@ export function ImpactPanel({
               <Info className="size-3.5" />
             </span>
             <div className="min-w-0">
-              <p className="text-[12px] font-medium">
+              <p className="type-meta font-medium">
                 {request.type === "sign"
                   ? "Signature only"
                   : failed
                     ? "No wallet changes simulated"
                     : "Wallet changes unavailable"}
               </p>
-              <p className="text-aomi-muted text-[11px] leading-4">
+              <p className="type-meta text-aomi-muted">
                 {request.type === "sign"
                   ? "Review the full signing request below."
                   : failed
@@ -253,16 +260,16 @@ function AssetChange({
       change.standard !== "erc1155" ? (
         <>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium" title={symbol}>
+            <p className="type-control truncate font-medium" title={symbol}>
               {symbol}
             </p>
-            <p className="text-aomi-muted mt-0.5 truncate text-[11px]">
+            <p className="type-meta text-aomi-muted mt-0.5 truncate">
               {context || presentation.verb}
             </p>
           </div>
           <p
             className={cn(
-              "max-w-[60%] whitespace-nowrap text-right text-[12px] font-medium tabular-nums",
+              "type-meta max-w-[60%] whitespace-nowrap text-right font-medium tabular-nums",
               incoming
                 ? "text-aomi-success"
                 : outgoing
@@ -276,7 +283,7 @@ function AssetChange({
             }
           >
             {decimals == null && /^\d+$/.test(change.amount) ? (
-              <span className="text-aomi-muted text-[11px] font-normal">
+              <span className="text-aomi-muted font-normal">
                 {loading ? "Loading amount…" : "Amount unavailable"}
               </span>
             ) : (
@@ -291,7 +298,7 @@ function AssetChange({
       ) : (
         <>
           <div className="min-w-0 flex-1">
-            <p className="text-aomi-muted text-[11px] font-medium uppercase leading-4 tracking-[0.08em]">
+            <p className="type-eyebrow text-aomi-muted">
               {presentation.verb}
               {context ? (
                 <span className="ml-1 normal-case tracking-normal">
@@ -301,7 +308,7 @@ function AssetChange({
             </p>
             <p
               className={cn(
-                "truncate text-[13px] font-medium tabular-nums leading-5",
+                "type-control truncate font-medium tabular-nums",
                 incoming
                   ? "text-aomi-success"
                   : outgoing
@@ -312,7 +319,7 @@ function AssetChange({
               {presentation.value}
             </p>
             {presentation.detail ? (
-              <p className="text-aomi-muted leading-3.5 truncate text-[10px]">
+              <p className="type-meta text-aomi-muted truncate">
                 {presentation.detail}
               </p>
             ) : null}
@@ -423,7 +430,7 @@ function ApprovalEffect({
         )}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-aomi-muted text-[10px] font-medium uppercase tracking-[0.08em]">
+        <p className="type-eyebrow text-aomi-muted">
           {revoked ? "Permission removed" : "Permission requested"}
           {network ? (
             <span className="ml-1 normal-case tracking-normal">
@@ -433,7 +440,7 @@ function ApprovalEffect({
         </p>
         <p
           className={cn(
-            "truncate text-[13px] font-medium leading-5",
+            "type-control truncate font-medium",
             approval.unlimited && !revoked
               ? "text-aomi-warning"
               : "text-aomi-fg",
@@ -442,7 +449,7 @@ function ApprovalEffect({
         >
           {title}
         </p>
-        <p className="text-aomi-muted leading-3.5 truncate text-[10px]">
+        <p className="type-meta text-aomi-muted truncate">
           {scope} · To {compact(approval.spender)}
         </p>
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAomiRouting, shouldShowDirectAppSelect } from "./routing";
+import { normalizeAomiRouting } from "./routing";
 
 describe("normalizeAomiRouting", () => {
   it("defaults an unconfigured widget to Auto only", () => {
@@ -7,7 +7,6 @@ describe("normalizeAomiRouting", () => {
       modes: ["auto"],
       directApps: [],
       defaultMode: "auto",
-      showFixedControls: false,
       error: null,
     });
   });
@@ -36,50 +35,21 @@ describe("normalizeAomiRouting", () => {
     });
   });
 
+  it("honors a host Direct default alongside Auto", () => {
+    expect(
+      normalizeAomiRouting({
+        targets: [
+          { mode: "auto" },
+          { mode: "direct", apps: [{ app: "uniswap" }] },
+        ],
+        defaultMode: "direct",
+      }),
+    ).toMatchObject({ defaultMode: "direct", error: null });
+  });
+
   it("rejects Direct without a target", () => {
     expect(
       normalizeAomiRouting({ targets: [{ mode: "direct", apps: [] }] }).error,
     ).toContain("at least one app");
-  });
-});
-
-describe("shouldShowDirectAppSelect", () => {
-  it("shows the target segment for a selectable Auto/Direct surface", () => {
-    const routing = normalizeAomiRouting({
-      targets: [
-        { mode: "auto" },
-        { mode: "direct", apps: [{ app: "uniswap" }] },
-      ],
-    });
-
-    expect(shouldShowDirectAppSelect("auto", routing)).toBe(false);
-    expect(shouldShowDirectAppSelect("direct", routing)).toBe(true);
-  });
-
-  it("hides only a host-fixed Direct target", () => {
-    const fixed = normalizeAomiRouting({
-      targets: [{ mode: "direct", apps: [{ app: "uniswap" }] }],
-    });
-    const selectable = normalizeAomiRouting({
-      targets: [
-        {
-          mode: "direct",
-          apps: [{ app: "uniswap" }, { app: "aave" }],
-        },
-      ],
-    });
-
-    expect(shouldShowDirectAppSelect("direct", fixed)).toBe(false);
-    expect(shouldShowDirectAppSelect("direct", selectable)).toBe(true);
-  });
-
-  it("can expose a host-fixed Direct destination as read-only choices", () => {
-    const fixed = normalizeAomiRouting({
-      targets: [{ mode: "direct", apps: [{ app: "hoodit" }] }],
-      showFixedControls: true,
-    });
-
-    expect(fixed.showFixedControls).toBe(true);
-    expect(shouldShowDirectAppSelect("direct", fixed)).toBe(true);
   });
 });

@@ -38,8 +38,15 @@ function walletMismatchMessage(failureCode: string | null | undefined): string {
 }
 
 /** Presents the next durable Action and submits only an explicit user choice. */
-// The transaction card's progress bar already shows these phases.
-const QUIET_PHASES = new Set(["ready", "preparing", "submitted"]);
+// Only outcomes that need the user's attention get a line under the review.
+// Progress phases (wallet prompt, network switch, waiting on a predecessor)
+// already show in the Submit button and the transaction card's progress bar.
+const NOTICE_PHASES = new Set([
+  "checking_submission",
+  "rejected",
+  "failed",
+  "expired",
+]);
 
 export function WalletReview() {
   const {
@@ -317,11 +324,9 @@ export function WalletReview() {
         ? `Execution blocked: ${eligibility.reason ?? "review failed"}`
         : eligibilityBlocksNewAttempt && eligibility?.state === "unresolved"
           ? eligibility.reason
-          : lifecycle?.phase === "ready" && batchSubmission
-            ? "Submitting in order; waiting for each confirmation."
-            : lifecycle && QUIET_PHASES.has(lifecycle.phase)
-              ? undefined
-              : lifecycle?.label;
+          : lifecycle && NOTICE_PHASES.has(lifecycle.phase)
+            ? lifecycle.label
+            : undefined;
   const activeBatchReview = Boolean(
     batchSubmission &&
     liveCommit?.batch?.batch_id === batchSubmission.batchId &&
@@ -363,7 +368,9 @@ export function WalletReview() {
         approveLabel={
           lifecycle?.phase === "checking_submission"
             ? "Check status"
-            : undefined
+            : lifecycle?.phase === "waiting_predecessor"
+              ? "Waiting…"
+              : undefined
         }
         onApprove={() => void decide(true)}
         onApproveAll={

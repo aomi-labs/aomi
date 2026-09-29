@@ -1,14 +1,14 @@
 import {
   Ellipsis,
-  Link2,
   Loader2,
-  Plug,
-  Plus,
   Unlink,
   Unplug,
   UserRoundMinus,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { cn } from "@aomi-labs/react";
+import { aomiButton } from "../../../../ui/aomi/button";
+import { StatusPill } from "../../../../ui/aomi/status-pill";
 import {
   Popover,
   PopoverContent,
@@ -18,252 +18,272 @@ import type { LinkedAuthAccount } from "../../../../../lib/wallet-kit/account/ty
 import { shortenAddress } from "../account-api";
 import { WalletProviderAvatar } from "../wallet-brands";
 import type { ManagedWallet } from "../wallet-management-model";
+import {
+  addressLineStatus,
+  familyName,
+  providerName,
+  type LoginProvider,
+} from "./wallet-groups";
 
-export function WalletRow({
+type WalletHandler = (wallet: ManagedWallet) => Promise<void>;
+
+export type WalletLineHandlers = {
+  pending: string | null;
+  onLink?: WalletHandler;
+  onConnect?: WalletHandler;
+  onSelect?: WalletHandler;
+  onDisconnect?: WalletHandler;
+  onUnlink?: WalletHandler;
+};
+
+const hasAction = (
+  wallet: ManagedWallet,
+  kind: ManagedWallet["actions"][number]["kind"],
+) => wallet.actions.some((action) => action.kind === kind);
+
+const canUnlink = (wallet: ManagedWallet, onUnlink?: WalletHandler) =>
+  Boolean(onUnlink && wallet.linkedWalletId && hasAction(wallet, "unlink"));
+
+/**
+ * A Para or Privy login: a static header (logo, identifier, whether it is
+ * signed in here, and the login's ⋯) over one address line per wallet.
+ */
+export function ProviderWalletCard({
+  provider,
+  identity,
+  wallets,
+  onUnlinkSignIn,
+  ...handlers
+}: WalletLineHandlers & {
+  provider: LoginProvider;
+  identity?: LinkedAuthAccount;
+  wallets: ManagedWallet[];
+  onUnlinkSignIn?: (account: LinkedAuthAccount) => Promise<void>;
+}) {
+  const { pending, onDisconnect, onUnlink } = handlers;
+  const name = providerName(provider);
+  const signedIn = wallets.some(
+    (wallet) =>
+      wallet.connected &&
+      (wallet.state === "ready" ||
+        (wallet.state === "offline" && wallet.reason === "selection_required")),
+  );
+  const detail = [
+    identity?.displayLabel ?? identity?.email,
+    wallets.length
+      ? signedIn
+        ? "signed in on this device"
+        : "not signed in on this device"
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const disconnectable = onDisconnect
+    ? wallets.filter((wallet) => hasAction(wallet, "disconnect"))
+    : [];
+  const actions: WalletMenuAction[] = [];
+  if (disconnectable.length) {
+    actions.push({
+      label: "Disconnect on this device",
+      icon: <Unplug size={15} />,
+      onSelect: async () => {
+        for (const wallet of disconnectable) await onDisconnect!(wallet);
+      },
+    });
+  }
+  for (const wallet of wallets) {
+    if (!canUnlink(wallet, onUnlink)) continue;
+    actions.push({
+      label: `Unlink ${familyName(wallet)} address`,
+      icon: <Unlink size={15} />,
+      onSelect: () => onUnlink!(wallet),
+    });
+  }
+  if (identity && onUnlinkSignIn) {
+    actions.push({
+      label: `Unlink ${name} sign-in`,
+      icon: <UserRoundMinus size={15} />,
+      onSelect: () => onUnlinkSignIn(identity),
+    });
+  }
+  const busy =
+    (identity !== undefined && pending === `unlink-identity:${identity.id}`) ||
+    wallets.some(
+      (wallet) =>
+        pending === `disconnect:${wallet.key}` ||
+        pending === `unlink:${wallet.key}`,
+    );
+
+  return (
+    <div data-wallet-provider={provider}>
+      <div className="flex min-h-14 items-center gap-3 px-3.5 py-3">
+        <WalletProviderAvatar markKey={provider} size={17} />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="type-row truncate">{name}</span>
+          {detail ? (
+            <span className="type-meta text-aomi-muted truncate">{detail}</span>
+          ) : null}
+        </div>
+        {actions.length ? (
+          <WalletActionsMenu
+            label={`Actions for ${name}`}
+            actions={actions}
+            disabled={pending !== null}
+            busy={busy}
+          />
+        ) : null}
+      </div>
+      {wallets.map((wallet) => (
+        <AddressLine key={wallet.key} wallet={wallet} nested {...handlers} />
+      ))}
+    </div>
+  );
+}
+
+/** An external wallet: one address line in the shared wallet group. */
+export function ExternalWalletCard({
   wallet,
+  ...handlers
+}: WalletLineHandlers & { wallet: ManagedWallet }) {
+  return <AddressLine wallet={wallet} {...handlers} />;
+}
+
+/**
+ * The click target for a wallet. A selectable line makes that address the
+ * active one for its family; the active line carries the green bar and glow.
+ * Lines that cannot be selected show only their status and inline fix.
+ */
+function AddressLine({
+  wallet,
+  nested = false,
   pending,
   onLink,
   onConnect,
   onSelect,
   onDisconnect,
   onUnlink,
-  signInMethods = [],
-  onUnlinkSignIn,
-}: {
-  wallet: ManagedWallet;
-  signInMethods?: LinkedAuthAccount[];
-  onUnlinkSignIn?: (account: LinkedAuthAccount) => Promise<void>;
-  pending: string | null;
-  onLink?: (wallet: ManagedWallet) => Promise<void>;
-  onConnect?: (wallet: ManagedWallet) => Promise<void>;
-  onSelect?: (wallet: ManagedWallet) => Promise<void>;
-  onDisconnect?: (wallet: ManagedWallet) => Promise<void>;
-  onUnlink?: (wallet: ManagedWallet) => Promise<void>;
-}) {
-  const providerBrandKey =
-    wallet.provider === "privy" || wallet.provider === "para"
-      ? wallet.provider
-      : undefined;
+}: WalletLineHandlers & { wallet: ManagedWallet; nested?: boolean }) {
+  const family = familyName(wallet);
+  const short = shortenAddress(wallet.address);
   const title =
-    (providerBrandKey ? titleCase(providerBrandKey) : undefined) ??
     wallet.walletName ??
     wallet.label ??
     (wallet.provider ? titleCase(wallet.provider) : undefined) ??
-    (wallet.family === "evm" ? "EVM wallet" : "SVM wallet");
+    `${family} wallet`;
+  const status = addressLineStatus(wallet);
+  const inlineHandler =
+    status?.action?.kind === "link"
+      ? onLink
+      : status?.action
+        ? onConnect
+        : undefined;
+  const selectable = Boolean(hasAction(wallet, "select") && onSelect);
   const busy = pending?.endsWith(wallet.key) ?? false;
-  const hasAction = (kind: ManagedWallet["actions"][number]["kind"]) =>
-    wallet.actions.some((action) => action.kind === kind);
-  const selectable = Boolean(hasAction("select") && onSelect);
-  const stateDetail =
-    wallet.state === "mismatch"
-      ? "This provider wallet does not match the wallet linked to your account."
-      : wallet.state === "loading"
-        ? "Checking this wallet against your account…"
-        : wallet.state === "offline" && wallet.reason === "provider_unavailable"
-          ? `${wallet.provider ? titleCase(wallet.provider) : "This wallet provider"} is not available on this site.`
-          : wallet.state === "offline" && wallet.reason === "signer_unavailable"
-            ? "This wallet's signer is unavailable. Sign in again to reconnect it."
-            : wallet.state === "offline" && wallet.reason === "account_error"
-              ? "Could not verify this wallet against your account. Refresh to try again."
-              : wallet.state === "offline" &&
-                  wallet.reason === "selection_required"
-                ? "Ready to use. Select this wallet to make it active."
-                : wallet.state === "offline"
-                  ? null
-                  : null;
+
   const menuActions: WalletMenuAction[] = [];
-  if (hasAction("link") && onLink && wallet.kind === "external") {
-    menuActions.push({
-      label: "Link",
-      icon: <Link2 size={15} />,
-      onSelect: () => void onLink(wallet),
-    });
-  }
-  if ((hasAction("connect") || hasAction("reauthenticate")) && onConnect) {
-    menuActions.push({
-      label: hasAction("reauthenticate") ? "Sign in again" : "Connect",
-      icon: <Plug size={15} />,
-      onSelect: () => void onConnect(wallet),
-    });
-  }
-  if (hasAction("disconnect") && onDisconnect) {
+  if (!nested && hasAction(wallet, "disconnect") && onDisconnect) {
     menuActions.push({
       label: "Disconnect",
       icon: <Unplug size={15} />,
-      onSelect: () => void onDisconnect(wallet),
+      onSelect: () => onDisconnect(wallet),
     });
   }
-  if (hasAction("unlink") && wallet.linkedWalletId && onUnlink) {
+  if (!nested && canUnlink(wallet, onUnlink)) {
     menuActions.push({
       label: "Unlink wallet",
       icon: <Unlink size={15} />,
-      onSelect: () => void onUnlink(wallet),
+      onSelect: () => onUnlink!(wallet),
     });
   }
-  if (onUnlinkSignIn) {
-    for (const account of signInMethods) {
-      menuActions.push({
-        label: `Unlink ${titleCase(account.provider)} sign-in`,
-        icon: <UserRoundMinus size={15} />,
-        onSelect: () => void onUnlinkSignIn(account),
-      });
-    }
-  }
-  const walletContent = (
+
+  const address = `${short} · ${family}`;
+  const content = nested ? (
+    <span className="type-address text-aomi-fg min-w-0 truncate">
+      {address}
+    </span>
+  ) : (
     <>
       <WalletProviderAvatar
-        markKey={
-          providerBrandKey ??
-          `${wallet.walletName ?? ""} ${wallet.label ?? ""} ${wallet.provider ?? ""}`
-        }
+        markKey={`${wallet.walletName ?? ""} ${wallet.label ?? ""} ${wallet.provider ?? ""}`}
         size={17}
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="truncate text-[13px] font-medium">{title}</span>
-          {wallet.connected ? (
-            <StatusBadge label="Connected" tone="connected" />
-          ) : null}
-          {wallet.linked ? <StatusBadge label="Linked" tone="linked" /> : null}
-          {wallet.operating ? (
-            <StatusBadge label="Active" tone="active" />
-          ) : null}
-        </div>
-        <span className="text-aomi-muted block truncate font-mono text-[11px]">
-          {shortenAddress(wallet.address)} ·{" "}
-          {wallet.family === "evm" ? "EVM" : "SVM"}
-        </span>
-        {stateDetail ? (
-          <span
-            className={`mt-0.5 block text-[11px] ${
-              wallet.state === "mismatch"
-                ? "text-aomi-danger"
-                : "text-aomi-muted"
-            }`}
-          >
-            {stateDetail}
-          </span>
-        ) : null}
-      </div>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="type-row truncate">{title}</span>
+        <span className="type-address text-aomi-muted truncate">{address}</span>
+      </span>
     </>
   );
+  const padding = nested ? "min-h-11 py-2.5 pl-[58px]" : "min-h-14 py-3 pl-3.5";
 
   return (
     <div
-      data-wallet-state={
-        wallet.operating
-          ? "active"
-          : wallet.state === "mismatch"
-            ? "mismatch"
-            : wallet.connected
-              ? "connected"
-              : "linked"
-      }
-      className={`relative flex items-stretch transition-colors ${
+      data-wallet-state={wallet.operating ? "active" : wallet.state}
+      className={cn(
+        "group relative flex items-center transition-colors",
+        nested && "border-aomi-border border-t",
         wallet.operating
           ? "bg-aomi-success/[0.045]"
-          : selectable
-            ? "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset"
-            : ""
-      }`}
+          : selectable &&
+              "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset",
+      )}
     >
       {wallet.operating ? (
         <span
-          className="bg-aomi-success absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full shadow-[0_0_12px_rgba(16,185,129,0.45)]"
+          className="bg-aomi-success absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full shadow-[0_0_12px_color-mix(in_srgb,var(--aomi-success)_45%,transparent)]"
           aria-hidden="true"
         />
       ) : null}
       {selectable ? (
         <button
           type="button"
-          aria-label={`Make ${shortenAddress(wallet.address)} active`}
+          aria-label={`Make ${short} active`}
           disabled={pending !== null}
           onClick={() => void onSelect?.(wallet)}
-          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left outline-none disabled:cursor-default"
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-3 self-stretch pr-3 text-left outline-none disabled:cursor-default",
+            padding,
+          )}
         >
-          {walletContent}
+          {content}
+          <span className="type-meta text-aomi-muted ml-auto shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
+            Use for {family}
+          </span>
         </button>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
-          {walletContent}
+        <div
+          className={cn("flex min-w-0 flex-1 items-center gap-3 pr-3", padding)}
+        >
+          {content}
         </div>
       )}
-      {menuActions.length || busy ? (
-        <div className="flex shrink-0 items-center py-3 pr-4">
-          <WalletActionsMenu
-            label={`Actions for ${title} ${shortenAddress(wallet.address)}`}
-            actions={menuActions}
-            disabled={pending !== null}
-            busy={busy}
-          />
+      {status || menuActions.length ? (
+        <div className="flex shrink-0 items-center gap-2 py-2 pr-3.5">
+          {status ? (
+            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+          ) : null}
+          {status?.action && inlineHandler ? (
+            <button
+              type="button"
+              disabled={pending !== null}
+              onClick={() => void inlineHandler(wallet)}
+              className={aomiButton({ variant: "secondary", size: "sm" })}
+            >
+              {busy ? <Loader2 className="animate-spin" /> : null}
+              {status.action.label}
+            </button>
+          ) : null}
+          {menuActions.length ? (
+            <WalletActionsMenu
+              label={`Actions for ${title} ${short}`}
+              actions={menuActions}
+              disabled={pending !== null}
+              busy={busy && !(status?.action && inlineHandler)}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
-  );
-}
-
-export function OptionGrid<
-  T extends { id: string; label: string; markKey?: string; ready: boolean },
->({
-  options,
-  pending,
-  prefix,
-  onSelect,
-}: {
-  options: T[];
-  pending: string | null;
-  prefix: string;
-  onSelect: (option: T) => void;
-}) {
-  return (
-    <div className="border-aomi-border bg-aomi-surface-2/25 grid grid-cols-1 gap-2 rounded-xl border p-2 sm:grid-cols-2">
-      {options.map((option) => {
-        const busy = pending === `${prefix}:${option.id}`;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            disabled={!option.ready || busy}
-            onClick={() => onSelect(option)}
-            className="border-aomi-border bg-aomi-raised hover:bg-aomi-hover text-aomi-fg flex h-10 items-center justify-between rounded-lg border px-3 text-left text-[12px] font-medium transition-colors disabled:opacity-50"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              {option.markKey ? (
-                <WalletProviderAvatar markKey={option.markKey} size={14} />
-              ) : null}
-              <span className="truncate">{option.label}</span>
-            </span>
-            {busy ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Plus size={14} />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-export function StatusBadge({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "connected" | "linked" | "active";
-}) {
-  const toneClass =
-    tone === "active"
-      ? "bg-aomi-success/10 text-aomi-success ring-aomi-success/20 ring-1 ring-inset"
-      : tone === "connected"
-        ? "bg-sky-500/10 text-sky-700 ring-1 ring-inset ring-sky-500/15 dark:text-sky-300"
-        : "bg-aomi-surface-2 text-aomi-muted";
-  return (
-    <span
-      className={`${toneClass} rounded-full px-1.5 py-0.5 text-[10px] font-medium`}
-    >
-      {label}
-    </span>
   );
 }
 
@@ -274,7 +294,7 @@ export function TextButton({
   disabled = false,
   onClick,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   danger?: boolean;
   busy?: boolean;
   disabled?: boolean;
@@ -285,9 +305,12 @@ export function TextButton({
       type="button"
       disabled={busy || disabled}
       onClick={onClick}
-      className={`hover:bg-aomi-surface-2 focus-visible:ring-aomi-accent-strong/40 flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 ${danger ? "text-aomi-danger" : "text-aomi-fg"}`}
+      className={aomiButton({
+        variant: danger ? "danger" : "secondary",
+        size: "sm",
+      })}
     >
-      {busy ? <Loader2 size={13} className="animate-spin" /> : null}
+      {busy ? <Loader2 className="animate-spin" /> : null}
       {children}
     </button>
   );
@@ -296,14 +319,12 @@ export function TextButton({
 export function IconButton({
   children,
   label,
-  danger = false,
   busy = false,
   disabled = false,
   onClick,
 }: {
   children: ReactNode;
   label: string;
-  danger?: boolean;
   busy?: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -314,9 +335,9 @@ export function IconButton({
       aria-label={label}
       disabled={busy || disabled}
       onClick={onClick}
-      className={`hover:bg-aomi-surface-2 focus-visible:ring-aomi-accent-strong/40 flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50 ${danger ? "text-aomi-danger" : "text-aomi-muted hover:text-aomi-fg"}`}
+      className={aomiButton({ variant: "ghost", size: "icon" })}
     >
-      {busy ? <Loader2 size={14} className="animate-spin" /> : children}
+      {busy ? <Loader2 className="animate-spin" /> : children}
     </button>
   );
 }
@@ -324,10 +345,10 @@ export function IconButton({
 type WalletMenuAction = {
   label: string;
   icon: ReactNode;
-  onSelect: () => void;
+  onSelect: () => unknown;
 };
 
-export function WalletActionsMenu({
+function WalletActionsMenu({
   label,
   actions,
   disabled,
@@ -347,12 +368,12 @@ export function WalletActionsMenu({
           aria-label={label}
           aria-haspopup="menu"
           disabled={disabled}
-          className="text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg focus-visible:ring-aomi-accent-strong/40 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+          className={aomiButton({ variant: "ghost", size: "icon" })}
         >
           {busy ? (
-            <Loader2 size={15} className="animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <Ellipsis size={17} />
+            <Ellipsis className="size-4" />
           )}
         </button>
       </PopoverTrigger>
@@ -361,7 +382,7 @@ export function WalletActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg z-[90] w-max min-w-40 max-w-[calc(100vw-2rem)] rounded-xl border p-1 shadow-lg"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-40 max-w-[calc(100vw-2rem)] border p-1"
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
             return;
@@ -392,10 +413,10 @@ export function WalletActionsMenu({
             type="button"
             role="menuitem"
             disabled={disabled}
-            className="hover:bg-aomi-surface-2 focus:bg-aomi-surface-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] outline-none"
+            className="hover:bg-aomi-hover focus:bg-aomi-hover type-control flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left outline-none"
             onClick={() => {
               setOpen(false);
-              action.onSelect();
+              void action.onSelect();
             }}
           >
             <span className="text-aomi-muted">{action.icon}</span>

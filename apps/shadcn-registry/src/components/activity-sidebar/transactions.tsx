@@ -12,8 +12,13 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Circle, FileSignature, Layers3 } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "../icons/chain-map";
+import { StatusPill } from "../ui/aomi/status-pill";
 import type { ActivityTransaction } from "./model";
-import { friendlyTransactionLabel, transactionSemantic } from "./presentation";
+import {
+  focusRing,
+  friendlyTransactionLabel,
+  transactionSemantic,
+} from "./presentation";
 
 export function TransactionList({
   children,
@@ -67,7 +72,8 @@ export function TransactionList({
           tabIndex={0}
           role="region"
           aria-label="Transactions, newest batch first; signing order within each batch"
-          className="aui-current-transactions overflow-y-auto overscroll-contain rounded-2xl outline-offset-2 [overflow-anchor:none]"
+          // Outlines paint above the cards; an inset ring would sit under them.
+          className="aui-current-transactions rounded-card focus-visible:outline-aomi-ring/50 overflow-y-auto overscroll-contain outline-none [overflow-anchor:none] focus-visible:outline-2 focus-visible:-outline-offset-2"
         >
           <div className="space-y-2.5">
             <AnimatePresence>{children}</AnimatePresence>
@@ -77,7 +83,7 @@ export function TransactionList({
           aria-hidden="true"
           data-scroll-fade="top"
           className={cn(
-            "from-aomi-raised pointer-events-none absolute inset-x-0 top-0 h-5 rounded-t-2xl bg-gradient-to-b to-transparent transition-opacity motion-reduce:transition-none",
+            "from-aomi-raised rounded-t-card pointer-events-none absolute inset-x-0 top-0 h-5 bg-gradient-to-b to-transparent transition-opacity motion-reduce:transition-none",
             edges.top ? "opacity-100" : "opacity-0",
           )}
         />
@@ -85,7 +91,7 @@ export function TransactionList({
           aria-hidden="true"
           data-scroll-fade="bottom"
           className={cn(
-            "from-aomi-raised pointer-events-none absolute inset-x-0 bottom-0 h-5 rounded-b-2xl bg-gradient-to-t to-transparent transition-opacity motion-reduce:transition-none",
+            "from-aomi-raised rounded-b-card pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t to-transparent transition-opacity motion-reduce:transition-none",
             edges.bottom ? "opacity-100" : "opacity-0",
           )}
         />
@@ -98,7 +104,10 @@ export function TransactionList({
             if (ref.current) ref.current.scrollTop = 0;
             setShowAll(!showAll);
           }}
-          className="text-aomi-muted hover:text-aomi-fg mt-2 flex items-center gap-2 py-1 text-[12px] transition-colors motion-reduce:transition-none"
+          className={cn(
+            focusRing,
+            "type-meta text-aomi-muted hover:text-aomi-fg rounded-control mt-2 flex items-center gap-2 px-1.5 py-1 transition-colors motion-reduce:transition-none",
+          )}
         >
           <span aria-hidden="true">⋯</span>
           {showAll
@@ -184,7 +193,7 @@ export function TransactionCard({
       exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
       transition={{ duration: reduceMotion ? 0 : 0.24, ease: "easeOut" }}
       className={cn(
-        "group/tx bg-aomi-surface flex h-[84px] flex-col justify-center rounded-2xl border px-3 py-3 transition-colors duration-200 motion-reduce:transition-none",
+        "group/tx bg-aomi-surface rounded-card flex h-[84px] flex-col justify-center border px-3 py-3 transition-colors duration-200 motion-reduce:transition-none",
         pendingStyle
           ? reviewing
             ? "border-aomi-accent/50 border-dashed"
@@ -203,18 +212,17 @@ export function TransactionCard({
         <div className="flex items-center gap-2">
           <Icon className="text-aomi-muted size-4 shrink-0" />
           <span
-            className="min-w-0 flex-1 truncate text-[13px] font-medium"
+            className="type-control min-w-0 flex-1 truncate font-medium"
             title={label}
           >
             {label}
           </span>
-          <span
-            className="bg-aomi-surface-2 text-aomi-muted inline-flex max-w-[100px] items-center gap-1.5 rounded-full px-2 py-1 text-[10px]"
-            title={network}
-          >
+          <StatusPill className="max-w-[100px] font-normal">
             {createElement(Chain, { className: "size-3 shrink-0" })}
-            <span className="truncate">{network}</span>
-          </span>
+            <span className="truncate" title={network}>
+              {network}
+            </span>
+          </StatusPill>
         </div>
         <div
           className={cn(

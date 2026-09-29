@@ -51,22 +51,16 @@ function view(
   );
 }
 async function review(label: string) {
-  fireEvent.click(
-    screen.getByRole("button", { name: `Configure ${wallet.address}` }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: new RegExp(`^${label} `) }),
-  );
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "Review change" }));
+    fireEvent.click(screen.getByRole("radio", { name: label }));
   });
-  return screen.getByRole("dialog", { name: "Confirm signing policy" });
+  return screen.getByRole("alertdialog", { name: "Confirm signing policy" });
 }
 
 describe("policy confirmation", () => {
   it.each([
-    ["manual", "Auto-approve", "client_auto"],
-    ["client_auto", "Manual", "manual"],
+    ["manual", "Auto", "client_auto"],
+    ["client_auto", "Ask me", "manual"],
     ["manual", "Locked", "denied"],
   ] as const)(
     "requires confirmation from %s to %s",
@@ -92,14 +86,13 @@ describe("policy confirmation", () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
 
-    fireEvent.click(
-      screen.getByRole("button", { name: `Configure ${wallet.address}` }),
-    );
     expect(
-      screen.queryByRole("button", { name: /^Automatic signing / }),
+      screen.queryByRole("radio", { name: "Automatic signing" }),
     ).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Set up" }));
-    const dialog = await screen.findByRole("dialog", {
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Set up" }));
+    });
+    const dialog = await screen.findByRole("alertdialog", {
       name: "Confirm signing policy",
     });
     await act(async () =>
@@ -110,20 +103,22 @@ describe("policy confirmation", () => {
   it("Escape dismisses without signing and retry requires fresh confirmation", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
-    const dialog = await review("Auto-approve");
+    const dialog = await review("Auto");
     fireEvent.keyDown(dialog, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(commit).not.toHaveBeenCalled();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Review change" }));
-    });
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Ask me" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await review("Auto");
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
     expect(commit).not.toHaveBeenCalled();
   });
   it("rejects a stale review after the wallet policy refreshes", async () => {
     const commit = vi.fn(async () => {});
     const rendered = render(view(wallet, commit));
-    await review("Auto-approve");
+    await review("Auto");
     rendered.rerender(view({ ...wallet, authVersion: 2 }, commit));
     await act(async () => fireEvent.click(screen.getByText("Sign to approve")));
     expect(commit).not.toHaveBeenCalled();
@@ -134,7 +129,7 @@ describe("policy confirmation", () => {
   it("consumes confirmation once even if clicked twice", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
-    const dialog = await review("Auto-approve");
+    const dialog = await review("Auto");
     const confirm = within(dialog).getByText("Sign to approve");
     await act(async () => {
       fireEvent.click(confirm);
@@ -203,5 +198,77 @@ describe("policy confirmation", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  it("offers Ask me and Locked, but not Auto, for an external wallet", () => {
+    const external: WalletPolicy = {
+      ...wallet,
+      id: "rabby-evm",
+      linkedVia: "siwe",
+      rdns: "io.rabby",
+      provider: undefined,
+      canUseAuto: false,
+    };
+    render(view(external));
+    const group = screen.getByRole("radiogroup", {
+      name: `Signing for Rabby ${external.address}`,
+    });
+    expect(
+      within(group)
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Ask me", "Locked"]);
+    expect(screen.queryByText("Automatic signing")).toBeNull();
+  });
+  it("keeps Auto for a provider wallet and leaves agent wallets to automatic signing", () => {
+    render(
+      <AccountSigningView
+        wallets={[
+          wallet,
+          {
+            ...wallet,
+            id: "para-agent",
+            address: "0x2222222222222222222222222222222222222222",
+            linkedVia: "para",
+            provider: "para",
+            providerManaged: true,
+          },
+        ]}
+        delegatedAccounts={[]}
+        onCommit={vi.fn()}
+        onPrepare={vi.fn()}
+        onRevokeDelegation={vi.fn()}
+        onStopAllAuto={vi.fn()}
+        canConnectPrivy={false}
+        onConnectPrivy={vi.fn()}
+        onRenewDelegation={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: "Auto" })).toBeTruthy();
+    expect(
+      document.getElementById("automatic-wallet-para-agent"),
+    ).not.toBeNull();
+  });
+  it("explains a blocked change without preparing a permit", async () => {
+    const prepare = vi.fn(async () => challenge);
+    render(
+      view(wallet, undefined, {
+        onPrepare: prepare,
+        blockedReason: () =>
+          "Connect this wallet itself to widen what it may sign.",
+      }),
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("radio", { name: "Auto" }));
+    });
+    expect(prepare).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Connect this wallet itself",
+    );
+    expect(screen.getByRole("radio", { name: "Ask me" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 });

@@ -9,7 +9,7 @@ type AomiFramePreviewProps = {
   controlBarProps: {
     hideNetwork: boolean;
     hideModel: boolean;
-    hideApp: boolean;
+    hideSafety: boolean;
     hideApiKey: boolean;
     hideWallet: boolean;
   };

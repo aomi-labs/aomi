@@ -24,7 +24,7 @@ export function UsageSettings() {
 
   if (!month) {
     return (
-      <div className="mx-auto w-full max-w-[780px] px-6 py-6">
+      <div>
         {statement.status === "error" ? (
           <p className="text-aomi-danger text-[13px]">
             {statement.error ?? "Couldn't load usage."}
@@ -47,7 +47,7 @@ export function UsageSettings() {
 
   const { period } = month;
   return (
-    <div className="mx-auto w-full max-w-[780px] px-6 py-6">
+    <div>
       <div className="flex flex-col gap-5">
         <PeriodTotalHero
           periodLabel={period.periodLabel}
@@ -68,7 +68,11 @@ export function UsageSettings() {
 
         {month.apps.length > 0 ? (
           <section className="flex flex-col gap-2.5">
-            <SectionHeading title="By app" hint={USAGE_MATRIX_HINT} />
+            <SectionHeading
+              title="By app"
+              detail="This period"
+              hint={USAGE_MATRIX_HINT}
+            />
             <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border px-4 py-3 sm:px-5">
               <MatrixTable month={month} />
             </div>

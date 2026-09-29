@@ -1,7 +1,10 @@
 "use client";
 import { Check, Loader2, MessageCircle, Plus } from "lucide-react";
+import { cn } from "@aomi-labs/react";
+import { aomiButton } from "../../../../ui/aomi/button";
 import {
   ChainMarks,
+  KindPill,
   SkillIdentity,
   type LibrarySelection,
 } from "../library-detail-panel";
@@ -13,13 +16,7 @@ import {
 } from "../packages-catalog";
 import { selectionName, selectionDescription } from "./model";
 
-function KindLabel({ kind }: { kind: LibrarySelection["kind"] }) {
-  return (
-    <span className="bg-aomi-surface-2 text-aomi-muted rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em]">
-      {kind}
-    </span>
-  );
-}
+const rowAction = aomiButton({ variant: "secondary", size: "sm" });
 
 function AppAction({
   app,
@@ -39,7 +36,7 @@ function AppAction({
   const available = isPackageAvailableOnChain(app, activeChainId);
   if (installed) {
     return (
-      <span className="text-aomi-muted flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 text-[12px] font-medium">
+      <span className="text-aomi-muted type-meta inline-flex h-7 shrink-0 items-center gap-1.5 px-2.5 font-medium">
         <Check className="size-3.5" /> Added
       </span>
     );
@@ -54,13 +51,13 @@ function AppAction({
           ? `Add ${app.name} from catalog`
           : `Switch network to add ${app.name}`
       }
-      className="border-aomi-border hover:bg-aomi-hover flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors disabled:opacity-40"
+      className={rowAction}
     >
       {busy ? (
-        <Loader2 className="size-3.5 animate-spin" />
+        <Loader2 className="animate-spin" />
       ) : (
         <>
-          <Plus className="size-3.5" /> Add
+          <Plus /> Add
         </>
       )}
     </button>
@@ -93,7 +90,10 @@ export function CatalogRow({
     app?.chainIds.length === 1 && app.chainIds[0] === ARC_TESTNET_CHAIN_ID;
   return (
     <article
-      className={`flex min-h-[58px] items-center gap-2 rounded-xl px-2 transition-colors ${selected ? "bg-aomi-surface-2" : "hover:bg-aomi-hover"}`}
+      className={cn(
+        "rounded-control flex min-h-14 items-center gap-3 px-2 transition-colors",
+        selected ? "bg-aomi-surface-2" : "hover:bg-aomi-hover",
+      )}
     >
       <button
         type="button"
@@ -107,18 +107,18 @@ export function CatalogRow({
           <SkillIdentity skillId={selection.item.id} />
         )}
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-1 md:gap-2">
-            <span className="text-[14px] font-semibold [overflow-wrap:anywhere]">
+          <span className="flex flex-wrap items-center gap-1.5 md:gap-2">
+            <span className="type-row [overflow-wrap:anywhere]">
               {selectionName(selection)}
             </span>
-            <KindLabel kind={selection.kind} />
+            <KindPill kind={selection.kind} />
             {arcOnly ? (
-              <span className="text-aomi-muted shrink-0 text-[10px]">
+              <span className="type-meta text-aomi-muted shrink-0">
                 Arc only
               </span>
             ) : null}
           </span>
-          <span className="text-aomi-muted mt-0.5 line-clamp-2 block text-[12px] [overflow-wrap:anywhere]">
+          <span className="type-meta text-aomi-muted mt-0.5 line-clamp-2 block [overflow-wrap:anywhere]">
             {selectionDescription(selection)}
           </span>
         </span>
@@ -140,9 +140,9 @@ export function CatalogRow({
           type="button"
           onClick={onTry}
           aria-label={`Try ${selectionName(selection)}`}
-          className="border-aomi-border hover:bg-aomi-hover flex h-8 w-[62px] shrink-0 items-center justify-center gap-1.5 rounded-lg border text-[12px] font-medium transition-colors"
+          className={rowAction}
         >
-          <MessageCircle className="size-3.5" /> Try
+          <MessageCircle /> Try
         </button>
       )}
     </article>

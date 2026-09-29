@@ -8,7 +8,7 @@ export const controlSelectTriggerClass =
   "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg h-8 min-w-0 gap-1.5 rounded-full px-2.5 text-xs";
 
 export const controlMenuContentClass =
-  "border-aomi-border bg-aomi-raised w-[248px] overflow-hidden rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.20)]";
+  "border-aomi-border bg-aomi-raised rounded-card shadow-popover w-[248px] overflow-hidden border p-2";
 
 export const controlMenuCommandClass =
   "bg-transparent rounded-lg [&_[cmdk-input-wrapper]]:bg-aomi-surface-2/55 [&_[cmdk-input-wrapper]]:mb-1.5 [&_[cmdk-input-wrapper]]:rounded-lg [&_[cmdk-input-wrapper]]:border-0 [&_[cmdk-input-wrapper]]:px-2.5 [&_[cmdk-input-wrapper]_svg]:mr-[7px] [&_[cmdk-input-wrapper]_svg]:size-3.5 [&_[cmdk-input]]:h-8 [&_[cmdk-input]]:py-1 [&_[cmdk-input]]:text-xs";

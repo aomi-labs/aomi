@@ -58,6 +58,8 @@ export const CapabilityMentionInput: FC<{
     hintsEnabled,
     capabilityPickerRequest,
     consumeCapabilityPickerRequest,
+    appTagRequest,
+    consumeAppTagRequest,
   } = useCapabilityComposer();
   const items = useCapabilityCatalog();
 
@@ -341,6 +343,37 @@ export const CapabilityMentionInput: FC<{
     },
     [insertItemAtRange],
   );
+
+  // A host app tag (e.g. an "Open in chat" link) lands as a regular mention
+  // once the catalog knows the app, exactly as if picked from the + menu.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!appTagRequest || !hintsEnabled || isDisabled || !editor) return;
+    const apps = items.filter((item) => item.kind === "app");
+    const item =
+      apps.find(
+        (candidate) =>
+          appTagRequest.applicationId != null &&
+          String(candidate.applicationId) ===
+            String(appTagRequest.applicationId),
+      ) ?? apps.find((candidate) => candidate.appName === appTagRequest.app);
+    if (!item) return;
+    consumeAppTagRequest();
+    if (mentions.some((mention) => mention.key === item.key)) return;
+    clearEmptyEditorStructure(editor);
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    insertItemAtRange(item, range);
+  }, [
+    appTagRequest,
+    consumeAppTagRequest,
+    hintsEnabled,
+    insertItemAtRange,
+    isDisabled,
+    items,
+    mentions,
+  ]);
 
   useEffect(() => {
     const insertRequestedMention = (rawEvent: Event) => {

@@ -96,4 +96,5 @@ export function groupModelsByVendor(models: string[]): ModelGroup[] {
 // =============================================================================
 
 /** The display label shown when automatic model selection is active. */
-export const AUTO_MODEL_LABEL = "Balanced";
+export const AUTO_MODEL_LABEL = "Auto";
+export const AUTO_MODEL_DESCRIPTION = "Picks a model per task";

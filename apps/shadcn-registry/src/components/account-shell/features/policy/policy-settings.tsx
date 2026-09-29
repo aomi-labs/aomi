@@ -9,7 +9,7 @@ import type {
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { useShellTransport } from "../../transport";
-import { ProviderPolicySettings } from "../account/provider-policy-settings";
+import { SigningSettings } from "../account/provider-policy-settings";
 import {
   atomicToSol,
   confirmPolicy,
@@ -42,16 +42,23 @@ function short(address?: string): string {
   return `${address.slice(0, 5)}…${address.slice(-5)}`;
 }
 
+/**
+ * Swig on-chain limits are hidden this round. The code stays so turning this
+ * on brings the section back unchanged; nothing else gates it.
+ */
+export const SWIG_POLICY_ENABLED = false;
+
+/** Per-wallet signing, plus Swig on-chain limits when enabled. */
 export function PolicySettings() {
   return (
     <>
-      <ProviderPolicySettings />
-      <OnchainPolicySettings />
+      <SigningSettings />
+      {SWIG_POLICY_ENABLED ? <OnchainPolicySettings /> : null}
     </>
   );
 }
 
-function OnchainPolicySettings() {
+export function OnchainPolicySettings() {
   const wallet = useAomiWalletKit();
   const { json: request } = useShellTransport();
   const network = chainRef(wallet.identity.svmCluster);
@@ -233,15 +240,15 @@ function OnchainPolicySettings() {
 
   if (!profile || !ctx) {
     return (
-      <div className="text-aomi-muted px-6 py-8 text-sm">
+      <div className="type-meta text-aomi-muted">
         {error ?? "Loading policy…"}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-[780px] space-y-4 px-6 py-6">
-      <section className="border-aomi-border bg-aomi-surface-1 rounded-2xl border p-5">
+    <div className="space-y-4">
+      <section className="border-aomi-border bg-aomi-raised rounded-card border p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="bg-aomi-accent-subtle text-aomi-accent flex size-9 items-center justify-center rounded-xl">
@@ -282,7 +289,7 @@ function OnchainPolicySettings() {
         </div>
       )}
 
-      <section className="border-aomi-border rounded-2xl border p-5">
+      <section className="border-aomi-border rounded-card border p-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="space-y-2 text-[12px]">
             <span className="font-medium">Delegated agent</span>

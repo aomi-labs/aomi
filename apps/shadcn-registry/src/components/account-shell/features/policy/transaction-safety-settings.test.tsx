@@ -8,169 +8,169 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransactionSafetyPolicy } from "@aomi-labs/client";
 
-const state = vi.hoisted(() => ({
-  request: vi.fn(),
-  threadId: "actual-chat",
-  auto: false,
-}));
-vi.mock("@aomi-labs/react", async (original) => ({
-  ...(await original<typeof import("@aomi-labs/react")>()),
-  useOptionalAomiRuntime: () => ({ currentThreadId: state.threadId }),
-}));
+const state = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock("../../transport", () => ({
   useShellTransport: () => ({ json: state.request }),
 }));
 import { TransactionSafetySettings } from "./transaction-safety-settings";
-const thread: TransactionSafetyPolicy = {
-  mode: "balanced",
-  revision: 3,
-  scope: "thread",
-  source: "user",
-};
+
 const account: TransactionSafetyPolicy = {
   mode: "balanced",
   revision: 1,
   scope: "account_default",
   source: "default",
 };
+
+const puts = () =>
+  state.request.mock.calls.filter(([, options]) => options?.method === "PUT");
+
 beforeEach(() => {
-  state.threadId = "actual-chat";
-  state.request
-    .mockReset()
-    .mockImplementation((path: string) =>
-      Promise.resolve(
-        path === "/api/thread/transaction-safety"
-          ? thread
-          : path === "/api/account/transaction-safety"
-            ? account
-            : { signing_policies: [] },
-      ),
-    );
+  state.request.mockReset().mockResolvedValue(account);
 });
-describe("independent transaction safety settings", () => {
-  it("loads without any Swig binding and selects the real active chat", async () => {
+
+describe("default transaction safety", () => {
+  it("reads only the account default, never a chat or Swig policy", async () => {
     render(<TransactionSafetySettings />);
     expect(
-      await screen.findByRole("radio", { name: /Balanced/ }),
-    ).toBeChecked();
-    expect(state.request).toHaveBeenCalledWith(
-      "/api/thread/transaction-safety",
-      expect.objectContaining({
-        headers: {
-          "X-Thread-Id": "actual-chat",
-          "X-Session-Id": "actual-chat",
-        },
-      }),
-    );
-    expect(
-      state.request.mock.calls.some(([path]) => String(path).includes("swig")),
-    ).toBe(false);
+      await screen.findByRole("radio", { name: "Balanced" }),
+    ).toHaveAttribute("aria-checked", "true");
+    const paths = state.request.mock.calls.map(([path]) => String(path));
+    expect(paths).toEqual(["/api/account/transaction-safety"]);
+    expect(screen.queryByText(/this chat/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Save/ })).toBeNull();
   });
-  it("confirms Danger once and waits for authoritative response before claiming saved", async () => {
+
+  it("saves on change through the account endpoint with the loaded revision", async () => {
     let settle!: (policy: TransactionSafetyPolicy) => void;
-    const saved = new Promise<TransactionSafetyPolicy>((resolve) => {
-      settle = resolve;
-    });
-    state.request.mockImplementation((path: string, options?: RequestInit) =>
+    state.request.mockImplementation((_path: string, options?: RequestInit) =>
       options?.method === "PUT"
-        ? saved
-        : Promise.resolve(
-            path === "/api/thread/transaction-safety"
-              ? thread
-              : path === "/api/account/transaction-safety"
-                ? account
-                : { signing_policies: [{ mode: "auto" }] },
-          ),
+        ? new Promise<TransactionSafetyPolicy>((resolve) => {
+            settle = resolve;
+          })
+        : Promise.resolve(account),
     );
     render(<TransactionSafetySettings />);
-    await waitFor(() =>
-      expect(screen.getByRole("radio", { name: /Balanced/ })).toBeChecked(),
-    );
-    fireEvent.click(screen.getByRole("radio", { name: /Danger mode/ }));
-    expect(
-      screen.getByRole("button", { name: "Set default for new chats" }),
-    ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Save for this chat" }));
-    expect(await screen.findByRole("dialog")).toHaveTextContent(
-      "automatically under your existing grant",
-    );
-    expect(
-      state.request.mock.calls.some(([, options]) => options?.method === "PUT"),
-    ).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Enable Danger mode" }));
-    expect(screen.queryByText(/Safety policy saved/)).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /Balanced/ })).toBeDisabled();
-    await act(async () =>
-      settle({ ...thread, mode: "unrestricted", revision: 4 }),
-    );
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "saved for this chat",
-    );
+    fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
+
     expect(state.request).toHaveBeenCalledWith(
-      "/api/thread/transaction-safety",
+      "/api/account/transaction-safety",
       expect.objectContaining({
         method: "PUT",
-        body: JSON.stringify({ mode: "unrestricted", expectedRevision: 3 }),
+        headers: undefined,
+        body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
+      }),
+    );
+    const strict = screen.getByRole("radio", { name: "Strict" });
+    expect(strict).toHaveAccessibleDescription(
+      /Only actions a protocol guard covers/,
+    );
+
+    await act(async () =>
+      settle({ ...account, mode: "guarded_only", revision: 2 }),
+    );
+    expect(screen.getByRole("radio", { name: "Strict" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("shows a save in flight inside the rows, never as a status line", async () => {
+    let settle!: (policy: TransactionSafetyPolicy) => void;
+    state.request.mockImplementation((_path: string, options?: RequestInit) =>
+      options?.method === "PUT"
+        ? new Promise<TransactionSafetyPolicy>((resolve) => {
+            settle = resolve;
+          })
+        : Promise.resolve(account),
+    );
+    render(<TransactionSafetySettings />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
+
+    // The row being saved swaps its check for a spinner; every row is locked.
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-busy", "true");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+    const strict = screen.getByRole("radio", { name: "Strict" });
+    expect(strict).toHaveAttribute("aria-checked", "true");
+    expect(strict.querySelector(".animate-spin")).not.toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+
+    await act(async () =>
+      settle({ ...account, mode: "guarded_only", revision: 2 }),
+    );
+    expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-busy");
+    expect(screen.getByRole("radio", { name: "Balanced" })).toBeEnabled();
+    expect(
+      screen
+        .getByRole("radio", { name: "Strict" })
+        .querySelector(".animate-spin"),
+    ).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText(/Saved|Saving/)).toBeNull();
+  });
+
+  it("moves between the default-able policies with arrow keys", async () => {
+    state.request.mockImplementation((_path: string, options?: RequestInit) =>
+      Promise.resolve(
+        options?.method === "PUT"
+          ? { ...account, mode: "guarded_only", revision: 2 }
+          : account,
+      ),
+    );
+    render(<TransactionSafetySettings />);
+    const balanced = await screen.findByRole("radio", { name: "Balanced" });
+    fireEvent.keyDown(balanced, { key: "ArrowDown" });
+
+    // Down from Balanced wraps to Strict: Yolo is never a default.
+    expect(state.request).toHaveBeenCalledWith(
+      "/api/account/transaction-safety",
+      expect.objectContaining({
+        body: JSON.stringify({ mode: "guarded_only", expectedRevision: 1 }),
       }),
     );
   });
-  it("rejects unknown modes and unavailable preferences instead of defaulting", async () => {
-    state.request.mockResolvedValue({ ...thread, mode: "unknown" });
+
+  it("shows Yolo but never offers it as a default", async () => {
     render(<TransactionSafetySettings />);
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Save for this chat" }),
-    ).toBeDisabled();
+    const yolo = await screen.findByRole("radio", { name: "Yolo" });
+    expect(yolo).toBeDisabled();
+    fireEvent.click(yolo);
+    expect(puts()).toHaveLength(0);
+    expect(yolo).toHaveAccessibleDescription(/Only inside a chat/);
   });
-  it("reloads a conflicting revision and waits for another explicit save", async () => {
+
+  it("reloads a conflicting revision and waits for another explicit change", async () => {
     let reads = 0;
-    state.request.mockImplementation((path: string, options?: RequestInit) => {
+    state.request.mockImplementation((_path: string, options?: RequestInit) => {
       if (options?.method === "PUT")
         return Promise.reject(
           new Error("Policy changed in another window. Review and save again."),
         );
-      if (path === "/api/thread/transaction-safety")
-        return Promise.resolve(
-          ++reads === 1
-            ? thread
-            : { ...thread, mode: "guarded_only", revision: 5 },
-        );
       return Promise.resolve(
-        path === "/api/account/transaction-safety"
+        ++reads === 1
           ? account
-          : { signing_policies: [] },
+          : { ...account, mode: "guarded_only", revision: 5 },
       );
     });
     render(<TransactionSafetySettings />);
-    await waitFor(() =>
-      expect(screen.getByRole("radio", { name: /Balanced/ })).toBeChecked(),
-    );
-    fireEvent.click(screen.getByRole("radio", { name: /Guarded only/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this chat" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Strict" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Policy changed in another window",
     );
     await waitFor(() => expect(reads).toBe(2));
-    expect(
-      state.request.mock.calls.filter(
-        ([, options]) => options?.method === "PUT",
-      ),
-    ).toHaveLength(1);
-    expect(screen.queryByText(/Safety policy saved/)).not.toBeInTheDocument();
-  });
-  it("returns focus to the save control after canceling Danger enablement", async () => {
-    render(<TransactionSafetySettings />);
-    await waitFor(() =>
-      expect(screen.getByRole("radio", { name: /Balanced/ })).toBeChecked(),
+    expect(puts()).toHaveLength(1);
+    expect(screen.queryByText(/^Saved/)).toBeNull();
+    expect(screen.getByRole("radio", { name: "Strict" })).toHaveAttribute(
+      "aria-checked",
+      "true",
     );
-    fireEvent.click(screen.getByRole("radio", { name: /Danger mode/ }));
-    const save = screen.getByRole("button", { name: "Save for this chat" });
-    save.focus();
-    fireEvent.click(save);
-    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(save).toHaveFocus());
-    expect(
-      state.request.mock.calls.some(([, options]) => options?.method === "PUT"),
-    ).toBe(false);
+  });
+
+  it("rejects an unknown mode instead of defaulting", async () => {
+    state.request.mockResolvedValue({ ...account, mode: "unknown" });
+    render(<TransactionSafetySettings />);
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
   });
 });

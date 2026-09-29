@@ -1,221 +1,121 @@
 "use client";
 
-import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
+import type { SignerMode, WalletPolicy } from "./types";
 import {
-  findDelegationForWallet,
+  modeLabel,
   reconcile,
+  signingChoicesFor,
   walletDisplayName,
   walletMarkKey,
-  walletStatusLabel,
 } from "./account-reconcile";
 import { WalletProviderAvatar } from "./wallet-brands";
-import { SigningModeList } from "./signing-mode-list";
-import { ChevronDown, Loader2 } from "lucide-react";
-import { Divider, SettingRow } from "./settings-rows";
 import { shortenAddress } from "./account-api";
+import { Loader2 } from "lucide-react";
+import { cn } from "@aomi-labs/react";
+import { ListRow } from "../../../ui/aomi/list-group";
+import { Segmented } from "../../../ui/aomi/segmented";
 
 interface WalletPolicyRowProps {
   wallet: WalletPolicy;
-  delegatedAccounts: DelegatedAccountView[];
+  /** The mode being reviewed or signed, shown until it commits or is dropped. */
   draft?: SignerMode;
-  expanded: boolean;
-  flash: boolean;
   busy: boolean;
   error?: string;
-  blockedReason?: (wallet: WalletPolicy, mode: SignerMode) => string | null;
-  onToggle: () => void;
-  onDraft: (mode: SignerMode) => void;
-  onCommit: () => void;
-  onSelectWallet?: () => void;
-  onCancel: () => void;
-  onRenewDelegation: () => void;
-  onRevokeDelegation: (delegationId: string) => void;
-  modes?: readonly SignerMode[];
+  onSelect: (mode: SignerMode) => void;
 }
 
+/** "0xda65…3cf0 · EVM": the address line under a wallet's name. */
+export function walletAddressLine(
+  wallet: Pick<WalletPolicy, "address" | "chain">,
+) {
+  return `${shortenAddress(wallet.address)} · ${wallet.chain === "evm" ? "EVM" : "SVM"}`;
+}
+
+/**
+ * The quiet status under a row: persistent delegation or drift state only. An
+ * in-flight change shows as the drafted segment plus a spinner, not a line.
+ */
+function statusLine(
+  wallet: WalletPolicy,
+  choices: readonly SignerMode[],
+): { text: string; danger?: boolean } | null {
+  if (wallet.desiredMode === "auto") {
+    const recon = reconcile(wallet);
+    return recon.status === "drifted"
+      ? { text: "Automatic signing · Delegation expired", danger: true }
+      : {
+          text: `Automatic signing · Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}`,
+        };
+  }
+  if (!choices.includes(wallet.desiredMode)) {
+    return {
+      text: `${modeLabel(wallet.desiredMode)} isn't available for this wallet. Choose another mode.`,
+    };
+  }
+  return null;
+}
+
+/** One signable address with its Ask me / Auto / Locked choice. */
 export function WalletPolicyRow({
   wallet,
-  delegatedAccounts,
   draft,
-  expanded,
-  flash,
   busy,
   error,
-  blockedReason,
-  onToggle,
-  onDraft,
-  onCommit,
-  onSelectWallet,
-  onCancel,
-  onRenewDelegation,
-  onRevokeDelegation,
-  modes,
+  onSelect,
 }: WalletPolicyRowProps) {
-  const selected = draft ?? wallet.desiredMode;
-  const pending = draft !== undefined && draft !== wallet.desiredMode;
-  const recon = reconcile(wallet);
-  const open = expanded || pending;
-  const delegation = findDelegationForWallet(delegatedAccounts, wallet);
-  const displayName = walletDisplayName(wallet);
-  const status = walletStatusLabel(wallet, recon, pending);
-  const blocked = pending ? (blockedReason?.(wallet, selected) ?? null) : null;
+  const choices = signingChoicesFor(wallet);
+  const status = statusLine(wallet, choices);
+  const name = walletDisplayName(wallet);
 
   return (
-    <div
-      id={`wallet-${wallet.id}`}
-      className={`transition-colors ${flash ? "bg-aomi-surface-2/40 ring-aomi-fg/20 ring-1 ring-inset" : ""}`}
-    >
-      <div
-        role="button"
-        aria-label={`Configure ${wallet.address}`}
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-        className="cursor-pointer"
-      >
-        <SettingRow
-          className="px-4"
-          leading={
-            <WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />
-          }
-          title={shortenAddress(wallet.address)}
-          desc={displayName}
-        >
-          <span className="flex items-center gap-1">
-            <span
-              className={`max-w-[9.5rem] truncate text-right text-[11px] font-medium sm:max-w-none ${
-                recon.status === "drifted"
-                  ? "text-aomi-danger"
-                  : "text-aomi-muted"
-              }`}
-            >
-              {status}
-            </span>
-            <ChevronDown
-              size={14}
-              className={`text-aomi-muted shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+    <div id={`wallet-${wallet.id}`}>
+      <ListRow
+        leading={
+          <WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />
+        }
+        title={name}
+        description={walletAddressLine(wallet)}
+        descriptionMono
+        trailing={
+          <>
+            {busy ? (
+              <Loader2
+                aria-label="Saving"
+                className="text-aomi-muted size-4 animate-spin"
+              />
+            ) : null}
+            <Segmented
+              size="sm"
+              label={`Signing for ${name} ${wallet.address}`}
+              value={draft ?? wallet.desiredMode}
+              onChange={onSelect}
+              options={choices.map((mode) => ({
+                value: mode,
+                label: modeLabel(mode),
+              }))}
             />
-          </span>
-        </SettingRow>
-      </div>
-
-      {open && (
-        <div className="border-aomi-border bg-aomi-surface-2/15 flex flex-col gap-3 border-t px-4 pb-4 pt-3">
-          <SigningModeList
-            wallet={wallet}
-            selected={selected}
-            pending={pending}
-            inset
-            modes={modes}
-            onSelect={onDraft}
-          />
-          {!pending &&
-            wallet.desiredMode === "auto" &&
-            wallet.canUseAuto &&
-            onSelectWallet && (
-              <button
-                type="button"
-                onClick={onSelectWallet}
-                disabled={busy}
-                className="border-aomi-border text-aomi-fg rounded-md border px-3 py-2 text-[13px]"
-              >
-                Use for this session
-              </button>
-            )}
-
-          {wallet.desiredMode === "auto" && delegation && (
-            <>
-              <Divider />
-              <SettingRow
-                className="py-2"
-                title="Delegated account"
-                desc={
-                  recon.status === "drifted"
-                    ? recon.detail
-                    : `${delegation.provider} · ${delegation.kind}`
-                }
-              >
-                {delegation.status === "active" ? (
-                  <button
-                    type="button"
-                    onClick={() => onRevokeDelegation(delegation.id)}
-                    disabled={busy}
-                    className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 items-center rounded-lg border px-3 text-[11px] font-medium transition-colors disabled:opacity-50"
-                  >
-                    {busy ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      "Revoke"
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onRenewDelegation}
-                    disabled={busy}
-                    className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 items-center rounded-lg border px-3 text-[11px] font-medium transition-colors disabled:opacity-50"
-                  >
-                    Renew delegation
-                  </button>
-                )}
-              </SettingRow>
-            </>
-          )}
-
-          {pending ? (
-            <div className="border-aomi-border bg-aomi-bg/60 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
-              <span className="text-aomi-fg text-[12px]">
-                {blocked ?? "Review and confirm this policy change."}
-              </span>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  disabled={busy}
-                  className="text-aomi-muted hover:text-aomi-fg rounded-lg px-2.5 py-1.5 text-[11px] transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={onCommit}
-                  disabled={busy || Boolean(blocked)}
-                  className="bg-aomi-accent-strong text-aomi-on-accent flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                >
-                  {busy && <Loader2 size={13} className="animate-spin" />}
-                  {busy ? "Applying change…" : "Review change"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            recon.status === "drifted" &&
-            !(wallet.desiredMode === "auto" && delegation) && (
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-aomi-muted text-[12px]">
-                  {recon.detail}
-                </span>
-                <button
-                  type="button"
-                  onClick={onRenewDelegation}
-                  disabled={busy}
-                  className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 shrink-0 items-center rounded-lg border px-3 text-[11px] font-medium transition-colors disabled:opacity-50"
-                >
-                  {recon.action}
-                </button>
-              </div>
-            )
-          )}
-
-          {error && (
-            <span className="text-aomi-danger text-[13px]">{error}</span>
-          )}
+          </>
+        }
+      />
+      {status || error ? (
+        <div className="-mt-1.5 flex flex-col gap-0.5 pb-3 pl-[58px] pr-3.5">
+          {status ? (
+            <p
+              className={cn(
+                "type-meta",
+                status.danger ? "text-aomi-danger" : "text-aomi-muted",
+              )}
+            >
+              {status.text}
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="type-meta text-aomi-danger">
+              {error}
+            </p>
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

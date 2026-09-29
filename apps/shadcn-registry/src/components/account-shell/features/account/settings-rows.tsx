@@ -1,16 +1,22 @@
 import type { ReactNode } from "react";
-import { CircleHelp } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../../../ui/tooltip";
 
-export const settingsPanelClass =
-  "border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border";
+import { cn } from "@aomi-labs/react";
+import { ListRow, listGroupClass } from "../../../ui/aomi/list-group";
+import { HelpHint, SectionHeader } from "../../../ui/aomi/section-header";
+
+// Settings-era names for the shared primitives in `ui/aomi`. New code should
+// import `SectionHeader`, `ListGroup` / `ListRow` and `HelpHint` directly.
+
+export const settingsPanelClass = listGroupClass;
+
+export const SettingsHint = HelpHint;
 
 export function SettingsSectionHeading({
   title,
   detail,
   hint,
   action,
-  className = "",
+  className,
 }: {
   title: string;
   detail?: string;
@@ -19,50 +25,26 @@ export function SettingsSectionHeading({
   className?: string;
 }) {
   return (
-    <div
-      className={`flex min-h-8 items-center justify-between gap-3 px-0.5 ${className}`}
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <h3 className="truncate text-[13px] font-semibold">{title}</h3>
-        {hint ? <SettingsHint label={title} text={hint} /> : null}
-        {detail ? (
-          <span className="text-aomi-muted truncate text-[12px]">{detail}</span>
-        ) : null}
-      </div>
-      {action}
-    </div>
+    <SectionHeader
+      title={title}
+      detail={detail}
+      help={hint}
+      action={action}
+      className={className}
+    />
   );
 }
 
-export function SettingsHint({ label, text }: { label: string; text: string }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={`About ${label}`}
-          className="border-aomi-border text-aomi-muted hover:text-aomi-fg flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-        >
-          <CircleHelp size={12} />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="top"
-        sideOffset={6}
-        className="bg-aomi-fg text-aomi-bg z-[90] max-w-64 text-pretty"
-      >
-        {text}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
+/**
+ * `ListRow` without its own inset: settings panels pass the horizontal
+ * padding (`px-4`) themselves and separate rows with `Divider`.
+ */
 export function SettingRow({
   title,
   desc,
   descMono,
   leading,
-  className = "",
+  className,
   children,
 }: {
   title: ReactNode;
@@ -73,24 +55,18 @@ export function SettingRow({
   children?: ReactNode;
 }) {
   return (
-    <div
-      className={`flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap sm:gap-4 ${leading ? "min-h-12 py-3" : "py-3.5 sm:py-4"} ${className}`}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        {leading}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="text-[14px] font-medium leading-snug [overflow-wrap:anywhere] sm:truncate sm:leading-none">
-            {title}
-          </div>
-          <span
-            className={`text-aomi-muted text-[12px] leading-snug [overflow-wrap:anywhere] sm:truncate ${descMono ? "font-mono" : ""}`}
-          >
-            {desc}
-          </span>
-        </div>
-      </div>
-      {children ? <div className="shrink-0">{children}</div> : null}
-    </div>
+    <ListRow
+      title={title}
+      description={desc}
+      descriptionMono={descMono}
+      leading={leading}
+      trailing={children}
+      className={cn(
+        "min-h-0 px-0 sm:gap-4",
+        leading ? "min-h-12 py-3" : "py-3.5 sm:py-4",
+        className,
+      )}
+    />
   );
 }
 

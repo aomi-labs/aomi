@@ -32,7 +32,7 @@ import {
   ThreadPrimitive,
 } from "@assistant-ui/react";
 
-import type { FC } from "react";
+import type { FC, FormEvent } from "react";
 import { useEffect } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
@@ -56,8 +56,11 @@ import { AssistantMessageRow } from "./assistant-message-row";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
 import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
-import { ModeSelect } from "@/components/control-bar/mode-select";
-import { AppSelect } from "@/components/control-bar/app-select";
+import {
+  SafetySelect,
+  ThreadSafetyProvider,
+  useThreadSafety,
+} from "@/components/control-bar/safety-select";
 import { ApiKeyInput } from "@/components/control-bar/api-key-input";
 import { NetworkSelect } from "@/components/control-bar/network-select";
 import { ConnectButton } from "@/components/control-bar/connect-button";
@@ -93,54 +96,59 @@ export const Thread: FC = () => {
     <CapabilityComposerProvider
       enabledAppIds={controlBarProps.enabledAppIds}
       routing={controlBarProps.routing}
+      initialAppTag={controlBarProps.initialAppTag}
     >
-      <TraceAttributionProvider>
-        <LazyMotion features={domMax}>
-          <MotionConfig reducedMotion="user">
-            <ThreadPrimitive.Root
-              className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
-              style={{
-                ["--thread-max-width" as string]: "45rem",
-              }}
-            >
-              <PaymentRequiredGate />
-              <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
-                  <ThreadPrimitive.Viewport
-                    autoScroll={!isReviewingAction}
-                    className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
-                  >
-                    <ThreadPrimitive.If empty>
-                      <ThreadWelcome />
-                    </ThreadPrimitive.If>
+      <ThreadSafetyProvider
+        enabled={composerControl.enabled && !controlBarProps.hideSafety}
+      >
+        <TraceAttributionProvider>
+          <LazyMotion features={domMax}>
+            <MotionConfig reducedMotion="user">
+              <ThreadPrimitive.Root
+                className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
+                style={{
+                  ["--thread-max-width" as string]: "45rem",
+                }}
+              >
+                <PaymentRequiredGate />
+                <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                  <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
+                    <ThreadPrimitive.Viewport
+                      autoScroll={!isReviewingAction}
+                      className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
+                    >
+                      <ThreadPrimitive.If empty>
+                        <ThreadWelcome />
+                      </ThreadPrimitive.If>
 
-                    <ThreadLoadingSkeleton />
+                      <ThreadLoadingSkeleton />
 
-                    <ThreadPrimitive.Messages
-                      components={{
-                        UserMessage,
-                        EditComposer,
-                        AssistantMessage,
-                      }}
-                    />
+                      <ThreadPrimitive.Messages
+                        components={{
+                          UserMessage,
+                          EditComposer,
+                          AssistantMessage,
+                        }}
+                      />
 
-                    <ThreadPrimitive.If empty={false}>
-                      <div className="aui-thread-viewport-spacer min-h-36 grow" />
-                    </ThreadPrimitive.If>
-                  </ThreadPrimitive.Viewport>
+                      <ThreadPrimitive.If empty={false}>
+                        <div className="aui-thread-viewport-spacer min-h-36 grow" />
+                      </ThreadPrimitive.If>
+                    </ThreadPrimitive.Viewport>
 
-                  {/* The empty state carries its own hero composer (mock layout); the
+                    {/* The empty state carries its own hero composer (mock layout); the
               docked composer appears once a conversation exists. */}
-                  <ThreadPrimitive.If empty={false}>
-                    <Composer />
-                  </ThreadPrimitive.If>
+                    <ThreadPrimitive.If empty={false}>
+                      <Composer />
+                    </ThreadPrimitive.If>
+                  </div>
+                  {aomiRuntime && <ActivitySidebar />}
                 </div>
-                {aomiRuntime && <ActivitySidebar />}
-              </div>
-            </ThreadPrimitive.Root>
-          </MotionConfig>
-        </LazyMotion>
-      </TraceAttributionProvider>
+              </ThreadPrimitive.Root>
+            </MotionConfig>
+          </LazyMotion>
+        </TraceAttributionProvider>
+      </ThreadSafetyProvider>
     </CapabilityComposerProvider>
   );
 };
@@ -194,6 +202,8 @@ const ThreadWelcome: FC = () => {
 };
 
 const ThreadSuggestions: FC = () => {
+  const composerRuntime = useComposerRuntime();
+  const safety = useThreadSafety();
   const suggestionRows = [
     {
       id: "primary",
@@ -294,6 +304,16 @@ const ThreadSuggestions: FC = () => {
                     prompt={suggestedAction.action}
                     send
                     asChild
+                    onClick={(event) => {
+                      // A held safety level must be saved before turn one.
+                      if (!safety?.hasHeld()) return;
+                      event.preventDefault();
+                      void safety.commitHeld().then((saved) => {
+                        if (!saved) return;
+                        composerRuntime.setText(suggestedAction.action);
+                        composerRuntime.send();
+                      });
+                    }}
                   >
                     <button
                       type="button"
@@ -322,9 +342,20 @@ const ThreadSuggestions: FC = () => {
  */
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const { prepareSubmit } = useCapabilityComposer();
+  const safety = useThreadSafety();
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    prepareSubmit(event);
+    if (event.defaultPrevented || !safety?.hasHeld()) return;
+    // Save a new chat's held safety level first so turn one runs under it.
+    event.preventDefault();
+    const form = event.currentTarget;
+    void safety.commitHeld().then((saved) => {
+      if (saved) form.requestSubmit();
+    });
+  };
   return (
     <ComposerPrimitive.Root
-      onSubmit={prepareSubmit}
+      onSubmit={submit}
       className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3"
     >
       <CapabilityMentionInput
@@ -332,8 +363,31 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
         className="aui-composer-input text-aomi-fg placeholder:text-aomi-muted max-h-32 w-full resize-none overflow-x-hidden whitespace-pre-wrap break-words bg-transparent px-4 pb-2 pt-1.5 text-[13px] outline-none"
       />
       <ComposerAction />
+      <ComposerSafetyStatus />
     </ComposerPrimitive.Root>
   );
+};
+
+/** Pending save of a held safety level, or why the first send was blocked. */
+const ComposerSafetyStatus: FC = () => {
+  const safety = useThreadSafety();
+  if (!safety || safety.started) return null;
+  if (safety.pending && safety.busy)
+    return (
+      <p role="status" className="text-aomi-muted px-4 pb-3 text-[12px]">
+        Setting this chat&apos;s safety level…
+      </p>
+    );
+  if (safety.pending && safety.error)
+    return (
+      <p
+        role="alert"
+        className="text-aomi-danger break-words px-4 pb-3 text-[12px]"
+      >
+        {safety.error}
+      </p>
+    );
+  return null;
 };
 
 const Composer: FC = () => {
@@ -341,32 +395,6 @@ const Composer: FC = () => {
     <div className="aui-composer-wrapper bg-aomi-bg mx-auto flex w-full max-w-[var(--thread-max-width)] shrink-0 flex-col gap-4 overflow-visible px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 md:pb-6">
       <ThreadScrollToBottom />
       <ComposerBox placeholder="Reply to Aomi…" />
-    </div>
-  );
-};
-
-/**
- * Auto stays a single quiet policy control. Direct grows into two adjacent
- * controls, keeping the target visibly attached to the routing policy without
- * wrapping the pair in another visual container.
- */
-const ExecutionControl: FC = () => {
-  const { policy, showModeSelect, showDirectAppSelect } =
-    useCapabilityComposer();
-  const joined = policy === "direct" && showModeSelect && showDirectAppSelect;
-
-  return (
-    <div className={cn("flex shrink-0 items-center", joined && "h-8 gap-0.5")}>
-      <ModeSelect
-        className={cn(
-          joined && "hover:bg-aomi-hover h-full rounded-lg pl-2.5 pr-2",
-        )}
-      />
-      <AppSelect
-        className={cn(
-          joined && "hover:bg-aomi-hover h-full rounded-lg pl-2 pr-2.5",
-        )}
-      />
     </div>
   );
 };
@@ -394,11 +422,14 @@ const ComposerAction: FC = () => {
   const aomiRuntime = useOptionalAomiRuntime();
   const controlBarProps = composerControl.controlBarProps ?? {};
   const hideModel = controlBarProps.hideModel ?? false;
+  const hideSafety = controlBarProps.hideSafety ?? false;
   const hideApiKey = controlBarProps.hideApiKey ?? false;
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
   const hideAppSecrets = controlBarProps.hideAppSecrets ?? false;
   const { hostError } = useCapabilityComposer();
+  const safety = useThreadSafety();
+  const committingSafety = Boolean(safety?.pending && safety.busy);
 
   return (
     <div className="aui-composer-action-wrapper relative mx-1 mb-3 mt-2 flex min-h-[38px] items-center gap-1">
@@ -408,7 +439,7 @@ const ComposerAction: FC = () => {
           {!hideNetwork && <NetworkSelect />}
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
-          <ExecutionControl />
+          {!hideSafety && <SafetySelect />}
           {/* Renders only when the directly targeted app asks the signed-in
               user for app credentials. */}
           {!hideAppSecrets && <AppSecretsDialog />}
@@ -429,7 +460,7 @@ const ComposerAction: FC = () => {
               size="icon"
               className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
-              disabled={Boolean(hostError)}
+              disabled={Boolean(hostError) || committingSafety}
               title={hostError ?? undefined}
             >
               <ArrowUpIcon className="aui-composer-send-icon size-4" />

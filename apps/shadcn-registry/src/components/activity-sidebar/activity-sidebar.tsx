@@ -5,6 +5,7 @@ import {
   useMemo,
   useEffect,
   useLayoutEffect,
+  useId,
   useState,
   useRef,
   type ReactNode,
@@ -15,11 +16,13 @@ import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
 import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
 import { ToolChipView } from "../assistant-ui/tool-chip";
+import { SectionHeader } from "../ui/aomi/section-header";
 import {
   selectActivity,
   selectReviewCommit,
   type ActivityTransaction,
 } from "./model";
+import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
@@ -199,7 +202,7 @@ function ActivitySidebarContent() {
             )}
           >
             <div className="w-[352px] max-w-[100cqw] py-4 pl-3 pr-6">
-              <div className="border-aomi-border bg-aomi-raised divide-aomi-border divide-y rounded-3xl border px-4">
+              <div className="border-aomi-border bg-aomi-raised divide-aomi-border rounded-shell divide-y border px-4">
                 {activity.agents.length > 0 && (
                   <Group title="Subagents" count={activity.agents.length}>
                     {activity.agents.map((agent, index) => (
@@ -218,32 +221,14 @@ function ActivitySidebarContent() {
                 )}
                 {(transactions.length > 0 || pending || pendingCommit) && (
                   <section className="py-4" aria-label="Transactions">
-                    {signing ? (
-                      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-medium">
-                        Transactions{" "}
-                        <span className="text-aomi-muted font-normal">
-                          {transactions.length}
-                        </span>
-                      </h2>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-expanded={expanded}
-                        onClick={() => setOpen(!open)}
-                        className="mb-3 flex w-full items-center gap-2 text-[13px] font-medium"
-                      >
-                        Transactions{" "}
-                        <span className="text-aomi-muted font-normal">
-                          {transactions.length}
-                        </span>
-                        <ChevronDown
-                          className={cn(
-                            "text-aomi-muted ml-auto size-3.5 transition-transform motion-reduce:transition-none",
-                            expanded && "rotate-180",
-                          )}
-                        />
-                      </button>
-                    )}
+                    <GroupHeader
+                      title="Transactions"
+                      count={transactions.length}
+                      open={expanded}
+                      // A pending signature keeps the list open.
+                      onToggle={signing ? undefined : () => setOpen(!open)}
+                      className="mb-3"
+                    />
                     <AnimatePresence initial={false}>
                       {expanded && (
                         <m.div
@@ -291,23 +276,12 @@ function Group({
 
   return (
     <section className="py-4" aria-label={title}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center gap-2 text-left text-[13px] font-medium"
-      >
-        {title}
-        <span className="text-aomi-muted font-normal tabular-nums">
-          {count}
-        </span>
-        <ChevronDown
-          className={cn(
-            "text-aomi-muted ml-auto size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
-            open && "rotate-180",
-          )}
-        />
-      </button>
+      <GroupHeader
+        title={title}
+        count={count}
+        open={open}
+        onToggle={() => setOpen((current) => !current)}
+      />
       <div
         aria-hidden={!open}
         inert={!open}
@@ -322,6 +296,56 @@ function Group({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * A panel section's `SectionHeader`. With `onToggle`, the chevron is the
+ * disclosure button and its hit area stretches over the whole header row.
+ */
+function GroupHeader({
+  title,
+  count,
+  open,
+  onToggle,
+  className,
+}: {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle?: () => void;
+  className?: string;
+}) {
+  const headingId = useId();
+  return (
+    <SectionHeader
+      as="h2"
+      id={headingId}
+      title={title}
+      count={count}
+      className={cn("relative", className)}
+      action={
+        onToggle ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-labelledby={headingId}
+            onClick={onToggle}
+            className={cn(
+              focusRing,
+              "text-aomi-muted hover:text-aomi-fg rounded-control flex size-7 items-center justify-center transition-colors after:absolute after:inset-0 after:content-['']",
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
+                open && "rotate-180",
+              )}
+            />
+          </button>
+        ) : undefined
+      }
+    />
   );
 }
 

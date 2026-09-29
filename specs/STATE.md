@@ -2,7 +2,101 @@
 
 ## Last Updated
 
-2026-09-29 — SIDEBAR ACCOUNT CHIP CLEANUP (worktree `agent-usefulness`,
+2026-09-29 — TX REVIEW TEXT + SHORT TX TITLES (worktrees `agent-usefulness`,
+  both repos uncommitted). Activity sidebar: transient review lines ("Approve
+  in your wallet", "Waiting for previous transaction", …) removed; a disabled
+  Submit says "Waiting…"; shared inset focus-visible ring for sidebar buttons.
+  Backend: one `TX_TITLE_DESCRIPTION` (tools/src/tool_traits.rs) for EVM/SVM
+  stage schemas — ≤4 words, no amounts/addresses/chains; LI.FI, Circle and
+  Jupiter app-built titles shortened to match (LI.FI/Aave drafts replace model
+  args server-side). Registry: `wallet-groups.ts` added; control-bar ships the
+  safety selector's transport/API files; activity-sidebar depends on
+  `aomi-ui`; `SettingsTab` type moved to `lib/settings-events.ts` so the
+  control bar doesn't need the settings modal. Backend rebuilt (`restart
+  --build`; needs a `pnpm` shim on PATH because widget-lib's build script calls
+  bare `pnpm`). Pre-existing, unrelated: aomi-tools `flow_tests::staging_*` (3)
+  and `durable_stage_replay_rechecks_proof_authority_and_simulation` fail on a
+  clean HEAD too. Widget vitest 724/724.
+
+Previous: 2026-09-29 — EXTERNAL WALLET RECONNECT FIX (worktree `agent-usefulness`,
+  uncommitted). With Para selected, an injected wallet (Rabby etc.) dropped on
+  reload. Cause: ea4e7da7 rendered the wallet runtime beside ParaProvider while
+  connectors loaded, then moved it under — two mounts, and wagmi's page-global
+  `isReconnecting` flag made the live config's reconnect return [] while the
+  discarded one kept the connection. Fix: plugin `wrap` takes a `placeholder`;
+  Para shows the host app over `AOMI_BOOTING_WALLET_KIT` while loading, so the
+  runtime mounts exactly once under ParaProvider (`para-plugin.tsx`,
+  `plugin-registry.ts`, `AomiWalletKitProvider.tsx`;
+  `full-testnet-wallet-routing.tsx` tolerates no WagmiProvider yet).
+  Regression test in `para-plugin.test.tsx`; Playwright with a mock EIP-6963
+  Rabby confirmed reconnect under Para (Privy was unaffected). Known cost: the
+  host app remounts once when Para's connectors finish loading (first ~1s).
+
+Previous: 2026-09-29 — UI UNIFICATION PHASES 1–3 (worktree `agent-usefulness`,
+  uncommitted). Foundation: `themes/default.css` gains `rounded-shell/card/
+  control`, `shadow-popover/modal` and `type-*` utilities (`@utility`, not
+  `--text-*`, so tailwind-merge keeps sizes); shared primitives in
+  `components/ui/aomi/` (ModalShell/Sidebar/Nav/NavItem/Header, SectionHeader,
+  ListGroup/ListRow, StatusPill — not for trace chips, Segmented,
+  ConfirmDialog/useConfirmDialog, aomiButton). Library + Settings share the
+  modal shell; Library rows/badges/detail and the activity panel cards moved
+  onto the scale (trace chips and tx step bars untouched). Composer: execution
+  mode (ModeSelect/AppSelect) removed; `routing` is a host-only prop (portal =
+  auto, `lock_app` stays silent Direct, unlocked `?app=X` pre-tags the app via
+  `initialAppTag`); new `SafetySelect` (Strict/Balanced/Yolo =
+  guarded_only/balanced/unrestricted, inline Yolo confirm, `hideSafety`)
+  where execution mode was; a held level on a new chat is PUT (creating the
+  thread) before the first send; automatic model label is "Auto". Settings:
+  Policy tab labelled Safety (id still `policy`) = "New chats start on"
+  segmented (Yolo never default) + per-wallet Signing (Ask me/Auto/Locked;
+  Auto only for Para/Privy since nothing reads client_auto for external
+  wallets) + restyled Automatic signing; Swig hidden behind
+  `SWIG_POLICY_ENABLED=false`. Account › Wallets & access: one card per
+  Para/Privy login with nested EVM/SVM address lines, external wallets one
+  line each; the address line is the click target and carries the green
+  bar/glow; Connected/Linked badges replaced by one status + inline action
+  (`wallet-groups.ts`). window.confirm → ConfirmDialog. Deleted dead code:
+  AccountManagerPanel, OptionGrid, addSignInOptions, settings-styles.ts,
+  signing-mode-list.tsx, PackageRow, account-access helpers. Verified: widget
+  vitest 719/719 (apps/shadcn-registry config — root config doesn't pick up
+  widget tests), portal vitest 649 pass / 3 env-dependent failures unrelated
+  (loopback DB URL, agent-api-proxy, launch routes), widget/lib/portal/landing
+  tsc, eslint; browser: Library + guest composer on the dev portal.
+
+Follow-up after review (same day): `cn` now uses `extendTailwindMerge` so
+  `rounded-shell/card/control`, `shadow-popover/modal` and `type-*` override
+  component defaults (dropdowns were rendering the Popover's `rounded-md`);
+  tokens set to the radii users liked — shell 24px (old activity panel), card
+  16px — and the old menu/modal shadows. Activity panel back to no shadow;
+  review Reject/Submit back to h-10 pills. SafetySelect always names the level.
+  Wallets & access is one divided group again, and wallet lines read
+  "0xda65…3cf0 · EVM" (no chain chip), also on Safety › Signing. Automatic
+  model description is "Picks a model per task" (fits one line). Library and
+  Settings modals are both 1000×620 (was 1080; only Library's middle column
+  shrinks) and Settings tabs fill the pane on the header's px-6 edges instead
+  of a centered 780px column. SafetySelect renders from first paint next to the
+  model selector: signed out it shows the default, disabled ("Sign in to change
+  transaction safety"); signed in it shows the last default this browser saw
+  (localStorage `aomi:transaction-safety-default`) until the account answers. The concept is named "Guard policy" everywhere
+  (composer menu title, trigger label, Settings subtitle); Settings › Safety's
+  default is a picker list like the composer menu (icon, name, note, check =
+  selection, fill only on hover/focus, arrow keys skip Yolo) under "Guard
+  policy · Default for new chats". Settings section headers follow one rule:
+  title · count · short static detail · (?) help for longer copy; no transient
+  "Saving…/Saved" lines (in-row spinner instead). ModalNavItem focus ring is
+  focus-visible + inset.
+
+Pending (UI unification):
+- Signed-in visual pass of Settings (Account, Safety) and the composer
+  SafetySelect — covered by tests only.
+- Two Para logins on one account nest all Para addresses under the first card
+  (no login↔address link in the data).
+- Widget with `features.settings === false`: SafetySelect "Change" is a no-op.
+- `@aomi-labs/widget-lib` version bump; regenerate `apps/landing/public/r/*.json`.
+- Phases 4–6 (picker restyle + add flow, conflict move/merge backend) per the
+  plan artifact.
+
+Previous: 2026-09-29 — SIDEBAR ACCOUNT CHIP CLEANUP (worktree `agent-usefulness`,
   uncommitted). `DualWalletBar` uses one chip shape (`@container rounded-xl
   border p-3`) and `ChevronsUpDownIcon` whether signed out or signed in, so
   signing in no longer shrinks the chip or swaps in `UnfoldVerticalIcon`.

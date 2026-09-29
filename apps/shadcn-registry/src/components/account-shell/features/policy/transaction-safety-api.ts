@@ -43,5 +43,24 @@ export async function saveTransactionSafety(
       },
     ),
   );
+  if (!threadId && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent<TransactionSafetyPolicy>(DEFAULT_CHANGED_EVENT, {
+        detail: policy,
+      }),
+    );
+  }
   return policy;
+}
+
+const DEFAULT_CHANGED_EVENT = "aomi:transaction-safety-default";
+
+/** Follow account-default saves made elsewhere (e.g. Settings › Safety). */
+export function onTransactionSafetyDefaultChange(
+  listener: (policy: TransactionSafetyPolicy) => void,
+): () => void {
+  const handle = (event: Event) =>
+    listener((event as CustomEvent<TransactionSafetyPolicy>).detail);
+  window.addEventListener(DEFAULT_CHANGED_EVENT, handle);
+  return () => window.removeEventListener(DEFAULT_CHANGED_EVENT, handle);
 }

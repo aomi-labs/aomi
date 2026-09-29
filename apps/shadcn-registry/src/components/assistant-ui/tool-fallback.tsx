@@ -37,7 +37,7 @@ export const ToolFallback: ToolCallMessagePartComponent = ({
               <p className="aui-tool-fallback-result-header font-semibold">
                 Result:
               </p>
-              <pre className="aui-tool-fallback-result-content whitespace-pre-wrap text-[012px]">
+              <pre className="aui-tool-fallback-result-content whitespace-pre-wrap text-[12px]">
                 {typeof result === "string"
                   ? result
                   : JSON.stringify(result, null, 2)}

@@ -1288,6 +1288,34 @@ describe("ordered batch submission", () => {
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
+  it("says why Submit waits in the button, not a status line", () => {
+    controller(vi.fn());
+    runtime.commits = [
+      { ...commit(0), state: "submitted" },
+      { ...commit(1), action: null },
+    ];
+    render(<WalletReview />);
+    expect(screen.getByRole("button", { name: /Waiting…/ })).toBeDisabled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Waiting for previous transaction"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no transient wallet prompt line while the wallet is open", () => {
+    controller(vi.fn());
+    runtime.commitController = {
+      ...runtime.commitController,
+      submissionPhase: () => "awaiting_wallet",
+    } as unknown as CommitController;
+    render(<WalletReview />);
+    expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
+    expect(
+      screen.queryByText("Approve in your wallet"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("keeps Submit next scoped to one transaction", async () => {
     const execute = vi.fn((id: string) =>
       Promise.resolve(runtime.commits.find((view) => view.commit_id === id)!),

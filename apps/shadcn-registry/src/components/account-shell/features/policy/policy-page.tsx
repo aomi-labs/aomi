@@ -3,19 +3,12 @@
 import { PolicySettings } from "./policy-settings";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
 
+/** The Safety tab: the default level for new chats, then wallet signing. */
 export function PolicyPage() {
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <TransactionSafetySettings />
-      <section aria-labelledby="onchain-permissions-heading">
-        <h2
-          id="onchain-permissions-heading"
-          className="mb-3 text-sm font-medium"
-        >
-          On-chain permissions
-        </h2>
-        <PolicySettings />
-      </section>
+      <PolicySettings />
     </div>
   );
 }

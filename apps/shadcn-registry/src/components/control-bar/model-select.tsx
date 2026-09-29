@@ -19,6 +19,7 @@ import {
 import {
   groupModelsByVendor,
   getVendorForModel,
+  AUTO_MODEL_DESCRIPTION,
   AUTO_MODEL_LABEL,
   resolveAutoModel,
 } from "./model-metadata";
@@ -74,7 +75,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
         disabled
         className={cn(
           "h-8 w-auto min-w-[100px] rounded-full px-2 text-xs",
-          "text-muted-foreground",
+          "text-aomi-muted",
           className,
         )}
       >
@@ -176,7 +177,7 @@ export const ModelSelect: FC<ModelSelectProps> = ({
                   <div className="flex flex-col">
                     <span className="font-medium">{AUTO_MODEL_LABEL}</span>
                     <span className="text-aomi-muted text-[11px] leading-4">
-                      Balanced speed and cost
+                      {AUTO_MODEL_DESCRIPTION}
                     </span>
                   </div>
                 </div>

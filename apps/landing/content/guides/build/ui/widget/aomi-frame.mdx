@@ -48,7 +48,7 @@ export default function CustomLayout() {
         withControl={true}
         controlBarProps={{
           hideModel: false,
-          hideApp: false,
+          hideSafety: false,
           hideApiKey: true,
           hideWallet: true,
         }}
@@ -85,7 +85,7 @@ The header bar with sidebar trigger, thread title breadcrumb, and optional contr
   withControl={true}
   controlBarProps={{
     hideModel: false,
-    hideApp: false,
+    hideSafety: false,
     hideApiKey: true,
     hideWallet: true,
   }}
@@ -123,14 +123,14 @@ The main content area containing the message list and input composer.
 
 ## ControlBar Integration
 
-The ControlBar provides model selection, app switching, API key input, wallet connection, and network selection. Toggle individual controls with boolean props:
+The ControlBar provides model selection, per-chat transaction safety, API key input, wallet connection, and network selection. Toggle individual controls with boolean props. Agent routing (Auto or a pinned Direct app) is a host setting passed as `routing`; users never see a mode picker.
 
 ```tsx
 <AomiFrame.Header
   withControl={true}
   controlBarProps={{
     hideModel: false,      // Show model selector
-    hideApp: false,         // Show app/agent selector
+    hideSafety: false,      // Show transaction safety selector
     hideApiKey: true,       // Hide API key input
     hideWallet: true,       // Hide wallet connect
     hideNetwork: false,     // Show network selector

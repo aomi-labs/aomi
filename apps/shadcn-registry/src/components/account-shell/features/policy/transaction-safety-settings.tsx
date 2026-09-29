@@ -1,296 +1,210 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useOptionalAomiRuntime } from "@aomi-labs/react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { CheckIcon, Loader2 } from "lucide-react";
 import type {
-  AomiAccountProfile,
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
-import { Button } from "../../../ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "../../../ui/dialog";
+import { cn } from "@aomi-labs/react";
+import { listGroupClass } from "../../../ui/aomi/list-group";
+import { SectionHeader } from "../../../ui/aomi/section-header";
 import { useShellTransport } from "../../transport";
 import {
   fetchTransactionSafety,
   saveTransactionSafety,
 } from "./transaction-safety-api";
+import {
+  TRANSACTION_SAFETY_LEVELS,
+  transactionSafetyLevel,
+} from "./transaction-safety-levels";
 
-export const SAFETY_MODES = [
-  {
-    value: "guarded_only",
-    label: "Guarded only",
-    description:
-      "Only allow supported actions covered by protocol guards. Block generic actions and critical findings.",
-  },
-  {
-    value: "balanced",
-    label: "Balanced",
-    description:
-      "Allow supported and generic actions. Block critical guard findings; show limited-coverage warnings.",
-  },
-  {
-    value: "unrestricted",
-    label: "Danger mode",
-    description:
-      "Allow actions even when guards flag a critical issue or cannot assess them. Wallet permissions and limits still apply.",
-  },
-] as const;
+/** The note under each policy; the levels file keeps the short menu copy. */
+const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
+  guarded_only:
+    "Only actions a protocol guard covers. Generic actions and any critical finding are blocked.",
+  balanced:
+    "Supported and generic actions. Stops on critical findings and warns when a guard has limited coverage.",
+  unrestricted:
+    "Runs actions even when a guard flags a critical issue or can't check them. Only inside a chat, from the shield next to the model.",
+};
 
+function message(cause: unknown, fallback: string) {
+  return cause instanceof Error && cause.message ? cause.message : fallback;
+}
+
+/**
+ * The account default every new chat starts on. It saves on change against the
+ * loaded revision; a chat's own level is set from the composer, not here.
+ */
 export function TransactionSafetySettings() {
-  const runtime = useOptionalAomiRuntime();
-  const threadId = runtime?.currentThreadId;
   const { json: request } = useShellTransport();
-  const [thread, setThread] = useState<TransactionSafetyPolicy>();
-  const [account, setAccount] = useState<TransactionSafetyPolicy>();
-  const [selected, setSelected] = useState<TransactionSafetyMode>();
-  const [busy, setBusy] = useState(false);
+  const [policy, setPolicy] = useState<TransactionSafetyPolicy>();
+  const [draft, setDraft] = useState<TransactionSafetyMode>();
   const [error, setError] = useState<string>();
-  const [notice, setNotice] = useState<string>();
-  const [confirm, setConfirm] = useState(false);
-  const [automatic, setAutomatic] = useState(false);
-  const generation = useRef(0);
-  const saveButton = useRef<HTMLButtonElement>(null);
-  const section = useRef<HTMLElement>(null);
+  const alive = useRef(true);
+
   useEffect(() => {
-    const current = ++generation.current;
-    setBusy(false);
-    setThread(undefined);
-    setAccount(undefined);
-    setSelected(undefined);
+    alive.current = true;
+    setPolicy(undefined);
     setError(undefined);
-    setNotice(undefined);
-    setConfirm(false);
     void fetchTransactionSafety(request)
-      .then((policy) => {
-        if (current !== generation.current) return;
-        setAccount(policy);
-        if (!threadId) setSelected(policy.mode);
+      .then((next) => {
+        if (alive.current) setPolicy(next);
       })
       .catch((cause: unknown) => {
-        if (current === generation.current)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not load your default safety policy.",
-          );
-      });
-    if (threadId)
-      void fetchTransactionSafety(request, threadId)
-        .then((policy) => {
-          if (current !== generation.current) return;
-          setThread(policy);
-          setSelected(policy.mode);
-        })
-        .catch((cause: unknown) => {
-          if (current === generation.current)
-            setError(
-              cause instanceof Error
-                ? cause.message
-                : "Could not load this chat's safety policy.",
-            );
-        });
-    void request<AomiAccountProfile>("/api/account")
-      .then((profile) => {
-        if (current === generation.current)
-          setAutomatic(
-            profile.signing_policies.some((policy) => policy.mode === "auto"),
-          );
-      })
-      .catch(() => {
-        if (current === generation.current) setAutomatic(false);
+        if (alive.current)
+          setError(message(cause, "Could not load your guard policy."));
       });
     return () => {
-      generation.current += 1;
+      alive.current = false;
     };
-  }, [request, threadId]);
+  }, [request]);
 
-  async function save(asDefault: boolean) {
-    const prior = asDefault ? account : thread;
+  const choose = async (mode: TransactionSafetyMode) => {
     if (
-      !prior ||
-      !selected ||
-      busy ||
-      (asDefault && selected === "unrestricted")
+      !policy ||
+      draft !== undefined ||
+      mode === policy.mode ||
+      !transactionSafetyLevel(mode).canBeDefault
     )
       return;
-    const current = generation.current;
-    setBusy(true);
+    setDraft(mode);
     setError(undefined);
-    setNotice(undefined);
-    setConfirm(false);
     try {
-      const policy = await saveTransactionSafety(
-        request,
-        selected,
-        prior.revision,
-        asDefault ? undefined : threadId,
-      );
-      if (current !== generation.current) return;
-      if (asDefault) setAccount(policy);
-      else {
-        setThread(policy);
-        setSelected(policy.mode);
-      }
-      setNotice(
-        asDefault
-          ? "Default saved. Existing chats keep their current selection."
-          : "Safety policy saved for this chat. Future actions use this selection.",
-      );
+      const next = await saveTransactionSafety(request, mode, policy.revision);
+      if (!alive.current) return;
+      setPolicy(next);
     } catch (cause) {
-      if (current !== generation.current) return;
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not save transaction safety. Refresh and try again.",
-      );
+      if (!alive.current) return;
+      setError(message(cause, "Could not save your default. Try again."));
       // Read the latest revision after a conflict; never silently retry a write.
       try {
-        const latest = await fetchTransactionSafety(
-          request,
-          asDefault ? undefined : threadId,
-        );
-        if (current === generation.current) {
-          if (asDefault) setAccount(latest);
-          else setThread(latest);
-        }
+        const latest = await fetchTransactionSafety(request);
+        if (alive.current) setPolicy(latest);
       } catch {
-        /* Preserve the original error and keep admission server-owned. */
+        /* Keep the original error; admission stays server-owned. */
       }
     } finally {
-      if (current === generation.current) setBusy(false);
+      if (alive.current) setDraft(undefined);
     }
-  }
-  const canSave = Boolean(
-    thread && selected && selected !== thread.mode && !busy,
+  };
+
+  const shown = draft ?? policy?.mode;
+  const choices = TRANSACTION_SAFETY_LEVELS.filter(
+    (level) => level.canBeDefault,
   );
+
+  // Radio-group keys: arrows move between the policies a default can use.
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step =
+      event.key === "ArrowDown" || event.key === "ArrowRight"
+        ? 1
+        : event.key === "ArrowUp" || event.key === "ArrowLeft"
+          ? -1
+          : 0;
+    if (!step || !shown) return;
+    event.preventDefault();
+    const index = choices.findIndex((level) => level.id === shown);
+    const next = choices[(index + step + choices.length) % choices.length]!;
+    void choose(next.id);
+    event.currentTarget
+      .querySelector<HTMLElement>(`[data-policy="${next.id}"]`)
+      ?.focus();
+  };
+
   return (
     <section
-      ref={section}
-      tabIndex={-1}
-      aria-labelledby="transaction-safety-heading"
-      className="space-y-3"
+      aria-labelledby="guard-policy-heading"
+      className="flex flex-col gap-2"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="transaction-safety-heading" className="text-sm font-medium">
-          Transaction safety
-        </h2>
-        <span className="text-aomi-muted text-xs">
-          {threadId ? "Applies to this chat" : "Default for new chats"}
-        </span>
-      </div>
-      <p className="text-aomi-muted text-xs">
-        Choose which actions Aomi may execute.
-      </p>
-      <fieldset disabled={busy || selected === undefined} className="space-y-2">
-        <legend className="sr-only">Transaction safety mode</legend>
-        {SAFETY_MODES.map((mode) => (
-          <label
-            key={mode.value}
-            className="border-aomi-border hover:bg-aomi-hover flex cursor-pointer items-start gap-3 rounded-xl border p-3"
-          >
-            <input
-              type="radio"
-              name="transaction-safety"
-              value={mode.value}
-              checked={selected === mode.value}
-              disabled={mode.value === "unrestricted" && !threadId}
-              onChange={() => setSelected(mode.value)}
-              className="mt-0.5"
-            />
-            <span>
-              <span className="text-sm font-medium">
-                {mode.label}
-                {mode.value === "balanced" && (
-                  <span className="text-aomi-muted ml-2 text-xs">Default</span>
+      <SectionHeader
+        id="guard-policy-heading"
+        title="Guard policy"
+        detail="Default for new chats"
+        help="Each new chat starts on this policy. Change a single chat from the shield next to the model; chats you already have keep theirs."
+      />
+      {shown ? (
+        <div
+          role="radiogroup"
+          aria-labelledby="guard-policy-heading"
+          aria-busy={draft !== undefined || undefined}
+          onKeyDown={onKeyDown}
+          className={cn(listGroupClass, "flex flex-col gap-0.5 p-1.5")}
+        >
+          {TRANSACTION_SAFETY_LEVELS.map((level) => {
+            const selected = level.id === shown;
+            const disabled = !level.canBeDefault || draft !== undefined;
+            return (
+              <button
+                key={level.id}
+                type="button"
+                role="radio"
+                data-policy={level.id}
+                aria-checked={selected}
+                aria-labelledby={`guard-policy-${level.id}`}
+                aria-describedby={`guard-policy-${level.id}-note`}
+                aria-disabled={!level.canBeDefault || undefined}
+                disabled={disabled}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => void choose(level.id)}
+                className={cn(
+                  "rounded-control flex w-full items-start gap-3 px-3 py-2.5 text-left outline-none transition-colors",
+                  "focus-visible:ring-aomi-ring/50 focus-visible:ring-2",
+                  // Like the composer menu: the check marks the choice; fill is only
+                  // hover/focus, so a hovered row never looks selected.
+                  "hover:bg-aomi-surface-2 focus-visible:bg-aomi-surface-2 disabled:hover:bg-transparent",
+                  !level.canBeDefault &&
+                    "cursor-default opacity-50 hover:bg-transparent",
                 )}
-              </span>
-              <span className="text-aomi-muted mt-1 block text-xs">
-                {mode.description}
-              </span>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      {selected === undefined && !error && (
-        <p role="status" className="text-aomi-muted text-xs">
-          Loading transaction safety…
+              >
+                <level.Icon
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0",
+                    level.danger ? "text-aomi-danger" : "text-aomi-muted",
+                  )}
+                />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span
+                    id={`guard-policy-${level.id}`}
+                    className={cn(
+                      "type-row",
+                      level.danger && "text-aomi-danger",
+                    )}
+                  >
+                    {level.label}
+                  </span>
+                  <span
+                    id={`guard-policy-${level.id}-note`}
+                    className="type-meta text-aomi-muted"
+                  >
+                    {LEVEL_DETAIL[level.id]}
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="flex w-5 shrink-0 items-center justify-center self-center"
+                >
+                  {selected && draft !== undefined ? (
+                    <Loader2 className="text-aomi-muted size-4 animate-spin" />
+                  ) : selected ? (
+                    <CheckIcon className="text-aomi-accent size-4" />
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : !error ? (
+        <p role="status" className="type-meta text-aomi-muted">
+          Loading your guard policy…
         </p>
-      )}
-      {error && (
-        <p role="alert" className="text-aomi-danger break-words text-xs">
+      ) : null}
+      {error ? (
+        <p role="alert" className="type-meta text-aomi-danger break-words">
           {error}
         </p>
-      )}
-      {notice && (
-        <p role="status" className="text-aomi-muted text-xs">
-          {notice}
-        </p>
-      )}
-      {selected === "unrestricted" && (
-        <p className="text-aomi-danger text-xs">
-          Danger mode applies only to this chat and cannot be the account
-          default.
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {threadId && (
-          <Button
-            ref={saveButton}
-            disabled={!canSave}
-            onClick={() =>
-              selected === "unrestricted" ? setConfirm(true) : void save(false)
-            }
-          >
-            {busy ? "Saving…" : "Save for this chat"}
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          disabled={
-            busy ||
-            !account ||
-            !selected ||
-            selected === "unrestricted" ||
-            selected === account.mode
-          }
-          onClick={() => void save(true)}
-        >
-          Set default for new chats
-        </Button>
-      </div>
-      <Dialog open={confirm} onOpenChange={setConfirm}>
-        <DialogContent
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            if (saveButton.current && !saveButton.current.disabled)
-              saveButton.current.focus();
-            else section.current?.focus();
-          }}
-        >
-          <DialogTitle>Enable Danger mode for this chat?</DialogTitle>
-          <DialogDescription>
-            Aomi may proceed even when guards flag critical issues or cannot
-            assess an action. Existing wallet approvals and limits remain in
-            place.
-            {automatic &&
-              " Eligible actions may execute automatically under your existing grant."}
-          </DialogDescription>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirm(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={() => void save(false)}>
-              Enable Danger mode
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      ) : null}
     </section>
   );
 }

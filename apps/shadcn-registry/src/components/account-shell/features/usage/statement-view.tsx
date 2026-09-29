@@ -161,7 +161,7 @@ export function StatementView() {
           <section className="flex flex-col gap-3">
             <SectionHeading
               title="Statement detail"
-              hint={view === "byApp" ? "Pivot by app" : "Line-by-line audit"}
+              detail={view === "byApp" ? "Pivot by app" : "Line-by-line audit"}
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3">

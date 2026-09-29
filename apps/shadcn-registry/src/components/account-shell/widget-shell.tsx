@@ -13,6 +13,7 @@ import {
   SettingsModal,
   type SettingsTab,
 } from "./components/settings/settings-modal";
+import { useSettingsOpenRequest } from "./lib/settings-events";
 
 /** Optional controls on the Portal-equivalent embedded shell. */
 export type AomiWidgetFeatures = {
@@ -46,6 +47,10 @@ export function WidgetShell({
     embedded: true,
   });
   useEffect(() => onAccountMenuChange(menu), [menu, onAccountMenuChange]);
+  // In-chat controls (the composer's safety menu) deep-link into Settings.
+  useSettingsOpenRequest((tab) => {
+    if (features?.settings !== false) setSettingsTab(tab);
+  });
   return (
     <ShellNavigationContext.Provider
       value={(path) => {
@@ -70,6 +75,7 @@ export function WidgetShell({
       ) : null}
       {settingsTab ? (
         <SettingsModal
+          key={settingsTab}
           accountOnly={features?.settings === false}
           initialTab={settingsTab}
           onClose={() => setSettingsTab(null)}

@@ -1,7 +1,6 @@
 "use client";
 import type { RefObject } from "react";
-import { Search, X, type LucideIcon } from "lucide-react";
-import { directoryModalType } from "../directory-modal-type";
+import { Search, X } from "lucide-react";
 
 export function SearchField({
   query,
@@ -13,7 +12,7 @@ export function SearchField({
   searchRef: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted flex h-10 min-w-0 shrink-0 items-center gap-2.5 rounded-xl border px-3.5">
+    <label className="border-aomi-border bg-aomi-surface focus-within:border-aomi-muted rounded-control flex h-10 min-w-0 shrink-0 items-center gap-2.5 border px-3.5">
       <Search className="text-aomi-muted size-4 shrink-0" />
       <input
         ref={searchRef}
@@ -41,47 +40,12 @@ export function SearchField({
   );
 }
 
-export function SidebarButton({
-  label,
-  icon: Icon,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  icon: LucideIcon;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`flex h-9 w-auto shrink-0 items-center gap-2.5 rounded-lg px-2.5 transition-colors md:w-full ${directoryModalType.navigation} ${
-        active
-          ? "bg-aomi-surface-2 font-medium"
-          : "text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg"
-      }`}
-    >
-      <Icon className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 whitespace-nowrap text-left">
-        {label}
-      </span>
-      {count !== undefined ? (
-        <span className="font-mono text-[10px]">{count}</span>
-      ) : null}
-    </button>
-  );
-}
-
 export function EmptyList() {
   return (
     <div className="flex min-h-44 flex-col items-center justify-center text-center">
       <Search className="text-aomi-muted size-5" />
-      <p className="mt-3 text-[13px] font-medium">No capabilities found</p>
-      <p className="text-aomi-muted mt-1 text-xs">
+      <p className="type-section mt-3">No capabilities found</p>
+      <p className="type-meta text-aomi-muted mt-1">
         Try another search or section.
       </p>
     </div>

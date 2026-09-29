@@ -401,7 +401,7 @@ describe("active transaction presentation", () => {
     expect(screen.getByText("Aave")).toBeInTheDocument();
     expect(screen.queryByText("aave")).not.toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: "Skills 1" });
+    const toggle = screen.getByRole("button", { name: "Skills" });
     const content = container.querySelector(
       '[data-activity-group-content="Skills"]',
     );
@@ -460,10 +460,7 @@ describe("active transaction presentation", () => {
         />
       </TraceAttributionContext.Provider>,
     );
-    for (const title of [
-      "App: Hoodit / Skill: Portfolio",
-      "Skill: LI.FI",
-    ]) {
+    for (const title of ["App: Hoodit / Skill: Portfolio", "Skill: LI.FI"]) {
       const badges = screen.getAllByTitle(title);
       expect(badges).toHaveLength(2);
       expect(badges[0].outerHTML).toBe(badges[1].outerHTML);
@@ -622,6 +619,9 @@ describe("unified live transaction review", () => {
       screen.queryByRole("button", { name: /^Transactions/ }),
     ).not.toBeInTheDocument();
     expect(
+      screen.getByRole("heading", { name: "Transactions" }),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByText(/Wallet request: 1 transaction/),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
@@ -682,8 +682,11 @@ describe("unified live transaction review", () => {
     render(<ActivitySidebar />);
     expect(screen.queryByText("Past transactions")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Transactions 1" }),
+      screen.getByRole("button", { name: "Transactions" }),
     ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("heading", { name: "Transactions" }).nextElementSibling,
+    ).toHaveTextContent("1");
     expect(screen.getByText("Send past")).toBeInTheDocument();
     expect(screen.queryByTestId("transaction-review")).not.toBeInTheDocument();
   });
