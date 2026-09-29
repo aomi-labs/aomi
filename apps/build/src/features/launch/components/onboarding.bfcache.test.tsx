@@ -63,6 +63,7 @@ function firePageShow(persisted: boolean) {
 describe("Onboarding bfcache restore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     // jsdom forbids assigning window.location.href; stub the navigation that
     // beginInstall performs so the component reaches its `installing` state.
     // jsdom forbids assigning window.location.href, and the component reads it
@@ -115,5 +116,22 @@ describe("Onboarding bfcache restore", () => {
     // and must not clear a genuinely in-flight install.
     firePageShow(false);
     expect(recovery).toBeDisabled();
+  });
+
+  it("refreshes the Build login when the App was installed after sign-in", async () => {
+    render(<Onboarding platform="community" />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /already installed/i }),
+    );
+    await waitFor(() =>
+      expect(window.location.href).toBe(
+        "https://build.test/api/bff/auth/github/login?resume=template&platform=community",
+      ),
+    );
+  });
+
+  it("uses the refreshed session installation to reach Create", async () => {
+    render(<Onboarding platform="community" sessionInstallationId="123" />);
+    expect(screen.getByText("Step 2: Create your repo")).toBeInTheDocument();
   });
 });
