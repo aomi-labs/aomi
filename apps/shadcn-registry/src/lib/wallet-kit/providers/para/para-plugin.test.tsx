@@ -24,6 +24,24 @@ const paraStatus = vi.hoisted(() => {
   };
 });
 
+// Mirrors the SDK's page-global connector-library loading flag: the real
+// ParaProvider renders nothing until its lazily imported connectors arrive.
+const paraLibs = vi.hoisted(() => {
+  let loaded = true;
+  const listeners = new Set<() => void>();
+  return {
+    setLoaded(value: boolean) {
+      loaded = value;
+      for (const listener of listeners) listener();
+    },
+    getSnapshot: () => loaded,
+    subscribe: (callback: () => void) => {
+      listeners.add(callback);
+      return () => listeners.delete(callback);
+    },
+  };
+});
+
 // Stub the heavy composer provider so importing the plugin does not pull in the
 // full wallet-kit runtime tree.
 vi.mock("./ParaPluginProvider", () => ({
@@ -40,9 +58,21 @@ vi.mock("@getpara/react-sdk", async () => {
   return {
     default: {},
     Environment: { BETA: "BETA", PROD: "PROD" },
-    // ParaProvider renders children immediately (matches the real SDK with
-    // `waitForReady={false}`), so the watcher always mounts to observe status.
-    ParaProvider: ({ children }: { children: ReactNode }) => children,
+    // Once its connector libraries are loaded, ParaProvider renders children
+    // immediately (matches the real SDK with `waitForReady={false}`), so the
+    // watcher always mounts to observe status.
+    ParaProvider: ({ children }: { children: ReactNode }) =>
+      React.useSyncExternalStore(
+        paraLibs.subscribe,
+        paraLibs.getSnapshot,
+        paraLibs.getSnapshot,
+      )
+        ? React.createElement(
+            "div",
+            { "data-testid": "para-provider" },
+            children,
+          )
+        : null,
     useParaStatus: () => ({
       isReady: React.useSyncExternalStore(
         paraStatus.subscribe,
@@ -60,10 +90,10 @@ vi.mock("@getpara/react-sdk", async () => {
 // Imported after the mocks are registered.
 const { paraPlugin } = await import("./para-plugin");
 
-function renderLayer() {
+function renderLayer(plugin = paraPlugin) {
   return render(
     <>
-      {paraPlugin.wrap?.({
+      {plugin.wrap?.({
         auth: { provider: "para", methods: ["google"] },
         providers: { para: { apiKey: "test-api-key" } },
         children: <div>widget-body</div>,
@@ -138,6 +168,44 @@ describe("Para startup banner", () => {
     });
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("widget-body")).toBeTruthy();
+  });
+});
+
+describe("Para connector loading", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    paraStatus.reset();
+  });
+
+  afterEach(() => {
+    cleanup();
+    paraLibs.setLoaded(true);
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+  });
+
+  it("keeps the host app on screen while Para loads its connectors, then moves it under ParaProvider", async () => {
+    // A fresh module, so no earlier mount has recorded the connectors as loaded.
+    vi.resetModules();
+    const { paraPlugin: coldParaPlugin } = await import("./para-plugin");
+    paraLibs.setLoaded(false);
+    renderLayer(coldParaPlugin);
+
+    expect(screen.getByText("widget-body")).toBeTruthy();
+    expect(screen.queryByTestId("para-provider")).toBeNull();
+    // Download time is not a startup failure.
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    act(() => {
+      paraLibs.setLoaded(true);
+    });
+    expect(screen.getAllByText("widget-body")).toHaveLength(1);
+    expect(screen.getByTestId("para-provider").textContent).toContain(
+      "widget-body",
+    );
   });
 });
 
