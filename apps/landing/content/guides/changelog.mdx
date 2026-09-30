@@ -14,3 +14,32 @@ Current priorities:
 - Clear install paths for widget, headless UI, and skills
 
 For implementation details, see the repositories linked from [Aomi for Agents](/agents.md).
+
+## Migration notes
+
+### Durable EVM Pipeline commits
+
+- **EVM Pipeline `commit()` no longer means the transaction was sent.**
+  `POST /v1/pipeline/evm/commit` prepares a durable execution group, or
+  recovers the existing one. The response keeps `status: "committed"`, adds
+  `provider_invoked: false`, and returns the Commit Service `commits`. Continue
+  with `aomi.pipeline.evm.commits(preparation)` and execute, reject, or refresh
+  each returned `commit_id`. Do not send the returned `requests` to a wallet
+  directly. SVM Pipeline commit is unchanged and stays stateless. See
+  [Simulation](/docs/reference/simulation#review-and-commit).
+- **Holdings are paginated discovery.** `POST /v1/pipeline/evm/token-holdings`
+  no longer reads one ERC-20 balance: `token_address` and `block_tag` are gone.
+  It lists nonzero ERC-20 holdings on one indexed network, ranked by USD value
+  by default. Page with `limit` and `next_cursor`, and filter with `query`,
+  `min_usd_value`, and `include_unpriced`. Results arrive in `items`, with
+  `complete`, `total_matching`, and `warnings`. Native currency and NFTs are
+  not included.
+- **Manual EVM message-signing execution Actions fail closed.** The client
+  disables Submit and refuses to sign them, and the server rejects new
+  requests before opening an approval. Account authorization consent and
+  hosted Auto signing keep their existing paths.
+- **Widget routing has no user-facing mode picker.** `showFixedControls` was
+  removed from `AomiRoutingConfig`, along with the composer's mode and app
+  pickers. Routing is a host setting: every chat runs `defaultMode`. Remove
+  `showFixedControls` from your `routing` config. The composer now shows a
+  per-chat Guard policy selector instead, which `hideSafety` hides.

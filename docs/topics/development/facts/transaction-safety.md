@@ -7,28 +7,45 @@ review_after_days: 30
 sources_of_truth:
   - packages/client/src/transaction-safety.ts
   - packages/client/src/commit-lifecycle.ts
+  - apps/shadcn-registry/src/components/account-shell/features/policy/transaction-safety-levels.ts
   - apps/shadcn-registry/src/components/account-shell/features/policy/transaction-safety-settings.tsx
+  - apps/shadcn-registry/src/components/control-bar/safety-select.tsx
 ---
 
 # Transaction safety controls
 
 Transaction safety is separate from on-chain permissions and signing grants.
-Policy settings compose a server-backed safety selector above the existing Swig
-form; safety loading does not require a Solana wallet or Swig binding. Swig's
-prepare, confirm and revoke calls are unchanged.
+The UI calls it the **guard policy**. It has three levels. The API enum values
+are unchanged:
+
+| UI label | API value      | Account default | Meaning                              |
+| -------- | -------------- | --------------- | ------------------------------------ |
+| Strict   | `guarded_only` | yes             | Only actions a protocol guard covers |
+| Balanced | `balanced`     | yes             | Blocks critical guard findings       |
+| Yolo     | `unrestricted` | no, chat only   | Runs even when guards flag it        |
+
+The UI has two surfaces:
+
+- **Composer "Guard policy" selector** (`SafetySelect`, next to the model
+  picker). It sets the current chat's level. Choosing Yolo needs one inline
+  confirmation ("Turn on Yolo for this chat?"). When a level is picked on a
+  new chat, the thread is created and saved before the first message is sent.
+  Signed out, the selector shows the default level and is disabled. Hosts hide
+  it with `hideSafety`.
+- **Settings "Safety" tab** (tab id `policy`). Under "Guard policy · Default
+  for new chats" the user picks Strict or Balanced. Wallet signing settings sit
+  below. Changing the default does not change existing chats. The Swig
+  on-chain policy form is hidden (`SWIG_POLICY_ENABLED = false`), and loading
+  the safety settings needs no Solana wallet or Swig binding.
 
 The authenticated `transactionSafety` SDK namespace reads and updates the
 account default and owned thread selection. Writes carry `expectedRevision`;
 responses are schema-validated and the UI waits for the authoritative reply.
-Guarded only (`guarded_only`) and Balanced (`balanced`) can be account defaults.
-Danger mode (`unrestricted`) is a thread selection and requires one enablement
-confirmation. Updating an account default does not alter existing chats.
 
 Runtime integrations may expose `transactionSafety` through `AomiRuntimeApi`.
-Older custom runtimes can omit this optional member. Transaction safety adds UI
-only in Settings → Policy. The activity sidebar, transaction cards, simulation
-panel and Submit controls keep their existing layout, icons and labels. Cards
-retain their fixed 84px height; there is no sidebar mode badge or assessment row.
+Older custom runtimes can omit this optional member. The activity sidebar,
+transaction cards, simulation panel and Submit controls do not show the level:
+there is no sidebar mode badge or assessment row.
 
 Reviews consume the authoritative server eligibility while legacy requests
 preserve their existing simulation/guard handling. Existing wallet attempts use
@@ -36,16 +53,13 @@ the normal reconciliation path before any new-eligibility check. Changing a mode
 cannot create another Submit for an uncertain attempt. Ordered Submit all checks
 the remaining cohort and stops when any leg is blocked, stale or unavailable.
 
-Implementation tests and generated contracts are local evidence. Browser,
-real-provider signing, restart and Luna qualification coverage must be reported
-separately; this document does not claim those integrations passed.
-
 Standalone EVM Pipeline and Task build requests accept the optional top-level
-`transactionSafetyMode` (`guarded_only`, `balanced`, or `unrestricted`). Initial
-requests that omit it use Balanced. This API selection is independent of the chat
-preference. Portable EVM Builds seal their selected mode; a later simulate or
-commit request that omits the field inherits the carried mode (legacy Builds
-without a field use Balanced). An explicit later override requires a fresh
+`transactionSafetyMode` (`guarded_only`, `balanced`, or `unrestricted`). When a
+request omits it, the backend uses the thread's saved policy, then the account
+default. An explicit request value overrides both for that request. Portable
+EVM Builds seal the mode they were prepared under. A later simulate or commit
+request that omits the field inherits the sealed mode, and legacy Builds
+without the field use Balanced. An explicit later override requires a fresh
 assessment and review. Existing invoked attempts reconcile their original
 identity and are not rewritten by a mode selection.
 

@@ -128,6 +128,11 @@ second transcript or lifecycle authority.
 
 ## Pipeline
 
-The `/v1/pipeline/*` surface is stateless. It discovers operations and carries portable version 2 Builds through stage, simulate, and explicit commit. Commit revalidates the Build and returns the legacy `status: "committed"` label plus `preparation_status: "prepared"`, `digest`, `provider_invoked: false`, and `requests: ActionRequest[]`. These have no durable Agent Action IDs. The caller submits them with its wallet and tracks receipts.
+The `/v1/pipeline/*` surface discovers operations and carries portable version 2 Builds through stage, simulate, and explicit commit, without a conversation. Commit revalidates the Build and returns the legacy `status: "committed"` label plus `preparation_status: "prepared"`, `digest`, `provider_invoked: false`, and `requests: ActionRequest[]`. `status: "committed"` does not mean a transaction was submitted.
+
+EVM and SVM commit continue differently:
+
+- **EVM** (`POST /v1/pipeline/evm/commit`) prepares a durable execution group, or recovers the one already prepared for that Build. The response adds `next_required_action: "continue_commit_cohort"`, the owned `thread_id`, the original `actions`, and the Commit Service `commits`. Continue with `aomi.pipeline.evm.commits(preparation)`, which returns a Commit controller for those exact `commit_id`s. Execute, reject, or refresh each one through `/v1/pipeline/evm/commits/{commitId}` with the `pipeline:execute` scope. Do not send the returned `requests` to a wallet directly.
+- **SVM** (`POST /v1/pipeline/svm/commit`) is stateless. Its requests have no durable Agent Action IDs. The caller submits them with its wallet and tracks receipts.
 
 Use `/v1/agent/mcp` for Agent MCP and `/v1/pipeline/mcp` for Pipeline MCP, each with its own exact-resource OAuth grant. Read the [canonical API reference](https://aomi.dev/docs/api-reference/overview) and the selected origin's `/openapi.json`; source, npm, and deployments can differ during a release.
