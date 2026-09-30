@@ -25,6 +25,17 @@ function deploymentsUrl(req: Request): URL {
   return url;
 }
 
+function browserReturnUrl(
+  req: Request,
+  continuation: GitHubOAuthContinuation | undefined,
+): URL {
+  if (continuation?.kind !== "template") return deploymentsUrl(req);
+  const url = new URL("/operate/deployments/new", req.url);
+  url.searchParams.set("platform", continuation.platform);
+  url.searchParams.set("mode", "template");
+  return url;
+}
+
 function oauthError(
   req: Request,
   continuation: GitHubOAuthContinuation | undefined,
@@ -33,7 +44,7 @@ function oauthError(
   const cli = continuation?.kind === "cli";
   const redirect = cli
     ? new URL(continuation.redirectUri)
-    : deploymentsUrl(req);
+    : browserReturnUrl(req, continuation);
   redirect.searchParams.set(cli ? "error" : "github_error", error);
   if (cli) redirect.searchParams.set("state", continuation.state);
   return NextResponse.redirect(redirect);
@@ -84,7 +95,7 @@ export async function GET(req: Request) {
     const response =
       continuation.kind === "cli"
         ? await finishCliAuthorization(session, continuation)
-        : NextResponse.redirect(deploymentsUrl(req));
+        : NextResponse.redirect(browserReturnUrl(req, continuation));
     clearGitHubOAuthRequest(response);
     await setGitHubSessionCookie(response, session);
     setGitHubVisibilityGrantCookie(response, visibilityGrant);

@@ -6,6 +6,9 @@ import { GET } from "./route";
 
 const mocks = vi.hoisted(() => ({
   oauthState: undefined as string | undefined,
+  continuation: { kind: "browser" } as
+    | { kind: "browser" }
+    | { kind: "template"; platform: string },
   exchangeGitHubCode: vi.fn(),
   setGitHubSessionCookie: vi.fn(),
   observeFailure: vi.fn(),
@@ -35,7 +38,7 @@ vi.mock("@build/server/cookies/github", () => ({
     mocks.oauthState
       ? {
           oauthState: mocks.oauthState,
-          continuation: { kind: "browser" },
+          continuation: mocks.continuation,
         }
       : null,
   ),
@@ -45,6 +48,7 @@ vi.mock("@build/server/cookies/github", () => ({
 describe("GitHub callback route", () => {
   beforeEach(() => {
     mocks.oauthState = undefined;
+    mocks.continuation = { kind: "browser" };
     mocks.exchangeGitHubCode.mockReset();
     mocks.setGitHubSessionCookie.mockReset();
     mocks.observeFailure.mockReset();
@@ -94,6 +98,27 @@ describe("GitHub callback route", () => {
       app: 2,
       redirectUri: "http://localhost:3000/api/bff/auth/github/callback",
     });
+    expect(mocks.setGitHubSessionCookie).toHaveBeenCalled();
+  });
+
+  it("returns a refreshed installation to the template wizard", async () => {
+    mocks.oauthState = "state-123";
+    mocks.continuation = { kind: "template", platform: "community" };
+    mocks.exchangeGitHubCode.mockResolvedValue({
+      githubUserId: "4738254",
+      githubLogin: "han",
+      installationId: "123",
+    });
+
+    const res = await GET(
+      new Request(
+        "https://build.aomi.dev/api/bff/auth/github/callback?code=code-123&state=state-123",
+      ),
+    );
+    const location = new URL(res.headers.get("location") ?? "");
+    expect(location.pathname).toBe("/operate/deployments/new");
+    expect(location.searchParams.get("platform")).toBe("community");
+    expect(location.searchParams.get("mode")).toBe("template");
     expect(mocks.setGitHubSessionCookie).toHaveBeenCalled();
   });
 
