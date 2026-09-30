@@ -8,9 +8,11 @@ import {
   type FC,
   type ReactNode,
 } from "react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { TransactionSafetyMode } from "@aomi-labs/client";
 import { Button } from "@/components/ui/button";
+import { AomiButton } from "@/components/ui/aomi/button";
 import {
   Popover,
   PopoverContent,
@@ -106,7 +108,9 @@ function rememberDefault(mode: TransactionSafetyMode) {
 /**
  * This chat's transaction safety level, always named on the trigger. It is
  * present from first paint: signed out it shows the default and can't be
- * opened; signed in it shows the remembered default until the account answers.
+ * opened; a new chat shows the remembered default until the account answers.
+ * A started chat never borrows the default: it reads as loading until its own
+ * level arrives, and as unavailable (with a retry) if that fails.
  * Outside a ThreadSafetyProvider nothing gates the first send, so the level
  * locks until the chat has started.
  */
@@ -122,8 +126,31 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
     if (accountMode) rememberDefault(accountMode);
   }, [accountMode]);
 
-  if (!safety.account || !safety.mode) {
-    const signedIn = Boolean(walletKit.accountUser) && !walletKit.accountGuest;
+  const signedIn = Boolean(walletKit.accountUser) && !walletKit.accountGuest;
+  if (signedIn && safety.started && !safety.mode && !safety.unavailable) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        aria-disabled="true"
+        aria-busy="true"
+        aria-label="Guard policy: Loading"
+        className={cn(
+          controlSelectTriggerClass,
+          "hover:text-aomi-muted w-auto cursor-default justify-start hover:bg-transparent",
+          className,
+        )}
+      >
+        <div className="flex items-center gap-px md:gap-1.5">
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin opacity-60" />
+          <span className="truncate">Loading</span>
+        </div>
+        <ControlSelectChevron />
+      </Button>
+    );
+  }
+
+  if (!signedIn || (!safety.mode && !safety.unavailable)) {
     const level = transactionSafetyLevel(rememberedDefault());
     return (
       <Button
@@ -148,9 +175,12 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
     );
   }
 
-  const level = transactionSafetyLevel(safety.mode);
-  const accountLevel = transactionSafetyLevel(safety.account.mode);
-  const locked = !safety.started && !safety.canHold;
+  const level = safety.mode ? transactionSafetyLevel(safety.mode) : undefined;
+  const accountLevel = safety.account
+    ? transactionSafetyLevel(safety.account.mode)
+    : undefined;
+  // Only a composer's provider can hold a new chat's choice for turn one.
+  const locked = !safety.started && !shared;
 
   const apply = (mode: TransactionSafetyMode) => {
     setOpen(false);
@@ -178,20 +208,28 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
           variant="ghost"
           role="combobox"
           aria-expanded={open}
-          aria-label={`Guard policy: ${level.label}`}
+          aria-label={`Guard policy: ${level?.label ?? "Unavailable"}`}
           disabled={safety.busy}
           className={cn(
             controlSelectTriggerClass,
             "w-auto justify-start",
-            level.danger && "text-aomi-danger hover:text-aomi-danger",
+            (!level || level.danger) &&
+              "text-aomi-danger hover:text-aomi-danger",
             className,
           )}
         >
           <div className="flex items-center gap-px md:gap-1.5">
-            <level.Icon
-              className={cn("h-3 w-3 shrink-0", !level.danger && "opacity-60")}
-            />
-            <span className="truncate">{level.label}</span>
+            {level ? (
+              <level.Icon
+                className={cn(
+                  "h-3 w-3 shrink-0",
+                  !level.danger && "opacity-60",
+                )}
+              />
+            ) : (
+              <TriangleAlert className="h-3 w-3 shrink-0" />
+            )}
+            <span className="truncate">{level?.label ?? "Unavailable"}</span>
           </div>
           <ControlSelectChevron />
         </Button>
@@ -204,7 +242,29 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
         collisionPadding={8}
         className={controlMenuContentClass}
       >
-        {confirming ? (
+        {!level ? (
+          <>
+            <ControlMenuTitle>Guard policy</ControlMenuTitle>
+            <p
+              role="alert"
+              className="text-aomi-danger break-words px-2.5 text-[12px] leading-[18px]"
+            >
+              {safety.error ?? "Could not load this chat's safety level."}
+            </p>
+            <div className="mt-3 flex justify-end px-2.5 pb-0.5">
+              <AomiButton
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setOpen(false);
+                  safety.retry();
+                }}
+              >
+                Retry
+              </AomiButton>
+            </div>
+          </>
+        ) : confirming ? (
           <div
             role="group"
             aria-labelledby="aomi-yolo-confirm-title"
@@ -220,20 +280,20 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
               {YOLO_CONFIRM_BODY}
             </p>
             <div className="mt-3 flex justify-end gap-1.5">
-              <button
-                type="button"
+              <AomiButton
+                variant="ghost"
+                size="sm"
                 onClick={() => setConfirming(false)}
-                className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg rounded-control h-7 px-2.5 text-[12px] font-medium transition-colors"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </AomiButton>
+              <AomiButton
+                variant="danger-fill"
+                size="sm"
                 onClick={() => apply("unrestricted")}
-                className="bg-aomi-danger-strong text-aomi-on-danger rounded-control h-7 px-2.5 text-[12px] font-medium transition-opacity hover:opacity-90"
               >
                 Turn on
-              </button>
+              </AomiButton>
             </div>
           </div>
         ) : (
@@ -290,21 +350,23 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
                 {safety.error}
               </p>
             )}
-            <div className="border-aomi-border mt-1.5 flex items-center gap-2 border-t px-2.5 pb-0.5 pt-2 text-[12px]">
-              <span className="text-aomi-muted min-w-0 flex-1 truncate">
-                New chats start on {accountLevel.label}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  requestSettingsOpen("policy");
-                }}
-                className="text-aomi-accent-strong hover:text-aomi-fg shrink-0 font-medium transition-colors"
-              >
-                Change
-              </button>
-            </div>
+            {accountLevel && (
+              <div className="border-aomi-border mt-1.5 flex items-center gap-2 border-t px-2.5 pb-0.5 pt-2 text-[12px]">
+                <span className="text-aomi-muted min-w-0 flex-1 truncate">
+                  New chats start on {accountLevel.label}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    requestSettingsOpen("policy");
+                  }}
+                  className="text-aomi-accent-strong hover:text-aomi-fg shrink-0 font-medium transition-colors"
+                >
+                  Change
+                </button>
+              </div>
+            )}
           </>
         )}
       </PopoverContent>

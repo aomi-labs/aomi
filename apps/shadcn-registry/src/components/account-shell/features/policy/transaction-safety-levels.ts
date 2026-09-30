@@ -12,9 +12,9 @@ export type TransactionSafetyLevel = {
   danger: boolean;
 };
 
-/** User-facing names for the guard policy modes, strictest first. */
-export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
-  {
+/** User-facing names for the guard policy modes. */
+const LEVELS: Record<TransactionSafetyMode, TransactionSafetyLevel> = {
+  guarded_only: {
     id: "guarded_only",
     label: "Strict",
     description: "Only actions a protocol guard covers",
@@ -22,7 +22,7 @@ export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
     canBeDefault: true,
     danger: false,
   },
-  {
+  balanced: {
     id: "balanced",
     label: "Balanced",
     description: "Blocks critical guard findings",
@@ -30,7 +30,7 @@ export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
     canBeDefault: true,
     danger: false,
   },
-  {
+  unrestricted: {
     id: "unrestricted",
     label: "Yolo",
     description: "Runs even when guards flag it",
@@ -38,6 +38,13 @@ export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
     canBeDefault: false,
     danger: true,
   },
+};
+
+/** The levels strictest first, as the menus list them. */
+export const TRANSACTION_SAFETY_LEVELS: readonly TransactionSafetyLevel[] = [
+  LEVELS.guarded_only,
+  LEVELS.balanced,
+  LEVELS.unrestricted,
 ];
 
 export const YOLO_CONFIRM_TITLE = "Turn on Yolo for this chat?";
@@ -47,8 +54,5 @@ export const YOLO_CONFIRM_BODY =
 export function transactionSafetyLevel(
   mode: TransactionSafetyMode,
 ): TransactionSafetyLevel {
-  return (
-    TRANSACTION_SAFETY_LEVELS.find((level) => level.id === mode) ??
-    TRANSACTION_SAFETY_LEVELS[1]!
-  );
+  return LEVELS[mode];
 }

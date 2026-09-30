@@ -12,7 +12,8 @@ import { SectionHeader } from "../../../ui/aomi/section-header";
 import { useShellTransport } from "../../transport";
 import {
   fetchTransactionSafety,
-  saveTransactionSafety,
+  safetyErrorMessage,
+  saveOrReloadTransactionSafety,
 } from "./transaction-safety-api";
 import {
   TRANSACTION_SAFETY_LEVELS,
@@ -28,10 +29,6 @@ const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
   unrestricted:
     "Runs actions even when a guard flags a critical issue or can't check them. Only inside a chat, from the shield next to the model.",
 };
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error && cause.message ? cause.message : fallback;
-}
 
 /**
  * The account default every new chat starts on. It saves on change against the
@@ -54,7 +51,9 @@ export function TransactionSafetySettings() {
       })
       .catch((cause: unknown) => {
         if (alive.current)
-          setError(message(cause, "Could not load your guard policy."));
+          setError(
+            safetyErrorMessage(cause, "Could not load your guard policy."),
+          );
       });
     return () => {
       alive.current = false;
@@ -71,23 +70,21 @@ export function TransactionSafetySettings() {
       return;
     setDraft(mode);
     setError(undefined);
-    try {
-      const next = await saveTransactionSafety(request, mode, policy.revision);
-      if (!alive.current) return;
-      setPolicy(next);
-    } catch (cause) {
-      if (!alive.current) return;
-      setError(message(cause, "Could not save your default. Try again."));
-      // Read the latest revision after a conflict; never silently retry a write.
-      try {
-        const latest = await fetchTransactionSafety(request);
-        if (alive.current) setPolicy(latest);
-      } catch {
-        /* Keep the original error; admission stays server-owned. */
-      }
-    } finally {
-      if (alive.current) setDraft(undefined);
-    }
+    const saved = await saveOrReloadTransactionSafety(
+      request,
+      mode,
+      policy.revision,
+    );
+    if (!alive.current) return;
+    setDraft(undefined);
+    if (saved.ok) return setPolicy(saved.policy);
+    setError(
+      safetyErrorMessage(
+        saved.error,
+        "Could not save your default. Try again.",
+      ),
+    );
+    if (saved.latest) setPolicy(saved.latest);
   };
 
   const shown = draft ?? policy?.mode;

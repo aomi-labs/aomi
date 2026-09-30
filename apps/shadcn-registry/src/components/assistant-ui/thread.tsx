@@ -33,7 +33,7 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
 
@@ -343,13 +343,18 @@ const ThreadSuggestions: FC = () => {
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const { prepareSubmit } = useCapabilityComposer();
   const safety = useThreadSafety();
+  const committing = useRef(false);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     prepareSubmit(event);
     if (event.defaultPrevented || !safety?.hasHeld()) return;
     // Save a new chat's held safety level first so turn one runs under it.
     event.preventDefault();
+    // Another Enter during that save waits for it; only the first resubmits.
+    if (committing.current) return;
+    committing.current = true;
     const form = event.currentTarget;
     void safety.commitHeld().then((saved) => {
+      committing.current = false;
       if (saved) form.requestSubmit();
     });
   };

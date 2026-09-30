@@ -9,19 +9,22 @@ import { useShellTransport } from "../../transport";
 import {
   fetchTransactionSafety,
   onTransactionSafetyDefaultChange,
-  saveTransactionSafety,
+  safetyErrorMessage,
+  saveOrReloadTransactionSafety,
 } from "./transaction-safety-api";
 
 export type ThreadTransactionSafety = {
-  /** The account default loaded, so the safety API is reachable. */
-  available: boolean;
   account?: TransactionSafetyPolicy;
-  /** This chat's level: a held choice, else the thread's, else the default. */
+  /**
+   * This chat's level: a held choice, else the thread's own. Only a chat that
+   * hasn't started reads the account default; a started chat stays undefined
+   * until its own policy loads, so it never shows a level it doesn't run on.
+   */
   mode?: TransactionSafetyMode;
+  /** A started chat's own policy failed to load; `retry` reloads it. */
+  unavailable: boolean;
   /** A new chat's choice, held until `commitHeld` runs before its first send. */
   pending: boolean;
-  /** Whether a chat without a backend thread may hold a choice at all. */
-  canHold: boolean;
   /** The chat has a backend thread (its first message went out). */
   started: boolean;
   busy: boolean;
@@ -35,11 +38,9 @@ export type ThreadTransactionSafety = {
    */
   commitHeld: () => Promise<boolean>;
   refreshAccount: () => void;
+  /** Reload this chat's policy and the account default. */
+  retry: () => void;
 };
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error && cause.message ? cause.message : fallback;
-}
 
 /**
  * Per-chat transaction safety. Before a new chat's first message
@@ -65,6 +66,8 @@ export function useThreadTransactionSafety({
     id: string;
     policy: TransactionSafetyPolicy;
   }>();
+  const [threadRequest, setThreadRequest] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [pending, setPending] = useState<{
     threadId: string;
     mode: TransactionSafetyMode;
@@ -74,6 +77,7 @@ export function useThreadTransactionSafety({
   const generation = useRef(0);
   const heldRef = useRef(pending);
   heldRef.current = pending;
+  const committing = useRef<Promise<boolean> | undefined>(undefined);
 
   useEffect(() => {
     if (!enabled) {
@@ -102,7 +106,12 @@ export function useThreadTransactionSafety({
     const current = ++generation.current;
     setBusy(false);
     setError(undefined);
-    setThread(undefined);
+    setLoadFailed(false);
+    // Keep a level just saved for this chat (its held choice, committed before
+    // turn one) while the reload runs.
+    setThread((known) =>
+      enabled && known?.id === threadId ? known : undefined,
+    );
     setPending((held) => (held?.threadId === threadId ? held : undefined));
     if (!enabled || !threadId || !threadReady) return;
     void fetchTransactionSafety(request, threadId)
@@ -110,10 +119,13 @@ export function useThreadTransactionSafety({
         if (current === generation.current) setThread({ id: threadId, policy });
       })
       .catch((cause: unknown) => {
-        if (current === generation.current)
-          setError(message(cause, "Could not load this chat's safety level."));
+        if (current !== generation.current) return;
+        setLoadFailed(true);
+        setError(
+          safetyErrorMessage(cause, "Could not load this chat's safety level."),
+        );
       });
-  }, [enabled, request, threadId, threadReady]);
+  }, [enabled, request, threadId, threadReady, threadRequest]);
 
   const write = useCallback(
     async (
@@ -124,29 +136,26 @@ export function useThreadTransactionSafety({
       const current = generation.current;
       setBusy(true);
       setError(undefined);
-      try {
-        const policy = await saveTransactionSafety(
-          request,
-          mode,
-          prior.revision,
-          id,
-        );
-        if (current === generation.current) setThread({ id, policy });
-        return current === generation.current;
-      } catch (cause) {
-        if (current !== generation.current) return false;
-        setError(message(cause, "Could not change this chat's safety level."));
-        // Read the latest revision after a conflict; never silently retry a write.
-        try {
-          const latest = await fetchTransactionSafety(request, id);
-          if (current === generation.current) setThread({ id, policy: latest });
-        } catch {
-          /* Keep the original error; admission stays server-owned. */
-        }
-        return false;
-      } finally {
-        if (current === generation.current) setBusy(false);
+      const saved = await saveOrReloadTransactionSafety(
+        request,
+        mode,
+        prior.revision,
+        id,
+      );
+      if (current !== generation.current) return false;
+      setBusy(false);
+      if (saved.ok) {
+        setThread({ id, policy: saved.policy });
+        return true;
       }
+      setError(
+        safetyErrorMessage(
+          saved.error,
+          "Could not change this chat's safety level.",
+        ),
+      );
+      if (saved.latest) setThread({ id, policy: saved.latest });
+      return false;
     },
     [request],
   );
@@ -192,7 +201,7 @@ export function useThreadTransactionSafety({
     [threadId],
   );
 
-  const commitHeld = useCallback(async () => {
+  const commitOnce = useCallback(async () => {
     const held = heldRef.current;
     if (!held || held.threadId !== threadId) return true;
     setBusy(true);
@@ -222,21 +231,32 @@ export function useThreadTransactionSafety({
     return saved;
   }, [request, threadId, write]);
 
+  // A second send while the first save is in flight (Enter, then the
+  // form's own `requestSubmit`) joins that save rather than starting another.
+  const commitHeld = useCallback(() => {
+    committing.current ??= commitOnce().finally(() => {
+      committing.current = undefined;
+    });
+    return committing.current;
+  }, [commitOnce]);
+
   const refreshAccount = useCallback(
     () => setAccountRequest((value) => value + 1),
     [],
   );
+  const retry = useCallback(() => {
+    setAccountRequest((value) => value + 1);
+    setThreadRequest((value) => value + 1);
+  }, []);
 
   const held = pending?.threadId === threadId ? pending : undefined;
+  const own = thread && thread.id === threadId ? thread.policy.mode : undefined;
+  const mode = held?.mode ?? (threadReady ? own : account?.mode);
   return {
-    available: Boolean(account),
     account,
-    mode:
-      held?.mode ??
-      (thread && thread.id === threadId ? thread.policy.mode : undefined) ??
-      account?.mode,
+    mode,
+    unavailable: mode === undefined && loadFailed,
     pending: Boolean(held),
-    canHold,
     started: threadReady,
     busy,
     error,
@@ -244,5 +264,6 @@ export function useThreadTransactionSafety({
     hasHeld,
     commitHeld,
     refreshAccount,
+    retry,
   };
 }

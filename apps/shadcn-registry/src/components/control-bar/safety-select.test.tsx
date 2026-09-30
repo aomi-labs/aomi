@@ -121,6 +121,8 @@ describe("SafetySelect", () => {
   });
 
   it("renders the remembered default before the account answers", async () => {
+    // Only a chat that hasn't started inherits the account default.
+    state.runtime = { currentThreadId: "draft", events: [] };
     window.localStorage.setItem(
       "aomi:transaction-safety-default",
       "guarded_only",
@@ -150,6 +152,59 @@ describe("SafetySelect", () => {
       ).toBe("balanced"),
     );
     window.localStorage.removeItem("aomi:transaction-safety-default");
+  });
+
+  it("reads as loading, never the default, while a started chat's level loads", async () => {
+    state.thread = policy("unrestricted", 4, "thread");
+    let answerThread: (() => void) | undefined;
+    const request = state.request.getMockImplementation()!;
+    state.request.mockImplementation((path: string, init?: RequestInit) =>
+      path === "/api/thread/transaction-safety"
+        ? new Promise((resolve) => {
+            answerThread = () => resolve(state.thread);
+          })
+        : request(path, init),
+    );
+    render(<SafetySelect />);
+    await act(async () => {});
+
+    const loading = screen.getByRole("button", {
+      name: "Guard policy: Loading",
+    });
+    expect(loading).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText("Balanced")).toBeNull();
+
+    await act(async () => answerThread!());
+    const yolo = await trigger();
+    expect(yolo.textContent).toBe("Yolo");
+    expect(yolo.className).toContain("text-aomi-danger");
+  });
+
+  it("names a failed load on the trigger and retries it from the menu", async () => {
+    state.thread = policy("unrestricted", 4, "thread");
+    const request = state.request.getMockImplementation()!;
+    state.request.mockImplementation((path: string, init?: RequestInit) =>
+      path === "/api/thread/transaction-safety"
+        ? Promise.reject(new Error("backend down"))
+        : request(path, init),
+    );
+    render(<SafetySelect />);
+
+    const failed = await screen.findByRole("combobox", {
+      name: "Guard policy: Unavailable",
+    });
+    expect(failed.textContent).toBe("Unavailable");
+    fireEvent.click(failed);
+    expect(screen.getByRole("alert")).toHaveTextContent("backend down");
+    expect(screen.queryByRole("button", { name: /Strict/ })).toBeNull();
+
+    state.request.mockImplementation(request);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    });
+    await waitFor(async () =>
+      expect((await trigger()).textContent).toBe("Yolo"),
+    );
   });
 
   it("lists the three levels and the account default", async () => {
@@ -291,6 +346,48 @@ describe("SafetySelect", () => {
         }),
       ],
     ]);
+  });
+
+  it("joins a first send already saving the held level", async () => {
+    state.runtime = { currentThreadId: "draft", events: [] };
+    state.thread = policy("balanced", 1, "thread");
+    let answerPut: (() => void) | undefined;
+    const request = state.request.getMockImplementation()!;
+    state.request.mockImplementation((path: string, init?: RequestInit) =>
+      init?.method === "PUT"
+        ? new Promise((resolve) => {
+            answerPut = () => resolve(request(path, init));
+          })
+        : request(path, init),
+    );
+    render(
+      <ThreadSafetyProvider>
+        <SafetySelect />
+        <SendProbe />
+      </ThreadSafetyProvider>,
+    );
+    fireEvent.click(await trigger());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Strict/ }));
+    });
+    const threadReads = () =>
+      state.request.mock.calls.filter(
+        ([path, init]) =>
+          path === "/api/thread/transaction-safety" &&
+          (init as RequestInit | undefined)?.method !== "PUT",
+      ).length;
+    const readsBefore = threadReads();
+
+    // Enter, then the form's own resubmit, while the save is in flight.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    });
+    await act(async () => answerPut!());
+
+    expect(screen.getByTestId("sent")).toHaveTextContent("sent");
+    expect(puts()).toHaveLength(1);
+    expect(threadReads() - readsBefore).toBe(1);
   });
 
   it("blocks the first send when the held level cannot be saved", async () => {
