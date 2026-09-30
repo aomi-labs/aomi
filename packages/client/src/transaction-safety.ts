@@ -2,10 +2,7 @@ import type { components } from "./generated/agent-v1/types";
 import type { AomiHttpMethod, AomiRequestOptions } from "./types";
 
 import { agentSchemas } from "./generated/agent-v1/schemas";
-import {
-  PipelineSchemaError,
-  validatePipelineArguments,
-} from "./pipeline/schema";
+import { validatePipelineArguments } from "./pipeline/schema";
 
 type Schemas = components["schemas"];
 export type TransactionSafetyMode = Schemas["TransactionSafetyMode"];
@@ -81,24 +78,6 @@ export class TransactionSafetyTransport {
     const value: unknown = await response.json();
     return transactionSafetyPolicy(value);
   }
-}
-
-/** Parse transport projections without trusting arbitrary tool annotations. */
-export function transactionSafetyProjection(
-  value: unknown,
-): TransactionSafetyProjection | undefined {
-  if (value == null) return undefined;
-  try {
-    validatePipelineArguments(
-      value,
-      agentSchemas.TransactionSafetyProjection,
-      agentSchemas,
-    );
-  } catch (error) {
-    if (error instanceof PipelineSchemaError) return undefined;
-    throw error;
-  }
-  return value as TransactionSafetyProjection;
 }
 
 export function transactionSafetyPolicy(

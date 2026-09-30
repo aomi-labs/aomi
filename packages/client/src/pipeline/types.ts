@@ -54,7 +54,8 @@ export interface PipelineOperationInvocation<
 }
 
 export interface PipelineExecutionScope {
-  /** EVM preparation policy; omitted initial requests use Balanced. */
+  /** EVM preparation policy. An explicit value overrides; when omitted, the
+   * backend uses the thread's saved policy, else the account default. */
   transactionSafetyMode?: TransactionSafetyMode;
   app?: string;
   skills?: string[];

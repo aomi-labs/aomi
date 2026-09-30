@@ -141,7 +141,6 @@ export {
 export type {
   AomiAuthorizationChallenge,
   AomiAuthorizationPermit,
-  AomiExecutionConstraints,
   AomiAuthorizationState,
   AomiEnsureBoundResult,
   AuthorizationPoster,
@@ -423,7 +422,6 @@ export * from "./commit-lifecycle";
 
 export {
   TransactionSafetyTransport,
-  transactionSafetyProjection,
   transactionSafetyPolicy,
 } from "./transaction-safety";
 export type {

@@ -315,15 +315,6 @@ export type AuthorizationPoster = <T>(
   body: unknown,
 ) => Promise<T>;
 
-export type AomiExecutionConstraints = {
-  chainIds?: number[];
-  recipients?: string[];
-  /** Sum of native transaction values in one submitted group. */
-  maxNativeValueWei?: string;
-  /** Sum of direct transfer and approval amounts per asset in one submitted group. */
-  tokenTransfers?: { chainId: number; token: string; maxAmount: string }[];
-};
-
 export type AomiAuthorizationPermit = {
   account: string;
   chain_type: string;
@@ -332,7 +323,6 @@ export type AomiAuthorizationPermit = {
   version: number;
   expiry: number;
   transaction_safety_generic?: boolean;
-  execution_constraints?: AomiExecutionConstraints;
 };
 
 export type AomiAuthorizationChallenge = {
@@ -363,7 +353,6 @@ export function authorizationChallenge(
     wallet: string;
     mode: string;
     transaction_safety_generic?: boolean;
-    execution_constraints?: AomiExecutionConstraints;
   },
 ): Promise<AomiAuthorizationChallenge> {
   return post("/api/account/authorization/challenge", request);

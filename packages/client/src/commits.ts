@@ -39,12 +39,16 @@ export type CommitManual =
   | { kind: "signed"; payloads: string[] }
   | { kind: "broadcast"; transaction_id: string }
   | { kind: "rejected" };
+type WalletRejection = Extract<
+  CommitWalletAttemptOutcome,
+  { kind: "rejected" }
+>;
 export type CommitRecoveryRecord = {
   clientRequestId: string;
   attemptId?: string;
   transactionId?: string;
   rejected?: true;
-  rejection?: Extract<CommitWalletAttemptOutcome, { kind: "rejected" }>;
+  rejection?: WalletRejection;
 };
 export type CommitRecoveryStore = {
   load: (
@@ -89,23 +93,28 @@ export const isTerminalCommit = (view: CommitView): boolean =>
   ["confirmed", "rejected", "failed", "expired"].includes(view.state);
 
 const continuationRevision = (view: CommitView): number =>
-  view.continuation?.revision ?? 0;
-function preservesContinuation(
+  view.continuation?.revision ?? -1;
+/** Chain state and assistant delivery advance on independent monotonic
+ * counters, so each axis keeps its newer side. At an equal chain version only
+ * an authoritative response replaces the cached view; stamped continuation
+ * metadata is immutable at its revision. */
+function mergeCommitView(
   current: CommitView,
   incoming: CommitView,
-): boolean {
-  const currentRevision = continuationRevision(current);
-  const incomingRevision = continuationRevision(incoming);
-  if (currentRevision !== incomingRevision)
-    return currentRevision > incomingRevision;
-  if (current.continuation?.revision !== undefined) return true;
-  // Capability bootstrap accepts the first explicit stamp, but a snapshot
-  // taken before an already observed completion must not undo that delivery.
-  return (
-    incoming.continuation?.revision !== undefined &&
-    current.continuation?.state === "completed" &&
-    incoming.continuation.state !== "completed"
-  );
+  authoritative: boolean,
+): CommitView {
+  const base = (
+    authoritative
+      ? incoming.version >= current.version
+      : incoming.version > current.version
+  )
+    ? incoming
+    : current;
+  const continuation =
+    continuationRevision(incoming) > continuationRevision(current)
+      ? incoming.continuation
+      : current.continuation;
+  return base.continuation === continuation ? base : { ...base, continuation };
 }
 const needsCommitRefresh = (view: CommitView): boolean =>
   !isTerminalCommit(view) ||
@@ -161,6 +170,33 @@ function legacySvmReview(
     payloads,
     broadcaster: view.broadcaster,
   };
+}
+
+/** Commit Service accepts rejection diagnostics as a complete set or none. */
+function walletRejection(phase?: WalletRejection["phase"]): WalletRejection {
+  return phase
+    ? {
+        kind: "rejected",
+        phase,
+        provider_code: "4001",
+        reason_category: "user_rejected",
+      }
+    : { kind: "rejected" };
+}
+/** Replays a saved outcome, healing records saved with partial diagnostics. */
+function recordedOutcome(
+  record: CommitRecoveryRecord,
+): CommitWalletAttemptOutcome {
+  return record.transactionId
+    ? { kind: "transaction", transaction_id: record.transactionId }
+    : walletRejection(record.rejection?.phase);
+}
+/** A 4xx answer proves the attempt was not admitted; 408 stays ambiguous. */
+function isDefiniteRequestFailure(error: unknown): boolean {
+  const status = /^HTTP (4\d\d)\b/.exec(
+    error instanceof Error ? error.message : "",
+  )?.[1];
+  return status !== undefined && status !== "408";
 }
 
 function isExplicitWalletRejection(error: unknown): boolean {
@@ -374,18 +410,7 @@ export class CommitController {
   ingest(view: CommitView): void {
     if (this.closed || view.thread_id !== this.threadId) return;
     const existing = this.views.get(view.commit_id);
-    // Chain and assistant delivery have independent monotonic revisions.
-    if (existing && existing.version >= view.version) {
-      if (
-        preservesContinuation(existing, view) ||
-        (continuationRevision(existing) === continuationRevision(view) &&
-          view.continuation?.revision === undefined)
-      )
-        return;
-      view = { ...existing, continuation: view.continuation };
-    }
-    this.store(view);
-    this.schedule();
+    if (this.store(view, false) !== existing) this.schedule();
   }
   /** The tool result carrying a review can replay after its view already
    * arrived on an event page, so a new review republishes the snapshot. */
@@ -493,22 +518,13 @@ export class CommitController {
     else this.submissionPhases.delete(id);
     this.changed();
   }
-  private store(view: CommitView): CommitView {
+  private store(view: CommitView, authoritative = true): CommitView {
     if (view.thread_id !== this.threadId)
       throw new Error("Commit belongs to another thread");
     const current = this.views.get(view.commit_id);
     if (current) {
-      // Stamped metadata is immutable at its revision; unstamped refreshes
-      // retain compatibility until the first authoritative stamp arrives.
-      const continuation = preservesContinuation(current, view)
-        ? current.continuation
-        : view.continuation;
-      if (current.version > view.version) {
-        if (continuation === current.continuation) return current;
-        view = { ...current, continuation };
-      } else if (continuation !== view.continuation) {
-        view = { ...view, continuation };
-      }
+      view = mergeCommitView(current, view, authoritative);
+      if (view === current) return current;
     }
     if (this.closed) return view;
     this.views.set(view.commit_id, view);
@@ -597,9 +613,7 @@ export class CommitController {
     return this.reportWalletOutcome(
       view.commit_id,
       attempt.attempt_id,
-      recovered.transactionId
-        ? { kind: "transaction", transaction_id: recovered.transactionId }
-        : (recovered.rejection ?? { kind: "rejected" }),
+      recordedOutcome(recovered),
     );
   }
   private canStartWalletSend(): boolean {
@@ -642,9 +656,7 @@ export class CommitController {
         return this.reportWalletOutcome(
           view.commit_id,
           record.attemptId,
-          record.transactionId
-            ? { kind: "transaction", transaction_id: record.transactionId }
-            : (record.rejection ?? { kind: "rejected" }),
+          recordedOutcome(record),
         );
       throw new Error("Wallet send outcome is being reconciled");
     }
@@ -652,19 +664,26 @@ export class CommitController {
     if (this.closed) throw new Error("Commit session closed");
     record ??= { clientRequestId: crypto.randomUUID() };
     recovery.save(this.threadId, view.commit_id, record);
-    const attempt = await this.client.request<CommitWalletAttemptView>(
-      "POST",
-      `${this.path(view.commit_id)}/wallet-attempts`,
-      {
-        sessionId: this.threadId,
-        body: {
-          version: view.version,
-          review_digest: selection.reviewDigest,
-          client_request_id: record.clientRequestId,
-          transport: "browser_send",
-        } satisfies CommitWalletAttemptRequest,
-      },
-    );
+    let attempt: CommitWalletAttemptView;
+    try {
+      attempt = await this.client.request<CommitWalletAttemptView>(
+        "POST",
+        `${this.path(view.commit_id)}/wallet-attempts`,
+        {
+          sessionId: this.threadId,
+          body: {
+            version: view.version,
+            review_digest: selection.reviewDigest,
+            client_request_id: record.clientRequestId,
+            transport: "browser_send",
+          } satisfies CommitWalletAttemptRequest,
+        },
+      );
+    } catch (error) {
+      if (isDefiniteRequestFailure(error))
+        recovery.remove(this.threadId, view.commit_id);
+      throw error;
+    }
     if (attempt.commit_id !== view.commit_id)
       throw new Error("Wallet attempt response identity mismatch");
     if (attempt.transport !== "browser_send")
@@ -677,7 +696,7 @@ export class CommitController {
     if (attempt.request.kind !== "evm_transaction")
       throw new Error("Wallet attempt returned an unsupported payload");
     let transactionId: string;
-    let rejectionPhase: "chain_switch" | "transaction_request" | undefined;
+    let rejectionPhase: WalletRejection["phase"];
     const generation = this.phaseGenerations.get(view.commit_id);
     try {
       transactionId = await send(view, attempt.request, (phase) => {
@@ -692,12 +711,7 @@ export class CommitController {
       });
     } catch (error) {
       if (!isExplicitWalletRejection(error)) throw error;
-      const rejection = {
-        kind: "rejected" as const,
-        ...(rejectionPhase ? { phase: rejectionPhase } : {}),
-        provider_code: "4001" as const,
-        reason_category: "user_rejected" as const,
-      } satisfies CommitWalletAttemptOutcome;
+      const rejection = walletRejection(rejectionPhase);
       record = { ...record, rejected: true, rejection };
       recovery.save(this.threadId, view.commit_id, record);
       return this.reportWalletOutcome(

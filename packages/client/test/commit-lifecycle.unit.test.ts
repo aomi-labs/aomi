@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CommitView } from "../src/commits";
 import {
-  projectCommitContinuation,
   projectCommitLifecycle,
   reviewEligibility,
 } from "../src/commit-lifecycle";
@@ -59,15 +58,6 @@ describe("commit lifecycle projection", () => {
       phase: "confirmed",
       label: "Confirmed",
     });
-    expect(projectCommitContinuation(confirmed)).toBe(
-      "Assistant response needs recovery",
-    );
-    expect(
-      projectCommitContinuation({
-        ...confirmed,
-        continuation: { ...confirmed.continuation!, state: "completed" },
-      }),
-    ).toBeUndefined();
   });
 
   it("claims wallet approval only after the provider invocation begins", () => {
@@ -96,6 +86,18 @@ describe("commit lifecycle projection", () => {
       phase: "checking_submission",
       label: "Wallet outcome unknown; check status before submitting again",
     });
+  });
+
+  it("treats a saved request ID without an admitted attempt as ready", () => {
+    expect(
+      projectCommitLifecycle(ready, undefined, { clientRequestId: "request" }),
+    ).toMatchObject({ phase: "ready" });
+    expect(
+      projectCommitLifecycle(ready, undefined, {
+        clientRequestId: "request",
+        attemptId: "attempt-1",
+      }),
+    ).toMatchObject({ phase: "checking_submission" });
   });
 
   it("distinguishes manual rejection from wallet switch and transaction refusals", () => {

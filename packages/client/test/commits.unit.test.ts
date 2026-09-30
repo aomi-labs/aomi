@@ -190,7 +190,7 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
-  it("preserves stamped equal-revision metadata but accepts legacy refreshes and initial terminal revision zero", async () => {
+  it("keeps stamped metadata immutable at its revision and accepts an initial revision zero", async () => {
     const stamped: CommitView = {
       ...submitted,
       state: "confirmed",
@@ -201,7 +201,7 @@ describe("Commit view surfaces", () => {
         attempts: 1,
       },
     };
-    let response: CommitView = {
+    const response: CommitView = {
       ...stamped,
       version: 4,
       continuation: {
@@ -220,22 +220,6 @@ describe("Commit view surfaces", () => {
       expect(
         (await controller.refresh(stamped.commit_id)).continuation,
       ).toEqual(stamped.continuation);
-      response = {
-        ...response,
-        commit_id: "legacy",
-        continuation: {
-          version: 1,
-          state: "completed",
-          attempts: 1,
-        },
-      };
-      controller.ingest({
-        ...response,
-        continuation: { version: 1, state: "pending", attempts: 0 },
-      });
-      expect((await controller.refresh("legacy")).continuation?.state).toBe(
-        "completed",
-      );
       controller.ingest({ ...submitted, commit_id: "initial" });
       controller.ingest({
         ...stamped,
@@ -257,75 +241,7 @@ describe("Commit view surfaces", () => {
     }
   });
 
-  it("bootstraps an authoritative revision stamp without regressing completed legacy delivery", async () => {
-    const legacy: CommitView = {
-      ...submitted,
-      state: "confirmed",
-      continuation: {
-        version: 1,
-        state: "pending",
-        attempts: 0,
-      },
-    };
-    const completed: CommitView = {
-      ...legacy,
-      continuation: {
-        version: 1,
-        revision: 0,
-        state: "completed",
-        attempts: 1,
-      },
-    };
-    let response = completed;
-    const controller = new CommitController(
-      { request: vi.fn(async () => response) } as unknown as AomiClient,
-      "thread",
-    );
-    try {
-      controller.ingest(legacy);
-      controller.ingest(completed);
-      expect(controller.all()[0].continuation).toEqual(completed.continuation);
-      controller.ingest(legacy);
-      response = { ...legacy, version: legacy.version + 1 };
-      expect((await controller.refresh(legacy.commit_id)).continuation).toEqual(
-        completed.continuation,
-      );
-      const refreshId = "bootstrap-refresh";
-      controller.ingest({ ...legacy, commit_id: refreshId });
-      response = { ...completed, commit_id: refreshId };
-      expect((await controller.refresh(refreshId)).continuation).toEqual(
-        completed.continuation,
-      );
-      const settledId = "legacy-completed";
-      controller.ingest({
-        ...completed,
-        commit_id: settledId,
-        continuation: {
-          version: 1,
-          state: "completed",
-          attempts: 1,
-        },
-      });
-      response = {
-        ...legacy,
-        commit_id: settledId,
-        continuation: {
-          version: 1,
-          revision: 0,
-          state: "pending",
-          attempts: 0,
-        },
-      };
-      controller.ingest(response);
-      expect((await controller.refresh(settledId)).continuation?.state).toBe(
-        "completed",
-      );
-    } finally {
-      controller.close();
-    }
-  });
-
-  it("merges both axes independently, including legacy metadata and other commit identities", () => {
+  it("merges both axes independently, including absent metadata and other commit identities", () => {
     const controller = new CommitController({} as AomiClient, "thread");
     const current: CommitView = {
       ...submitted,
@@ -963,6 +879,121 @@ describe("Commit view surfaces", () => {
     expect(walletSend).toHaveBeenCalledTimes(1);
     controller.close();
   });
+
+  it("omits every rejection diagnostic when the adapter never reports a phase", async () => {
+    const recovery = recoveryStore();
+    const walletSend = vi.fn().mockRejectedValue({ code: 4001 });
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    const bodies: unknown[] = [];
+    const request = vi.fn(async (method: string, path: string, options) => {
+      if (method === "GET") return bodies.length ? awaiting : external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      bodies.push(options.body);
+      if (bodies.length === 1) throw new Error("lost report response");
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "lost report response",
+    );
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      { state: "rejected" },
+    );
+    expect(bodies).toEqual([{ kind: "rejected" }, { kind: "rejected" }]);
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("heals a saved rejection with partial diagnostics before replaying it", async () => {
+    const recovery = recoveryStore();
+    recovery.records.set(external.commit_id, {
+      clientRequestId: "request-1",
+      attemptId: "attempt-1",
+      rejected: true,
+      rejection: {
+        kind: "rejected",
+        provider_code: "4001",
+        reason_category: "user_rejected",
+      },
+    });
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    const request = vi.fn(async (method: string, _path: string, options) => {
+      if (method === "GET") return awaiting;
+      expect(options.body).toEqual({ kind: "rejected" });
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const walletSend = vi.fn();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      { state: "rejected" },
+    );
+    expect(walletSend).not.toHaveBeenCalled();
+    expect(recovery.records.has(external.commit_id)).toBe(false);
+    controller.close();
+  });
+
+  it.each([
+    ["HTTP 422: Unprocessable Entity", false],
+    ["HTTP 408: Request Timeout", true],
+    ["network unavailable", true],
+  ] as const)(
+    "keeps the saved request ID after attempt failure %s: %s",
+    async (message, kept) => {
+      const recovery = recoveryStore();
+      const request = vi.fn(async (method: string) => {
+        if (method === "GET") return external;
+        throw new Error(message);
+      });
+      const walletSend = vi.fn();
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        external.thread_id,
+        { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+      );
+      await expect(controller.execute(external.commit_id)).rejects.toThrow(
+        message,
+      );
+      expect(recovery.records.has(external.commit_id)).toBe(kept);
+      expect(walletSend).not.toHaveBeenCalled();
+      controller.close();
+    },
+  );
 
   it.each([
     "Connect the expected signing wallet",
