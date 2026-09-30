@@ -123,7 +123,12 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   expect(idempotencyKey).toBeTruthy();
   const originalBody = JSON.parse(original.postData() ?? "{}");
 
-  await expect(page.getByTestId("transaction-review")).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      await finishAnimations(page);
+      return page.getByTestId("transaction-review").count();
+    })
+    .toBe(0);
   const rejected = page.locator('[aria-label$="signing: rejected"]');
   await expect(rejected).toHaveCount(1);
   await settleVisuals(page);
@@ -789,6 +794,19 @@ async function signIn(page: Page) {
     pageOrigin: portalOrigin,
     challengeOrigin: portalOrigin,
     privateKeys: [keys.evm[0]!],
+  });
+}
+
+// The fixed test clock keeps its frame time across navigations while the
+// document timeline restarts, so Motion's WAAPI exits start late. Finish
+// finite animations as screenshots do, without altering runtime behavior.
+async function finishAnimations(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      if (Number.isFinite(animation.effect?.getComputedTiming().endTime)) {
+        animation.finish();
+      }
+    }
   });
 }
 
