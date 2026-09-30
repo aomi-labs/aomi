@@ -222,6 +222,30 @@ describe("Para connector loading", () => {
     );
     expect(runtimeMounts).toBe(1);
   });
+
+  it("falls back to the host app when ParaProvider never renders its children", async () => {
+    vi.resetModules();
+    const { paraPlugin: coldParaPlugin } = await import("./para-plugin");
+    paraLibs.setLoaded(false);
+    let runtimeMounts = 0;
+    function WalletRuntime() {
+      useEffect(() => {
+        runtimeMounts += 1;
+      }, []);
+      return <div>widget-body</div>;
+    }
+    renderLayer(coldParaPlugin, <WalletRuntime />);
+
+    act(() => {
+      vi.advanceTimersByTime(15_000);
+    });
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Para authentication could not start",
+    );
+    expect(screen.queryByText("booting-host")).toBeNull();
+    expect(screen.getByText("widget-body")).toBeTruthy();
+    expect(runtimeMounts).toBe(1);
+  });
 });
 
 describe("Para availability gate", () => {

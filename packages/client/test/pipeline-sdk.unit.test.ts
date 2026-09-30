@@ -675,7 +675,9 @@ describe("wallet capabilities", () => {
       type: "sign",
       requestId: "sign-foreign",
       chainFamily: "evm",
-      executionKind: "message",
+      // Manual EVM message execution now fails closed before the wallet check;
+      // excluded AA signing still reaches the wallet signer guard.
+      executionKind: "erc4337",
       signer: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       chainId: 1,
       description: "Foreign signer",

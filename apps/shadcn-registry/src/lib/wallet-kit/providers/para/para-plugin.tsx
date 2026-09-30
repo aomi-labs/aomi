@@ -30,6 +30,10 @@ import { defaultOAuthMethods } from "./para-auth";
 import { safeEnv } from "../../env";
 
 const PARA_STARTUP_TIMEOUT_MS = 4_000;
+// ParaProvider renders its children only once the SDK reports ready. A Para
+// that never starts (invalid key, outage, blocked script) must not hold the
+// host app on the booting placeholder forever.
+const PARA_LOAD_TIMEOUT_MS = 15_000;
 
 // ParaProvider lazily imports its EVM and Cosmos connector packages on first
 // mount and renders nothing until they arrive. Those loading flags live in the
@@ -207,15 +211,16 @@ function ParaAuthLayer({
   // `providerReady` is a dependency, flipping ready runs the cleanup (clearing
   // the pending timer) and then bails — even in the edge case where the child's
   // ready effect commits before this parent effect on mount.
-  // Connector download time is not a startup failure, so the watchdog arms only
-  // once the libraries are in.
+  // Connector download time is not a startup failure, so until ParaProvider
+  // renders its children the watchdog allows the longer load window; past it,
+  // the host app falls back to running without Para.
   useEffect(() => {
-    if (!enabled || !paraClientConfig || !connectorsLoaded || providerReady) {
+    if (!enabled || !paraClientConfig || providerReady) {
       return;
     }
     const timeout = window.setTimeout(
       () => setStartupTimedOut(true),
-      PARA_STARTUP_TIMEOUT_MS,
+      connectorsLoaded ? PARA_STARTUP_TIMEOUT_MS : PARA_LOAD_TIMEOUT_MS,
     );
     return () => window.clearTimeout(timeout);
   }, [

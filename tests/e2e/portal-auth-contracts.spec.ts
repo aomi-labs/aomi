@@ -100,9 +100,7 @@ test("explicit UI wallet linking adds a second key to the same canonical user", 
   await page.getByRole("button", { name: "Manage account" }).click();
   const settings = page.getByRole("dialog", { name: "Settings", exact: true });
   await expect(settings).toBeVisible();
-  await settings
-    .getByRole("button", { name: "Add wallet", exact: true })
-    .click();
+  await settings.getByRole("button", { name: "Add more", exact: true }).click();
   const picker = page.getByRole("dialog", { name: /Add a wallet/ });
   const link = picker.getByRole("button", { name: "Link wallet", exact: true });
   await expect(link).toBeEnabled({ timeout: 30_000 });
