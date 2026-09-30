@@ -37,7 +37,6 @@ function walletMismatchMessage(failureCode: string | null | undefined): string {
   return `${reason} Aomi could not verify this transaction. Check its on-chain result before submitting another transaction.`;
 }
 
-/** Presents the next durable Action and submits only an explicit user choice. */
 // Only outcomes that need the user's attention get a line under the review.
 // Progress phases (wallet prompt, network switch, waiting on a predecessor)
 // already show in the Submit button and the transaction card's progress bar.
@@ -48,6 +47,7 @@ const NOTICE_PHASES = new Set([
   "expired",
 ]);
 
+/** Presents the next durable Action and submits only an explicit user choice. */
 export function WalletReview() {
   const {
     pendingActions,
@@ -79,17 +79,18 @@ export function WalletReview() {
   const [batchSubmission, setBatchSubmission] =
     useState<BatchSubmission | null>(null);
   const walletAttemptState = liveCommit?.wallet_attempt?.state;
+  const recovery = liveCommit
+    ? commitController?.recoveryRecord?.(liveCommit.commit_id)
+    : undefined;
   const lifecycle = liveCommit
     ? projectCommitLifecycle(
         liveCommit,
         commitController?.submissionPhase?.(liveCommit.commit_id),
-        commitController?.recoveryRecord?.(liveCommit.commit_id),
+        recovery,
       )
     : undefined;
   const recoveringExistingAttempt = Boolean(
-    liveCommit?.wallet_attempt ||
-    (liveCommit &&
-      commitController?.recoveryRecord?.(liveCommit.commit_id)?.attemptId),
+    liveCommit?.wallet_attempt || recovery?.attemptId,
   );
   const commitCanExecute = Boolean(
     commitController && liveCommit && commitController.canExecute(liveCommit),

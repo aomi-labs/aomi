@@ -29,10 +29,10 @@ import { AomiParaEvmRuntimeProvider } from "./para-evm-runtime-provider";
 import { defaultOAuthMethods } from "./para-auth";
 import { safeEnv } from "../../env";
 
+// Once its connectors load, Para has this long to report ready.
 const PARA_STARTUP_TIMEOUT_MS = 4_000;
-// ParaProvider renders its children only once the SDK reports ready. A Para
-// that never starts (invalid key, outage, blocked script) must not hold the
-// host app on the booting placeholder forever.
+// Until its connectors load, ParaProvider renders nothing, so a Para that never
+// loads (invalid key, outage, blocked script) falls back after this window.
 const PARA_LOAD_TIMEOUT_MS = 15_000;
 
 // ParaProvider lazily imports its EVM and Cosmos connector packages on first
@@ -67,21 +67,9 @@ function useSafeParaReady(): boolean {
 }
 
 /**
- * Reports Para startup success from the SDK's real readiness signal rather than
- * from "children mounted".
- *
- * `useParaStatus().isReady` flips true only after the Para client's first-time
- * setup succeeds and stays false on startup failure — the true success/error
- * discriminator. Because `ParaProvider` renders its children even while
- * initializing (and even on error), keying readiness off "children rendered"
- * (the previous approach) fired `onReady` on failure too, wrongly suppressing
- * the startup banner. Gating on `isReady` fixes that direction.
- *
- * It also fixes the effect-ordering bug: child effects commit before the
- * parent's on mount. Since `isReady` starts false, this watcher does NOT call
- * `onReady` during the initial commit, so the parent's watchdog effect can no
- * longer be clobbered by (and then re-clobber) a ready flag set from a child.
- * `onReady` only fires later, on the async `isReady` false→true transition.
+ * Reports startup success from `useParaStatus().isReady`, which turns true only
+ * once the Para client's setup succeeds, because a loaded ParaProvider renders
+ * its children while initializing and on error too.
  */
 function ParaStartupWatcher({
   children,
@@ -188,32 +176,19 @@ function ParaAuthLayer({
     }),
     [para?.appDescription, para?.appUrl],
   );
-  // Called from ParaStartupWatcher once the SDK actually reports ready. Setting
-  // `providerReady` also disarms the watchdog effect below (via its deps), so a
-  // slow-but-successful startup never leaves the banner up, and any banner
-  // already shown is cleared.
+  // Readiness disarms the watchdog and clears a banner already shown.
   const markProviderReady = useCallback(() => {
     setProviderReady(true);
     setStartupTimedOut(false);
   }, []);
-  // Retry owns the state reset so a fresh attempt starts from a clean slate:
-  // clear ready/timeout here (never inside the watchdog effect, whose mount-time
-  // reset used to clobber a ready flag a child had just set) and bump the
-  // attempt to remount ParaProvider via its `key`.
+  // Retry clears ready and timeout state and remounts ParaProvider via its key.
   const retryStartup = useCallback(() => {
     setProviderReady(false);
     setStartupTimedOut(false);
     setStartupAttempt((attempt) => attempt + 1);
   }, []);
-  // Arm a one-shot watchdog while we are waiting for a startup attempt that is
-  // not yet ready. It only raises the timed-out flag; it never sets
-  // `providerReady`, so it cannot race the child that reports readiness. Because
-  // `providerReady` is a dependency, flipping ready runs the cleanup (clearing
-  // the pending timer) and then bails — even in the edge case where the child's
-  // ready effect commits before this parent effect on mount.
-  // Connector download time is not a startup failure, so until ParaProvider
-  // renders its children the watchdog allows the longer load window; past it,
-  // the host app falls back to running without Para.
+  // The watchdog only raises the timed-out flag, allowing the load window until
+  // the connectors arrive and the startup window after.
   useEffect(() => {
     if (!enabled || !paraClientConfig || providerReady) {
       return;
@@ -276,14 +251,6 @@ function ParaAuthLayer({
         paraModalConfig={paraModalConfig}
         externalWalletConfig={externalWalletConfig}
       >
-        {/*
-          Readiness is owned by ParaStartupWatcher, which reads the SDK's real
-          `useParaStatus().isReady` signal. This is correct whether or not the SDK
-          gates children on readiness: if it renders children early, the watcher
-          mounts and waits for the isReady false→true transition; if it renders
-          them only once ready, the watcher mounts already-ready. On error isReady
-          stays false, so onReady never fires and the watchdog shows the banner.
-        */}
         {connectorsLoaded ? (
           <ParaStartupWatcher onReady={markProviderReady}>
             {children}

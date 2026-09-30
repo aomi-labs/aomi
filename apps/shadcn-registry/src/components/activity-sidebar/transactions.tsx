@@ -123,12 +123,13 @@ export function TransactionCard({
   transaction: tx,
   reviewing = false,
   executing,
-  active,
+  current,
 }: {
   transaction: ActivityTransaction;
   reviewing?: boolean;
   executing: boolean;
-  active: boolean;
+  /** Staged in the current turn, including its callback turns. */
+  current: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const label = friendlyTransactionLabel(tx.label, tx.kind);
@@ -174,14 +175,13 @@ export function TransactionCard({
   const terminal = tx.commit
     ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
     : tx.action && tx.action.state !== "pending";
+  // An unfinished commit or pending action stays live across turns; staged
+  // work that never reached either is live only while its turn is current.
+  const active = current || tx.commit != null || tx.action?.state === "pending";
   const animating =
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
-  const pendingStyle =
-    !signed &&
-    !rejected &&
-    !terminal &&
-    (active || tx.commit != null || tx.action?.state === "pending");
+  const pendingStyle = active && !signed && !rejected && !terminal;
   const phases = ["Stage", "Simulate", "Commit", "Signed"]
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);

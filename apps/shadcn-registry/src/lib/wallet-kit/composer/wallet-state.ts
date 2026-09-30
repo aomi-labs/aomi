@@ -98,6 +98,8 @@ export type WalletState = {
   operating: Partial<Record<WalletFamily, string>>;
   /** Families whose stored selection is permanently invalid and must go. */
   clearSelection: WalletFamily[];
+  /** Operating wallets that may be saved; a stand-in never replaces a save. */
+  persist: Partial<Record<WalletFamily, string>>;
 };
 
 /**
@@ -228,6 +230,7 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
 
   const operating: WalletState["operating"] = {};
   const clearSelection: WalletFamily[] = [];
+  const persist: WalletState["persist"] = {};
   for (const family of ["evm", "svm"] as const) {
     const eligible = [...rows.values()].filter(
       (row) =>
@@ -236,7 +239,9 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     );
     let stored = input.selection[family];
     // Not owned by this account means gone for good; merely unreachable means
-    // wait for it. Ownership is only knowable once the account graph landed.
+    // operate the only eligible wallet in its place without saving it, so the
+    // saved wallet returns once reachable (an embedded signer may still be
+    // hydrating). Ownership is only knowable once the account graph landed.
     const owned =
       stored !== undefined &&
       (!input.account
@@ -248,10 +253,10 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     }
     if (stored) {
       if (eligible.some((row) => row.key === stored))
-        operating[family] = stored;
+        operating[family] = persist[family] = stored;
       else if (eligible.length === 1) operating[family] = eligible[0].key;
     } else if (eligible.length === 1) {
-      operating[family] = eligible[0].key;
+      operating[family] = persist[family] = eligible[0].key;
     }
   }
 
@@ -315,5 +320,5 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       actions,
     };
   });
-  return { wallets, operating, clearSelection };
+  return { wallets, operating, clearSelection, persist };
 }

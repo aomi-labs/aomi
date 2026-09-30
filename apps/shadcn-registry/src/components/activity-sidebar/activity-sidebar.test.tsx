@@ -380,6 +380,51 @@ describe("active transaction presentation", () => {
         .querySelector("[data-active-phase]"),
     ).not.toBeNull();
   });
+  it("stops animating staged work that never got a commit once a newer turn begins", () => {
+    const user = (sequence: number, turn: string) =>
+      ({
+        type: "message",
+        event_id: `user-${sequence}`,
+        sequence,
+        turn_id: turn,
+        occurred_at: sequence,
+        sender: "user",
+        content: "Request",
+      }) as Event;
+    const staged = {
+      type: "message",
+      event_id: "stage",
+      sequence: 2,
+      turn_id: "turn-1",
+      occurred_at: 2,
+      sender: "agent",
+      content: "",
+      tool_name: "evm_stage_tx",
+      tool_result: [
+        "evm_stage_tx",
+        JSON.stringify({
+          pending_tx_id: 1,
+          current_lifecycle: "queued",
+          chain_id: 8453,
+          label: "Old transfer",
+          kind: "transfer",
+        }),
+      ],
+    } as Event;
+    runtime.pendingActions = [];
+    runtime.commits = [];
+    runtime.commitController = undefined;
+    runtime.isRunning = false;
+    runtime.events = [user(1, "turn-1"), staged];
+    const { rerender } = render(<ActivitySidebar />);
+    const card = () => screen.getByTestId("activity-transaction");
+    expect(card().querySelector("[data-active-phase]")).not.toBeNull();
+    expect(card()).toHaveAttribute("data-pending", "true");
+    runtime.events = [user(1, "turn-1"), staged, user(3, "turn-2")];
+    rerender(<ActivitySidebar />);
+    expect(card().querySelector("[data-active-phase]")).toBeNull();
+    expect(card()).not.toHaveAttribute("data-pending");
+  });
   it("uses Library skill display labels", () => {
     runtime.pendingActions = [];
     runtime.events = [

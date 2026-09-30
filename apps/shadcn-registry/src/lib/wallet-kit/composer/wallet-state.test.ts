@@ -118,6 +118,8 @@ describe("operating wallet", () => {
 
     expect(state.operating.evm).toBe(key(RABBY));
     expect(state.clearSelection).toEqual([]);
+    // The stand-in is in memory only; the saved MetaMask choice is kept.
+    expect(state.persist).toEqual({});
     expect(state.wallets).toContainEqual(
       expect.objectContaining({
         key: key(METAMASK),
@@ -146,6 +148,7 @@ describe("operating wallet", () => {
 
     expect(state.clearSelection).toEqual(["evm"]);
     expect(state.operating.evm).toBe(key(RABBY));
+    expect(state.persist.evm).toBe(key(RABBY));
   });
 
   it("decides nothing while the account's wallets are still loading", () => {

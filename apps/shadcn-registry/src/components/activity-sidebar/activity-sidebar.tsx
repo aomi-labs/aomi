@@ -72,6 +72,18 @@ function ActivitySidebarContent() {
     () => selectActivity(events, pendingActions, commits),
     [events, pendingActions, commits],
   );
+  // Work staged since the latest user message, callbacks included, is current.
+  const turnStart = useMemo(
+    () =>
+      events.reduce(
+        (latest, event) =>
+          event.type === "message" && event.sender === "user"
+            ? Math.max(latest, event.sequence)
+            : latest,
+        -Infinity,
+      ),
+    [events],
+  );
   const pending = pendingActions[0];
   const pendingCommit = selectReviewCommit(commits, commitController?.review);
   const signing = Boolean(
@@ -129,9 +141,7 @@ function ActivitySidebarContent() {
             ? pendingCommit.batch.batch_id === tx.commit.batch.batch_id
             : pendingCommit?.commit_id === tx.commit?.commit_id,
       )}
-      // Unfinished cards keep their phase indicator active while waiting too.
-      // Terminal/signed/rejected/failed states are stopped per card below.
-      active
+      current={(tx.sequence ?? -Infinity) > turnStart}
       executing={
         Boolean(
           tx.action &&
