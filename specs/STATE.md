@@ -2,164 +2,32 @@
 
 ## Last Updated
 
-2026-09-29 — DEFILLAMA TRACE STEPS (worktree `agent-usefulness`, uncommitted).
-  New protocol adapter `tool-interpreter/protocols/defillama.ts` for the
-  backend `defillama` skill (`defillama_prices`, `defillama_find_yields`,
-  `defillama_find_protocols`): titles Check (historical) prices / Find yields /
-  Check yield pool / Look up protocol / Scan chain / Find protocols; chips are
-  chain, "ETH $2,689" price tokens, asset, yield kind, "Aave V3 4.14%" top
-  pool, "12 pools", query/category and top protocol names — lucide icons only.
-  New fact kinds `category`/`protocol`/`yield` and count role `results`. Chain
-  chips without a chain mark (BSC, Solana, …) now keep a lucide `Network` icon
-  instead of being dropped. `defillama` skill → DefiLlama app mark and
-  "DefiLlama" label (skill icons, `skillLabel`). Widget vitest 739/739.
+2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
+  (prices, yields, protocols), web search/fetch domain chips, short
+  transaction titles, and a lucide fallback icon for chains without a mark.
+  Activity sidebar: the transient review lines and raw JSON detail dropdowns
+  are gone, and the review collapses smoothly on sign or reject. The network
+  pill is now read-only. Wallets: Para no longer white-screens on first
+  select, and an injected wallet reconnects on reload under Para because the
+  wallet runtime mounts once. The sidebar account chip keeps one shape and
+  drops "Switch network". UI unification: shared `components/ui/aomi/`
+  primitives and radius, shadow and type tokens. Library and Settings share a
+  modal shell. The composer mode picker is removed, and `routing` is a
+  host-only prop. A "Guard policy" selector (Strict / Balanced / Yolo =
+  `guarded_only` / `balanced` / `unrestricted`) takes its place, and the
+  Settings "Safety" tab holds the default for new chats (never Yolo) plus
+  per-wallet signing. SDK: EVM Pipeline `commit()` returns durable Commit
+  Service identities to continue with `pipeline.evm.commits(preparation)`;
+  EVM holdings use paginated indexed discovery; manual EVM message-signing
+  execution Actions fail closed.
 
-Previous: 2026-09-29 — TX REVIEW TEXT + SHORT TX TITLES (worktrees `agent-usefulness`,
-  both repos uncommitted). Activity sidebar: transient review lines ("Approve
-  in your wallet", "Waiting for previous transaction", …) removed; a disabled
-  Submit says "Waiting…"; shared inset focus-visible ring for sidebar buttons.
-  Backend: one `TX_TITLE_DESCRIPTION` (tools/src/tool_traits.rs) for EVM/SVM
-  stage schemas — ≤4 words, no amounts/addresses/chains; LI.FI, Circle and
-  Jupiter app-built titles shortened to match (LI.FI/Aave drafts replace model
-  args server-side). Registry: `wallet-groups.ts` added; control-bar ships the
-  safety selector's transport/API files; activity-sidebar depends on
-  `aomi-ui`; `SettingsTab` type moved to `lib/settings-events.ts` so the
-  control bar doesn't need the settings modal. Backend rebuilt (`restart
-  --build`; needs a `pnpm` shim on PATH because widget-lib's build script calls
-  bare `pnpm`). Pre-existing, unrelated: aomi-tools `flow_tests::staging_*` (3)
-  and `durable_stage_replay_rechecks_proof_authority_and_simulation` fail on a
-  clean HEAD too. Widget vitest 724/724.
-
-Previous: 2026-09-29 — EXTERNAL WALLET RECONNECT FIX (worktree `agent-usefulness`,
-  uncommitted). With Para selected, an injected wallet (Rabby etc.) dropped on
-  reload. Cause: ea4e7da7 rendered the wallet runtime beside ParaProvider while
-  connectors loaded, then moved it under — two mounts, and wagmi's page-global
-  `isReconnecting` flag made the live config's reconnect return [] while the
-  discarded one kept the connection. Fix: plugin `wrap` takes a `placeholder`;
-  Para shows the host app over `AOMI_BOOTING_WALLET_KIT` while loading, so the
-  runtime mounts exactly once under ParaProvider (`para-plugin.tsx`,
-  `plugin-registry.ts`, `AomiWalletKitProvider.tsx`;
-  `full-testnet-wallet-routing.tsx` tolerates no WagmiProvider yet).
-  Regression test in `para-plugin.test.tsx`; Playwright with a mock EIP-6963
-  Rabby confirmed reconnect under Para (Privy was unaffected). Known cost: the
-  host app remounts once when Para's connectors finish loading (first ~1s).
-
-Previous: 2026-09-29 — UI UNIFICATION PHASES 1–3 (worktree `agent-usefulness`,
-  uncommitted). Foundation: `themes/default.css` gains `rounded-shell/card/
-  control`, `shadow-popover/modal` and `type-*` utilities (`@utility`, not
-  `--text-*`, so tailwind-merge keeps sizes); shared primitives in
-  `components/ui/aomi/` (ModalShell/Sidebar/Nav/NavItem/Header, SectionHeader,
-  ListGroup/ListRow, StatusPill — not for trace chips, Segmented,
-  ConfirmDialog/useConfirmDialog, aomiButton). Library + Settings share the
-  modal shell; Library rows/badges/detail and the activity panel cards moved
-  onto the scale (trace chips and tx step bars untouched). Composer: execution
-  mode (ModeSelect/AppSelect) removed; `routing` is a host-only prop (portal =
-  auto, `lock_app` stays silent Direct, unlocked `?app=X` pre-tags the app via
-  `initialAppTag`); new `SafetySelect` (Strict/Balanced/Yolo =
-  guarded_only/balanced/unrestricted, inline Yolo confirm, `hideSafety`)
-  where execution mode was; a held level on a new chat is PUT (creating the
-  thread) before the first send; automatic model label is "Auto". Settings:
-  Policy tab labelled Safety (id still `policy`) = "New chats start on"
-  segmented (Yolo never default) + per-wallet Signing (Ask me/Auto/Locked;
-  Auto only for Para/Privy since nothing reads client_auto for external
-  wallets) + restyled Automatic signing; Swig hidden behind
-  `SWIG_POLICY_ENABLED=false`. Account › Wallets & access: one card per
-  Para/Privy login with nested EVM/SVM address lines, external wallets one
-  line each; the address line is the click target and carries the green
-  bar/glow; Connected/Linked badges replaced by one status + inline action
-  (`wallet-groups.ts`). window.confirm → ConfirmDialog. Deleted dead code:
-  AccountManagerPanel, OptionGrid, addSignInOptions, settings-styles.ts,
-  signing-mode-list.tsx, PackageRow, account-access helpers. Verified: widget
-  vitest 719/719 (apps/shadcn-registry config — root config doesn't pick up
-  widget tests), portal vitest 649 pass / 3 env-dependent failures unrelated
-  (loopback DB URL, agent-api-proxy, launch routes), widget/lib/portal/landing
-  tsc, eslint; browser: Library + guest composer on the dev portal.
-
-Follow-up after review (same day): `cn` now uses `extendTailwindMerge` so
-  `rounded-shell/card/control`, `shadow-popover/modal` and `type-*` override
-  component defaults (dropdowns were rendering the Popover's `rounded-md`);
-  tokens set to the radii users liked — shell 24px (old activity panel), card
-  16px — and the old menu/modal shadows. Activity panel back to no shadow;
-  review Reject/Submit back to h-10 pills. SafetySelect always names the level.
-  Wallets & access is one divided group again, and wallet lines read
-  "0xda65…3cf0 · EVM" (no chain chip), also on Safety › Signing. Automatic
-  model description is "Picks a model per task" (fits one line). Library and
-  Settings modals are both 1000×620 (was 1080; only Library's middle column
-  shrinks) and Settings tabs fill the pane on the header's px-6 edges instead
-  of a centered 780px column. SafetySelect renders from first paint next to the
-  model selector: signed out it shows the default, disabled ("Sign in to change
-  transaction safety"); signed in it shows the last default this browser saw
-  (localStorage `aomi:transaction-safety-default`) until the account answers. The concept is named "Guard policy" everywhere
-  (composer menu title, trigger label, Settings subtitle); Settings › Safety's
-  default is a picker list like the composer menu (icon, name, note, check =
-  selection, fill only on hover/focus, arrow keys skip Yolo) under "Guard
-  policy · Default for new chats". Settings section headers follow one rule:
-  title · count · short static detail · (?) help for longer copy; no transient
-  "Saving…/Saved" lines (in-row spinner instead). ModalNavItem focus ring is
-  focus-visible + inset.
-
-Pending (UI unification):
-- Signed-in visual pass of Settings (Account, Safety) and the composer
-  SafetySelect — covered by tests only.
-- Two Para logins on one account nest all Para addresses under the first card
-  (no login↔address link in the data).
-- Widget with `features.settings === false`: SafetySelect "Change" is a no-op.
-- `@aomi-labs/widget-lib` version bump; regenerate `apps/landing/public/r/*.json`.
-- Phases 4–6 (picker restyle + add flow, conflict move/merge backend) per the
-  plan artifact.
-
-Previous: 2026-09-29 — SIDEBAR ACCOUNT CHIP CLEANUP (worktree `agent-usefulness`,
-  uncommitted). `DualWalletBar` uses one chip shape (`@container rounded-xl
-  border p-3`) and `ChevronsUpDownIcon` whether signed out or signed in, so
-  signing in no longer shrinks the chip or swaps in `UnfoldVerticalIcon`.
-  The account menu's "Switch network" row is gone end to end
-  (`onSwitchNetwork`/`networkLabel` removed from `WalletAccountMenuOptions`,
-  `AccountMenu`, and `usePortalWalletAccountMenu`; the network pill is
-  read-only now). `ConnectButton` keeps the picker chip while the kit is
-  `booting` instead of flashing the disabled legacy `SingleConnectButton`
-  ("Connect Wallet" from `formatAddress(undefined)`): browser probe 18
-  legacy frames → 0. Also reconciled the ported `settings-modal.test.tsx`
-  with this branch (`PolicyPage` mock, "Transaction safety…" copy).
-  Verified: widget vitest src/components + src/lib 697/697 (3 new chip/menu/
-  booting tests; the chip and booting ones fail on the old code), portal
-  vitest src/components + src/features 238/238, lib + portal tsc, eslint.
-
-Previous: 2026-09-29 — PARA FIRST-SELECT WHITE SCREEN (worktree `agent-usefulness`,
-  uncommitted; also carries the uncommitted `work/wallet-issue-validation`
-  account/signing changes). Choosing Para the first time in a page blanked
-  the whole portal for 1.4s+ (seconds on a cold dev compile): Para's SDK
-  lazily imports `@getpara/evm-wallet-connectors`/`cosmos-wallet-connectors`
-  and its external-wallet providers `return null` until they load, and
-  `ParaProvider` wraps the entire app. `ParaAuthLayer` (`para-plugin.tsx`) now
-  keeps the host app rendered beside a `ParaProvider` whose only child is a
-  `ParaConnectorsLoaded` sentinel, then moves the app under it (fixed slots
-  keep the ParaProvider instance); a page-global flag mirrors the SDK's
-  never-reset loading flags so later mounts go straight in, and the startup
-  watchdog arms only after the connectors load. Browser probe: Para switch
-  blank frames ~84 → ~15, matching the Privy switch. Remaining ~100–250ms
-  blip on any provider switch is `PortalAomiFrame`'s `hasResolvedInitialAccount`
-  gate re-arming on remount (left alone: identity-scoped). Dev log's "Fast
-  Refresh had to perform a full reload when …@coinbase/wallet-sdk… changed" is
-  Turbopack's first compile of that lazy connector chunk (dev only). Verified:
-  wallet-kit providers vitest 79/79 (new regression test fails on the old
-  code), lib tsc, eslint.
-
-Previous: 2026-09-29 — WALLET REVIEW + NETWORK PILL POLISH (worktree
-  `agent-usefulness`, uncommitted). Activity sidebar: raw "Transaction
-  details"/"Simulation details" JSON dropdowns removed (the "Signing request"
-  dump stays for sign requests; it is the only place the payload shows); the
-  review status no longer prints the tx hash or the progress labels
-  (`ready`/`preparing`/`submitted`) that the tx card's step bar already shows;
-  `WalletReview` wraps its output in `ReviewPresence` (AnimatePresence) so the
-  review collapses smoothly on sign/reject. `NetworkSelect` no longer switches
-  networks: an "All networks" pill with a stacked logo row opens (hover or
-  click) a read-only grid of supported mainnets, testnets folded into a count.
-  Follow-ups: holdings trace row is "Get holdings" with chain (when
-  chosen), `Top <limit>` and query chips; the LI.FI skill label is "LI.FI";
-  the network pill's logo stack always ends on Solana; working-trace chips
-  for sync, contract lookups and generic calls. Verified: vitest
-  src/components + src/lib 660/660, eslint; tsc still reports pre-existing
-  wallet test errors (dual-wallet-bar, wallet-picker).
+Pending:
+- Two Para logins on one account nest all Para addresses under the first
+  card, because the data has no login-to-address link.
+- Widget with `features.settings === false`: the Guard policy "Change"
+  action is a no-op.
+- UI unification phases 4–6: picker restyle, the add flow, and conflict
+  move/merge on the backend.
 
 Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
