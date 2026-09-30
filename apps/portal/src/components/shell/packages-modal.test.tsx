@@ -13,7 +13,6 @@ import {
   PackagesModal,
 } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-modal";
 import { PackageIcon } from "../../../../shadcn-registry/src/components/account-shell/components/shell/package-row";
-import { CatalogRow } from "../../../../shadcn-registry/src/components/account-shell/components/shell/library/catalog-row";
 import { toCatalogPackage } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-catalog";
 import {
   seedAccountOverview,
@@ -841,48 +840,6 @@ describe("packages modal wiring", () => {
         }),
       );
     });
-  });
-});
-
-describe("chain-scoped catalog rows", () => {
-  const renderRow = (activeChainId?: number) =>
-    render(
-      <CatalogRow
-        selection={{
-          kind: "app",
-          item: toCatalogPackage({ name: "stablefx", chainIds: [5_042_002] }),
-        }}
-        selected={false}
-        installed={false}
-        busy={false}
-        disabled={false}
-        activeChainId={activeChainId}
-        onSelect={() => undefined}
-        onInstall={() => undefined}
-        onTry={() => undefined}
-      />,
-    );
-
-  it("blocks StableFX installation until Arc Testnet is selected", () => {
-    renderRow(1);
-    expect(
-      screen.getByLabelText("Switch network to add Circle StableFX"),
-    ).toBeDisabled();
-    expect(screen.getByText("Arc only")).toBeTruthy();
-  });
-
-  it("keeps chain-scoped installation disabled while the wallet chain is unknown", () => {
-    renderRow();
-    expect(
-      screen.getByLabelText("Switch network to add Circle StableFX"),
-    ).toBeDisabled();
-  });
-
-  it("enables installation on Arc Testnet", () => {
-    renderRow(5_042_002);
-    expect(
-      screen.getByLabelText("Add Circle StableFX from catalog"),
-    ).toBeEnabled();
   });
 });
 

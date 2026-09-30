@@ -11,7 +11,7 @@ import {
 import { PackageIcon } from "../package-row";
 import {
   ARC_TESTNET_CHAIN_ID,
-  isPackageAvailableOnChain,
+  isPackageAvailableOnHost,
   type CatalogPackage,
 } from "../packages-catalog";
 import { selectionName, selectionDescription } from "./model";
@@ -23,17 +23,17 @@ function AppAction({
   installed,
   busy,
   disabled,
-  activeChainId,
+  hostChainIds,
   onInstall,
 }: {
   app: CatalogPackage;
   installed: boolean;
   busy: boolean;
   disabled: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   onInstall: () => void;
 }) {
-  const available = isPackageAvailableOnChain(app, activeChainId);
+  const available = isPackageAvailableOnHost(app, hostChainIds);
   if (installed) {
     return (
       <span className="text-aomi-muted type-meta inline-flex h-7 shrink-0 items-center gap-1.5 px-2.5 font-medium">
@@ -49,7 +49,7 @@ function AppAction({
       aria-label={
         available
           ? `Add ${app.name} from catalog`
-          : `Switch network to add ${app.name}`
+          : `${app.name} needs a network this site doesn't support`
       }
       className={rowAction}
     >
@@ -70,7 +70,7 @@ export function CatalogRow({
   installed,
   busy,
   disabled,
-  activeChainId,
+  hostChainIds,
   onSelect,
   onInstall,
   onTry,
@@ -80,7 +80,7 @@ export function CatalogRow({
   installed: boolean;
   busy: boolean;
   disabled: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   onSelect: () => void;
   onInstall: () => void;
   onTry: () => void;
@@ -132,7 +132,7 @@ export function CatalogRow({
           installed={installed}
           busy={busy}
           disabled={disabled}
-          activeChainId={activeChainId}
+          hostChainIds={hostChainIds}
           onInstall={onInstall}
         />
       ) : (

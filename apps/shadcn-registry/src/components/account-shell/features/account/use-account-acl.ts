@@ -7,7 +7,6 @@ import {
   UserState,
   type AuthorizationPoster,
   type AomiAuthorizationChallenge,
-  type AomiExecutionConstraints,
   type WalletEip712Payload,
 } from "@aomi-labs/client";
 import { useOptionalAomiRuntime } from "@aomi-labs/react";
@@ -70,8 +69,6 @@ export type AccountAcl = {
   prepareMode: (
     wallet: WalletPolicy,
     mode: SignerMode,
-    transactionSafetyGeneric?: boolean,
-    executionConstraints?: AomiExecutionConstraints,
   ) => Promise<AomiAuthorizationChallenge>;
   /** Sign the reviewed permit; resolves once the new mode is committed. */
   commitMode: (
@@ -241,12 +238,7 @@ export function useAccountAcl(): AccountAcl {
   );
 
   const prepareMode = useCallback(
-    async (
-      wallet: WalletPolicy,
-      mode: SignerMode,
-      transactionSafetyGeneric?: boolean,
-      executionConstraints?: AomiExecutionConstraints,
-    ) => {
+    async (wallet: WalletPolicy, mode: SignerMode) => {
       const blocked = blockedReason(wallet, mode);
       if (blocked) throw new Error(blocked);
 
@@ -257,14 +249,6 @@ export function useAccountAcl(): AccountAcl {
           // The view's "auto" rung is `server_auto` on the wire (the kernel's
           // canonical spelling; the permit echoes it back through commit).
           mode: mode === "auto" ? "server_auto" : mode,
-          ...(executionConstraints
-            ? { execution_constraints: executionConstraints }
-            : {}),
-          ...(wallet.chain === "evm" &&
-          mode === "auto" &&
-          transactionSafetyGeneric !== undefined
-            ? { transaction_safety_generic: transactionSafetyGeneric }
-            : {}),
         }),
       );
       if (
@@ -274,22 +258,6 @@ export function useAccountAcl(): AccountAcl {
       ) {
         throw new Error(
           "The authorization payload is missing. Review this change again.",
-        );
-      }
-      if (
-        transactionSafetyGeneric !== undefined &&
-        challenge.permit.transaction_safety_generic !== transactionSafetyGeneric
-      ) {
-        throw new Error(
-          "The authorization scope changed. Review this change again.",
-        );
-      }
-      if (
-        constraintsKey(challenge.permit.execution_constraints) !==
-        constraintsKey(executionConstraints)
-      ) {
-        throw new Error(
-          "The execution limits changed. Review this change again.",
         );
       }
       return challenge;
@@ -523,24 +491,4 @@ export function useAccountAcl(): AccountAcl {
 
 function permitDescription(wallet: WalletPolicy, mode: SignerMode): string {
   return `Authorize "${mode}" signing for ${wallet.address} on your Aomi account.`;
-}
-
-function constraintsKey(
-  value: AomiExecutionConstraints | undefined,
-): string | undefined {
-  if (!value) return undefined;
-  return JSON.stringify({
-    chainIds: value.chainIds?.slice().sort((a, b) => a - b),
-    recipients: value.recipients
-      ?.map((address) => address.toLowerCase())
-      .sort(),
-    maxNativeValueWei: value.maxNativeValueWei,
-    tokenTransfers: value.tokenTransfers
-      ?.map((limit) => ({
-        chainId: limit.chainId,
-        token: limit.token.toLowerCase(),
-        maxAmount: limit.maxAmount,
-      }))
-      .sort((a, b) => a.chainId - b.chainId || a.token.localeCompare(b.token)),
-  });
 }

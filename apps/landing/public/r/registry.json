@@ -707,16 +707,6 @@
           "target": "@components/assistant-ui/capability-hint-payload.ts"
         },
         {
-          "type": "registry:component",
-          "path": "components/control-bar/app-select.tsx",
-          "target": "@components/control-bar/app-select.tsx"
-        },
-        {
-          "type": "registry:component",
-          "path": "components/control-bar/mode-select.tsx",
-          "target": "@components/control-bar/mode-select.tsx"
-        },
-        {
           "type": "registry:lib",
           "path": "lib/capabilities/skill-catalog.ts",
           "target": "@lib/capabilities/skill-catalog.ts"

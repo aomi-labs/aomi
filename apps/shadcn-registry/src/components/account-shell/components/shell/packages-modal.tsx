@@ -49,7 +49,15 @@ interface PackagesModalProps {
 export function PackagesModal({ onClose }: PackagesModalProps) {
   const transport = useShellTransport();
   const { updateAccountApps } = useAccountOverviewStore();
-  const activeChainId = useAomiWalletKit().identity.chainId;
+  const walletKit = useAomiWalletKit();
+  // The networks this host routes to (what the network showcase lists), not
+  // the wallet's current chain: installing needs only the application id.
+  const hostChains =
+    walletKit.supportedNetworks?.evm ?? walletKit.supportedChains;
+  const hostChainIds = useMemo(
+    () => (hostChains ?? []).map((chain) => chain.id),
+    [hostChains],
+  );
   const account = useAccountOverview();
   const {
     catalog,
@@ -326,7 +334,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                       busyId === packageIdentityKey(entry.item)
                     }
                     disabled={!installedReady || busyId !== null}
-                    activeChainId={activeChainId}
+                    hostChainIds={hostChainIds}
                     onSelect={() => {
                       setSelectedKey(selectionKey(entry));
                       setMobileDetailOpen(true);
@@ -380,7 +388,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
             activeSelection?.kind === "app" &&
             busyId === packageIdentityKey(activeSelection.item)
           }
-          activeChainId={activeChainId}
+          hostChainIds={hostChainIds}
           accountUserId={accountUserId}
           onInstall={install}
           onUninstall={uninstall}

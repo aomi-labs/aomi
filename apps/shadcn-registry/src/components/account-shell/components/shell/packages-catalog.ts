@@ -48,13 +48,18 @@ export function packageIdentityKey(app: CatalogPackage): string {
 
 export const ARC_TESTNET_CHAIN_ID = 5_042_002;
 
-export function isPackageAvailableOnChain(
+/**
+ * Whether this host can run the app: it declares no chains, or the host
+ * supports one of them. Aomi routes each action to its chain, so the wallet's
+ * current network doesn't matter; an install only needs the application id.
+ */
+export function isPackageAvailableOnHost(
   app: CatalogPackage,
-  chainId: number | undefined,
+  hostChainIds: readonly number[],
 ): boolean {
   return (
     app.chainIds.length === 0 ||
-    (chainId !== undefined && app.chainIds.includes(chainId))
+    app.chainIds.some((chainId) => hostChainIds.includes(chainId))
   );
 }
 

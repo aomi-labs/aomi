@@ -35,7 +35,7 @@ import {
 } from "../../../../lib/capabilities/skill-catalog";
 import { PackageIcon } from "./package-row";
 import {
-  isPackageAvailableOnChain,
+  isPackageAvailableOnHost,
   type CatalogPackage,
 } from "./packages-catalog";
 import {
@@ -401,7 +401,7 @@ function AppSecretSetup({
             {busy ? (
               <Loader2 className="animate-spin" />
             ) : !available ? (
-              "Unavailable on this network"
+              "Network not supported"
             ) : hasPending ? (
               "Save & add app"
             ) : ready || slots.every((slot) => !slot.required) ? (
@@ -421,7 +421,7 @@ function AppDetails({
   installed,
   installedReady,
   busy,
-  activeChainId,
+  hostChainIds,
   accountUserId,
   onInstall,
   onUninstall,
@@ -430,12 +430,12 @@ function AppDetails({
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   accountUserId?: string;
   onInstall: () => Promise<boolean>;
   onUninstall: () => void;
 }) {
-  const available = isPackageAvailableOnChain(app, activeChainId);
+  const available = isPackageAvailableOnHost(app, hostChainIds);
   return (
     <>
       <div className="px-5 pb-5 pt-1">
@@ -502,7 +502,7 @@ function AppDetails({
             aria-label={
               available
                 ? `Add ${app.name}`
-                : `Switch network to add ${app.name}`
+                : `${app.name} needs a network this site doesn't support`
             }
             className="w-full"
           >
@@ -511,7 +511,7 @@ function AppDetails({
             ) : available ? (
               "Add app"
             ) : (
-              "Unavailable on this network"
+              "Network not supported"
             )}
           </AomiButton>
         )}
@@ -623,7 +623,7 @@ export function LibraryDetailPanel({
   installed,
   installedReady,
   busy,
-  activeChainId,
+  hostChainIds,
   accountUserId,
   onInstall,
   onUninstall,
@@ -633,7 +633,7 @@ export function LibraryDetailPanel({
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   accountUserId?: string;
   onInstall: (app: CatalogPackage) => Promise<boolean>;
   onUninstall: (app: CatalogPackage) => void;
@@ -659,7 +659,7 @@ export function LibraryDetailPanel({
             installed={installed}
             installedReady={installedReady}
             busy={busy}
-            activeChainId={activeChainId}
+            hostChainIds={hostChainIds}
             accountUserId={accountUserId}
             onInstall={() => onInstall(selection.item)}
             onUninstall={() => onUninstall(selection.item)}
