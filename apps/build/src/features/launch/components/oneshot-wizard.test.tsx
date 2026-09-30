@@ -76,12 +76,15 @@ describe("OneshotWizard", () => {
 
   it("shows install step by default", () => {
     render(<OneshotWizard {...defaultProps} />);
-    expect(screen.getByText(/Install the Aomi GitHub App/)).toBeInTheDocument();
+    expect(screen.getByText(/Name your repository/)).toBeInTheDocument();
   });
 
-  it("shows the install button", () => {
+  it("asks for the repository name before opening GitHub", () => {
     render(<OneshotWizard {...defaultProps} />);
-    expect(screen.getByText("Install on GitHub")).toBeInTheDocument();
+    expect(screen.getByLabelText("Repository name")).toHaveValue(
+      "my-aomi-playground",
+    );
+    expect(screen.getByText("Continue on GitHub")).toBeInTheDocument();
   });
 
   // GitHub renders its configure page — which never redirects back — instead
@@ -91,14 +94,20 @@ describe("OneshotWizard", () => {
     const beginInstall = vi.fn();
     render(<OneshotWizard {...defaultProps} beginInstall={beginInstall} />);
     fireEvent.click(screen.getByText("Already installed — continue"));
-    expect(beginInstall).toHaveBeenCalledWith("authorize");
+    expect(beginInstall).toHaveBeenCalledWith(
+      "authorize",
+      "my-aomi-playground",
+    );
   });
 
   it("asks for the install ceremony from the primary button", () => {
     const beginInstall = vi.fn();
     render(<OneshotWizard {...defaultProps} beginInstall={beginInstall} />);
-    fireEvent.click(screen.getByText("Install on GitHub"));
-    expect(beginInstall).toHaveBeenCalledWith("install");
+    fireEvent.change(screen.getByLabelText("Repository name"), {
+      target: { value: "custom-agent" },
+    });
+    fireEvent.click(screen.getByText("Continue on GitHub"));
+    expect(beginInstall).toHaveBeenCalledWith("install", "custom-agent");
   });
 
   it("disables both install doors while a redirect is in flight", () => {
@@ -180,13 +189,13 @@ describe("OneshotWizard", () => {
       <OneshotWizard
         {...defaultProps}
         platform="somm.finance"
-        progress={{ installationId: "12345" }}
+        progress={{ installationId: "12345", repoName: "custom-playground" }}
         patch={patch}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Repo name"), {
-      target: { value: "custom-playground" },
+    fireEvent.change(screen.getByLabelText("Repository name"), {
+      target: { value: "custom-playground-2" },
     });
     fireEvent.click(screen.getByText("Create repo"));
 
@@ -194,7 +203,7 @@ describe("OneshotWizard", () => {
       expect(launchCreateRepo).toHaveBeenCalledWith({
         installationId: "12345",
         platform: "somm.finance",
-        repoName: "custom-playground",
+        repoName: "custom-playground-2",
       });
     });
   });

@@ -269,13 +269,10 @@ function createBaseClient(options: LaunchClientOptions) {
       );
     },
 
-    /** GitHub App access for the signed-in builder and, when a platform is
-     *  bound, that platform's repository. */
-    githubAppInstallations(
-      input: { platform?: string } = {},
-    ): Promise<GitHubAppInstallationsResult> {
+    /** GitHub App access for the signed-in builder's connected repositories. */
+    githubAppInstallations(): Promise<GitHubAppInstallationsResult> {
       return launchFetch(
-        `${deploymentsPath}/github-app${query({}, input.platform)}`,
+        `${deploymentsPath}/github-app`,
         "GitHub App installations",
       );
     },

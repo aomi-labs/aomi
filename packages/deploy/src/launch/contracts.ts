@@ -80,6 +80,8 @@ export function deploymentTargets(
 export type LaunchProgress = {
   installationId?: string;
   installationStatus?: string;
+  /** Repository name chosen before the GitHub installation round-trip. */
+  repoName?: string;
   repo?: string;
   /** Cached project id from create/dashboard responses. */
   projectId?: number;

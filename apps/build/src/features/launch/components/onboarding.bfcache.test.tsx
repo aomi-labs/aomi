@@ -10,7 +10,13 @@
  * dead end. Only `pageshow` with `persisted: true` reports that restore.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { Onboarding } from "./onboarding";
 
 vi.mock("@aomi-labs/widget-lib", () => ({
@@ -51,12 +57,13 @@ vi.mock("@build/lib/deploy-platform", () => ({
 function firePageShow(persisted: boolean) {
   const event = new Event("pageshow") as Event & { persisted?: boolean };
   Object.defineProperty(event, "persisted", { value: persisted });
-  window.dispatchEvent(event);
+  act(() => window.dispatchEvent(event));
 }
 
 describe("Onboarding bfcache restore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
     // jsdom forbids assigning window.location.href; stub the navigation that
     // beginInstall performs so the component reaches its `installing` state.
     // jsdom forbids assigning window.location.href, and the component reads it
@@ -83,7 +90,9 @@ describe("Onboarding bfcache restore", () => {
     expect(recovery).not.toBeDisabled();
 
     // Start the install: the component navigates away and marks itself busy.
-    fireEvent.click(screen.getByRole("button", { name: /install on github/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue on github/i }),
+    );
     await waitFor(() => expect(recovery).toBeDisabled());
 
     // The user hits Back from GitHub's configure page. Without the pageshow
@@ -98,12 +107,31 @@ describe("Onboarding bfcache restore", () => {
     const recovery = screen.getByRole("button", {
       name: /already installed/i,
     });
-    fireEvent.click(screen.getByRole("button", { name: /install on github/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue on github/i }),
+    );
     await waitFor(() => expect(recovery).toBeDisabled());
 
     // A fresh load fires pageshow with persisted:false; that is not a restore
     // and must not clear a genuinely in-flight install.
     firePageShow(false);
     expect(recovery).toBeDisabled();
+  });
+
+  it("refreshes the Build login when the App was installed after sign-in", async () => {
+    render(<Onboarding platform="community" />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /already installed/i }),
+    );
+    await waitFor(() =>
+      expect(window.location.href).toBe(
+        "https://build.test/api/bff/auth/github/login?resume=template&platform=community",
+      ),
+    );
+  });
+
+  it("uses the refreshed session installation to reach Create", async () => {
+    render(<Onboarding platform="community" sessionInstallationId="123" />);
+    expect(screen.getByText("Step 2: Create your repo")).toBeInTheDocument();
   });
 });

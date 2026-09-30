@@ -95,6 +95,8 @@ export const API_PATHS = {
       bots: `${BFF}/operate/bots`,
       botCommandSecret: (botId: string) =>
         `${BFF}/operate/bots/${encodeURIComponent(botId)}/command-secret`,
+      botWebhook: (botId: string) =>
+        `${BFF}/operate/bots/${encodeURIComponent(botId)}/webhook`,
       modelKeys: `${BFF}/operate/model-keys`,
       transactions: `${BFF}/operate/transactions`,
       usage: `${BFF}/operate/usage`,

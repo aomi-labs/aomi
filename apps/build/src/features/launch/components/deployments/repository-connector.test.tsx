@@ -68,7 +68,7 @@ describe("RepositoryConnector", () => {
         target: { value: "PeggyJV/somm-agent" },
       },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect repository" }));
 
     await waitFor(() =>
       expect(githubAppInstallUrl).toHaveBeenCalledWith({
@@ -83,19 +83,21 @@ describe("RepositoryConnector", () => {
     expect(screen.getByRole("button", { name: "Connecting…" })).toBeDisabled();
   });
 
-  it("restores Connect when the GitHub hand-off cannot start", async () => {
+  it("restores Connect repository when the GitHub hand-off cannot start", async () => {
     githubAppInstallUrl.mockRejectedValueOnce(new Error("GitHub unavailable"));
     render(<RepositoryConnector platform="somm.finance" navigate={vi.fn()} />);
     fireEvent.change(
       screen.getByRole("textbox", { name: "GitHub repository" }),
       { target: { value: "PeggyJV/somm-agent" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect repository" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "GitHub unavailable",
     );
-    expect(screen.getByRole("button", { name: "Connect" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Connect repository" }),
+    ).toBeEnabled();
   });
 
   it("explains invalid repository input without opening GitHub", () => {
@@ -106,7 +108,7 @@ describe("RepositoryConnector", () => {
         target: { value: "not-a-repository" },
       },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect repository" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Enter a GitHub repository as owner/name.",

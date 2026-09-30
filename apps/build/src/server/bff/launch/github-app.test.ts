@@ -16,7 +16,7 @@ vi.mock("@build/server/bff/failures", () => ({
 import { githubAppInstallationsRoute } from "./github-app";
 const get = (search = "") =>
   new Request(`https://build.test/api/bff/deployments/github-app${search}`);
-const report = { platform: null };
+const report = { status: "ok", repositories: [] };
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authorize.mockResolvedValue({ session: { githubUserId: "owner" } });
@@ -26,7 +26,7 @@ beforeEach(() => {
   });
 });
 describe("GitHub App installations BFF", () => {
-  it("takes the builder identity only from the session and forwards the platform", async () => {
+  it("takes the builder identity only from the session and ignores query identities", async () => {
     const response = await githubAppInstallationsRoute(
       get("?platform=community&github_user_id=attacker&githubUserId=attacker"),
     );
@@ -35,16 +35,8 @@ describe("GitHub App installations BFF", () => {
     await expect(response.json()).resolves.toEqual(report);
     expect(mocks.list).toHaveBeenCalledWith({
       githubUserId: "owner",
-      platform: "community",
     });
     expect(mocks.authorize).toHaveBeenCalledWith(expect.any(Request));
-  });
-  it("reads without a platform when none is selected", async () => {
-    await githubAppInstallationsRoute(get());
-    expect(mocks.list).toHaveBeenCalledWith({
-      githubUserId: "owner",
-      platform: undefined,
-    });
   });
   it("rejects unauthenticated requests before any backend operation", async () => {
     mocks.authorize.mockResolvedValue({
@@ -54,10 +46,13 @@ describe("GitHub App installations BFF", () => {
     expect(mocks.list).not.toHaveBeenCalled();
   });
   it("hands backend failures to the shared failure pipeline", async () => {
-    const error = new Error("manager down");
+    const error = new Error("list_user_github_app_installations failed (404)");
     mocks.list.mockRejectedValue(error);
     const response = await githubAppInstallationsRoute(get("?platform=x"));
     expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "Couldn’t check GitHub repository access. Try again.",
+    });
     expect(mocks.handle).toHaveBeenCalledWith({
       source: "launch",
       error,

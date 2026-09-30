@@ -136,6 +136,16 @@ function stubFetch() {
     if (url.includes("/api/bff/operate/bots")) {
       if (method === "GET" && url.includes("/command-secret"))
         return Response.json({ commandSecret: "preview-secret-0000" });
+      if (method === "POST" && url.includes("/webhook"))
+        return Response.json({
+          webhook: {
+            urlMatches: false,
+            pendingUpdateCount: 4,
+            lastErrorMessage: "Wrong response from the webhook: 404 Not Found",
+            reasserted: true,
+            warning: null,
+          },
+        });
       if (method === "GET")
         return Response.json({ projects: SOURCES, bots: BOTS });
       if (method === "POST") {
@@ -178,8 +188,7 @@ function stubFetch() {
           commands?: string[];
         };
         const bot = BOTS.find((b) => b.id === body.botId);
-        if (!bot)
-          return Response.json({ error: "not found" }, { status: 404 });
+        if (!bot) return Response.json({ error: "not found" }, { status: 404 });
         bot.apps = appsFor(body.applicationIds, body.handoverApplicationId);
         if (body.threadMode) bot.threadMode = body.threadMode;
         if (body.miniAppUrl !== undefined) bot.miniAppUrl = body.miniAppUrl;

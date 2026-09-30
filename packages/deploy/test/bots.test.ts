@@ -155,6 +155,91 @@ describe("BackendClient bots", () => {
     expect(request.method).toBe("GET");
   });
 
+  it("surfaces the manager's webhook warning on update, and only then", async () => {
+    let fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            bot_registration: CREATED,
+            webhook_warning: "Telegram setWebhook failed (502 Bad Gateway)",
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    const warned = await client().updateUserBot({
+      githubUserId: "gh-1",
+      botId: "b1",
+      applicationIds: [7],
+      handoverApplicationId: 7,
+    });
+    expect(warned.id).toBe("b1");
+    expect(warned.webhookWarning).toBe(
+      "Telegram setWebhook failed (502 Bad Gateway)",
+    );
+
+    fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ bot_registration: CREATED }), {
+          status: 200,
+        }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    const clean = await client().updateUserBot({
+      githubUserId: "gh-1",
+      botId: "b1",
+      applicationIds: [7],
+      handoverApplicationId: 7,
+    });
+    expect(clean).not.toHaveProperty("webhookWarning");
+  });
+
+  it("checks the webhook with a POST and camel-cases Telegram's report", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            webhook: {
+              url_matches: false,
+              pending_update_count: 12,
+              last_error_message: "Wrong response from the webhook: 404",
+              reasserted: true,
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const status = await client().checkUserBotWebhook({
+      githubUserId: "gh-1",
+      botId: "b1",
+    });
+
+    expect(status).toEqual({
+      urlMatches: false,
+      pendingUpdateCount: 12,
+      lastErrorMessage: "Wrong response from the webhook: 404",
+      reasserted: true,
+      warning: null,
+    });
+    const [url, request] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain(
+      "/api/integrations/github-app/user/bots/b1/webhook?github_user_id=gh-1",
+    );
+    expect(request.method).toBe("POST");
+  });
+
+  it("rejects a webhook report that lacks the comparison", async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({}), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+    await expect(
+      client().checkUserBotWebhook({ githubUserId: "gh-1", botId: "b1" }),
+    ).rejects.toThrow(/missing the webhook status/);
+  });
+
   it("never surfaces a credential field", async () => {
     const fetchImpl = vi.fn(
       async () =>

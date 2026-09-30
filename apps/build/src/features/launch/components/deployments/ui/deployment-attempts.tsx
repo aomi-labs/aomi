@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   AlertCircle,
   Check,
@@ -151,11 +150,6 @@ export function DeploymentAttempts({ detail }: { detail: Detail }) {
               >
                 Dismiss
               </button>
-              {local.deployError?.code === "github_app_permission_missing" && (
-                <Link className={button} href="/settings/general#github-app">
-                  Check GitHub App access
-                </Link>
-              )}
             </div>
           )}
         </section>

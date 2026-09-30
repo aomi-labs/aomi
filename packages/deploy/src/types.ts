@@ -48,6 +48,7 @@ export interface AuditEvent {
     | "create_user_bot"
     | "update_user_bot"
     | "reveal_user_bot_command_secret"
+    | "check_user_bot_webhook"
     | "delete_user_bot"
     | "list_builder_model_keys"
     | "save_builder_model_key"
@@ -527,39 +528,27 @@ export interface DeployErrorDetail {
 
 export interface ListUserGitHubAppInstallationsInput extends BearerOverride {
   githubUserId: string;
-  /** Narrows the report to one platform's repository installation. */
-  platform?: string;
 }
 
-/** A permission the installation grants below what is required of it. */
-export interface GitHubAppPermissionGap {
-  permission: string;
-  required: string;
-  granted: string;
-}
-
-export type PlatformInstallationStatusKind =
+export type GitHubRepositoryAccessStatus =
   | "ok"
   | "missing_permissions"
   | "suspended"
   | "not_installed"
   | "error";
 
-/** The platform repository's own installation, compared against what a
- *  deploy needs of it. */
-export interface PlatformInstallationStatus {
+/** Live access to one builder-owned repository already connected as a Project. */
+export interface GitHubRepositoryAccess {
+  projectId: number;
   githubRepo: string;
-  required: Record<string, string>;
-  installation: {
-    settingsUrl: string | null;
-    missingPermissions: GitHubAppPermissionGap[];
-  } | null;
-  status: PlatformInstallationStatusKind;
+  platform: string;
+  status: GitHubRepositoryAccessStatus;
+  settingsUrl: string | null;
 }
 
 export interface GitHubAppInstallationsResult {
-  /** Null when the read was not narrowed to a platform. */
-  platform: PlatformInstallationStatus | null;
+  status: "ok" | "action_required" | "error";
+  repositories: GitHubRepositoryAccess[];
 }
 
 export interface GetUserProjectInput extends BearerOverride {
@@ -941,6 +930,28 @@ export interface UpdateUserBotInput extends BuilderBotsInput {
 
 export interface RevealUserBotCommandSecretInput extends BuilderBotsInput {
   botId: string;
+}
+
+/** The saved bot, plus the manager's note when the Telegram webhook could
+ *  not be re-asserted after the save. The save itself is never rolled back. */
+export interface UpdateUserBotResult extends BotRegistration {
+  webhookWarning?: string;
+}
+
+export interface CheckUserBotWebhookInput extends BuilderBotsInput {
+  botId: string;
+}
+
+/** Telegram's registered webhook compared with the deployment's own URL for
+ *  the bot. Never carries the URL, the secret, or the token. */
+export interface BotWebhookStatus {
+  urlMatches: boolean;
+  pendingUpdateCount: number;
+  lastErrorMessage: string | null;
+  /** A mismatch was found and the manager re-asserted the webhook. */
+  reasserted: boolean;
+  /** A mismatch was found but re-asserting failed. */
+  warning: string | null;
 }
 
 export interface DeleteUserBotInput extends BuilderBotsInput {

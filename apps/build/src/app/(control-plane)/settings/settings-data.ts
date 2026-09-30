@@ -32,8 +32,7 @@ export const settingsSections: SettingsSection[] = [
     icon: UserRound,
     enabled: true,
     status: "available",
-    detail:
-      "Switch Build to an exact deployment platform and check GitHub App access.",
+    detail: "Choose a deployment platform and review repository access.",
   },
   {
     slug: "secrets",

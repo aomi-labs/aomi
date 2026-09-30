@@ -10,6 +10,7 @@ import {
   operateBotsCreateRoute,
   operateBotsDeleteRoute,
   operateBotsUpdateRoute,
+  operateBotsWebhookRoute,
   operateLogsRoute,
   operateObservabilityRoute,
   operatePaymentsRoute,
@@ -63,6 +64,7 @@ const client = {
   createUserBot: vi.fn(),
   updateUserBot: vi.fn(),
   revealUserBotCommandSecret: vi.fn(),
+  checkUserBotWebhook: vi.fn(),
   deleteUserBot: vi.fn(),
   getUserProjectUsage: vi.fn(),
   getUserProjectStatement: vi.fn(),
@@ -117,6 +119,13 @@ function patchJson(body: unknown) {
 function commandSecretReq(botId: string) {
   return new Request(
     `http://localhost:3000/api/bff/operate/bots/${botId}/command-secret`,
+  );
+}
+
+function webhookReq(botId: string) {
+  return new Request(
+    `http://localhost:3000/api/bff/operate/bots/${botId}/webhook`,
+    { method: "POST", headers: { origin: "http://localhost:3000" } },
   );
 }
 
@@ -459,6 +468,29 @@ describe("operateBotsUpdateRoute", () => {
     expect(input).not.toHaveProperty("miniAppUrl");
   });
 
+  it("passes the manager's webhook warning beside the saved bot, never inside it", async () => {
+    setSession({ githubUserId: "gh-1" });
+    owned();
+    client.updateUserBot.mockResolvedValue({
+      id: "b1",
+      webhookWarning: "Telegram setWebhook failed (502 Bad Gateway)",
+    });
+    const res = await operateBotsUpdateRoute(
+      patchJson({ botId: "b1", applicationIds: [7], handoverApplicationId: 7 }),
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      bot: { id: "b1" },
+      webhookWarning: "Telegram setWebhook failed (502 Bad Gateway)",
+    });
+
+    client.updateUserBot.mockResolvedValue({ id: "b1" });
+    const clean = await operateBotsUpdateRoute(
+      patchJson({ botId: "b1", applicationIds: [7], handoverApplicationId: 7 }),
+    );
+    await expect(clean.json()).resolves.toEqual({ bot: { id: "b1" } });
+  });
+
   it("400s a shape-invalid command config and forwards a manager 400", async () => {
     setSession({ githubUserId: "gh-1" });
     owned();
@@ -534,6 +566,54 @@ describe("operateBotsCommandSecretRoute", () => {
     const res = await operateBotsCommandSecretRoute(commandSecretReq("b9"));
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({ error: "bot not found" });
+  });
+});
+
+describe("operateBotsWebhookRoute", () => {
+  it("401s when not signed in with GitHub", async () => {
+    clearSession();
+    const res = await operateBotsWebhookRoute(webhookReq("b1"));
+    expect(res.status).toBe(401);
+    expect(client.checkUserBotWebhook).not.toHaveBeenCalled();
+  });
+
+  it("checks the webhook through the session's builder id", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
+    const webhook = {
+      urlMatches: false,
+      pendingUpdateCount: 3,
+      lastErrorMessage: null,
+      reasserted: true,
+      warning: null,
+    };
+    client.checkUserBotWebhook.mockResolvedValue(webhook);
+    const res = await operateBotsWebhookRoute(webhookReq("b1"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    await expect(res.json()).resolves.toEqual({ webhook });
+    expect(client.checkUserBotWebhook).toHaveBeenCalledWith({
+      githubUserId: "gh-1",
+      botId: "b1",
+    });
+  });
+
+  it("forwards the manager's rejection of a bot the builder does not own", async () => {
+    setSession({ githubUserId: "gh-1" });
+    client.listUserProjects.mockResolvedValue([{ id: 42, apps: [] }]);
+    client.checkUserBotWebhook.mockRejectedValue(
+      new BackendError(
+        "check_user_bot_webhook",
+        404,
+        "check_user_bot_webhook failed (404)",
+        JSON.stringify({ error: "bot registration not found" }),
+      ),
+    );
+    const res = await operateBotsWebhookRoute(webhookReq("b9"));
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({
+      error: "bot registration not found",
+    });
   });
 });
 
