@@ -12,6 +12,7 @@ import {
   ReceiptTextIcon,
 } from "lucide-react";
 
+import type { Event } from "@aomi-labs/client";
 import type { TaskRunState } from "@aomi-labs/react";
 
 vi.mock("@/components/assistant-ui/markdown-text", async () => {
@@ -90,25 +91,23 @@ describe("WorkingTrace", () => {
   it("reconstructs active time across reload and pauses for wallet approval", () => {
     const now = Date.now();
     const seconds = (ms: number) => ms / 1_000;
+    const phase = (
+      sequence: number,
+      turnId: string,
+      state: "processing" | "awaiting_action",
+      atMs: number,
+    ): Event => ({
+      event_id: `event-${sequence}`,
+      sequence,
+      type: "turn_state_changed",
+      turn_id: turnId,
+      state,
+      occurred_at: seconds(atMs),
+    });
     const events = [
-      {
-        type: "turn_state_changed",
-        turn_id: "turn",
-        state: "processing",
-        occurred_at: seconds(now - 100_000),
-      },
-      {
-        type: "turn_state_changed",
-        turn_id: "turn",
-        state: "awaiting_action",
-        occurred_at: seconds(now - 95_000),
-      },
-      {
-        type: "turn_state_changed",
-        turn_id: "callback",
-        state: "processing",
-        occurred_at: seconds(now - 2_000),
-      },
+      phase(1, "turn", "processing", now - 100_000),
+      phase(2, "turn", "awaiting_action", now - 95_000),
+      phase(3, "callback", "processing", now - 2_000),
     ];
     expect(activeWorkDurationMs(events, ["turn", "callback"], now)).toBe(7_000);
     expect(

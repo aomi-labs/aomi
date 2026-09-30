@@ -6,31 +6,15 @@ import {
   chainFactFromRecord,
   statusFact,
   tokenFact,
-  uniqueFacts,
 } from "../normalize";
 import {
   EVM_SELECTOR_REGISTRY,
   SHAPE_ICONS,
 } from "@/components/assistant-ui/tool-registry";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { validResult } from "./shared";
+import type { ToolFact, ToolMatcher } from "../types";
+import { routeFact, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
-
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-  title?: string,
-): ToolOperation => ({
-  id,
-  title,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence: "high",
-  rawLabel,
-});
-
-const failedFact = (result: Record<string, unknown> | null): ToolFact | null =>
-  result && !validResult(result) ? statusFact("failed") : null;
+import { failedFact, operation } from "../families/operation";
 
 // Keep full precision in tool data; round only the visible trace chips.
 const roundedAmount = (value: string | undefined): string | undefined => {
@@ -96,12 +80,19 @@ const tokenPairFact = (
   };
 };
 
+const routeEnds = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+) => ({
+  source: result?.source_chain_id ?? result?.chain_id ?? args?.chain_id,
+  destination: result?.destination_chain_id ?? args?.to_chain_id,
+});
+
 const isBridgeRoute = (
   result: Record<string, unknown> | null | undefined,
   args?: Record<string, unknown> | null,
 ): boolean => {
-  const source = result?.source_chain_id ?? result?.chain_id ?? args?.chain_id;
-  const destination = result?.destination_chain_id ?? args?.to_chain_id;
+  const { source, destination } = routeEnds(result, args);
   return (
     source != null &&
     destination != null &&
@@ -109,22 +100,19 @@ const isBridgeRoute = (
   );
 };
 
+/** A bridge's route, else the one chain the call runs on. */
 const locationFact = (
   result: Record<string, unknown> | null | undefined,
   args?: Record<string, unknown> | null,
 ): ToolFact | null => {
-  const source = result?.source_chain_id ?? result?.chain_id ?? args?.chain_id;
-  const destination = result?.destination_chain_id ?? args?.to_chain_id;
-  const from = chainFact(source);
-  const to = chainFact(destination);
-  if (from && to && from.value !== to.value) {
-    return {
-      kind: "route",
-      value: `${from.label} → ${to.label}`,
-      source: "result",
-    };
-  }
-  return from ?? chainFactFromRecord(result);
+  const { source, destination } = routeEnds(result, args);
+  return (
+    (isBridgeRoute(result, args)
+      ? routeFact({ chain_id: source }, { chain_id: destination })
+      : null) ??
+    chainFact(source) ??
+    chainFactFromRecord(result)
+  );
 };
 
 export const matchLifiQuote: ToolMatcher = ({
@@ -138,7 +126,7 @@ export const matchLifiQuote: ToolMatcher = ({
   const toToken = asRecord(result?.to_token);
   const estimate = asRecord(result?.estimate);
 
-  return op(
+  return operation(
     "lifi.quote",
     rawLabel,
     [
@@ -148,7 +136,7 @@ export const matchLifiQuote: ToolMatcher = ({
       tokenPairFact(fromToken, toToken),
       failedFact(resultRecord),
     ],
-    isBridgeRoute(result, args) ? "Quote LI.FI bridge" : undefined,
+    { title: isBridgeRoute(result, args) ? "Quote LI.FI bridge" : undefined },
   );
 };
 
@@ -162,7 +150,7 @@ export const matchLifiApproval: ToolMatcher = ({
   const approval = asRecord(result?.approval);
   const token = asRecord(approval?.token) ?? asRecord(result?.token);
 
-  return op("lifi.approval", rawLabel, [
+  return operation("lifi.approval", rawLabel, [
     chainFactFromRecord(result) ??
       chainFactFromRecord(token) ??
       chainFactFromRecord(args),
@@ -180,7 +168,7 @@ export const matchLifiSwapPrep: ToolMatcher = ({
   const result = validResult(resultRecord) ? resultRecord : null;
   const args = asRecord(parsedArgs);
   const estimate = asRecord(result?.estimate);
-  return op(
+  return operation(
     "lifi.swap.prepare",
     rawLabel,
     [
@@ -190,7 +178,7 @@ export const matchLifiSwapPrep: ToolMatcher = ({
       tokenPairFact(result?.from_token, result?.to_token),
       failedFact(resultRecord),
     ],
-    isBridgeRoute(result, args) ? "Prepare LI.FI bridge" : undefined,
+    { title: isBridgeRoute(result, args) ? "Prepare LI.FI bridge" : undefined },
   );
 };
 
@@ -212,7 +200,7 @@ export const matchLifiSwapBatch: ToolMatcher = ({
       ? `${requestedAmount} ${fromToken}`
       : requestedAmount;
 
-  return op(
+  return operation(
     "lifi.swap.prepare",
     rawLabel,
     [
@@ -224,9 +212,11 @@ export const matchLifiSwapBatch: ToolMatcher = ({
       amountTextFact(estimate?.to_amount_display, "secondary"),
       failedFact(resultRecord),
     ],
-    isBridgeRoute(result, args)
-      ? "Prepare LI.FI bridge"
-      : "Prepare LI.FI swap batch",
+    {
+      title: isBridgeRoute(result, args)
+        ? "Prepare LI.FI bridge"
+        : "Prepare LI.FI swap batch",
+    },
   );
 };
 
@@ -236,7 +226,7 @@ export const matchLifiStatus: ToolMatcher = ({
   resultRecord,
 }) => {
   const result = validResult(resultRecord) ? resultRecord : null;
-  return op("lifi.bridge.status", rawLabel, [
+  return operation("lifi.bridge.status", rawLabel, [
     locationFact(result, asRecord(parsedArgs)),
     statusFact(result?.state),
     failedFact(resultRecord),

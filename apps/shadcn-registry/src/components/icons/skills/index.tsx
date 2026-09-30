@@ -10,6 +10,7 @@ import {
 } from "../apps";
 import { ArbitrumIcon, BaseIcon, OptimismIcon, RobinhoodIcon } from "../chains";
 
+import { skillBrandLabel } from "../../../lib/capabilities/skill-label";
 import { sourcedSkillMarks } from "./sourced-marks";
 
 type SkillIconProps = SVGProps<SVGSVGElement>;
@@ -439,12 +440,6 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   zora: ZoraSkillIcon,
 };
 
-const SKILL_DISPLAY_NAMES: Record<string, string> = {
-  common_erc20: "ERC20",
-  defillama: "DefiLlama",
-  lifi_swap: "LI.FI",
-};
-
 /** Normalize a capability catalog ID before looking up its visual identity. */
 export function normalizeSkillId(skillId: string): string {
   return skillId
@@ -461,5 +456,5 @@ export function getSkillIcon(
 }
 
 export function getSkillDisplayName(skillId: string): string | undefined {
-  return SKILL_DISPLAY_NAMES[normalizeSkillId(skillId)];
+  return skillBrandLabel(normalizeSkillId(skillId));
 }

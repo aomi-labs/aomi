@@ -11,7 +11,7 @@ import {
 } from "../../normalize";
 import type { ToolMatcher } from "../../types";
 import { knownToken } from "../../token-registry";
-import { operation } from "../operation";
+import { isErrorResult, operation } from "../operation";
 
 export const matchNativeBalance: ToolMatcher = ({
   rawLabel,
@@ -42,8 +42,7 @@ export const matchNativeBalance: ToolMatcher = ({
 };
 
 export const matchErc20Balance: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!resultRecord || resultRecord.is_error === true || resultRecord.error)
-    return null;
+  if (!resultRecord || isErrorResult(resultRecord)) return null;
 
   const tokenAddress = normalizeAddress(resultRecord.token);
   const reportedBalance = amountFact(resultRecord.balance);

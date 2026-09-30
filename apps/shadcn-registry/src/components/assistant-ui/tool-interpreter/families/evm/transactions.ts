@@ -13,23 +13,13 @@ import {
   uniqueFacts,
 } from "../../normalize";
 import { toolIdentity } from "../../identity";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import type { ToolFact, ToolMatcher } from "../../types";
 import {
   commitCountFact,
   commitStateFact,
   commitViews,
 } from "../general/commit-view";
-
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-): ToolOperation => ({
-  id,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence: "high",
-  rawLabel,
-});
+import { failedFact, operation } from "../operation";
 
 const stagedActionId = (action: string): string =>
   action
@@ -39,11 +29,6 @@ const stagedActionId = (action: string): string =>
 
 const isTool = (rawLabel: string, name: string): boolean =>
   toolIdentity(rawLabel) === name;
-
-const failedFact = (resultRecord: Record<string, unknown> | null) =>
-  resultRecord && (resultRecord.is_error === true || resultRecord.error)
-    ? statusFact("failed")
-    : null;
 
 const associatedChain = (
   records: Record<string, unknown>[],
@@ -86,26 +71,30 @@ export const matchStagedTx: ToolMatcher = ({
   const action = selectorMeta?.chip ?? kind;
   const pendingTxId = asNumber(resultRecord?.pending_tx_id);
 
-  return op(`evm.tx.stage.${stagedActionId(action ?? "custom")}`, rawLabel, [
-    chain,
-    action
-      ? {
-          kind: "action",
-          value: action,
-          label: humanize(action),
-          source: selectorMeta ? "decoded" : "result",
-        }
-      : null,
-    pendingTxId != null
-      ? {
-          kind: "count",
-          role: "tx",
-          value: "1",
-          source: "result",
-        }
-      : null,
-    failedFact(resultRecord) ?? statusFact(resultRecord?.current_lifecycle),
-  ]);
+  return operation(
+    `evm.tx.stage.${stagedActionId(action ?? "custom")}`,
+    rawLabel,
+    [
+      chain,
+      action
+        ? {
+            kind: "action",
+            value: action,
+            label: humanize(action),
+            source: selectorMeta ? "decoded" : "result",
+          }
+        : null,
+      pendingTxId != null
+        ? {
+            kind: "count",
+            role: "tx",
+            value: "1",
+            source: "result",
+          }
+        : null,
+      failedFact(resultRecord) ?? statusFact(resultRecord?.current_lifecycle),
+    ],
+  );
 };
 
 export const matchEvmSimulation: ToolMatcher = ({
@@ -169,7 +158,7 @@ export const matchEvmSimulation: ToolMatcher = ({
     : null;
   const txCount = resolvedIds?.length ?? (requestedIds.length || undefined);
 
-  return op("evm.tx.simulate_batch", rawLabel, [
+  return operation("evm.tx.simulate_batch", rawLabel, [
     chain,
     txCount != null
       ? {
@@ -238,7 +227,7 @@ export const matchEvmPendingApproval: ToolMatcher = ({
   const outcome = asRecord(resultRecord?.tx_outcome);
   const txHash = asString(outcome?.txHash);
 
-  return op("evm.tx.pending_approval", rawLabel, [
+  return operation("evm.tx.pending_approval", rawLabel, [
     chain,
     commitCountFact(views) ??
       (txIds.length > 0

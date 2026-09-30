@@ -1,5 +1,22 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Give the local chain an explorer, so only the local-chain guard rejects it.
+vi.mock("@aomi-labs/client", async (original) => {
+  const client = await original<typeof import("@aomi-labs/client")>();
+  return {
+    ...client,
+    CHAINS_BY_ID: {
+      ...client.CHAINS_BY_ID,
+      31337: {
+        ...client.CHAINS_BY_ID[31337],
+        blockExplorers: {
+          default: { name: "Local", url: "https://local-explorer.test" },
+        },
+      },
+    },
+  };
+});
 
 import { OnchainLink, recognizeOnchainLink } from "./onchain-link";
 
@@ -10,22 +27,17 @@ describe("on-chain explorer links", () => {
   it("accepts configured HTTPS explorers with valid path and identifier types", () => {
     expect(
       recognizeOnchainLink(`https://basescan.org/tx/${HASH}`),
-    ).toMatchObject({
-      chainId: 8453,
-      kind: "tx",
-    });
+    ).toMatchObject({ chainId: 8453, chainName: "Base" });
     expect(
-      recognizeOnchainLink(`https://arbiscan.io/address/${ADDRESS}`)?.kind,
-    ).toBe("address");
-    expect(
-      recognizeOnchainLink(`https://basescan.org/token/${ADDRESS}`)?.kind,
-    ).toBe("token");
-    expect(recognizeOnchainLink("https://basescan.org/block/123")?.kind).toBe(
-      "block",
-    );
-    expect(
-      recognizeOnchainLink(`https://basescan.org/block/${HASH}`)?.kind,
-    ).toBe("block");
+      recognizeOnchainLink(`https://arbiscan.io/address/${ADDRESS}`),
+    ).toMatchObject({ chainId: 42161 });
+    for (const url of [
+      `https://basescan.org/token/${ADDRESS}`,
+      "https://basescan.org/block/123",
+      `https://basescan.org/block/${HASH}`,
+    ]) {
+      expect(recognizeOnchainLink(url), url).toMatchObject({ chainId: 8453 });
+    }
   });
 
   it("rejects spoof origins, unexpected paths, query redirects, and wrong identifiers", () => {
@@ -44,14 +56,11 @@ describe("on-chain explorer links", () => {
     ]) {
       expect(recognizeOnchainLink(url), url).toBeNull();
     }
-    expect(
-      recognizeOnchainLink(`https://basescan.org/tx/${HASH}`, 42161),
-    ).toBeNull();
   });
 
   it("does not treat a local chain as a configured public explorer", () => {
     expect(
-      recognizeOnchainLink(`https://basescan.org/tx/${HASH}`, 31337),
+      recognizeOnchainLink(`https://local-explorer.test/tx/${HASH}`),
     ).toBeNull();
   });
 

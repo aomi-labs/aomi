@@ -5,7 +5,7 @@ import {
   chainFactFromRecord,
 } from "../../normalize";
 import type { ToolMatcher } from "../../types";
-import { operation } from "../operation";
+import { isErrorResult, operation } from "../operation";
 
 export const matchChainContext: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;
@@ -36,7 +36,7 @@ export const matchSyncChain: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (resultRecord?.is_error === true || resultRecord?.error) return null;
+  if (isErrorResult(resultRecord)) return null;
   const args = asRecord(parsedArgs);
   const chain =
     chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args");

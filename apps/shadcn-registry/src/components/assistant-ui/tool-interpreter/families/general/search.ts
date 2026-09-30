@@ -5,12 +5,9 @@ import {
   normalizeHost,
 } from "../../normalize";
 import type { FactSource, ToolFact, ToolMatcher } from "../../types";
-import { operation } from "../operation";
+import { isErrorResult, operation } from "../operation";
 
 const MAX_SOURCE_HOSTS = 3;
-
-const isError = (result: Record<string, unknown> | null): boolean =>
-  result?.is_error === true || Boolean(result?.error);
 
 const hostFact = (value: string, source: FactSource): ToolFact => ({
   kind: "sourceHost",
@@ -40,7 +37,7 @@ export const matchWebSearch: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (isError(resultRecord)) return null;
+  if (isErrorResult(resultRecord)) return null;
   const hosts = resultRecord
     ? [
         ...new Set(
@@ -74,7 +71,7 @@ export const matchWebFetch: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (isError(resultRecord)) return null;
+  if (isErrorResult(resultRecord)) return null;
   const readHost =
     normalizeHost(resultRecord?.host) ??
     hostnameFromUrl(resultRecord?.final_url) ??

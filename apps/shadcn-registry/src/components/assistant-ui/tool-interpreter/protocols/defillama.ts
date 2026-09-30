@@ -11,18 +11,12 @@ import {
   asString,
   chainFact,
   chainFactFromRecord,
-  statusFact,
   tokenFact,
-  uniqueFacts,
 } from "../normalize";
-import type {
-  FactSource,
-  ToolContext,
-  ToolFact,
-  ToolOperation,
-} from "../types";
+import type { FactSource, ToolContext, ToolFact } from "../types";
 import { validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
+import { failedFact, operation } from "../families/operation";
 
 const MAX_PRICES = 3;
 const MAX_PROTOCOLS = 2;
@@ -40,28 +34,12 @@ const PROTOCOL_TITLES: Record<string, string> = {
   list: "Find protocols",
 };
 
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-  title?: string,
-): ToolOperation => ({
-  id,
-  title,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence: "high",
-  rawLabel,
-});
-
 const records = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value)
     ? value
         .map(asRecord)
         .filter((item): item is Record<string, unknown> => item != null)
     : [];
-
-const failedFact = (result: Record<string, unknown> | null): ToolFact | null =>
-  result && !validResult(result) ? statusFact("failed") : null;
 
 /** Args name a chain as "base" or "8453"; results carry chain_id/chain_name. */
 const argsChainFact = (value: unknown): ToolFact | null => {
@@ -130,7 +108,7 @@ const matchPrices = ({ rawLabel, parsedArgs, resultRecord }: ToolContext) => {
         labelFact("token", requestedTokenLabel(token), "args"),
       );
 
-  return op(
+  return operation(
     "defillama.prices",
     rawLabel,
     [
@@ -141,7 +119,7 @@ const matchPrices = ({ rawLabel, parsedArgs, resultRecord }: ToolContext) => {
         : null,
       failedFact(resultRecord),
     ],
-    args?.at != null ? "Check historical prices" : undefined,
+    { title: args?.at != null ? "Check historical prices" : undefined },
   );
 };
 
@@ -155,7 +133,7 @@ const matchYields = ({ rawLabel, parsedArgs, resultRecord }: ToolContext) => {
   const apy = asNumber(top?.apy);
   const total = asNumber(result?.total_matches);
 
-  return op(
+  return operation(
     "defillama.yields",
     rawLabel,
     [
@@ -176,7 +154,7 @@ const matchYields = ({ rawLabel, parsedArgs, resultRecord }: ToolContext) => {
         : countFact(total, `${total} pool${total === 1 ? "" : "s"}`),
       failedFact(resultRecord),
     ],
-    poolLookup ? "Check yield pool" : undefined,
+    { title: poolLookup ? "Check yield pool" : undefined },
   );
 };
 
@@ -202,7 +180,7 @@ const matchProtocols = ({
           (a, b) => (asNumber(b.tvl_usd) ?? 0) - (asNumber(a.tvl_usd) ?? 0),
         );
 
-  return op(
+  return operation(
     "defillama.protocols",
     rawLabel,
     [
@@ -224,7 +202,11 @@ const matchProtocols = ({
         ),
       failedFact(resultRecord),
     ],
-    Object.hasOwn(PROTOCOL_TITLES, mode) ? PROTOCOL_TITLES[mode] : undefined,
+    {
+      title: Object.hasOwn(PROTOCOL_TITLES, mode)
+        ? PROTOCOL_TITLES[mode]
+        : undefined,
+    },
   );
 };
 

@@ -10,7 +10,6 @@ type ExplorerKind = "tx" | "address" | "token" | "block";
 export type ExplorerLink = {
   chainId: number;
   chainName: string;
-  kind: ExplorerKind;
   href: string;
 };
 
@@ -19,10 +18,7 @@ const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const BLOCK_ID = /^(?:0|[1-9][0-9]*|0x[a-fA-F0-9]{64})$/;
 
 /** Classify configured explorer URL shapes for display, not proof of inclusion. */
-export function recognizeOnchainLink(
-  href: string,
-  expectedChainId?: number,
-): ExplorerLink | null {
+export function recognizeOnchainLink(href: string): ExplorerLink | null {
   let url: URL;
   try {
     url = new URL(href);
@@ -40,7 +36,6 @@ export function recognizeOnchainLink(
 
   for (const [id, chain] of Object.entries(CHAINS_BY_ID)) {
     const chainId = Number(id);
-    if (expectedChainId != null && chainId !== expectedChainId) continue;
     // A local fork can have a familiar chain name but has no live explorer.
     if (chainId === 31337) continue;
     const configured = chain.blockExplorers?.default?.url;
@@ -62,7 +57,7 @@ export function recognizeOnchainLink(
           ? BLOCK_ID.test(identifier)
           : ADDRESS.test(identifier);
     if (!valid) continue;
-    return { chainId, chainName: chain.name, kind, href: url.href };
+    return { chainId, chainName: chain.name, href: url.href };
   }
   return null;
 }

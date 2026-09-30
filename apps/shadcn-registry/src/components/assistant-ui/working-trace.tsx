@@ -23,6 +23,7 @@ import {
   walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
+import type { Event } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -47,13 +48,6 @@ const formatDuration = (seconds: number): string => {
   return `${m}m ${s}s`;
 };
 
-type WorkPhaseEvent = {
-  type: string;
-  turn_id?: string | null;
-  state?: string;
-  occurred_at?: string | number;
-};
-
 const phaseTimeMs = (value: string | number | undefined): number => {
   if (typeof value === "number") return value < 1e12 ? value * 1_000 : value;
   if (typeof value !== "string") return 0;
@@ -67,7 +61,7 @@ const phaseTimeMs = (value: string | number | undefined): number => {
 
 /** Sum persisted processing intervals; awaiting wallet approval pauses time. */
 export function activeWorkDurationMs(
-  events: readonly WorkPhaseEvent[],
+  events: readonly Event[],
   turnIds: readonly string[],
   nowMs: number,
 ): number | null {
@@ -236,7 +230,7 @@ export const WorkingTrace: FC<{
    * end), so mount time alone under-reports "Orchestrated for Ns" badly.
    */
   startedAtMs?: number;
-  phaseEvents?: readonly WorkPhaseEvent[];
+  phaseEvents?: readonly Event[];
   phaseTurnIds?: readonly string[];
 }> = ({
   running,

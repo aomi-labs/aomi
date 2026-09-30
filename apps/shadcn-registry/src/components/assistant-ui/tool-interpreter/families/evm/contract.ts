@@ -5,7 +5,7 @@ import {
   normalizeAddress,
 } from "../../normalize";
 import type { ToolMatcher } from "../../types";
-import { operation } from "../operation";
+import { isErrorResult, operation } from "../operation";
 
 const meaningful = (value: unknown): string | undefined =>
   asString(value)?.trim() || undefined;
@@ -37,7 +37,7 @@ export const matchTokenLookup: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (resultRecord?.is_error === true || resultRecord?.error) return null;
+  if (isErrorResult(resultRecord)) return null;
   const args = asRecord(parsedArgs);
   if (!resultRecord && !args) return null;
 
