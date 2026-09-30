@@ -2688,7 +2688,7 @@
                     "properties": {
                       "transactionSafetyMode": {
                         "$ref": "#/components/schemas/TransactionSafetyMode",
-                        "description": "EVM transaction safety selection. Initial build, stage, and Task requests default to balanced when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                        "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
                       },
                       "intent": {
                         "type": "string",
@@ -3966,6 +3966,7 @@
             "enum": [
               "effect_reconciliation_required",
               "empty_assistant_result",
+              "execution_stopped",
               "continuation_retry_exhausted"
             ]
           }
@@ -4041,6 +4042,11 @@
           },
           "transaction_id": {
             "type": ["string", "null"]
+          },
+          "transaction_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Public explorer link for a confirmed transaction when the receipt RPC has a public origin."
           },
           "failure_code": {
             "type": ["string", "null"]
@@ -5620,9 +5626,9 @@
         "type": "object",
         "properties": {
           "chain_id": {
-            "type": "integer",
+            "type": ["integer", "null"],
             "minimum": 1,
-            "description": "Configured EVM chain with Alchemy Portfolio indexing enabled."
+            "description": "null (the default for balance questions) scans every indexed mainnet in one call. Set one chain id only when the chain is already fixed or to page that chain with cursor."
           },
           "holder_address": {
             "type": ["string", "null"],
@@ -5636,7 +5642,7 @@
           },
           "cursor": {
             "type": ["string", "null"],
-            "description": "Opaque next_cursor from the previous response. Keep chain, holder, filters and sorting unchanged. Pages are live, not a snapshot."
+            "description": "For a selected chain only: opaque next_cursor from its previous response. Keep chain, holder, filters and sorting unchanged. Pages are live, not a snapshot."
           },
           "sort_by": {
             "type": "string",
@@ -5655,33 +5661,49 @@
           },
           "min_usd_value": {
             "type": ["string", "null"],
-            "description": "Nonnegative decimal string filtering known USD values. Unknown values are retained if include_unpriced=true."
+            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust; pass \"0\" when small balances matter, such as checking gas."
           },
           "include_unpriced": {
             "type": ["boolean", "null"],
-            "description": "Default true: keep assets with unknown USD value, including missing decimals. False excludes them."
+            "description": "null/true keeps tokens without a price, sorted after priced ones, since any token may be real; false hides them."
           }
-        },
-        "required": ["chain_id"]
+        }
       },
       "PipelineEvmTokenHoldingsResult": {
         "type": "object",
         "required": [
           "chain_id",
+          "chain_name",
           "holder",
           "source",
           "complete",
           "items",
           "total_matching",
           "next_cursor",
+          "hidden",
           "warnings"
         ],
         "properties": {
           "chain_id": {
             "type": "integer"
           },
+          "chain_name": {
+            "type": "string"
+          },
           "holder": {
             "type": "string"
+          },
+          "hidden": {
+            "type": "object",
+            "description": "Counts filtered out by min_usd_value or for lacking a price.",
+            "properties": {
+              "below_min_usd": {
+                "type": "integer"
+              },
+              "unpriced": {
+                "type": "integer"
+              }
+            }
           },
           "source": {
             "type": "string",
@@ -6188,7 +6210,7 @@
         "properties": {
           "transactionSafetyMode": {
             "$ref": "#/components/schemas/TransactionSafetyMode",
-            "description": "EVM transaction safety selection. Initial build, stage, and Task requests default to balanced when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+            "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
           }
         }
       },
