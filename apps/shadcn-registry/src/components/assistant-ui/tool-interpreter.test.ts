@@ -647,7 +647,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Activate skill");
-    expect(labelsFor(step.chips)).toEqual(["Common Erc20", "LI.FI"]);
+    expect(labelsFor(step.chips)).toEqual(["ERC20", "LI.FI"]);
     expect(step.chips[0].icon).toBe(getSkillIcon("common_erc20"));
     expect(step.chips[1].icon).toBe(getSkillIcon("lifi_swap"));
   });
@@ -664,7 +664,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Check active skills");
-    expect(labelsFor(step.chips)).toEqual(["Aave", "Common Erc20", "LI.FI"]);
+    expect(labelsFor(step.chips)).toEqual(["Aave", "ERC20", "LI.FI"]);
     expect(step.chips[0].icon).toBe(getSkillIcon("aave"));
     expect(step.failed).toBe(false);
 

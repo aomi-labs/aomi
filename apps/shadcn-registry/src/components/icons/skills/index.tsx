@@ -440,7 +440,7 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
 };
 
 const SKILL_DISPLAY_NAMES: Record<string, string> = {
-  common_erc20: "Common Erc20",
+  common_erc20: "ERC20",
   defillama: "DefiLlama",
   lifi_swap: "LI.FI",
 };

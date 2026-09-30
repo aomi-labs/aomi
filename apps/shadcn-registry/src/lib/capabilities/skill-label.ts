@@ -1,5 +1,6 @@
 /** Brand spellings that title-casing the ID would get wrong. */
 const BRAND_LABELS: Record<string, string> = {
+  common_erc20: "ERC20",
   defillama: "DefiLlama",
   lifi_swap: "LI.FI",
 };
