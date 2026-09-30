@@ -4,9 +4,13 @@ import {
   CoinsIcon,
   FileTextIcon,
   GlobeIcon,
+  LandmarkIcon,
+  NetworkIcon,
   PencilLineIcon,
+  PercentIcon,
   PuzzleIcon,
   SearchIcon,
+  TagIcon,
 } from "lucide-react";
 
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -236,6 +240,236 @@ describe("tool interpreter", () => {
     expect(status.title).toBe("Check LI.FI transfer");
     expect(labelsFor(status.chips)).toEqual(["Base → Arbitrum", "Partial"]);
     expect(status.outcome).toBe("incomplete");
+  });
+
+  it("shows requested DefiLlama price tokens while the lookup is pending", () => {
+    const step = interpretToolStep({
+      toolName: "defillama_prices",
+      argsText: JSON.stringify({
+        topic: "Price tokens",
+        tokens: [
+          "ETH",
+          "base:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "coingecko:ethereum",
+        ],
+        chain: "8453",
+        at: null,
+        change_period: null,
+      }),
+    });
+
+    expect(step.title).toBe("Check prices");
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "ETH",
+      "0x8335…2913",
+      "ethereum",
+    ]);
+    expect(step.chips[0].icon).toBeTypeOf("function");
+    expect(step.chips[1].icon).toBe(CoinsIcon);
+  });
+
+  it("shows up to three compact DefiLlama prices", () => {
+    const step = interpretToolStep({
+      toolName: "defillama_prices",
+      argsText: JSON.stringify({ tokens: ["ETH"], at: "2025-01-01" }),
+      result: {
+        source: "defillama",
+        chain_id: 56,
+        chain_name: "BSC",
+        prices: [
+          { query: "ETH", symbol: "ETH", price_usd: 2689.42 },
+          { query: "USDC", symbol: "USDC", price_usd: 0.99987 },
+          { query: "PEPE", symbol: "PEPE", price_usd: 0.0000123456 },
+          { query: "WBTC", symbol: "WBTC", price_usd: 64000 },
+        ],
+        unresolved: [],
+      },
+    });
+
+    expect(step.title).toBe("Check historical prices");
+    expect(labelsFor(step.chips)).toEqual([
+      "BSC",
+      "ETH $2,689",
+      "USDC $0.9999",
+      "PEPE $0.00001235",
+    ]);
+    // Chains without a mark keep a generic network icon.
+    expect(step.chips[0].icon).toBe(NetworkIcon);
+  });
+
+  it("keeps unresolved DefiLlama prices neutral", () => {
+    const step = interpretToolStep({
+      toolName: "defillama_prices",
+      argsText: JSON.stringify({ tokens: ["FOO"] }),
+      result: {
+        source: "defillama",
+        prices: [],
+        unresolved: [{ query: "FOO", hint: "Use chain:address" }],
+      },
+    });
+
+    expect(labelsFor(step.chips)).toEqual(["FOO", "1 not found"]);
+    expect(step.failed).toBe(false);
+
+    const failed = interpretToolStep({
+      toolName: "defillama_prices",
+      argsText: JSON.stringify({ tokens: ["FOO"] }),
+      result: { error: "DefiLlama unavailable" },
+    });
+    expect(failed.title).toBe("Check prices");
+    expect(labelsFor(failed.chips)).toEqual(["FOO", "Failed"]);
+    expect(failed.failed).toBe(true);
+  });
+
+  it("shows DefiLlama yield filters, then the top pool and match count", () => {
+    const args = JSON.stringify({
+      asset: "USDC",
+      chain: "base",
+      protocol: "aave-v3",
+      kind: "lend",
+      pool_id: null,
+    });
+    const pending = interpretToolStep({
+      toolName: "defillama_find_yields",
+      argsText: args,
+    });
+    expect(pending.title).toBe("Find yields");
+    expect(labelsFor(pending.chips)).toEqual([
+      "Base",
+      "USDC",
+      "Lending",
+      "aave-v3",
+    ]);
+    expect(pending.chips[2].icon).toBe(TagIcon);
+    expect(pending.chips[3].icon).toBe(LandmarkIcon);
+
+    const step = interpretToolStep({
+      toolName: "defillama_find_yields",
+      argsText: args,
+      result: {
+        source: "defillama",
+        chain_id: 8453,
+        chain_name: "Base",
+        asset: "USDC",
+        kind: "lend",
+        total_matches: 12,
+        results: [
+          {
+            pool_id: "pool-1",
+            protocol: "Aave V3",
+            project: "aave-v3",
+            chain: "Base",
+            symbol: "USDC",
+            apy: 4.1372,
+          },
+        ],
+      },
+    });
+    expect(labelsFor(step.chips)).toEqual([
+      "Base",
+      "USDC",
+      "Lending",
+      "Aave V3 4.14%",
+      "12 pools",
+    ]);
+    expect(step.chips[3].icon).toBe(PercentIcon);
+  });
+
+  it("titles a DefiLlama pool lookup from its own result", () => {
+    const step = interpretToolStep({
+      toolName: "defillama_find_yields",
+      argsText: JSON.stringify({ pool_id: "pool-2" }),
+      result: {
+        source: "defillama",
+        total_matches: 1,
+        results: [
+          {
+            pool_id: "pool-2",
+            protocol: "Lido",
+            chain: "Ethereum",
+            chain_id: 1,
+            symbol: "STETH",
+            apy: 2.9,
+          },
+        ],
+      },
+    });
+
+    expect(step.title).toBe("Check yield pool");
+    expect(labelsFor(step.chips)).toEqual(["Ethereum", "STETH", "Lido 2.9%"]);
+  });
+
+  it("titles DefiLlama protocol searches by mode", () => {
+    const lookup = interpretToolStep({
+      toolName: "defillama_find_protocols",
+      argsText: JSON.stringify({ query: "aave", chain: null }),
+    });
+    expect(lookup.title).toBe("Look up protocol");
+    expect(labelsFor(lookup.chips)).toEqual([]);
+
+    const found = interpretToolStep({
+      toolName: "defillama_find_protocols",
+      argsText: JSON.stringify({ query: "aave", chain: null }),
+      result: {
+        source: "defillama",
+        mode: "lookup",
+        query: "aave",
+        results: [
+          { name: "Aave V3", slug: "aave-v3" },
+          { name: "Aave V4", slug: "aave-v4" },
+        ],
+      },
+    });
+    expect(labelsFor(found.chips)).toEqual(["Aave V3", "Aave V4"]);
+
+    const overview = interpretToolStep({
+      toolName: "defillama_find_protocols",
+      argsText: JSON.stringify({ chain: "solana" }),
+      result: {
+        source: "defillama",
+        mode: "chain_overview",
+        chain: { name: "Solana", tvl_usd: 9e9 },
+        categories: [
+          {
+            category: "Lending",
+            protocols: [{ name: "Kamino", slug: "kamino", tvl_usd: 2e9 }],
+          },
+          {
+            category: "Liquid Staking",
+            protocols: [{ name: "Jito", slug: "jito", tvl_usd: 3e9 }],
+          },
+        ],
+      },
+    });
+    expect(overview.title).toBe("Scan chain");
+    expect(labelsFor(overview.chips)).toEqual(["Solana", "Jito", "Kamino"]);
+    expect(overview.chips[0].icon).toBe(NetworkIcon);
+    expect(overview.chips[1].icon).toBe(LandmarkIcon);
+
+    const list = interpretToolStep({
+      toolName: "defillama_find_protocols",
+      argsText: JSON.stringify({ category: "Dexs", chain: "base" }),
+      result: {
+        source: "defillama",
+        mode: "list",
+        chain_id: 8453,
+        chain_name: "Base",
+        category: "Dexs",
+        results: [
+          { name: "Aerodrome", slug: "aerodrome", category: "Dexs" },
+          { name: "Uniswap V3", slug: "uniswap-v3", category: "Dexs" },
+          { name: "Curve DEX", slug: "curve-dex", category: "Dexs" },
+        ],
+      },
+    });
+    expect(list.title).toBe("Find protocols");
+    expect(labelsFor(list.chips)).toEqual([
+      "Base",
+      "Dexs",
+      "Aerodrome",
+      "Uniswap V3",
+    ]);
   });
 
   it("unwraps routed tool envelopes before matching", () => {

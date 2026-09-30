@@ -2,7 +2,19 @@
 
 ## Last Updated
 
-2026-09-29 — TX REVIEW TEXT + SHORT TX TITLES (worktrees `agent-usefulness`,
+2026-09-29 — DEFILLAMA TRACE STEPS (worktree `agent-usefulness`, uncommitted).
+  New protocol adapter `tool-interpreter/protocols/defillama.ts` for the
+  backend `defillama` skill (`defillama_prices`, `defillama_find_yields`,
+  `defillama_find_protocols`): titles Check (historical) prices / Find yields /
+  Check yield pool / Look up protocol / Scan chain / Find protocols; chips are
+  chain, "ETH $2,689" price tokens, asset, yield kind, "Aave V3 4.14%" top
+  pool, "12 pools", query/category and top protocol names — lucide icons only.
+  New fact kinds `category`/`protocol`/`yield` and count role `results`. Chain
+  chips without a chain mark (BSC, Solana, …) now keep a lucide `Network` icon
+  instead of being dropped. `defillama` skill → DefiLlama app mark and
+  "DefiLlama" label (skill icons, `skillLabel`). Widget vitest 739/739.
+
+Previous: 2026-09-29 — TX REVIEW TEXT + SHORT TX TITLES (worktrees `agent-usefulness`,
   both repos uncommitted). Activity sidebar: transient review lines ("Approve
   in your wallet", "Waiting for previous transaction", …) removed; a disabled
   Submit says "Waiting…"; shared inset focus-visible ring for sidebar buttons.

@@ -51,6 +51,7 @@ export type FactKind =
   | "address"
   | "amount"
   | "block"
+  | "category"
   | "chain"
   | "cluster"
   | "code"
@@ -60,6 +61,7 @@ export type FactKind =
   | "decoded"
   | "gas"
   | "function"
+  | "protocol"
   | "query"
   | "requirement"
   | "route"
@@ -71,7 +73,8 @@ export type FactKind =
   | "slot"
   | "token"
   | "txId"
-  | "warning";
+  | "warning"
+  | "yield";
 
 export type FactRole =
   | "contract"
@@ -84,6 +87,7 @@ export type FactRole =
   | "owner"
   | "primary"
   | "recipient"
+  | "results"
   | "secondary"
   | "spender"
   | "staged"

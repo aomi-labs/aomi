@@ -17,6 +17,15 @@ const attribution: TraceAttribution = {
       injectedTools: ["lifi_get_quote", "lifi_prepare_swap_tx"],
     },
     {
+      id: "defillama",
+      name: "defillama",
+      injectedTools: [
+        "defillama_prices",
+        "defillama_find_yields",
+        "defillama_find_protocols",
+      ],
+    },
+    {
       id: "hoodit/markets",
       name: "hoodit/markets",
       injectedTools: ["hoodit_search_tokens"],
@@ -91,6 +100,28 @@ describe("trace attribution", () => {
       "0.002 ETH",
       "LI.FI",
     ]);
+  });
+
+  it("appends the DefiLlama skill badge after research facts", () => {
+    const step = interpretToolStep({
+      toolName: "defillama_prices",
+      argsText: JSON.stringify({ topic: "Price ETH", tokens: ["ETH"] }),
+      result: {
+        source: "defillama",
+        prices: [{ query: "ETH", symbol: "ETH", price_usd: 2689.4 }],
+        unresolved: [],
+      },
+      attribution,
+    });
+    expect(step.chips.map((chip) => chip.label)).toEqual([
+      "ETH $2,689",
+      "DefiLlama",
+    ]);
+    expect(step.chips.at(-1)).toMatchObject({
+      attribution: "skill",
+      icon: getSkillIcon("defillama"),
+      title: "Skill: DefiLlama",
+    });
   });
 
   it("shows a single combined app/skill badge for an owned tool", () => {

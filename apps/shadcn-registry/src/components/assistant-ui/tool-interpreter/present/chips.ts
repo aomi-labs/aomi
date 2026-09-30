@@ -13,9 +13,14 @@ import {
   FuelIcon,
   GlobeIcon,
   HashIcon,
+  LandmarkIcon,
+  ListIcon,
   ListOrderedIcon,
+  NetworkIcon,
+  PercentIcon,
   ReceiptTextIcon,
   SearchIcon,
+  TagIcon,
   TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
@@ -144,11 +149,16 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value, icon: CoinsIcon };
     case "block":
       return { label: formatInteger(fact.value), icon: BlocksIcon };
+    case "category":
+      return { label: fact.label ?? humanize(fact.value), icon: TagIcon };
     case "chain": {
       const chainId = Number(fact.value);
       return {
         label: fact.label ?? fact.value,
-        icon: Number.isFinite(chainId) ? getChainIcon(chainId) : undefined,
+        // Chains without a mark (BSC, Solana, ...) keep a generic network icon.
+        icon:
+          (Number.isFinite(chainId) ? getChainIcon(chainId) : undefined) ??
+          NetworkIcon,
       };
     }
     case "cluster":
@@ -163,6 +173,9 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
         icon: FuelIcon,
       };
     case "count":
+      if (fact.role === "results") {
+        return { label: fact.label ?? fact.value, icon: ListIcon };
+      }
       if (fact.label) return { label: fact.label, icon: ReceiptTextIcon };
       if (fact.role === "tx") {
         const count = Number(fact.value);
@@ -194,6 +207,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: `${formatInteger(fact.value)} gas`, icon: FuelIcon };
     case "function":
       return { label: fact.label ?? fact.value, icon: BracesIcon };
+    case "protocol":
+      return { label: fact.label ?? fact.value, icon: LandmarkIcon };
     case "requirement":
       return { label: fact.label ?? fact.value, icon: ClockIcon };
     case "route":
@@ -237,6 +252,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       };
     case "warning":
       return { label: fact.label ?? fact.value, icon: TriangleAlertIcon };
+    case "yield":
+      return { label: fact.label ?? fact.value, icon: PercentIcon };
     default:
       return null;
   }
