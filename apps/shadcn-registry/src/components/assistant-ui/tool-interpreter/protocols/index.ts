@@ -3,6 +3,7 @@ import type { Descriptor } from "../present/descriptors";
 import { aave } from "./aave";
 import { aerodrome } from "./aerodrome";
 import { circle } from "./circle";
+import { defillama } from "./defillama";
 import { jupiter } from "./jupiter";
 import { lifi } from "./lifi";
 import { morpho } from "./morpho";
@@ -14,6 +15,7 @@ const adapters: ProtocolAdapter[] = [
   aave,
   aerodrome,
   circle,
+  defillama,
   jupiter,
   lifi,
   morpho,

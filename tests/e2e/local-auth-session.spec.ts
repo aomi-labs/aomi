@@ -136,7 +136,7 @@ test("first Agent turn preserves the signed-in Better Auth session", async ({
     ).toBeVisible();
     if (name === "Account") {
       await expect(
-        settings.getByRole("button", { name: "Add wallet", exact: true }),
+        settings.getByRole("button", { name: "Add more", exact: true }),
       ).toBeVisible();
     }
   }

@@ -5,7 +5,7 @@ import {
   matchNativeBalance,
 } from "./account";
 import { matchEvmCall } from "./call";
-import { matchChainContext } from "./context";
+import { matchChainContext, matchSyncChain } from "./context";
 import { matchTokenLookup } from "./contract";
 import {
   matchEvmPendingApproval,
@@ -19,6 +19,7 @@ const matchers: Record<string, ToolMatcher[]> = {
   simulate_batch: [matchEvmSimulation],
   evm_commit_txs: [matchEvmPendingApproval],
   get_time_and_onchain_context: [matchChainContext, matchEvmCall],
+  sync_chain: [matchSyncChain],
   get_account_info: [matchNativeBalance],
   get_erc20_balance: [matchErc20Balance],
   get_erc20_holdings: [matchErc20Holdings],

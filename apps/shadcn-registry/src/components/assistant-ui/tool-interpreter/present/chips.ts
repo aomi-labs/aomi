@@ -4,13 +4,23 @@ import {
   ArrowUpRightIcon,
   BanIcon,
   BlocksIcon,
+  BracesIcon,
   CircleCheckIcon,
   CircleXIcon,
   ClockIcon,
   CoinsIcon,
+  FileCode2Icon,
   FuelIcon,
+  GlobeIcon,
   HashIcon,
+  LandmarkIcon,
+  ListIcon,
+  ListOrderedIcon,
+  NetworkIcon,
+  PercentIcon,
   ReceiptTextIcon,
+  SearchIcon,
+  TagIcon,
   TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
@@ -74,6 +84,12 @@ const statusChip = (value: string): ToolChip => {
       return { label: "Prepared", icon: CircleCheckIcon };
     case "incomplete":
       return { label: "Incomplete", icon: ClockIcon };
+    case "partial":
+      return { label: "Partial", icon: TriangleAlertIcon };
+    case "refunded":
+      return { label: "Refunded", icon: ArrowDownLeftIcon };
+    case "unknown":
+      return { label: "Status unknown", icon: TriangleAlertIcon };
     case "success":
       return { label: "Success", icon: CircleCheckIcon };
     case "failed":
@@ -133,23 +149,33 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value, icon: CoinsIcon };
     case "block":
       return { label: formatInteger(fact.value), icon: BlocksIcon };
+    case "category":
+      return { label: fact.label ?? humanize(fact.value), icon: TagIcon };
     case "chain": {
       const chainId = Number(fact.value);
       return {
         label: fact.label ?? fact.value,
-        icon: Number.isFinite(chainId) ? getChainIcon(chainId) : undefined,
+        // Chains without a mark (BSC, Solana, ...) keep a generic network icon.
+        icon:
+          (Number.isFinite(chainId) ? getChainIcon(chainId) : undefined) ??
+          NetworkIcon,
       };
     }
     case "cluster":
       return { label: fact.label ?? humanize(fact.value), icon: SolanaIcon };
     case "code":
       return { label: fact.label ?? fact.value };
+    case "contract":
+      return { label: shortenAddress(fact.value), icon: FileCode2Icon };
     case "compute":
       return {
         label: `${formatInteger(fact.value)} compute units`,
         icon: FuelIcon,
       };
     case "count":
+      if (fact.role === "results") {
+        return { label: fact.label ?? fact.value, icon: ListIcon };
+      }
       if (fact.label) return { label: fact.label, icon: ReceiptTextIcon };
       if (fact.role === "tx") {
         const count = Number(fact.value);
@@ -165,9 +191,6 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
           icon: ReceiptTextIcon,
         };
       }
-      if (fact.role === "results") {
-        return { label: `${fact.value} results` };
-      }
       if (fact.role === "staged") {
         return { label: `staged ${fact.value}`, icon: SHAPE_ICONS.staged };
       }
@@ -182,6 +205,10 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "gas":
       return { label: `${formatInteger(fact.value)} gas`, icon: FuelIcon };
+    case "function":
+      return { label: fact.label ?? fact.value, icon: BracesIcon };
+    case "protocol":
+      return { label: fact.label ?? fact.value, icon: LandmarkIcon };
     case "requirement":
       return { label: fact.label ?? fact.value, icon: ClockIcon };
     case "route":
@@ -190,10 +217,21 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       return { label: fact.label ?? fact.value };
     case "skill":
       return skillChip(fact.value);
+    case "query":
+      return {
+        label:
+          fact.value.length > 32
+            ? `${fact.value.slice(0, 31).trimEnd()}…`
+            : fact.value,
+        title: fact.value,
+        icon: SearchIcon,
+      };
     case "sourceHost":
-      return { label: fact.label ?? fact.value };
+      return { label: fact.label ?? fact.value, icon: GlobeIcon };
     case "status":
       return statusChip(fact.value);
+    case "threshold":
+      return { label: fact.label ?? fact.value, icon: ListOrderedIcon };
     case "slot":
       return {
         label: fact.label ?? formatInteger(fact.value),
@@ -214,6 +252,8 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       };
     case "warning":
       return { label: fact.label ?? fact.value, icon: TriangleAlertIcon };
+    case "yield":
+      return { label: fact.label ?? fact.value, icon: PercentIcon };
     default:
       return null;
   }

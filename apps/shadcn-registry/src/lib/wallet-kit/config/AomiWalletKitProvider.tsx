@@ -501,6 +501,11 @@ function AomiEvmExternalWalletProvider({
         auth,
         providers,
         children: evmRuntime,
+        placeholder: (
+          <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
+            {children}
+          </AomiWalletKitContextProvider>
+        ),
       })}
     </QueryClientProvider>
   );

@@ -37,6 +37,8 @@ describe("working trace contract", () => {
     ["evm_commit_txs", "Commit transactions"],
     ["svm_commit_txs", "Commit transactions"],
     ["brave_search", "Search web"],
+    ["web_search", "Search web"],
+    ["web_fetch", "Read page"],
     ["activate_skills", "Activate skill"],
     ["get_contract", "Get contract details"],
     ["encode_and_call", "Call contract"],

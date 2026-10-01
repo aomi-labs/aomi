@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -198,12 +199,8 @@ describe("WalletReview", () => {
       runtime.commits[1],
     ];
     rerender(<ActivitySidebar />);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Wallet submitted the transaction. Checking on-chain confirmation…",
-    );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Transaction: 0xdeadbeef",
-    );
+    expect(screen.queryByText("Submitted; confirming")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0xdeadbeef/)).not.toBeInTheDocument();
 
     runtime.commits = runtime.commits.map((view) => ({
       ...view,
@@ -251,9 +248,7 @@ describe("WalletReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The submitted transaction did not match the reviewed request.",
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Transaction: 0xdeadbeef",
-    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("0xdeadbeef");
   });
 
   it("retries a saved wallet outcome without sending the transaction twice", async () => {
@@ -395,9 +390,9 @@ describe("WalletReview", () => {
     controller.ingest(awaiting);
     view.rerender(<ActivitySidebar />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Wallet transaction found. Continue to verify it.",
+      "Wallet outcome unknown; check status before submitting again",
     );
-    const retry = screen.getByRole("button", { name: "Submit" });
+    const retry = screen.getByRole("button", { name: "Check status" });
     expect(retry).toBeEnabled();
     fireEvent.click(retry);
 
@@ -433,15 +428,78 @@ describe("WalletReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The wallet used a different nonce from the prepared transaction.",
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Transaction: 0xtransaction",
-    );
-    for (const button of screen.getAllByRole("button"))
+    expect(screen.getByRole("alert")).not.toHaveTextContent("0xtransaction");
+    for (const button of within(
+      screen.getByTestId("transaction-review"),
+    ).getAllByRole("button"))
       expect(button).toBeDisabled();
     await mismatchController.execute(mismatched.commit_id);
     expect(reports).toBe(2);
     expect(walletSend).toHaveBeenCalledTimes(1);
     mismatchController.close();
+  });
+
+  it("checks an uncertain wallet attempt without requesting another send", async () => {
+    const commit: CommitView = {
+      version: 2,
+      commit_id: "uncertain-commit",
+      thread_id: "thread-1",
+      stage_id: "evm:1",
+      chain_family: "evm",
+      chain_ref: "8453",
+      signer: "0x1111111111111111111111111111111111111111",
+      broadcaster: "wallet",
+      state: "needs_signature",
+      transaction_id: null,
+      failure_code: null,
+      batch: null,
+      review: {
+        version: 1,
+        revision: 1,
+        digest: "review-1",
+        request: {
+          type: "execute_evm",
+          transactions: [],
+          simulation: simulation(),
+        },
+        legs: [],
+      },
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+      action: null,
+    };
+    const request = vi.fn(async () => commit);
+    const walletSend = vi.fn();
+    const controller = new CommitController(
+      { request } as never,
+      commit.thread_id,
+      { walletSend, walletSendPreflight: vi.fn() },
+    );
+    controller.ingest(commit);
+    controller.ingestReview(commit.commit_id, commit.review!.request);
+    const execute = vi.spyOn(controller, "execute");
+    runtime.commitController = controller;
+    runtime.commits = [commit];
+    render(<WalletReview />);
+
+    const checkStatus = screen.getByRole("button", { name: "Check status" });
+    expect(checkStatus).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Wallet outcome unknown; check status before submitting again",
+    );
+    const requestsBeforeClick = request.mock.calls.length;
+    fireEvent.click(checkStatus);
+    await waitFor(() =>
+      expect(request.mock.calls.length).toBeGreaterThan(requestsBeforeClick),
+    );
+    expect(execute).not.toHaveBeenCalled();
+    expect(walletSend).not.toHaveBeenCalled();
+    controller.close();
   });
 
   it("renders and approves a reviewless durable Solana commit", async () => {
@@ -491,9 +549,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "Review Solana transaction",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     expect(screen.getByTestId("transaction-review")).toHaveTextContent(
       "devnet",
     );
@@ -557,9 +613,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "Submit signed Solana transaction",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(walletBroadcast).toHaveBeenCalledWith(
@@ -595,9 +649,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(runtime.executeAction).not.toHaveBeenCalled();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
-      "0x2222222222222222222222222222222222222222",
-    );
+    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
@@ -676,6 +728,27 @@ describe("WalletReview", () => {
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("action-1"),
     );
+  });
+
+  it("explains the ordinary manual signature limitation before opening the wallet", () => {
+    runtime.pendingActions = [
+      action({
+        type: "sign",
+        requestId: "ordinary-sign",
+        chainFamily: "evm",
+        executionKind: "message",
+        signer: "0x1111111111111111111111111111111111111111",
+        chainId: 1,
+        description: "Sign permit",
+        payloads: [{ kind: "evm_personal", message: "0x01" }],
+      }),
+    ];
+    render(<ActivitySidebar />);
+    expect(
+      screen.getByText(/fresh safety admission cannot be claimed/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+    expect(runtime.executeAction).not.toHaveBeenCalled();
   });
 
   it("renders the canonical simulation nested in an Action request", () => {
@@ -842,8 +915,7 @@ describe("WalletReview", () => {
     expect(rows.some((row) => row.textContent?.includes("Send ETH"))).toBe(
       true,
     );
-    expect(screen.getByText("Transaction details")).toBeInTheDocument();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent("0x03");
+    expect(screen.queryByText("Transaction details")).not.toBeInTheDocument();
   });
 
   it("turns protocol-generated swap labels into readable review steps", () => {
@@ -879,7 +951,6 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.getAllByText("Approve 0.00758 USDC")[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/LI\.FI/).length).toBeGreaterThan(0);
     expect(screen.getByText("Wallet changes unavailable")).toBeInTheDocument();
     expect(
       screen.getAllByTestId("activity-transaction")[0],
@@ -1092,8 +1163,8 @@ describe("WalletReview", () => {
       screen.getByRole("button", { name: "Reject request" }),
     ).toBeEnabled();
     expect(screen.getByText("Execution reverted")).toBeInTheDocument();
-    expect(screen.getByText("Transaction details")).toBeInTheDocument();
-    expect(screen.getByText("Simulation details")).toBeInTheDocument();
+    expect(screen.queryByText("Transaction details")).not.toBeInTheDocument();
+    expect(screen.queryByText("Simulation details")).not.toBeInTheDocument();
   });
 });
 
@@ -1215,6 +1286,34 @@ describe("ordered batch submission", () => {
     ];
     rerender(<WalletReview />);
     expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it("says why Submit waits in the button, not a status line", () => {
+    controller(vi.fn());
+    runtime.commits = [
+      { ...commit(0), state: "submitted" },
+      { ...commit(1), action: null },
+    ];
+    render(<WalletReview />);
+    expect(screen.getByRole("button", { name: /Waiting…/ })).toBeDisabled();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Waiting for previous transaction"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no transient wallet prompt line while the wallet is open", () => {
+    controller(vi.fn());
+    runtime.commitController = {
+      ...runtime.commitController,
+      submissionPhase: () => "awaiting_wallet",
+    } as unknown as CommitController;
+    render(<WalletReview />);
+    expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled();
+    expect(
+      screen.queryByText("Approve in your wallet"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("keeps Submit next scoped to one transaction", async () => {

@@ -51,7 +51,10 @@ writeFileSync(
   `// Rust Agent contract SHA256: ${sourceHash}\n${types}`,
 );
 const schemas = JSON.parse(document).components.schemas;
-const runtimeSchemaNames = new Set(["ActionRequest"]);
+const runtimeSchemaNames = new Set([
+  "ActionRequest",
+  "TransactionSafetyPolicy",
+]);
 for (const name of runtimeSchemaNames) {
   collectSchemaReferences(schemas[name], runtimeSchemaNames);
 }

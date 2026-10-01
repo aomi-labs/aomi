@@ -82,6 +82,17 @@ describe("usage settings wiring", () => {
     expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/80.*500.*used/)).toBeTruthy();
     expect(screen.getByText("Credit Bank")).toBeTruthy();
+    const settlement = screen.getByText(/Paid via monthly allowance/);
+    expect(settlement.textContent).toContain(
+      "Compute fully covered by your allowance ($0.80 applied).",
+    );
+    expect(settlement.textContent).not.toContain("On-chain fees");
+    // Explanations live behind each header's (?), not as sentences.
+    expect(screen.getByText("100% compute · 0% on-chain")).toBeTruthy();
+    expect(screen.queryByText(/Compute subtotal/)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "About Spend breakdown" }),
+    ).toBeTruthy();
   });
 
   it("composes allowance from Credit Bank instead of the profile response", async () => {

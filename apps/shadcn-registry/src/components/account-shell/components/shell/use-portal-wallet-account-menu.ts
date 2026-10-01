@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
+import { useAomiRuntime } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import type { WalletAccountMenuOptions } from "../../../control-bar/account-menu-types";
 import {
@@ -11,6 +11,10 @@ import {
 } from "../../lib/account-overview";
 import { useShellTransport } from "../../transport";
 import { useSettings } from "../../lib/use-settings";
+import {
+  accountDisplayName,
+  providerEmailDisplayHint,
+} from "../../features/account/wallet-management-model";
 
 /**
  * Shared Portal and widget account menu config for the sidebar wallet chip.
@@ -34,6 +38,9 @@ export function usePortalWalletAccountMenu(
   const { accounts, accountGuest, accountUser, accountError, identity } =
     adapter;
   const activeAccount = accounts.find((account) => account.active);
+  const displayEmailHint = accountUser
+    ? providerEmailDisplayHint(identity, adapter.accountLinkedAccounts ?? [])
+    : undefined;
 
   useEffect(() => {
     if (!accountUser || accountGuest) {
@@ -75,24 +82,13 @@ export function usePortalWalletAccountMenu(
         typeof document !== "undefined" &&
         (themeRoot ?? document.documentElement).classList.contains("dark"));
 
-    const networkLabel =
-      getChainInfo(identity.chainId)?.name ??
-      identity.svmCluster?.replace(/^solana:/, "") ??
-      undefined;
-
     return {
       enabled: true,
-      primaryLine:
-        accountUser.displayName ?? accountUser.email ?? "Aomi account",
+      primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
-      networkLabel,
       themeLabel: isDark ? "Dark" : "Light",
-      onSwitchNetwork: () =>
-        (themeRoot ?? document)
-          .querySelector<HTMLElement>("[data-aomi-network-select-trigger]")
-          ?.click(),
       onToggleTheme:
         options.theme === false
           ? undefined
@@ -112,9 +108,8 @@ export function usePortalWalletAccountMenu(
     accountError,
     accountGuest,
     accountUser,
+    displayEmailHint,
     activeAccount?.walletName,
-    identity.chainId,
-    identity.svmCluster,
     onManageAccount,
     onOpenSettings,
     credits,

@@ -49,6 +49,7 @@ function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
         const value = window.localStorage.getItem(key(threadId, commitId));
         if (!value) return undefined;
         const record = JSON.parse(value) as Partial<CommitRecoveryRecord>;
+        const rejection = record.rejection;
         return typeof record.clientRequestId === "string"
           ? {
               clientRequestId: record.clientRequestId,
@@ -59,6 +60,21 @@ function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
                 ? { transactionId: record.transactionId }
                 : {}),
               ...(record.rejected === true ? { rejected: true as const } : {}),
+              ...(rejection?.kind === "rejected" &&
+              rejection.provider_code === "4001" &&
+              rejection.reason_category === "user_rejected"
+                ? {
+                    rejection: {
+                      kind: "rejected" as const,
+                      ...(rejection.phase === "chain_switch" ||
+                      rejection.phase === "transaction_request"
+                        ? { phase: rejection.phase }
+                        : {}),
+                      provider_code: "4001" as const,
+                      reason_category: "user_rejected" as const,
+                    },
+                  }
+                : {}),
             }
           : undefined;
       } catch {

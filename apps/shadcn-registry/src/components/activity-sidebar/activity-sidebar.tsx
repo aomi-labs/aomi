@@ -5,20 +5,24 @@ import {
   useMemo,
   useEffect,
   useLayoutEffect,
+  useId,
   useState,
   useRef,
   type ReactNode,
 } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
+import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
 import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
 import { ToolChipView } from "../assistant-ui/tool-chip";
+import { SectionHeader } from "../ui/aomi/section-header";
 import {
   selectActivity,
   selectReviewCommit,
   type ActivityTransaction,
 } from "./model";
+import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
@@ -35,7 +39,6 @@ function ActivitySidebarContent() {
     pendingActions,
     actionAttempts,
     threadViewKey,
-    isRunning,
     commits = [],
     commitController,
   } = useAomiRuntime();
@@ -69,23 +72,27 @@ function ActivitySidebarContent() {
     () => selectActivity(events, pendingActions, commits),
     [events, pendingActions, commits],
   );
+  // Work staged since the latest user message, callbacks included, is current.
+  const turnStart = useMemo(
+    () =>
+      events.reduce(
+        (latest, event) =>
+          event.type === "message" && event.sender === "user"
+            ? Math.max(latest, event.sequence)
+            : latest,
+        -Infinity,
+      ),
+    [events],
+  );
   const pending = pendingActions[0];
   const pendingCommit = selectReviewCommit(commits, commitController?.review);
   const signing = Boolean(
     pendingCommit ||
     (pending &&
       (pending.request.type === "sign" ||
-        (pending.request.simulation.status !== "failed" &&
-          !pending.request.simulation.guards.some(
-            (guard) => guard.status === "failed",
-          )))),
+        reviewEligibility(pending.request)?.state === "eligible")),
   );
   const expanded = signing || open;
-  const current = activity.transactions.filter(
-    (tx) =>
-      (!tx.action || tx.action.state === "pending") &&
-      (!pending || tx.action?.id === pending.id),
-  );
   const transactionRows = [
     ...new Map(
       [...activity.transactions, ...activity.history].map((tx) => [tx.id, tx]),
@@ -123,7 +130,7 @@ function ActivitySidebarContent() {
     }
     return (b.sequence ?? 0) - (a.sequence ?? 0);
   });
-  const card = (tx: ActivityTransaction, historical = false) => (
+  const card = (tx: ActivityTransaction) => (
     <TransactionCard
       key={tx.id}
       transaction={tx}
@@ -134,30 +141,24 @@ function ActivitySidebarContent() {
             ? pendingCommit.batch.batch_id === tx.commit.batch.batch_id
             : pendingCommit?.commit_id === tx.commit?.commit_id,
       )}
-      active={
-        !historical &&
-        ((tx.turnId === activity.turnId &&
-          (isRunning ||
-            pendingActions.some((action) => action.id === tx.action?.id))) ||
-          (tx.commit != null &&
-            !["confirmed", "rejected", "failed", "expired"].includes(
-              tx.commit.state,
-            )))
-      }
+      current={(tx.sequence ?? -Infinity) > turnStart}
       executing={
-        !historical &&
-        (Boolean(
+        Boolean(
           tx.action &&
           ["executing", "responding"].includes(
             actionAttempts.get(tx.action.id)?.state ?? "",
           ),
         ) ||
-          Boolean(
-            tx.commit?.wallet_attempt &&
-            ["awaiting_wallet", "reported", "observing"].includes(
-              tx.commit.wallet_attempt.state,
-            ),
-          ))
+        Boolean(
+          tx.commit &&
+          ["preparing", "switching_chain", "awaiting_wallet"].includes(
+            projectCommitLifecycle(
+              tx.commit,
+              commitController?.submissionPhase?.(tx.commit.commit_id),
+              commitController?.recoveryRecord?.(tx.commit.commit_id),
+            ).phase,
+          ),
+        )
       }
     />
   );
@@ -211,7 +212,7 @@ function ActivitySidebarContent() {
             )}
           >
             <div className="w-[352px] max-w-[100cqw] py-4 pl-3 pr-6">
-              <div className="border-aomi-border bg-aomi-raised divide-aomi-border divide-y rounded-3xl border px-4">
+              <div className="border-aomi-border bg-aomi-raised divide-aomi-border rounded-shell divide-y border px-4">
                 {activity.agents.length > 0 && (
                   <Group title="Subagents" count={activity.agents.length}>
                     {activity.agents.map((agent, index) => (
@@ -230,32 +231,14 @@ function ActivitySidebarContent() {
                 )}
                 {(transactions.length > 0 || pending || pendingCommit) && (
                   <section className="py-4" aria-label="Transactions">
-                    {signing ? (
-                      <h2 className="mb-3 flex items-center gap-2 text-[13px] font-medium">
-                        Transactions{" "}
-                        <span className="text-aomi-muted font-normal">
-                          {transactions.length}
-                        </span>
-                      </h2>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-expanded={expanded}
-                        onClick={() => setOpen(!open)}
-                        className="mb-3 flex w-full items-center gap-2 text-[13px] font-medium"
-                      >
-                        Transactions{" "}
-                        <span className="text-aomi-muted font-normal">
-                          {transactions.length}
-                        </span>
-                        <ChevronDown
-                          className={cn(
-                            "text-aomi-muted ml-auto size-3.5 transition-transform motion-reduce:transition-none",
-                            expanded && "rotate-180",
-                          )}
-                        />
-                      </button>
-                    )}
+                    <GroupHeader
+                      title="Transactions"
+                      count={transactions.length}
+                      open={expanded}
+                      // A pending signature keeps the list open.
+                      onToggle={signing ? undefined : () => setOpen(!open)}
+                      className="mb-3"
+                    />
                     <AnimatePresence initial={false}>
                       {expanded && (
                         <m.div
@@ -273,23 +256,8 @@ function ActivitySidebarContent() {
                             newestId={transactions[0]?.id}
                             count={transactions.length}
                           >
-                            {transactions.map((tx) =>
-                              card(
-                                tx,
-                                Boolean(
-                                  tx.action
-                                    ? tx.action.state !== "pending"
-                                    : tx.turnId !== activity.turnId,
-                                ),
-                              ),
-                            )}
+                            {transactions.map((tx) => card(tx))}
                           </TransactionList>
-                          {pending && transactions.length > current.length && (
-                            <p className="text-aomi-muted mt-3 text-[11px]">
-                              Wallet request: {current.length} transaction
-                              {current.length === 1 ? "" : "s"}.
-                            </p>
-                          )}
                           <WalletReview />
                         </m.div>
                       )}
@@ -318,23 +286,12 @@ function Group({
 
   return (
     <section className="py-4" aria-label={title}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-        className="flex w-full items-center gap-2 text-left text-[13px] font-medium"
-      >
-        {title}
-        <span className="text-aomi-muted font-normal tabular-nums">
-          {count}
-        </span>
-        <ChevronDown
-          className={cn(
-            "text-aomi-muted ml-auto size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
-            open && "rotate-180",
-          )}
-        />
-      </button>
+      <GroupHeader
+        title={title}
+        count={count}
+        open={open}
+        onToggle={() => setOpen((current) => !current)}
+      />
       <div
         aria-hidden={!open}
         inert={!open}
@@ -349,6 +306,56 @@ function Group({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * A panel section's `SectionHeader`. With `onToggle`, the chevron is the
+ * disclosure button and its hit area stretches over the whole header row.
+ */
+function GroupHeader({
+  title,
+  count,
+  open,
+  onToggle,
+  className,
+}: {
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle?: () => void;
+  className?: string;
+}) {
+  const headingId = useId();
+  return (
+    <SectionHeader
+      as="h2"
+      id={headingId}
+      title={title}
+      count={count}
+      className={cn("relative", className)}
+      action={
+        onToggle ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-labelledby={headingId}
+            onClick={onToggle}
+            className={cn(
+              focusRing,
+              "text-aomi-muted hover:text-aomi-fg rounded-control flex size-7 items-center justify-center transition-colors after:absolute after:inset-0 after:content-['']",
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none",
+                open && "rotate-180",
+              )}
+            />
+          </button>
+        ) : undefined
+      }
+    />
   );
 }
 

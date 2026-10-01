@@ -38,17 +38,22 @@ export const matchSkillActivation: ToolMatcher = ({
         (value): value is string => typeof value === "string",
       )
     : [];
+  const active = Array.isArray(resultRecord.active_skill_ids)
+    ? resultRecord.active_skill_ids.filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0,
+      )
+    : [];
+  const checking = activated.length === 0;
 
   return operation(
-    "skill.activate",
+    checking ? "skill.check" : "skill.activate",
     rawLabel,
-    activated.length > 0
-      ? activated.map((value) => ({
-          kind: "skill",
-          value,
-          label: getSkillDisplayName(value),
-          source: "result" as const,
-        }))
-      : [{ kind: "skill", value: "Skill", source: "result" }],
+    (checking ? active : activated).map((value) => ({
+      kind: "skill",
+      value,
+      label: getSkillDisplayName(value),
+      source: "result" as const,
+    })),
   );
 };

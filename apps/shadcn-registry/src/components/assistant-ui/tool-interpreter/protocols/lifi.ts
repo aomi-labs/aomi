@@ -2,28 +2,46 @@ import {
   amountFact,
   asRecord,
   asString,
+  chainFact,
   chainFactFromRecord,
+  statusFact,
   tokenFact,
-  uniqueFacts,
 } from "../normalize";
 import {
   EVM_SELECTOR_REGISTRY,
   SHAPE_ICONS,
 } from "@/components/assistant-ui/tool-registry";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../types";
-import { validResult } from "./shared";
+import type { ToolFact, ToolMatcher } from "../types";
+import { routeFact, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
+import { failedFact, operation } from "../families/operation";
 
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-): ToolOperation => ({
-  id,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence: "high",
-  rawLabel,
-});
+// Keep full precision in tool data; round only the visible trace chips.
+const roundedAmount = (value: string | undefined): string | undefined => {
+  if (!value) return value;
+  const match = value.match(/^(\d+)(?:\.(\d+))?(.*)$/);
+  if (!match) return value;
+  const [, whole, fraction = "", suffix] = match;
+  if (fraction.length <= 5) return value;
+  const precision = BigInt(100000);
+  const scaled = BigInt(whole) * precision + BigInt(fraction.slice(0, 5));
+  const rounded = scaled + (fraction[5] >= "5" ? BigInt(1) : BigInt(0));
+  if (rounded === BigInt(0) && /[1-9]/.test(whole + fraction)) {
+    return `<0.00001${suffix}`;
+  }
+  const decimals = (rounded % precision)
+    .toString()
+    .padStart(5, "0")
+    .replace(/0+$/, "");
+  return `${rounded / precision}${decimals ? `.${decimals}` : ""}${suffix}`;
+};
+
+const requestedTokenLabel = (value: unknown): string | undefined => {
+  const token = asString(value);
+  return token?.startsWith("0x")
+    ? `${token.slice(0, 6)}…${token.slice(-4)}`
+    : token;
+};
 
 const displayAmount = (value: unknown): string | undefined =>
   asString(asRecord(value)?.display);
@@ -32,7 +50,7 @@ const amountDisplayFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
-  const fact = amountFact(displayAmount(value));
+  const fact = amountFact(roundedAmount(displayAmount(value)));
   return fact ? { ...fact, role } : null;
 };
 
@@ -40,7 +58,7 @@ const amountTextFact = (
   value: unknown,
   role: "primary" | "secondary",
 ): ToolFact | null => {
-  const fact = amountFact(asString(value));
+  const fact = amountFact(roundedAmount(asString(value)));
   return fact ? { ...fact, role } : null;
 };
 
@@ -62,52 +80,106 @@ const tokenPairFact = (
   };
 };
 
-export const matchLifiQuote: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!validResult(resultRecord)) return null;
-  const fromToken = asRecord(resultRecord.from_token);
-  const toToken = asRecord(resultRecord.to_token);
-  const estimate = asRecord(resultRecord.estimate);
-  if (!asString(resultRecord.quote_id) || !fromToken || !toToken || !estimate) {
-    return null;
-  }
+const routeEnds = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+) => ({
+  source: result?.source_chain_id ?? result?.chain_id ?? args?.chain_id,
+  destination: result?.destination_chain_id ?? args?.to_chain_id,
+});
 
-  return op("lifi.quote", rawLabel, [
-    chainFactFromRecord(resultRecord),
-    amountDisplayFact(resultRecord.from_amount, "primary"),
-    amountTextFact(estimate.to_amount_display, "secondary"),
-    tokenPairFact(fromToken, toToken),
-  ]);
+const isBridgeRoute = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+): boolean => {
+  const { source, destination } = routeEnds(result, args);
+  return (
+    source != null &&
+    destination != null &&
+    String(source) !== String(destination)
+  );
 };
 
-export const matchLifiApproval: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!validResult(resultRecord) || !asString(resultRecord.quote_id))
-    return null;
-  if (!("approval_required" in resultRecord)) return null;
+/** A bridge's route, else the one chain the call runs on. */
+const locationFact = (
+  result: Record<string, unknown> | null | undefined,
+  args?: Record<string, unknown> | null,
+): ToolFact | null => {
+  const { source, destination } = routeEnds(result, args);
+  return (
+    (isBridgeRoute(result, args)
+      ? routeFact({ chain_id: source }, { chain_id: destination })
+      : null) ??
+    chainFact(source) ??
+    chainFactFromRecord(result)
+  );
+};
 
-  const approval = asRecord(resultRecord.approval);
-  const token = asRecord(approval?.token) ?? asRecord(resultRecord.token);
-  if (!token) return null;
+export const matchLifiQuote: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  const result = validResult(resultRecord) ? resultRecord : null;
+  const args = asRecord(parsedArgs);
+  const fromToken = asRecord(result?.from_token);
+  const toToken = asRecord(result?.to_token);
+  const estimate = asRecord(result?.estimate);
 
-  return op("lifi.approval", rawLabel, [
-    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(token),
-    tokenFact(token.symbol),
+  return operation(
+    "lifi.quote",
+    rawLabel,
+    [
+      locationFact(result, args),
+      amountDisplayFact(result?.from_amount, "primary"),
+      amountTextFact(estimate?.to_amount_display, "secondary"),
+      tokenPairFact(fromToken, toToken),
+      failedFact(resultRecord),
+    ],
+    { title: isBridgeRoute(result, args) ? "Quote LI.FI bridge" : undefined },
+  );
+};
+
+export const matchLifiApproval: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  const result = validResult(resultRecord) ? resultRecord : null;
+  const args = asRecord(parsedArgs);
+  const approval = asRecord(result?.approval);
+  const token = asRecord(approval?.token) ?? asRecord(result?.token);
+
+  return operation("lifi.approval", rawLabel, [
+    chainFactFromRecord(result) ??
+      chainFactFromRecord(token) ??
+      chainFactFromRecord(args),
+    tokenFact(token?.symbol),
     amountDisplayFact(approval?.amount, "primary"),
+    failedFact(resultRecord),
   ]);
 };
 
-export const matchLifiSwapPrep: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  if (!validResult(resultRecord) || !asString(resultRecord.quote_id))
-    return null;
-  const stageTx = asRecord(resultRecord.stage_tx);
-  if (stageTx?.kind !== "lifi_swap") return null;
-
-  const estimate = asRecord(resultRecord.estimate);
-  return op("lifi.swap.prepare", rawLabel, [
-    chainFactFromRecord(resultRecord),
-    amountDisplayFact(resultRecord.from_amount, "primary"),
-    amountTextFact(estimate?.to_amount_display, "secondary"),
-    tokenPairFact(resultRecord.from_token, resultRecord.to_token),
-  ]);
+export const matchLifiSwapPrep: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  const result = validResult(resultRecord) ? resultRecord : null;
+  const args = asRecord(parsedArgs);
+  const estimate = asRecord(result?.estimate);
+  return operation(
+    "lifi.swap.prepare",
+    rawLabel,
+    [
+      locationFact(result, args),
+      amountDisplayFact(result?.from_amount, "primary"),
+      amountTextFact(estimate?.to_amount_display, "secondary"),
+      tokenPairFact(result?.from_token, result?.to_token),
+      failedFact(resultRecord),
+    ],
+    { title: isBridgeRoute(result, args) ? "Prepare LI.FI bridge" : undefined },
+  );
 };
 
 export const matchLifiSwapBatch: ToolMatcher = ({
@@ -115,22 +187,49 @@ export const matchLifiSwapBatch: ToolMatcher = ({
   parsedArgs,
   resultRecord,
 }) => {
-  if (resultRecord && !validResult(resultRecord)) return null;
+  const result = validResult(resultRecord) ? resultRecord : null;
   const args = asRecord(parsedArgs);
-  const estimate = asRecord(resultRecord?.estimate);
-  const fromToken = asString(args?.from_token);
+  const estimate = asRecord(result?.estimate);
+  const fromToken =
+    tokenSymbol(result?.from_token) ?? requestedTokenLabel(args?.from_token);
+  const toToken =
+    tokenSymbol(result?.to_token) ?? requestedTokenLabel(args?.to_token);
   const requestedAmount = asString(args?.amount);
   const requestedDisplay =
-    requestedAmount && fromToken && !fromToken.startsWith("0x")
+    requestedAmount && fromToken
       ? `${requestedAmount} ${fromToken}`
       : requestedAmount;
 
-  return op("lifi.swap.prepare", rawLabel, [
-    chainFactFromRecord(resultRecord) ?? chainFactFromRecord(args, "args"),
-    tokenPairFact(resultRecord?.from_token, resultRecord?.to_token),
-    amountDisplayFact(resultRecord?.from_amount, "primary") ??
-      amountTextFact(requestedDisplay, "primary"),
-    amountTextFact(estimate?.to_amount_display, "secondary"),
+  return operation(
+    "lifi.swap.prepare",
+    rawLabel,
+    [
+      locationFact(result, args),
+      tokenPairFact(result?.from_token, result?.to_token) ??
+        tokenPairFact({ symbol: fromToken }, { symbol: toToken }),
+      amountDisplayFact(result?.from_amount, "primary") ??
+        amountTextFact(requestedDisplay, "primary"),
+      amountTextFact(estimate?.to_amount_display, "secondary"),
+      failedFact(resultRecord),
+    ],
+    {
+      title: isBridgeRoute(result, args)
+        ? "Prepare LI.FI bridge"
+        : "Prepare LI.FI swap batch",
+    },
+  );
+};
+
+export const matchLifiStatus: ToolMatcher = ({
+  rawLabel,
+  parsedArgs,
+  resultRecord,
+}) => {
+  const result = validResult(resultRecord) ? resultRecord : null;
+  return operation("lifi.bridge.status", rawLabel, [
+    locationFact(result, asRecord(parsedArgs)),
+    statusFact(result?.state),
+    failedFact(resultRecord),
   ]);
 };
 
@@ -144,6 +243,7 @@ export const lifi: ProtocolAdapter = {
         { kind: "chain" },
         { kind: "token" },
         { kind: "amount", role: "primary" },
+        { kind: "status" },
       ],
     },
     "lifi.quote": {
@@ -151,10 +251,12 @@ export const lifi: ProtocolAdapter = {
       fixedTitle: "Quote LI.FI swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
+        { kind: "route" },
         { kind: "chain" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
+        { kind: "status" },
       ],
     },
     "lifi.swap.prepare": {
@@ -162,11 +264,19 @@ export const lifi: ProtocolAdapter = {
       fixedTitle: "Prepare LI.FI swap",
       icon: SHAPE_ICONS.swap,
       chipPlan: [
+        { kind: "route" },
         { kind: "chain" },
         { kind: "token", role: "primary" },
         { kind: "amount", role: "primary" },
         { kind: "amount", role: "secondary" },
+        { kind: "status" },
       ],
+    },
+    "lifi.bridge.status": {
+      title: "fixed",
+      fixedTitle: "Check LI.FI transfer",
+      icon: SHAPE_ICONS.swap,
+      chipPlan: [{ kind: "route" }, { kind: "chain" }, { kind: "status" }],
     },
   },
   tools: [
@@ -174,6 +284,7 @@ export const lifi: ProtocolAdapter = {
     "lifi_prepare_approval_tx",
     "lifi_prepare_swap_tx",
     "lifi_prepare_swap_batch",
+    "lifi_get_status",
   ],
   match: (ctx) => {
     switch (ctx.rawLabel.toLowerCase().trim()) {
@@ -183,6 +294,8 @@ export const lifi: ProtocolAdapter = {
         return matchLifiApproval(ctx);
       case "lifi_prepare_swap_batch":
         return matchLifiSwapBatch(ctx);
+      case "lifi_get_status":
+        return matchLifiStatus(ctx);
       default:
         return matchLifiSwapPrep(ctx);
     }

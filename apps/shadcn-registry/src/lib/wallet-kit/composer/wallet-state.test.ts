@@ -107,7 +107,7 @@ describe("operating wallet", () => {
     expect(state.operating.evm).toBe(key(METAMASK));
   });
 
-  it("keeps a temporarily unavailable selection instead of switching to another wallet", () => {
+  it("uses the only connected wallet while the saved selection is unavailable", () => {
     const state = resolveWalletState(
       input({
         linked: [linkedEvm("w1", METAMASK), linkedEvm("w2", RABBY)],
@@ -116,14 +116,19 @@ describe("operating wallet", () => {
       }),
     );
 
-    expect(state.operating.evm).toBeUndefined();
+    expect(state.operating.evm).toBe(key(RABBY));
     expect(state.clearSelection).toEqual([]);
+    // The stand-in is in memory only; the saved MetaMask choice is kept.
+    expect(state.persist).toEqual({});
     expect(state.wallets).toContainEqual(
       expect.objectContaining({
         key: key(METAMASK),
         state: "offline",
         reason: "disconnected",
       }),
+    );
+    expect(state.wallets.find((wallet) => wallet.key === key(RABBY))).toEqual(
+      expect.objectContaining({ operating: true, connected: true }),
     );
     expect(
       actionKinds(
@@ -143,6 +148,7 @@ describe("operating wallet", () => {
 
     expect(state.clearSelection).toEqual(["evm"]);
     expect(state.operating.evm).toBe(key(RABBY));
+    expect(state.persist.evm).toBe(key(RABBY));
   });
 
   it("decides nothing while the account's wallets are still loading", () => {
@@ -187,6 +193,29 @@ describe("operating wallet", () => {
     );
 
     expect(state.clearSelection).toEqual([]);
+  });
+
+  it("shows an account refresh failure instead of checking indefinitely", () => {
+    const state = resolveWalletState(
+      input({
+        account: { id: "acct-1", status: "error" },
+        linked: [linkedEvm("w1", METAMASK)],
+        connections: [external("c1", METAMASK)],
+        selection: { evm: key(METAMASK) },
+      }),
+    );
+
+    expect(state.operating).toEqual({});
+    expect(state.clearSelection).toEqual([]);
+    expect(state.wallets[0]).toEqual(
+      expect.objectContaining({
+        state: "offline",
+        reason: "account_error",
+        connected: true,
+        linked: true,
+        actions: [],
+      }),
+    );
   });
 
   it("lets a guest operate a connected external wallet they chose", () => {
@@ -293,6 +322,87 @@ describe("embedded wallets", () => {
     expect(state.wallets).toEqual([
       expect.objectContaining({ state: "loading", operating: false }),
     ]);
+  });
+
+  it("shows a settled missing Privy signer as unavailable", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [privyLinked],
+        connections: [privySession(PRIVY_LINKED, false)],
+        mountedProviders: ["privy"],
+        providerSettled: (family, provider) =>
+          family === "evm" && provider === "privy",
+      }),
+    );
+
+    expect(state.operating).toEqual({});
+    expect(state.wallets[0]).toEqual(
+      expect.objectContaining({
+        state: "offline",
+        reason: "signer_unavailable",
+        actions: [{ kind: "reauthenticate", provider: "privy" }],
+      }),
+    );
+  });
+
+  it("shows a linked Solana wallet without a settled provider connection as unavailable", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [
+          {
+            id: "solana-wallet",
+            family: "svm",
+            address: "SolanaWallet",
+            kind: "embedded",
+            provider: "privy",
+          },
+        ],
+        mountedProviders: ["privy"],
+        providerSettled: (family, provider) =>
+          family === "svm" && provider === "privy",
+      }),
+    );
+
+    expect(state.operating).toEqual({});
+    expect(state.wallets[0]).toEqual(
+      expect.objectContaining({
+        state: "offline",
+        reason: "signer_unavailable",
+        connected: false,
+        linked: true,
+      }),
+    );
+  });
+
+  it("can select a hydrated Privy signer while an external signer is active", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [privyLinked],
+        connections: [
+          { ...privySession(PRIVY_LINKED, false), signerSelectable: true },
+        ],
+        mountedProviders: ["privy"],
+        providerSettled: () => true,
+      }),
+    );
+
+    expect(state.operating).toEqual({});
+    expect(state.wallets[0]).toEqual(
+      expect.objectContaining({
+        state: "offline",
+        reason: "selection_required",
+        actions: [{ kind: "select", walletKey: key(PRIVY_LINKED) }],
+      }),
+    );
+    const afterSelection = resolveWalletState(
+      input({
+        linked: [privyLinked],
+        connections: [privySession(PRIVY_LINKED, true)],
+        mountedProviders: ["privy"],
+        selection: { evm: key(PRIVY_LINKED) },
+      }),
+    );
+    expect(afterSelection.operating.evm).toBe(key(PRIVY_LINKED));
   });
 
   it("waits for the provider before judging a different embedded address", () => {

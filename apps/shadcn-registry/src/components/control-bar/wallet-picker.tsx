@@ -13,21 +13,15 @@ import {
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   CheckIcon,
-  CheckCircle2Icon,
   ChevronDownIcon,
-  ChevronLeftIcon,
   ChevronRightIcon,
   LinkIcon,
   Loader2Icon,
   LogOutIcon,
   MailIcon,
-  PencilIcon,
   PlusIcon,
   Settings2Icon,
   ShieldCheckIcon,
-  Trash2Icon,
-  UserRoundIcon,
-  WalletIcon,
   XIcon,
 } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
@@ -35,7 +29,6 @@ import {
   useAomiWalletKit,
   canonicalWalletKey,
   formatWalletAddress,
-  formatAuthMethod,
   formatWalletProvider,
   normalizeWalletOptionId,
   signOutAndDisconnect,
@@ -50,29 +43,12 @@ import {
   WalletSignInOptionsContext,
 } from "./wallet-picker-context";
 import {
-  buildAccountAccessEntries,
   familyLabel,
-  familyRank,
-  isProviderAuthProvider,
   providerBackedAccountProvider,
   providerBackedWalletTitle,
   sameWalletAddress,
-  type LinkedAccountRow,
-  type LinkedWalletRow,
-  type ProviderAccountAccessGroup,
   type WalletModalRow,
 } from "./wallet-account-model";
-
-type ProviderAccountRenameInput = {
-  provider: string;
-  identityIds: readonly string[];
-  displayLabel: string | null;
-};
-
-type ProviderAccountUnlinkInput = {
-  provider: string;
-  identityIds: readonly string[];
-};
 
 type SupportedEvmChain = { id: number; name: string };
 type ConnectedActionRef = {
@@ -250,9 +226,6 @@ export function WalletPicker() {
   const [addOpen, setAddOpen] = useState(false);
   const openerRef = useRef<HTMLElement | null>(null);
   const autoLinkAttempted = useRef(new Set<string>());
-  // Which screen of the push-nav modal is showing. The account view slides in
-  // from the right over the wallet manager.
-  const [view, setView] = useState<"wallets" | "account">("wallets");
   const canActivateWallet = useWalletActivationGuard();
 
   useEffect(() => {
@@ -260,7 +233,6 @@ export function WalletPicker() {
       setPending(null);
       setActionError(null);
       setAddOpen(false);
-      setView("wallets");
       return;
     }
     const previousOverflow = document.body.style.overflow;
@@ -513,8 +485,6 @@ export function WalletPicker() {
     () => filterQuickSignInOptions(socialLoginOptions, sessionProvider),
     [sessionProvider, socialLoginOptions],
   );
-  const providerSubtitle =
-    identity.secondaryLabel ?? formatAuthMethod(identity.authMethod);
   // Social sign-in goes through the account provider, so the row reads as that
   // provider brand with the method beneath.
   const providerBrandLabel = formatWalletProvider(sessionProvider);
@@ -525,6 +495,7 @@ export function WalletPicker() {
     identity.walletProviderSubject ||
     connectedAccounts.some((account) => account.manageable),
   );
+  const recoveringAccountConflict = Boolean(adapter.accountConflict);
   const supportedEvmChains =
     adapter.supportedNetworks?.evm ?? adapter.supportedChains ?? [];
   // Host provider choices: while no provider account exists they are ways to
@@ -546,61 +517,44 @@ export function WalletPicker() {
           actions: [
             {
               kind: "authenticate",
-              label: providerAccountConnected ? "Link" : "Sign in",
+              label:
+                providerAccountConnected && !recoveringAccountConflict
+                  ? "Link"
+                  : "Sign in",
             },
           ],
         }))
     : providerAccountConnected
       ? []
       : providerSignInOptions;
-  const socialSectionLabel = providerAccountConnected
-    ? "Link another provider"
-    : "Other ways to sign in";
-  const hasAccountManagement = Boolean(adapter.accountUser);
-  const accountView = hasAccountManagement && view === "account";
-  const accountDisplayName =
-    adapter.accountUser?.displayName ??
-    accountProfileEmail(adapter.accountUser) ??
-    identity.primaryLabel ??
-    identity.authValue ??
-    providerBrandLabel ??
-    "Your account";
+  const socialSectionLabel = recoveringAccountConflict
+    ? "Sign in another way"
+    : providerAccountConnected
+      ? "Link another provider"
+      : "Other ways to sign in";
   const needsFirstWalletLink = Boolean(
     hasConnectedWallets &&
     (!adapter.accountUser || (adapter.accountWallets?.length ?? 0) === 0),
   );
-  const pickerTitle = needsFirstWalletLink
-    ? "Finish signing in"
-    : hasConnectedWallets
-      ? "Add a wallet"
-      : "Sign in to Aomi";
-  const pickerDescription = needsFirstWalletLink
-    ? "Verify the connected wallet to finish setting up your account."
-    : hasConnectedWallets
-      ? "Connect another wallet to this account."
-      : "Choose a wallet or another sign-in method.";
-
-  // Pop back to the wallet manager if the signed account becomes unavailable.
-  useEffect(() => {
-    if (!hasAccountManagement && view !== "wallets") setView("wallets");
-  }, [hasAccountManagement, view]);
+  const pickerTitle = recoveringAccountConflict
+    ? "Resolve account conflict"
+    : needsFirstWalletLink
+      ? "Finish signing in"
+      : hasConnectedWallets
+        ? "Add a wallet"
+        : "Sign in to Aomi";
+  const pickerDescription = recoveringAccountConflict
+    ? "Sign in another way to open the account that owns this wallet."
+    : needsFirstWalletLink
+      ? "Verify the connected wallet to finish setting up your account."
+      : hasConnectedWallets
+        ? "Connect another wallet to this account."
+        : "Choose a wallet or another sign-in method.";
 
   const signOutAccount = useCallback(
     () => signOutAndDisconnect(adapter),
     [adapter],
   );
-
-  const deleteAccount = useCallback(async () => {
-    const confirmed = window.confirm(
-      "Delete this Aomi account? Linked wallets and sign-ins will be freed for a new account.",
-    );
-    if (!confirmed) return;
-    try {
-      await adapter.deleteAccount?.();
-    } finally {
-      await adapter.disconnect?.({ family: "all" });
-    }
-  }, [adapter]);
 
   const quickSignInSection = socialOptionsToShow.length ? (
     <section className="flex flex-col gap-2">
@@ -838,7 +792,7 @@ export function WalletPicker() {
               Add another wallet
             </span>
             <span className="text-aomi-muted block truncate text-[11px]">
-              Choose a different Ethereum or Solana wallet
+              Choose a different EVM or SVM wallet
             </span>
           </span>
           <ChevronDownIcon
@@ -912,186 +866,78 @@ export function WalletPicker() {
               "animate-in zoom-in-95 fade-in-0 duration-200",
             )}
           >
-            {!accountView ? (
-              <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <div className="border-aomi-border flex items-center gap-3 border-b px-4 py-4">
-                  <span className="text-aomi-accent flex size-9 shrink-0 items-center justify-center">
-                    <ShieldCheckIcon className="size-5" strokeWidth={1.8} />
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="border-aomi-border flex items-center gap-3 border-b px-4 py-4">
+                <span className="text-aomi-accent flex size-9 shrink-0 items-center justify-center">
+                  <ShieldCheckIcon className="size-5" strokeWidth={1.8} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    Aomi account
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <span className="text-aomi-muted text-[10px] font-semibold uppercase tracking-[0.14em]">
-                      Aomi account
-                    </span>
-                    <Dialog.Title asChild>
-                      <h2 className="text-aomi-fg text-[15px] font-semibold tracking-[-0.01em]">
-                        {pickerTitle}
-                      </h2>
-                    </Dialog.Title>
-                    <p className="text-aomi-muted mt-0.5 truncate text-[11px] leading-snug">
-                      {pickerDescription}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closePicker}
-                    aria-label="Close"
-                    className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
-                  >
-                    <XIcon className="size-4" />
-                  </button>
+                  <Dialog.Title asChild>
+                    <h2 className="text-aomi-fg text-[15px] font-semibold tracking-[-0.01em]">
+                      {pickerTitle}
+                    </h2>
+                  </Dialog.Title>
+                  <p className="text-aomi-muted mt-0.5 truncate text-[11px] leading-snug">
+                    {pickerDescription}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={closePicker}
+                  aria-label="Close"
+                  className="text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                >
+                  <XIcon className="size-4" />
+                </button>
+              </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
-                  {actionError || adapter.accountError ? (
-                    <div
-                      role="alert"
-                      className="border-destructive/25 bg-destructive/10 text-destructive rounded-xl border px-3 py-2 text-xs leading-snug"
-                    >
-                      {actionError ?? adapter.accountError}
-                    </div>
-                  ) : null}
-                  {showFinishPanel && finishAccount ? (
-                    <>
-                      <FinishSignInPanel
-                        account={finishAccount}
-                        identity={identity}
-                        supportedEvmChains={supportedEvmChains}
-                        pending={pending}
-                        linkAction={finishLinkAction}
-                        onLink={runConnectedAction}
-                        canDisconnect={Boolean(adapter.disconnect)}
-                        onDisconnect={() =>
-                          void runAction(
-                            `disconnect:${finishAccount.connectionId ?? finishAccount.key}`,
-                            () => disconnectConnectedAccount(finishAccount),
-                            true,
-                          )
-                        }
-                      />
-                      {quickSignInSection}
-                      {addWalletSection}
-                    </>
-                  ) : hasConnectedWallets ? (
-                    <>
-                      {connectedSection}
-                      {quickSignInSection}
-                      {addWalletSection}
-                    </>
-                  ) : (
-                    <>
-                      {quickSignInSection}
-                      {addWalletSection}
-                    </>
-                  )}
-                </div>
-              </section>
-            ) : hasAccountManagement ? (
-              <AccountManagerPanel
-                inertPanel={!accountView}
-                pending={pending}
-                displayName={accountDisplayName}
-                subtitle={providerSubtitle}
-                brandLabel={providerBrandLabel}
-                user={adapter.accountUser}
-                linkedAccounts={adapter.accountLinkedAccounts ?? []}
-                wallets={adapter.accountWallets ?? []}
-                connectedAccounts={connectedAccounts}
-                connectedCount={connectedAccounts.length}
-                supportedEvmChains={supportedEvmChains}
-                canManageProvider={canManageAccounts}
-                canSignOut={Boolean(
-                  adapter.signOutAccount || adapter.disconnect,
+              <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
+                {actionError || adapter.accountError ? (
+                  <div
+                    role="alert"
+                    className="border-destructive/25 bg-destructive/10 text-destructive rounded-xl border px-3 py-2 text-xs leading-snug"
+                  >
+                    {actionError ?? adapter.accountError}
+                  </div>
+                ) : null}
+                {showFinishPanel && finishAccount ? (
+                  <>
+                    <FinishSignInPanel
+                      account={finishAccount}
+                      identity={identity}
+                      supportedEvmChains={supportedEvmChains}
+                      pending={pending}
+                      linkAction={finishLinkAction}
+                      onLink={runConnectedAction}
+                      canDisconnect={Boolean(adapter.disconnect)}
+                      onDisconnect={() =>
+                        void runAction(
+                          `disconnect:${finishAccount.connectionId ?? finishAccount.key}`,
+                          () => disconnectConnectedAccount(finishAccount),
+                          true,
+                        )
+                      }
+                    />
+                    {quickSignInSection}
+                    {addWalletSection}
+                  </>
+                ) : hasConnectedWallets ? (
+                  <>
+                    {connectedSection}
+                    {quickSignInSection}
+                    {addWalletSection}
+                  </>
+                ) : (
+                  <>
+                    {quickSignInSection}
+                    {addWalletSection}
+                  </>
                 )}
-                canDeleteAccount={Boolean(adapter.deleteAccount)}
-                onBack={() => setView("wallets")}
-                onClose={closePicker}
-                onRenameWallet={
-                  adapter.updateLinkedWallet
-                    ? (input) =>
-                        runAction(`wallet:rename:${input.walletId}`, () =>
-                          adapter.updateLinkedWallet!(input),
-                        )
-                    : undefined
-                }
-                onRenameAccount={
-                  adapter.updateAccount
-                    ? (input) =>
-                        runAction("account:rename", () =>
-                          adapter.updateAccount!(input),
-                        )
-                    : undefined
-                }
-                onRenameLinkedAccount={
-                  adapter.updateLinkedAccount
-                    ? (input) =>
-                        runAction(`identity:rename:${input.identityId}`, () =>
-                          adapter.updateLinkedAccount!(input),
-                        )
-                    : undefined
-                }
-                onRenameProviderAccounts={
-                  adapter.updateLinkedAccount
-                    ? (input) =>
-                        runAction(
-                          `provider-account:rename:${input.provider}`,
-                          () =>
-                            runSequential(
-                              input.identityIds,
-                              (identityId) =>
-                                adapter.updateLinkedAccount!({
-                                  identityId,
-                                  displayLabel: input.displayLabel,
-                                }),
-                              "rename",
-                            ),
-                        )
-                    : undefined
-                }
-                onUnlinkWallet={
-                  adapter.unlinkLinkedWallet
-                    ? (walletId) =>
-                        runAction(`wallet:unlink:${walletId}`, () =>
-                          adapter.unlinkLinkedWallet!(walletId),
-                        )
-                    : undefined
-                }
-                onUnlinkAccount={
-                  adapter.unlinkLinkedAccount
-                    ? (identityId) =>
-                        runAction(`identity:unlink:${identityId}`, () =>
-                          adapter.unlinkLinkedAccount!(identityId),
-                        )
-                    : undefined
-                }
-                onUnlinkProviderAccounts={
-                  adapter.unlinkLinkedAccount
-                    ? (input) =>
-                        runAction(
-                          `provider-account:unlink:${input.provider}`,
-                          () =>
-                            runSequential(
-                              input.identityIds,
-                              (identityId) =>
-                                adapter.unlinkLinkedAccount!(identityId),
-                              "unlink",
-                            ),
-                        )
-                    : undefined
-                }
-                onSignOut={() =>
-                  void runAction("account:signout", signOutAccount, true)
-                }
-                onDeleteAccount={() =>
-                  void runAction("account:delete", deleteAccount, true)
-                }
-                onOpenProviderUI={() =>
-                  void runAction("manage:account", async () => {
-                    await adapter.openAccountUI?.();
-                    closePicker();
-                  })
-                }
-              />
-            ) : null}
+              </div>
+            </section>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
@@ -1104,40 +950,6 @@ function SectionLabel({ children }: { children: string }) {
     <span className="text-aomi-muted px-0.5 text-[9px] font-semibold uppercase tracking-[0.14em]">
       {children}
     </span>
-  );
-}
-
-/**
- * Run a bulk provider-account operation one item at a time, collecting
- * per-item failures instead of racing them with `Promise.all`. A partial
- * failure no longer aborts the remaining items mid-flight, and the summarized
- * throw lets the picker surface exactly how many succeeded.
- */
-async function runSequential<T>(
-  items: readonly T[],
-  op: (item: T) => Promise<unknown>,
-  verb: string,
-): Promise<void> {
-  const failures: unknown[] = [];
-  let succeeded = 0;
-  for (const item of items) {
-    try {
-      await op(item);
-      succeeded += 1;
-    } catch (error) {
-      failures.push(error);
-    }
-  }
-  if (failures.length === 0) return;
-  const total = items.length;
-  const firstMessage =
-    failures[0] instanceof Error && failures[0].message
-      ? `: ${failures[0].message}`
-      : "";
-  throw new Error(
-    `Could not ${verb} ${failures.length} of ${total} account${
-      total === 1 ? "" : "s"
-    } (${succeeded} succeeded)${firstMessage}`,
   );
 }
 
@@ -1204,950 +1016,6 @@ function networkNameForChain(
   return supportedEvmChains && supportedEvmChains.length > 0
     ? null
     : (getChainInfo(chainId)?.name ?? null);
-}
-
-function AccountManagerPanel({
-  inertPanel,
-  pending,
-  displayName,
-  subtitle,
-  brandLabel,
-  user,
-  linkedAccounts,
-  wallets,
-  connectedAccounts,
-  connectedCount,
-  supportedEvmChains,
-  canManageProvider,
-  canSignOut,
-  canDeleteAccount,
-  onBack,
-  onClose,
-  onRenameAccount,
-  onRenameLinkedAccount,
-  onRenameProviderAccounts,
-  onRenameWallet,
-  onUnlinkWallet,
-  onUnlinkAccount,
-  onUnlinkProviderAccounts,
-  onSignOut,
-  onDeleteAccount,
-  onOpenProviderUI,
-}: {
-  inertPanel: boolean;
-  pending: string | null;
-  displayName: string;
-  subtitle?: string | null;
-  brandLabel?: string;
-  user?: AomiWalletKit["accountUser"];
-  linkedAccounts: readonly LinkedAccountRow[];
-  wallets: readonly LinkedWalletRow[];
-  connectedAccounts: readonly WalletModalRow[];
-  connectedCount: number;
-  supportedEvmChains: readonly SupportedEvmChain[];
-  canManageProvider: boolean;
-  canSignOut: boolean;
-  canDeleteAccount: boolean;
-  onBack: () => void;
-  onClose: () => void;
-  onRenameAccount?: NonNullable<AomiWalletKit["updateAccount"]>;
-  onRenameLinkedAccount?: NonNullable<AomiWalletKit["updateLinkedAccount"]>;
-  onRenameProviderAccounts?: (
-    input: ProviderAccountRenameInput,
-  ) => Promise<void>;
-  onRenameWallet?: NonNullable<AomiWalletKit["updateLinkedWallet"]>;
-  onUnlinkWallet?: NonNullable<AomiWalletKit["unlinkLinkedWallet"]>;
-  onUnlinkAccount?: NonNullable<AomiWalletKit["unlinkLinkedAccount"]>;
-  onUnlinkProviderAccounts?: (
-    input: ProviderAccountUnlinkInput,
-  ) => Promise<void>;
-  onSignOut: () => void;
-  onDeleteAccount: () => void;
-  onOpenProviderUI: () => void;
-}) {
-  const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
-  const [editingLinkedAccountId, setEditingLinkedAccountId] = useState<
-    string | null
-  >(null);
-  const [editingProviderKey, setEditingProviderKey] = useState<string | null>(
-    null,
-  );
-  const [draftLabel, setDraftLabel] = useState("");
-  const [draftLinkedAccountLabel, setDraftLinkedAccountLabel] = useState("");
-  const [draftProviderLabel, setDraftProviderLabel] = useState("");
-  const [editingAccountName, setEditingAccountName] = useState(false);
-  const [draftAccountName, setDraftAccountName] = useState("");
-  const walletSummary = `${connectedCount} wallet${
-    connectedCount === 1 ? "" : "s"
-  } connected`;
-  const userEmail =
-    user?.email && !isSyntheticAomiEmail(user.email) ? user.email : undefined;
-  const headerTitle = formatAccountDisplayName(displayName);
-  const headerTitleIsEmail =
-    userEmail !== undefined &&
-    headerTitle.toLowerCase() === userEmail.toLowerCase();
-  const primarySubtitle =
-    userEmail && !headerTitleIsEmail
-      ? userEmail
-      : user
-        ? walletSummary
-        : (subtitle ?? walletSummary);
-  const visibleLinkedAccounts = linkedAccounts.filter(isVisibleLinkedAccount);
-  const { providerAccounts, standaloneAccounts, standaloneWallets } =
-    buildAccountAccessEntries(visibleLinkedAccounts, wallets);
-  const hasAccountAccess =
-    providerAccounts.length > 0 ||
-    standaloneAccounts.length > 0 ||
-    standaloneWallets.length > 0;
-  const headerBrandLabel = user ? undefined : brandLabel;
-
-  const startRenaming = (wallet: LinkedWalletRow) => {
-    setEditingWalletId(wallet.id);
-    setDraftLabel(wallet.label ?? "");
-  };
-
-  const startRenamingLinkedAccount = (account: LinkedAccountRow) => {
-    setEditingLinkedAccountId(account.id);
-    setDraftLinkedAccountLabel(linkedAccountTitle(account));
-  };
-
-  const startRenamingProviderAccount = (group: ProviderAccountAccessGroup) => {
-    setEditingProviderKey(group.key);
-    setDraftProviderLabel(providerAccountTitle(group));
-  };
-
-  const startRenamingAccount = () => {
-    setEditingAccountName(true);
-    setDraftAccountName(displayName);
-  };
-
-  const submitAccountRename = async () => {
-    if (!onRenameAccount) return;
-    await onRenameAccount({ displayName: draftAccountName.trim() || null });
-    setEditingAccountName(false);
-  };
-
-  const submitRename = async (wallet: LinkedWalletRow) => {
-    if (!onRenameWallet) return;
-    await onRenameWallet({
-      walletId: wallet.id,
-      label: draftLabel.trim() || null,
-    });
-    setEditingWalletId(null);
-  };
-
-  const submitLinkedAccountRename = async (account: LinkedAccountRow) => {
-    if (!onRenameLinkedAccount) return;
-    await onRenameLinkedAccount({
-      identityId: account.id,
-      displayLabel: draftLinkedAccountLabel.trim() || null,
-    });
-    setEditingLinkedAccountId(null);
-  };
-
-  const submitProviderAccountRename = async (
-    group: ProviderAccountAccessGroup,
-  ) => {
-    if (!onRenameProviderAccounts) return;
-    await onRenameProviderAccounts({
-      provider: group.provider,
-      identityIds: group.accounts.map((account) => account.id),
-      displayLabel: draftProviderLabel.trim() || null,
-    });
-    setEditingProviderKey(null);
-  };
-
-  return (
-    <section
-      inert={inertPanel ? true : undefined}
-      className={cn(
-        "flex w-1/2 min-w-0 shrink-0 flex-col",
-        inertPanel && "h-0 overflow-hidden",
-      )}
-    >
-      <div className="border-border/70 bg-background/80 flex items-center gap-2 border-b px-3 pb-3 pt-4">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back to wallets"
-          className="bg-aomi-surface-2 text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-full transition-colors"
-        >
-          <ChevronLeftIcon className="size-4" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <Dialog.Title asChild>
-            <h2 className="text-foreground text-base font-semibold tracking-tight">
-              Manage account
-            </h2>
-          </Dialog.Title>
-          <p className="text-muted-foreground mt-0.5 text-xs leading-snug">
-            Manage your linked wallets and sign-in methods.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="bg-aomi-surface-2 text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex size-8 shrink-0 items-center justify-center rounded-full transition-colors"
-        >
-          <XIcon className="size-4" />
-        </button>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3.5">
-        <div className="border-border/70 bg-card flex items-center gap-3 rounded-xl border px-3 py-2.5">
-          <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl">
-            {headerBrandLabel ? (
-              <WalletIconSlot
-                id={headerBrandLabel}
-                label={headerBrandLabel}
-                className="!bg-transparent"
-              />
-            ) : (
-              <UserRoundIcon className="size-4" />
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            {editingAccountName ? (
-              <input
-                value={draftAccountName}
-                onChange={(event) => setDraftAccountName(event.target.value)}
-                disabled={pending === "account:rename"}
-                aria-label="Account display name"
-                className="border-input bg-background text-foreground focus:border-primary h-8 w-full rounded-lg border px-2 text-sm outline-none"
-              />
-            ) : (
-              <>
-                <p className="text-foreground truncate text-sm font-semibold">
-                  {headerTitle}
-                </p>
-                <p className="text-muted-foreground truncate text-[11px]">
-                  {primarySubtitle}
-                </p>
-              </>
-            )}
-          </div>
-          {onRenameAccount ? (
-            <div className="flex shrink-0 items-center gap-1">
-              {editingAccountName ? (
-                <>
-                  <RowIconButton
-                    icon={CheckIcon}
-                    ariaLabel="Save account display name"
-                    disabled={pending === "account:rename"}
-                    loading={pending === "account:rename"}
-                    onClick={submitAccountRename}
-                  />
-                  <RowIconButton
-                    icon={XIcon}
-                    ariaLabel="Cancel account display name edit"
-                    disabled={pending === "account:rename"}
-                    onClick={() => setEditingAccountName(false)}
-                  />
-                </>
-              ) : (
-                <RowIconButton
-                  icon={PencilIcon}
-                  ariaLabel="Rename account"
-                  disabled={pending !== null}
-                  onClick={startRenamingAccount}
-                />
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <section className="flex flex-col gap-1.5">
-          <SectionLabel>Connected now</SectionLabel>
-          {connectedAccounts.map((entry) => (
-            <ConnectedWalletSummaryRow
-              key={entry.key}
-              entry={entry}
-              supportedEvmChains={supportedEvmChains}
-            />
-          ))}
-        </section>
-
-        {hasAccountAccess ? (
-          <section className="flex flex-col gap-1.5">
-            <SectionLabel>Account access</SectionLabel>
-            {providerAccounts.map((group) => (
-              <ProviderAccountAccessRow
-                key={group.key}
-                group={group}
-                connectedAccounts={connectedAccounts}
-                editing={editingProviderKey === group.key}
-                draftLabel={draftProviderLabel}
-                pending={pending}
-                onDraftLabelChange={setDraftProviderLabel}
-                onStartRename={
-                  onRenameProviderAccounts && group.accounts.length > 0
-                    ? () => startRenamingProviderAccount(group)
-                    : undefined
-                }
-                onCancelRename={() => setEditingProviderKey(null)}
-                onSubmitRename={() => void submitProviderAccountRename(group)}
-                onUnlink={
-                  onUnlinkProviderAccounts && group.accounts.length > 0
-                    ? () =>
-                        void onUnlinkProviderAccounts({
-                          provider: group.provider,
-                          identityIds: group.accounts.map(
-                            (account) => account.id,
-                          ),
-                        })
-                    : undefined
-                }
-              />
-            ))}
-            {standaloneAccounts.map((account) => (
-              <LinkedAuthAccountRow
-                key={account.id}
-                account={account}
-                editing={editingLinkedAccountId === account.id}
-                draftLabel={draftLinkedAccountLabel}
-                pending={pending}
-                onDraftLabelChange={setDraftLinkedAccountLabel}
-                onStartRename={
-                  onRenameLinkedAccount
-                    ? () => startRenamingLinkedAccount(account)
-                    : undefined
-                }
-                onCancelRename={() => setEditingLinkedAccountId(null)}
-                onSubmitRename={() => void submitLinkedAccountRename(account)}
-                onUnlink={
-                  onUnlinkAccount
-                    ? () => void onUnlinkAccount(account.id)
-                    : undefined
-                }
-              />
-            ))}
-            {standaloneWallets.map((wallet) => (
-              <LinkedWalletManagementRow
-                key={wallet.id}
-                wallet={wallet}
-                supportedEvmChains={supportedEvmChains}
-                live={connectedAccounts.some(
-                  (account) =>
-                    account.family === wallet.family &&
-                    sameWalletAddress(
-                      wallet.family,
-                      wallet.address,
-                      account.address,
-                    ),
-                )}
-                editing={editingWalletId === wallet.id}
-                draftLabel={draftLabel}
-                pending={pending}
-                onDraftLabelChange={setDraftLabel}
-                onStartRename={() => startRenaming(wallet)}
-                onCancelRename={() => setEditingWalletId(null)}
-                onSubmitRename={() => void submitRename(wallet)}
-                onUnlink={
-                  onUnlinkWallet
-                    ? () => void onUnlinkWallet(wallet.id)
-                    : undefined
-                }
-              />
-            ))}
-          </section>
-        ) : (
-          <section className="flex flex-col gap-1.5">
-            <SectionLabel>Account access</SectionLabel>
-            <div className="border-border/60 bg-card/60 flex items-center gap-3 rounded-2xl border border-dashed px-3 py-2.5">
-              <span className="bg-muted/50 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-xl">
-                <ShieldCheckIcon className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-foreground block truncate text-sm font-medium">
-                  No linked access yet
-                </span>
-                <span className="text-muted-foreground block truncate text-[11px]">
-                  Verify a wallet or sign in with an account provider
-                </span>
-              </span>
-            </div>
-          </section>
-        )}
-
-        {canManageProvider ? (
-          <button
-            type="button"
-            onClick={onOpenProviderUI}
-            disabled={pending !== null}
-            className="border-border/70 bg-card hover:border-primary/30 hover:bg-accent/40 flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-50"
-          >
-            <span className="bg-muted/50 text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-xl">
-              <Settings2Icon className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="text-foreground block truncate text-sm font-medium">
-                Open provider settings
-              </span>
-              <span className="text-muted-foreground block truncate text-[11px]">
-                Manage this account with its provider
-              </span>
-            </span>
-            {pending === "manage:account" ? (
-              <Loader2Icon className="size-4 shrink-0 animate-spin" />
-            ) : (
-              <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
-            )}
-          </button>
-        ) : null}
-
-        {canSignOut ? (
-          <button
-            type="button"
-            onClick={onSignOut}
-            disabled={pending !== null}
-            className="border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-50"
-          >
-            <span className="bg-destructive/10 flex size-9 shrink-0 items-center justify-center rounded-xl">
-              <LogOutIcon className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                Sign out
-              </span>
-              <span className="block truncate text-[11px] opacity-80">
-                End this account session
-              </span>
-            </span>
-            {pending === "account:signout" ? (
-              <Loader2Icon className="size-4 shrink-0 animate-spin" />
-            ) : null}
-          </button>
-        ) : null}
-
-        {canDeleteAccount ? (
-          <button
-            type="button"
-            onClick={onDeleteAccount}
-            disabled={pending !== null}
-            className="border-destructive/40 bg-background text-destructive hover:bg-destructive/10 flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors disabled:pointer-events-none disabled:opacity-50"
-          >
-            <span className="bg-destructive/10 flex size-9 shrink-0 items-center justify-center rounded-xl">
-              <Trash2Icon className="size-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">
-                Delete account
-              </span>
-              <span className="block truncate text-[11px] opacity-80">
-                Free linked wallets and sign-ins
-              </span>
-            </span>
-            {pending === "account:delete" ? (
-              <Loader2Icon className="size-4 shrink-0 animate-spin" />
-            ) : null}
-          </button>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function isVisibleLinkedAccount(account: LinkedAccountRow): boolean {
-  return (
-    account.provider !== "better_auth" &&
-    account.provider !== "wallet" &&
-    account.provider !== "siwe" &&
-    account.provider !== "siws" &&
-    account.provider !== "email"
-  );
-}
-
-function accountProfileEmail(
-  user: AomiWalletKit["accountUser"],
-): string | undefined {
-  return user?.email && !isSyntheticAomiEmail(user.email)
-    ? user.email
-    : undefined;
-}
-
-function formatAccountDisplayName(value: string): string {
-  return /^0x[a-f0-9]{40}$/i.test(value)
-    ? (formatWalletAddress(value) ?? value)
-    : value;
-}
-
-function isSyntheticAomiEmail(email: string): boolean {
-  return (
-    /^0x[a-f0-9]{40}@aomi\.dev$/i.test(email) ||
-    /@auth\.aomi\.local$/i.test(email)
-  );
-}
-
-function chainIdFromScope(chainScope?: string): number | undefined {
-  if (!chainScope) return undefined;
-  const chainId = Number(chainScope);
-  return Number.isInteger(chainId) && chainId > 0 ? chainId : undefined;
-}
-
-type ProviderFamilyAccess = {
-  family: WalletFamily;
-  address?: string;
-  capability: "read" | "write";
-};
-
-function providerAccountTitle(group: ProviderAccountAccessGroup): string {
-  const account = group.accounts[0];
-  return account
-    ? linkedAccountTitle(account)
-    : (formatWalletProvider(group.provider) ?? group.provider);
-}
-
-function providerFamilyAccess(
-  group: ProviderAccountAccessGroup,
-  connectedAccounts: readonly WalletModalRow[],
-): ProviderFamilyAccess[] {
-  const accessByFamily = new Map<WalletFamily, ProviderFamilyAccess>();
-
-  for (const wallet of group.wallets) {
-    accessByFamily.set(wallet.family, {
-      family: wallet.family,
-      address: wallet.address,
-      capability: "read",
-    });
-  }
-
-  for (const account of connectedAccounts) {
-    const provider = providerBackedAccountProvider(account)?.toLowerCase();
-    if (provider !== group.provider) continue;
-    accessByFamily.set(account.family, {
-      family: account.family,
-      address: account.address ?? accessByFamily.get(account.family)?.address,
-      capability: "write",
-    });
-  }
-
-  return [...accessByFamily.values()].sort(
-    (left, right) => familyRank(left.family) - familyRank(right.family),
-  );
-}
-
-function ProviderAccountAccessRow({
-  group,
-  connectedAccounts,
-  editing,
-  draftLabel,
-  pending,
-  onDraftLabelChange,
-  onStartRename,
-  onCancelRename,
-  onSubmitRename,
-  onUnlink,
-}: {
-  group: ProviderAccountAccessGroup;
-  connectedAccounts: readonly WalletModalRow[];
-  editing: boolean;
-  draftLabel: string;
-  pending: string | null;
-  onDraftLabelChange: (value: string) => void;
-  onStartRename?: () => void;
-  onCancelRename: () => void;
-  onSubmitRename: () => void;
-  onUnlink?: () => void;
-}) {
-  const title = providerAccountTitle(group);
-  const providerLabel = formatWalletProvider(group.provider) ?? group.provider;
-  const familyAccess = providerFamilyAccess(group, connectedAccounts);
-  const addressSubtitle = familyAccess
-    .map((access) => formatWalletAddress(access.address))
-    .filter(Boolean)
-    .join(" · ");
-  const subtitle = addressSubtitle || "Provider sign-in";
-  const renameKey = `provider-account:rename:${group.provider}`;
-  const unlinkKey = `provider-account:unlink:${group.provider}`;
-  const busy = pending === renameKey || pending === unlinkKey;
-
-  return (
-    <div
-      role="group"
-      aria-label={`${providerLabel} account access`}
-      className="border-border/70 bg-card flex items-center gap-3 rounded-2xl border px-3 py-2.5"
-    >
-      <WalletIconSlot
-        id={group.provider}
-        label={providerLabel}
-        provider={group.provider}
-        className="!bg-transparent"
-      />
-      <span className="min-w-0 flex-1">
-        {editing ? (
-          <input
-            value={draftLabel}
-            onChange={(event) => onDraftLabelChange(event.target.value)}
-            disabled={busy}
-            aria-label={`Sign-in label for ${title}`}
-            className="border-input bg-background text-foreground focus:border-primary h-8 w-full rounded-lg border px-2 text-sm outline-none"
-          />
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground truncate text-sm font-medium">
-                {title}
-              </span>
-              {familyAccess.map((access) => (
-                <ChainTag
-                  key={access.family}
-                  family={access.family}
-                  capability={access.capability}
-                />
-              ))}
-            </span>
-            <span className="text-muted-foreground block truncate text-[11px]">
-              {subtitle}
-            </span>
-          </>
-        )}
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        {editing ? (
-          <>
-            <RowIconButton
-              icon={CheckIcon}
-              ariaLabel={`Save label for ${title}`}
-              disabled={busy}
-              loading={pending === renameKey}
-              onClick={onSubmitRename}
-            />
-            <RowIconButton
-              icon={XIcon}
-              ariaLabel={`Cancel renaming ${title}`}
-              disabled={busy}
-              onClick={onCancelRename}
-            />
-          </>
-        ) : (
-          <>
-            {onStartRename ? (
-              <RowIconButton
-                icon={PencilIcon}
-                ariaLabel={`Rename ${title}`}
-                disabled={busy}
-                onClick={onStartRename}
-              />
-            ) : null}
-            {onUnlink ? (
-              <RowIconButton
-                icon={Trash2Icon}
-                ariaLabel={`Unlink ${title}`}
-                disabled={busy}
-                loading={pending === unlinkKey}
-                onClick={onUnlink}
-              />
-            ) : (
-              <CheckCircle2Icon className="text-primary size-4 shrink-0" />
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LinkedAuthAccountRow({
-  account,
-  editing,
-  draftLabel,
-  pending,
-  onDraftLabelChange,
-  onStartRename,
-  onCancelRename,
-  onSubmitRename,
-  onUnlink,
-}: {
-  account: LinkedAccountRow;
-  editing: boolean;
-  draftLabel: string;
-  pending: string | null;
-  onDraftLabelChange: (value: string) => void;
-  onStartRename?: () => void;
-  onCancelRename: () => void;
-  onSubmitRename: () => void;
-  onUnlink?: () => void;
-}) {
-  const providerLabel =
-    formatWalletProvider(account.provider) ?? account.provider;
-  const title = linkedAccountTitle(account);
-  const subtitle = linkedAccountSubtitle(account, title);
-  const busy =
-    pending === `identity:rename:${account.id}` ||
-    pending === `identity:unlink:${account.id}`;
-  return (
-    <div className="border-border/70 bg-card flex items-center gap-3 rounded-2xl border px-3 py-2.5">
-      <WalletIconSlot
-        id={account.provider}
-        label={providerLabel}
-        provider={account.provider}
-        className="!bg-transparent"
-      />
-      <span className="min-w-0 flex-1">
-        {editing ? (
-          <input
-            value={draftLabel}
-            onChange={(event) => onDraftLabelChange(event.target.value)}
-            disabled={busy}
-            aria-label={`Sign-in label for ${title}`}
-            className="border-input bg-background text-foreground focus:border-primary h-8 w-full rounded-lg border px-2 text-sm outline-none"
-          />
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground truncate text-sm font-medium">
-                {title}
-              </span>
-            </span>
-            <span className="text-muted-foreground block truncate text-[11px]">
-              {subtitle}
-            </span>
-          </>
-        )}
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        {editing ? (
-          <>
-            <RowIconButton
-              icon={CheckIcon}
-              ariaLabel={`Save label for ${title}`}
-              disabled={busy}
-              loading={pending === `identity:rename:${account.id}`}
-              onClick={onSubmitRename}
-            />
-            <RowIconButton
-              icon={XIcon}
-              ariaLabel={`Cancel renaming ${title}`}
-              disabled={busy}
-              onClick={onCancelRename}
-            />
-          </>
-        ) : (
-          <>
-            {onStartRename ? (
-              <RowIconButton
-                icon={PencilIcon}
-                ariaLabel={`Rename ${title}`}
-                disabled={busy}
-                onClick={onStartRename}
-              />
-            ) : null}
-            {onUnlink ? (
-              <RowIconButton
-                icon={Trash2Icon}
-                ariaLabel={`Unlink ${title}`}
-                disabled={busy}
-                loading={pending === `identity:unlink:${account.id}`}
-                onClick={onUnlink}
-              />
-            ) : (
-              <CheckCircle2Icon className="text-primary size-4 shrink-0" />
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function linkedAccountSubtitle(
-  account: LinkedAccountRow,
-  title?: string,
-): string {
-  if (isProviderAuthAccount(account.provider)) {
-    return "Provider sign-in";
-  }
-  if (
-    account.email &&
-    !isSyntheticAomiEmail(account.email) &&
-    account.email.toLowerCase() !== title?.toLowerCase()
-  ) {
-    return account.email;
-  }
-  return account.subject;
-}
-
-function linkedAccountTitle(account: LinkedAccountRow): string {
-  const providerLabel =
-    formatWalletProvider(account.provider) ?? account.provider;
-  const displayLabel = account.displayLabel?.trim();
-  if (!displayLabel) return providerLabel;
-  if (
-    isProviderAuthAccount(account.provider) &&
-    account.email &&
-    displayLabel.toLowerCase() === account.email.toLowerCase()
-  ) {
-    return providerLabel;
-  }
-  return displayLabel;
-}
-
-function isProviderAuthAccount(provider: string): boolean {
-  return isProviderAuthProvider(provider);
-}
-
-function ConnectedWalletSummaryRow({
-  entry,
-  supportedEvmChains,
-}: {
-  entry: WalletModalRow;
-  supportedEvmChains: readonly SupportedEvmChain[];
-}) {
-  const address = formatWalletAddress(entry.address);
-  const networkName =
-    entry.family === "evm"
-      ? networkNameForChain(entry.chainId, supportedEvmChains)
-      : "Solana";
-  const linkState = entry.linked
-    ? "Linked"
-    : entry.family === "evm"
-      ? "Verify to link"
-      : "Connected only";
-  const provider = providerBackedAccountProvider(entry);
-  const title = providerBackedWalletTitle(entry);
-  return (
-    <div className="border-border/70 bg-card flex items-center gap-3 rounded-2xl border px-3 py-2.5">
-      <WalletIconSlot
-        id={provider ?? entry.connectionId ?? entry.key}
-        label={title}
-        provider={provider ?? entry.provider}
-        className="!bg-transparent"
-      />
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="text-foreground truncate text-sm font-medium">
-            {title}
-          </span>
-          <ChainTag family={entry.family} capability={entry.capability} />
-        </span>
-        <span className="text-muted-foreground block truncate text-[11px]">
-          {[address, networkName, linkState].filter(Boolean).join(" · ")}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-function LinkedWalletManagementRow({
-  wallet,
-  supportedEvmChains,
-  live,
-  editing,
-  draftLabel,
-  pending,
-  onDraftLabelChange,
-  onStartRename,
-  onCancelRename,
-  onSubmitRename,
-  onUnlink,
-}: {
-  wallet: LinkedWalletRow;
-  supportedEvmChains: readonly SupportedEvmChain[];
-  live: boolean;
-  editing: boolean;
-  draftLabel: string;
-  pending: string | null;
-  onDraftLabelChange: (value: string) => void;
-  onStartRename: () => void;
-  onCancelRename: () => void;
-  onSubmitRename: () => void;
-  onUnlink?: () => void;
-}) {
-  const providerTitle = providerBackedAccountProvider(wallet)
-    ? providerBackedWalletTitle({
-        provider: wallet.provider,
-        walletName: wallet.label,
-        family: wallet.family,
-        kind: wallet.kind,
-      })
-    : null;
-  const title = wallet.label ?? providerTitle ?? "Wallet";
-  const busy =
-    pending === `wallet:rename:${wallet.id}` ||
-    pending === `wallet:unlink:${wallet.id}`;
-  const networkName =
-    wallet.family === "evm"
-      ? networkNameForChain(
-          wallet.chainId ?? chainIdFromScope(wallet.chainScope),
-          supportedEvmChains,
-        )
-      : undefined;
-
-  return (
-    <div className="border-border/70 bg-card flex items-center gap-3 rounded-2xl border px-3 py-2.5">
-      <WalletIconSlot
-        id={wallet.providerWalletId ?? wallet.provider ?? wallet.id}
-        label={wallet.provider ?? title}
-        className="!bg-transparent"
-      />
-      <span className="min-w-0 flex-1">
-        {editing ? (
-          <input
-            value={draftLabel}
-            onChange={(event) => onDraftLabelChange(event.target.value)}
-            disabled={busy}
-            aria-label={`Wallet label for ${title}`}
-            className="border-input bg-background text-foreground focus:border-primary h-8 w-full rounded-lg border px-2 text-sm outline-none"
-          />
-        ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground truncate text-sm font-medium">
-                {title}
-              </span>
-              <ChainTag
-                family={wallet.family}
-                capability={live ? "write" : wallet.capability}
-              />
-            </span>
-            <span className="text-muted-foreground block truncate text-[11px]">
-              {[formatWalletAddress(wallet.address), networkName]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          </>
-        )}
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        {editing ? (
-          <>
-            <RowIconButton
-              icon={CheckIcon}
-              ariaLabel={`Save label for ${title}`}
-              disabled={busy}
-              loading={pending === `wallet:rename:${wallet.id}`}
-              onClick={onSubmitRename}
-            />
-            <RowIconButton
-              icon={XIcon}
-              ariaLabel={`Cancel renaming ${title}`}
-              disabled={busy}
-              onClick={onCancelRename}
-            />
-          </>
-        ) : (
-          <>
-            <RowIconButton
-              icon={PencilIcon}
-              ariaLabel={`Rename ${title}`}
-              disabled={busy}
-              onClick={onStartRename}
-            />
-            {onUnlink ? (
-              <RowIconButton
-                icon={Trash2Icon}
-                ariaLabel={`Unlink ${title}`}
-                disabled={busy}
-                loading={pending === `wallet:unlink:${wallet.id}`}
-                onClick={onUnlink}
-              />
-            ) : null}
-          </>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function FinishSignInPanel({

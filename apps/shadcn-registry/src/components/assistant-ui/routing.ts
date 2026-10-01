@@ -8,19 +8,20 @@ export type AomiRoutingTarget =
   | { mode: "auto" }
   | { mode: "direct"; apps: readonly DirectRoutingApp[] };
 
-/** Host constraints for the widget's execution controls. */
+/**
+ * Host-owned agent routing. Users get no mode control: every chat runs
+ * `defaultMode`, and Direct keeps the thread's app when `targets` allows it,
+ * else the first listed app.
+ */
 export type AomiRoutingConfig = {
   targets?: readonly AomiRoutingTarget[];
   defaultMode?: AgentMode;
-  /** Keep the mode and app controls visible for a fixed Direct destination. */
-  showFixedControls?: boolean;
 };
 
 export type NormalizedAomiRouting = {
   modes: readonly AgentMode[];
   directApps: readonly DirectRoutingApp[];
   defaultMode: AgentMode;
-  showFixedControls: boolean;
   error: string | null;
 };
 
@@ -28,7 +29,6 @@ const DEFAULT_ROUTING: NormalizedAomiRouting = {
   modes: ["auto"],
   directApps: [],
   defaultMode: "auto",
-  showFixedControls: false,
   error: null,
 };
 
@@ -51,34 +51,14 @@ export function sameDirectRoutingApp(
   return directAppKey(left) === directAppKey(right);
 }
 
-/**
- * Show a target picker whenever Direct is an interactive choice. A host-fixed
- * Direct-only widget with one app stays chrome-free unless the host explicitly
- * keeps its fixed controls visible.
- */
-export function shouldShowDirectAppSelect(
-  mode: AgentMode,
-  routing: NormalizedAomiRouting,
-): boolean {
-  return (
-    mode === "direct" &&
-    routing.directApps.length > 0 &&
-    (routing.showFixedControls ||
-      routing.modes.length > 1 ||
-      routing.directApps.length > 1)
-  );
-}
-
 export function normalizeAomiRouting(
   routing?: AomiRoutingConfig,
 ): NormalizedAomiRouting {
   if (!routing) return DEFAULT_ROUTING;
   const targets = routing.targets ?? [{ mode: "auto" as const }];
-  const showFixedControls = routing.showFixedControls === true;
   if (targets.length === 0) {
     return {
       ...DEFAULT_ROUTING,
-      showFixedControls,
       error: "Routing must allow at least one mode.",
     };
   }
@@ -106,7 +86,6 @@ export function normalizeAomiRouting(
   if (invalidDirectApp) {
     return {
       ...DEFAULT_ROUTING,
-      showFixedControls,
       error:
         "Direct routing apps need a non-empty app or positive applicationId.",
     };
@@ -114,7 +93,6 @@ export function normalizeAomiRouting(
   if (directTargets.length > 0 && directApps.length === 0) {
     return {
       ...DEFAULT_ROUTING,
-      showFixedControls,
       error: "Direct routing must include at least one app.",
     };
   }
@@ -126,7 +104,6 @@ export function normalizeAomiRouting(
   if (modes.length === 0) {
     return {
       ...DEFAULT_ROUTING,
-      showFixedControls,
       error: "Routing must allow Auto or Direct.",
     };
   }
@@ -136,7 +113,6 @@ export function normalizeAomiRouting(
       modes,
       directApps,
       defaultMode: modes[0]!,
-      showFixedControls,
       error: `The default mode ${defaultMode} is not enabled by routing.`,
     };
   }
@@ -144,7 +120,6 @@ export function normalizeAomiRouting(
     modes,
     directApps,
     defaultMode,
-    showFixedControls,
     error: null,
   };
 }

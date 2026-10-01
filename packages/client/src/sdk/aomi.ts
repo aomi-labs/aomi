@@ -1,4 +1,5 @@
 import type { ActionCapabilities } from "../actions";
+import { commitCapabilities } from "../commits";
 import { AomiClient } from "../client";
 import { createGuestSessionProvider } from "../guest-auth";
 import type { AomiClientOptions } from "../types";
@@ -14,6 +15,7 @@ import {
   type AomiAuthStrategy,
 } from "./auth";
 import { AomiPipeline } from "./pipeline";
+import type { TransactionSafetyTransport } from "../transaction-safety";
 import type { AccountTransport } from "../account/credits";
 import { createEvmPaymentClient } from "../payment";
 
@@ -40,6 +42,7 @@ export class Aomi {
   readonly pipeline: AomiPipeline;
   readonly agent: AomiAgent;
   readonly account: AccountTransport;
+  readonly transactionSafety: TransactionSafetyTransport;
   readonly auth: AomiAuthController;
   readonly wallet?: Wallets;
 
@@ -103,8 +106,13 @@ export class Aomi {
 
     this.wallet = wallet;
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
-    this.pipeline = new AomiPipeline(this.raw.pipeline);
+    this.pipeline = new AomiPipeline(
+      this.raw.pipeline,
+      this.raw,
+      wallet ? commitCapabilities(wallet) : undefined,
+    );
     this.account = this.raw.account;
+    this.transactionSafety = this.raw.transactionSafety;
     this.agent = new AomiAgent(this.raw.agent, this.raw, capabilities, () =>
       wallet ? walletUserState(wallet) : undefined,
     );

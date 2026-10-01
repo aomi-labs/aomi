@@ -59,7 +59,7 @@ const inactiveWallet: ManagedWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
-  it("opens the canonical wallet chooser from Add wallet", () => {
+  it("opens the canonical wallet chooser from Add more", () => {
     const onAddWallet = vi.fn();
     render(
       <AccountManagement
@@ -67,14 +67,12 @@ describe("AccountManagement wallet actions", () => {
         wallets={[]}
         signInMethods={[]}
         canAddWallet
-        addSignInOptions={[]}
         pending={null}
         onAddWallet={onAddWallet}
-        onAddSignIn={async () => undefined}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
 
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
@@ -87,11 +85,9 @@ describe("AccountManagement wallet actions", () => {
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onRenameAccount={onRenameAccount}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
       />,
     );
 
@@ -121,11 +117,9 @@ describe("AccountManagement wallet actions", () => {
         wallets={[]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onRenameAccount={async () => undefined}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
       />,
     );
 
@@ -142,7 +136,7 @@ describe("AccountManagement wallet actions", () => {
     expect(screen.queryByDisplayValue("Temporary")).toBeNull();
   });
 
-  it("shows Connect with an icon for offline wallets and Disconnect for live wallets", () => {
+  it("offers Connect inline for an offline wallet and keeps disconnect in the row menu", () => {
     const onConnectWallet = vi.fn(async () => undefined);
     const onDisconnectWallet = vi.fn(async () => undefined);
     const onSelectWallet = vi.fn(async () => undefined);
@@ -153,42 +147,31 @@ describe("AccountManagement wallet actions", () => {
         wallets={[connectedWallet, inactiveWallet, linkedWallet]}
         signInMethods={[]}
         canAddWallet={false}
-        addSignInOptions={[]}
         pending={null}
         onAddWallet={() => undefined}
-        onAddSignIn={async () => undefined}
         onConnectWallet={onConnectWallet}
         onDisconnectWallet={onDisconnectWallet}
         onSelectWallet={onSelectWallet}
       />,
     );
 
-    const connect = screen.getByRole("button", { name: "Connect" });
-    const disconnect = screen.getAllByRole("button", {
-      name: "Disconnect",
-    })[0];
-    expect(connect.querySelector("svg")).toBeTruthy();
-    expect(disconnect.querySelector("svg")).toBeTruthy();
+    expect(screen.queryByRole("menuitem")).toBeNull();
     expect(screen.queryByRole("button", { name: "Use" })).toBeNull();
     expect(
       screen.getByText("3 linked wallets · 1 not connected on this device"),
     ).toBeTruthy();
 
     const selectWallet = screen.getByRole("button", {
-      name: "Make Coinbase Wallet active",
+      name: "Make 0xc0ff active",
     });
-    expect(
-      document.querySelector('[data-wallet-state="active"]')?.className,
-    ).toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).not.toContain("bg-aomi-success");
-    expect(
-      document.querySelector('[data-wallet-state="connected"]')?.className,
-    ).toContain("hover:bg-aomi-hover");
 
-    fireEvent.click(connect);
-    fireEvent.click(disconnect);
+    expect(screen.getByText("Not on this device")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for Rabby 0xda65" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Disconnect" }));
+    expect(onSelectWallet).not.toHaveBeenCalled();
     fireEvent.click(selectWallet);
     expect(onConnectWallet).toHaveBeenCalledWith(linkedWallet);
     expect(onDisconnectWallet).toHaveBeenCalledWith(connectedWallet);

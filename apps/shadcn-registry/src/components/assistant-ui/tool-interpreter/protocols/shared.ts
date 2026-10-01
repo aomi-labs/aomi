@@ -6,11 +6,11 @@ import {
   uniqueFacts,
 } from "../normalize";
 import type { ToolFact, ToolOperation } from "../types";
+import { isErrorResult } from "../families/operation";
 
 export const validResult = (
   result: Record<string, unknown> | null,
-): result is Record<string, unknown> =>
-  !!result && result.is_error !== true && !result.error;
+): result is Record<string, unknown> => !!result && !isErrorResult(result);
 
 export const displayedAmount = (value: unknown): ToolFact | null =>
   amountFact(asString(asRecord(value)?.display));

@@ -21,6 +21,12 @@ export type SupportedChain = {
 
 const STALE_FAILED_SIMULATION_WARNING = "simulation did not pass";
 
+/** Keyboard focus ring for the panel's controls. The transaction list clips
+ * overflow, so an offset outline would be cut off: draw it inside the control
+ * instead, and none after a pointer click. */
+export const focusRing =
+  "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-aomi-ring/50";
+
 export type TransactionView = {
   label: string;
   network: string;
@@ -146,7 +152,8 @@ export function friendlyTransactionLabel(label: string, kind?: string): string {
   if (normalizedKind.includes("approve") && !/^approve\b/i.test(clean)) {
     return `Approve ${clean}`;
   }
-  if (normalizedKind.includes("swap") && !/^swap\b/i.test(clean)) {
+  // LI.FI bridges also carry the `lifi_swap` kind.
+  if (normalizedKind.includes("swap") && !/^(swap|bridge)\b/i.test(clean)) {
     return `Swap ${clean}`;
   }
   return clean;

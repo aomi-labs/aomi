@@ -40,6 +40,10 @@ export {
   sessionScopedFetch,
 } from "./components/account-shell/lib/settings-api";
 export { useSettings } from "./components/account-shell/lib/use-settings";
+export {
+  requestSettingsOpen,
+  useSettingsOpenRequest,
+} from "./components/account-shell/lib/settings-events";
 
 // Development audit pages are first-party host composition, not public widget
 // API. Keeping them here lets Portal avoid importing widget-owned source paths.

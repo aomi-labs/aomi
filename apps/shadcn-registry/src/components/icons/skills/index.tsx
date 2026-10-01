@@ -10,6 +10,7 @@ import {
 } from "../apps";
 import { ArbitrumIcon, BaseIcon, OptimismIcon, RobinhoodIcon } from "../chains";
 
+import { skillBrandLabel } from "../../../lib/capabilities/skill-label";
 import { sourcedSkillMarks } from "./sourced-marks";
 
 type SkillIconProps = SVGProps<SVGSVGElement>;
@@ -161,6 +162,28 @@ export function JupiterSkillIcon(props: SkillIconProps) {
         fill="currentColor"
         opacity=".55"
       />
+    </svg>
+  );
+}
+
+/**
+ * DefiLlama's "D" with the llama cut out, as one solid shape. The app mark's
+ * translucent segments turn muddy at chip size, so skills use this merged
+ * silhouette of the same geometry.
+ */
+const DEFILLAMA_MARK =
+  "M53.72,13.12c0,17.05-13.83,30.88-30.88,30.89V24.44c0-6.25,5.07-11.31,11.32-11.32h19.57ZM71.27,13.12h-17.55c0,17.05-13.83,30.88-30.88,30.89V122.27c11.88,.02,23.64-2.51,34.46-7.41l1.37-40.45c-2.42-1.19-4.14-4.36-4.14-8.07,0-4.17,2.18-7.64,5.05-8.42,.39-2.51,1.28-4.92,2.62-7.09-1.27-.15-2.4-.89-3.07-1.99-2.6-3.82-6.1-7.73-8.79-14.07-.5-1.11-.36-2.41,.36-3.39,.56-.73,1.61-.87,2.34-.32,.07,.06,.14,.12,.21,.19,4.15,3.93,9.15,5.11,11.91,8.88,.2-.47,.47-.91,.79-1.3,1.61-2.08,4.41-2.82,6.84-1.8,.93-3.13,4.22-4.92,7.35-3.99,1.92,.57,3.42,2.07,3.99,3.99,1.25-.56,2.67-.63,3.97-.19,3.2-6.09,7.14-11.76,11.75-16.87-8.84-4.53-18.64-6.88-28.57-6.87M105.22,23.11c-1.75-1.13-3.54-2.17-5.4-3.12-4.6,5.11-8.55,10.78-11.75,16.87,1.13,.36,2.13,1.05,2.86,1.99,.32,.4,.58,.84,.79,1.3,2.59-3.54,7.14-4.34,11.13-8.15,.8-.83,2.08-.96,3.03-.3,.21,.14,.39,.31,.53,.52,.53,.68,.64,1.6,.28,2.39l-.11,.27c-2.67,6.21-6.16,10.16-8.74,13.97-.67,1.11-1.82,1.84-3.11,1.99,1.32,2.16,2.2,4.57,2.57,7.09,2.59,.71,4.6,3.57,4.98,7.18,.05,.41,.07,.83,.07,1.24,0,3.49-1.53,6.5-3.73,7.83-.13,.09-.27,.17-.41,.24v.6l1.91,56.59c20.8-10.79,33.85-32.28,33.85-55.71h0c.02-21.34-10.81-41.22-28.74-52.78M57.3,114.86l-.8,23.79h-22.34c-6.25,0-11.31-5.07-11.32-11.32h0v-5.06c11.88,.02,23.64-2.51,34.46-7.41";
+
+export function DefillamaSkillIcon(props: SkillIconProps) {
+  return (
+    <svg
+      viewBox="0 0 150 150"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      {...props}
+    >
+      <path fill="currentColor" d={DEFILLAMA_MARK} />
     </svg>
   );
 }
@@ -370,6 +393,7 @@ export function KrexaSkillIcon(props: SkillIconProps) {
 const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   avantis: AvantisSkillIcon,
   debridge: DebridgeSkillIcon,
+  defillama: DefillamaSkillIcon,
   drift: DriftSkillIcon,
   eigenlayer: EigenlayerSkillIcon,
   kelp: KelpSkillIcon,
@@ -416,11 +440,6 @@ const SKILL_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   zora: ZoraSkillIcon,
 };
 
-const SKILL_DISPLAY_NAMES: Record<string, string> = {
-  common_erc20: "Common Erc20",
-  lifi_swap: "Lifi Swap",
-};
-
 /** Normalize a capability catalog ID before looking up its visual identity. */
 export function normalizeSkillId(skillId: string): string {
   return skillId
@@ -437,5 +456,5 @@ export function getSkillIcon(
 }
 
 export function getSkillDisplayName(skillId: string): string | undefined {
-  return SKILL_DISPLAY_NAMES[normalizeSkillId(skillId)];
+  return skillBrandLabel(normalizeSkillId(skillId));
 }

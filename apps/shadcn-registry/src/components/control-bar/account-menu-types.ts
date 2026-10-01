@@ -14,11 +14,8 @@ export type WalletAccountMenuOptions = {
   noticeLine?: string;
   /** Menu header wallet label (e.g. MetaMask, Para). */
   walletLabel?: string;
-  /** Shown on the Switch network row trailing label. */
-  networkLabel?: string;
   /** Shown on the Theme row trailing label. */
   themeLabel?: string;
-  onSwitchNetwork?: () => void;
   onToggleTheme?: () => void;
   /** Open the host's canonical account-and-wallet management surface. */
   onManageAccount?: () => void;

@@ -9,17 +9,17 @@ import { UserState } from "@aomi-labs/client";
 export const SIGNER_MODES: { id: SignerMode; label: string; hint: string }[] = [
   {
     id: "manual",
-    label: "Manual",
+    label: "Ask me",
     hint: "You approve every transaction in your wallet. Nothing signs without you.",
   },
   {
     id: "client_auto",
-    label: "Auto-approve",
+    label: "Auto",
     hint: "Your wallet auto-signs each transaction. Aomi never holds the key.",
   },
   {
     id: "auto",
-    label: "Auto",
+    label: "Automatic signing",
     hint: "The delegated provider authorizes transactions; Hosted submits by default. Application and sponsorship limits still apply.",
   },
   {
@@ -49,8 +49,6 @@ const EMBEDDED_PROVIDERS: Partial<Record<LinkedVia, string>> = {
   privy: "Privy",
   para: "Para",
 };
-
-type Custody = "self" | "embedded";
 
 export type Recon =
   | { status: "reconciled"; detail: string }
@@ -123,19 +121,6 @@ export function walletDisplayName(wallet: WalletPolicy): string {
   return wallet.linkedVia.toUpperCase();
 }
 
-function custodyOf(v: LinkedVia): Custody {
-  return v === "siwe" || v === "siws" ? "self" : "embedded";
-}
-
-export function walletGroupKey(wallet: WalletPolicy): Custody {
-  return custodyOf(wallet.linkedVia);
-}
-
-export const CUSTODY_GROUPS: { key: Custody; label: string }[] = [
-  { key: "self", label: "Self-custody wallets" },
-  { key: "embedded", label: "Embedded wallets" },
-];
-
 /**
  * Which modes this wallet may hold — backend truth wins where the wire carries it.
  */
@@ -143,8 +128,19 @@ export function modeValidFor(wallet: WalletPolicy, mode: SignerMode): boolean {
   if (wallet.providerManaged)
     return mode === "denied" || (mode === "auto" && wallet.canUseAuto === true);
   if (mode === "denied" || mode === "manual") return true;
-  if (mode === "client_auto") return true;
+  // `client_auto` stays offered on Para/Privy wallets, where it is valid today.
+  // No execution path reads it for an external (SIWE/SIWS) wallet yet, so it
+  // is not offered there; revisit once external auto-approve is wired.
+  if (mode === "client_auto")
+    return wallet.linkedVia === "para" || wallet.linkedVia === "privy";
   return wallet.canUseAuto === true;
+}
+
+/** The per-wallet choices on the Safety tab: Ask me · Auto · Locked. */
+export function signingChoicesFor(wallet: WalletPolicy): SignerMode[] {
+  return (["manual", "client_auto", "denied"] as const).filter((mode) =>
+    modeValidFor(wallet, mode),
+  );
 }
 
 export function unavailableReason(
@@ -156,7 +152,8 @@ export function unavailableReason(
   }
   if (mode === "auto")
     return "Requires an active delegation for this exact wallet.";
-  if (mode === "client_auto") return "Only available on self-custody wallets.";
+  if (mode === "client_auto")
+    return "Auto is only available on Para and Privy wallets.";
   return "Not available for this wallet.";
 }
 
@@ -203,19 +200,6 @@ export function findDelegationForWallet(
   return (
     matching.find((delegation) => delegation.status === "active") ?? matching[0]
   );
-}
-
-export function walletStatusLabel(
-  wallet: WalletPolicy,
-  recon: Recon,
-  pending: boolean,
-): string {
-  if (pending) return "Awaiting signature";
-  if (recon.status === "drifted") return "Delegation expired";
-  if (wallet.desiredMode === "auto" && wallet.delegationActive) {
-    return `Delegation valid to ${wallet.delegationExpiresLabel ?? "—"}`;
-  }
-  return modeLabel(wallet.desiredMode);
 }
 
 export function sortWallets(wallets: WalletPolicy[]): WalletPolicy[] {

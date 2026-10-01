@@ -1,5 +1,6 @@
 export { ClientSession, aaModeFromExecutionKind } from "./session/index";
 export type {
+  SendOptions,
   SendResult,
   SessionOptions,
   SessionRuntimeOptions,

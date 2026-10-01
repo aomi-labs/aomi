@@ -1,3 +1,7 @@
+# Web search and fetch chips — 2026-09-29
+
+In the `agent-usefulness` worktree, the working trace shows up to three unique result domains (globe chips, `www.` stripped) for `web_search`, legacy `brave_search`, and `search_docs`, from JSON `results[]` or legacy `URL:` lines. While a search is pending, or when it finds no domains, a search chip shows the truncated query with the full text as its tooltip. The "N results" count chip is gone. The new `web_fetch` step reads "Read page" and shows the host actually read after redirects, or the requested host while pending. Widget patch version: 3.0.17.
+
 # Completed chat answer visibility — 2026-09-24
 
 In the isolated `codex/chat-final-response-visible` frontend worktree, the

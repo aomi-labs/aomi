@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   AomiUserRef,
   LinkedAuthAccount,
@@ -14,44 +14,34 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { WalletProviderAvatar } from "../wallet-brands";
+import { aomiButton } from "../../../../ui/aomi/button";
+import { ListGroup, ListRow } from "../../../../ui/aomi/list-group";
+import { SectionHeader } from "../../../../ui/aomi/section-header";
 import {
-  Divider,
-  SettingRow,
-  SettingsSectionHeading,
-  settingsPanelClass,
-} from "../settings-rows";
-import {
+  accountDisplayName,
   walletConnectionSummary,
   type ManagedWallet,
 } from "../wallet-management-model";
 
 import {
+  ExternalWalletCard,
   IconButton,
-  OptionGrid,
-  StatusBadge,
+  ProviderWalletCard,
   TextButton,
-  titleCase,
-  WalletRow,
 } from "./controls";
-
-export type AddSignInOption = {
-  id: string;
-  label: string;
-  ready: boolean;
-};
+import { groupWallets } from "./wallet-groups";
 
 type AccountManagementProps = {
   user?: AomiUserRef;
+  /** Session-derived presentation hint; never persisted as account email. */
+  displayEmailHint?: string;
   wallets: ManagedWallet[];
   signInMethods: LinkedAuthAccount[];
   canAddWallet: boolean;
-  addSignInOptions: AddSignInOption[];
   pending: string | null;
   error?: string | null;
   onRenameAccount?: (displayName: string) => Promise<void>;
   onAddWallet: () => void;
-  onAddSignIn: (option: AddSignInOption) => Promise<void>;
   onLinkWallet?: (wallet: ManagedWallet) => Promise<void>;
   onConnectWallet?: (wallet: ManagedWallet) => Promise<void>;
   onSelectWallet?: (wallet: ManagedWallet) => Promise<void>;
@@ -64,15 +54,14 @@ type AccountManagementProps = {
 
 export function AccountManagement({
   user,
+  displayEmailHint,
   wallets,
   signInMethods,
   canAddWallet,
-  addSignInOptions,
   pending,
   error,
   onRenameAccount,
   onAddWallet,
-  onAddSignIn,
   onLinkWallet,
   onConnectWallet,
   onSelectWallet,
@@ -84,11 +73,17 @@ export function AccountManagement({
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const [addSignInOpen, setAddSignInOpen] = useState(false);
-  const visibleName = user?.displayName ?? user?.email ?? "Aomi account";
-  const connectedWalletCount = wallets.filter(
-    (wallet) => wallet.connected,
-  ).length;
+  const groups = groupWallets(wallets, signInMethods);
+  const lineHandlers = {
+    pending,
+    onLink: onLinkWallet,
+    onConnect: onConnectWallet,
+    onSelect: onSelectWallet,
+    onDisconnect: onDisconnectWallet,
+    onUnlink: onUnlinkWallet,
+  };
+  const visibleName = accountDisplayName(user, displayEmailHint);
+  const onDevice = wallets.filter((wallet) => wallet.connected).length;
   const walletSummary = walletConnectionSummary(wallets);
   const accountDetail =
     user?.email && user.email !== visibleName
@@ -106,26 +101,54 @@ export function AccountManagement({
     setEditingName(false);
   };
 
+  const renameActions = editingName ? (
+    <div className="flex items-center gap-1.5">
+      <IconButton
+        label="Save account name"
+        busy={pending === "account:rename"}
+        onClick={() => void saveName()}
+      >
+        <Check />
+      </IconButton>
+      <IconButton
+        label="Cancel account name edit"
+        disabled={pending === "account:rename"}
+        onClick={cancelNameEdit}
+      >
+        <X />
+      </IconButton>
+    </div>
+  ) : onRenameAccount ? (
+    <IconButton
+      label="Rename account"
+      onClick={() => {
+        setDisplayName(user?.displayName ?? "");
+        setEditingName(true);
+      }}
+    >
+      <Pencil />
+    </IconButton>
+  ) : null;
+
   return (
-    <div className="mx-auto flex w-full max-w-[780px] flex-col gap-5 px-6 py-6">
+    <div className="flex flex-col gap-5">
       {error ? (
         <div
           role="alert"
-          className="border-aomi-danger/30 bg-aomi-danger/5 text-aomi-danger rounded-lg border px-3 py-2 text-[13px]"
+          className="border-aomi-danger/30 bg-aomi-danger/5 text-aomi-danger rounded-control type-control border px-3 py-2"
         >
           {error}
         </div>
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <SettingsSectionHeading title="Account" />
-        <div className={settingsPanelClass}>
-          <SettingRow
-            className="px-4"
+        <SectionHeader title="Profile" detail="How your account appears" />
+        <ListGroup>
+          <ListRow
             leading={
-              <span className="bg-aomi-surface-2 text-aomi-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                <UserRound size={16} />
-              </span>
+              <RowIcon>
+                <UserRound className="size-4" />
+              </RowIcon>
             }
             title={
               editingName ? (
@@ -139,204 +162,136 @@ export function AccountManagement({
                   }}
                   aria-label="Account display name"
                   disabled={pending === "account:rename"}
-                  className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted h-7 w-full max-w-64 rounded-md border px-2 text-sm font-medium outline-none transition-colors"
+                  className="border-aomi-border bg-aomi-bg text-aomi-fg focus:border-aomi-muted type-row rounded-control h-7 w-full max-w-64 border px-2 outline-none transition-colors"
                 />
               ) : (
                 visibleName
               )
             }
-            desc={accountDetail}
-          >
-            {editingName ? (
-              <div className="flex items-center gap-1.5">
-                <IconButton
-                  label="Save account name"
-                  busy={pending === "account:rename"}
-                  onClick={() => void saveName()}
-                >
-                  <Check size={14} />
-                </IconButton>
-                <IconButton
-                  label="Cancel account name edit"
-                  disabled={pending === "account:rename"}
-                  onClick={cancelNameEdit}
-                >
-                  <X size={14} />
-                </IconButton>
-              </div>
-            ) : onRenameAccount ? (
-              <IconButton
-                label="Rename account"
-                onClick={() => {
-                  setDisplayName(user?.displayName ?? "");
-                  setEditingName(true);
-                }}
-              >
-                <Pencil size={14} />
-              </IconButton>
-            ) : null}
-          </SettingRow>
-        </div>
+            description={accountDetail}
+            trailing={renameActions}
+          />
+        </ListGroup>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <SettingsSectionHeading
-          title="Wallets"
-          detail={`${wallets.length} total · ${connectedWalletCount} connected now`}
+      <section className="flex flex-col gap-2 [&_h3]:shrink-0">
+        <SectionHeader
+          title="Wallets & access"
+          className="flex-wrap sm:flex-nowrap"
+          help="Each address can be active for its family: one EVM and one SVM at a time. Click an address to make it active; a status appears only when an address needs attention, such as one that is not on this device or not yet saved to your account."
+          detail={`${wallets.length} ${
+            wallets.length === 1 ? "address" : "addresses"
+          } · ${onDevice} on this device`}
           action={
             canAddWallet ? (
               <button
                 type="button"
                 onClick={onAddWallet}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
+                className={aomiButton({ variant: "secondary", size: "sm" })}
               >
-                <Plus size={13} />
-                Add wallet
+                <Plus />
+                Add more
               </button>
             ) : undefined
           }
         />
 
-        <div className={settingsPanelClass}>
-          {wallets.length ? (
-            wallets.map((wallet, index) => (
-              <div key={wallet.key}>
-                {index > 0 ? <Divider /> : null}
-                <WalletRow
-                  wallet={wallet}
-                  pending={pending}
-                  onLink={onLinkWallet}
-                  onConnect={onConnectWallet}
-                  onSelect={onSelectWallet}
-                  onDisconnect={onDisconnectWallet}
-                  onUnlink={onUnlinkWallet}
+        {groups.length ? (
+          <ListGroup>
+            {groups.map((group) =>
+              group.kind === "provider" ? (
+                <ProviderWalletCard
+                  key={group.key}
+                  provider={group.provider}
+                  identity={group.identity}
+                  wallets={group.wallets}
+                  onUnlinkSignIn={onUnlinkSignIn}
+                  {...lineHandlers}
                 />
-              </div>
-            ))
-          ) : (
-            <p className="text-aomi-muted px-4 py-5 text-[13px]">
+              ) : (
+                <ExternalWalletCard
+                  key={group.key}
+                  wallet={group.wallet}
+                  {...lineHandlers}
+                />
+              ),
+            )}
+          </ListGroup>
+        ) : (
+          <ListGroup>
+            <p className="type-control text-aomi-muted px-3.5 py-4">
               No wallets are connected or linked yet.
             </p>
-          )}
-        </div>
+          </ListGroup>
+        )}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <SettingsSectionHeading
-          title="Sign-in methods"
-          detail={
-            signInMethods.length ? `${signInMethods.length} linked` : undefined
-          }
-          action={
-            addSignInOptions.length ? (
-              <button
-                type="button"
-                onClick={() => setAddSignInOpen((open) => !open)}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors"
-              >
-                <Plus size={13} />
-                Add method
-              </button>
-            ) : undefined
-          }
-        />
-
-        {addSignInOpen ? (
-          <OptionGrid
-            options={addSignInOptions}
-            pending={pending}
-            prefix="add-sign-in"
-            onSelect={(option) => void onAddSignIn(option)}
-          />
-        ) : null}
-
-        <div className={settingsPanelClass}>
-          {signInMethods.length ? (
-            signInMethods.map((account, index) => (
-              <div key={account.id}>
-                {index > 0 ? <Divider /> : null}
-                <SettingRow
-                  className="px-4"
-                  leading={
-                    <WalletProviderAvatar
-                      markKey={account.provider}
-                      size={16}
-                    />
-                  }
-                  title={
-                    account.displayLabel ??
-                    account.email ??
-                    titleCase(account.provider)
-                  }
-                  desc={titleCase(account.provider)}
-                >
-                  {onUnlinkSignIn ? (
-                    <TextButton
-                      danger
-                      busy={pending === `unlink-identity:${account.id}`}
-                      onClick={() => void onUnlinkSignIn(account)}
-                    >
-                      Unlink
-                    </TextButton>
-                  ) : (
-                    <StatusBadge label="Linked" tone="linked" />
-                  )}
-                </SettingRow>
-              </div>
-            ))
-          ) : (
-            <p className="text-aomi-muted px-4 py-5 text-[13px]">
-              Your wallet is currently your only sign-in method.
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2 pb-1">
-        <SettingsSectionHeading title="Session" />
-        <div className={settingsPanelClass}>
-          {onSignOut ? (
-            <SettingRow
-              className="px-4"
-              leading={
-                <span className="bg-aomi-surface-2 text-aomi-muted flex h-8 w-8 items-center justify-center rounded-full">
-                  <LogOut size={15} />
-                </span>
-              }
-              title="Sign out"
-              desc="End this account session on this device"
-            >
-              <TextButton
-                busy={pending === "account:signout"}
-                onClick={() => void onSignOut()}
-              >
-                Sign out
-              </TextButton>
-            </SettingRow>
-          ) : null}
-          {onSignOut && onDeleteAccount ? <Divider /> : null}
-          {onDeleteAccount ? (
-            <SettingRow
-              className="px-4"
-              leading={
-                <span className="bg-aomi-danger/10 text-aomi-danger flex h-8 w-8 items-center justify-center rounded-full">
-                  <Trash2 size={15} />
-                </span>
-              }
-              title="Delete account"
-              desc="Permanently remove the account and free linked access"
-            >
-              <TextButton
-                danger
-                busy={pending === "account:delete"}
-                onClick={() => void onDeleteAccount()}
-              >
-                Delete
-              </TextButton>
-            </SettingRow>
-          ) : null}
-        </div>
-      </section>
+      {onSignOut || onDeleteAccount ? (
+        <section className="flex flex-col gap-2">
+          <SectionHeader title="Session" detail="This device" />
+          <ListGroup>
+            {onSignOut ? (
+              <ListRow
+                leading={
+                  <RowIcon>
+                    <LogOut className="size-4" />
+                  </RowIcon>
+                }
+                title="Sign out"
+                description="End this account session on this device"
+                trailing={
+                  <TextButton
+                    busy={pending === "account:signout"}
+                    onClick={() => void onSignOut()}
+                  >
+                    Sign out
+                  </TextButton>
+                }
+              />
+            ) : null}
+            {onDeleteAccount ? (
+              <ListRow
+                leading={
+                  <RowIcon danger>
+                    <Trash2 className="size-4" />
+                  </RowIcon>
+                }
+                title="Delete account"
+                description="Permanently remove the account and free linked access"
+                trailing={
+                  <TextButton
+                    danger
+                    busy={pending === "account:delete"}
+                    onClick={() => void onDeleteAccount()}
+                  >
+                    Delete
+                  </TextButton>
+                }
+              />
+            ) : null}
+          </ListGroup>
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function RowIcon({
+  danger = false,
+  children,
+}: {
+  danger?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
+        danger
+          ? "bg-aomi-danger/10 text-aomi-danger"
+          : "bg-aomi-surface-2 text-aomi-muted"
+      }`}
+    >
+      {children}
+    </span>
   );
 }

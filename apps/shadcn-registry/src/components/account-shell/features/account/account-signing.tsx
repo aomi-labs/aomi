@@ -1,21 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import type { AomiAuthorizationChallenge } from "@aomi-labs/client";
 import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
 import {
-  CUSTODY_GROUPS,
+  findDelegationForWallet,
   reconcile,
   sortWallets,
-  walletGroupKey,
   walletDisplayName,
   modeLabel,
   modeHintFor,
+  walletMarkKey,
 } from "./account-reconcile";
-import { WalletPolicyRow } from "./wallet-policy-row";
-import { Divider, SettingRow } from "./settings-rows";
-import { Loader2 } from "lucide-react";
+import { WalletPolicyRow, walletAddressLine } from "./wallet-policy-row";
+import { WalletProviderAvatar } from "./wallet-brands";
+import { isProviderSigningWallet } from "./wallet-management-model";
+import { ChevronDown, Loader2 } from "lucide-react";
+import { cn } from "@aomi-labs/react";
+import { AomiButton } from "../../../ui/aomi/button";
+import { ConfirmDialog } from "../../../ui/aomi/confirm-dialog";
+import { ListGroup, ListRow } from "../../../ui/aomi/list-group";
+import { SectionHeader } from "../../../ui/aomi/section-header";
 
 interface AccountSigningViewProps {
   wallets: WalletPolicy[];
@@ -44,6 +49,21 @@ interface AccountSigningViewProps {
 const STOP_ALL_KEY = "__stop_all__";
 const CONNECT_PRIVY_KEY = "__connect_privy__";
 
+const automaticKey = (wallet: WalletPolicy) => `automatic:${wallet.id}`;
+
+function ErrorLine({ children }: { children?: string }) {
+  return children ? (
+    <p role="alert" className="type-meta text-aomi-danger px-3.5 pb-3">
+      {children}
+    </p>
+  ) : null;
+}
+
+/**
+ * The Safety tab's signing controls: one Ask me / Auto / Locked choice per
+ * signable address, then provider-delegated automatic signing. Every change
+ * runs the permit ceremony — prepare, review the exact payload, sign, commit.
+ */
 export function AccountSigningView({
   wallets,
   delegatedAccounts,
@@ -67,9 +87,13 @@ export function AccountSigningView({
     wallet: WalletPolicy;
     mode: SignerMode;
     challenge: AomiAuthorizationChallenge;
+    /** Busy/error key of the row that asked for the change. */
+    key: string;
   } | null>(null);
   const confirming = useRef(false);
 
+  // Only a delegation can drift, and its controls live in Automatic signing:
+  // open those for any wallet that arrives drifted.
   useEffect(() => {
     const fresh = wallets.filter((w) => !seeded[w.id]);
     if (fresh.length === 0) return;
@@ -82,7 +106,7 @@ export function AccountSigningView({
     if (drifted.length === 0) return;
     setExpanded((e) => {
       const next = { ...e };
-      for (const w of drifted) next[w.id] = true;
+      for (const w of drifted) next[automaticKey(w)] = true;
       return next;
     });
   }, [wallets, seeded]);
@@ -120,15 +144,23 @@ export function AccountSigningView({
     [wallets],
   );
 
-  const groups = useMemo(
+  // Provider-managed agent wallets hold no user key, so their only choice is
+  // automatic signing on or off; they appear in that group alone.
+  const signingWallets = useMemo(
+    () => sortWallets(wallets.filter((wallet) => !wallet.providerManaged)),
+    [wallets],
+  );
+
+  const automaticWallets = useMemo(
     () =>
-      CUSTODY_GROUPS.map((group) => ({
-        key: group.key,
-        label: group.label,
-        wallets: sortWallets(
-          wallets.filter((w) => walletGroupKey(w) === group.key),
+      sortWallets(
+        wallets.filter(
+          (wallet) =>
+            wallet.providerManaged ||
+            wallet.desiredMode === "auto" ||
+            wallet.canUseAuto,
         ),
-      })).filter((g) => g.wallets.length > 0),
+      ),
     [wallets],
   );
 
@@ -152,15 +184,23 @@ export function AccountSigningView({
       ),
     [delegatedAccounts],
   );
+  const offerPrivy = canConnectPrivy && !hasActivePrivyDelegation;
+
+  // External-only accounts have nothing to delegate; skip the whole group.
+  const showAutomatic =
+    automaticWallets.length > 0 ||
+    offerPrivy ||
+    hasActiveDelegations ||
+    wallets.some(isProviderSigningWallet);
 
   const jumpToAttention = () => {
     const target = wallets.find((w) => reconcile(w).status === "drifted");
     if (!target) return;
-    setExpanded((e) => ({ ...e, [target.id]: true }));
+    setExpanded((e) => ({ ...e, [automaticKey(target)]: true }));
     setFlashId(target.id);
     window.setTimeout(() => setFlashId(null), 1600);
     window.setTimeout(() => {
-      const card = document.getElementById(`wallet-${target.id}`);
+      const card = document.getElementById(`automatic-wallet-${target.id}`);
       const container = card?.closest(".overflow-y-auto");
       if (!card || !container) return;
       const cardRect = card.getBoundingClientRect();
@@ -174,9 +214,6 @@ export function AccountSigningView({
     }, 80);
   };
 
-  const setDraft = (id: string, mode: SignerMode) =>
-    setDrafts((d) => ({ ...d, [id]: mode }));
-
   const cancelDraft = (id: string) =>
     setDrafts((d) => {
       const next = { ...d };
@@ -186,13 +223,46 @@ export function AccountSigningView({
 
   const walletById = (id: string) => wallets.find((w) => w.id === id);
 
+  /** Fetch the permit for `mode` and open it for review; nothing is signed yet. */
+  const review = (wallet: WalletPolicy, mode: SignerMode, key: string) => {
+    if (confirming.current) return;
+    confirming.current = true;
+    void run(key, async () => {
+      const challenge = await onPrepare(wallet, mode);
+      setConfirmation({ wallet, mode, challenge, key });
+    })
+      .then((ok) => {
+        if (!ok) cancelDraft(wallet.id);
+      })
+      .finally(() => {
+        confirming.current = false;
+      });
+  };
+
+  const choose = (wallet: WalletPolicy, mode: SignerMode) => {
+    if (mode === wallet.desiredMode || confirming.current || confirmation)
+      return;
+    const blocked = blockedReason?.(wallet, mode) ?? null;
+    if (blocked) {
+      setErrors((e) => ({ ...e, [wallet.id]: blocked }));
+      return;
+    }
+    setDrafts((d) => ({ ...d, [wallet.id]: mode }));
+    review(wallet, mode, wallet.id);
+  };
+
+  const dismiss = () => {
+    if (confirmation) cancelDraft(confirmation.wallet.id);
+    setConfirmation(null);
+  };
+
   const commit = async () => {
     if (!confirmation || confirming.current) return;
-    const { wallet, mode, challenge } = confirmation;
+    const { wallet, mode, challenge, key } = confirmation;
     confirming.current = true;
     setConfirmation(null);
     try {
-      const ok = await run(wallet.id, () => {
+      await run(key, () => {
         const current = walletById(wallet.id);
         if (
           !current ||
@@ -205,275 +275,326 @@ export function AccountSigningView({
         }
         return onCommit(current, mode, challenge);
       });
-      if (ok) cancelDraft(wallet.id);
     } finally {
+      cancelDraft(wallet.id);
       confirming.current = false;
     }
   };
 
-  const renewDelegation = (id: string) => {
-    const wallet = walletById(id);
-    if (!wallet) return;
-    void run(id, () => onRenewDelegation(wallet));
+  const renewDelegation = (wallet: WalletPolicy) => {
+    void run(automaticKey(wallet), () => onRenewDelegation(wallet));
   };
 
-  const revokeDelegation = (delegationId: string) => {
-    const delegation = delegatedAccounts.find(
-      (item) => item.id === delegationId,
-    );
-    if (!delegation) return;
-    void run(delegationId, () => onRevokeDelegation(delegation));
+  const revokeDelegation = (delegation: DelegatedAccountView, key: string) => {
+    void run(key, () => onRevokeDelegation(delegation));
   };
 
-  const stopAllAuto = () => {
-    void run(STOP_ALL_KEY, onStopAllAuto);
-  };
-
-  const connectPrivy = () => {
-    void run(CONNECT_PRIVY_KEY, onConnectPrivy);
-  };
+  const enabledCount = wallets.filter(
+    (wallet) => wallet.desiredMode === "auto" && wallet.delegationActive,
+  ).length;
 
   return (
-    <div className="mx-auto w-full max-w-[780px] px-6 py-6">
-      <div className="flex flex-col gap-5">
-        {attentionCount > 0 && (
-          <div className="border-aomi-border bg-aomi-surface-2/35 flex items-center justify-between gap-3 rounded-xl border px-4 py-3">
-            <span className="text-aomi-fg text-[13px]">
-              {attentionCount}{" "}
-              {attentionCount === 1 ? "wallet needs" : "wallets need"} a new
-              provider delegation
-            </span>
-            <button
-              type="button"
-              onClick={jumpToAttention}
-              className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 h-8 shrink-0 rounded-lg border px-3 text-[11px] font-medium transition-colors"
-            >
-              Fix
-            </button>
-          </div>
-        )}
-
-        {canConnectPrivy && !hasActivePrivyDelegation && (
-          <div className="border-aomi-border bg-aomi-surface-2/35 flex items-center justify-between gap-3 rounded-xl border px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <span className="text-aomi-fg block text-[13px] font-medium">
-                Enable automatic signing
-              </span>
-              <span className="text-aomi-muted mt-0.5 block text-[12px] leading-snug">
-                Privy will ask once to add Aomi as a delegated requester. You
-                can revoke it here at any time.
-              </span>
-              {errors[CONNECT_PRIVY_KEY] && (
-                <span className="text-aomi-danger mt-1 block text-[12px]">
-                  {errors[CONNECT_PRIVY_KEY]}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={connectPrivy}
-              disabled={Boolean(busy[CONNECT_PRIVY_KEY])}
-              className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-medium transition-colors disabled:opacity-50"
-            >
-              {busy[CONNECT_PRIVY_KEY] && (
-                <Loader2 size={13} className="animate-spin" />
-              )}
-              {busy[CONNECT_PRIVY_KEY] ? "Waiting for Privy…" : "Enable"}
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[12px] font-semibold">Provider signing</span>
-            <span className="text-aomi-muted text-[11px] leading-relaxed">
-              Configure signing for Para and Privy wallets. External wallets
-              always remain under their wallet app’s control.
-            </span>
-            {activeDelegations > 0 && (
-              <span className="text-aomi-muted text-[12px]">
-                {activeDelegations} active provider{" "}
-                {activeDelegations === 1 ? "delegation" : "delegations"} —
-                expand a wallet to revoke
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-5">
-            {groups.map((group) => (
-              <div key={group.key} className="flex flex-col">
-                <span className="text-aomi-muted/80 px-0.5 pb-1.5 text-[10px] font-medium uppercase tracking-[0.08em]">
-                  {group.label}
-                </span>
-                <div className="border-aomi-border bg-aomi-raised flex flex-col overflow-hidden rounded-xl border">
-                  {group.wallets.map((wallet, index) => (
-                    <div key={wallet.id}>
-                      {index > 0 && <Divider />}
-                      <WalletPolicyRow
-                        wallet={wallet}
-                        delegatedAccounts={delegatedAccounts}
-                        draft={drafts[wallet.id]}
-                        expanded={Boolean(expanded[wallet.id])}
-                        flash={flashId === wallet.id}
-                        busy={Boolean(busy[wallet.id])}
-                        error={errors[wallet.id]}
-                        blockedReason={blockedReason}
-                        onToggle={() =>
-                          setExpanded((e) => ({
-                            ...e,
-                            [wallet.id]: !e[wallet.id],
-                          }))
-                        }
-                        onDraft={(mode) => setDraft(wallet.id, mode)}
-                        onSelectWallet={
-                          onSelectWallet
-                            ? () => {
-                                void run(wallet.id, async () => {
-                                  onSelectWallet(wallet);
-                                });
-                              }
-                            : undefined
-                        }
-                        onCommit={() => {
-                          const mode = drafts[wallet.id];
-                          if (mode && !confirming.current) {
-                            confirming.current = true;
-                            void run(wallet.id, async () => {
-                              const challenge = await onPrepare(wallet, mode);
-                              setConfirmation({ wallet, mode, challenge });
-                            }).finally(() => {
-                              confirming.current = false;
-                            });
-                          }
-                        }}
-                        onCancel={() => cancelDraft(wallet.id)}
-                        onRenewDelegation={() => renewDelegation(wallet.id)}
-                        onRevokeDelegation={revokeDelegation}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+    <div className="flex flex-col gap-8">
+      {attentionCount > 0 && (
+        <div className="border-aomi-border bg-aomi-surface-2 rounded-card flex items-center justify-between gap-3 border px-3.5 py-3">
+          <span className="type-control text-aomi-fg">
+            {attentionCount}{" "}
+            {attentionCount === 1 ? "wallet needs" : "wallets need"} a new
+            provider delegation
+          </span>
+          <AomiButton size="sm" onClick={jumpToAttention}>
+            Fix
+          </AomiButton>
         </div>
+      )}
 
-        {hasActiveDelegations && (
-          <div className="flex flex-col pt-1">
-            <Divider />
-            <SettingRow
-              className="pt-4"
-              title="Stop all auto-signing"
-              desc="Revokes every provider delegation. Auto execution stops until you renew delegation or explicitly choose Manual."
-            >
-              <button
-                type="button"
-                onClick={stopAllAuto}
-                disabled={Boolean(busy[STOP_ALL_KEY])}
-                className="border-aomi-border text-aomi-muted hover:bg-aomi-surface-2 hover:text-aomi-fg flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:opacity-50"
-              >
-                {busy[STOP_ALL_KEY] && (
-                  <Loader2 size={13} className="animate-spin" />
-                )}
-                Revoke all
-              </button>
-            </SettingRow>
-            {errors[STOP_ALL_KEY] && (
-              <p className="text-aomi-danger text-[13px]">
-                {errors[STOP_ALL_KEY]}
+      <section
+        aria-labelledby="signing-heading"
+        className="flex flex-col gap-2"
+      >
+        <SectionHeader
+          id="signing-heading"
+          title="Signing"
+          detail="Per wallet"
+          help="Ask me: you approve every transaction. Auto: Aomi signs within your rules. Locked: this wallet can't sign. Loosening asks that wallet to sign once; tightening can be signed by any wallet on your account."
+        />
+        <ListGroup>
+          {signingWallets.length ? (
+            signingWallets.map((wallet) => (
+              <WalletPolicyRow
+                key={wallet.id}
+                wallet={wallet}
+                draft={drafts[wallet.id]}
+                busy={Boolean(busy[wallet.id])}
+                error={errors[wallet.id]}
+                onSelect={(mode) => choose(wallet, mode)}
+              />
+            ))
+          ) : (
+            <p className="type-control text-aomi-muted px-3.5 py-4">
+              Link a wallet in Account to choose how it signs.
+            </p>
+          )}
+        </ListGroup>
+      </section>
+
+      {showAutomatic ? (
+        <section
+          aria-labelledby="automatic-signing-heading"
+          className="flex flex-col gap-2"
+        >
+          <SectionHeader
+            id="automatic-signing-heading"
+            title="Automatic signing"
+            detail={`${enabledCount} enabled`}
+            help="Provider-delegated wallets that can sign async execution even when this browser is closed. External browser wallets cannot be used here."
+          />
+          <ListGroup>
+            {offerPrivy ? (
+              <div>
+                <ListRow
+                  title="Enable automatic signing"
+                  description="Privy will ask once to add Aomi as a delegated requester. You can revoke it here at any time."
+                  trailing={
+                    <AomiButton
+                      size="sm"
+                      onClick={() =>
+                        void run(CONNECT_PRIVY_KEY, onConnectPrivy)
+                      }
+                      disabled={Boolean(busy[CONNECT_PRIVY_KEY])}
+                    >
+                      {busy[CONNECT_PRIVY_KEY] && (
+                        <Loader2 className="animate-spin" />
+                      )}
+                      {busy[CONNECT_PRIVY_KEY]
+                        ? "Waiting for Privy…"
+                        : "Enable"}
+                    </AomiButton>
+                  }
+                />
+                <ErrorLine>{errors[CONNECT_PRIVY_KEY]}</ErrorLine>
+              </div>
+            ) : null}
+
+            {automaticWallets.map((wallet) => {
+              const recon = reconcile(wallet);
+              const delegation = findDelegationForWallet(
+                delegatedAccounts,
+                wallet,
+              );
+              const enabled =
+                wallet.desiredMode === "auto" && wallet.delegationActive;
+              const key = automaticKey(wallet);
+              const open = Boolean(expanded[key]);
+              const rowBusy = Boolean(busy[key]);
+              return (
+                <div
+                  key={wallet.id}
+                  id={`automatic-wallet-${wallet.id}`}
+                  className={cn(
+                    "transition-colors",
+                    flashId === wallet.id &&
+                      "bg-aomi-hover ring-aomi-fg/20 ring-1 ring-inset",
+                  )}
+                >
+                  <ListRow
+                    leading={
+                      <WalletProviderAvatar
+                        markKey={walletMarkKey(wallet)}
+                        size={18}
+                      />
+                    }
+                    title={walletDisplayName(wallet)}
+                    description={walletAddressLine(wallet)}
+                    descriptionMono
+                    trailing={
+                      enabled ? (
+                        <AomiButton
+                          size="sm"
+                          aria-expanded={open}
+                          onClick={() =>
+                            setExpanded((value) => ({
+                              ...value,
+                              [key]: !open,
+                            }))
+                          }
+                        >
+                          Manage
+                          <ChevronDown
+                            className={cn(
+                              "transition-transform",
+                              open && "rotate-180",
+                            )}
+                          />
+                        </AomiButton>
+                      ) : recon.status === "drifted" ? (
+                        <AomiButton
+                          size="sm"
+                          disabled={rowBusy}
+                          onClick={() => renewDelegation(wallet)}
+                        >
+                          Renew
+                        </AomiButton>
+                      ) : wallet.canUseAuto ? (
+                        <AomiButton
+                          size="sm"
+                          disabled={rowBusy}
+                          onClick={() => review(wallet, "auto", key)}
+                        >
+                          Set up
+                        </AomiButton>
+                      ) : (
+                        <span className="type-meta text-aomi-muted">
+                          Not enabled
+                        </span>
+                      )
+                    }
+                  />
+                  {wallet.desiredMode === "auto" ? (
+                    <p
+                      className={cn(
+                        "type-meta -mt-1.5 pb-3 pl-[58px] pr-3.5",
+                        recon.status === "drifted"
+                          ? "text-aomi-danger"
+                          : "text-aomi-muted",
+                      )}
+                    >
+                      {recon.detail}
+                    </p>
+                  ) : null}
+                  {open ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-3.5 pb-3">
+                      {onSelectWallet ? (
+                        <AomiButton
+                          size="sm"
+                          disabled={rowBusy}
+                          onClick={() =>
+                            void run(key, async () => onSelectWallet(wallet))
+                          }
+                        >
+                          Use for this session
+                        </AomiButton>
+                      ) : null}
+                      {delegation?.status === "active" ? (
+                        <AomiButton
+                          size="sm"
+                          disabled={rowBusy}
+                          onClick={() => revokeDelegation(delegation, key)}
+                        >
+                          Revoke delegation
+                        </AomiButton>
+                      ) : null}
+                      <AomiButton
+                        size="sm"
+                        variant="danger"
+                        disabled={rowBusy}
+                        onClick={() =>
+                          review(
+                            wallet,
+                            wallet.providerManaged ? "denied" : "manual",
+                            key,
+                          )
+                        }
+                      >
+                        Turn off
+                      </AomiButton>
+                    </div>
+                  ) : null}
+                  <ErrorLine>{errors[key]}</ErrorLine>
+                </div>
+              );
+            })}
+
+            {!automaticWallets.length && !offerPrivy ? (
+              <p className="type-control text-aomi-muted px-3.5 py-4">
+                No provider wallet is available for automatic signing.
               </p>
-            )}
-          </div>
-        )}
-      </div>
-      <Dialog.Root
+            ) : null}
+
+            {hasActiveDelegations ? (
+              <div>
+                <ListRow
+                  title="Stop all auto-signing"
+                  description="Revokes every provider delegation. Auto execution stops until you renew delegation or explicitly choose Ask me."
+                  trailing={
+                    <AomiButton
+                      size="sm"
+                      variant="danger"
+                      onClick={() => void run(STOP_ALL_KEY, onStopAllAuto)}
+                      disabled={Boolean(busy[STOP_ALL_KEY])}
+                    >
+                      {busy[STOP_ALL_KEY] && (
+                        <Loader2 className="animate-spin" />
+                      )}
+                      Revoke all
+                    </AomiButton>
+                  }
+                />
+                <ErrorLine>{errors[STOP_ALL_KEY]}</ErrorLine>
+              </div>
+            ) : null}
+          </ListGroup>
+        </section>
+      ) : null}
+
+      <ConfirmDialog
         open={Boolean(confirmation)}
         onOpenChange={(open) => {
-          if (!open) setConfirmation(null);
+          if (!open) dismiss();
         }}
+        onConfirm={() => void commit()}
+        closeOnConfirm={false}
+        title="Confirm signing policy"
+        description="Review this wallet’s new permissions before authorizing the change."
+        confirmLabel="Sign to approve"
       >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[3px]" />
-          <Dialog.Content className="border-aomi-overlay-border bg-aomi-raised text-aomi-fg fixed left-1/2 top-1/2 z-[81] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-[460px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.32)] focus:outline-none">
-            <Dialog.Title className="text-lg font-semibold">
-              Confirm signing policy
-            </Dialog.Title>
-            <Dialog.Description className="text-aomi-muted mt-2 text-sm">
-              Review this wallet’s new permissions before authorizing the
-              change.
-            </Dialog.Description>
-            {confirmation && (
-              <>
-                <div className="border-aomi-border mt-5 rounded-lg border p-4">
-                  <p className="text-sm font-medium">
-                    {walletDisplayName(confirmation.wallet)} ·{" "}
-                    {confirmation.wallet.chain === "evm"
-                      ? "Ethereum"
-                      : "Solana"}
-                  </p>
-                  <p className="text-aomi-muted mt-1 break-all font-mono text-xs">
-                    {confirmation.wallet.address}
-                  </p>
-                  <p className="mt-4 font-semibold">
-                    {modeLabel(confirmation.wallet.desiredMode)} →{" "}
-                    {modeLabel(confirmation.mode)}
-                  </p>
-                  <p className="text-aomi-muted mt-2 text-sm">
-                    {modeHintFor(confirmation.wallet, confirmation.mode)}
-                  </p>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-medium">
-                    {confirmation.wallet.chain === "evm"
-                      ? "EIP-712 typed data"
-                      : "Solana message"}
-                  </p>
-                  <pre
-                    aria-label="Payload to sign"
-                    className="border-aomi-border bg-aomi-bg mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg border p-3 font-mono text-xs"
-                  >
-                    {confirmation.wallet.chain === "evm"
-                      ? JSON.stringify(
-                          confirmation.challenge.typed_data,
-                          null,
-                          2,
-                        )
-                      : new TextDecoder().decode(
-                          Uint8Array.from(
-                            atob(confirmation.challenge.message_base64 ?? ""),
-                            (c) => c.charCodeAt(0),
-                          ),
-                        )}
-                  </pre>
-                </div>
-                <p className="text-aomi-muted mt-4 text-sm">
-                  Sign the payload above to authorize this policy change. The
-                  backend verifies your wallet signature before applying it. An
-                  embedded wallet may sign without another popup. No funds will
-                  be sent.
-                </p>
-              </>
-            )}
-            <div className="mt-6 flex justify-end gap-3">
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  className="border-aomi-border rounded-lg border px-4 py-2 text-sm"
-                >
-                  Cancel
-                </button>
-              </Dialog.Close>
-              <button
-                type="button"
-                onClick={() => void commit()}
-                className="bg-aomi-accent-strong text-aomi-on-accent rounded-lg px-4 py-2 text-sm font-semibold"
-              >
-                Sign to approve
-              </button>
+        {confirmation ? (
+          <div className="flex flex-col gap-4">
+            <div className="border-aomi-border rounded-control border p-3.5">
+              <p className="type-row">
+                {walletDisplayName(confirmation.wallet)}
+              </p>
+              <p className="type-address text-aomi-muted mt-1 break-all">
+                {confirmation.wallet.address} ·{" "}
+                {confirmation.wallet.chain === "evm" ? "EVM" : "SVM"}
+              </p>
+              <p className="type-row mt-3">
+                {modeLabel(confirmation.wallet.desiredMode)} →{" "}
+                {modeLabel(confirmation.mode)}
+              </p>
+              <p className="type-meta text-aomi-muted mt-1">
+                {modeHintFor(confirmation.wallet, confirmation.mode)}
+              </p>
             </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+            <div>
+              <p className="type-section">
+                {confirmation.wallet.chain === "evm"
+                  ? "EIP-712 typed data"
+                  : "Solana message"}
+              </p>
+              <pre
+                aria-label="Payload to sign"
+                className="border-aomi-border bg-aomi-bg type-address rounded-control mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all border p-3"
+              >
+                {confirmation.wallet.chain === "evm"
+                  ? JSON.stringify(confirmation.challenge.typed_data, null, 2)
+                  : new TextDecoder().decode(
+                      Uint8Array.from(
+                        atob(confirmation.challenge.message_base64 ?? ""),
+                        (c) => c.charCodeAt(0),
+                      ),
+                    )}
+              </pre>
+            </div>
+            <p className="type-meta text-aomi-muted">
+              Sign the payload above to authorize this policy change. The
+              backend verifies your wallet signature before applying it. An
+              embedded wallet may sign without another popup. No funds will be
+              sent.
+            </p>
+          </div>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

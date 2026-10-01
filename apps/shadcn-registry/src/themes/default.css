@@ -89,6 +89,65 @@
   --color-aomi-accent-tint: var(--aomi-accent-tint);
   --color-aomi-accent-outline: var(--aomi-accent-outline);
   --color-aomi-overlay-border: var(--aomi-overlay-border);
+
+  /* Aomi shape + elevation: rounded-shell (modals, sheets), rounded-card
+     (groups, popovers, cards), rounded-control (buttons, nav items), and the
+     only two shadows the system uses — shadow-popover and shadow-modal. */
+  --radius-shell: var(--aomi-radius-shell);
+  --radius-card: var(--aomi-radius-card);
+  --radius-control: var(--aomi-radius-control);
+  --shadow-popover: var(--aomi-shadow-popover);
+  --shadow-modal: var(--aomi-shadow-modal);
+}
+
+/* Aomi type scale. Plain utilities rather than `--text-*` theme sizes on
+   purpose: tailwind-merge (behind `cn`) reads an unknown `text-<name>` as a
+   color, so `cn("text-meta", "text-aomi-muted")` would silently drop the size.
+   `type-*` never collides with anything. Each sets size + line-height (and
+   weight where the role fixes it); a later `font-*` / `leading-*` still wins. */
+@utility type-title {
+  font-size: 1rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@utility type-row {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+
+@utility type-section {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-weight: 600;
+}
+
+@utility type-control {
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+@utility type-meta {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* Addresses and hashes only. */
+@utility type-address {
+  font-family: var(--font-mono);
+  font-size: 0.71875rem;
+  line-height: 1rem;
+}
+
+/* Use sparingly: group labels such as "Categories". */
+@utility type-eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* ============================================
@@ -148,7 +207,9 @@
      One complete semantic set under the `aomi-*` namespace — redesigned
      surfaces are built ONLY from these, never mixed with the shadcn theme
      vocabulary. Cool, flat, editorial: ink text, sky interactive accent,
-     pink decorative pop, no shadows. Light-first; `.dark` overrides below.
+     pink decorative pop. Flat by default — exactly two shadows exist, one for
+     popovers and one for modals; nothing else casts one. Light-first; `.dark`
+     overrides below.
      ---------------------------------------------------------------------- */
 
   /* surfaces — cool (zinc) ramp */
@@ -198,6 +259,16 @@
   --aomi-danger-strong: #b8394a; /* fills — white on #d2495b is only 4.3:1 */
   --aomi-on-danger: #ffffff;
   --aomi-info: #416cac;
+
+  /* shape — see the rounded-* utilities in the @theme block */
+  --aomi-radius-shell: 24px; /* modals, sheets, the activity panel */
+  --aomi-radius-card: 16px; /* cards, groups, dropdowns, popovers */
+  --aomi-radius-control: 10px;
+
+  /* elevation — the only two shadows (the menu and modal shadows the app
+     already used) */
+  --aomi-shadow-popover: 0 16px 40px rgb(0 0 0 / 0.2);
+  --aomi-shadow-modal: 0 24px 70px rgb(0 0 0 / 0.08);
 }
 
 /* ============================================
@@ -265,6 +336,10 @@
                               grounds and drops under AA on the dark panel */
   --aomi-danger: #e2687a; /* lifted so it carries on the dark ground */
   --aomi-danger-strong: #c34255;
+
+  /* Dark grounds swallow a soft tinted shadow; deeper black keeps the lift. */
+  --aomi-shadow-popover: 0 12px 32px rgb(0 0 0 / 0.5);
+  --aomi-shadow-modal: 0 24px 64px rgb(0 0 0 / 0.55);
 
   /* Derived tokens must be re-declared, not inherited. A `var()` inside a
      custom property substitutes against the element the property is *declared*

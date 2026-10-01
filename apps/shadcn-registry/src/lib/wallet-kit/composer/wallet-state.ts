@@ -30,13 +30,16 @@ export type WalletConnectionFact = {
   providerActions?: readonly AomiAccountAction[];
   /** Embedded only: the provider has hydrated a signer for this address. */
   signerReady?: boolean;
+  /** The exact signer exists, but another wallet currently owns execution. */
+  signerSelectable?: boolean;
 };
 
 export type WalletStateInput = {
-  account: { id: string; status: "loading" | "ready" } | null;
+  account: { id: string; status: "loading" | "ready" | "error" } | null;
   linked: readonly LinkedWalletFact[];
   connections: readonly WalletConnectionFact[];
   mountedProviders: readonly string[];
+  providerSettled?: (family: WalletFamily, provider: string) => boolean;
   selection: Partial<Record<WalletFamily, string>>;
 };
 
@@ -57,7 +60,15 @@ type WalletStatus =
   | { state: "unlinked" }
   | { state: "loading" }
   | { state: "mismatch"; observedAddress: string }
-  | { state: "offline"; reason: "disconnected" | "provider_unavailable" };
+  | {
+      state: "offline";
+      reason:
+        | "disconnected"
+        | "provider_unavailable"
+        | "signer_unavailable"
+        | "selection_required"
+        | "account_error";
+    };
 
 type WalletFacts = {
   key: string;
@@ -87,6 +98,8 @@ export type WalletState = {
   operating: Partial<Record<WalletFamily, string>>;
   /** Families whose stored selection is permanently invalid and must go. */
   clearSelection: WalletFamily[];
+  /** Operating wallets that may be saved; a stand-in never replaces a save. */
+  persist: Partial<Record<WalletFamily, string>>;
 };
 
 /**
@@ -144,23 +157,39 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       key,
       input.account?.status === "loading"
         ? { ...row, state: "loading" }
-        : !connection && wallet.kind === "embedded"
-          ? !input.mountedProviders.includes(wallet.provider ?? "")
-            ? { ...row, state: "offline", reason: "provider_unavailable" }
-            : providerConnection
-              ? providerConnection.signerReady
-                ? {
-                    ...row,
-                    state: "mismatch",
-                    observedAddress: providerConnection.address,
-                  }
-                : { ...row, state: "loading" }
-              : { ...row, state: "loading" }
-          : !connection
-            ? { ...row, state: "offline", reason: "disconnected" }
-            : connection.kind === "embedded" && !connection.signerReady
-              ? { ...row, state: "loading" }
-              : { ...row, state: "ready" },
+        : input.account?.status === "error"
+          ? { ...row, state: "offline", reason: "account_error" }
+          : !connection && wallet.kind === "embedded"
+            ? !input.mountedProviders.includes(wallet.provider ?? "")
+              ? { ...row, state: "offline", reason: "provider_unavailable" }
+              : providerConnection
+                ? providerConnection.signerReady
+                  ? {
+                      ...row,
+                      state: "mismatch",
+                      observedAddress: providerConnection.address,
+                    }
+                  : input.providerSettled?.(
+                        wallet.family,
+                        wallet.provider ?? "",
+                      )
+                    ? { ...row, state: "offline", reason: "signer_unavailable" }
+                    : { ...row, state: "loading" }
+                : input.providerSettled?.(wallet.family, wallet.provider ?? "")
+                  ? { ...row, state: "offline", reason: "signer_unavailable" }
+                  : { ...row, state: "loading" }
+            : !connection
+              ? { ...row, state: "offline", reason: "disconnected" }
+              : connection.kind === "embedded" && !connection.signerReady
+                ? connection.signerSelectable
+                  ? { ...row, state: "offline", reason: "selection_required" }
+                  : input.providerSettled?.(
+                        connection.family,
+                        connection.provider ?? wallet.provider ?? "",
+                      )
+                    ? { ...row, state: "offline", reason: "signer_unavailable" }
+                    : { ...row, state: "loading" }
+                : { ...row, state: "ready" },
     );
   }
   for (const connection of input.connections) {
@@ -188,17 +217,20 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
           : { state: "guest" as const }
         : input.account.status === "loading"
           ? { state: "loading" as const }
-          : connection.kind === "embedded"
-            ? ({
-                state: "mismatch",
-                observedAddress: connection.address,
-              } as const)
-            : { state: "unlinked" as const }),
+          : input.account.status === "error"
+            ? { state: "offline" as const, reason: "account_error" as const }
+            : connection.kind === "embedded"
+              ? ({
+                  state: "mismatch",
+                  observedAddress: connection.address,
+                } as const)
+              : { state: "unlinked" as const }),
     });
   }
 
   const operating: WalletState["operating"] = {};
   const clearSelection: WalletFamily[] = [];
+  const persist: WalletState["persist"] = {};
   for (const family of ["evm", "svm"] as const) {
     const eligible = [...rows.values()].filter(
       (row) =>
@@ -207,21 +239,24 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     );
     let stored = input.selection[family];
     // Not owned by this account means gone for good; merely unreachable means
-    // wait for it. Ownership is only knowable once the account graph landed.
+    // operate the only eligible wallet in its place without saving it, so the
+    // saved wallet returns once reachable (an embedded signer may still be
+    // hydrating). Ownership is only knowable once the account graph landed.
     const owned =
       stored !== undefined &&
       (!input.account
         ? rows.get(stored)?.state === "guest"
-        : input.account.status === "loading" || linked.has(stored));
+        : input.account.status !== "ready" || linked.has(stored));
     if (stored && !owned) {
       clearSelection.push(family);
       stored = undefined;
     }
     if (stored) {
       if (eligible.some((row) => row.key === stored))
-        operating[family] = stored;
+        operating[family] = persist[family] = stored;
+      else if (eligible.length === 1) operating[family] = eligible[0].key;
     } else if (eligible.length === 1) {
-      operating[family] = eligible[0].key;
+      operating[family] = persist[family] = eligible[0].key;
     }
   }
 
@@ -261,6 +296,13 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     } else if (row.reason === "provider_unavailable") {
       if (row.linkedWalletId)
         actions.push({ kind: "unlink", linkedWalletId: row.linkedWalletId });
+    } else if (row.reason === "selection_required") {
+      if (row.linkedWalletId && row.connectionId)
+        actions.push({ kind: "select", walletKey: row.key });
+    } else if (row.reason === "signer_unavailable" && row.provider) {
+      actions.push({ kind: "reauthenticate", provider: row.provider });
+    } else if (row.reason === "account_error") {
+      // A stale account graph is insufficient to authorize wallet selection.
     } else {
       actions.push({
         kind: "connect",
@@ -278,5 +320,5 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       actions,
     };
   });
-  return { wallets, operating, clearSelection };
+  return { wallets, operating, clearSelection, persist };
 }

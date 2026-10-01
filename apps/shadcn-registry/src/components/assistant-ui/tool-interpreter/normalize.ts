@@ -161,6 +161,9 @@ export const statusFact = (
     submitted: "submitted",
     prepared: "prepared",
     incomplete: "incomplete",
+    partial: "partial",
+    refunded: "refunded",
+    unknown: "unknown",
     failed: "failed",
     error: "failed",
     rejected: "rejected",
@@ -211,9 +214,20 @@ export const decodedValue = (result: Record<string, unknown>): unknown => {
   return decoded?.decoded;
 };
 
-export const hostnameFromUrl = (urlText: string): string | null => {
+/** A bare host label: lowercase, without a leading `www.`. */
+export const normalizeHost = (value: unknown): string | null =>
+  asString(value)
+    ?.trim()
+    .toLowerCase()
+    .replace(/^www\./, "") || null;
+
+export const hostnameFromUrl = (value: unknown): string | null => {
+  const text = asString(value)?.trim();
+  if (!text) return null;
   try {
-    return new URL(urlText).hostname.replace(/^www\./, "");
+    // Requested URLs may omit the scheme ("example.com/page").
+    const url = /^[a-z][a-z\d+.-]*:\/\//i.test(text) ? text : `https://${text}`;
+    return normalizeHost(new URL(url).hostname);
   } catch {
     return null;
   }

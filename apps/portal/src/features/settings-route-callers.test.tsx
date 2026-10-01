@@ -23,6 +23,7 @@ const runtimeMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@aomi-labs/react", () => ({
+  cn: (...classes: unknown[]) => classes.filter(Boolean).join(" "),
   getChainInfo: () => ({ ticker: "ETH" }),
   useAomiRuntime: () => ({
     account: {
@@ -312,6 +313,7 @@ describe("settings route callers", () => {
     expect(screen.getByText(/88 remaining/)).toBeTruthy();
     expect(screen.getByText(/12 \/ 100 used/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
+    expect(screen.queryByText(/Usage shows spend/)).toBeNull();
   });
 
   it("keeps General settings usable when credits omit the allowance", async () => {

@@ -272,6 +272,9 @@ export function useEvmWalletRuntime({
     walletName: activeEvmConnection?.walletName,
   });
   useEffect(() => {
+    // Synthetic embedded sessions inherit this preference; only independently
+    // observed connector chains can update it in the opposite direction.
+    if (activeEvmConnection?.kind === "embedded-session") return;
     const chainId = activeEvmConnection?.chainId;
     if (!chainId || !chainsById[chainId] || chainId === selectedEvmChainId) {
       return;
@@ -282,6 +285,7 @@ export function useEvmWalletRuntime({
     });
     setSelectedEvmChainId(chainId);
   }, [
+    activeEvmConnection?.kind,
     activeEvmConnection?.chainId,
     chainsById,
     selectedEvmChainId,

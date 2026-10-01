@@ -71,8 +71,8 @@ console.log(sessions.sessions);
 
 ### High-level SDK
 
-`Aomi` is the product-oriented facade. Pipeline is a stateless Build flow;
-Agent owns its session and turn lifecycle. Supplying `wallet` once exposes
+`Aomi` is the product-oriented facade. Pipeline carries a portable Build
+without a conversation; Agent owns its session and turn lifecycle. Supplying `wallet` once exposes
 `aomi.wallet`, derives canonical `UserState`, and configures the Agent
 `ActionHandler` from primitive wallet capabilities.
 
@@ -98,7 +98,16 @@ const build = await aomi.pipeline
   .build("supply", { asset: "USDC", amount: "100" });
 
 renderPreview(build.summary, build.actions, build.simulation);
-await build.commit(); // commit is always explicit
+// Commit is always explicit. On EVM it prepares a durable execution group
+// (status "committed", provider_invoked: false); nothing is sent yet.
+const preparation = await build.commit();
+if ("commits" in preparation) {
+  const commits = aomi.pipeline.evm.commits(preparation);
+  for (const view of commits.all()) {
+    if (commits.canExecute(view)) await commits.execute(view.commit_id);
+  }
+  commits.close();
+}
 
 const agentResult = await aomi.agent.run("Supply 100 USDC to Aave");
 console.log(agentResult.messages);
@@ -181,9 +190,18 @@ commit of a merely staged Build.
 
 Build V2 values retain the server's native action records, `origin`, `expiresAt`,
 `digest`, and `attestation`. Pass the complete value through simulate/commit;
-do not reconstruct it from displayed calls. Commit returns `result` (EVM) or
-`results` (SVM), plus `requests`; it does not manufacture a session Action or
-execute a wallet request. An expired Build requires fresh preparation.
+do not reconstruct it from displayed calls. Commit never executes a wallet
+request itself, and an expired Build requires fresh preparation.
+
+- **EVM** commit prepares or recovers a durable execution group. It returns
+  `status: "committed"` with `provider_invoked: false`, the owned `thread_id`,
+  the original `actions` and the Commit Service `commits`. Pass the result to
+  `aomi.pipeline.evm.commits(preparation)` to get a `CommitController`, then
+  `execute`, `reject` or `refresh` each returned `commit_id` through
+  `/v1/pipeline/evm/commits/{id}`. Do not send the returned `requests` to a
+  wallet directly.
+- **SVM** commit is stateless. It returns `results` plus `requests` with no
+  durable Agent Action IDs; the caller submits them and tracks receipts.
 
 The direct staging helpers translate calls into Catalog staging parameters.
 Pipeline chooses the authorizing account from account policy: a caller `from`
@@ -217,9 +235,10 @@ const svmStaged = await client.pipeline.svm.stage({
 ```
 
 Portable builds preserve backend transaction records and operation provenance.
-Commit returns `requests` containing wallet intents (`ActionRequest[]`), plus
-operation output in `result` (EVM) or `results` (SVM). Stateless requests have
-no durable Agent Action IDs and are not automatically signed by the SDK.
+Commit returns `requests` (`ActionRequest[]`), plus operation output in
+`result` (EVM) or `results` (SVM). The SDK never signs them automatically.
+Continue EVM results through `commits()` as above; SVM requests have no
+durable Agent Action IDs.
 
 The Catalog is filesystem-like and arbitrary live operations deliberately stay
 runtime-schema-driven:
@@ -312,6 +331,8 @@ new integrations should use `target` so routing intent is unambiguous.
 | `startStreaming()`    | Start or resume live delivery                                     |
 | `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
 | `close()`             | Stop streaming and release listeners                              |
+
+To reconsider a completed assistant answer, pass `{ regenerate: messageKey }` as the second argument to `send` or `sendAsync`. The key must identify a completed assistant message in the same session. The server appends a new answer with all tools disabled; it preserves the original conversation and transaction outcomes.
 
 #### Snapshot
 

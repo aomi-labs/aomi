@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -14,27 +15,26 @@ import { useControl, useThreadContext } from "@aomi-labs/react";
 import {
   normalizeAomiRouting,
   sameDirectRoutingApp,
-  shouldShowDirectAppSelect,
   toAgentTarget,
   type AomiRoutingConfig,
   type DirectRoutingApp,
-  type NormalizedAomiRouting,
 } from "../routing";
 import { buildCapabilityHintPayload } from "../capability-hint-payload";
-import type { CapabilityMention, ExecutionPolicy } from "./model";
+import type {
+  AppTagRequest,
+  CapabilityMention,
+  ExecutionPolicy,
+} from "./model";
 
 type CapabilityComposerContextValue = {
   mentions: CapabilityMention[];
   policy: ExecutionPolicy;
-  routing: NormalizedAomiRouting;
-  selectedDirectApp: DirectRoutingApp | null;
-  showModeSelect: boolean;
-  showDirectAppSelect: boolean;
   hintsEnabled: boolean;
   hostError: string | null;
   capabilityPickerRequest: number;
-  setPolicy: (policy: ExecutionPolicy) => void;
-  selectDirectApp: (target: DirectRoutingApp) => void;
+  /** Host app tag waiting for the input to insert it as a mention. */
+  appTagRequest: AppTagRequest | null;
+  consumeAppTagRequest: () => void;
   openCapabilityPicker: () => void;
   consumeCapabilityPickerRequest: () => void;
   addMention: (mention: CapabilityMention) => void;
@@ -61,10 +61,12 @@ export function CapabilityComposerProvider({
   children,
   enabledAppIds,
   routing,
+  initialAppTag,
 }: {
   children: ReactNode;
   enabledAppIds?: readonly string[];
   routing?: AomiRoutingConfig;
+  initialAppTag?: AppTagRequest;
 }) {
   const { getAuthorizedApps, onAgentModeSelect, onAgentTargetSelect } =
     useControl();
@@ -85,10 +87,9 @@ export function CapabilityComposerProvider({
     (currentControl?.app || currentControl?.applicationId != null
       ? "direct"
       : undefined);
-  const policy: ExecutionPolicy =
-    storedMode && normalizedRouting.modes.includes(storedMode)
-      ? storedMode
-      : normalizedRouting.defaultMode;
+  // Routing is host-owned: a mode stored by an earlier mode picker (or the
+  // device-wide preference) must not strand a chat outside the host default.
+  const policy: ExecutionPolicy = normalizedRouting.defaultMode;
   const currentDirectApp: DirectRoutingApp | null =
     currentControl?.applicationId != null &&
     Number.isSafeInteger(Number(currentControl.applicationId))
@@ -127,6 +128,21 @@ export function CapabilityComposerProvider({
     setMentions([]);
   }, [policy, threadContext.threadViewKey]);
 
+  // Offer the host's app tag once, after the mount-time mention reset above.
+  const [appTagRequest, setAppTagRequest] = useState<AppTagRequest | null>(
+    null,
+  );
+  const appTagKey = initialAppTag
+    ? `${initialAppTag.app}:${initialAppTag.applicationId ?? ""}`
+    : "";
+  const offeredAppTag = useRef("");
+  useEffect(() => {
+    if (!initialAppTag || offeredAppTag.current === appTagKey) return;
+    offeredAppTag.current = appTagKey;
+    setAppTagRequest(initialAppTag);
+  }, [appTagKey, initialAppTag]);
+  const consumeAppTagRequest = useCallback(() => setAppTagRequest(null), []);
+
   useEffect(() => {
     if (normalizedRouting.error) return;
     if (policy === "auto") {
@@ -152,43 +168,6 @@ export function CapabilityComposerProvider({
     selectedDirectApp,
     storedMode,
   ]);
-
-  const selectDirectApp = useCallback(
-    (target: DirectRoutingApp) => {
-      if (
-        !normalizedRouting.directApps.some((candidate) =>
-          sameDirectRoutingApp(candidate, target),
-        )
-      ) {
-        return;
-      }
-      setMentions([]);
-      onAgentTargetSelect(toAgentTarget(target));
-    },
-    [normalizedRouting.directApps, onAgentTargetSelect],
-  );
-
-  const setPolicy = useCallback(
-    (nextPolicy: ExecutionPolicy) => {
-      if (!normalizedRouting.modes.includes(nextPolicy)) return;
-      setMentions([]);
-      if (nextPolicy === "auto") {
-        onAgentModeSelect("auto");
-        return;
-      }
-      const target = selectedDirectApp ?? normalizedRouting.directApps[0];
-      if (target) {
-        onAgentTargetSelect(toAgentTarget(target));
-      }
-    },
-    [
-      normalizedRouting.directApps,
-      normalizedRouting.modes,
-      onAgentModeSelect,
-      onAgentTargetSelect,
-      selectedDirectApp,
-    ],
-  );
 
   const hintsEnabled = policy === "auto";
 
@@ -236,17 +215,11 @@ export function CapabilityComposerProvider({
     () => ({
       mentions,
       policy,
-      routing: normalizedRouting,
-      selectedDirectApp,
-      showModeSelect:
-        normalizedRouting.showFixedControls ||
-        normalizedRouting.modes.length > 1,
-      showDirectAppSelect: shouldShowDirectAppSelect(policy, normalizedRouting),
       hintsEnabled,
       hostError: normalizedRouting.error,
       capabilityPickerRequest,
-      setPolicy,
-      selectDirectApp,
+      appTagRequest,
+      consumeAppTagRequest,
       openCapabilityPicker,
       consumeCapabilityPickerRequest,
       addMention,
@@ -257,19 +230,18 @@ export function CapabilityComposerProvider({
     }),
     [
       addMention,
+      appTagRequest,
       capabilityPickerRequest,
+      consumeAppTagRequest,
       consumeCapabilityPickerRequest,
       enabledAppIds,
       hintsEnabled,
       mentions,
-      normalizedRouting,
+      normalizedRouting.error,
       openCapabilityPicker,
       policy,
       prepareSubmit,
       retainMentions,
-      selectDirectApp,
-      selectedDirectApp,
-      setPolicy,
     ],
   );
 

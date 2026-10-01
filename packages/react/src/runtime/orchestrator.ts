@@ -10,6 +10,7 @@ import {
   type CommitCapabilities,
   type AgentTarget,
   type AomiClient,
+  type SendOptions,
   type UserState,
 } from "@aomi-labs/client";
 import type { AomiInferenceFundingSource } from "../interface";
@@ -131,11 +132,11 @@ export function useRuntimeOrchestrator(
   );
 
   const sendMessage = useCallback(
-    async (text: string, threadId: string) => {
+    async (text: string, threadId: string, sendOptions?: SendOptions) => {
       try {
         await optionsRef.current.prepareThreadForSend?.(threadId);
         const session = getSession(threadId);
-        await session.sendAsync(text);
+        await session.sendAsync(text, sendOptions);
         threadsRef.current.updateThreadMetadata(threadId, {
           lastActiveAt: new Date().toISOString(),
         });

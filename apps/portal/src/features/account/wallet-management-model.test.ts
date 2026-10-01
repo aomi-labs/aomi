@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isProviderSigningWallet,
+  providerEmailDisplayHint,
   visibleSignInMethods,
   walletConnectionSummary,
 } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
@@ -59,7 +60,7 @@ describe("wallet management classification", () => {
     ).toBe(true);
   });
 
-  it("hides transport wallet identities but keeps user sign-in methods", () => {
+  it("hides protected transport and email identities but keeps independent sign-ins", () => {
     expect(
       visibleSignInMethods([
         { id: "ba", provider: "better_auth", subject: "internal" },
@@ -67,6 +68,39 @@ describe("wallet management classification", () => {
         { id: "google", provider: "google", subject: "person" },
         { id: "email", provider: "email", subject: "person@example.com" },
       ]).map((account) => account.provider),
-    ).toEqual(["google", "email"]);
+    ).toEqual(["google"]);
+  });
+
+  it("uses a provider email only as a display hint for the matching live subject", () => {
+    const identity = {
+      status: "connected" as const,
+      isConnected: true,
+      sessionProvider: "privy" as const,
+      walletProviderSubject: "privy-user-1",
+      primaryLabel: "cecilia@example.com",
+    };
+    const accounts = [
+      { id: "privy-1", provider: "privy", subject: "privy-user-1" },
+    ];
+    expect(providerEmailDisplayHint(identity, accounts)).toBe(
+      "cecilia@example.com",
+    );
+    expect(
+      providerEmailDisplayHint(identity, [
+        { id: "privy-2", provider: "privy", subject: "another-user" },
+      ]),
+    ).toBeUndefined();
+    expect(
+      providerEmailDisplayHint(
+        { ...identity, primaryLabel: "Cecilia" },
+        accounts,
+      ),
+    ).toBeUndefined();
+    expect(
+      providerEmailDisplayHint(
+        { ...identity, status: "disconnected" },
+        accounts,
+      ),
+    ).toBeUndefined();
   });
 });

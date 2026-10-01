@@ -15,13 +15,10 @@ import {
   SettingsModal,
   useAccountOverview,
   usePortalWalletAccountMenu,
+  useSettingsOpenRequest,
   type SettingsTab,
 } from "@aomi-labs/widget-lib/host-composition";
-import {
-  useAomiRuntime,
-  useControl,
-  usePerThreadControl,
-} from "@aomi-labs/react";
+import { useAomiRuntime } from "@aomi-labs/react";
 import { OverlayPortal } from "@portal/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
@@ -42,64 +39,32 @@ function directTarget(
     : { app };
 }
 
+const AUTO_ROUTING: AomiRoutingConfig = { targets: [{ mode: "auto" }] };
+
+/**
+ * Portal chats always run Auto; users tag apps with the composer's + picker.
+ * An unlocked `?app=` link pre-tags its app the same way; only a locked
+ * project link pins its app, silently, as a Direct target.
+ */
 function PortalComposer({
   enabledApps,
-  enabledApplicationIds,
   lockedTarget,
+  appTag,
 }: {
   enabledApps: readonly string[];
-  enabledApplicationIds: readonly number[];
   lockedTarget?: DirectRoutingApp;
+  appTag?: { app: string; applicationId?: number };
 }) {
-  const { state } = useControl();
-  const installedIds = useMemo(
-    () => new Set(enabledApplicationIds),
-    [enabledApplicationIds],
-  );
-  const directApps = useMemo<DirectRoutingApp[]>(
-    () =>
-      enabledApps
-        .filter((app) => app !== "orchestrator" && app !== "auto")
-        .flatMap((app) => {
-          const matching = state.appDescriptors.filter(
-            (descriptor) => descriptor.name === app,
-          );
-          const hosted = matching.flatMap((descriptor) => {
-            const applicationId = Number(descriptor.applicationId);
-            return Number.isSafeInteger(applicationId) &&
-              applicationId > 0 &&
-              installedIds.has(applicationId)
-              ? [{ app, applicationId }]
-              : [];
-          });
-          const hasHostedIdentity = matching.some((descriptor) => {
-            const applicationId = Number(descriptor.applicationId);
-            return Number.isSafeInteger(applicationId) && applicationId > 0;
-          });
-          return hosted.length > 0 || hasHostedIdentity ? hosted : [{ app }];
-        }),
-    [enabledApps, installedIds, state.appDescriptors],
-  );
   const routing = useMemo<AomiRoutingConfig>(
     () =>
       lockedTarget
         ? {
             targets: [{ mode: "direct", apps: [lockedTarget] }],
             defaultMode: "direct",
-            showFixedControls: true,
           }
-        : {
-            targets: [
-              { mode: "auto" },
-              ...(directApps.length > 0
-                ? [{ mode: "direct" as const, apps: directApps }]
-                : []),
-            ],
-            defaultMode: "auto",
-          },
-    [directApps, lockedTarget],
+        : AUTO_ROUTING,
+    [lockedTarget],
   );
-
   return (
     <AomiFrame.Composer
       withControl
@@ -107,40 +72,11 @@ function PortalComposer({
         hideApiKey: true,
         routing,
         enabledAppIds: enabledApps,
+        initialAppTag: appTag,
         hideNetwork: true,
       }}
     />
   );
-}
-
-function RequestedAppBootstrap({
-  requestedApp,
-  requestedApplicationId,
-  enabledApps,
-}: {
-  requestedApp: string | null;
-  requestedApplicationId: string | null;
-  enabledApps: readonly string[];
-}) {
-  const { onAgentTargetSelect } = usePerThreadControl().actions;
-  const hasAppliedRequestedAppRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      hasAppliedRequestedAppRef.current ||
-      !requestedApp ||
-      !enabledApps.includes(requestedApp)
-    ) {
-      return;
-    }
-    onAgentTargetSelect({
-      mode: "direct",
-      ...directTarget(requestedApp, requestedApplicationId),
-    });
-    hasAppliedRequestedAppRef.current = true;
-  }, [enabledApps, onAgentTargetSelect, requestedApp, requestedApplicationId]);
-
-  return null;
 }
 
 /** Open an account-owned thread linked by MCP wallet-approval handoff. */
@@ -170,17 +106,9 @@ export function ThreadUrlBootstrap() {
 }
 
 function PortalFrameContents({
-  requestedApp,
-  requestedApplicationId,
-  locked,
-  enabledApps,
   openSettings,
   onWalletAccountMenuChange,
 }: {
-  requestedApp: string | null;
-  requestedApplicationId: string | null;
-  locked: boolean;
-  enabledApps: readonly string[];
   openSettings: (tab: SettingsTab) => void;
   onWalletAccountMenuChange: (
     menu: WalletAccountMenuOptions | undefined,
@@ -198,23 +126,12 @@ function PortalFrameContents({
     onWalletAccountMenuChange(walletAccountMenu);
   }, [onWalletAccountMenuChange, walletAccountMenu]);
 
-  return (
-    <>
-      <ThreadUrlBootstrap />
-      {!locked && (
-        <RequestedAppBootstrap
-          requestedApp={requestedApp}
-          requestedApplicationId={requestedApplicationId}
-          enabledApps={enabledApps}
-        />
-      )}
-    </>
-  );
+  return <ThreadUrlBootstrap />;
 }
 
 export function PortalAomiFrame() {
   const { accountStatus, accountUser } = useAomiWalletKit();
-  const accountOverview = useAccountOverview();
+  const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
   const accountUserId = accountUser?.id;
   const [guestSession, setGuestSession] = useState<{
     checked: boolean;
@@ -281,12 +198,20 @@ export function PortalAomiFrame() {
   const requestedApp = useRequestedAppConfig();
   const lockedApp = requestedApp.locked ? requestedApp.app : null;
   const lockedApplicationId = lockedApp ? requestedApp.applicationId : null;
-  const enabledApps = accountOverview?.user.apps ?? DEFAULT_ENABLED_APPS;
-  const enabledApplicationIds = accountOverview?.user.application_ids ?? [];
   const lockedTarget = useMemo(
     () =>
       lockedApp ? directTarget(lockedApp, lockedApplicationId) : undefined,
     [lockedApp, lockedApplicationId],
+  );
+  const appTag = useMemo(
+    () =>
+      requestedApp.app && !requestedApp.locked
+        ? {
+            ...directTarget(requestedApp.app, requestedApp.applicationId),
+            app: requestedApp.app,
+          }
+        : undefined,
+    [requestedApp.app, requestedApp.applicationId, requestedApp.locked],
   );
   const clientOptions = usePortalClientOptions(lockedApp, lockedApplicationId);
   const backendUrl = getBackendUrl();
@@ -302,6 +227,8 @@ export function PortalAomiFrame() {
     setSettingsTab(tab);
     setOverlay("settings");
   }, []);
+  // In-chat controls (the composer's safety menu) deep-link into Settings.
+  useSettingsOpenRequest(openSettings);
   useEffect(() => {
     if (accountStatus !== "loading") {
       setHasResolvedInitialAccount(true);
@@ -361,10 +288,6 @@ export function PortalAomiFrame() {
         inferenceFunding={requestedApp.inferenceFunding}
       >
         <PortalFrameContents
-          requestedApp={requestedApp.app}
-          requestedApplicationId={requestedApp.applicationId}
-          locked={Boolean(lockedApp)}
-          enabledApps={enabledApps}
           openSettings={openSettings}
           onWalletAccountMenuChange={setWalletAccountMenu}
         />
@@ -377,8 +300,8 @@ export function PortalAomiFrame() {
         </AomiFrame.Header>
         <PortalComposer
           enabledApps={enabledApps}
-          enabledApplicationIds={enabledApplicationIds}
           lockedTarget={lockedTarget}
+          appTag={appTag}
         />
         <SvmWalletBindingGate />
         {/* Inside the frame so they see the Aomi runtime (the settings

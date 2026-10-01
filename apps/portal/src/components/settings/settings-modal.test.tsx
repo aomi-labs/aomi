@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsModal } from "../../../../shadcn-registry/src/components/account-shell/components/settings/settings-modal";
 
@@ -69,16 +69,20 @@ vi.mock(
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/policy",
   () => ({
-    PolicySettings: () => <div>Policy content</div>,
+    PolicyPage: () => <div>Policy content</div>,
   }),
 );
 
 describe("SettingsModal directory shell", () => {
+  afterEach(() => {
+    session.status = "ready";
+  });
+
   it("matches the Library frame and keeps navigation in the sidebar", () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog", { name: "Settings" });
-    expect(dialog.style.width).toBe("1080px");
+    expect(dialog.style.width).toBe("1000px");
     expect(dialog.style.height).toBe("620px");
     expect(dialog.style.maxWidth).toBe("96%");
     expect(
@@ -89,14 +93,15 @@ describe("SettingsModal directory shell", () => {
       "true",
     );
     expect(screen.getByRole("heading", { name: "Settings" })).toHaveClass(
-      "text-[15px]",
+      "type-title",
     );
     expect(screen.getByRole("button", { name: "General" })).toHaveClass(
-      "text-[13px]",
+      "type-control",
     );
     expect(screen.getByRole("heading", { name: "General" })).toHaveClass(
-      "text-[15px]",
+      "type-title",
     );
+    expect(dialog).toHaveClass("rounded-shell", "shadow-modal");
     expect(
       screen.getByText("Appearance, defaults, and account overview"),
     ).toBeTruthy();
@@ -107,15 +112,14 @@ describe("SettingsModal directory shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Account" }));
     expect(screen.getByText("Account content")).toBeTruthy();
-    expect(
-      screen.getByText("Wallets, sign-in methods, and signing"),
-    ).toBeTruthy();
+    expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "Policy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Safety" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
     expect(
-      screen.getByText("On-chain permissions for delegated agents"),
+      screen.getByText("Guard policy and signing permissions"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
@@ -124,11 +128,44 @@ describe("SettingsModal directory shell", () => {
     expect(screen.getByText("Spend, allowance, and statements")).toBeTruthy();
   });
 
+  it("gives every tab the same reading column", () => {
+    render(<SettingsModal onClose={vi.fn()} />);
+
+    for (const [tab, content] of [
+      ["General", "General content"],
+      ["Account", "Account content"],
+      ["Safety", "Policy content"],
+      ["Usage", "Usage content"],
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: tab }));
+      const column = screen
+        .getByText(content)
+        .closest("[data-settings-column]");
+      expect(column).toHaveClass("w-full", "px-6");
+      expect(column).not.toHaveClass("mx-auto");
+    }
+  });
+
   it("closes from the sidebar control", () => {
     const onClose = vi.fn();
     render(<SettingsModal onClose={onClose} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes when an account session ends while settings is open", () => {
+    const onClose = vi.fn();
+    const view = render(
+      <SettingsModal onClose={onClose} initialTab="account" />,
+    );
+
+    session.status = "establishing";
+    view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
+    expect(onClose).not.toHaveBeenCalled();
+
+    session.status = "anonymous";
+    view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

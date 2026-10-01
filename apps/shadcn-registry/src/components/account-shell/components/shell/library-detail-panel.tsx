@@ -19,7 +19,10 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
+import { cn } from "@aomi-labs/react";
 import { getChainIcon, getSkillIcon } from "../../../icons";
+import { AomiButton } from "../../../ui/aomi/button";
+import { StatusPill } from "../../../ui/aomi/status-pill";
 import {
   appSecretsReady,
   useAppSecretsState,
@@ -32,7 +35,7 @@ import {
 } from "../../../../lib/capabilities/skill-catalog";
 import { PackageIcon } from "./package-row";
 import {
-  isPackageAvailableOnChain,
+  isPackageAvailableOnHost,
   type CatalogPackage,
 } from "./packages-catalog";
 import {
@@ -57,6 +60,51 @@ const CHAIN_LABELS: Record<number, string> = {
 
 export function chainLabel(id: number): string {
   return CHAIN_LABELS[id] ?? `Chain ${id}`;
+}
+
+/** App or Skill, the same pill in the catalog row and the inspector. */
+export function KindPill({ kind }: { kind: LibrarySelection["kind"] }) {
+  return (
+    <StatusPill tone={kind === "skill" ? "accent" : "neutral"}>
+      {kind === "skill" ? "Skill" : "App"}
+    </StatusPill>
+  );
+}
+
+/** A descriptive chip in the inspector: a network, category or use. */
+function DetailPill({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "bg-aomi-surface-2 type-meta inline-flex h-6 items-center gap-1.5 rounded-full px-2.5",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ChainPills({ chainIds }: { chainIds: number[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {chainIds.map((chainId) => {
+        const Icon = getChainIcon(chainId);
+        return (
+          <DetailPill key={chainId}>
+            {Icon ? <Icon className="size-3" /> : null}
+            {chainLabel(chainId)}
+          </DetailPill>
+        );
+      })}
+    </div>
+  );
 }
 
 export function SkillIdentity({
@@ -89,7 +137,7 @@ export function ChainMarks({
 }) {
   if (chainIds.length === 0) {
     return (
-      <span className="text-aomi-muted whitespace-nowrap text-[11px]">
+      <span className="type-meta text-aomi-muted whitespace-nowrap">
         Any network
       </span>
     );
@@ -117,7 +165,7 @@ export function ChainMarks({
         })}
       </span>
       {!expanded && chainIds.length > shown.length ? (
-        <span className="text-aomi-muted ml-1 text-[10px]">
+        <span className="type-meta text-aomi-muted ml-1">
           +{chainIds.length - shown.length}
         </span>
       ) : null}
@@ -134,9 +182,7 @@ function DetailSection({
 }) {
   return (
     <section className="border-aomi-border border-t pt-5">
-      <h3 className="text-aomi-muted text-[11px] font-medium uppercase tracking-[0.12em]">
-        {title}
-      </h3>
+      <h3 className="type-eyebrow text-aomi-muted">{title}</h3>
       <div className="mt-2.5">{children}</div>
     </section>
   );
@@ -217,12 +263,12 @@ function AppSecretSetup({
         <div className="flex items-start gap-2">
           <KeyRound className="text-aomi-muted mt-0.5 size-3.5 shrink-0" />
           <div className="min-w-0">
-            <p className="text-[12px] leading-5">
+            <p className="type-meta">
               Use your own credentials for this app. Saved values are never
               shown again.
             </p>
             {accountUserId ? (
-              <p className="text-aomi-muted mt-0.5 text-[11px]">
+              <p className="type-meta text-aomi-muted mt-0.5">
                 {loading
                   ? "Checking setup…"
                   : ready
@@ -230,7 +276,7 @@ function AppSecretSetup({
                     : "Setup required"}
               </p>
             ) : (
-              <p className="text-aomi-danger mt-0.5 text-[11px]">
+              <p className="type-meta text-aomi-danger mt-0.5">
                 Sign in to save credentials and add this app.
               </p>
             )}
@@ -240,18 +286,19 @@ function AppSecretSetup({
         {error ? (
           <div
             role="alert"
-            className="bg-aomi-surface-2 text-aomi-danger flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-[11px]"
+            className="bg-aomi-surface-2 text-aomi-danger rounded-control type-meta flex items-center justify-between gap-2 px-2.5 py-2"
           >
             <span>{error}</span>
             {accountUserId && status === null ? (
-              <button
-                type="button"
+              <AomiButton
+                variant="ghost"
+                size="sm"
                 onClick={() => void secretState.retry()}
                 disabled={loading}
-                className="text-aomi-fg shrink-0 font-medium disabled:opacity-50"
+                className="text-aomi-fg -my-1"
               >
                 Retry
-              </button>
+              </AomiButton>
             ) : null}
           </div>
         ) : null}
@@ -263,11 +310,11 @@ function AppSecretSetup({
               <div className="flex items-center justify-between gap-2">
                 <label
                   htmlFor={`library-secret-${app.id}-${slot.name}`}
-                  className="min-w-0 truncate font-mono text-[11px] font-medium"
+                  className="type-address min-w-0 truncate font-medium"
                 >
                   {slot.name}
                 </label>
-                <span className="text-aomi-muted shrink-0 text-[10px]">
+                <span className="type-meta text-aomi-muted shrink-0">
                   {obsolete
                     ? "No longer used · Saved"
                     : slot.configured
@@ -278,9 +325,7 @@ function AppSecretSetup({
                 </span>
               </div>
               {slot.description ? (
-                <p className="text-aomi-muted text-[11px] leading-4">
-                  {slot.description}
-                </p>
+                <p className="type-meta text-aomi-muted">{slot.description}</p>
               ) : null}
               <div className="flex gap-1.5">
                 {!obsolete ? (
@@ -297,28 +342,28 @@ function AppSecretSetup({
                     onChange={(event) =>
                       setDraft(slot.name, event.target.value)
                     }
-                    className="border-aomi-border bg-aomi-bg placeholder:text-aomi-muted min-w-0 flex-1 rounded-lg border px-2.5 py-2 text-[12px] outline-none focus:border-current disabled:opacity-50"
+                    className="border-aomi-border bg-aomi-bg placeholder:text-aomi-muted rounded-control type-control h-8 min-w-0 flex-1 border px-2.5 outline-none focus:border-current disabled:opacity-50"
                   />
                 ) : (
-                  <p className="text-aomi-muted min-w-0 flex-1 py-2 text-[11px]">
+                  <p className="type-meta text-aomi-muted min-w-0 flex-1 py-2">
                     This saved credential can only be removed.
                   </p>
                 )}
                 {slot.configured ? (
-                  <button
-                    type="button"
+                  <AomiButton
+                    variant="danger"
+                    size="icon"
                     aria-label={`Remove ${slot.name}`}
                     title={`Remove ${slot.name}`}
                     disabled={busy}
                     onClick={() => void secretState.remove(slot.name)}
-                    className="border-aomi-border text-aomi-muted hover:bg-aomi-hover hover:text-aomi-danger flex size-9 shrink-0 items-center justify-center rounded-lg border disabled:opacity-50"
                   >
                     {busyName === slot.name ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : (
-                      <Trash2 className="size-3.5" />
+                      <Trash2 />
                     )}
-                  </button>
+                  </AomiButton>
                 ) : null}
               </div>
             </div>
@@ -326,21 +371,21 @@ function AppSecretSetup({
         })}
 
         {installed ? (
-          <button
-            type="button"
+          <AomiButton
+            variant="primary"
             onClick={() => void secretState.save()}
             disabled={busy || !hasPending}
-            className="bg-aomi-fg text-aomi-bg flex h-9 w-full items-center justify-center rounded-lg text-[12px] font-medium disabled:opacity-40"
+            className="w-full"
           >
             {busyName === "save" ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
               "Save changes"
             )}
-          </button>
+          </AomiButton>
         ) : (
-          <button
-            type="button"
+          <AomiButton
+            variant="primary"
             onClick={() => void activate()}
             disabled={
               busy ||
@@ -351,12 +396,12 @@ function AppSecretSetup({
               (!ready && !draftReady)
             }
             aria-label={`Add ${app.name}`}
-            className="bg-aomi-fg text-aomi-bg flex h-9 w-full items-center justify-center rounded-lg text-[12px] font-medium disabled:opacity-40"
+            className="w-full"
           >
             {busy ? (
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : !available ? (
-              "Unavailable on this network"
+              "Network not supported"
             ) : hasPending ? (
               "Save & add app"
             ) : ready || slots.every((slot) => !slot.required) ? (
@@ -364,7 +409,7 @@ function AppSecretSetup({
             ) : (
               "Enter required credentials"
             )}
-          </button>
+          </AomiButton>
         )}
       </div>
     </DetailSection>
@@ -376,7 +421,7 @@ function AppDetails({
   installed,
   installedReady,
   busy,
-  activeChainId,
+  hostChainIds,
   accountUserId,
   onInstall,
   onUninstall,
@@ -385,61 +430,40 @@ function AppDetails({
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   accountUserId?: string;
   onInstall: () => Promise<boolean>;
   onUninstall: () => void;
 }) {
-  const available = isPackageAvailableOnChain(app, activeChainId);
+  const available = isPackageAvailableOnHost(app, hostChainIds);
   return (
     <>
       <div className="px-5 pb-5 pt-1">
         <PackageIcon app={app} size="detail" />
-        <div className="mt-4 flex items-center gap-2">
-          <h2 className="text-[17px] font-semibold">{app.name}</h2>
-          <span className="bg-aomi-surface-2 text-aomi-muted rounded-full px-2 py-1 text-[9px] font-medium uppercase tracking-[0.1em]">
-            App
-          </span>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <h2 className="type-title">{app.name}</h2>
+          <KindPill kind="app" />
+          {app.visibility === "personal" ? (
+            <StatusPill tone="accent">Personal</StatusPill>
+          ) : null}
         </div>
-        <p className="text-aomi-muted mt-2 text-[13px] leading-5">
-          {app.description}
-        </p>
+        <p className="type-control text-aomi-muted mt-2">{app.description}</p>
       </div>
 
       <div className="space-y-5 px-5">
         <DetailSection title="Availability">
           {app.chainIds.length === 0 ? (
-            <div className="flex items-center gap-2 text-[13px]">
+            <div className="type-control flex items-center gap-2">
               <Network className="text-aomi-muted size-3.5" />
               All supported networks
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {app.chainIds.map((chainId) => {
-                const Icon = getChainIcon(chainId);
-                return (
-                  <span
-                    key={chainId}
-                    className="bg-aomi-surface-2 flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px]"
-                  >
-                    {Icon ? <Icon className="size-3" /> : null}
-                    {chainLabel(chainId)}
-                  </span>
-                );
-              })}
-            </div>
+            <ChainPills chainIds={app.chainIds} />
           )}
         </DetailSection>
 
         <DetailSection title="Category">
-          <span className="bg-aomi-surface-2 rounded-full px-2.5 py-1.5 text-[11px]">
-            {app.category}
-          </span>
-          {app.visibility === "personal" ? (
-            <span className="bg-aomi-surface-2 ml-1.5 rounded-full px-2.5 py-1.5 text-[11px]">
-              Personal
-            </span>
-          ) : null}
+          <DetailPill>{app.category}</DetailPill>
         </DetailSection>
 
         {app.secrets.length > 0 ||
@@ -457,39 +481,39 @@ function AppDetails({
 
       <div className="mt-auto p-5">
         {app.pinned ? (
-          <div className="bg-aomi-surface-2 text-aomi-muted flex h-10 items-center justify-center gap-2 rounded-xl text-[13px] font-medium">
-            <Check size={14} /> Built in
+          <div className="bg-aomi-surface-2 text-aomi-muted rounded-control type-control flex h-8 items-center justify-center gap-1.5 font-medium">
+            <Check className="size-3.5" /> Built in
           </div>
         ) : installed ? (
-          <button
-            type="button"
+          <AomiButton
+            variant="danger"
             onClick={onUninstall}
             disabled={!installedReady || busy}
             aria-label={`Remove ${app.name}`}
-            className="border-aomi-border hover:bg-aomi-hover text-aomi-muted hover:text-aomi-danger flex h-10 w-full items-center justify-center rounded-xl border text-[13px] font-medium transition-colors disabled:opacity-50"
+            className="w-full"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : "Remove app"}
-          </button>
+            {busy ? <Loader2 className="animate-spin" /> : "Remove app"}
+          </AomiButton>
         ) : app.secrets.length > 0 ? null : (
-          <button
-            type="button"
+          <AomiButton
+            variant="primary"
             onClick={onInstall}
             disabled={!installedReady || busy || !available}
             aria-label={
               available
                 ? `Add ${app.name}`
-                : `Switch network to add ${app.name}`
+                : `${app.name} needs a network this site doesn't support`
             }
-            className="bg-aomi-fg text-aomi-bg flex h-10 w-full items-center justify-center rounded-xl text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="w-full"
           >
             {busy ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : available ? (
               "Add app"
             ) : (
-              "Unavailable on this network"
+              "Network not supported"
             )}
-          </button>
+          </AomiButton>
         )}
       </div>
     </>
@@ -528,42 +552,25 @@ function SkillDetails({
       <div className="px-5 pb-5 pt-1">
         <SkillIdentity skillId={skill.id} size="detail" />
         <div className="mt-4 flex items-center gap-2">
-          <h2 className="text-[17px] font-semibold">{skillLabel(skill)}</h2>
-          <span className="bg-aomi-surface-2 text-aomi-muted rounded-full px-2 py-1 text-[9px] font-medium uppercase tracking-[0.1em]">
-            Skill
-          </span>
+          <h2 className="type-title">{skillLabel(skill)}</h2>
+          <KindPill kind="skill" />
         </div>
-        <p className="text-aomi-muted mt-2 text-[13px] leading-5">
-          {skill.description}
-        </p>
+        <p className="type-control text-aomi-muted mt-2">{skill.description}</p>
       </div>
 
       {error ? (
-        <p className="text-aomi-danger px-5 text-[13px]">{error}</p>
+        <p className="type-control text-aomi-danger px-5">{error}</p>
       ) : !detail ? (
-        <div className="text-aomi-muted flex items-center gap-2 px-5 text-[13px]">
+        <div className="type-control text-aomi-muted flex items-center gap-2 px-5">
           <Loader2 className="size-3.5 animate-spin" /> Loading details…
         </div>
       ) : (
         <div className="space-y-5 px-5">
           <DetailSection title="Works on">
             {detail.chainIds.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {detail.chainIds.map((chainId) => {
-                  const Icon = getChainIcon(chainId);
-                  return (
-                    <span
-                      key={chainId}
-                      className="bg-aomi-surface-2 flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px]"
-                    >
-                      {Icon ? <Icon className="size-3" /> : null}
-                      {chainLabel(chainId)}
-                    </span>
-                  );
-                })}
-              </div>
+              <ChainPills chainIds={detail.chainIds} />
             ) : (
-              <span className="text-aomi-muted text-[13px]">
+              <span className="type-control text-aomi-muted">
                 Any supported network
               </span>
             )}
@@ -573,19 +580,16 @@ function SkillDetails({
             <DetailSection title="Good for">
               <div className="flex flex-wrap gap-1.5">
                 {detail.tags.slice(0, 8).map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-aomi-surface-2 rounded-full px-2.5 py-1.5 text-[11px] capitalize"
-                  >
+                  <DetailPill key={tag} className="capitalize">
                     {tag.replaceAll("_", " ")}
-                  </span>
+                  </DetailPill>
                 ))}
               </div>
             </DetailSection>
           ) : null}
 
           <DetailSection title="How it works">
-            <div className="space-y-2 text-[13px]">
+            <div className="type-control space-y-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="text-aomi-accent size-3.5" />
                 <span>
@@ -606,13 +610,9 @@ function SkillDetails({
       )}
 
       <div className="mt-auto p-5">
-        <button
-          type="button"
-          onClick={onTry}
-          className="bg-aomi-fg text-aomi-bg flex h-10 w-full items-center justify-center rounded-xl text-[13px] font-medium transition-opacity hover:opacity-90"
-        >
-          <MessageCircle size={14} className="mr-2" /> Try
-        </button>
+        <AomiButton variant="primary" onClick={onTry} className="w-full">
+          <MessageCircle /> Try
+        </AomiButton>
       </div>
     </>
   );
@@ -623,7 +623,7 @@ export function LibraryDetailPanel({
   installed,
   installedReady,
   busy,
-  activeChainId,
+  hostChainIds,
   accountUserId,
   onInstall,
   onUninstall,
@@ -633,7 +633,7 @@ export function LibraryDetailPanel({
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
-  activeChainId?: number;
+  hostChainIds: readonly number[];
   accountUserId?: string;
   onInstall: (app: CatalogPackage) => Promise<boolean>;
   onUninstall: (app: CatalogPackage) => void;
@@ -650,7 +650,7 @@ export function LibraryDetailPanel({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-5">
         {!selection ? (
-          <div className="text-aomi-muted flex flex-1 items-center justify-center px-6 text-center text-[13px] leading-5">
+          <div className="type-control text-aomi-muted flex flex-1 items-center justify-center px-6 text-center">
             Select an app or skill to see its details.
           </div>
         ) : selection.kind === "app" ? (
@@ -659,7 +659,7 @@ export function LibraryDetailPanel({
             installed={installed}
             installedReady={installedReady}
             busy={busy}
-            activeChainId={activeChainId}
+            hostChainIds={hostChainIds}
             accountUserId={accountUserId}
             onInstall={() => onInstall(selection.item)}
             onUninstall={() => onUninstall(selection.item)}

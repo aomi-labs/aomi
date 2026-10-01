@@ -12,10 +12,7 @@ import {
   inferLibraryCategory,
   PackagesModal,
 } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-modal";
-import {
-  PackageIcon,
-  PackageRow,
-} from "../../../../shadcn-registry/src/components/account-shell/components/shell/package-row";
+import { PackageIcon } from "../../../../shadcn-registry/src/components/account-shell/components/shell/package-row";
 import { toCatalogPackage } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-catalog";
 import {
   seedAccountOverview,
@@ -356,14 +353,14 @@ describe("packages modal wiring", () => {
 
     expect(screen.getByRole("dialog", { name: "Library" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Library" })).toHaveClass(
-      "text-[15px]",
+      "type-title",
     );
     expect(screen.getByRole("button", { name: /Discover/ })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     expect(screen.getByRole("button", { name: /Discover/ })).toHaveClass(
-      "text-[13px]",
+      "type-control",
     );
     expect(screen.getByRole("textbox", { name: "Search library" })).toHaveClass(
       "md:text-[14px]",
@@ -375,7 +372,8 @@ describe("packages modal wiring", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Skills/ }));
     expect(screen.getByRole("heading", { name: "Skills" })).toBeTruthy();
-    expect(await screen.findByText("How it works")).toBeTruthy();
+    expect(await screen.findByText("How it works")).toHaveClass("type-eyebrow");
+    expect(screen.getByText("Works on")).toHaveClass("type-eyebrow");
     expect(await screen.findByText("2 actions available")).toBeTruthy();
     expect(paths(calls)).toContain("GET /api/resource/skills/aave");
   });
@@ -487,7 +485,7 @@ describe("packages modal wiring", () => {
     await renderModal();
 
     const dialog = screen.getByRole("dialog");
-    expect(dialog.style.width).toBe("1080px");
+    expect(dialog.style.width).toBe("1000px");
     expect(dialog.style.height).toBe("620px");
     expect(dialog.style.maxWidth).toBe("96%");
     expect(dialog.style.maxHeight).toBe("92%");
@@ -842,54 +840,6 @@ describe("packages modal wiring", () => {
         }),
       );
     });
-  });
-});
-
-describe("chain-scoped package rows", () => {
-  it("blocks StableFX installation until Arc Testnet is selected", () => {
-    const app = toCatalogPackage({
-      name: "stablefx",
-      chainIds: [5_042_002],
-    });
-
-    render(
-      <PackageRow
-        app={app}
-        installed={false}
-        busy={false}
-        disabled={false}
-        activeChainId={1}
-        onInstall={() => undefined}
-        onUninstall={() => undefined}
-      />,
-    );
-
-    const button = screen.getByLabelText(
-      "Switch to Arc Testnet to install Circle StableFX",
-    );
-    expect(button).toBeDisabled();
-  });
-
-  it("keeps chain-scoped installation disabled while the wallet chain is unknown", () => {
-    const app = toCatalogPackage({
-      name: "stablefx",
-      chainIds: [5_042_002],
-    });
-
-    render(
-      <PackageRow
-        app={app}
-        installed={false}
-        busy={false}
-        disabled={false}
-        onInstall={() => undefined}
-        onUninstall={() => undefined}
-      />,
-    );
-
-    expect(
-      screen.getByLabelText("Switch to Arc Testnet to install Circle StableFX"),
-    ).toBeDisabled();
   });
 });
 

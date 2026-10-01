@@ -264,11 +264,23 @@ export function selectActivity(
     const request = action.request;
     const count = request.type === "sign" ? 1 : request.transactions.length;
     for (let index = 0; index < count; index++) {
+      const linkedStage =
+        request.type === "execute_evm" &&
+        "commitStages" in request &&
+        Array.isArray(request.commitStages)
+          ? request.commitStages[index]
+          : undefined;
+      const linkedCommit =
+        typeof linkedStage === "string"
+          ? commits.find((commit) => commit.stage_id === linkedStage)
+          : undefined;
       let matches = transactions.filter(
         (tx) =>
           !tx.action &&
           tx.turnId === action.turn_id &&
-          sameTransaction(tx, action, index),
+          (linkedStage
+            ? tx.id === linkedStage || sameTransaction(tx, action, index)
+            : sameTransaction(tx, action, index)),
       );
       if (
         request.type === "execute_svm" &&
@@ -296,6 +308,7 @@ export function selectActivity(
           turnId: action.turn_id,
           action,
           actionIndex: index,
+          commit: linkedCommit ?? match.commit,
         });
         if (request.type === "execute_svm") {
           const assembled = request.transactions[index];
@@ -333,6 +346,7 @@ export function selectActivity(
         stage: "committed",
         action,
         actionIndex: index,
+        commit: linkedCommit,
       });
     }
   }

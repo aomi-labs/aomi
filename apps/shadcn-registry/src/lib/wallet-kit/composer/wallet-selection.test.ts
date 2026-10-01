@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   readWalletSelection,
+  selectedWalletKeys,
   writeWalletSelection,
   type WalletSelectionStorage,
 } from "./wallet-selection";
@@ -16,6 +17,28 @@ function testStorage() {
 }
 
 describe("wallet selection storage", () => {
+  it("makes a newly connected linked wallet active without selecting an unlinked one", () => {
+    const active = {
+      evm: { address: "0xBB" },
+      svm: { address: "unlinked" },
+    };
+    const stored = { evm: "evm:0xaa", svm: "svm:linked" };
+    const linked = [
+      { family: "evm" as const, address: "0xAA" },
+      { family: "evm" as const, address: "0xBB" },
+      { family: "svm" as const, address: "linked" },
+    ];
+
+    expect(selectedWalletKeys(stored, active, linked)).toEqual({
+      evm: "evm:0xbb",
+      svm: "svm:linked",
+    });
+    expect(selectedWalletKeys(stored, active)).toEqual({
+      evm: "evm:0xbb",
+      svm: "svm:unlinked",
+    });
+  });
+
   it("isolates selections by account and family", () => {
     const { storage } = testStorage();
     writeWalletSelection(storage, "account-a", "evm", "evm:0xaa");

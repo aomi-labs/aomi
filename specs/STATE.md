@@ -2,7 +2,34 @@
 
 ## Last Updated
 
-2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
+2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
+  (prices, yields, protocols), web search/fetch domain chips, short
+  transaction titles, and a lucide fallback icon for chains without a mark.
+  Activity sidebar: the transient review lines and raw JSON detail dropdowns
+  are gone, and the review collapses smoothly on sign or reject. The network
+  pill is now read-only. Wallets: Para no longer white-screens on first
+  select, and an injected wallet reconnects on reload under Para because the
+  wallet runtime mounts once. The sidebar account chip keeps one shape and
+  drops "Switch network". UI unification: shared `components/ui/aomi/`
+  primitives and radius, shadow and type tokens. Library and Settings share a
+  modal shell. The composer mode picker is removed, and `routing` is a
+  host-only prop. A "Guard policy" selector (Strict / Balanced / Yolo =
+  `guarded_only` / `balanced` / `unrestricted`) takes its place, and the
+  Settings "Safety" tab holds the default for new chats (never Yolo) plus
+  per-wallet signing. SDK: EVM Pipeline `commit()` returns durable Commit
+  Service identities to continue with `pipeline.evm.commits(preparation)`;
+  EVM holdings use paginated indexed discovery; manual EVM message-signing
+  execution Actions fail closed.
+
+Pending:
+- Two Para logins on one account nest all Para addresses under the first
+  card, because the data has no login-to-address link.
+- Widget with `features.settings === false`: the Guard policy "Change"
+  action is a no-op.
+- UI unification phases 4–6: picker restyle, the add flow, and conflict
+  move/merge on the backend.
+
+Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
   branch `codex/bot-webhook-reassert` off origin/main, uncommitted). The
   webhook was only ever asserted at registration; an external `deleteWebhook`

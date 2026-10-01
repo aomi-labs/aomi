@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { modeHintFor } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-reconcile";
+import {
+  modeHintFor,
+  signingChoicesFor,
+} from "../../../../shadcn-registry/src/components/account-shell/features/account/account-reconcile";
 import { normalizeSignerMode } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-api";
 import type { WalletPolicy } from "../../../../shadcn-registry/src/components/account-shell/features/account/types";
 
@@ -40,6 +43,23 @@ describe("modeHintFor", () => {
         "auto",
       ),
     ).toContain("cannot delegate this login wallet");
+  });
+});
+
+describe("signingChoicesFor", () => {
+  it("offers Auto only where client auto-approve is valid today", () => {
+    expect(signingChoicesFor(wallet({ linkedVia: "privy" }))).toEqual([
+      "manual",
+      "client_auto",
+      "denied",
+    ]);
+    expect(signingChoicesFor(wallet({ linkedVia: "siwe" }))).toEqual([
+      "manual",
+      "denied",
+    ]);
+    expect(
+      signingChoicesFor(wallet({ linkedVia: "para", providerManaged: true })),
+    ).toEqual(["denied"]);
   });
 });
 

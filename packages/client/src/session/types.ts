@@ -11,6 +11,9 @@ import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
 
+/** Optional, server-enforced answer regeneration; never replays tool effects. */
+export type SendOptions = { regenerate?: string };
+
 export type SendResult = {
   messages: readonly MessageEvent[];
   title?: string;
