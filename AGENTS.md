@@ -17,6 +17,13 @@ Use the repository-pinned pnpm version through Corepack. For Aomi local work,
 run heavyweight checks through the managed `aomi-dev exec --repo frontend`
 workflow for the selected workspace.
 
+In the paired Codex Cloud environment, load the prepared tool paths in each
+shell with `source /workspace/product-mono/.codex/scripts/cloud-env.sh`, or run
+commands through `bash /workspace/product-mono/.codex/scripts/cloud-exec.sh`.
+Keep `HOME` unchanged. See the backend's
+`docs/topics/testing-automation/facts/codex-cloud.md` for installation and
+fresh-task verification; repository worktree setup is not saved cloud setup.
+
 - `pnpm run build:packages` — build/check shared packages and registry.
 - `pnpm run lint` and `pnpm run typecheck` — workspace lint and library types.
 - `pnpm exec vitest run` — workspace automated tests.
