@@ -5661,7 +5661,7 @@
           },
           "min_usd_value": {
             "type": ["string", "null"],
-            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust; pass \"0\" when small balances matter, such as checking gas."
+            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; pass \"0\" when small balances matter, such as checking gas."
           },
           "include_unpriced": {
             "type": ["boolean", "null"],
