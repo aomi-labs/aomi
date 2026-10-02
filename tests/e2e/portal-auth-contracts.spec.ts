@@ -229,6 +229,7 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
     await captureEvidence("rabby-reconnect-guidance-desktop");
     await page.setViewportSize({ width: 390, height: 844 });
     await captureEvidence("rabby-reconnect-guidance-mobile");
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     // Pause the provider read, dismiss Settings, then let the request finish.
     // Reopening must allow another attempt without signing out.
@@ -292,6 +293,7 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
     expect(restored.signatureCount).toBe(0);
     expect(wallet.signatureCount).toBe(1);
     expect(restored.blocked).toEqual([]);
+    await page.setViewportSize({ width: 390, height: 844 });
     await captureEvidence("rabby-reconnect-recovered-mobile");
     await page.setViewportSize({ width: 1280, height: 720 });
     await captureEvidence("rabby-reconnect-recovered-desktop");
