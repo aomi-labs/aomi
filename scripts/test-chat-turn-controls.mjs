@@ -247,17 +247,28 @@ try {
               startGate = undefined;
             }
             const streamingTurn = `fixture-turn-${turn}`;
+            const streamPartial = () => {
+              if (
+                thread.state !== "processing" ||
+                streamingTurn !== `fixture-turn-${turn}`
+              )
+                return;
+              if (streams.size === 0) {
+                schedule(streamPartial, 50);
+                return;
+              }
+              publish("message", {
+                turn_id: streamingTurn,
+                revision: 1,
+                message: {
+                  sender: "agent",
+                  message_key: `${streamingTurn}:trace:0`,
+                  content: "Streaming fixture response before Stop.",
+                },
+              });
+            };
             schedule(
-              () =>
-                publish("message", {
-                  turn_id: streamingTurn,
-                  revision: 1,
-                  message: {
-                    sender: "agent",
-                    message_key: `${streamingTurn}:trace:0`,
-                    content: "Streaming fixture response before Stop.",
-                  },
-                }),
+              streamPartial,
               intent.message.includes("thinking") ? 2_500 : 350,
             );
             return json({
