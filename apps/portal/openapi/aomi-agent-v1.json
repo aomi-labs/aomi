@@ -22,6 +22,7 @@
     "GET /v1/account/transaction-safety/threads/{threadId}",
     "GET /v1/agent/chat/{sessionId}",
     "GET /v1/agent/chat/{sessionId}/stream",
+    "GET /v1/agent/models",
     "GET /v1/agent/sessions",
     "GET /v1/agent/sessions/{sessionId}",
     "GET /v1/pipeline",
@@ -120,6 +121,48 @@
         "responses": {
           "200": {
             "description": "This document"
+          }
+        }
+      }
+    },
+    "/v1/agent/models": {
+      "get": {
+        "operationId": "guestModels",
+        "description": "Public discovery of selectable models allowed by guest policy. Model capacity, pricing and remaining credits are checked when a turn starts.",
+        "responses": {
+          "200": {
+            "description": "Allowed guest model catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["models", "description"],
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "label", "default"],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "default": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3545,7 +3588,8 @@
             "description": "Execution policy. Omit for Auto unless app or applicationId selects a Direct target."
           },
           "model": {
-            "type": ["string", "null"]
+            "type": ["string", "null"],
+            "description": "Optional model slug or accepted alias. Omit or use default for the runtime default. Discover allowed guest slugs with GET /v1/agent/models; forbidden selections return guest_model_forbidden."
           },
           "userState": {
             "oneOf": [
@@ -4422,6 +4466,24 @@
                   "interrupted",
                   "failed"
                 ]
+              },
+              "error_code": {
+                "type": "string",
+                "description": "Stable, safe failure code for a failed turn."
+              },
+              "error_category": {
+                "type": "string",
+                "enum": ["execution", "app", "provider"]
+              },
+              "execution_reason": {
+                "type": ["string", "null"]
+              },
+              "error_message": {
+                "type": "string",
+                "description": "Sanitized, actionable message. Does not include provider payloads or secrets."
+              },
+              "retryable": {
+                "type": "boolean"
               }
             }
           }

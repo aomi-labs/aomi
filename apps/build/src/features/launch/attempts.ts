@@ -18,6 +18,30 @@ export type AttemptStageState =
   | "failed"
   | "skipped";
 
+export function attemptReadyToPromote(
+  attempt: ProjectDeploymentAttempt,
+): boolean {
+  const jobs = attempt.jobs ?? [];
+  return (
+    attempt.status === "completed" &&
+    attempt.conclusion === "success" &&
+    jobs.some(
+      (job) => job.name === "Publish release" && job.conclusion === "success",
+    ) &&
+    jobs
+      .filter(
+        (job) =>
+          job.name === "Activate" || job.name.startsWith("Verify runtime"),
+      )
+      .every((job) => job.conclusion === "skipped")
+  );
+}
+
+export function attemptJobLabel(name: string): string {
+  // GitHub returns the unevaluated matrix name when a job was not requested.
+  return name.replace(/\s*\/\s*\$\{\{\s*matrix\.name\s*\}\}/g, "");
+}
+
 export function attemptStages(
   attempt: ProjectDeploymentAttempt,
 ): Array<{ name: string; state: AttemptStageState }> {
@@ -28,7 +52,11 @@ export function attemptStages(
   );
   const failed =
     attempt.conclusion === "failure" || attempt.conclusion === "timed_out";
-  return ATTEMPT_STAGES.map((name) => {
+  return ATTEMPT_STAGES.filter(
+    (name) =>
+      !attemptReadyToPromote(attempt) ||
+      !["Activate", "Verify runtime", "Live"].includes(name),
+  ).map((name) => {
     if (name === "Live")
       return {
         name,
@@ -96,6 +124,7 @@ export function attemptStages(
 export function attemptLabel(attempt: ProjectDeploymentAttempt): string {
   if (attempt.status === "cancelling") return "Cancelling…";
   if (attempt.conclusion === "cancelled") return "Cancelled";
+  if (attemptReadyToPromote(attempt)) return "Ready to promote";
   const stages = attemptStages(attempt);
   if (stages.at(-1)?.state === "passed") return "Live";
   const failed = stages.find((stage) => stage.state === "failed");

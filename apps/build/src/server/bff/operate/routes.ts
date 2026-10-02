@@ -468,7 +468,7 @@ async function operateSession(
   req: Request,
 ): Promise<{ response: Response } | OperateSession> {
   try {
-    const auth = await authorize(req);
+    const auth = await authorize(req, { cliScope: "deployment:read" });
     if ("response" in auth) return auth;
     const { session, visibilityGrant } = auth;
     const config = launchConfig();

@@ -106,7 +106,11 @@ export async function proxyAgentApi(
   });
 }
 
-const DISCOVERY_PATHS = new Set(["/openapi.json", "/.well-known/api-catalog"]);
+const DISCOVERY_PATHS = new Set([
+  "/openapi.json",
+  "/.well-known/api-catalog",
+  "/v1/agent/models",
+]);
 const DISCOVERY_REQUEST_HEADERS = new Set(["accept", "x-request-id"]);
 
 /** Public read-only discovery proxy for the api-server contract. */

@@ -20,6 +20,7 @@ export const GITHUB_SESSION_COOKIE = "aomi_github";
 /** Opaque Manager-signed grant, intentionally separate from the session. */
 export const GITHUB_VISIBILITY_GRANT_COOKIE = "aomi_github_visibility";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const CLI_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const CLI_SESSION_AUDIENCE = "aomi-build-cli";
 const CLI_EXCHANGE_TYPE = "aomi-build-cli-exchange";
 const OAUTH_REQUEST_AUDIENCE = "aomi-build-github-oauth-request";
@@ -190,7 +191,9 @@ export function setGitHubVisibilityGrantCookie(
 }
 
 export async function getGitHubVisibilityGrant(): Promise<string | null> {
-  return (await cookies()).get(GITHUB_VISIBILITY_GRANT_COOKIE)?.value?.trim() || null;
+  return (
+    (await cookies()).get(GITHUB_VISIBILITY_GRANT_COOKIE)?.value?.trim() || null
+  );
 }
 
 export async function issueGitHubCliSession(
@@ -202,7 +205,36 @@ export async function issueGitHubCliSession(
       kind: "cli_session",
       scopes: CLI_SCOPES,
     },
-    SESSION_TTL_SECONDS,
+    CLI_SESSION_TTL_SECONDS,
+    { subject: session.githubUserId, audience: CLI_SESSION_AUDIENCE },
+  );
+}
+
+/** Renew a verified CLI bearer, retaining its exact scopes and audience. */
+export async function renewGitHubCliSession(
+  req: Request,
+): Promise<string | null> {
+  const token = req.headers
+    .get("authorization")
+    ?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  const payload = await verify(token, CLI_SESSION_AUDIENCE);
+  if (!payload || payload.kind !== "cli_session") return null;
+  const session = sessionFromPayload(payload);
+  if (
+    !session ||
+    !Array.isArray(payload.scopes) ||
+    !payload.scopes.every((scope) =>
+      CLI_SCOPES.includes(scope as GitHubCliScope),
+    )
+  )
+    return null;
+  return sign(
+    {
+      ...githubSessionClaims(session),
+      kind: "cli_session",
+      scopes: payload.scopes,
+    },
+    CLI_SESSION_TTL_SECONDS,
     { subject: session.githubUserId, audience: CLI_SESSION_AUDIENCE },
   );
 }

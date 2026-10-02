@@ -466,7 +466,7 @@ export async function activateLaunchRoute(req: Request) {
 }
 
 export async function launchAppsRoute(req: Request) {
-  const auth = await authorize(req);
+  const auth = await authorize(req, { cliScope: "deployment:read" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
 
@@ -538,7 +538,7 @@ export const deploymentDeployRoute = launchDeployRoute;
 export const deploymentRedeployRoute = redeployLaunchRoute;
 
 export async function deploymentHistoryRoute(req: Request) {
-  const auth = await authorize(req);
+  const auth = await authorize(req, { cliScope: "deployment:read" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const params = new URL(req.url).searchParams;
@@ -622,7 +622,7 @@ export async function deploymentFeedRoute(req: Request) {
 }
 
 export async function deploymentSecretsRoute(req: Request) {
-  const auth = await authorize(req);
+  const auth = await authorize(req, { cliScope: "deployment:read" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
   const params = new URL(req.url).searchParams;
@@ -656,7 +656,7 @@ export async function deploymentSecretsRoute(req: Request) {
 }
 
 export async function deploymentSecretsWriteRoute(req: Request) {
-  const auth = await authorize(req, { write: true });
+  const auth = await authorize(req, { write: true, cliScope: "deploy" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
 
@@ -712,7 +712,7 @@ export async function deploymentSecretsWriteRoute(req: Request) {
 }
 
 export async function deploymentSecretsDeleteRoute(req: Request) {
-  const auth = await authorize(req, { write: true });
+  const auth = await authorize(req, { write: true, cliScope: "deploy" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
 
@@ -1060,7 +1060,7 @@ export async function redeployLaunchRoute(req: Request) {
 // project through the manager's canonical detail read, including the current
 // revision-specific ProjectConfiguration.
 export async function userProjectsRoute(req: Request) {
-  const auth = await authorize(req);
+  const auth = await authorize(req, { cliScope: "deployment:read" });
   if ("response" in auth) return auth.response;
   const { session, visibilityGrant } = auth;
 
@@ -1108,14 +1108,12 @@ export async function userProjectsRoute(req: Request) {
             await readCache.projectDetails.get(
               [session.githubUserId, projectId, visibilityGrant ?? ""],
               async () => {
-                const project = await timedManagerRead(
-                  "get_user_project",
-                  () =>
-                    client.getUserProject({
-                      githubUserId: session.githubUserId,
-                      projectId,
-                      ...(visibilityGrant ? { visibilityGrant } : {}),
-                    }),
+                const project = await timedManagerRead("get_user_project", () =>
+                  client.getUserProject({
+                    githubUserId: session.githubUserId,
+                    projectId,
+                    ...(visibilityGrant ? { visibilityGrant } : {}),
+                  }),
                 );
                 // The manager's detail read never stamps the live SDK summary
                 // its list read carries (`sdk_version` / `sdk_versions`, from

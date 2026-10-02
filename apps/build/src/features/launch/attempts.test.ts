@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   attemptLabel,
+  attemptJobLabel,
   attemptStages,
   type ProjectDeploymentAttempt,
 } from "./attempts";
@@ -29,7 +30,21 @@ describe("deployment stage truth", () => {
           job("Publish release", "success"),
         ]),
       ),
-    ).toBe("Build ready");
+    ).toBe("Ready to promote");
+  });
+  it("omits unrequested activation stages and normalizes unresolved matrix labels", () => {
+    const ready = attempt([
+      job("Publish release", "success"),
+      job("Activate", "skipped"),
+      job("Verify runtime / ${{ matrix.name }}", "skipped"),
+    ]);
+    expect(attemptLabel(ready)).toBe("Ready to promote");
+    expect(attemptStages(ready).map((stage) => stage.name)).not.toContain(
+      "Verify runtime",
+    );
+    expect(attemptJobLabel("Verify runtime / ${{ matrix.name }}")).toBe(
+      "Verify runtime",
+    );
   });
   it("requires all runtime checks to pass", () => {
     const partial = attempt(

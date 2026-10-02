@@ -32,13 +32,31 @@ describe("Agent API proxy", () => {
   it("passes live chunks and timing headers without buffering the response", async () => {
     vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082");
     let controller!: ReadableStreamDefaultController<Uint8Array>;
-    const body = new ReadableStream<Uint8Array>({ start(c) { controller = c; } });
-    const upstream = vi.fn().mockResolvedValue(new Response(body, { headers: { "content-type": "text/event-stream", "server-timing": "backend;dur=5", "x-accel-buffering": "no" } }));
-    const request = new Request("https://portal.example/v1/agent/chat/session/stream");
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+      },
+    });
+    const upstream = vi.fn().mockResolvedValue(
+      new Response(body, {
+        headers: {
+          "content-type": "text/event-stream",
+          "server-timing": "backend;dur=5",
+          "x-accel-buffering": "no",
+        },
+      }),
+    );
+    const request = new Request(
+      "https://portal.example/v1/agent/chat/session/stream",
+    );
     const response = await proxyAgentApi(request, principal, upstream);
     const reader = response.body!.getReader();
-    controller.enqueue(new TextEncoder().encode("event: message\ndata: {}\n\n"));
-    expect(new TextDecoder().decode((await reader.read()).value)).toContain("event: message");
+    controller.enqueue(
+      new TextEncoder().encode("event: message\ndata: {}\n\n"),
+    );
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(
+      "event: message",
+    );
     expect(response.headers.get("server-timing")).toContain("backend;dur=5");
     expect(response.headers.get("server-timing")).toContain("bff_prepare;dur=");
     expect(response.headers.get("x-accel-buffering")).toBe("no");
@@ -108,6 +126,7 @@ describe("Agent API proxy", () => {
   });
 
   it("fails closed without a hosted API-server URL", () => {
+    vi.stubEnv("AOMI_AGENT_API_URL", "");
     vi.stubEnv("VERCEL_ENV", "production");
     expect(() => configuredAgentApiUrl()).toThrow("AOMI_AGENT_API_URL");
   });
@@ -164,7 +183,7 @@ describe("Agent API proxy", () => {
     );
   });
 
-  it.each(["/openapi.json", "/.well-known/api-catalog"])(
+  it.each(["/openapi.json", "/.well-known/api-catalog", "/v1/agent/models"])(
     "proxies public API discovery at %s without minting a bearer",
     async (path) => {
       vi.stubEnv("AOMI_AGENT_API_URL", "http://api-server:8082");
