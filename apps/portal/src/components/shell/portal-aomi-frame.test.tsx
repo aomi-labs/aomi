@@ -59,7 +59,6 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         showSidebar,
         persistThread,
         threadPersistenceScope,
-        walletFooter,
       }: {
         accountSessionAvailable: boolean;
         applicationId?: string | null;
@@ -68,7 +67,6 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         showSidebar?: boolean;
         persistThread?: boolean;
         threadPersistenceScope?: string | null;
-        walletFooter?: React.ReactNode;
       }) => {
         const [instance] = React.useState(() => ++frameInstances.next);
         // Renders children: the real Root mounts the Aomi runtime around
@@ -84,7 +82,6 @@ vi.mock("@aomi-labs/widget-lib", async () => {
             data-thread-persistence-scope={threadPersistenceScope ?? ""}
             data-testid="aomi-frame"
           >
-            {walletFooter}
             {children}
           </div>
         );
@@ -139,22 +136,6 @@ vi.mock("@portal/components/shell/overlay-portal", () => ({
 
 vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
   SvmWalletBindingGate: () => null,
-}));
-
-vi.mock("./portal-app-selector", () => ({
-  PortalAppSelector: ({ requestedApp }: { requestedApp: unknown }) => (
-    <div data-testid="app-selector" data-app={JSON.stringify(requestedApp)} />
-  ),
-  PortalHeaderAppSelector: () => null,
-  PortalHeaderControls: ({
-    onOpenSettings,
-  }: {
-    onOpenSettings: () => void;
-  }) => (
-    <button type="button" onClick={onOpenSettings}>
-      Open settings
-    </button>
-  ),
 }));
 
 describe("PortalAomiFrame account bootstrap", () => {
@@ -513,9 +494,6 @@ describe("PortalAomiFrame account bootstrap", () => {
 
     render(<PortalAomiFrame />);
 
-    expect(JSON.parse(screen.getByTestId("app-selector").dataset.app!)).toEqual(
-      requestedAppState.current,
-    );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-application-id",
       "2936682",

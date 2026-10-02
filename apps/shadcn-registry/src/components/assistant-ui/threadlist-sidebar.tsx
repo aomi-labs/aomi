@@ -54,8 +54,6 @@ type ThreadListSidebarProps = React.ComponentProps<typeof Sidebar> & {
   walletFamilies?: Array<"evm" | "solana">;
   walletConnectLabel?: string;
   walletAccountMenu?: WalletAccountMenuOptions;
-  /** Host context following the account balance/allowance. */
-  walletFooter?: React.ReactNode;
   /** Products offered in the wordmark dropdown. Pass `null` for a plain wordmark. */
   products?: SidebarProduct[] | null;
   /** Which product this widget instance is; controls the badge and the checkmark. */
@@ -149,7 +147,6 @@ export function ThreadListSidebar({
   walletFamilies,
   walletConnectLabel,
   walletAccountMenu,
-  walletFooter,
   products = DEFAULT_SIDEBAR_PRODUCTS,
   currentProductId = "chat",
   ...props
@@ -197,7 +194,6 @@ export function ThreadListSidebar({
             connectLabel={walletConnectLabel}
             accountMenu={walletAccountMenu}
           />
-          {walletFooter}
         </SidebarFooter>
       )}
     </Sidebar>

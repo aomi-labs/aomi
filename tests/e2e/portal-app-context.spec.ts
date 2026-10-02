@@ -31,6 +31,7 @@ async function installFixtures(page: Page) {
   });
   const unexpected: string[] = [];
   const pageErrors: string[] = [];
+  let historyRequests = 0;
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route("**/*", (route) => {
     const url = new URL(route.request().url());
@@ -39,6 +40,7 @@ async function installFixtures(page: Page) {
   await page.route(/\/(?:api|v1)\//, (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (url.origin !== portalOrigin) return route.abort();
     const path = url.pathname;
     const json = (body: unknown, status = 200) =>
       route.fulfill({
@@ -92,7 +94,8 @@ async function installFixtures(page: Page) {
         missing_required: [],
       });
     }
-    if (path === "/v1/agent/sessions")
+    if (path === "/v1/agent/sessions") {
+      historyRequests++;
       return json({
         sessions: [
           {
@@ -104,6 +107,7 @@ async function installFixtures(page: Page) {
         ],
         nextCursor: null,
       });
+    }
     if (path === "/v1/agent/chat/app-context-existing")
       return json({
         session_id: "app-context-existing",
@@ -143,7 +147,7 @@ async function installFixtures(page: Page) {
     unexpected.push(`${request.method()} ${path}`);
     return json({ error: "Unhandled app-context fixture route" }, 599);
   });
-  return { unexpected, pageErrors };
+  return { unexpected, pageErrors, historyRequests: () => historyRequests };
 }
 
 test.describe("narrow mobile with unavailable catalog", () => {
@@ -169,9 +173,10 @@ test.describe("narrow mobile with unavailable catalog", () => {
       await expect(indicator).toHaveAttribute(
         "aria-label",
         app === "hoodit"
-          ? "Selected app: Hoodit (locked)"
-          : "Selected app: Private Agent (locked)",
+          ? "Selected app: Hoodit"
+          : "Selected app: Private Agent",
       );
+      await indicator.scrollIntoViewIfNeeded();
       const name = indicator.locator("span").first();
       await expect(name).toBeVisible();
       if (app === "hoodit") {
@@ -181,10 +186,12 @@ test.describe("narrow mobile with unavailable catalog", () => {
           ),
         ).toBe(true);
       }
-      for (const button of await page.locator("header button").all()) {
-        const box = await button.boundingBox();
-        expect(box!.x + box!.width).toBeLessThanOrEqual(320);
-      }
+      const appBox = await indicator.boundingBox();
+      const sendBox = await page
+        .getByRole("button", { name: "Send message" })
+        .boundingBox();
+      expect(appBox!.x + appBox!.width).toBeLessThanOrEqual(sendBox!.x);
+      expect(sendBox!.x + sendBox!.width).toBeLessThanOrEqual(320);
       await expect(indicator.locator("svg").first()).toHaveClass(
         app === "hoodit" ? /^(?!.*lucide-app-window)/ : /lucide-app-window/,
       );
@@ -200,7 +207,7 @@ test.describe("narrow mobile with unavailable catalog", () => {
 
 async function visibleIndicator(page: Page) {
   const indicator = page
-    .getByTestId("portal-selected-app")
+    .getByTestId("composer-selected-app")
     .filter({ visible: true });
   await expect(indicator).toBeVisible();
   return indicator;
@@ -230,30 +237,34 @@ for (const viewport of [
       let indicator = await visibleIndicator(page);
       await expect(indicator).toHaveAttribute(
         "aria-label",
-        "Selected app: Hoodit (locked)",
+        "Selected app: Hoodit",
       );
-      await expect(indicator).toHaveText("HooditLocked");
+      await expect(indicator).toHaveText("Hoodit");
       await expect(indicator.locator("svg").first()).not.toHaveClass(
         /lucide-app-window/,
       );
       expect(await indicator.evaluate((element) => element.tagName)).toBe(
-        "DIV",
+        "SPAN",
       );
       await expect(
         page.getByRole("textbox", { name: "Message input" }),
       ).toBeVisible();
-      if (viewport.name === "desktop") {
-        await expect(page.getByText(/875.*left/)).toBeVisible();
-        const allowance = page.getByText(/875.*left/);
-        expect((await indicator.boundingBox())!.y).toBeGreaterThan(
-          (await allowance.boundingBox())!.y,
-        );
-      }
+      await expect(indicator.locator("button")).toHaveCount(0);
+      await expect(page.locator(".aui-composer-action-scroll")).toContainText(
+        "Hoodit",
+      );
+      await expect(
+        page.locator("header").getByTestId("composer-selected-app"),
+      ).toHaveCount(0);
       await page.screenshot({
         path: testInfo.outputPath(`${viewport.name}-locked-new-chat.png`),
         fullPage: true,
       });
+      const historyBeforeReload = fixture.historyRequests();
       await page.reload();
+      await expect
+        .poll(fixture.historyRequests)
+        .toBeGreaterThan(historyBeforeReload);
       await expect
         .poll(async () => (await visibleIndicator(page)).textContent())
         .toContain("Hoodit");
@@ -268,7 +279,7 @@ for (const viewport of [
         page.getByText("Existing fixture answer.", { exact: true }),
       ).toBeVisible();
       indicator = await visibleIndicator(page);
-      await expect(indicator).toHaveText("HooditLocked");
+      await expect(indicator).toHaveText("Hoodit");
       await page.screenshot({
         path: testInfo.outputPath(`${viewport.name}-locked-existing-chat.png`),
         fullPage: true,
@@ -289,59 +300,44 @@ for (const viewport of [
           .getByRole("button", { name: "Toggle Sidebar" })
           .click();
         await expect(
-          page.locator("header").getByTestId("portal-selected-app"),
+          page
+            .locator(".aui-composer-action-scroll")
+            .getByTestId("composer-selected-app"),
         ).toBeVisible();
       }
       expect(fixture.pageErrors).toEqual([]);
       expect(fixture.unexpected).toEqual([]);
     });
 
-    test("unlocked app dropdown switches to a logo-free app and Auto via URL navigation", async ({
+    test("unlocked URL app is informational and preserves context through browser navigation", async ({
       page,
     }, testInfo) => {
       const fixture = await installFixtures(page);
       await page.goto(`/${appQuery}&funding=user_byok`);
-      await expect
-        .poll(async () => (await visibleIndicator(page)).textContent())
-        .toContain("Hoodit");
-      await (await visibleIndicator(page)).click();
-      const menu = page.getByRole("dialog", { name: "App selection" });
-      await expect(menu).toBeVisible();
-      await expect(menu.getByText("Not Enabled")).toHaveCount(0);
-      await page.screenshot({
-        path: testInfo.outputPath(`${viewport.name}-app-dropdown.png`),
-        fullPage: true,
-      });
-      await menu.getByRole("button", { name: "Research Agent" }).click();
-      await expect(page).toHaveURL(/app=research-agent&application_id=42/);
-      expect(new URL(page.url()).searchParams.get("funding")).toBe("user_byok");
-      await expect
-        .poll(async () => (await visibleIndicator(page)).textContent())
-        .toContain("Research Agent");
+      await expect(await visibleIndicator(page)).toHaveText("Hoodit");
       await expect(
-        (await visibleIndicator(page)).locator("svg").first(),
-      ).toHaveClass(/lucide-app-window/);
+        page.getByRole("button", { name: /Select app:/ }),
+      ).toHaveCount(0);
+      await page.goto(
+        "/?app=research-agent&application_id=42&funding=user_byok",
+      );
+      const indicator = await visibleIndicator(page);
+      await indicator.scrollIntoViewIfNeeded();
+      await expect(indicator).toHaveText("Research Agent");
+      await expect(indicator.locator("svg").first()).toHaveClass(
+        /lucide-app-window/,
+      );
       await page.screenshot({
         path: testInfo.outputPath(`${viewport.name}-generic-app.png`),
         fullPage: true,
       });
       await page.reload();
-      await expect
-        .poll(async () => (await visibleIndicator(page)).textContent())
-        .toContain("Research Agent");
-      await (await visibleIndicator(page)).click();
-      await page
-        .getByRole("dialog", { name: "App selection" })
-        .getByRole("button", { name: "Auto", exact: true })
-        .click();
-      await expect
-        .poll(() => new URL(page.url()).searchParams.has("app"))
-        .toBe(false);
-      await expect(page.getByTestId("portal-selected-app")).toHaveCount(0);
+      await expect(await visibleIndicator(page)).toHaveText("Research Agent");
+      expect(new URL(page.url()).searchParams.get("funding")).toBe("user_byok");
+      await page.goto("/");
+      await expect(page.getByTestId("composer-selected-app")).toHaveCount(0);
       await page.goBack();
-      await expect
-        .poll(async () => (await visibleIndicator(page)).textContent())
-        .toContain("Research Agent");
+      await expect(await visibleIndicator(page)).toHaveText("Research Agent");
       expect(fixture.pageErrors).toEqual([]);
       expect(fixture.unexpected).toEqual([]);
     });

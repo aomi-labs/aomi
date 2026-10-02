@@ -10,6 +10,7 @@ import {
 } from "@aomi-labs/widget-lib";
 import {
   getBackendUrl,
+  HeaderControls,
   PackagesModal,
   SettingsModal,
   useAccountOverview,
@@ -24,11 +25,6 @@ import {
   useRequestedAppConfig,
 } from "@portal/lib/portal-client-options";
 import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
-import {
-  PortalAppSelector,
-  PortalHeaderAppSelector,
-  PortalHeaderControls,
-} from "./portal-app-selector";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
 const GUEST_SESSION_TIMEOUT_MS = 8_000;
@@ -48,7 +44,7 @@ const AUTO_ROUTING: AomiRoutingConfig = { targets: [{ mode: "auto" }] };
 /**
  * Portal chats always run Auto; users tag apps with the composer's + picker.
  * An unlocked `?app=` link pre-tags its app the same way; only a locked
- * project link pins its app as a Direct target.
+ * project link pins its app, silently, as a Direct target.
  */
 function PortalComposer({
   enabledApps,
@@ -287,16 +283,6 @@ export function PortalAomiFrame() {
         walletFamilies={["evm", "solana"]}
         walletConnectLabel="Sign in"
         walletAccountMenu={walletAccountMenu}
-        walletFooter={
-          requestedApp.app ? (
-            <div className="hidden md:block">
-              <PortalAppSelector
-                requestedApp={requestedApp}
-                enabledApps={enabledApps}
-              />
-            </div>
-          ) : undefined
-        }
         className="portal-aomi-frame aui-suggestions-marquee rounded-none border-0 shadow-none"
         clientOptions={clientOptions}
         inferenceFunding={requestedApp.inferenceFunding}
@@ -306,12 +292,7 @@ export function PortalAomiFrame() {
           onWalletAccountMenuChange={setWalletAccountMenu}
         />
         <AomiFrame.Header>
-          <PortalHeaderAppSelector
-            requestedApp={requestedApp}
-            enabledApps={enabledApps}
-          />
-          <PortalHeaderControls
-            showAppContext={Boolean(requestedApp.app)}
+          <HeaderControls
             showSettings={Boolean(accountUser)}
             onOpenSettings={() => openSettings("general")}
             onOpenPackages={() => setOverlay("packages")}

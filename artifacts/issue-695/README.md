@@ -1,50 +1,44 @@
-# Selected app UI evidence — issue #695
+# Issue 695: composer app context
 
-Captured from the real Portal running at `http://localhost:3000` on
-`codex/695-selected-app-balance`, based on main
-`d5ae182d7b3b8561e06db8ad911f9047b104fb01`.
+The selected app now appears alongside Model and Safety in the chat composer.
+It is a compact, non-interactive logo (generic fallback) and name, with the same
+muted text, icon size, spacing, and height as the neighboring controls. There is
+no app dropdown, lock badge, or app indicator in the sidebar/header.
 
-The browser tests render the actual Portal, shared frame, sidebar, composer,
-app icons, and dropdown. **Account identity, allowance, app catalog, app
-credentials, and existing chat events are browser-intercepted fixtures.**
-No hosted backend, provider login, real account balance, or fund transaction
-was verified. All external browser requests are blocked by the fixture.
-The account named “UI test account” and its allowance are mock data.
+These screenshots replace the earlier design. They show the actual local Portal
+UI at 1440×900, 390×844, and 320×720. API responses are browser-intercepted test
+fixtures: fake account, allowance, app catalog, and existing chat. No real
+provider authentication, backend integration, transaction signing, or funds
+were used. Google Fonts were blocked in the cloud environment, so these local
+captures use fallback fonts. Installed system Chromium was used because the
+Playwright CDN download was blocked.
 
-System Chromium (`/usr/bin/chromium`) was used because the Playwright CDN is
-blocked in this cloud environment. Google Fonts downloads are also blocked;
-these screenshots show the Portal's fallback fonts. App logos are local
-reviewed artwork and load normally.
-
-| Scenario | Desktop (1440 × 900) | Mobile (390 × 844) |
+| Scenario | Desktop | Mobile |
 | --- | --- | --- |
-| URL-selected, locked Hoodit; new chat | [Screenshot](desktop-locked-new-chat.png) | [Screenshot](mobile-locked-new-chat.png) |
-| Same locked app; existing chat | [Screenshot](desktop-locked-existing-chat.png) | [Screenshot](mobile-locked-existing-chat.png) |
-| Unlocked app selection | [Screenshot](desktop-app-dropdown.png) | [Screenshot](mobile-app-dropdown.png) |
-| App without a logo | [Screenshot](desktop-generic-app.png) | [Screenshot](mobile-generic-app.png) |
+| Locked Hoodit URL, new chat | [Desktop](desktop-locked-new-chat.png) | [Mobile](mobile-locked-new-chat.png) |
+| Locked Hoodit URL, existing chat | [Desktop](desktop-locked-existing-chat.png) | [Mobile](mobile-locked-existing-chat.png) |
+| Unlocked URL, generic app icon | [Desktop](desktop-generic-app.png) | [Mobile](mobile-generic-app.png) |
 
-The tests also verify refresh, new-chat navigation, sidebar collapse, app
-selection with hosted application IDs, Auto selection, and browser Back.
-Returning to Auto clears the selected-app context. The six scenarios also
-run with the existing production guest browser harness in CI.
-Locked controls are informative elements with a lock mark and no dropdown.
-The sidebar app control follows the credit allowance; mobile and collapsed
-sidebar layouts show the control in the header.
+Catalog-unavailable fallbacks at 320px:
+[Hoodit](narrow-mobile-hoodit-catalog-unavailable.png),
+[Private Agent](narrow-mobile-private-agent-catalog-unavailable.png).
+The existing composer row scrolls horizontally when necessary; the generic
+app capture scrolls that row to show the full app name. The existing header
+controls can overflow at 320px independently of this composer change. A Next
+development issue badge may appear in the deliberate catalog-error fixtures.
 
-At 320 × 720 the selected [Hoodit](narrow-mobile-hoodit-catalog-unavailable.png)
-and [generic app](narrow-mobile-private-agent-catalog-unavailable.png)
-indicators remain visible even when the catalog deliberately returns HTTP
-503. Long names truncate with their full name in the accessible label and
-hover title. The mocked 503 may trigger Next's development error badge.
+The six Playwright cases assert non-interactive identity, curated/generic
+icons, initial URL state, unavailable catalog fallback, refresh, existing/new
+chat, sidebar collapse, unlocked URL context, Auto navigation, and browser Back.
+Mobile history navigation waits for the post-refresh session list to load
+before opening the sidebar, so it does not race account hydration.
 
-Reproduce with a running local Portal:
+Reproduce in the managed environment from the repository with the cloud wrapper:
 
 ```bash
-aomi-dev exec --repo frontend -- env \
-  PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
-  pnpm exec playwright test --project portal-app-context --workers=1
+aomi-dev up main --no-build
+aomi-dev exec --repo frontend main -- env PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium pnpm exec playwright test --project=portal-app-context
 ```
 
-Omit the executable override when using Playwright's installed Chromium.
-Set `LOCAL_PORTAL_URL` if the local Portal uses another origin. Screenshots
-are written to `output/playwright/test-results` before copying here.
+CI also runs this suite with the existing deterministic guest-browser production
+harness (eight total scenarios including its two existing guest tests).

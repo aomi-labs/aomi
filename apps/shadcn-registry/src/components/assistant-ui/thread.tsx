@@ -50,6 +50,8 @@ import {
   useThreadContext,
   useThreadTaskRuns,
 } from "@aomi-labs/react";
+import { AppIndicator } from "@/components/control-bar/app-indicator";
+import { normalizeAomiRouting } from "./routing";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
@@ -445,6 +447,12 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           {!hideSafety && <SafetySelect />}
+          <AppIndicator
+            app={
+              controlBarProps.initialAppTag ??
+              normalizeAomiRouting(controlBarProps.routing).directApps[0]
+            }
+          />
           {/* Renders only when the directly targeted app asks the signed-in
               user for app credentials. */}
           {!hideAppSecrets && <AppSecretsDialog />}
