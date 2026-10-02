@@ -2,7 +2,7 @@
   "origin": "http://127.0.0.1:3317",
   "frontendRoot": "/workspace/aomi",
   "frontendBranch": "codex/696-chat-turn-controls",
-  "frontendHead": "d2a1cb2889ac038fae61f3ed9f52570776253a16",
+  "frontendHead": "54d3fe3ae8b3ac38dd37142ddfe4680f93b08821",
   "integration": "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream",
   "realBackendIntegration": "Not exercised by this fixture runner",
   "portalHostIntegration": "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB",
@@ -22,16 +22,17 @@
       "failedInterruptRetry": "PASS",
       "stopBeforeStartAcknowledgement": "PASS",
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 30,
+      "feedbackMs": 25,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
       "interruptAcknowledgedMs": 741,
       "records": [
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -42,12 +43,12 @@
               "client_type": "web_ui"
             }
           },
-          "at": 8967.567278
+          "at": 9191.167267
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -60,16 +61,16 @@
             }
           },
           "cursor": "3",
-          "at": 9271.120571
+          "at": 9493.551908
         },
         {
           "type": "stream",
-          "at": 10053.753669
+          "at": 10254.045535
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -82,12 +83,12 @@
             }
           },
           "cursor": "6",
-          "at": 10341.474988
+          "at": 10598.430329
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -100,12 +101,12 @@
             }
           },
           "cursor": "9",
-          "at": 10729.390533
+          "at": 10955.826539
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -117,21 +118,21 @@
             }
           },
           "cursor": "12",
-          "at": 11722.565926
+          "at": 11927.104126
         },
         {
           "type": "stream",
-          "at": 11798.722428
+          "at": 11992.782644
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 11944.044352
+          "at": 12144.493212
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -143,21 +144,21 @@
             }
           },
           "cursor": "15",
-          "at": 12928.326089
+          "at": 13027.831113
         },
         {
           "type": "stream",
-          "at": 13039.39434
+          "at": 13135.638369
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 13479.355119
+          "at": 13588.460645
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -169,26 +170,26 @@
             }
           },
           "cursor": "19",
-          "at": 14719.364845
+          "at": 14787.694268
         },
         {
           "type": "stream",
-          "at": 14838.93588
+          "at": 14892.879628
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 14940.770248
+          "at": 14978.406697
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 15955.668325
+          "at": 16122.230268
         },
         {
           "type": "start",
-          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
-          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
+          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -200,16 +201,16 @@
             }
           },
           "cursor": "23",
-          "at": 16997.051439
+          "at": 17059.482145
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 17843.517172
+          "at": 18002.226387
         },
         {
           "type": "stream",
-          "at": 17856.034399
+          "at": 18005.239197
         }
       ]
     },
@@ -227,16 +228,17 @@
       "failedInterruptRetry": "PASS",
       "stopBeforeStartAcknowledgement": "PASS",
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 27,
+      "feedbackMs": 26,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
-      "interruptAcknowledgedMs": 755,
+      "interruptAcknowledgedMs": 739,
       "records": [
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -247,12 +249,12 @@
               "client_type": "web_ui"
             }
           },
-          "at": 23212.667557
+          "at": 22770.209155
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -265,16 +267,16 @@
             }
           },
           "cursor": "3",
-          "at": 23497.758327
+          "at": 23040.22911
         },
         {
           "type": "stream",
-          "at": 24254.028961
+          "at": 23789.35939
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -287,12 +289,12 @@
             }
           },
           "cursor": "6",
-          "at": 24642.770544
+          "at": 23999.262721
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -305,12 +307,12 @@
             }
           },
           "cursor": "9",
-          "at": 24971.369102
+          "at": 24446.522894
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -322,21 +324,21 @@
             }
           },
           "cursor": "12",
-          "at": 25931.670769
+          "at": 25349.196819
         },
         {
           "type": "stream",
-          "at": 26038.160313
+          "at": 25422.499733
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 26134.107337
+          "at": 25530.103573
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -348,21 +350,21 @@
             }
           },
           "cursor": "15",
-          "at": 27068.70298
+          "at": 26452.691834
         },
         {
           "type": "stream",
-          "at": 27183.660831
+          "at": 26563.037972
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 27581.160563
+          "at": 26961.927889
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -374,26 +376,26 @@
             }
           },
           "cursor": "19",
-          "at": 28762.679672
+          "at": 28117.057322
         },
         {
           "type": "stream",
-          "at": 28865.861118
+          "at": 28382.215711
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 28960.624582
+          "at": 28484.51571
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 29949.138398
+          "at": 29499.159178
         },
         {
           "type": "start",
-          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
-          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
+          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -405,16 +407,16 @@
             }
           },
           "cursor": "23",
-          "at": 30969.13225
+          "at": 30624.438233
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 31771.802012
+          "at": 31437.958121
         },
         {
           "type": "stream",
-          "at": 31783.161539
+          "at": 31449.35205
         }
       ]
     }

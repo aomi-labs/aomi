@@ -22,7 +22,7 @@ a synthetic 650 ms Stop acknowledgment delay and do not measure a real provider.
 | Edit original request | [Edit](desktop-edit.png) | [Edit](mobile-edit.png) |
 | Rerun edited request | [Rerun](desktop-rerun-edited.png) | [Rerun](mobile-rerun-edited.png) |
 | Partial streamed response | [Streaming](desktop-streaming.png) | [Streaming](mobile-streaming.png) |
-| Immediate disabled Stop feedback | [Stopping](desktop-stopping.png) | [Stopping](mobile-stopping.png) |
+| Immediate disabled icon-only Stop feedback | [Pending Stop](desktop-stopping.png) | [Pending Stop](mobile-stopping.png) |
 | Frozen partial response after acknowledgment | [Stopped](desktop-stopped.png) | [Stopped](mobile-stopped.png) |
 | Failed Stop with retry | [Retry](desktop-stop-retry.png) | [Retry](mobile-stop-retry.png) |
 | Stop before delayed start acknowledgment | [Early Stop](desktop-early-stopped.png) | [Early Stop](mobile-early-stopped.png) |
@@ -33,6 +33,16 @@ Rerun after edit uses revised text, triple Stop creates one interruption,
 thinking-only and partial/tool streaming stops settle, stale deltas stay out,
 failed Stop remains retryable, an early Stop waits for the correct accepted turn,
 and a bounded acknowledgment works without fabricating an event/cursor.
+
+The user-requested visual refinement removes visible pending text. The circular
+Stop icon stays the same size and uses the existing subtle disabled appearance.
+Browser assertions verify no visible text, unchanged dimensions, disabled state,
+`aria-busy` and the nonvisual pending accessible label, alongside the repeated
+click checks. Both desktop and mobile passed after this refinement. Scoped
+ESLint, library typecheck and all 21 affected interruption/intent tests passed.
+The supplied Library reference was resolved, but its pixels could not be
+downloaded or rendered on this executor; the explicit textual requirement was
+used without claiming visual comparison to that reference.
 
 Reproduce from this repository using the pinned cloud environment:
 
