@@ -9,6 +9,11 @@ import {
 } from "@assistant-ui/react";
 import "@fixture-source/apps/shadcn-registry/src/package.css";
 import { ActivitySidebar } from "@fixture-source/apps/shadcn-registry/src/components/activity-sidebar/activity-sidebar";
+import {
+  ActivityPanelProvider,
+  useActivityPanel,
+} from "@fixture-source/apps/shadcn-registry/src/components/activity-sidebar/activity-panel-context";
+import { ListTree } from "lucide-react";
 import { AssistantTurnParts } from "@fixture-source/apps/shadcn-registry/src/components/assistant-ui/working-trace";
 import { ToolStepRow } from "@fixture-source/apps/shadcn-registry/src/components/assistant-ui/working-trace-rows";
 import {
@@ -25,6 +30,7 @@ const params = new URLSearchParams(window.location.search);
 const theme = params.get("theme") === "dark" ? "dark" : "light";
 document.documentElement.className = theme;
 const attributionMode = params.get("mode") === "attribution-trace";
+const phoneLayout = params.get("layout") === "phone";
 
 function Fixture() {
   const [state, setState] = useState(
@@ -38,6 +44,12 @@ function Fixture() {
     setFixtureState(next);
     setState(next);
   };
+  if (phoneLayout)
+    return (
+      <ActivityPanelProvider>
+        <PhoneFixture />
+      </ActivityPanelProvider>
+    );
   return (
     <main
       data-testid="transaction-review-fixture"
@@ -130,6 +142,101 @@ function Fixture() {
           <ActivitySidebar />
         </section>
       )}
+    </main>
+  );
+}
+
+/** A 390×844 phone: chat, docked composer, and the sheet over both. */
+/** The managed provider's phone behavior, with the header's activity toggle. */
+function PhoneFixture() {
+  const activity = useActivityPanel();
+  // Inline sizes: the fixture's Tailwind build only scans the library source.
+  return (
+    <main
+      data-testid="transaction-review-fixture"
+      data-layout="phone"
+      className="bg-aomi-bg text-aomi-fg"
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        width: 390,
+        height: 844,
+        overflow: "hidden",
+      }}
+    >
+      <header
+        className="border-aomi-border border-b"
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          height: 52,
+          alignItems: "center",
+          padding: "0 12px",
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Toggle chat activity"
+          aria-pressed={activity.open}
+          disabled={!activity.worthShowing}
+          onClick={() => activity.setOpen(!activity.open)}
+          className="text-aomi-fg relative flex size-8 items-center justify-center rounded-lg"
+        >
+          <ListTree size={18} />
+          {activity.reviewing && !activity.open ? (
+            <span
+              aria-hidden="true"
+              className="bg-aomi-accent ring-aomi-bg absolute right-1 top-1 size-2 rounded-full ring-2"
+            />
+          ) : null}
+        </button>
+      </header>
+      {/* Like the thread: the sheet covers chat and composer, not the header. */}
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
+        <section
+          id="fixture-phone-chat"
+          aria-label="Fixture chat context"
+          style={{ flex: 1, padding: "24px 16px", fontSize: 14 }}
+        >
+          <p
+            className="bg-aomi-surface"
+            style={{
+              marginLeft: "auto",
+              width: "fit-content",
+              borderRadius: 16,
+              padding: "10px 16px",
+              fontSize: 15,
+            }}
+          >
+            Deposit 100 USDC to Aave
+          </p>
+          <p style={{ marginTop: 24, lineHeight: "24px" }}>
+            Your Base wallet has 304.077784 USDC. I verified the exact batch:
+            approve 100 USDC to Aave, then supply 100 USDC.
+          </p>
+        </section>
+        <div
+          className="border-aomi-border text-aomi-muted border"
+          style={{
+            margin: 12,
+            borderRadius: 22,
+            padding: "12px 16px",
+            fontSize: 15,
+          }}
+        >
+          Reply…
+        </div>
+        <ActivitySidebar />
+      </div>
     </main>
   );
 }

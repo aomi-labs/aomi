@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommitView, Event } from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
@@ -948,5 +948,100 @@ describe("unified live transaction review", () => {
       screen.getByRole("button", { name: "Show all 5 transactions" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(runtime.executeAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("phone-width activity sheet", () => {
+  beforeEach(() => {
+    runtime.events = [];
+    runtime.pendingActions = [];
+    runtime.commits = [];
+    runtime.actionAttempts.clear();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(max-width: 639px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("reviews a pending request in a bottom sheet with the desktop card and review", () => {
+    const current = action({
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x123",
+          to: "0x456",
+          data: "0x",
+          label: "Transfer",
+          kind: "transfer",
+        },
+      ],
+      simulation: simulation(),
+    });
+    runtime.pendingActions = [current];
+    runtime.events = [current];
+    render(<ActivitySidebar />);
+    const sheet = screen.getByRole("dialog", { name: "Review transaction" });
+    expect(sheet).toContainElement(screen.getByTestId("activity-transaction"));
+    expect(sheet).toContainElement(screen.getByTestId("transaction-review"));
+    expect(screen.getByTitle("Not yet signed")).toBeInTheDocument();
+    expect(screen.getByText("Simulation passed")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Skills" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "Chat activity" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("holds focus in the sheet and returns it to the opener on close", () => {
+    const current = action({
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x123",
+          to: "0x456",
+          data: "0x",
+          label: "Transfer",
+          kind: "transfer",
+        },
+      ],
+      simulation: simulation(),
+    });
+    runtime.pendingActions = [current];
+    runtime.events = [current];
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const { unmount } = render(
+      <div>
+        <button type="button">Chat control</button>
+        <ActivitySidebar />
+      </div>,
+    );
+    const sheet = screen.getByRole("dialog", { name: "Review transaction" });
+    expect(sheet).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Chat control" }).inert).toBe(
+      true,
+    );
+
+    const close = screen.getByRole("button", { name: "Close" });
+    close.focus();
+    fireEvent.keyDown(sheet, { key: "Tab", shiftKey: true });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
   });
 });

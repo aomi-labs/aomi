@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility } from "@aomi-labs/client";
-import { Wallet, Fuel } from "lucide-react";
+import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "../ui/aomi/button";
 import { ImpactPanel } from "./wallet-impact";
@@ -129,6 +129,28 @@ export function TransactionReview({
               </dd>
             </div>
           ))}
+          {simulation && !simulationFailed && (
+            <div
+              className={cn(
+                "flex items-center gap-2",
+                simulation.status === "passed"
+                  ? "text-aomi-success"
+                  : "text-aomi-muted",
+              )}
+            >
+              {simulation.status === "passed" ? (
+                <ShieldCheck className="size-3.5 shrink-0" />
+              ) : (
+                <ShieldQuestion className="size-3.5 shrink-0" />
+              )}
+              <dt className="sr-only">Simulation</dt>
+              <dd>
+                {simulation.status === "passed"
+                  ? "Simulation passed"
+                  : "Simulation unavailable"}
+              </dd>
+            </div>
+          )}
           <div className="text-aomi-muted flex items-center gap-2">
             <Fuel className="size-3.5 shrink-0" />
             <dt className="flex-1">{simulationCostSummary(simulation)}</dt>
