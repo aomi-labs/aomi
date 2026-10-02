@@ -1,0 +1,423 @@
+{
+  "origin": "http://127.0.0.1:3317",
+  "frontendRoot": "/workspace/aomi",
+  "frontendBranch": "codex/696-chat-turn-controls",
+  "frontendHead": "d2a1cb2889ac038fae61f3ed9f52570776253a16",
+  "integration": "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream",
+  "realBackendIntegration": "Not exercised by this fixture runner",
+  "portalHostIntegration": "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB",
+  "visualLimitations": "Shared widget default stylesheet and system font fallbacks; full Portal host could not compile within managed memory limits",
+  "scenarios": [
+    {
+      "viewport": "desktop",
+      "result": "PASS",
+      "repeatedRerunStarts": 1,
+      "totalRegenerationStarts": 2,
+      "regenerationAfterEdit": "PASS",
+      "repeatedEditStarts": 1,
+      "repeatedInterruptRequests": 1,
+      "totalInterruptRequests": 5,
+      "thinkingOnlyStop": "PASS",
+      "workingToolAndStreamingStop": "PASS",
+      "failedInterruptRetry": "PASS",
+      "stopBeforeStartAcknowledgement": "PASS",
+      "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "streamingFrames": 3,
+      "feedbackMs": 30,
+      "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
+      "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
+      "interruptAcknowledgedMs": 741,
+      "records": [
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "Original request fixture: explain the last answer.",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 8967.567278
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "Original request fixture: explain the last answer.",
+          "regenerate": "fixture-answer-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "3",
+          "at": 9271.120571
+        },
+        {
+          "type": "stream",
+          "at": 10053.753669
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "Revised request fixture: explain it more simply.",
+          "edit": "fixture-user-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "6",
+          "at": 10341.474988
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "Revised request fixture: explain it more simply.",
+          "regenerate": "fixture-answer-3",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "9",
+          "at": 10729.390533
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "thinking interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "12",
+          "at": 11722.565926
+        },
+        {
+          "type": "stream",
+          "at": 11798.722428
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-5",
+          "at": 11944.044352
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "stream interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "15",
+          "at": 12928.326089
+        },
+        {
+          "type": "stream",
+          "at": 13039.39434
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-6",
+          "at": 13479.355119
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "stream interruption fixture retry",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "19",
+          "at": 14719.364845
+        },
+        {
+          "type": "stream",
+          "at": 14838.93588
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 14940.770248
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 15955.668325
+        },
+        {
+          "type": "start",
+          "sessionId": "f5a9d810-1ad6-4a6a-a5ca-c00c7979fc27",
+          "clientId": "702dd786-31f3-4a2a-8d8d-3c2122b8265d",
+          "message": "stream interruption fixture delayed-start",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "23",
+          "at": 16997.051439
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-8",
+          "at": 17843.517172
+        },
+        {
+          "type": "stream",
+          "at": 17856.034399
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "result": "PASS",
+      "repeatedRerunStarts": 1,
+      "totalRegenerationStarts": 2,
+      "regenerationAfterEdit": "PASS",
+      "repeatedEditStarts": 1,
+      "repeatedInterruptRequests": 1,
+      "totalInterruptRequests": 5,
+      "thinkingOnlyStop": "PASS",
+      "workingToolAndStreamingStop": "PASS",
+      "failedInterruptRetry": "PASS",
+      "stopBeforeStartAcknowledgement": "PASS",
+      "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "streamingFrames": 3,
+      "feedbackMs": 27,
+      "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
+      "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
+      "interruptAcknowledgedMs": 755,
+      "records": [
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "Original request fixture: explain the last answer.",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 23212.667557
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "Original request fixture: explain the last answer.",
+          "regenerate": "fixture-answer-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "3",
+          "at": 23497.758327
+        },
+        {
+          "type": "stream",
+          "at": 24254.028961
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "Revised request fixture: explain it more simply.",
+          "edit": "fixture-user-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "6",
+          "at": 24642.770544
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "Revised request fixture: explain it more simply.",
+          "regenerate": "fixture-answer-3",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "9",
+          "at": 24971.369102
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "thinking interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "12",
+          "at": 25931.670769
+        },
+        {
+          "type": "stream",
+          "at": 26038.160313
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-5",
+          "at": 26134.107337
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "stream interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "15",
+          "at": 27068.70298
+        },
+        {
+          "type": "stream",
+          "at": 27183.660831
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-6",
+          "at": 27581.160563
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "stream interruption fixture retry",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "19",
+          "at": 28762.679672
+        },
+        {
+          "type": "stream",
+          "at": 28865.861118
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 28960.624582
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 29949.138398
+        },
+        {
+          "type": "start",
+          "sessionId": "6b7273d2-83b7-4541-ba50-d066a5a39ab6",
+          "clientId": "4843ef40-079c-471e-909e-d96e979abf4d",
+          "message": "stream interruption fixture delayed-start",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "23",
+          "at": 30969.13225
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-8",
+          "at": 31771.802012
+        },
+        {
+          "type": "stream",
+          "at": 31783.161539
+        }
+      ]
+    }
+  ],
+  "browserVersion": "151.0.7922.173"
+}
