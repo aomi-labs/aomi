@@ -10,6 +10,14 @@ export {
   type SettingsTab,
 } from "./components/account-shell/components/settings/settings-modal";
 export { HeaderControls } from "./components/account-shell/components/shell/header-controls";
+// Hosts place their application context beside the account and keep it visible
+// when the shared sidebar collapses, using the same overlay primitives.
+export {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./components/ui/popover";
+export { useSidebar } from "./components/ui/sidebar";
 export { PackageIcon } from "./components/account-shell/components/shell/package-row";
 export { toCatalogPackage } from "./components/account-shell/components/shell/packages-catalog";
 export { PackagesModal } from "./components/account-shell/components/shell/packages-modal";
@@ -53,7 +61,4 @@ export {
   skillIconGenericAliases,
   skillIconSources,
 } from "./components/icons/skills/source-manifest";
-export {
-  CURATED_APP_IDS,
-  resolveAppIdentity,
-} from "./lib/apps/app-identity";
+export { CURATED_APP_IDS, resolveAppIdentity } from "./lib/apps/app-identity";

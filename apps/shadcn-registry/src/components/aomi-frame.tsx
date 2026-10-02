@@ -68,6 +68,8 @@ type RootProps = {
   walletConnectLabel?: string;
   /** Optional account menu on the sidebar wallet chip (portal supplies live data). */
   walletAccountMenu?: WalletAccountMenuOptions;
+  /** Host context shown immediately after the sidebar account/allowance. */
+  walletFooter?: ReactNode;
   /** Products in the sidebar wordmark dropdown. Pass `null` for a plain wordmark. */
   products?: SidebarProduct[] | null;
   /** Which product this frame is, for the wordmark badge (default: "chat"). */
@@ -139,6 +141,7 @@ const Root: FC<RootProps> = ({
   walletFamilies,
   walletConnectLabel,
   walletAccountMenu,
+  walletFooter,
   products,
   currentProductId,
   showSidebar = true,
@@ -195,6 +198,7 @@ const Root: FC<RootProps> = ({
                 walletFamilies={walletFamilies}
                 walletConnectLabel={walletConnectLabel}
                 walletAccountMenu={walletAccountMenu}
+                walletFooter={walletFooter}
                 products={products}
                 currentProductId={currentProductId}
               />
@@ -238,7 +242,7 @@ const Header: FC<HeaderProps> = ({
           {currentTitle}
         </span>
       )}
-      <div className="ml-auto flex items-center gap-2.5">
+      <div className="ml-auto flex min-w-0 items-center gap-2.5">
         {withControl && <ControlBar {...controlBarProps} />}
         {children}
       </div>
