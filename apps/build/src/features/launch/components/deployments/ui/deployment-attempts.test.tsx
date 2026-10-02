@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { useProjectDetail } from "../../../hooks/use-project-detail";
 import type { ProjectDeploymentAttempt } from "../../../attempts";
@@ -19,6 +19,7 @@ function detail(branch?: string) {
 
 function listDetail(attempt: Partial<ProjectDeploymentAttempt>) {
   return {
+    loadHistory: vi.fn(),
     redeploySource: vi.fn(),
     attempts: {
       attempts: [
@@ -83,6 +84,31 @@ describe("deployment branch selection", () => {
 });
 
 describe("attempt cards", () => {
+  it("promotes the deployment associated with the published run", async () => {
+    const state = listDetail({
+      conclusion: "success",
+      jobs: [
+        {
+          ...job("Publish release", null),
+          status: "completed",
+          conclusion: "success",
+        },
+      ],
+    });
+    state.history = [
+      { deploymentId: "candidate-5", ciRunId: "5" },
+    ] as Detail["history"];
+    state.promote = vi.fn().mockResolvedValue(undefined);
+    state.reload = vi.fn();
+    render(<DeploymentAttempts detail={state} />);
+    expect(screen.getByText("Ready to promote")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Promote release" }));
+    await waitFor(() =>
+      expect(state.promote).toHaveBeenCalledWith("candidate-5"),
+    );
+    await waitFor(() => expect(state.reload).toHaveBeenCalled());
+  });
+
   it("renders diagnostics and a retry for a failed attempt", () => {
     render(
       <DeploymentAttempts
@@ -125,6 +151,7 @@ describe("attempt cards", () => {
 describe("local attempts", () => {
   function localDetail(local: Partial<LocalAttempt>) {
     return {
+      loadHistory: vi.fn(),
       redeploySource: vi.fn(),
       attempts: {
         attempts: [],

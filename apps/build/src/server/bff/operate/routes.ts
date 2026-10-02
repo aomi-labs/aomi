@@ -468,7 +468,13 @@ async function operateSession(
   req: Request,
 ): Promise<{ response: Response } | OperateSession> {
   try {
-    const auth = await authorize(req);
+    const cliLogsRead =
+      req.method === "GET" &&
+      new URL(req.url).pathname === "/api/bff/operate/logs";
+    const auth = await authorize(
+      req,
+      cliLogsRead ? { cliScope: "deployment:read" } : {},
+    );
     if ("response" in auth) return auth;
     const { session, visibilityGrant } = auth;
     const config = launchConfig();

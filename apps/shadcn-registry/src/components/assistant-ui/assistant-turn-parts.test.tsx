@@ -375,6 +375,34 @@ describe("AssistantTurnParts lifecycle", () => {
     ).toBeTruthy();
   });
 
+  it("shows durable failure details on live rendering and replay", () => {
+    state.running = false;
+    state.turnState = "failed";
+    state.answerText = "I started inspecting the app.";
+    state.events = [
+      {
+        type: "turn_state_changed",
+        turn_id: "turn-1",
+        state: "failed",
+        error_code: "execution_input_limit_reached",
+        error_category: "execution",
+        execution_reason: "input_limit_reached",
+        error_message: "Start a new conversation to continue.",
+        retryable: true,
+      },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(
+      view.getByText("Start a new conversation to continue."),
+    ).toBeTruthy();
+    expect(view.getByText("execution_input_limit_reached")).toBeTruthy();
+    expect(view.getByText("turn-1")).toBeTruthy();
+    view.unmount();
+    const replay = render(<AssistantTurnParts />);
+    expect(replay.getByText("execution_input_limit_reached")).toBeTruthy();
+    expect(replay.queryByText(/stopped before it could finish/i)).toBeNull();
+  });
+
   it("keeps partial text in a stopped trace beside the failed-turn fallback", () => {
     state.running = false;
     state.turnState = "failed";

@@ -329,7 +329,32 @@ describe("CLI bearer scope", () => {
     getGitHubSession.mockReset();
   });
 
-  it("does not authorize browser-only secret or promotion writes", async () => {
+  it("checks application ownership before a scoped CLI secret write", async () => {
+    getGitHubSession.mockResolvedValue({
+      githubUserId: "42",
+      githubLogin: "alice",
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ error: "not found" }, { status: 404 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await deploymentSecretsWriteRoute(
+      cliWriteReq("/api/bff/deployments/secrets", {
+        applicationId: 11,
+        secrets: { UNDECLARED_API_KEY: "secret" },
+      }),
+    );
+    expect(response.status).toBe(404);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "applications/11?github_user_id=42",
+    );
+    expect(fetchMock.mock.calls[0][1]?.method ?? "GET").toBe("GET");
+  });
+
+  it("accepts scoped CLI secret requests while promotion remains browser-only", async () => {
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
       githubLogin: "alice",
@@ -349,7 +374,8 @@ describe("CLI bearer scope", () => {
       }),
     );
 
-    expect(secrets.status).toBe(403);
+    // Authentication succeeds, then the invalid application selector is rejected.
+    expect(secrets.status).toBe(400);
     expect(promote.status).toBe(403);
   });
 

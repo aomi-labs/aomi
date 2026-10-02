@@ -986,13 +986,44 @@ export const AssistantTurnParts: FC = () => {
       {live && parts.length === 0 && pending.length === 0 && (
         <MinimalWorkingTrace />
       )}
-      {outcome === "failed" && <TurnFailureFallback />}
+      {outcome === "failed" && (
+        <TurnFailureFallback
+          message={
+            ownState?.type === "turn_state_changed"
+              ? ownState.error_message
+              : undefined
+          }
+          code={
+            ownState?.type === "turn_state_changed"
+              ? ownState.error_code
+              : undefined
+          }
+          turnId={turnId}
+        />
+      )}
     </>
   );
 };
 
-const TurnFailureFallback: FC = () => (
-  <p className="text-aomi-danger mt-2 text-sm leading-5" role="status">
-    This run stopped before it could finish.
-  </p>
+const TurnFailureFallback: FC<{
+  message?: string;
+  code?: string;
+  turnId?: string;
+}> = ({ message, code, turnId }) => (
+  <div className="text-aomi-danger mt-2 text-sm leading-5" role="status">
+    <p>{message ?? "This run stopped before it could finish."}</p>
+    {code && (
+      <details className="mt-1 text-xs">
+        <summary>Failure details</summary>
+        <p>
+          Code: <code>{code}</code>
+        </p>
+        {turnId && (
+          <p>
+            Turn: <code>{turnId}</code>
+          </p>
+        )}
+      </details>
+    )}
+  </div>
 );

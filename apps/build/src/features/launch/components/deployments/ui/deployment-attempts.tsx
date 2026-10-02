@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import {
   attemptLabel,
+  attemptJobLabel,
+  attemptReadyToPromote,
   attemptStages,
   type ProjectDeploymentAttempt,
 } from "@build/features/launch/attempts";
@@ -79,6 +81,9 @@ export function DeploymentAttempts({ detail }: { detail: Detail }) {
   useEffect(() => {
     setExpanded(latestId ?? null);
   }, [latestId]);
+  useEffect(() => {
+    detail.loadHistory();
+  }, [detail.loadHistory]);
 
   return (
     <div className="divide-border divide-y" aria-label="Deployment attempts">
@@ -207,6 +212,12 @@ function AttemptCard({
   now: number;
 }) {
   const stages = attemptStages(attempt);
+  const ready = attemptReadyToPromote(attempt);
+  const deployment = detail.history?.find(
+    (record) => String(record.ciRunId) === String(attempt.id),
+  );
+  const [promoting, setPromoting] = useState(false);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
   const failed =
     attempt.conclusion === "failure" || attempt.conclusion === "timed_out";
   const running = attempt.status !== "completed";
@@ -318,7 +329,7 @@ function AttemptCard({
                 .filter((job) => job.name.includes(" / "))
                 .map((job) => (
                   <li key={job.id} className="flex justify-between text-xs">
-                    <span>{job.name}</span>
+                    <span>{attemptJobLabel(job.name)}</span>
                     <span>
                       {job.steps.some(
                         (step) =>
@@ -354,6 +365,29 @@ function AttemptCard({
             </p>
           )}
           <div className="flex flex-wrap gap-2">
+            {ready && deployment?.deploymentId && (
+              <button
+                className={button}
+                disabled={promoting || detail.attempts.busy}
+                onClick={() => {
+                  setPromoting(true);
+                  setPromotionError(null);
+                  void detail
+                    .promote(deployment.deploymentId!)
+                    .then(() => detail.reload())
+                    .catch((error) =>
+                      setPromotionError(
+                        error instanceof Error
+                          ? error.message
+                          : "Promotion failed",
+                      ),
+                    )
+                    .finally(() => setPromoting(false));
+                }}
+              >
+                {promoting ? "Promoting…" : "Promote release"}
+              </button>
+            )}
             {(failed || attempt.conclusion === "cancelled") && (
               <button
                 className={button}
@@ -387,6 +421,17 @@ function AttemptCard({
               </a>
             )}
           </div>
+          {promotionError && (
+            <p role="alert" className="text-destructive text-sm">
+              {promotionError}
+            </p>
+          )}
+          {ready && (
+            <p className="text-dim text-xs">
+              Release published. Activation and runtime verification will run
+              when you promote it.
+            </p>
+          )}
           {failed && (
             <p className="text-dim text-xs">
               Retry checks the latest commit on{" "}

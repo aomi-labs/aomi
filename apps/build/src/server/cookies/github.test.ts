@@ -11,6 +11,7 @@ import {
   readGitHubCliSession,
   readGitHubSession,
   readGitHubOAuthRequest,
+  renewGitHubCliSession,
 } from "./github";
 
 const session = {
@@ -45,6 +46,27 @@ describe("GitHub CLI sessions", () => {
   it("does not accept a browser session cookie as a CLI bearer", async () => {
     const browserToken = await issueGitHubSession(session);
     await expect(readGitHubCliSession(browserToken)).resolves.toBeNull();
+  });
+
+  it("renews only a valid CLI credential with its existing scope and identity", async () => {
+    const token = await issueGitHubCliSession(session);
+    const request = (token: string) =>
+      new Request("https://build.example.test/api/bff/cli/refresh", {
+        headers: { authorization: `Bearer ${token}` },
+      });
+    const renewed = await renewGitHubCliSession(request(token));
+    expect(renewed).toBeTruthy();
+    await expect(readGitHubCliSession(renewed!, "activate")).resolves.toEqual(
+      session,
+    );
+    await expect(
+      renewGitHubCliSession(request(await issueGitHubSession(session))),
+    ).resolves.toBeNull();
+    await expect(renewGitHubCliSession(request("invalid"))).resolves.toBeNull();
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 31 * 24 * 60 * 60 * 1000);
+    await expect(renewGitHubCliSession(request(token))).resolves.toBeNull();
+    vi.useRealTimers();
   });
 
   it("treats malformed credentials and missing read config as unauthenticated", async () => {
