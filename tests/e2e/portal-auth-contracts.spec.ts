@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
+import { installBrowserWallet } from "./hosted-wallet-fixture";
 import {
   expectVerifiedBffRecord,
   fixtureKeys,
@@ -153,4 +154,150 @@ test("sign-out and account switching isolate agent history", async ({
   expect(JSON.stringify(sessions)).not.toContain(
     "private history for account one",
   );
+});
+
+test("saved Rabby reconnect recovers after browser restart, repeated attempts and interruption", async ({}, testInfo) => {
+  testInfo.setTimeout(150_000);
+  const firstBrowser = await chromium.launch({
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  });
+  let restartedBrowser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  try {
+    const first = await firstBrowser.newPage();
+    const { wallet } = await signInThroughUi(first, {
+      family: "evm",
+      pageOrigin: portalOrigin,
+      challengeOrigin: portalOrigin,
+      privateKeys: keys.evm,
+      evmBrand: "Rabby",
+    });
+    const account = await portalAccount(first);
+    const savedState = await first.context().storageState();
+    await firstBrowser.close();
+
+    restartedBrowser = await chromium.launch({
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    });
+    const context = await restartedBrowser.newContext({
+      storageState: savedState,
+    });
+    const page = await context.newPage();
+    const restored = await installBrowserWallet(page, {
+      family: "evm",
+      pageOrigin: portalOrigin,
+      evmPrivateKeys: keys.evm,
+      evmBrand: "Rabby",
+      initialAccountIndex: 1,
+    });
+    await page.goto(portalOrigin, { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("button", { name: "Open account menu" }),
+    ).toBeVisible({ timeout: 30_000 });
+    const openSettings = async () => {
+      await page.getByRole("button", { name: "Open account menu" }).click();
+      await page.getByRole("button", { name: "Manage account" }).click();
+      const settings = page.getByRole("dialog", {
+        name: "Settings",
+        exact: true,
+      });
+      await expect(settings).toBeVisible();
+      return settings;
+    };
+    const settings = await openSettings();
+    await expect(
+      settings.getByText("Not on this device", { exact: true }),
+    ).toBeVisible();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await settings
+        .getByRole("button", { name: "Connect", exact: true })
+        .click();
+      await expect(
+        settings.getByText(/Select .* in Rabby, then click Connect again/),
+      ).toBeVisible();
+      await expect(
+        settings.getByText("Not on this device", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        settings.getByText(/Connector already connected/),
+      ).toHaveCount(0);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath("rabby-reconnect-guidance-desktop.png"),
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: testInfo.outputPath("rabby-reconnect-guidance-mobile.png"),
+    });
+
+    // Pause the provider read, dismiss Settings, then let the request finish.
+    // Reopening must allow another attempt without signing out.
+    await page.evaluate(() => {
+      const windowFixture = window as unknown as {
+        ethereum: { request: (input: { method: string }) => Promise<unknown> };
+        __releaseRabbyRead?: () => void;
+      };
+      const original = windowFixture.ethereum.request.bind(
+        windowFixture.ethereum,
+      );
+      let pause = true;
+      windowFixture.ethereum.request = async (input) => {
+        if (input.method === "eth_accounts" && pause) {
+          pause = false;
+          await new Promise<void>((resolve) => {
+            windowFixture.__releaseRabbyRead = resolve;
+          });
+        }
+        return original(input);
+      };
+    });
+    await settings
+      .getByRole("button", { name: "Connect", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(
+            (window as unknown as { __releaseRabbyRead?: unknown })
+              .__releaseRabbyRead,
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+    await page.evaluate(() =>
+      (
+        window as unknown as { __releaseRabbyRead: () => void }
+      ).__releaseRabbyRead(),
+    );
+    await restored.switchAccount(0, false);
+    await openSettings();
+    await settings
+      .getByRole("button", { name: "Connect", exact: true })
+      .click();
+    await expect(
+      settings.getByText("Not on this device", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      settings.getByRole("button", { name: "Connect", exact: true }),
+    ).toHaveCount(0);
+    await expect(settings.getByText(/Connector already connected/)).toHaveCount(
+      0,
+    );
+    expect((await portalAccount(page)).user?.id).toBe(account.user?.id);
+    expect((await portalAccount(page)).wallets?.length).toBe(1);
+    expect(restored.signatureCount).toBe(0);
+    expect(wallet.signatureCount).toBe(1);
+    expect(restored.blocked).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath("rabby-reconnect-recovered-mobile.png"),
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.screenshot({
+      path: testInfo.outputPath("rabby-reconnect-recovered-desktop.png"),
+    });
+  } finally {
+    await firstBrowser.close();
+    await restartedBrowser?.close();
+  }
 });

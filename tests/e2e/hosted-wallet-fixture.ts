@@ -110,6 +110,8 @@ export async function installBrowserWallet(
     evmPrivateKeys?: string[];
     svmSecretKey?: string;
     rejectSignatures?: boolean;
+    evmBrand?: "MetaMask" | "Rabby";
+    initialAccountIndex?: number;
   },
 ) {
   const family = options.family;
@@ -188,7 +190,7 @@ export async function installBrowserWallet(
   );
 
   await page.addInitScript(
-    ({ family, addresses, chainId }) => {
+    ({ family, addresses, chainId, evmBrand, initialAccountIndex }) => {
       type WalletBridge = (request: {
         kind: string;
         message?: string;
@@ -216,14 +218,16 @@ export async function installBrowserWallet(
         const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
         let activeIndex = Math.max(
           0,
-          addresses.indexOf(rememberedAddress ?? ""),
+          initialAccountIndex ?? addresses.indexOf(rememberedAddress ?? ""),
         );
-        let connected = rememberedAddress !== null;
+        let connected =
+          rememberedAddress !== null || initialAccountIndex !== undefined;
         const activeAddress = () => addresses[activeIndex];
         const emit = (name: string, value: unknown) =>
           listeners.get(name)?.forEach((listener) => listener(value));
         const provider = {
           isMetaMask: true,
+          isRabby: evmBrand === "Rabby",
           isConnected: () => connected,
           on(name: string, listener: (...args: unknown[]) => void) {
             const set = listeners.get(name) ?? new Set();
@@ -291,7 +295,7 @@ export async function installBrowserWallet(
         });
         Object.defineProperty(window, "__aomiWalletFixtureSwitch", {
           configurable: true,
-          value: (index: number) => {
+          value: (index: number, emitChange = true) => {
             if (
               !Number.isInteger(index) ||
               index < 0 ||
@@ -301,7 +305,7 @@ export async function installBrowserWallet(
             activeIndex = index;
             connected = true;
             rememberAddress(activeAddress());
-            emit("accountsChanged", [activeAddress()]);
+            if (emitChange) emit("accountsChanged", [activeAddress()]);
           },
         });
         const announce = () =>
@@ -310,9 +314,9 @@ export async function installBrowserWallet(
               detail: {
                 info: {
                   uuid: "a0b1c2d3-e4f5-4678-9000-000000000001",
-                  name: "MetaMask",
+                  name: evmBrand,
                   icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
-                  rdns: "io.metamask",
+                  rdns: evmBrand === "Rabby" ? "io.rabby" : "io.metamask",
                 },
                 provider,
               },
@@ -421,21 +425,33 @@ export async function installBrowserWallet(
         return out;
       }
     },
-    { family, addresses: accounts.map((account) => account.address), chainId },
+    {
+      family,
+      addresses: accounts.map((account) => account.address),
+      chainId,
+      evmBrand: options.evmBrand ?? "MetaMask",
+      initialAccountIndex: options.initialAccountIndex,
+    },
   );
 
   return {
     address,
     addresses: accounts.map((account) => account.address),
     blocked,
-    switchAccount: async (index: number) => {
-      await page.evaluate((nextIndex) => {
-        (
-          window as unknown as {
-            __aomiWalletFixtureSwitch?: (value: number) => void;
-          }
-        ).__aomiWalletFixtureSwitch?.(nextIndex);
-      }, index);
+    switchAccount: async (index: number, emitChange = true) => {
+      await page.evaluate(
+        ({ nextIndex, emitChange }) => {
+          (
+            window as unknown as {
+              __aomiWalletFixtureSwitch?: (
+                value: number,
+                emitChange: boolean,
+              ) => void;
+            }
+          ).__aomiWalletFixtureSwitch?.(nextIndex, emitChange);
+        },
+        { nextIndex: index, emitChange },
+      );
     },
     get signatureCount() {
       return signatures;

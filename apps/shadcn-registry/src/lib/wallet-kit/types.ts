@@ -310,7 +310,10 @@ export type AomiWalletKit = {
   /**
    * Attach a specific EVM wallet by option id (matches `evmWallets[].id`).
    */
-  connectEvmWallet?: (id: string) => Promise<void>;
+  connectEvmWallet?: (
+    id: string,
+    options?: { expectedAddress?: string },
+  ) => Promise<void>;
   /**
    * Non-wallet account sign-in options, e.g. Google or email. These are
    * rendered separately from wallet brands so users don't have to learn

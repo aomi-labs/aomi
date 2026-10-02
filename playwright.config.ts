@@ -46,6 +46,9 @@ export default defineConfig({
     },
   ],
   use: {
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

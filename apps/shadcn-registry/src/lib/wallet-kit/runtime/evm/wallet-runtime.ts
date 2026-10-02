@@ -18,6 +18,7 @@ import {
 } from "./brands";
 import { canonicalWalletKey } from "../../catalog/wallet-branding";
 import { planEvmAccountDisconnect } from "./disconnect-plan";
+import { connectEvmConnector } from "./connect-connector";
 import { useWagmiRegistrySource } from "./registry-source";
 import {
   useSafeCapabilities,
@@ -434,7 +435,7 @@ export function useEvmWalletRuntime({
   );
 
   const connect = useCallback(
-    async (id?: string) => {
+    async (id?: string, options?: { expectedAddress?: string }) => {
       if (!id) {
         providerHooks.onConnectFallback?.(registryStore);
         return;
@@ -497,10 +498,25 @@ export function useEvmWalletRuntime({
         if (providerHooks.isProviderInternalConnector?.(target)) {
           providerHooks.onProviderReconnectRequested?.(registryStore);
         }
-        const result = await wagmiConnectAsync({ connector: target });
-        const connectedAddress = (
-          result as { accounts?: readonly string[] } | undefined
-        )?.accounts?.find((account) => account.startsWith("0x"));
+        const result = await connectEvmConnector({
+          connector: target,
+          config: wagmiConfig,
+          connect: () => wagmiConnectAsync({ connector: target! }),
+          disconnect: wagmiDisconnectAsync
+            ? () => wagmiDisconnectAsync({ connector: target! })
+            : undefined,
+          switchAccount: switchAccountAsync
+            ? () => switchAccountAsync({ connector: target! })
+            : undefined,
+          expectedAddress: options?.expectedAddress,
+        });
+        const connectedAddress = options?.expectedAddress
+          ? result.accounts.find(
+              (account) =>
+                account.toLowerCase() ===
+                options.expectedAddress!.toLowerCase(),
+            )
+          : result.accounts[0];
         if (connectedAddress) {
           registryStore.dispatch({
             type: "user/connect-succeeded",
@@ -522,6 +538,9 @@ export function useEvmWalletRuntime({
       providerHooks,
       registryStore,
       wagmiConnectAsync,
+      wagmiDisconnectAsync,
+      switchAccountAsync,
+      wagmiConfig,
     ],
   );
 

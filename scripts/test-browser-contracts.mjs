@@ -39,7 +39,7 @@ writeFileSync(logPath, "");
 for (const prerequisite of [
   join(root, "node_modules/next/dist/bin/next"),
   join(root, "node_modules/.bin/tsx"),
-  chromium.executablePath(),
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? chromium.executablePath(),
 ]) {
   if (!existsSync(prerequisite)) {
     throw new Error(`Browser contract prerequisite missing: ${prerequisite}`);
@@ -286,13 +286,13 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected !== 16 ||
+    stats.expected !== 17 ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
   ) {
     throw new Error(
-      `Browser contract suite failed or omitted mandatory scenarios (expected=16, exit=${code}, stats=${JSON.stringify(stats)})`,
+      `Browser contract suite failed or omitted mandatory scenarios (expected=17, exit=${code}, stats=${JSON.stringify(stats)})`,
     );
   }
   console.log(
