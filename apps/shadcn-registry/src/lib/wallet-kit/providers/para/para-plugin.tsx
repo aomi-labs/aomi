@@ -210,25 +210,30 @@ function ParaAuthLayer({
     return <>{children}</>;
   }
 
-  if (startupTimedOut && !providerReady) {
+  const startupBanner =
+    startupTimedOut && !providerReady ? (
+      <div
+        role="alert"
+        className="border-destructive/25 bg-destructive/10 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm"
+      >
+        <span>
+          Para authentication could not start. Check the API key environment and
+          allowed browser origin.
+        </span>
+        <button
+          type="button"
+          onClick={retryStartup}
+          className="cursor-pointer rounded-md border border-current px-2.5 py-1.5 text-inherit"
+        >
+          Retry
+        </button>
+      </div>
+    ) : null;
+
+  if (startupBanner && !connectorsLoaded) {
     return (
       <>
-        <div
-          role="alert"
-          className="border-destructive/25 bg-destructive/10 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm"
-        >
-          <span>
-            Para authentication could not start. Check the API key environment
-            and allowed browser origin.
-          </span>
-          <button
-            type="button"
-            onClick={retryStartup}
-            className="cursor-pointer rounded-md border border-current px-2.5 py-1.5 text-inherit"
-          >
-            Retry
-          </button>
-        </div>
+        {startupBanner}
         {children}
       </>
     );
@@ -243,7 +248,9 @@ function ParaAuthLayer({
   // the ParaProvider instance stable across the switch.
   return (
     <>
-      {connectorsLoaded ? null : placeholder}
+      {/* Once mounted, keep the host under ParaProvider even if startup fails.
+          Moving it out would reset open dialogs and external wallet runtimes. */}
+      {startupBanner ?? (connectorsLoaded ? null : placeholder)}
       <ParaProvider
         key={startupAttempt}
         paraClientConfig={paraClientConfig}

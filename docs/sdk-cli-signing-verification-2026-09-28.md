@@ -209,3 +209,12 @@ managed memory ceiling. The snapshot-update setting produced no changed golden
 files. GitHub CI must pass on the final pushed revision before merge.
 The deployed wallet receipts above remain historical evidence, not fresh
 on-chain tests of this rebase.
+
+Hosted CI exposed an existing Para startup fallback race during account switching:
+after connector libraries loaded, the readiness timeout moved the host out of
+ParaProvider and remounted wallet runtimes, closing the open sign-in dialog.
+The loaded provider now stays mounted while its failure banner appears. The
+pre-connector fallback remains available when the provider cannot render at all.
+A regression preserves an open wallet picker and a single runtime mount across
+timeout and late readiness; all 10 Para plugin tests and scoped lint pass.
+The mandatory browser scenarios and snapshots were not relaxed.
