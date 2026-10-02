@@ -524,6 +524,7 @@ try {
         name: "Stop generating",
         exact: true,
       });
+      const stopBounds = await stop.boundingBox();
       const feedbackMs = await stop.evaluate(
         (button) =>
           new Promise((resolveFeedback) => {
@@ -568,9 +569,16 @@ try {
             button.click();
           }),
       );
-      await expect(
-        page.getByRole("button", { name: "Stopping generation", exact: true }),
-      ).toBeDisabled();
+      const pendingStop = page.getByRole("button", {
+        name: "Stopping generation",
+        exact: true,
+      });
+      await expect(pendingStop).toBeDisabled();
+      await expect(pendingStop).toHaveAttribute("aria-busy", "true");
+      await expect(pendingStop).toHaveText("");
+      const pendingStopBounds = await pendingStop.boundingBox();
+      assert.equal(pendingStopBounds?.width, stopBounds?.width);
+      assert.equal(pendingStopBounds?.height, stopBounds?.height);
       await page.screenshot({
         path: `${output}/${viewport.name}-stopping.png`,
         fullPage: true,
@@ -742,6 +750,8 @@ try {
         failedInterruptRetry: "PASS",
         stopBeforeStartAcknowledgement: "PASS",
         earlierStoppedTraceAfterNewTurnAndReload: "PASS",
+        iconOnlyPendingStop:
+          "PASS (disabled, unchanged size, no visible text, accessible label retained)",
         streamingFrames: streamFrames,
         feedbackMs: Math.round(feedbackMs),
         latencyMeasurement:

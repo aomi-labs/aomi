@@ -28,7 +28,7 @@ events cannot become active again. The backend disables tools during branch
 generation so signed or completed actions are not repeated.
 
 Stop publishes `isStopping` immediately and deduplicates concurrent requests.
-The control displays disabled **Stopping…** while streaming continues until
+The control stays an icon-only button and becomes disabled while streaming continues until
 acknowledgement. `started_turn_id` and `stopped_turn_id` identify accepted starts
 and stops independently of bounded event pages, preserving the ordered cursor.
 An acknowledged Stop freezes partial text and restores the composer. A failure
