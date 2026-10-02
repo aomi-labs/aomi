@@ -1,6 +1,13 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import {
+  AnimatePresence,
+  LazyMotion,
+  domMax,
+  m,
+  useDragControls,
+  useReducedMotion,
+} from "motion/react";
 import {
   useMemo,
   useEffect,
@@ -10,7 +17,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
 import { useTraceAttribution } from "../assistant-ui/trace-attribution";
@@ -26,7 +33,7 @@ import { focusRing } from "./presentation";
 import { SubagentRow } from "./subagent-row";
 import { TransactionCard, TransactionList } from "./transactions";
 import { WalletReview } from "./wallet-review";
-import { useActivityPanel } from "./activity-panel-context";
+import { PHONE_QUERY, useActivityPanel } from "./activity-panel-context";
 
 export function ActivitySidebar() {
   const { threadViewKey } = useAomiRuntime();
@@ -50,6 +57,7 @@ function ActivitySidebarContent() {
   } = useActivityPanel();
   const [open, setOpen] = useState(true);
   const [compact, setCompact] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const railRef = useRef<HTMLElement>(null);
   const layoutParent = useRef<HTMLElement | null>(null);
@@ -67,6 +75,14 @@ function ActivitySidebarContent() {
     const observer = new ResizeObserver(update);
     observer.observe(parent);
     return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const query = window.matchMedia(PHONE_QUERY);
+    const update = () => setSheet(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
   }, []);
   const activity = useMemo(
     () => selectActivity(events, pendingActions, commits),
@@ -174,7 +190,95 @@ function ActivitySidebarContent() {
     setWorthShowing(hasActivity, Boolean(pending || pendingCommit));
   }, [hasActivity, pending, pendingCommit, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
+  // A new wallet request reopens the sheet: it holds the only sign controls.
+  const reviewKey = pending?.id ?? pendingCommit?.commit_id;
+  useEffect(() => {
+    if (sheet && reviewKey) setPanelOpen(true);
+  }, [sheet, reviewKey, setPanelOpen]);
   const showRail = hasActivity && panelOpen;
+  const hasTransactions = Boolean(
+    transactions.length > 0 || pending || pendingCommit,
+  );
+  const transactionContent = (
+    <>
+      <TransactionList
+        newestId={transactions[0]?.id}
+        count={transactions.length}
+      >
+        {transactions.map((tx) => card(tx))}
+      </TransactionList>
+      <WalletReview />
+    </>
+  );
+  const groups = (
+    <>
+      {activity.agents.length > 0 && (
+        <Group title="Subagents" count={activity.agents.length}>
+          {activity.agents.map((agent, index) => (
+            <SubagentRow key={agent.agentId} agent={agent} index={index} />
+          ))}
+        </Group>
+      )}
+      {activity.skills.length > 0 && (
+        <Group title="Skills" count={activity.skills.length}>
+          <InvokedSkills ids={activity.skills} />
+        </Group>
+      )}
+      {hasTransactions && (
+        <section className="py-4" aria-label="Transactions">
+          <GroupHeader
+            title="Transactions"
+            count={transactions.length}
+            open={expanded}
+            // A pending signature keeps the list open.
+            onToggle={signing ? undefined : () => setOpen(!open)}
+            className="mb-3"
+          />
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <m.div
+                key="transaction-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{
+                  duration: reduceMotion ? 0 : 0.22,
+                  ease: "easeOut",
+                }}
+                className="overflow-hidden"
+              >
+                {transactionContent}
+              </m.div>
+            )}
+          </AnimatePresence>
+        </section>
+      )}
+    </>
+  );
+  if (sheet) {
+    return (
+      <>
+        <span ref={anchorRef} className="hidden" aria-hidden="true" />
+        <AnimatePresence>
+          {showRail && (
+            <ActivitySheet
+              key={threadViewKey ?? "activity"}
+              title={signing ? "Review transaction" : "Activity"}
+              onClose={() => setPanelOpen(false)}
+            >
+              {signing ? (
+                <div className="pb-4 pt-1">{transactionContent}</div>
+              ) : (
+                <div className="divide-aomi-border divide-y [&>section:first-child]:pt-2">
+                  {groups}
+                </div>
+              )}
+            </ActivitySheet>
+          )}
+        </AnimatePresence>
+      </>
+    );
+  }
   return (
     <>
       <span ref={anchorRef} className="hidden" aria-hidden="true" />
@@ -213,63 +317,103 @@ function ActivitySidebarContent() {
           >
             <div className="w-[352px] max-w-[100cqw] py-4 pl-3 pr-6">
               <div className="border-aomi-border bg-aomi-raised divide-aomi-border rounded-shell divide-y border px-4">
-                {activity.agents.length > 0 && (
-                  <Group title="Subagents" count={activity.agents.length}>
-                    {activity.agents.map((agent, index) => (
-                      <SubagentRow
-                        key={agent.agentId}
-                        agent={agent}
-                        index={index}
-                      />
-                    ))}
-                  </Group>
-                )}
-                {activity.skills.length > 0 && (
-                  <Group title="Skills" count={activity.skills.length}>
-                    <InvokedSkills ids={activity.skills} />
-                  </Group>
-                )}
-                {(transactions.length > 0 || pending || pendingCommit) && (
-                  <section className="py-4" aria-label="Transactions">
-                    <GroupHeader
-                      title="Transactions"
-                      count={transactions.length}
-                      open={expanded}
-                      // A pending signature keeps the list open.
-                      onToggle={signing ? undefined : () => setOpen(!open)}
-                      className="mb-3"
-                    />
-                    <AnimatePresence initial={false}>
-                      {expanded && (
-                        <m.div
-                          key="transaction-content"
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{
-                            duration: reduceMotion ? 0 : 0.22,
-                            ease: "easeOut",
-                          }}
-                          className="overflow-hidden"
-                        >
-                          <TransactionList
-                            newestId={transactions[0]?.id}
-                            count={transactions.length}
-                          >
-                            {transactions.map((tx) => card(tx))}
-                          </TransactionList>
-                          <WalletReview />
-                        </m.div>
-                      )}
-                    </AnimatePresence>
-                  </section>
-                )}
+                {groups}
               </div>
             </div>
           </m.aside>
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * Phone presentation of the activity panel: a modal sheet over the chat and
+ * composer. Drag the handle down, tap the scrim, or press Escape to close.
+ */
+function ActivitySheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const dragControls = useDragControls();
+  const titleId = useId();
+  const transition = {
+    duration: reduceMotion ? 0 : 0.32,
+    ease: [0.22, 1, 0.36, 1] as const,
+  };
+  // Own the drag and transform features: standalone consumers may not mount
+  // LazyMotion, and without it the sheet would stay parked off-screen.
+  return (
+    <LazyMotion features={domMax}>
+      <m.div className="absolute inset-0 z-30" data-testid="activity-sheet">
+        <m.div
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={transition}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/40"
+        />
+        <m.aside
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
+          transition={transition}
+          drag="y"
+          dragControls={dragControls}
+          dragListener={false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.6 }}
+          onDragEnd={(_, info) => {
+            if (info.offset.y > 96 || info.velocity.y > 500) onClose();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onClose();
+          }}
+          className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-t-shell shadow-modal absolute inset-x-0 bottom-0 flex max-h-[calc(100%-1.5rem)] flex-col border-t"
+        >
+          <div
+            onPointerDown={(event) => dragControls.start(event)}
+            className="shrink-0 cursor-grab touch-none px-4 pb-2 pt-2 active:cursor-grabbing"
+          >
+            <div
+              aria-hidden="true"
+              className="bg-aomi-border mx-auto mb-2 h-1 w-9 rounded-full"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <h2 id={titleId} className="type-title">
+                {title}
+              </h2>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={onClose}
+                onPointerDown={(event) => event.stopPropagation()}
+                className={cn(
+                  focusRing,
+                  "bg-aomi-surface-2 text-aomi-muted hover:text-aomi-fg flex size-8 items-center justify-center rounded-full transition-colors",
+                )}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          </div>
+          <div className="aui-activity-sidebar min-h-0 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+        </m.aside>
+      </m.div>
+    </LazyMotion>
   );
 }
 

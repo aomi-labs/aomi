@@ -2,7 +2,28 @@
 
 ## Last Updated
 
-2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
+2026-10-02 — MOBILE TRANSACTION SHEET (aomi#691; worktree `mobile-tx-panel`,
+  branch `work/mobile-tx-panel`, uncommitted). On phone viewports
+  (`max-width: 639px`) the activity panel is a bottom sheet over the chat and
+  composer instead of the 352px floating rail. It has a scrim, a drag handle
+  and a close button, and it closes on Escape. Unlike desktop, it doesn't
+  open with the first activity. It waits for the header button, or for a
+  wallet request, which opens it. The header activity button shows an accent
+  dot while a wallet request is hidden (all widths). The review's Reject and
+  Submit pills get a soft lift and a press state. While signing, it shows only the desktop `TransactionList` cards and
+  `WalletReview`. Otherwise it shows the same groups as the rail. Wider
+  viewports are unchanged. The sheet loads its own `LazyMotion` features so
+  standalone consumers still see it. The review details gained "Simulation
+  passed" / "Simulation unavailable" at every width. Visual harness: added a
+  `layout=phone` fixture with light and dark phone captures. The `client.ts`
+  stub now re-exports the real client, and three stale assertions are fixed.
+
+Pending:
+- `scripts/test-transaction-review-visuals.mjs` still fails after the phone
+  captures, in its recovery and trace-chip steps. Those expectations drifted
+  on main (for example "Transaction: 0xdeadbeef").
+
+Previous: 2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
   (prices, yields, protocols), web search/fetch domain chips, short
   transaction titles, and a lucide fallback icon for chains without a mark.
   Activity sidebar: the transient review lines and raw JSON detail dropdowns

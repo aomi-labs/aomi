@@ -128,7 +128,7 @@ try {
 
   await assertText(sidebar, "Skills");
   await assertText(sidebar, "Aave");
-  await assertText(sidebar, "Common Erc20");
+  await assertText(sidebar, "ERC20");
   await assertText(sidebar, "Transactions");
   await assertText(sidebar, "Supply 100 USDC to Aave");
   await assertText(sidebar, "Approve USDC for Aave");
@@ -138,8 +138,7 @@ try {
   await assertText(review, "+100.000118");
   await assertText(review, "0xda65d4…fc3cf0");
   await assertText(review, "Estimated gas · 226,611 units");
-  await assertText(review, "Transaction details");
-  await assertText(review, "Simulation details");
+  await assertText(review, "Simulation passed");
   await review.getByRole("button", { name: "Reject", exact: true }).waitFor();
   await review
     .getByRole("button", {
@@ -208,6 +207,49 @@ try {
     await assertSplitFits(page.getByTestId("transaction-review"));
   await page.screenshot({
     path: resolve(artifacts, "aave-usdc-light-narrow.png"),
+    animations: "disabled",
+  });
+
+  for (const theme of ["light", "dark"]) {
+    await page.goto(pageUrl({ layout: "phone", theme }), {
+      waitUntil: "networkidle",
+    });
+    await page.evaluate(() => document.fonts.ready);
+    const sheet = page.getByRole("dialog", { name: "Review transaction" });
+    const phoneReview = sheet.getByTestId("transaction-review");
+    await phoneReview.waitFor();
+    await page.waitForTimeout(100);
+    await assertText(sheet, "Supply 100 USDC to Aave");
+    await assertText(phoneReview, "+100.000118");
+    await assertText(phoneReview, "Simulation passed");
+    assert.equal(await sheet.getByText("Skills").count(), 0);
+    if (fixtureMode === "commit") await assertSplitFits(phoneReview);
+    const sheetBox = await sheet.boundingBox();
+    assert.ok(
+      sheetBox && sheetBox.x === 0 && Math.round(sheetBox.width) === 390,
+      "The phone sheet spans the full width",
+    );
+    await page.screenshot({
+      path: resolve(artifacts, `aave-usdc-${theme}-phone.png`),
+      animations: "disabled",
+    });
+  }
+
+  // Without a wallet request the phone sheet waits for the header button.
+  await page.goto(pageUrl({ layout: "phone", state: "confirmed" }), {
+    waitUntil: "networkidle",
+  });
+  await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "Toggle chat activity" }).waitFor();
+  assert.equal(await page.getByRole("dialog").count(), 0);
+  await page.getByRole("button", { name: "Toggle chat activity" }).click();
+  const activitySheet = page.getByRole("dialog", { name: "Activity" });
+  await activitySheet.waitFor();
+  await assertText(activitySheet, "Skills");
+  await assertText(activitySheet, "Supply 100 USDC to Aave");
+  await page.waitForTimeout(100);
+  await page.screenshot({
+    path: resolve(artifacts, "aave-usdc-light-phone-activity.png"),
     animations: "disabled",
   });
 

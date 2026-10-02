@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
 import { reviewEligibility } from "@aomi-labs/client";
-import { Wallet, Fuel } from "lucide-react";
+import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { AomiButton, aomiButton } from "../ui/aomi/button";
 import { ImpactPanel } from "./wallet-impact";
@@ -14,14 +14,22 @@ import {
   focusRing,
 } from "./presentation";
 
-/** The review actions keep their pill shape: they are the panel's one decision. */
-const reviewButtonClass = cn(focusRing, "h-10 rounded-full");
+/** The review actions keep their pill shape: they are the panel's one decision.
+ * A soft lift and press set them apart from the flat surface around them. */
+const raised =
+  "shadow-[0_1px_2px_rgb(0_0_0/0.06),0_2px_6px_-2px_rgb(0_0_0/0.08)] transition-[background-color,opacity,transform,box-shadow] active:translate-y-px active:shadow-none";
+// A sheen at the top shows on the ink fill (light theme) and a darker base
+// edge on the paper fill (dark theme), so the pill reads raised in both.
+const raisedPrimary =
+  "bg-[linear-gradient(to_bottom,rgb(255_255_255/0.14),transparent_55%,rgb(0_0_0/0.14))] shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_1px_2px_rgb(0_0_0/0.2),0_4px_12px_-4px_rgb(0_0_0/0.3)]";
+const reviewButtonClass = cn(focusRing, "h-10 rounded-full", raised);
 // One half of the "Submit n of m | Submit all" split button. No size variant:
 // the shared pill container owns the radius, so the halves stay square.
 const splitSegment = cn(
   aomiButton({ variant: "primary", size: null }),
   focusRing,
-  "type-control h-10 rounded-none px-3",
+  // Transparent so the shared pill's raised fill shows through both halves.
+  "type-control h-10 rounded-none bg-transparent px-3",
 );
 
 export type TransactionReviewData = Pick<Action, "id" | "revision"> & {
@@ -129,6 +137,28 @@ export function TransactionReview({
               </dd>
             </div>
           ))}
+          {simulation && !simulationFailed && (
+            <div
+              className={cn(
+                "flex items-center gap-2",
+                simulation.status === "passed"
+                  ? "text-aomi-success"
+                  : "text-aomi-muted",
+              )}
+            >
+              {simulation.status === "passed" ? (
+                <ShieldCheck className="size-3.5 shrink-0" />
+              ) : (
+                <ShieldQuestion className="size-3.5 shrink-0" />
+              )}
+              <dt className="sr-only">Simulation</dt>
+              <dd>
+                {simulation.status === "passed"
+                  ? "Simulation passed"
+                  : "Simulation unavailable"}
+              </dd>
+            </div>
+          )}
           <div className="text-aomi-muted flex items-center gap-2">
             <Fuel className="size-3.5 shrink-0" />
             <dt className="flex-1">{simulationCostSummary(simulation)}</dt>
@@ -174,7 +204,12 @@ export function TransactionReview({
         </AomiButton>
         {!failed &&
           (onApproveAll && batchProgress ? (
-            <div className="bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full">
+            <div
+              className={cn(
+                "bg-aomi-fg text-aomi-bg flex min-w-0 overflow-hidden rounded-full",
+                raisedPrimary,
+              )}
+            >
               <button
                 type="button"
                 onClick={onApprove}
@@ -209,7 +244,7 @@ export function TransactionReview({
           ) : (
             <AomiButton
               variant="primary"
-              className={reviewButtonClass}
+              className={cn(reviewButtonClass, raisedPrimary)}
               onClick={onApprove}
               disabled={
                 approving || approveDisabled || batchProgress?.submitting

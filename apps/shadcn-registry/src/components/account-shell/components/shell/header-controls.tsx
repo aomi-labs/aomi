@@ -80,7 +80,7 @@ export function HeaderControls({
           type="button"
           disabled={!activity.worthShowing}
           onClick={() => activity.setOpen(!activity.open)}
-          className={`${headerButtonClass} disabled:hover:text-aomi-muted disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent ${
+          className={`${headerButtonClass} disabled:hover:text-aomi-muted relative disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent ${
             activity.open ? "bg-aomi-surface-2 text-aomi-fg" : ""
           }`}
           aria-label={
@@ -95,6 +95,13 @@ export function HeaderControls({
           aria-pressed={activity.worthShowing ? activity.open : false}
         >
           <ListTree size={18} />
+          {activity.reviewing && !activity.open ? (
+            <span
+              aria-hidden="true"
+              data-testid="activity-review-dot"
+              className="bg-aomi-accent ring-aomi-bg absolute right-1 top-1 size-2 rounded-full ring-2"
+            />
+          ) : null}
         </button>
       ) : null}
     </div>
