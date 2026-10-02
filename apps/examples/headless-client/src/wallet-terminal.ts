@@ -180,38 +180,48 @@ function queueCommit(session: ClientSession, commit: CommitView) {
 async function reviewCommit(session: ClientSession, commit: CommitView) {
   const fresh = await session.commits.refresh(commit.commit_id);
   if (!fresh.action) return;
-  // Execute one reviewed transition per approval. The controller can advance
-  // sign -> broadcast in one call when both capabilities are present.
-  session.commits.setCapabilities(
-    fresh.action.kind === "sign"
-      ? { ...commitOps, walletBroadcast: undefined, venueBroadcast: undefined }
-      : { ...commitOps, sign: undefined },
-  );
-  const review = session.commits.review(commit.commit_id);
-  console.log(`\n[review] ${describeCommit(fresh)}`);
-  console.log(JSON.stringify(fresh, null, 2));
-  if (review) console.log(JSON.stringify(review, null, 2));
-  if (!session.commits.canExecute(fresh)) {
-    console.log("[wallet] the configured wallet cannot execute this commit");
-    return;
-  }
+  try {
+    // Execute one reviewed transition per approval. The controller can advance
+    // sign -> broadcast in one call when both capabilities are present.
+    session.commits.setCapabilities(
+      fresh.action.kind === "sign"
+        ? {
+            ...commitOps,
+            walletBroadcast: undefined,
+            venueBroadcast: undefined,
+          }
+        : { ...commitOps, sign: undefined },
+    );
+    const review = session.commits.review(commit.commit_id);
+    console.log(`\n[review] ${describeCommit(fresh)}`);
+    console.log(JSON.stringify(fresh, null, 2));
+    if (review) console.log(JSON.stringify(review, null, 2));
+    if (!session.commits.canExecute(fresh)) {
+      console.log("[wallet] the configured wallet cannot execute this commit");
+      return;
+    }
 
-  const approval = (await terminal.question("Approve this commit step? [y/N] "))
-    .trim()
-    .toLowerCase();
-  if (approval !== "y" && approval !== "yes") {
-    await session.commits.reject(fresh.commit_id);
-    console.log("[wallet] rejected");
-    return;
-  }
+    const approval = (
+      await terminal.question("Approve this commit step? [y/N] ")
+    )
+      .trim()
+      .toLowerCase();
+    if (approval !== "y" && approval !== "yes") {
+      await session.commits.reject(fresh.commit_id);
+      console.log("[wallet] rejected");
+      return;
+    }
 
-  const resolved = await session.commits.execute(fresh.commit_id, {
-    expectedVersion: fresh.version,
-    expectedReviewDigest: fresh.review?.digest,
-  });
-  console.log(`[commit] ${resolved.commit_id}: ${resolved.state}`);
-  if (resolved.action && resolved.version > fresh.version) {
-    await reviewCommit(session, resolved);
+    const resolved = await session.commits.execute(fresh.commit_id, {
+      expectedVersion: fresh.version,
+      expectedReviewDigest: fresh.review?.digest,
+    });
+    console.log(`[commit] ${resolved.commit_id}: ${resolved.state}`);
+    if (resolved.action && resolved.version > fresh.version) {
+      await reviewCommit(session, resolved);
+    }
+  } finally {
+    session.commits.setCapabilities(commitOps);
   }
 }
 

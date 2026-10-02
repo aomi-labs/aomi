@@ -223,3 +223,7 @@ The same trace opened the picker in the cold placeholder before any external
 wallet runtime existed. The wallet chip now stays disabled and reports busy
 until the kit is ready or exposes connection options. External wallet options
 remain usable while additive provider authentication is still booting.
+
+The follow-up review also noted terminal capabilities remaining narrowed after
+an early return or error. Each one-step review now restores the default wallet
+capabilities in a finally block, including rejection and unsupported-wallet paths.
