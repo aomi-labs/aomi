@@ -86,8 +86,11 @@ vi.mock("@build/server/bff/backend", () => ({
 }));
 
 const getGitHubSession = vi.fn();
+const getGitHubCliSessionFromRequest = vi.fn();
 vi.mock("@build/server/cookies/github", () => ({
   getGitHubSession: () => getGitHubSession(),
+  getGitHubCliSessionFromRequest: (...args: unknown[]) =>
+    getGitHubCliSessionFromRequest(...args),
 }));
 
 function getReq(qs = "") {
@@ -171,6 +174,7 @@ beforeEach(() => {
   client.listUserProjectLogs.mockReset();
   client.listUserProjectDeployments.mockReset();
   getGitHubSession.mockReset();
+  getGitHubCliSessionFromRequest.mockReset().mockResolvedValue(null);
   telemetry.capture.mockReset();
   telemetry.log.mockReset();
 });
@@ -267,6 +271,18 @@ describe("operateBotsRoute", () => {
 });
 
 describe("operateBotsCreateRoute", () => {
+  it("rejects CLI deployment-read credentials for bot writes", async () => {
+    clearSession();
+    getGitHubCliSessionFromRequest.mockResolvedValue({
+      githubUserId: "gh-1",
+      githubLogin: "alice",
+    });
+    const res = await operateBotsCreateRoute(postJson({}));
+    expect(res.status).toBe(401);
+    expect(getGitHubCliSessionFromRequest).not.toHaveBeenCalled();
+    expect(client.createUserBot).not.toHaveBeenCalled();
+  });
+
   it("401s create when not signed in with GitHub", async () => {
     clearSession();
     const res = await operateBotsCreateRoute(
@@ -529,6 +545,18 @@ describe("operateBotsUpdateRoute", () => {
 });
 
 describe("operateBotsCommandSecretRoute", () => {
+  it("rejects CLI deployment-read credentials for bot secrets", async () => {
+    clearSession();
+    getGitHubCliSessionFromRequest.mockResolvedValue({
+      githubUserId: "gh-1",
+      githubLogin: "alice",
+    });
+    const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
+    expect(res.status).toBe(401);
+    expect(getGitHubCliSessionFromRequest).not.toHaveBeenCalled();
+    expect(client.revealUserBotCommandSecret).not.toHaveBeenCalled();
+  });
+
   it("401s when not signed in with GitHub", async () => {
     clearSession();
     const res = await operateBotsCommandSecretRoute(commandSecretReq("b1"));
@@ -1452,6 +1480,29 @@ describe("account-wide batch reads", () => {
     expect(body.example).toBeUndefined();
     expect(body.daily).toHaveLength(1);
     expect(body.statement.summary.grossRevenue).toBe(12);
+  });
+
+  it("allows deployment-read CLI credentials to read owned logs", async () => {
+    clearSession();
+    getGitHubCliSessionFromRequest.mockResolvedValue({
+      githubUserId: "gh-cli",
+      githubLogin: "alice",
+    });
+    client.listUserLogs.mockResolvedValue({
+      projects: [],
+      logs: [],
+      nextCursor: null,
+    });
+    const req = logsReq();
+    const res = await operateLogsRoute(req);
+    expect(res.status).toBe(200);
+    expect(getGitHubCliSessionFromRequest).toHaveBeenCalledWith(
+      req,
+      "deployment:read",
+    );
+    expect(client.listUserLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ githubUserId: "gh-cli" }),
+    );
   });
 
   it("serves logs pre-merged with the batch cursor", async () => {

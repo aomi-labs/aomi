@@ -4,7 +4,7 @@ import publicApi from "../../../apps/portal/openapi/aomi-agent-v1.json";
 
 describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
   it("freezes the Rust route manifest and excludes deleted chat controllers", () => {
-    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(83);
+    expect(publicApi["x-aomi-route-manifest"]).toHaveLength(84);
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
       operationId: "buildTask",
@@ -41,6 +41,7 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
       "DELETE /v1/agent/sessions/{sessionId}",
       "GET /v1/agent/chat/{sessionId}",
       "GET /v1/agent/chat/{sessionId}/stream",
+      "GET /v1/agent/models",
       "GET /v1/agent/sessions",
       "GET /v1/agent/sessions/{sessionId}",
       "PATCH /v1/agent/sessions/{sessionId}",
@@ -57,6 +58,20 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(publicApi.paths["/v1/pipeline/mcp"].post.operationId).toBe(
       "pipelineMcp",
     );
+  });
+
+  it("exposes model discovery without requiring a guest session", () => {
+    const operation = publicApi.paths["/v1/agent/models"].get;
+    expect(operation.operationId).toBe("guestModels");
+    expect(operation).not.toHaveProperty("security");
+    expect(
+      operation.responses["200"].content["application/json"].schema,
+    ).toMatchObject({
+      required: ["models", "description"],
+      properties: {
+        models: { items: { required: ["id", "label", "default"] } },
+      },
+    });
   });
 
   it("binds public durable Pipeline continuations to execution scope and canonical reviews", () => {
