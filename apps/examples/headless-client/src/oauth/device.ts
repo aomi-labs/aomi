@@ -4,8 +4,11 @@ import { join } from "node:path";
 import { Aomi, oauth } from "@aomi-labs/client";
 
 import { createJsonFileGrantStore } from "./grant-stores";
+import { resolveHeadlessOAuthConfig } from "../shared/oauth";
 
 const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
+const { resource } = resolveHeadlessOAuthConfig(baseUrl);
+const target = resource.endsWith("/v1/pipeline") ? "pipeline" : "agent";
 const clientId = process.env.AOMI_OAUTH_CLIENT_ID?.trim();
 if (!clientId) throw new Error("Set AOMI_OAUTH_CLIENT_ID to a managed client");
 
@@ -29,14 +32,13 @@ const aomi = new Aomi({
   }),
 });
 
-// Login is optional: API calls also acquire and refresh the exact grant they
-// need. It is useful here to finish all user interaction during startup.
-await aomi.auth.login({ for: ["agent", "pipeline"] });
-
-const [sessions, catalog] = await Promise.all([
-  aomi.raw.agent.sessions.list({ limit: 5 }),
-  aomi.raw.pipeline.apps.list(),
-]);
-
-console.log(`OAuth can read ${sessions.sessions.length} Agent session(s)`);
-console.log(`OAuth can read ${catalog.entries.length} Pipeline app(s)`);
+// A public device client is bound to one exact REST resource. Login is
+// optional: API calls acquire and refresh this target's grant lazily too.
+await aomi.auth.login({ for: target });
+if (target === "agent") {
+  const sessions = await aomi.raw.agent.sessions.list({ limit: 5 });
+  console.log(`OAuth can read ${sessions.sessions.length} Agent session(s)`);
+} else {
+  const catalog = await aomi.raw.pipeline.apps.list();
+  console.log(`OAuth can read ${catalog.entries.length} Pipeline app(s)`);
+}

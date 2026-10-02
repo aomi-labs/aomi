@@ -64,6 +64,7 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
 
   const connected = Boolean(identity.address || identity.svmAddress);
   const accountMenuEnabled = Boolean(accountMenu?.enabled);
+  const walletKitBooting = !adapter.isReady && !adapter.canConnect;
   const activeEvmAccount = adapter.accounts.find(
     (account) => account.family === "evm" && account.active,
   );
@@ -198,6 +199,8 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
         <button
           type="button"
           onClick={handleChipClick}
+          disabled={!accountMenuEnabled && walletKitBooting}
+          aria-busy={!accountMenuEnabled && walletKitBooting ? true : undefined}
           className={chipClassName}
           aria-label={
             accountMenuEnabled ? "Open account menu" : disconnectedLabel

@@ -1,5 +1,5 @@
 import type { ActionCapabilities } from "../actions";
-import { commitCapabilities } from "../commits";
+import { commitCapabilities, type CommitCapabilities } from "../commits";
 import { AomiClient } from "../client";
 import { createGuestSessionProvider } from "../guest-auth";
 import type { AomiClientOptions } from "../types";
@@ -27,8 +27,12 @@ type AomiManagedAuthOptions = Omit<
 };
 
 type AomiExecutionOptions =
-  | { wallet?: Wallets; actions?: never }
-  | { actions?: ActionCapabilities; wallet?: never };
+  | { wallet?: Wallets; actions?: never; commits?: CommitCapabilities }
+  | {
+      actions?: ActionCapabilities;
+      wallet?: never;
+      commits?: CommitCapabilities;
+    };
 
 export type AomiOptions = (
   | AomiManagedAuthOptions
@@ -47,7 +51,8 @@ export class Aomi {
   readonly wallet?: Wallets;
 
   constructor(options: AomiOptions) {
-    const { actions, wallet, auth, ...unmanagedClientOptions } = options;
+    const { actions, commits, wallet, auth, ...unmanagedClientOptions } =
+      options;
     const clientOptions: AomiClientOptions = unmanagedClientOptions;
     const fetchImpl = clientOptions.fetch ?? globalThis.fetch.bind(globalThis);
     const paidClientOptions: AomiClientOptions = {
@@ -106,15 +111,16 @@ export class Aomi {
 
     this.wallet = wallet;
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
-    this.pipeline = new AomiPipeline(
-      this.raw.pipeline,
-      this.raw,
-      wallet ? commitCapabilities(wallet) : undefined,
-    );
+    const commitOps = commits ?? (wallet ? commitCapabilities(wallet) : {});
+    this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.account = this.raw.account;
     this.transactionSafety = this.raw.transactionSafety;
-    this.agent = new AomiAgent(this.raw.agent, this.raw, capabilities, () =>
-      wallet ? walletUserState(wallet) : undefined,
+    this.agent = new AomiAgent(
+      this.raw.agent,
+      this.raw,
+      capabilities,
+      () => (wallet ? walletUserState(wallet) : undefined),
+      commitOps,
     );
   }
 }

@@ -209,7 +209,12 @@ function AddressLine({
         size={17}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="type-row truncate">{title}</span>
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="type-row truncate">{title}</span>
+          {wallet.kind === "external" ? (
+            <StatusPill>External signer</StatusPill>
+          ) : null}
+        </span>
         <span className="type-address text-aomi-muted truncate">{address}</span>
       </span>
     </>

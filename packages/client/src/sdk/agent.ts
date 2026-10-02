@@ -1,6 +1,11 @@
 import type { Action, ActionResult } from "../agent/types";
 import type { ActionCapabilities } from "../actions";
 import type { AomiClient } from "../client";
+import {
+  isTerminalCommit,
+  type CommitCapabilities,
+  type CommitView,
+} from "../commits";
 import { TypedEventEmitter } from "../event";
 import { ClientSession } from "../session";
 import type { SendResult, SessionOptions } from "../session/types";
@@ -17,10 +22,12 @@ export interface AgentRunOptions extends Omit<
 export interface AgentRunResult extends SendResult {
   sessionId: string;
   actions: readonly Action[];
+  commits: readonly CommitView[];
 }
 
 export interface AgentRunEventMap extends Record<string, unknown> {
   action: Action;
+  commit: CommitView;
   completed: AgentRunResult;
   error: { error: unknown };
 }
@@ -46,6 +53,7 @@ export class AgentRun
       getUserState: () => userState,
     });
     const revisions = new Map<string, number>();
+    const commitVersions = new Map<string, number>();
     let reportedError: unknown;
     const unsubscribe = this.session.subscribe(() => {
       const snapshot = this.session.getSnapshot();
@@ -54,18 +62,25 @@ export class AgentRun
         revisions.set(action.id, action.revision);
         this.emit("action", action);
       }
+      for (const commit of snapshot.commits) {
+        if ((commitVersions.get(commit.commit_id) ?? -1) >= commit.version)
+          continue;
+        commitVersions.set(commit.commit_id, commit.version);
+        this.emit("commit", commit);
+      }
       if (snapshot.error !== undefined && snapshot.error !== reportedError) {
         reportedError = snapshot.error;
         this.emit("error", { error: snapshot.error });
       }
     });
     this.completion = Promise.resolve()
-      .then(() => this.session.send(prompt))
+      .then(() => this.sendUntilCompletionOrCommit(prompt))
       .then((result) => {
         const completed = {
           ...result,
           sessionId: this.session.sessionId,
           actions: this.session.actions.all(),
+          commits: this.session.commits.all(),
         };
         this.emit("completed", completed);
         unsubscribe();
@@ -83,6 +98,31 @@ export class AgentRun
 
   result(): Promise<AgentRunResult> {
     return this.completion;
+  }
+
+  private async sendUntilCompletionOrCommit(
+    prompt: string,
+  ): Promise<SendResult> {
+    let unsubscribe: () => void = () => undefined;
+    const handoff = new Promise<SendResult>((resolve) => {
+      const check = () => {
+        const snapshot = this.session.getSnapshot();
+        if (
+          snapshot.turnState !== "awaiting_action" ||
+          snapshot.actions.some((action) => action.state === "pending") ||
+          !snapshot.commits.some((commit) => !isTerminalCommit(commit))
+        )
+          return;
+        resolve({ messages: snapshot.messages, title: snapshot.title });
+      };
+      unsubscribe = this.session.subscribe(check);
+      check();
+    });
+    try {
+      return await Promise.race([this.session.send(prompt), handoff]);
+    } finally {
+      unsubscribe();
+    }
   }
 
   then<TResult1 = AgentRunResult, TResult2 = never>(
@@ -114,6 +154,7 @@ export class AomiAgent {
     private readonly actions: ActionCapabilities = {},
     private readonly defaultUserState: () => UserStateShape | undefined = () =>
       undefined,
+    private readonly commits: CommitCapabilities = {},
   ) {}
 
   run(prompt: string, options?: AgentRunOptions): AgentRun {
@@ -126,7 +167,31 @@ export class AomiAgent {
       {
         ...options,
         userState: options?.userState ?? this.defaultUserState(),
+        commits: options?.commits ?? this.commits,
       },
     );
+  }
+
+  /** Rehydrate an existing Agent thread; the caller owns the returned session. */
+  async openSession(
+    sessionId: string,
+    options: Omit<AgentRunOptions, "sessionId"> = {},
+  ): Promise<ClientSession> {
+    if (!sessionId.trim()) throw new TypeError("sessionId is required");
+    const userState = options.userState ?? this.defaultUserState();
+    const session = new ClientSession(this.client, {
+      ...options,
+      sessionId,
+      actions: options.actions ?? this.actions,
+      commits: options.commits ?? this.commits,
+      getUserState: () => userState,
+    });
+    try {
+      await session.fetchCurrentState();
+      return session;
+    } catch (error) {
+      session.close();
+      throw error;
+    }
   }
 }

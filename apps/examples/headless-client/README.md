@@ -31,7 +31,10 @@ specific integration with
 | Account credits | A signed-in process reads or purchases durable credit | [`src/account/credits.ts`](./src/account/credits.ts) · `pnpm example:account:credits`               |
 
 The OAuth example uses a provisioned public client and device login—never a
-client secret. Set the environment-specific public client ID before running it:
+client secret. Device clients are bound to one exact REST resource. The example
+uses Agent by default; set `AOMI_OAUTH_RESOURCE` to the Portal's exact
+`/v1/pipeline` resource and use a separately registered Pipeline client to
+read that catalog. Set the matching public client ID before running it:
 
 ```sh
 AOMI_OAUTH_CLIENT_ID=your-managed-public-client \
@@ -43,9 +46,9 @@ in `~/.config/aomi/oauth-grants.json` with owner-only permissions, so future
 starts refresh silently until access is revoked or expires. Override the path
 with `AOMI_OAUTH_STORE_PATH`.
 
-Agent and Pipeline still receive separate least-privilege grants internally;
-applications only configure OAuth once. Calling `aomi.auth.login()` at startup
-is optional—normal API calls also authenticate lazily.
+Each Agent or Pipeline client receives a separate least-privilege grant.
+Calling `aomi.auth.login()` at startup is optional—normal API calls also
+authenticate lazily.
 
 ### Use a secret manager in production
 
@@ -76,16 +79,24 @@ non-exportable DPoP keys and intentionally remains memory-only.
 
 - [`src/walkthrough.ts`](./src/walkthrough.ts) is a guided end-to-end guest
   tour: two Agent turns, session management, account state, Pipeline catalog
-  discovery, and an optional build/simulate flow. Run it with
-  `pnpm example:walkthrough`. It never commits a Pipeline operation.
+  discovery when guest access is enabled, and an optional build/simulate flow.
+  Run it with `pnpm example:walkthrough`. It never commits a Pipeline operation.
 - [`src/oauth/supplied-token.ts`](./src/oauth/supplied-token.ts) is the advanced
   escape hatch for a host that already owns OAuth. It accepts an
   exact-resource access token from a host-owned secure broker. Run it with
   `pnpm example:oauth-token` after setting `AOMI_OAUTH_ACCESS_TOKEN`,
   `AOMI_OAUTH_RESOURCE`, and matching scopes.
 - [`src/wallet-terminal.ts`](./src/wallet-terminal.ts) adds a local Viem wallet
-  adapter and requires manual approval for every Action. Run it with
-  `pnpm example:wallet-terminal`.
+  adapter and requires terminal approval for each durable Commit step or
+  historical Action. Run it with `pnpm example:wallet-terminal`. The Viem
+  adapter signs the backend's prepared EVM transaction bytes, personal messages,
+  and typed data; Commit Service verifies and tracks the result. Set
+  `AOMI_WALLET_AUTH=siwe` to sign into the same account through the SDK's public
+  SIWE challenge adapter before starting Agent turns.
+- [`src/auth/siws-disposable.ts`](./src/auth/siws-disposable.ts) generates an
+  unfunded, in-memory Solana keypair, completes the public SIWS challenge, and
+  reads the Agent session list. Run `pnpm example:auth:siws:disposable`; it
+  creates no Solana transaction and never prints the secret or session token.
 - [`src/account/credits.ts`](./src/account/credits.ts) reads the monthly
   allowance, Credit Bank balance, debt, and recent activity.
   Set `AOMI_TOP_UP_CREDITS` to purchase credits through the SDK's normal x402
@@ -134,6 +145,10 @@ pnpm example:walkthrough
 ```
 
 Simulation is the final step. The example deliberately has no `commit()` call.
+Some deployments disable guest Pipeline access. In that case the walkthrough
+reports that its Pipeline section was skipped; run the OAuth example with an
+authorized account to inspect that deployment's catalog. The standalone
+`pipeline:guest` example exits with an `insufficient_scope` explanation.
 
 ## Optional local wallet
 
@@ -146,10 +161,53 @@ EVM_RPC_URL=http://127.0.0.1:8545 \
 pnpm example:wallet-terminal
 ```
 
+To use the SDK's SIWE account session for both Agent turns and Commit requests,
+add `AOMI_WALLET_AUTH=siwe` to the same command. The public
+`createSiweAccountAuthAdapter` signs the Portal's challenge as text, and
+`createAccountSessionProvider` supplies its short-lived widget session token.
+The example supplies its Portal Origin on headless requests because widget
+sessions are origin bound. No session token is written to disk.
+
 Guest identity and wallet authority remain separate. The anonymous session
-identifies the API caller; the wallet handles only the specific action the user
-approves. The private key never leaves the host process. A browser integration
-should use its injected or embedded wallet client instead of a private key.
+identifies the API caller; the wallet handles only the specific reviewed work
+the user approves. The example prints each CommitView and its available review,
+then reopens the durable session before wallet execution. The private key never
+leaves the host process. A browser integration should use its injected or
+embedded wallet client instead of a private key.
+
+The package CLI also implements native SIWE/SIWS challenge and verification.
+Use `aomi account login --wallet` with an EVM signer or
+`aomi account login --solana` with a Solana signer; then `aomi account whoami`
+verifies the account. The terminal example uses its own SDK session and never
+borrows the CLI's stored login.
+
+## Validation inventory
+
+Run these from the repository root with the pinned workspace pnpm. Each row
+names only the environment variables the example reads. A passing request
+proves its stated slice of the flow; it does not imply a wallet transaction
+was submitted.
+
+| Command                                      | Variables                                                                                                                       | Expected evidence                                                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `corepack pnpm example:agent:guest`          | `AOMI_BASE_URL`                                                                                                                 | A guest Agent session ID and one agent reply.                                                                                         |
+| `corepack pnpm example:pipeline:guest`       | `AOMI_BASE_URL`                                                                                                                 | Guest-visible app and skill counts when the deployment enables guest Pipeline; otherwise an explicit 403 access error.                |
+| `corepack pnpm example:walkthrough`          | `AOMI_BASE_URL`; optionally `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION`, `AOMI_PIPELINE_ARGS`                                | Two turns reuse one session; optional Pipeline section reports access policy and never commits.                                       |
+| `corepack pnpm example:oauth`                | `AOMI_BASE_URL`, `AOMI_OAUTH_CLIENT_ID`; optionally `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_STORE_PATH`                              | Device authorization and an authenticated Agent or Pipeline request, matching the client's exact resource. Requires browser approval. |
+| `corepack pnpm example:oauth-token`          | `AOMI_BASE_URL`, `AOMI_OAUTH_ACCESS_TOKEN`, `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_SCOPES`                                          | A host-supplied exact-resource token is accepted for the requested scope.                                                             |
+| `corepack pnpm example:account:credits`      | `AOMI_BASE_URL`, `AOMI_ACCOUNT_BEARER`, `AOMI_PRIVATE_KEY`; optionally `AOMI_TOP_UP_CREDITS`, `AOMI_PAYMENT_CHAIN_ID`           | Reads Credit Bank position; setting top-up credits adds a paid operation.                                                             |
+| `corepack pnpm example:wallet-terminal`      | `AOMI_BASE_URL`; for EVM wallet work also `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`; optionally `AOMI_WALLET_AUTH=siwe` | Guest or signed-in SIWE Agent session, with terminal approval for every pending Commit step or historical Action. `/exit` quits.      |
+| `corepack pnpm example:auth:siws:disposable` | `AOMI_BASE_URL`; optionally `AOMI_SIWS_CHAIN_ID`                                                                                | Disposable-key SIWS challenge/verify and authenticated Agent read; no funded key or Solana transaction.                               |
+
+`corepack pnpm --filter @aomi-labs/example-headless-client build` typechecks
+every example. `corepack pnpm --filter @aomi-labs/example-headless-client test`
+checks OAuth grant storage and local EVM personal-message, EIP-712, and
+prepared-transaction signatures with ephemeral test keys and no RPC server.
+
+The browser wallet example in `apps/widget-consumer` covers injected EVM/SVM
+wallet integration. This headless terminal adapter currently implements only
+EVM; Solana transaction and message signing through the CLI use its separate
+`--solana` / `--solana-private-key` path.
 
 ## Browser authentication
 

@@ -24,6 +24,7 @@ import type { CliConfig } from "../types";
 import { parseSolanaKeypairSecret } from "../solana-signer";
 import type { ClientSession } from "../../session";
 import type { Event, MessageEvent } from "../../agent/types";
+import { isTerminalCommit } from "../../commits";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -101,6 +102,9 @@ export async function chatCommand(
     const previousActionIds = new Set(
       session.actions.all().map((action) => action.id),
     );
+    const previousCommitIds = new Set(
+      session.commits.all().map((commit) => commit.commit_id),
+    );
     let printedAgentCount = 0;
     let handledSequence = 0;
     let thinkingPrinted = false;
@@ -109,8 +113,7 @@ export async function chatCommand(
     // first. Suppressing by turn alone silently drops a distinct tool's only
     // trace whenever another tool in the turn used the other shape.
     const seenToolPairs = new Set<string>();
-    const toolPairKey = (turnId: string, name: string) =>
-      `${turnId}::${name}`;
+    const toolPairKey = (turnId: string, name: string) => `${turnId}::${name}`;
     const render = () => {
       const snapshot = session.getSnapshot();
       if (
@@ -191,6 +194,18 @@ export async function chatCommand(
     const newActions = session.actions
       .pending()
       .filter((action) => !previousActionIds.has(action.id));
+    const newCommits = session.commits
+      .all()
+      .filter(
+        (commit) =>
+          !previousCommitIds.has(commit.commit_id) && !isTerminalCommit(commit),
+      );
+
+    for (const commit of newCommits) {
+      console.log(
+        `🔐 Commit awaiting ${commit.action?.kind ?? "confirmation"}: ${commit.commit_id} (${commit.chain_family.toUpperCase()}, ${commit.state})`,
+      );
+    }
 
     for (const action of newActions) {
       console.log(`⚡ Action awaiting response: ${action.id}`);
@@ -220,16 +235,21 @@ export async function chatCommand(
         console.log(last.content);
       } else if (session.getSnapshot().turnState === "interrupted") {
         console.log("(interrupted)");
-      } else if (newActions.length === 0) {
+      } else if (newActions.length === 0 && newCommits.length === 0) {
         console.log("(no response)");
         fatal("Backend returned an empty agent message.");
       }
     }
 
-    if (newActions.length > 0) {
+    if (newActions.length > 0 || newCommits.length > 0) {
       console.log(
-        "\nRun `aomi tx list` to inspect Actions, `aomi tx sign <action-id>` to execute.",
+        "\nRun `aomi tx list` to inspect commits and Actions, then `aomi tx sign <id>` or `aomi tx reject <id>`.",
       );
+      if (newCommits.length > 0) {
+        console.log(
+          "For an external signer, export one exact review with `aomi tx export <id> --format commit`.",
+        );
+      }
     }
   } finally {
     session.close();
