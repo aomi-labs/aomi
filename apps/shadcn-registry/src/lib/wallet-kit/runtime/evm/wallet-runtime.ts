@@ -500,7 +500,8 @@ export function useEvmWalletRuntime({
         }
         const result = await connectEvmConnector({
           connector: target,
-          config: wagmiConfig,
+          isConnected: () =>
+            wagmiConfig.isConnectorConnected?.(target!.uid) ?? false,
           connect: () => wagmiConnectAsync({ connector: target! }),
           disconnect: wagmiDisconnectAsync
             ? () => wagmiDisconnectAsync({ connector: target! })

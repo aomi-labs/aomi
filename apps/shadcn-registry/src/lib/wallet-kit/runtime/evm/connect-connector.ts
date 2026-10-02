@@ -1,4 +1,4 @@
-import type { Config, Connector } from "wagmi";
+import type { Connector } from "wagmi";
 
 type Connection = { accounts: readonly `0x${string}`[]; chainId: number };
 const pending = new WeakMap<Connector, Promise<Connection>>();
@@ -15,14 +15,14 @@ async function refreshConnection(connector: Connector): Promise<Connection> {
 
 export async function connectEvmConnector({
   connector,
-  config,
+  isConnected,
   connect,
   disconnect,
   switchAccount,
   expectedAddress,
 }: {
   connector: Connector;
-  config: Config;
+  isConnected: () => boolean;
   connect: () => Promise<Connection>;
   disconnect?: () => Promise<unknown>;
   switchAccount?: () => Promise<unknown>;
@@ -31,7 +31,7 @@ export async function connectEvmConnector({
   let operation = pending.get(connector);
   if (!operation) {
     operation = (async () => {
-      if (config.state.connections.has(connector.uid)) {
+      if (isConnected()) {
         const fresh = await refreshConnection(connector);
         if (fresh.accounts.length) {
           await switchAccount?.();

@@ -38,7 +38,7 @@ function fixture() {
   });
   const connector = config.connectors[0]!;
   const input = {
-    config,
+    isConnected: () => config.state.connections.has(connector.uid),
     connector,
     connect: () => connect(config, { connector }),
     disconnect: () => disconnect(config, { connector }),
