@@ -602,6 +602,12 @@ try {
           .getByText("Streaming fixture response before Stop.", { exact: true })
           .last(),
       ).toBeVisible();
+      await expect(
+        page.locator(".aui-working-trace-header").first(),
+      ).toContainText("Stopped");
+      await expect(page.getByRole("button", { name: /^Worked/ })).toHaveCount(
+        0,
+      );
       failNextInterrupt = true;
       await page
         .getByRole("button", { name: "Stop generating", exact: true })
@@ -655,6 +661,14 @@ try {
         5,
         "Thinking stop, working stop, rejected stop, retry and early Stop issue five total requests",
       );
+      const stoppedTraces = page.locator(".aui-working-trace-header");
+      const stoppedTraceCount = await stoppedTraces.count();
+      assert.ok(
+        stoppedTraceCount >= 2,
+        "Earlier stopped traces remain in history",
+      );
+      for (const trace of await stoppedTraces.all())
+        await expect(trace).toContainText("Stopped");
       await page.screenshot({
         path: `${output}/${viewport.name}-early-stopped.png`,
         fullPage: true,
@@ -669,6 +683,10 @@ try {
           .click();
       }
       await row.locator(".aui-thread-list-item-trigger").click();
+      if (viewport.name === "mobile") {
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+      }
       await expect(
         page.getByText(
           "Regenerated answer fixture: original actions were not repeated.",
@@ -688,6 +706,12 @@ try {
       await expect(
         page.getByRole("button", { name: "Stop generating", exact: true }),
       ).toHaveCount(0);
+      await expect(stoppedTraces).toHaveCount(stoppedTraceCount);
+      for (const trace of await stoppedTraces.all())
+        await expect(trace).toContainText("Stopped");
+      await expect(page.getByRole("button", { name: /^Worked/ })).toHaveCount(
+        0,
+      );
       await page.screenshot({
         path: `${output}/${viewport.name}-reloaded.png`,
         fullPage: true,
@@ -706,6 +730,7 @@ try {
         workingToolAndStreamingStop: "PASS",
         failedInterruptRetry: "PASS",
         stopBeforeStartAcknowledgement: "PASS",
+        earlierStoppedTraceAfterNewTurnAndReload: "PASS",
         streamingFrames: streamFrames,
         feedbackMs: Math.round(feedbackMs),
         latencyMeasurement:
