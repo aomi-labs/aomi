@@ -33,7 +33,7 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
 
@@ -659,11 +659,24 @@ const AssistantMessage: FC = () => {
   );
 };
 
+function useTouchActions() {
+  const [touchActions, setTouchActions] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(hover: none), (pointer: coarse)");
+    const update = () => setTouchActions(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return touchActions;
+}
+
 const AssistantActionBar: FC = () => {
+  const touchActions = useTouchActions();
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
-      autohide="not-last"
+      autohide={touchActions ? "never" : "not-last"}
       autohideFloat="single-branch"
       className="aui-assistant-action-bar-root text-aomi-muted data-floating:absolute data-floating:rounded-xl data-floating:border data-floating:bg-aomi-raised data-floating:p-1 flex items-center gap-3.5 pt-0.5"
     >
@@ -746,10 +759,11 @@ const UserMessage: FC = () => {
 };
 
 const UserActionBar: FC = () => {
+  const touchActions = useTouchActions();
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
-      autohide="always"
+      autohide={touchActions ? "never" : "always"}
       className="aui-user-action-bar-root flex flex-col items-end"
     >
       <ActionBarPrimitive.Edit asChild>

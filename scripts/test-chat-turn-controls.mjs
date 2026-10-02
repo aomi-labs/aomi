@@ -47,7 +47,13 @@ const report = {
     : "Local Next dev uses fallback fonts because Google Fonts downloads were blocked",
   scenarios: [],
 };
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+    : {}),
+});
+report.browserVersion = browser.version();
 try {
   for (const viewport of [
     { name: "desktop", width: 1440, height: 1000 },
@@ -383,11 +389,17 @@ try {
         fullPage: true,
       });
       const firstUser = page.locator(".aui-user-message-root").first();
-      if (viewport.name === "mobile") await firstUser.tap();
-      else await firstUser.hover();
-      await firstUser
-        .getByRole("button", { name: "Edit", exact: true })
-        .click();
+      const editButton = firstUser.getByRole("button", {
+        name: "Edit",
+        exact: true,
+      });
+      if (viewport.name === "mobile") {
+        await expect(editButton).toBeVisible();
+        await editButton.tap();
+      } else {
+        await firstUser.hover();
+        await editButton.click();
+      }
       const edit = page.locator(".aui-edit-composer-input");
       await edit.fill("Revised request fixture: explain it more simply.");
       await page
