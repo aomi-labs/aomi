@@ -736,7 +736,11 @@ export class CommitController {
   ): Promise<CommitView> {
     if (this.closed) throw new Error("Commit session closed");
     let view = await this.refresh(id);
-    if (review) this.assertReviewed(view, review);
+    if (review) {
+      this.assertReviewed(view, review);
+      if (view.review && review.expectedReviewDigest === undefined)
+        throw new Error("Commit review digest is required for execution");
+    }
     if (isTerminalCommit(view) || view.state === "submitted") return view;
     view = await this.recoverWalletOutcome(view);
     if (isTerminalCommit(view) || view.state === "submitted") return view;

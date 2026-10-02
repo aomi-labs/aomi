@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AomiClient } from "../src/client";
 import { AomiPipeline } from "../src/sdk/pipeline";
+import { Aomi } from "../src/sdk/aomi";
 import type { Action, ActionRequest } from "../src/agent/types";
 import type { CommitView } from "../src/commits";
 import type { EvmCommitResult } from "../src/pipeline/types";
@@ -60,6 +61,27 @@ const preparation: EvmCommitResult = {
 };
 
 describe("durable public Pipeline continuation", () => {
+  it("keeps Pipeline continuation and transaction safety on the Aomi facade", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json(view),
+    );
+    const aomi = new Aomi({
+      baseUrl: "https://api.example",
+      guest: false,
+      fetch,
+    });
+    const controller = aomi.pipeline.evm.commits(preparation);
+    try {
+      await controller.refresh(view.commit_id);
+      expect(fetch.mock.calls[0]?.[0]).toBe(
+        `https://api.example/v1/pipeline/evm/commits/${view.commit_id}`,
+      );
+      expect(aomi.transactionSafety).toBe(aomi.raw.transactionSafety);
+    } finally {
+      controller.close();
+    }
+  });
+
   it("requests execution authorization for read-only lifecycle refreshes", async () => {
     const observed: string[][] = [];
     const client = new AomiClient({

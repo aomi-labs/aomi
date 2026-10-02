@@ -16,6 +16,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { createPortalOriginFetch } from "./shared/portal-origin-fetch";
 import { createViemWalletFromEnvironment } from "./shared/viem-wallet";
+import { sortedCommits } from "./shared/sorted-commits";
 
 const terminal = createInterface({ input: stdin, output: stdout });
 const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
@@ -264,16 +265,6 @@ function describeAction(action: Action): string {
 
 function describeCommit(commit: CommitView): string {
   return `${commit.chain_family.toUpperCase()} ${commit.action?.kind ?? "status"} · ${commit.commit_id} · ${commit.broadcaster}`;
-}
-
-function sortedCommits(commits: readonly CommitView[]): CommitView[] {
-  // A batch successor cannot execute before its predecessor. The wire's
-  // batch index is authoritative; preserve arrival order across batches.
-  return [...commits].sort((left, right) =>
-    left.batch && right.batch && left.batch.batch_id === right.batch.batch_id
-      ? left.batch.index - right.batch.index
-      : 0,
-  );
 }
 
 function readChainId(wallets: Wallets): number | undefined {

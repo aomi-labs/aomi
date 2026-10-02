@@ -720,10 +720,14 @@ export class ClientSession {
   }
 
   private hasCompletedCallback(turnId: string): boolean {
-    const latestState = this.events.findLast(
-      (event) =>
-        event.type === "turn_state_changed" && event.turn_id === turnId,
-    );
+    let latestState: Event | undefined;
+    for (let index = this.events.length - 1; index >= 0; index--) {
+      const event = this.events[index]!;
+      if (event.type === "turn_state_changed" && event.turn_id === turnId) {
+        latestState = event;
+        break;
+      }
+    }
     const hasAnswer = this.events.some(
       (event) =>
         event.type === "message" &&

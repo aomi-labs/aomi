@@ -152,3 +152,60 @@ Deployed Pipeline guest catalog requests returned 403 `insufficient_scope`
 because that deployment disables guest Pipeline access. The guided walkthrough
 reports the skip; it does not treat the policy denial as a successful Pipeline
 call.
+
+## Main rebase and review follow-up — 2026-10-02
+
+Rebased PR #687 onto frontend main
+`78827e133fc1e3762b4b7fb29f576afd1f2686b5` (PR #688).
+The conflict resolutions retain main's wallet outcome recovery and rejection
+handling, submission phases, transaction-safety transport and proxy route,
+Pipeline durable continuation, and grouped account layout. The external signer
+label uses the current shared StatusPill. Package versions now follow main:
+client 0.9.10 and widget 3.0.18.
+
+Both original inline findings remained valid and are fixed:
+
+- The terminal groups commits by each batch's first appearance and orders its
+  members by batch index. Interleaved batches and independent commits have
+  deterministic ordering without mutating the input.
+- Execution with an explicit version review now requires the durable review
+  digest when one exists, matching external submission. Historical commits
+  without a durable review and existing calls without explicit review retain
+  their supported behavior.
+
+Main also introduced an Array.findLast call into SDK callback detection. The
+headless example's ES2022 source typecheck rejected it. An equivalent reverse
+scan preserves the callback behavior and consumer compiler contract.
+A facade regression additionally covers the retained Pipeline continuation and
+transaction-safety transport.
+
+The backend manual transition was inspected for the review's possible race:
+CommitService.manual serializes by the request lock, reloads the record under
+that lock, verifies signatures against the stored prepared payload, rejects
+conflicting signed bytes, checks current authority and dependencies, and binds
+broadcast reports to the stored transaction ID. No backend change is part of
+this PR. This is source inspection, not a new live backend execution test.
+
+Validation on the rebased candidate:
+
+- Final client/BFF suite: 501 passed, one existing skipped test.
+- Headless examples: 22 passed; account management: five passed.
+- Client, headless example, and Portal typechecks passed.
+- Package builds, frontend dependency boundaries, and scoped ESLint passed.
+- Callback regression suite after the ES2022 fix: 14 passed.
+
+- Packed consumer compatibility passed against unchanged consumers from the
+  main baseline, including isolated installs, SDK imports, packed CLI loading,
+  and widget builds.
+- Production Portal build and all 16 required browser scenarios passed, with
+  zero skips, failures, or flaky cases. Existing visual snapshots passed and
+  needed no file changes. Authentication, account isolation, wallet lifecycle,
+  and packaged widget contracts were exercised against the controlled upstream.
+
+The first production browser build exceeded the managed 6 GiB memory ceiling
+while Next.js collected page data with 17 workers. The successful retry used
+`CIRCLE_NODE_TOTAL=5`, which selects four Next.js workers, under the unchanged
+managed memory ceiling. The snapshot-update setting produced no changed golden
+files. GitHub CI must pass on the final pushed revision before merge.
+The deployed wallet receipts above remain historical evidence, not fresh
+on-chain tests of this rebase.

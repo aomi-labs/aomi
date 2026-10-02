@@ -623,6 +623,27 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
+  it("requires the durable review digest before executing a reviewed version", async () => {
+    const signTransaction = vi.fn();
+    const request = vi.fn().mockResolvedValue(external);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(
+      controller.execute(external.commit_id, {
+        expectedVersion: external.version,
+      }),
+    ).rejects.toThrow("Commit review digest is required for execution");
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+    controller.close();
+  });
+
   it("rejects a mismatched prepared payload before invoking the wallet", async () => {
     const signTransaction = vi.fn();
     const mismatched = {
