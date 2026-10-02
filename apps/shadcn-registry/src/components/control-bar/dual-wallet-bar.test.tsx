@@ -36,13 +36,18 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
 });
 
 const adapterState: {
-  current: Pick<AomiWalletKit, "identity" | "accounts" | "wallets"> & {
+  current: Pick<
+    AomiWalletKit,
+    "identity" | "accounts" | "wallets" | "isReady" | "canConnect"
+  > & {
     selectAccount: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
     signOutAccount: ReturnType<typeof vi.fn>;
   };
 } = {
   current: {
+    isReady: true,
+    canConnect: true,
     identity: {
       status: "connected" as "connected" | "disconnected",
       isConnected: true as boolean,
@@ -70,6 +75,8 @@ const adapterState: {
 afterEach(() => {
   cleanup();
   openPicker.mockClear();
+  adapterState.current.isReady = true;
+  adapterState.current.canConnect = true;
   adapterState.current.identity = {
     status: "connected",
     isConnected: true,
@@ -101,6 +108,24 @@ describe("DualWalletBar account menu", () => {
     expect(
       screen.queryByRole("menu", { name: "Account menu" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("waits for wallet connection options before opening the picker", () => {
+    adapterState.current.isReady = false;
+    adapterState.current.canConnect = false;
+    const { rerender } = render(<DualWalletBar families={["evm"]} />);
+    const chip = screen.getByRole("button", { name: "Connect wallet" });
+    expect(chip).toBeDisabled();
+    expect(chip).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(chip);
+    expect(openPicker).not.toHaveBeenCalled();
+
+    // External wallets can connect while the additive auth provider boots.
+    adapterState.current.canConnect = true;
+    rerender(<DualWalletBar families={["evm"]} />);
+    expect(chip).toBeEnabled();
+    fireEvent.click(chip);
+    expect(openPicker).toHaveBeenCalledTimes(1);
   });
 
   it("opens AccountMenu instead of WalletPicker when enabled and connected", () => {

@@ -218,3 +218,8 @@ pre-connector fallback remains available when the provider cannot render at all.
 A regression preserves an open wallet picker and a single runtime mount across
 timeout and late readiness; all 10 Para plugin tests and scoped lint pass.
 The mandatory browser scenarios and snapshots were not relaxed.
+
+The same trace opened the picker in the cold placeholder before any external
+wallet runtime existed. The wallet chip now stays disabled and reports busy
+until the kit is ready or exposes connection options. External wallet options
+remain usable while additive provider authentication is still booting.
