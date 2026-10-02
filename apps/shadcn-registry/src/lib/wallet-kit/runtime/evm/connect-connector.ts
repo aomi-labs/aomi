@@ -1,6 +1,6 @@
 import type { Connector } from "wagmi";
 
-type Connection = { accounts: readonly `0x${string}`[]; chainId: number };
+type Connection = { accounts: readonly string[]; chainId: number };
 const pending = new WeakMap<Connector, Promise<Connection>>();
 
 /** Reconcile a restored connector against the provider, rather than cached accounts. */

@@ -264,7 +264,9 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
         ),
       )
       .toBe(true);
-    await page.keyboard.press("Escape");
+    await settings
+      .getByRole("button", { name: "Close settings", exact: true })
+      .click();
     await expect(settings).toBeHidden();
     await page.evaluate(() =>
       (

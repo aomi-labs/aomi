@@ -517,7 +517,7 @@ export function useEvmWalletRuntime({
                 account.toLowerCase() ===
                 options.expectedAddress!.toLowerCase(),
             )
-          : result.accounts[0];
+          : result.accounts.find((account) => account.startsWith("0x"));
         if (connectedAddress) {
           registryStore.dispatch({
             type: "user/connect-succeeded",
