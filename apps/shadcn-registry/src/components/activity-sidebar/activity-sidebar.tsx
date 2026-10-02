@@ -15,6 +15,7 @@ import {
   useId,
   useState,
   useRef,
+  type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -192,7 +193,8 @@ function ActivitySidebarContent() {
   }, [hasActivity, pending, pendingCommit, setWorthShowing]);
   useEffect(() => () => setWorthShowing(false, false), [setWorthShowing]);
   // A new wallet request reopens the sheet: it holds the only sign controls.
-  const reviewKey = pending?.id ?? pendingCommit?.commit_id;
+  // Key it like WalletReview picks its request: the live commit comes first.
+  const reviewKey = pendingCommit?.commit_id ?? pending?.id;
   useEffect(() => {
     if (sheet && reviewKey) setPanelOpen(true);
   }, [sheet, reviewKey, setPanelOpen]);
@@ -331,6 +333,7 @@ function ActivitySidebarContent() {
 /**
  * Phone presentation of the activity panel: a modal sheet over the chat and
  * composer. Drag the handle down, tap the scrim, or press Escape to close.
+ * It is modal: focus stays inside until it closes.
  */
 function ActivitySheet({
   title,
@@ -345,7 +348,9 @@ function ActivitySheet({
   const dragControls = useDragControls();
   const titleId = useId();
   const frameRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLElement>(null);
   const occluded = useOccludedBottom(frameRef);
+  useModalFocus(frameRef, sheetRef, onClose);
   const transition = {
     duration: reduceMotion ? 0 : 0.32,
     ease: [0.22, 1, 0.36, 1] as const,
@@ -384,10 +389,10 @@ function ActivitySheet({
           onDragEnd={(_, info) => {
             if (info.offset.y > 96 || info.velocity.y > 500) onClose();
           }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") onClose();
-          }}
-          className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-t-shell shadow-modal absolute inset-x-0 bottom-0 flex max-h-[calc(100%-1.5rem)] flex-col border-t"
+          ref={sheetRef}
+          tabIndex={-1}
+          onKeyDown={(event) => trapTab(event, sheetRef.current)}
+          className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-t-shell shadow-modal absolute inset-x-0 bottom-0 flex max-h-[calc(100%-1.5rem)] flex-col border-t outline-none"
         >
           <div
             onPointerDown={(event) => dragControls.start(event)}
@@ -427,6 +432,73 @@ function ActivitySheet({
       </m.div>
     </LazyMotion>
   );
+}
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+
+/** Keeps Tab and Shift+Tab cycling inside the open sheet. */
+function trapTab(event: KeyboardEvent<HTMLElement>, sheet: HTMLElement | null) {
+  if (event.key !== "Tab" || !sheet) return;
+  const focusable = [...sheet.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!first || !last) {
+    event.preventDefault();
+    return;
+  }
+  const active = document.activeElement;
+  if (event.shiftKey && (active === first || active === sheet)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+/**
+ * Modal focus for the sheet: focus moves in on open and back to whatever
+ * opened it on close, the chat behind it is inert, and Escape closes it from
+ * anywhere on the page.
+ */
+function useModalFocus(
+  frameRef: RefObject<HTMLElement | null>,
+  sheetRef: RefObject<HTMLElement | null>,
+  onClose: () => void,
+) {
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const previous =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    sheetRef.current?.focus({ preventScroll: true });
+    const frame = frameRef.current;
+    const background = [...(frame?.parentElement?.children ?? [])].filter(
+      (element): element is HTMLElement =>
+        element !== frame && element instanceof HTMLElement && !element.inert,
+    );
+    for (const element of background) element.inert = true;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      close.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      for (const element of background) element.inert = false;
+      // Not back into a text field: on a phone that reopens the keyboard.
+      const editable =
+        previous?.isContentEditable ||
+        previous instanceof HTMLInputElement ||
+        previous instanceof HTMLTextAreaElement;
+      if (previous?.isConnected && !editable)
+        previous.focus({ preventScroll: true });
+    };
+  }, [frameRef, sheetRef]);
 }
 
 /**
