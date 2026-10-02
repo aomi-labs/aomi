@@ -11,8 +11,8 @@ import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
 
-/** Optional, server-enforced answer regeneration; never replays tool effects. */
-export type SendOptions = { regenerate?: string };
+/** Branch from a durable message; the server regenerates with tools disabled. */
+export type SendOptions = { regenerate?: string; edit?: string };
 
 export type SendResult = {
   messages: readonly MessageEvent[];
@@ -33,6 +33,10 @@ export type SessionSnapshot = Readonly<{
   title?: string;
   isStreaming: boolean;
   isSubmitting: boolean;
+  /** True while Stop awaits authoritative server acknowledgment. */
+  isStopping?: boolean;
+  /** Scoped Stop ACK; the durable terminal event may arrive in a later page. */
+  stoppedTurnId?: string;
   /**
    * Optimistic echo of the outbound message for the in-flight turn. Set the
    * moment `send`/`sendAsync` is called and cleared when the server's own

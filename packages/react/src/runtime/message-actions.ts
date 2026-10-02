@@ -11,7 +11,7 @@ function textContent(content: ThreadMessageLike["content"]): string {
         .join("\n");
 }
 
-/** Durable history is append-only: edits are corrections, reloads are answer-only. */
+/** Select durable turns; the server owns conversation branches and tool safety. */
 export function messageActions({
   messages,
   send,
@@ -31,7 +31,11 @@ export function messageActions({
     try {
       await send(text, options);
     } catch {
-      if (!options?.regenerate) restore(restoreText);
+      if (!options?.regenerate && !options?.edit) restore(restoreText);
+      else
+        unavailable(
+          "The message could not be regenerated. Please retry the selected turn.",
+        );
     }
   };
   return {
@@ -57,17 +61,17 @@ export function messageActions({
       }
       const revised = textContent(message.content);
       if (!revised.trim()) return;
-      const quoted = textContent(original.content)
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n");
-      const correction = `Correction to my earlier message:\n${quoted}\n\nRevised request:\n${revised}`;
+      const target = original.metadata?.custom?.aomiUserMessageKey;
+      if (typeof target !== "string" || !target) {
+        unavailable("Only a saved user message can be edited");
+        return;
+      }
       const hints = message.runConfig?.custom?.aomiCapabilityHints ?? {
         capabilities: original.metadata?.custom?.aomiCapabilityHints,
       };
       await submit(
-        appendCapabilityHints(correction, hints),
-        undefined,
+        appendCapabilityHints(revised, hints),
+        { edit: target },
         revised,
       );
     },
@@ -90,10 +94,14 @@ export function messageActions({
         unavailable("Only a completed answer can be rerun");
         return;
       }
-      await submit(
-        "Reconsider the selected assistant response without performing actions.",
-        { regenerate: target },
-      );
+      const request = messages
+        .slice(0, parentIndex + 1)
+        .findLast((message) => message.role === "user");
+      if (!request) {
+        unavailable("The original request is no longer available");
+        return;
+      }
+      await submit(textContent(request.content), { regenerate: target });
     },
   };
 }

@@ -16,6 +16,7 @@ import {
 } from "../commits";
 import { AgentApiError } from "../agent/transport";
 import { AomiClient } from "../client";
+import { conversationMessages } from "./conversation";
 import type { AomiClientOptions } from "../types";
 import type {
   SendOptions,
@@ -61,10 +62,12 @@ export class ClientSession {
   private logger?: { debug: (...args: unknown[]) => void };
   private cursor?: string;
   private turnId?: string;
+  private acceptedTurnId?: string;
   private turnState?: TurnState;
   private startOperation?: {
     message: string;
     regenerate?: string;
+    edit?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
   };
@@ -78,7 +81,20 @@ export class ClientSession {
   private terminalDrainUntil?: number;
   private terminalTurnId?: string;
   private isSubmitting = false;
-  private pendingUserMessage?: { content: string; sinceSequence: number };
+  private activeSubmission?: {
+    message: string;
+    options: SendOptions;
+    promise: Promise<EventPage>;
+  };
+  private interruptOperation?: Promise<void>;
+  private acknowledgedInterrupts = new Set<string>();
+  private supersededTurns = new Set<string>();
+  private callbackOwners = new Map<string, string>();
+  private pendingUserMessage?: {
+    content: string;
+    sinceSequence: number;
+    turnId?: string;
+  };
   private events: Event[] = [];
   private eventIds = new Set<string>();
   private messages: MessageEvent[] = [];
@@ -101,6 +117,7 @@ export class ClientSession {
   private closed = false;
   private pendingReject: ((error: unknown) => void) | null = null;
   private pendingResolve: ((result: SendResult) => void) | null = null;
+  private pendingSend?: Promise<SendResult>;
   private listeners = new Set<() => void>();
   private actionUnsubscribers: Array<() => void> = [];
   private snapshot: SessionSnapshot;
@@ -213,10 +230,11 @@ export class ClientSession {
     // while the submitted page is still unwinding. Do not park a new waiter
     // after close() has already drained pending sends.
     if (this.closed) return this.result();
-    return new Promise((resolve, reject) => {
+    this.pendingSend ??= new Promise((resolve, reject) => {
       this.pendingResolve = resolve;
       this.pendingReject = reject;
     });
+    return this.pendingSend;
   }
 
   async sendAsync(
@@ -234,13 +252,85 @@ export class ClientSession {
     return page;
   }
 
-  async interrupt(): Promise<void> {
-    if (!this.turnId) throw new Error("No active turn to interrupt");
-    this.stopStreaming();
-    this.applyEventPage(
-      await this.client.agent.interrupt(this.sessionId, this.turnId),
+  interrupt(): Promise<void> {
+    if (this.interruptOperation) return this.interruptOperation;
+    if (this.closed) return Promise.reject(new Error("Session is closed"));
+    const submission = this.activeSubmission?.promise;
+    if (!submission && (!this.turnId || this.isTerminal())) {
+      return Promise.resolve();
+    }
+    // Install the operation before publishing: even a synchronous subscriber
+    // or another click must join the same request. A pending start must settle
+    // first so Stop never interrupts the previous turn by mistake.
+    const operation = Promise.resolve().then(async () => {
+      if (submission) await submission;
+      if (this.closed || !this.turnId || this.isTerminal()) return;
+      const turnId = this.turnId;
+      const page = await this.client.agent.interrupt(this.sessionId, turnId);
+      if (page.session_id !== this.sessionId) {
+        throw new TypeError(
+          "Agent response session does not match the request",
+        );
+      }
+      const acknowledged =
+        page.stopped_turn_id === turnId ||
+        page.events.some(
+          (event) =>
+            event.type === "turn_state_changed" &&
+            event.turn_id === turnId &&
+            TERMINAL_TURN_STATES.has(event.state),
+        );
+      if (!acknowledged && !(this.turnId === turnId && this.isTerminal())) {
+        throw new Error("The server has not confirmed that generation stopped");
+      }
+      const wasAcknowledged = this.acknowledgedInterrupts.has(turnId);
+      this.acknowledgedInterrupts.add(turnId);
+      try {
+        this.applyEventPage(page);
+      } catch (error) {
+        if (!wasAcknowledged) this.acknowledgedInterrupts.delete(turnId);
+        throw error;
+      }
+      // A long history can paginate the terminal event behind the ACK. The
+      // scoped acknowledgment confirms this turn without fabricating an event
+      // in the durable ledger or skipping its ordered cursor.
+      if (page.stopped_turn_id === turnId) {
+        const terminalEvent = page.events.findLast(
+          (event) =>
+            event.type === "turn_state_changed" &&
+            event.turn_id === turnId &&
+            TERMINAL_TURN_STATES.has(event.state),
+        );
+        this.turnId = turnId;
+        this.turnState =
+          terminalEvent?.type === "turn_state_changed"
+            ? terminalEvent.state
+            : "interrupted";
+      }
+      // Preserve partial text, but freeze it when the server confirms Stop.
+      for (const [key, message] of this.liveMessages) {
+        if (message.turn_id === turnId) {
+          this.liveMessages.set(key, { ...message, is_streaming: false });
+        }
+      }
+      if (this.turnId === turnId && this.isTerminal()) this.finish();
+    });
+    this.interruptOperation = operation.then(
+      () => {
+        this.interruptOperation = undefined;
+        this.resumeCompletedCallbacks();
+        this.publish();
+      },
+      (error: unknown) => {
+        this.interruptOperation = undefined;
+        this.error = error;
+        this.publish();
+        throw error;
+      },
     );
-    if (this.isTerminal()) this.finish();
+    this.error = undefined;
+    this.publish();
+    return this.interruptOperation;
   }
 
   syncRuntimeOptions(options: SessionRuntimeOptions): void {
@@ -306,7 +396,37 @@ export class ClientSession {
     this.listeners.clear();
   }
 
-  private async submit(
+  private submit(message: string, options: SendOptions): Promise<EventPage> {
+    this.assertOpen();
+    const text = message.trim();
+    if (this.activeSubmission) {
+      const active = this.activeSubmission;
+      if (
+        active.message === text &&
+        active.options.regenerate === options.regenerate &&
+        active.options.edit === options.edit
+      )
+        return active.promise;
+      return Promise.reject(new Error("A message is already being submitted"));
+    }
+    if (
+      this.interruptOperation ||
+      this.turnState === "processing" ||
+      this.turnState === "awaiting_action"
+    )
+      return Promise.reject(
+        new Error("Wait for the current generation to finish or stop it"),
+      );
+    const promise = Promise.resolve()
+      .then(() => this.performSubmit(message, options))
+      .finally(() => {
+        this.activeSubmission = undefined;
+      });
+    this.activeSubmission = { message: text, options: { ...options }, promise };
+    return promise;
+  }
+
+  private async performSubmit(
     message: string,
     options: SendOptions,
   ): Promise<EventPage> {
@@ -316,15 +436,23 @@ export class ClientSession {
         "regenerate requires a completed assistant message key",
       );
     }
+    if (options.edit !== undefined && !options.edit.trim()) {
+      throw new TypeError("edit requires a durable user message key");
+    }
+    if (options.edit !== undefined && options.regenerate !== undefined) {
+      throw new TypeError("edit and regenerate cannot be combined");
+    }
     const text = message.trim();
     if (!text) throw new TypeError("message is required");
     const operation: NonNullable<ClientSession["startOperation"]> =
       this.startOperation?.message === text &&
-      this.startOperation.regenerate === options.regenerate
+      this.startOperation.regenerate === options.regenerate &&
+      this.startOperation.edit === options.edit
         ? this.startOperation
         : {
             message: text,
             regenerate: options.regenerate,
+            edit: options.edit,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
           };
     this.startOperation = operation;
@@ -338,10 +466,13 @@ export class ClientSession {
     // message event yet (it can trail in a later page). Hold an optimistic
     // echo so consumers can render the outbound message immediately; it is
     // cleared the moment the server's own user message event lands.
-    this.pendingUserMessage = {
-      content: text,
-      sinceSequence: this.events.at(-1)?.sequence ?? 0,
-    };
+    this.pendingUserMessage =
+      options.regenerate || options.edit
+        ? undefined
+        : {
+            content: text,
+            sinceSequence: this.events.at(-1)?.sequence ?? 0,
+          };
     this.error = undefined;
     this.publish();
     try {
@@ -362,6 +493,7 @@ export class ClientSession {
           clientId: this.clientId,
           message: text,
           ...(operation.regenerate ? { regenerate: operation.regenerate } : {}),
+          ...(operation.edit ? { edit: operation.edit } : {}),
           ...target,
           ...(this.model ? { model: this.model } : {}),
           ...(state
@@ -388,7 +520,50 @@ export class ClientSession {
       if (this.timing && this.sentAt !== undefined)
         this.timing.acknowledgedMs = performance.now() - this.sentAt;
       this.startOperation = undefined;
+      if (page.session_id !== this.sessionId) {
+        throw new TypeError(
+          "Agent response session does not match the request",
+        );
+      }
+      if (page.started_turn_id) {
+        // Bind the accepted identity before reducing a bounded historical page:
+        // only its own user event may clear the pending echo.
+        this.acceptedTurnId = page.started_turn_id;
+        this.turnId = page.started_turn_id;
+        this.timingTurnId = page.started_turn_id;
+        this.turnState = this.acknowledgedInterrupts.has(page.started_turn_id)
+          ? "interrupted"
+          : "processing";
+        this.terminalTurnId = undefined;
+        if (this.pendingUserMessage)
+          this.pendingUserMessage.turnId = page.started_turn_id;
+      }
       this.applyEventPage(page);
+      if (page.started_turn_id) {
+        // A bounded start page may carry historical events only. Its accepted
+        // identity keeps Stop on the new run until its own events catch up.
+        this.acceptedTurnId = page.started_turn_id;
+        this.turnId = page.started_turn_id;
+        this.timingTurnId = page.started_turn_id;
+        const ownState = this.events.findLast(
+          (event) =>
+            event.type === "turn_state_changed" &&
+            event.turn_id === page.started_turn_id,
+        );
+        this.turnState =
+          ownState?.type === "turn_state_changed" &&
+          TERMINAL_TURN_STATES.has(ownState.state)
+            ? ownState.state
+            : this.acknowledgedInterrupts.has(page.started_turn_id)
+              ? "interrupted"
+              : ownState?.type === "turn_state_changed"
+                ? ownState.state
+                : "processing";
+        this.terminalTurnId = this.isTerminal()
+          ? page.started_turn_id
+          : undefined;
+        this.terminalDrainUntil = undefined;
+      }
       return page;
     } catch (error) {
       this.error = error;
@@ -437,7 +612,9 @@ export class ClientSession {
         if (event.type === "action" && this.replaceActionEvent(event)) {
           this.actions.ingest(event);
           this.lastPageNewEvents += 1;
-          this.turnId = event.turn_id ?? this.turnId;
+          if (this.canOwnActiveTurn(event)) {
+            this.turnId = event.turn_id ?? this.turnId;
+          }
           continue;
         }
         if (this.eventIds.has(event.event_id)) {
@@ -452,7 +629,15 @@ export class ClientSession {
         this.events.push(event);
         this.storeVersion += 1;
         this.lastPageNewEvents += 1;
-        this.turnId = event.turn_id ?? this.turnId;
+        this.trackCallbackOwner(event);
+        const ownsActiveTurn = this.canOwnActiveTurn(event);
+        const staleBusyState =
+          event.type === "turn_state_changed" &&
+          event.turn_id !== null &&
+          this.acknowledgedInterrupts.has(event.turn_id) &&
+          !TERMINAL_TURN_STATES.has(event.state);
+        if (ownsActiveTurn && !staleBusyState)
+          this.turnId = event.turn_id ?? this.turnId;
         switch (event.type) {
           case "message":
             if (
@@ -503,17 +688,50 @@ export class ClientSession {
             this.applyMessage(event);
             if (
               event.sender === "user" &&
+              ownsActiveTurn &&
               this.pendingUserMessage &&
+              (!this.pendingUserMessage.turnId ||
+                event.turn_id === this.pendingUserMessage.turnId) &&
               event.sequence > this.pendingUserMessage.sinceSequence
             ) {
               this.timingTurnId = event.turn_id ?? undefined;
+              this.acceptedTurnId = event.turn_id ?? undefined;
               this.pendingUserMessage = undefined;
             }
             break;
           case "turn_state_changed":
+            if (!ownsActiveTurn || staleBusyState) break;
             this.turnState = event.state;
+            if (event.state === "interrupted" && event.turn_id) {
+              this.acknowledgedInterrupts.add(event.turn_id);
+            }
             if (TERMINAL_TURN_STATES.has(event.state)) {
               this.terminalTurnId = event.turn_id ?? this.turnId;
+            }
+            break;
+          case "branch":
+            this.acceptedTurnId = event.turn_id ?? undefined;
+            // The branch is itself an accepted run acknowledgment. Its
+            // processing event can be behind a page boundary, so retire the
+            // previous terminal scope immediately without inventing an event.
+            if (!this.acknowledgedInterrupts.has(event.turn_id ?? "")) {
+              this.turnState = "processing";
+              this.terminalTurnId = undefined;
+              this.terminalDrainUntil = undefined;
+            }
+            for (const turnId of event.removed_turn_ids)
+              this.supersededTurns.add(turnId);
+            this.timingTurnId = event.turn_id ?? undefined;
+            this.pendingUserMessage = undefined;
+            for (const [key, message] of this.liveMessages) {
+              if (
+                event.removed_message_keys.includes(key) ||
+                (message.turn_id &&
+                  event.removed_turn_ids.includes(message.turn_id))
+              ) {
+                this.liveMessages.delete(key);
+                this.liveRevisions.delete(key);
+              }
             }
             break;
           case "title_changed":
@@ -530,6 +748,84 @@ export class ClientSession {
       this.applyingPage = false;
     }
     this.publish();
+  }
+
+  /** Keep late wallet delivery in the audit ledger without changing Stop's target. */
+  private canOwnActiveTurn(event: Event): boolean {
+    const turnId = event.turn_id;
+    if (!turnId || event.type === "branch") return true;
+    if (this.supersededTurns.has(turnId)) return false;
+    if (turnId === this.turnId) return true;
+    if (
+      this.turnId &&
+      (turnId.startsWith("broadcast-terminal:") ||
+        (this.acceptedTurnId === this.turnId &&
+          (!this.isSubmitting || this.timingTurnId === this.turnId))) &&
+      (this.isSubmitting ||
+        this.pendingUserMessage ||
+        this.turnState === "processing" ||
+        this.turnState === "awaiting_action")
+    ) {
+      // A callback may continue its own wallet operation, but an older
+      // operation's receipt cannot take charge of a newer user/branch run.
+      return (
+        !this.pendingUserMessage &&
+        (!this.isSubmitting || this.timingTurnId === this.turnId) &&
+        turnId.startsWith("broadcast-terminal:") &&
+        this.callbackOwners.get(turnId) === this.turnId
+      );
+    }
+    return true;
+  }
+
+  private trackCallbackOwner(event: Event): void {
+    if (
+      !event.turn_id ||
+      (event.type !== "message" && event.type !== "tool_complete")
+    )
+      return;
+    if (
+      ![
+        "commit_txs",
+        "evm_commit_txs",
+        "svm_commit_txs",
+        "svm_commit_ix",
+        "svm_commit_tx",
+      ].includes(event.tool_name?.split("::").at(-1) ?? "")
+    )
+      return;
+    try {
+      const value: unknown =
+        event.type === "message"
+          ? event.tool_result
+            ? JSON.parse(event.tool_result[1])
+            : undefined
+          : event.result;
+      if (!value || typeof value !== "object") return;
+      const result = value as { commits?: unknown; status?: unknown };
+      const entries = Array.isArray(result.commits)
+        ? result.commits
+        : result.status === undefined ||
+            result.status === "pending_approval" ||
+            result.status === "commit_staged"
+          ? [result]
+          : [];
+      for (const entry of entries) {
+        if (!entry || typeof entry !== "object") continue;
+        const commit = entry as {
+          commit_id?: unknown;
+          batch?: { batch_id?: unknown };
+        };
+        const operationId = commit.batch?.batch_id ?? commit.commit_id;
+        if (typeof operationId !== "string" || !operationId) continue;
+        const callbackTurnId = `broadcast-terminal:${operationId}`;
+        if (!this.callbackOwners.has(callbackTurnId)) {
+          this.callbackOwners.set(callbackTurnId, event.turn_id);
+        }
+      }
+    } catch {
+      // Failed or malformed tool output does not establish callback ownership.
+    }
   }
 
   private applyMessage(event: MessageEvent): void {
@@ -581,12 +877,13 @@ export class ClientSession {
     this.reconnectTimer = null;
     this.streamInFlight = true;
     try {
-      this.streamAbort = new AbortController();
+      const streamAbort = new AbortController();
+      this.streamAbort = streamAbort;
       await this.client.agent.stream(
         this.sessionId,
         { cursor: this.cursor, signal: this.streamAbort.signal },
         (kind, data) => {
-          if (!this.streamingActive) return;
+          if (!this.streamingActive || streamAbort.signal.aborted) return;
           if (kind === "page") {
             const page = data as EventPage;
             this.applyEventPage(page);
@@ -615,6 +912,7 @@ export class ClientSession {
         this.pendingReject?.(error);
         this.pendingReject = null;
         this.pendingResolve = null;
+        this.pendingSend = undefined;
       }
       this.streamFailureCount += 1;
       this.error = error;
@@ -643,6 +941,8 @@ export class ClientSession {
     const key = message?.message_key;
     if (
       frame?.turn_id !== this.turnId ||
+      this.acknowledgedInterrupts.has(frame.turn_id ?? "") ||
+      this.supersededTurns.has(frame.turn_id ?? "") ||
       !key ||
       message?.sender !== "agent" ||
       typeof message.content !== "string" ||
@@ -701,6 +1001,7 @@ export class ClientSession {
       this.closed ||
       this.streamingActive ||
       this.isSubmitting ||
+      this.interruptOperation ||
       this.pendingUserMessage
     )
       return false;
@@ -822,13 +1123,14 @@ export class ClientSession {
   }
 
   private result(): SendResult {
-    return { messages: this.messages, title: this.title };
+    return { messages: conversationMessages(this.events), title: this.title };
   }
 
   private resolvePending(): void {
     const resolve = this.pendingResolve;
     this.pendingResolve = null;
     this.pendingReject = null;
+    this.pendingSend = undefined;
     resolve?.(this.result());
   }
 
@@ -840,7 +1142,7 @@ export class ClientSession {
       this.cachedStore = {
         version: this.storeVersion,
         events: [...this.events],
-        messages: [...this.messages],
+        messages: conversationMessages(this.events),
       };
     }
     return {
@@ -857,6 +1159,13 @@ export class ClientSession {
       ...(this.title ? { title: this.title } : {}),
       isStreaming: this.streamingActive,
       isSubmitting: this.isSubmitting,
+      isStopping: Boolean(this.interruptOperation),
+      ...(!this.isSubmitting &&
+      !this.pendingUserMessage &&
+      this.turnId &&
+      this.acknowledgedInterrupts.has(this.turnId)
+        ? { stoppedTurnId: this.turnId }
+        : {}),
       ...(this.pendingUserMessage
         ? { pendingUserMessage: this.pendingUserMessage.content }
         : {}),

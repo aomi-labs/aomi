@@ -395,7 +395,9 @@ new integrations should use `target` so routing intent is unambiguous.
 | `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
 | `close()`             | Stop streaming and release listeners                              |
 
-To reconsider a completed assistant answer, pass `{ regenerate: messageKey }` as the second argument to `send` or `sendAsync`. The key must identify a completed assistant message in the same session. The server appends a new answer with all tools disabled; it preserves the original conversation and transaction outcomes.
+To regenerate a completed assistant answer, pass the original request text and `{ regenerate: messageKey }` to `send` or `sendAsync`. The server resolves the saved request and preceding context from the completed assistant key. To edit a request, send the revised text with `{ edit: userMessageKey }`. These options are mutually exclusive. The server records a durable branch, replacing the selected answer and later active turns; edits replace the selected user text. Original events and transaction outcomes remain available for audit. Regeneration and editing disable tools so completed actions cannot be replayed. `SessionSnapshot.messages` contains the active conversation; `SessionSnapshot.events` retains the durable ledger. `projectConversationEvents(events)` derives active turns and traces from that ledger.
+
+`interrupt()` immediately publishes `isStopping`, deduplicates pending requests, and keeps receiving partial text until the server acknowledges Stop. A failed cancellation leaves streaming active and allows retry. `stoppedTurnId` identifies an acknowledged cancellation even when the terminal event is still on a later event page.
 
 #### Snapshot
 

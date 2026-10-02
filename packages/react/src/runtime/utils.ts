@@ -1,6 +1,7 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
+  projectConversationEvents,
   SUPPORTED_CHAINS as CLIENT_SUPPORTED_CHAINS,
   type ChainInfo,
   type Event,
@@ -157,8 +158,19 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
     role,
     content: content as ThreadMessageLike["content"],
     createdAt: new Date(parseTimestamp(msg.occurred_at)),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+    ...(role === "user"
+      ? {
+          metadata: {
+            custom: {
+              ...(msg.message_key
+                ? { aomiUserMessageKey: msg.message_key }
+                : {}),
+              ...(capabilityHints.length > 0
+                ? { aomiCapabilityHints: capabilityHints }
+                : {}),
+            },
+          },
+        }
       : {}),
   } satisfies ThreadMessageLike;
 
@@ -333,6 +345,7 @@ export function logicalTurnRunning(
   isSubmitting = false,
   pendingUserMessage?: string,
 ): boolean {
+  events = projectConversationEvents(events);
   // An accepted start can precede its durable user event in a later page.
   if (isSubmitting || pendingUserMessage) return true;
   // A late callback completion belongs to its original operation. It must
@@ -389,6 +402,7 @@ function rootTurn(turnId: string, owners: ReadonlyMap<string, string>): string {
 export function projectAssistantMessages(
   events: readonly Event[],
 ): ThreadMessageLike[] {
+  events = projectConversationEvents(events);
   const output: Array<ThreadMessageLike | AssistantProjection> = [];
   const assistantTurns = new Map<string, AssistantProjection>();
   const terminalTurns = new Map<
@@ -532,10 +546,14 @@ export function projectAssistantMessages(
         content: entry.parts as ThreadMessageLike["content"],
         ...(entry.finalAnswerStartIndex !== undefined ||
         callbackTurns ||
-        entry.responseMessageKey
+        entry.responseMessageKey ||
+        terminalTurns.has(root)
           ? {
               metadata: {
                 custom: {
+                  ...(terminalTurns.has(root)
+                    ? { aomiTurnState: terminalTurns.get(root)!.state }
+                    : {}),
                   ...(entry.responseMessageKey
                     ? { aomiResponseMessageKey: entry.responseMessageKey }
                     : {}),
@@ -569,6 +587,7 @@ export function projectRuntimeMessages(
   events: readonly Event[],
   pendingUserMessage?: string,
   liveMessages: readonly MessageEvent[] = [],
+  stoppedTurnId?: string,
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -584,6 +603,19 @@ export function projectRuntimeMessages(
     });
     if (index < 0) index = visible.length;
     visible.splice(index, 0, message);
+  }
+  // A bounded interrupt page can acknowledge Stop before the durable terminal
+  // event reaches this cursor. Render that acknowledged state immediately;
+  // this display record never advances or mutates the canonical event ledger.
+  if (stoppedTurnId) {
+    visible.push({
+      type: "turn_state_changed",
+      event_id: `stopped:${stoppedTurnId}`,
+      turn_id: stoppedTurnId,
+      state: "interrupted",
+      sequence: (visible.at(-1)?.sequence ?? 0) + 1,
+      occurred_at: Date.now() / 1000,
+    });
   }
   const projected = projectAssistantMessages(visible);
   if (pendingUserMessage === undefined) return projected;

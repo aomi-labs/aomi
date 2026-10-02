@@ -293,16 +293,25 @@ export function AomiRuntimeCore({
         snapshot.events,
         snapshot.pendingUserMessage,
         snapshot.liveMessages,
+        snapshot.stoppedTurnId,
       ),
-    [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
+    [
+      snapshot.events,
+      snapshot.pendingUserMessage,
+      snapshot.liveMessages,
+      snapshot.stoppedTurnId,
+    ],
   );
-  const isRunning = logicalTurnRunning(
-    snapshot.events,
-    currentMessages,
-    snapshot.turnState,
-    snapshot.isSubmitting,
-    snapshot.pendingUserMessage,
-  );
+  const isRunning =
+    snapshot.isSubmitting ||
+    ((!snapshot.stoppedTurnId || snapshot.stoppedTurnId !== snapshot.turnId) &&
+      logicalTurnRunning(
+        snapshot.events,
+        currentMessages,
+        snapshot.turnState,
+        snapshot.isSubmitting,
+        snapshot.pendingUserMessage,
+      ));
 
   useEffect(() => {
     if (!threadPersistenceKey) return;
@@ -343,6 +352,20 @@ export function AomiRuntimeCore({
   // ---------------------------------------------------------------------------
   // External store runtime
   // ---------------------------------------------------------------------------
+  const cancelThreadGeneration = useCallback(
+    async (threadId: string) => {
+      try {
+        await orchestratorCancel(threadId);
+      } catch (error) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Unable to stop generation",
+          message: `${error instanceof Error ? error.message : "The Stop request failed"}. Generation may still be running. Try Stop again.`,
+        });
+      }
+    },
+    [orchestratorCancel, notificationContext],
+  );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const runtime = useExternalStoreRuntime({
     messages: currentMessages,
@@ -361,7 +384,7 @@ export function AomiRuntimeCore({
         }),
     }),
     onCancel: async () => {
-      await orchestratorCancel(threadContext.currentThreadId);
+      await cancelThreadGeneration(threadContext.currentThreadId);
     },
     convertMessage: (msg) => msg,
     adapters: { threadList: threadListAdapter },
@@ -394,8 +417,8 @@ export function AomiRuntimeCore({
   );
 
   const cancelGeneration = useCallback(() => {
-    void orchestratorCancel(threadContext.currentThreadId);
-  }, [orchestratorCancel, threadContext.currentThreadId]);
+    void cancelThreadGeneration(threadContext.currentThreadId);
+  }, [cancelThreadGeneration, threadContext.currentThreadId]);
 
   const getMessages = useCallback(
     (threadId?: string) => {
@@ -488,6 +511,7 @@ export function AomiRuntimeCore({
       // Chat API
       isRunning,
       isSubmitting: snapshot.isSubmitting,
+      isStopping: snapshot.isStopping ?? false,
       getMessages,
       sendMessage,
       cancelGeneration,
@@ -526,6 +550,7 @@ export function AomiRuntimeCore({
       selectThread,
       isRunning,
       snapshot.isSubmitting,
+      snapshot.isStopping,
       getMessages,
       sendMessage,
       cancelGeneration,

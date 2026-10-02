@@ -23,7 +23,7 @@ import {
   walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
-import type { Event } from "@aomi-labs/client";
+import type { Event, TurnState } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -816,6 +816,11 @@ export const AssistantTurnParts: FC = () => {
       (s.metadata?.custom as { aomiContinuationTurnIds?: string[] } | undefined)
         ?.aomiContinuationTurnIds,
   );
+  const projectedTurnState = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiTurnState?: TurnState } | undefined)
+        ?.aomiTurnState,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
@@ -831,7 +836,8 @@ export const AssistantTurnParts: FC = () => {
       )
     : undefined;
   const ownStatus =
-    ownState?.type === "turn_state_changed" ? ownState.state : undefined;
+    projectedTurnState ??
+    (ownState?.type === "turn_state_changed" ? ownState.state : undefined);
   const ownTerminal =
     ownStatus !== undefined &&
     ["complete", "failed", "interrupted"].includes(ownStatus);

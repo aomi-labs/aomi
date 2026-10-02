@@ -82,6 +82,8 @@ export type AomiRuntimeApi = {
   isRunning: boolean;
   /** True only before the first backend event for a submitted turn. */
   isSubmitting: boolean;
+  /** True while Stop awaits the server's acknowledgment. */
+  isStopping?: boolean;
   /** Get messages for a thread (defaults to currentThreadId) */
   getMessages: (threadId?: string) => ThreadMessageLike[];
   /** Send a message to the current thread */

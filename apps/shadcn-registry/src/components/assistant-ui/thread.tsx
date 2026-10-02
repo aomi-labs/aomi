@@ -478,9 +478,18 @@ const ComposerAction: FC = () => {
             <Button
               type="button"
               variant="default"
-              size="icon"
-              className="aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5"
-              aria-label="Stop generating"
+              size={aomiRuntime?.isStopping ? "sm" : "icon"}
+              className={cn(
+                "aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 h-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5",
+                aomiRuntime?.isStopping ? "gap-2 px-3" : "w-8",
+              )}
+              aria-label={
+                aomiRuntime?.isStopping
+                  ? "Stopping generation"
+                  : "Stop generating"
+              }
+              aria-busy={Boolean(aomiRuntime?.isStopping)}
+              disabled={Boolean(aomiRuntime?.isStopping)}
               onClick={
                 aomiRuntime
                   ? (event) => {
@@ -491,6 +500,7 @@ const ComposerAction: FC = () => {
               }
             >
               <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+              {aomiRuntime?.isStopping && <span>Stopping…</span>}
             </Button>
           </ComposerPrimitive.Cancel>
         </ThreadPrimitive.If>

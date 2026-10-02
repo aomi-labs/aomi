@@ -17,6 +17,7 @@ const messages: ThreadMessageLike[] = [
     id: "aomi-user-0",
     role: "user",
     content: [{ type: "text", text: "Supply USDC" }],
+    metadata: { custom: { aomiUserMessageKey: "original:user" } },
   },
   {
     id: "turn:original",
@@ -72,14 +73,14 @@ describe("message action wiring", () => {
     render(<Harness send={send} />);
     fireEvent.click(screen.getByText("Rerun"));
     await waitFor(() =>
-      expect(send).toHaveBeenCalledWith(expect.any(String), {
+      expect(send).toHaveBeenCalledWith("Supply USDC", {
         regenerate: "broadcast-terminal:batch:response",
       }),
     );
-    expect(send.mock.calls[0]![0]).not.toContain("Supply USDC");
+    expect(send.mock.calls[0]![0]).not.toContain("Reconsider");
   });
 
-  it("editing a sent message sends an explicit correction and retains the original ledger", async () => {
+  it("editing targets the saved user message with revised text", async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     render(<Harness send={send} />);
     fireEvent.click(screen.getByText("Edit"));
@@ -94,9 +95,8 @@ describe("message action wiring", () => {
     );
     fireEvent.click(screen.getByText("Save and resend"));
     await waitFor(() => expect(send).toHaveBeenCalledOnce());
-    expect(send.mock.calls[0]![0]).toBe(
-      "Correction to my earlier message:\n> Supply USDC\n\nRevised request:\nExplain the supply instead",
-    );
+    expect(send.mock.calls[0]![0]).toBe("Explain the supply instead");
+    expect(send.mock.calls[0]![1]).toEqual({ edit: "original:user" });
     expect(messages[0]!.content).toEqual([
       { type: "text", text: "Supply USDC" },
     ]);
@@ -138,7 +138,10 @@ describe("message action wiring", () => {
     const selected = {
       ...messages[0]!,
       metadata: {
-        custom: { aomiCapabilityHints: [{ kind: "app", id: "name:aave" }] },
+        custom: {
+          aomiUserMessageKey: "original:user",
+          aomiCapabilityHints: [{ kind: "app", id: "name:aave" }],
+        },
       },
     };
     await messageActions({
@@ -155,7 +158,7 @@ describe("message action wiring", () => {
     );
   });
 
-  it("restores the revised text after rejection, preserving selected capability hints", async () => {
+  it("reports an edit rejection without turning it into a new executable request", async () => {
     const send = vi.fn().mockRejectedValue(new Error("busy"));
     const restore = vi.fn();
     const actions = messageActions({
@@ -178,6 +181,6 @@ describe("message action wiring", () => {
     expect(send.mock.calls[0]![0]).toContain(
       'Selected app task target: {"app":"aave"}',
     );
-    expect(restore).toHaveBeenCalledWith('Updated "quoted" request');
+    expect(restore).not.toHaveBeenCalled();
   });
 });

@@ -16,6 +16,7 @@ import {
 const transport = vi.hoisted(() => ({
   events: [] as Event[],
   turnState: "complete" as TurnState,
+  stoppedTurnId: undefined as string | undefined,
 }));
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
@@ -41,14 +42,17 @@ function AssistantMessage() {
   );
 }
 function Fixture() {
-  const messages = projectRuntimeMessages(transport.events);
+  const messages = projectRuntimeMessages(
+    transport.events,
+    undefined,
+    [],
+    transport.stoppedTurnId,
+  );
   const runtime = useExternalStoreRuntime({
     messages,
-    isRunning: logicalTurnRunning(
-      transport.events,
-      messages,
-      transport.turnState,
-    ),
+    isRunning:
+      !transport.stoppedTurnId &&
+      logicalTurnRunning(transport.events, messages, transport.turnState),
     onNew: async () => {},
     convertMessage: (message) => message,
   });
@@ -66,7 +70,10 @@ function Fixture() {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  transport.stoppedTurnId = undefined;
+});
 
 it("keeps Copy hidden and one trace active through receipts and a second-chain commit, then settles", async () => {
   transport.events = [];
@@ -163,4 +170,36 @@ it("keeps Copy hidden and one trace active through receipts and a second-chain c
   expect(screen.queryByText("Working")).toBeNull();
   expect(screen.getByText(/Worked/)).toBeTruthy();
   expect(screen.getByText("All steps completed.")).toBeTruthy();
+});
+
+it("renders acknowledged Stop from projected status before the terminal page arrives", async () => {
+  transport.events = [
+    {
+      type: "message",
+      sender: "user",
+      content: "Explain",
+      message_key: "request",
+    },
+    { type: "turn_state_changed", state: "processing" },
+    { type: "tool_update", tool: "search", message: "Checking sources" },
+    {
+      type: "message",
+      sender: "agent",
+      content: "Partial answer",
+      message_key: "partial",
+      is_streaming: true,
+    },
+  ].map((event, index) => ({
+    ...event,
+    turn_id: "turn-stop",
+    event_id: `stop-${index}`,
+    sequence: index + 1,
+    occurred_at: index + 1,
+  })) as Event[];
+  transport.turnState = "interrupted";
+  transport.stoppedTurnId = "turn-stop";
+  render(<Fixture />);
+  await waitFor(() => expect(screen.getByText(/^Stopped/)).toBeInTheDocument());
+  expect(screen.queryByText("Working")).not.toBeInTheDocument();
+  expect(transport.events.at(-1)?.type).toBe("message");
 });

@@ -3531,7 +3531,13 @@
             "type": ["string", "null"],
             "minLength": 1,
             "maxLength": 512,
-            "description": "Durable completed assistant message_key in this session. Append a response-only restatement with all tools disabled; preserve history and transaction outcomes."
+            "description": "Durable completed assistant message_key in this session. Rerun its original user request from preceding context as a persistent branch. All tools disabled; transaction outcomes retained."
+          },
+          "edit": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "User message_key to replace with message. Persist a branch discarding subsequent transcript; mutually exclusive with regenerate. All tools disabled; recorded outcomes retained."
           },
           "applicationId": {
             "type": ["integer", "null"]
@@ -4250,6 +4256,14 @@
         "required": ["session_id", "cursor", "events", "has_more"],
         "additionalProperties": false,
         "properties": {
+          "started_turn_id": {
+            "type": "string",
+            "description": "Admitted run identity on start responses, independent of bounded history pages; retained on replay."
+          },
+          "stopped_turn_id": {
+            "type": "string",
+            "description": "The requested interrupt turn is durably terminal; independent of page position."
+          },
           "session_id": {
             "type": "string"
           },
@@ -4306,6 +4320,9 @@
             "$ref": "#/components/schemas/MessageEvent"
           },
           {
+            "$ref": "#/components/schemas/BranchEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnStateChangedEvent"
           },
           {
@@ -4340,6 +4357,7 @@
           "propertyName": "type",
           "mapping": {
             "message": "#/components/schemas/MessageEvent",
+            "branch": "#/components/schemas/BranchEvent",
             "turn_state_changed": "#/components/schemas/TurnStateChangedEvent",
             "tool_update": "#/components/schemas/ToolUpdateEvent",
             "tool_complete": "#/components/schemas/ToolCompleteEvent",
@@ -7045,6 +7063,54 @@
             "enum": ["pending", "passed", "failed", "unavailable"]
           }
         }
+      },
+      "BranchEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "kind",
+              "target_message_key",
+              "user_message_key",
+              "content",
+              "removed_message_keys",
+              "removed_turn_ids"
+            ],
+            "properties": {
+              "type": {
+                "const": "branch"
+              },
+              "kind": {
+                "enum": ["regenerate", "edit"]
+              },
+              "target_message_key": {
+                "type": "string"
+              },
+              "user_message_key": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "removed_message_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "removed_turn_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {
