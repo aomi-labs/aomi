@@ -25,6 +25,7 @@ vi.mock("../../../../lib/wallet-kit/context", () => ({
         kind: "external",
         walletName: "Rabby",
         state: "offline",
+        reason: "disconnected",
         connected: false,
         linked: true,
         operating: false,

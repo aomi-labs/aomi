@@ -203,6 +203,11 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
       await expect(settings).toBeVisible();
       return settings;
     };
+    const captureEvidence = async (name: string) => {
+      const path = testInfo.outputPath(`${name}.png`);
+      await page.screenshot({ path });
+      await testInfo.attach(name, { path, contentType: "image/png" });
+    };
     const settings = await openSettings();
     await expect(
       settings.getByText("Not on this device", { exact: true }),
@@ -221,13 +226,9 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
         settings.getByText(/Connector already connected/),
       ).toHaveCount(0);
     }
-    await page.screenshot({
-      path: testInfo.outputPath("rabby-reconnect-guidance-desktop.png"),
-    });
+    await captureEvidence("rabby-reconnect-guidance-desktop");
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({
-      path: testInfo.outputPath("rabby-reconnect-guidance-mobile.png"),
-    });
+    await captureEvidence("rabby-reconnect-guidance-mobile");
 
     // Pause the provider read, dismiss Settings, then let the request finish.
     // Reopening must allow another attempt without signing out.
@@ -289,13 +290,9 @@ test("saved Rabby reconnect recovers after browser restart, repeated attempts an
     expect(restored.signatureCount).toBe(0);
     expect(wallet.signatureCount).toBe(1);
     expect(restored.blocked).toEqual([]);
-    await page.screenshot({
-      path: testInfo.outputPath("rabby-reconnect-recovered-mobile.png"),
-    });
+    await captureEvidence("rabby-reconnect-recovered-mobile");
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.screenshot({
-      path: testInfo.outputPath("rabby-reconnect-recovered-desktop.png"),
-    });
+    await captureEvidence("rabby-reconnect-recovered-desktop");
   } finally {
     await firstBrowser.close();
     await restartedBrowser?.close();
