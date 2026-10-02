@@ -227,3 +227,41 @@ remain usable while additive provider authentication is still booting.
 The follow-up review also noted terminal capabilities remaining narrowed after
 an early return or error. Each one-step review now restores the default wallet
 capabilities in a finally block, including rejection and unsupported-wallet paths.
+
+## Victor's Arc Testnet report — 2026-10-02
+
+The report describes client 0.7.6 receiving an `evm_commit_txs` Commit ID but
+never discovering signable work. A joined CLI regression now starts with a
+new random wallet and empty state directory, then invokes the real wallet
+login, chat, transaction-list and transaction-sign commands. Only the upstream
+HTTP endpoints and Arc RPC are controlled fixtures. The test cryptographically
+verifies SIWE and recovers the transaction signer; it checks chain 5042002,
+recipient, calldata, value, gas and fees, and the exact bytes and hash reported
+to the broadcaster and Commit Service. Both native 0.1 USDC and ERC-20 0.1 USDC
+cases pass without a legacy Action or a signing-policy mutation.
+
+| Reported claim                                           | Candidate behavior and evidence                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads, staging and simulation work; signing never starts | Existing transport and simulation paths are retained. The new fixture supplies a simulated, prepared Commit and completes its real CLI signing flow; it does not rerun live staging/simulation on Arc.                                                                                                |
+| `evm_commit_txs` returns a Commit ID but no Action       | Durable Commit discovery is independent of legacy Actions. The regression deliberately returns no Action and still completes the Commit. No synthetic Action is required.                                                                                                                             |
+| `aomi tx list` stays empty                               | The real command lists the pending Commit while its JSON `actions` array remains empty.                                                                                                                                                                                                               |
+| No `Action awaiting response` prompt                     | Chat prints `Commit awaiting sign: <commit-id>` for the durable protocol. The regression verifies that prompt; the historical Action prompt remains for legacy work.                                                                                                                                  |
+| A plain 0.1 USDC transfer also fails                     | Both Arc native USDC (18 decimals) and its ERC-20 interface (6 decimals) are signed and reported in the controlled regression. This checks CLI handling, not live inclusion.                                                                                                                          |
+| A fresh SIWE wallet has no signing mode                  | Canonical wallet storage defaults to `manual`; wallet upsert preserves that default. Backend policy maps owned Manual/ClientAuto wallets to manual execution. Source inspection plus the regression's manual account fixture support this path; the test does not connect to a real account database. |
+| Settings/npm mode command/Rust `keys set-mode` is needed | Fresh manual wallets require explicit `tx sign`, not a policy change. The README now documents wallet login and the Arc Commit flow. Existing `denied` policies remain enforced.                                                                                                                      |
+| How to enable signing today                              | Use a candidate build or a release containing the fix, authenticate the same wallet, review the Commit, then `tx sign`; keyless external signing uses export/submit. Client 0.7.6 itself remains unchanged.                                                                                           |
+
+Arc chain and decimal conventions were checked against the official
+[network reference](https://docs.arc.io/arc/references/connect-to-arc) and
+[contract reference](https://docs.arc.io/arc/references/contract-addresses).
+
+Release boundary: npm still reports client 0.9.4 on 2026-10-02. This PR prepares
+0.9.10 but has not published it. A release containing this fix is required for
+Victor's ordinary npm installation. Live Arc Testnet staging, simulation,
+broadcast and receipt confirmation have not been repeated; the deployed Base
+receipts above remain historical evidence. No fresh funded transaction was
+performed for this follow-up.
+
+Follow-up local validation: all 67 client test files passed (490 tests, one
+existing OpenAPI skip), including both joined Arc cases. Client typecheck,
+scoped ESLint, formatting and diff whitespace checks passed.

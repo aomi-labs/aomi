@@ -661,6 +661,38 @@ payload. An already broadcast prepared transaction can instead be reported
 with `tx submit <commit-id> --tx-hash <prepared-hash>`; this command does not
 broadcast. Legacy EIP-5792/MOSS/MetaMask exports still accept only Actions.
 
+#### Fresh SIWE wallet on Arc Testnet
+
+A freshly linked SIWE wallet defaults to `manual` signing. This flow needs no
+Settings change or Rust `keys set-mode` command: log in with the wallet, review
+the pending Commit, then explicitly sign it with the same wallet.
+
+```bash
+aomi account login --wallet --chain 5042002 --private-key "$PRIVATE_KEY"
+aomi chat "Prepare a 0.1 USDC transfer on Arc Testnet to <recipient>" --chain 5042002
+aomi tx list
+aomi tx sign <commit-id> --rpc-url https://rpc.testnet.arc.io
+aomi tx list
+```
+
+Wallet login saves the local signing key and SIWE session in CLI state. Use
+the external signing handoff above when the CLI should not hold that key.
+Logging in does not override an existing `denied` signing policy.
+
+Current Commit Service transactions need not emit a legacy Action. The CLI
+prints `Commit awaiting sign: <commit-id>` and lists the Commit even when
+`actions` is empty; the historical `Action awaiting response` message is only
+for legacy Actions. Signing reports the backend's current state; `submitted`
+does not mean that a receipt has confirmed yet.
+
+Arc's native USDC uses 18 decimals; its USDC ERC-20 interface uses 6 decimals.
+See the official [network reference](https://docs.arc.io/arc/references/connect-to-arc)
+and [contract addresses](https://docs.arc.io/arc/references/contract-addresses).
+These commands describe this candidate CLI. Version 0.7.6 does not acquire the
+fix by changing signing mode; install a release containing these changes or
+build this checkout and use `node packages/client/dist/cli.js` in place of
+`aomi`.
+
 #### Historical Action export
 
 `aomi tx export <id>...` refreshes the backend's authoritative pending state
