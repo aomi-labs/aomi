@@ -181,7 +181,13 @@ it("renders acknowledged Stop from projected status before the terminal page arr
       message_key: "request",
     },
     { type: "turn_state_changed", state: "processing" },
-    { type: "tool_update", tool: "search", message: "Checking sources" },
+    {
+      type: "tool_update",
+      id: "search-update",
+      call_id: "search-call",
+      tool_name: "web_search",
+      result: { stage: "started", message: "Checking sources" },
+    },
     {
       type: "message",
       sender: "agent",
