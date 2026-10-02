@@ -344,6 +344,7 @@ export function logicalTurnRunning(
   turnState?: TurnState,
   isSubmitting = false,
   pendingUserMessage?: string,
+  activeTurnId?: string,
 ): boolean {
   events = projectConversationEvents(events);
   // An accepted start can precede its durable user event in a later page.
@@ -354,6 +355,16 @@ export function logicalTurnRunning(
   const latestUserTurn = events.findLast(
     (event) => event.type === "message" && event.sender === "user",
   )?.turn_id;
+  // A branch start can be acknowledged before its branch event reaches this
+  // bounded page. It has no new user echo, so the accepted run must keep Stop
+  // available while the previous conversation is still projected.
+  if (
+    activeTurnId &&
+    activeTurnId !== latestUserTurn &&
+    !activeTurnId.startsWith("broadcast-terminal:") &&
+    (turnState === "processing" || turnState === "awaiting_action")
+  )
+    return true;
   const ownState = latestUserTurn
     ? events.findLast(
         (event) =>

@@ -311,6 +311,7 @@ export function AomiRuntimeCore({
         snapshot.turnState,
         snapshot.isSubmitting,
         snapshot.pendingUserMessage,
+        snapshot.turnId,
       ));
 
   useEffect(() => {

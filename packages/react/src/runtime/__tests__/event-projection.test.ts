@@ -27,6 +27,54 @@ const meta = (
   type,
 });
 
+it("keeps Stop available for an accepted branch before its bounded event arrives", () => {
+  const events: Event[] = [
+    {
+      ...meta(1, "message", "original"),
+      type: "message",
+      sender: "user",
+      message_key: "saved-user",
+      content: "Original request",
+    },
+    {
+      ...meta(2, "turn_state_changed", "original"),
+      type: "turn_state_changed",
+      state: "complete",
+    },
+  ];
+  const messages = projectRuntimeMessages(events);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "processing",
+      false,
+      undefined,
+      "accepted-branch",
+    ),
+  ).toBe(true);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "complete",
+      false,
+      undefined,
+      "accepted-branch",
+    ),
+  ).toBe(false);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "processing",
+      false,
+      undefined,
+      "broadcast-terminal:older",
+    ),
+  ).toBe(false);
+});
+
 it("replaces an edited request and later history while the new branch streams", () => {
   const events: Event[] = [
     {
