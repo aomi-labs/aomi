@@ -259,6 +259,7 @@ try {
       "playwright",
       "test",
       "--project=guest-regression",
+      "--project=portal-app-context",
       "--workers=1",
       "--reporter=list,html,json",
     ],
@@ -284,7 +285,7 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected < 2 ||
+    stats.expected < 8 ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0

@@ -3,6 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 // Real Portal components and navigation, controlled browser-level API data.
 // This suite never authenticates with a provider or signs/broadcasts funds.
 const appQuery = "?app=hoodit&application_id=2937810";
+const portalOrigin =
+  process.env.GUEST_BROWSER_BASE_URL ??
+  process.env.LOCAL_PORTAL_URL ??
+  "http://localhost:3000";
 const apps = [
   { name: "default", metadata: { source: "builtin" } },
   {
@@ -30,10 +34,7 @@ async function installFixtures(page: Page) {
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route("**/*", (route) => {
     const url = new URL(route.request().url());
-    return url.origin ===
-      (process.env.LOCAL_PORTAL_URL ?? "http://localhost:3000")
-      ? route.continue()
-      : route.abort();
+    return url.origin === portalOrigin ? route.continue() : route.abort();
   });
   await page.route(/\/(?:api|v1)\//, (route) => {
     const request = route.request();

@@ -25,6 +25,8 @@ reviewed artwork and load normally.
 
 The tests also verify refresh, new-chat navigation, sidebar collapse, app
 selection with hosted application IDs, Auto selection, and browser Back.
+Returning to Auto clears the selected-app context. The six scenarios also
+run with the existing production guest browser harness in CI.
 Locked controls are informative elements with a lock mark and no dropdown.
 The sidebar app control follows the credit allowance; mobile and collapsed
 sidebar layouts show the control in the header.
