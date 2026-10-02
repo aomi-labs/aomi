@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "../../apps/shadcn-registry/src/themes/default.css";
+@source "../../apps/shadcn-registry/src/**/*.{ts,tsx}";
+@source "../../packages/react/src/**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+.fixture-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px;
+  gap: 8px;
+  overflow: hidden;
+  background: var(--aomi-bg);
+}
+.fixture-disclosure {
+  flex-shrink: 0;
+  margin: 0;
+  text-align: center;
+  font:
+    12px/18px system-ui,
+    sans-serif;
+  color: var(--aomi-muted);
+}

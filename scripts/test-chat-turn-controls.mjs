@@ -8,7 +8,20 @@ import { chromium, expect } from "@playwright/test";
 
 // Actual Portal rendering with controlled browser API and HTTP SSE fixtures.
 // This checks UI/SDK behavior; it does not authenticate or exercise the Rust BFF.
-const origin = process.env.LOCAL_PORTAL_URL ?? "http://localhost:3000";
+const harness = process.argv.includes("--harness");
+const origin =
+  process.env.LOCAL_PORTAL_URL ??
+  (harness ? "http://127.0.0.1:3317" : "http://localhost:3000");
+const shellId = harness ? "chat-controls-shell" : "portal-shell";
+let vite;
+if (harness) {
+  const { createServer: createViteServer } =
+    await import("../apps/widget-consumer/node_modules/vite/dist/node/index.js");
+  vite = await createViteServer({
+    configFile: resolve("tests/chat-controls-browser/vite.config.mjs"),
+  });
+  await vite.listen();
+}
 const output = resolve(
   process.env.CHAT_CONTROLS_ARTIFACTS ?? "artifacts/issue-696",
 );
@@ -22,11 +35,16 @@ const report = {
   frontendHead: execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim(),
-  integration:
-    "Actual Portal UI; synthetic anonymous identity, REST and HTTP SSE upstream",
+  integration: harness
+    ? "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream"
+    : "Actual Portal UI; synthetic anonymous identity, REST and HTTP SSE upstream",
   realBackendIntegration: "Not exercised by this fixture runner",
-  visualLimitations:
-    "Local Next dev uses fallback fonts because Google Fonts downloads were blocked",
+  portalHostIntegration: harness
+    ? "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB"
+    : "Controlled browser fixture only",
+  visualLimitations: harness
+    ? "Shared widget default stylesheet and system font fallbacks; full Portal host could not compile within managed memory limits"
+    : "Local Next dev uses fallback fonts because Google Fonts downloads were blocked",
   scenarios: [],
 };
 const browser = await chromium.launch({ headless: true });
@@ -103,202 +121,222 @@ try {
         return route.continue();
       return route.abort();
     });
-    await page.route(/\/(?:api|v1)\//, async (route) => {
-      const request = route.request();
-      const url = new URL(request.url());
-      const path = url.pathname;
-      const json = (body, status = 200) =>
-        route.fulfill({
-          status,
-          contentType: "application/json",
-          body: JSON.stringify(body),
-        });
-      if (path === "/api/auth/get-session")
-        return json({ user: { id: "fixture-696-guest", isAnonymous: true } });
-      if (path === "/api/auth/sign-in/anonymous")
-        return json({ user: { id: "fixture-696-guest", isAnonymous: true } });
-      if (
-        path === "/api/account" ||
-        path === "/v1/account" ||
-        path === "/api/account/model-keys"
-      )
-        return json({ error: "unauthorized" }, 401);
-      if (path.endsWith("/models")) return json(["fixture-model"]);
-      if (path.endsWith("/apps"))
-        return json([{ name: "default", is_public: true }]);
-      if (path === "/api/resource/skills") return json({ skills: [] });
-      if (path === "/v1/agent/sessions")
-        return json({
-          sessions: thread
-            ? [
-                {
-                  id: thread.id,
-                  title: "Chat turn controls fixture",
-                  updatedAt: Date.now(),
-                  archived: false,
-                },
-              ]
-            : [],
-          nextCursor: null,
-        });
-      if (/^\/v1\/agent\/sessions\/[^/]+$/.test(path))
-        return json({
-          id: thread.id,
-          title: "Chat turn controls fixture",
-          updatedAt: Date.now(),
-          archived: false,
-        });
-      if (path === "/v1/agent/chat" && request.method() === "POST") {
-        const intent = request.postDataJSON();
-        records.push({ type: "start", ...intent, at: performance.now() });
-        turn++;
-        thread ??= { id: intent.sessionId, events: [], state: "complete" };
-        thread.currentPrompt = intent.message;
-        const target = intent.regenerate ?? intent.edit;
-        const selected =
-          target &&
-          thread.events.find(
-            (entry) => entry.type === "message" && entry.message_key === target,
-          );
-        const user = intent.edit
-          ? selected
-          : intent.regenerate
-            ? thread.events.find(
-                (entry) =>
-                  entry.type === "message" &&
-                  entry.sender === "user" &&
-                  entry.turn_id === selected.turn_id,
-              )
-            : undefined;
-        const initial = target
-          ? [
-              event("branch", {
-                kind: intent.edit ? "edit" : "regenerate",
-                target_message_key: target,
-                user_message_key: user.message_key,
-                content: intent.message,
-                removed_message_keys: thread.events
-                  .filter(
-                    (entry) =>
-                      entry.type === "message" && entry.sender === "agent",
-                  )
-                  .map((entry) => entry.message_key),
-                removed_turn_ids: [
-                  ...new Set(thread.events.map((entry) => entry.turn_id)),
-                ],
-              }),
-            ]
-          : [
-              event("message", {
-                sender: "user",
-                content: intent.message,
-                message_key: `fixture-user-${turn}`,
-              }),
-            ];
-        if (intent.message.includes("interruption fixture")) {
-          thread.state = "processing";
-          initial.push(event("turn_state_changed", { state: "processing" }));
-          if (!intent.message.includes("thinking"))
-            initial.push(
-              event("tool_update", {
-                id: `fixture-tool-${turn}`,
-                call_id: `fixture-call-${turn}`,
-                tool_name: "get_balance",
-                result: { status: "working", fixture: true },
-              }),
+    await page.route(
+      (url) => /^\/(?:api|v1)\//.test(url.pathname),
+      async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        const path = url.pathname;
+        const json = (body, status = 200) =>
+          route.fulfill({
+            status,
+            contentType: "application/json",
+            body: JSON.stringify(body),
+          });
+        if (path === "/api/auth/get-session")
+          return json({ user: { id: "fixture-696-guest", isAnonymous: true } });
+        if (path === "/api/auth/sign-in/anonymous")
+          return json({ user: { id: "fixture-696-guest", isAnonymous: true } });
+        if (
+          path === "/api/account" ||
+          path === "/v1/account" ||
+          path === "/api/account/model-keys"
+        )
+          return json({ error: "unauthorized" }, 401);
+        if (path.endsWith("/models")) return json(["fixture-model"]);
+        if (path.endsWith("/apps"))
+          return json([{ name: "default", is_public: true }]);
+        if (path === "/api/resource/skills") return json({ skills: [] });
+        if (path === "/v1/agent/sessions")
+          return json({
+            sessions: thread
+              ? [
+                  {
+                    id: thread.id,
+                    title: "Chat turn controls fixture",
+                    updatedAt: Date.now(),
+                    archived: false,
+                  },
+                ]
+              : [],
+            nextCursor: null,
+          });
+        if (/^\/v1\/agent\/sessions\/[^/]+$/.test(path))
+          return json({
+            id: thread.id,
+            title: "Chat turn controls fixture",
+            updatedAt: Date.now(),
+            archived: false,
+          });
+        if (path === "/v1/agent/chat" && request.method() === "POST") {
+          const intent = request.postDataJSON();
+          records.push({ type: "start", ...intent, at: performance.now() });
+          turn++;
+          thread ??= { id: intent.sessionId, events: [], state: "complete" };
+          thread.currentPrompt = intent.message;
+          const target = intent.regenerate ?? intent.edit;
+          const selected =
+            target &&
+            thread.events.find(
+              (entry) =>
+                entry.type === "message" && entry.message_key === target,
             );
-          thread.events.push(...initial);
-          if (intent.message.includes("delayed-start")) {
-            startGate = delay(700);
-            await startGate;
-            startGate = undefined;
+          const user = intent.edit
+            ? selected
+            : intent.regenerate
+              ? thread.events.find(
+                  (entry) =>
+                    entry.type === "message" &&
+                    entry.sender === "user" &&
+                    (entry.turn_id === selected.turn_id ||
+                      entry.message_key ===
+                        thread.events.findLast(
+                          (candidate) =>
+                            candidate.type === "branch" &&
+                            candidate.turn_id === selected.turn_id,
+                        )?.user_message_key),
+                )
+              : undefined;
+          const initial = target
+            ? [
+                event("branch", {
+                  kind: intent.edit ? "edit" : "regenerate",
+                  target_message_key: target,
+                  user_message_key: user.message_key,
+                  content: intent.message,
+                  removed_message_keys: thread.events
+                    .filter(
+                      (entry) =>
+                        entry.type === "message" && entry.sender === "agent",
+                    )
+                    .map((entry) => entry.message_key),
+                  removed_turn_ids: [
+                    ...new Set(thread.events.map((entry) => entry.turn_id)),
+                  ],
+                }),
+              ]
+            : [
+                event("message", {
+                  sender: "user",
+                  content: intent.message,
+                  message_key: `fixture-user-${turn}`,
+                }),
+              ];
+          if (intent.message.includes("interruption fixture")) {
+            thread.state = "processing";
+            initial.push(event("turn_state_changed", { state: "processing" }));
+            if (!intent.message.includes("thinking"))
+              initial.push(
+                event("tool_update", {
+                  id: `fixture-tool-${turn}`,
+                  call_id: `fixture-call-${turn}`,
+                  tool_name: "get_balance",
+                  result: { status: "working", fixture: true },
+                }),
+              );
+            thread.events.push(...initial);
+            if (intent.message.includes("delayed-start")) {
+              startGate = delay(700);
+              await startGate;
+              startGate = undefined;
+            }
+            const streamingTurn = `fixture-turn-${turn}`;
+            schedule(
+              () =>
+                publish("message", {
+                  turn_id: streamingTurn,
+                  revision: 1,
+                  message: {
+                    sender: "agent",
+                    message_key: `${streamingTurn}:trace:0`,
+                    content: "Streaming fixture response before Stop.",
+                  },
+                }),
+              intent.message.includes("thinking") ? 2_500 : 350,
+            );
+            return json({
+              ...eventPage(initial),
+              started_turn_id: `fixture-turn-${turn}`,
+            });
           }
-          const streamingTurn = `fixture-turn-${turn}`;
-          schedule(
-            () =>
-              publish("message", {
-                turn_id: streamingTurn,
-                revision: 1,
-                message: {
-                  sender: "agent",
-                  message_key: `${streamingTurn}:trace:0`,
-                  content: "Streaming fixture response before Stop.",
+          await delay(intent.regenerate ? 700 : 150);
+          const answer = intent.regenerate
+            ? "Regenerated answer fixture: original actions were not repeated."
+            : intent.edit
+              ? "Edited answer fixture: the selected request was replaced."
+              : "Initial answer fixture: ready for edit and rerun.";
+          initial.push(
+            event("message", {
+              sender: "agent",
+              content: answer,
+              message_key: `fixture-answer-${turn}`,
+            }),
+            event("turn_state_changed", { state: "complete" }),
+          );
+          thread.events.push(...initial);
+          thread.state = "complete";
+          return json({
+            ...eventPage(initial),
+            started_turn_id: `fixture-turn-${turn}`,
+          });
+        }
+        if (/^\/v1\/agent\/chat\/[^/]+\/stream$/.test(path)) {
+          records.push({ type: "stream", at: performance.now() });
+          return route.continue({ url: `${upstreamOrigin}/stream` });
+        }
+        if (/^\/v1\/agent\/chat\/[^/]+\/interrupt$/.test(path)) {
+          interruptCount++;
+          records.push({
+            type: "interrupt",
+            ...request.postDataJSON(),
+            at: performance.now(),
+          });
+          await delay(650);
+          if (failNextInterrupt) {
+            failNextInterrupt = false;
+            return json(
+              {
+                error: {
+                  code: "fixture_interrupt_failed",
+                  message: "Controlled interrupt failure",
+                  retryable: true,
                 },
-              }),
-            intent.message.includes("thinking") ? 2_500 : 350,
-          );
-          return json(eventPage(initial));
-        }
-        await delay(intent.regenerate ? 700 : 150);
-        const answer = intent.regenerate
-          ? "Regenerated answer fixture: original actions were not repeated."
-          : intent.edit
-            ? "Edited answer fixture: the selected request was replaced."
-            : "Initial answer fixture: ready for edit and rerun.";
-        initial.push(
-          event("message", {
-            sender: "agent",
-            content: answer,
-            message_key: `fixture-answer-${turn}`,
-          }),
-          event("turn_state_changed", { state: "complete" }),
-        );
-        thread.events.push(...initial);
-        thread.state = "complete";
-        return json(eventPage(initial));
-      }
-      if (/^\/v1\/agent\/chat\/[^/]+\/stream$/.test(path)) {
-        records.push({ type: "stream", at: performance.now() });
-        return route.continue({ url: `${upstreamOrigin}/stream` });
-      }
-      if (/^\/v1\/agent\/chat\/[^/]+\/interrupt$/.test(path)) {
-        interruptCount++;
-        records.push({
-          type: "interrupt",
-          ...request.postDataJSON(),
-          at: performance.now(),
-        });
-        await delay(650);
-        if (failNextInterrupt) {
-          failNextInterrupt = false;
-          return json(
-            {
-              error: {
-                code: "fixture_interrupt_failed",
-                message: "Controlled interrupt failure",
-                retryable: true,
               },
-            },
-            503,
+              503,
+            );
+          }
+          thread.state = "interrupted";
+          const terminal = event("turn_state_changed", {
+            state: "interrupted",
+          });
+          thread.events.push(terminal);
+          return json({
+            ...eventPage(
+              thread.currentPrompt.includes("delayed-start") ? [] : [terminal],
+            ),
+            stopped_turn_id: terminal.turn_id,
+          });
+        }
+        if (/^\/v1\/agent\/chat\/[^/]+$/.test(path)) {
+          if (startGate) await startGate;
+          const cursor = Number(url.searchParams.get("cursor") ?? 0);
+          return json(
+            eventPage(thread.events.filter((entry) => entry.sequence > cursor)),
           );
         }
-        thread.state = "interrupted";
-        const terminal = event("turn_state_changed", { state: "interrupted" });
-        thread.events.push(terminal);
-        return json({
-          ...eventPage(
-            thread.currentPrompt.includes("delayed-start") ? [] : [terminal],
-          ),
-          stopped_turn_id: terminal.turn_id,
-        });
-      }
-      if (/^\/v1\/agent\/chat\/[^/]+$/.test(path)) {
-        if (startGate) await startGate;
-        const cursor = Number(url.searchParams.get("cursor") ?? 0);
+        unexpected.push(`${request.method()} ${path}`);
         return json(
-          eventPage(thread.events.filter((entry) => entry.sequence > cursor)),
+          { error: "Unhandled issue-696 browser fixture route" },
+          599,
         );
-      }
-      unexpected.push(`${request.method()} ${path}`);
-      return json({ error: "Unhandled issue-696 browser fixture route" }, 599);
-    });
+      },
+    );
     try {
       await page.goto(origin, { waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("portal-shell")).not.toHaveAttribute(
-        "inert",
-        "",
-        { timeout: 60_000 },
-      );
+      await expect(page.getByTestId(shellId)).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByTestId(shellId)).not.toHaveAttribute("inert", "", {
+        timeout: 60_000,
+      });
       const composer = page.getByRole("textbox", { name: "Message input" });
       await composer.fill("Original request fixture: explain the last answer.");
       await page
@@ -392,6 +430,34 @@ try {
       await expect(page.locator(".aui-user-message-root")).toHaveCount(1);
       await page.screenshot({
         path: `${output}/${viewport.name}-edit.png`,
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Rerun", exact: true })
+        .last()
+        .click();
+      await expect(
+        page.getByText(
+          "Regenerated answer fixture: original actions were not repeated.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      const rerunAfterEdit = records
+        .filter((entry) => entry.type === "start" && entry.regenerate)
+        .at(-1);
+      assert.equal(
+        rerunAfterEdit.regenerate,
+        "fixture-answer-3",
+        "Rerun after edit must target the edited answer",
+      );
+      assert.equal(
+        rerunAfterEdit.message,
+        "Revised request fixture: explain it more simply.",
+        "Rerun after edit must preserve revised content",
+      );
+      await expect(page.locator(".aui-user-message-root")).toHaveCount(1);
+      await page.screenshot({
+        path: `${output}/${viewport.name}-rerun-edited.png`,
         fullPage: true,
       });
       await composer.fill("thinking interruption fixture");
@@ -582,10 +648,7 @@ try {
         fullPage: true,
       });
       await page.reload({ waitUntil: "domcontentloaded" });
-      await expect(page.getByTestId("portal-shell")).not.toHaveAttribute(
-        "inert",
-        "",
-      );
+      await expect(page.getByTestId(shellId)).not.toHaveAttribute("inert", "");
       const row = page.locator(`[data-thread-id="${thread.id}"]`);
       if (!(await row.isVisible()) && viewport.name === "mobile") {
         await page
@@ -596,7 +659,7 @@ try {
       await row.locator(".aui-thread-list-item-trigger").click();
       await expect(
         page.getByText(
-          "Edited answer fixture: the selected request was replaced.",
+          "Regenerated answer fixture: original actions were not repeated.",
           { exact: true },
         ),
       ).toBeVisible();
@@ -622,6 +685,8 @@ try {
         viewport: viewport.name,
         result: "PASS",
         repeatedRerunStarts: 1,
+        totalRegenerationStarts: 2,
+        regenerationAfterEdit: "PASS",
         repeatedEditStarts: 1,
         repeatedInterruptRequests: 1,
         totalInterruptRequests: interruptCount,
@@ -665,6 +730,7 @@ try {
     `${JSON.stringify(report, null, 2)}\n`,
   );
   await browser.close();
+  await vite?.close();
 }
 console.log(
   JSON.stringify(

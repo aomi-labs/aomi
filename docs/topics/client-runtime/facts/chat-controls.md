@@ -38,9 +38,18 @@ durable.
 
 Run `node scripts/test-chat-turn-controls.mjs` against a running local Portal,
 using `LOCAL_PORTAL_URL` when its origin differs from `http://localhost:3000`.
+When a complete Portal compilation exceeds a constrained cloud environment's
+memory budget, `--harness` starts the source widget in a small Vite host. This
+mounts the same `AomiFrame`, Thread, runtime, and SDK; its visible disclosure
+identifies fixture data and the unverified Portal host integration.
 The runner exercises desktop and mobile controls, partial HTTP SSE output,
 repeated clicks, cancellation failure/retry, early Stop, and reload persistence.
 It writes screenshots and a JSON timing report to `artifacts/issue-696` (or
 `CHAT_CONTROLS_ARTIFACTS`). Identity, REST responses, and model output are
 synthetic fixtures; these results do not establish hosted authentication,
 real model-provider latency, or on-chain execution.
+
+The paired backend change is
+[product-mono#1232](https://github.com/aomi-labs/product-mono/pull/1232).
+Frontend and backend must support the branch event and acknowledgment fields
+together for the complete behavior, including history pagination and reload.
