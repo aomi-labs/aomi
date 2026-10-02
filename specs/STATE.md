@@ -9,8 +9,11 @@
   and a close button, and it closes on Escape. Unlike desktop, it doesn't
   open with the first activity. It waits for the header button, or for a
   wallet request, which opens it. The header activity button shows an accent
-  dot while a wallet request is hidden (all widths). The review's Reject and
-  Submit pills get a soft lift and a press state. While signing, it shows only the desktop `TransactionList` cards and
+  dot while a wallet request is hidden (all widths). The sheet pads its
+  content above any part of the thread that iOS Safari's toolbar hides
+  (`100vh` layouts run under it). The transaction list now sizes its bottom
+  fade from layout height, so a card's slide-in no longer leaves the fade
+  stuck on. While signing, it shows only the desktop `TransactionList` cards and
   `WalletReview`. Otherwise it shows the same groups as the rail. Wider
   viewports are unchanged. The sheet loads its own `LazyMotion` features so
   standalone consumers still see it. The review details gained "Simulation

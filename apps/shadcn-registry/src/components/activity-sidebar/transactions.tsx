@@ -40,11 +40,16 @@ export function TransactionList({
   }, [newestId]);
   const update = () => {
     const el = ref.current;
-    if (el)
-      setEdges({
-        top: el.scrollTop > 2,
-        bottom: el.scrollHeight - el.clientHeight - el.scrollTop > 2,
-      });
+    if (!el) return;
+    // Layout height, not scrollHeight: a card still sliding in (translateY)
+    // inflates scrollHeight, and nothing re-measures once it settles.
+    const content =
+      (el.firstElementChild as HTMLElement | null)?.offsetHeight ??
+      el.scrollHeight;
+    setEdges({
+      top: el.scrollTop > 2,
+      bottom: content - el.clientHeight - el.scrollTop > 2,
+    });
   };
   useEffect(() => {
     update();

@@ -16,6 +16,7 @@ import {
   useState,
   useRef,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
@@ -343,6 +344,8 @@ function ActivitySheet({
   const reduceMotion = useReducedMotion();
   const dragControls = useDragControls();
   const titleId = useId();
+  const frameRef = useRef<HTMLDivElement>(null);
+  const occluded = useOccludedBottom(frameRef);
   const transition = {
     duration: reduceMotion ? 0 : 0.32,
     ease: [0.22, 1, 0.36, 1] as const,
@@ -351,7 +354,11 @@ function ActivitySheet({
   // LazyMotion, and without it the sheet would stay parked off-screen.
   return (
     <LazyMotion features={domMax}>
-      <m.div className="absolute inset-0 z-30" data-testid="activity-sheet">
+      <m.div
+        ref={frameRef}
+        className="absolute inset-0 z-30"
+        data-testid="activity-sheet"
+      >
         <m.div
           aria-hidden="true"
           initial={{ opacity: 0 }}
@@ -408,13 +415,53 @@ function ActivitySheet({
               </button>
             </div>
           </div>
-          <div className="aui-activity-sidebar min-h-0 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div
+            className="aui-activity-sidebar min-h-0 overflow-y-auto overscroll-contain px-4"
+            style={{
+              paddingBottom: `calc(${occluded}px + max(1rem, env(safe-area-inset-bottom)))`,
+            }}
+          >
             {children}
           </div>
         </m.aside>
       </m.div>
     </LazyMotion>
   );
+}
+
+/**
+ * How far an element's bottom edge runs past the visible viewport. iOS Safari
+ * sizes `100vh` layouts for its collapsed toolbar, so while the toolbar shows,
+ * the bottom of the thread (and a sheet pinned to it) sits behind it.
+ */
+function useOccludedBottom(ref: RefObject<HTMLElement | null>) {
+  const [occluded, setOccluded] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element || typeof window === "undefined") return;
+    const viewport = window.visualViewport;
+    const update = () => {
+      const visibleBottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight;
+      setOccluded(
+        Math.max(
+          0,
+          Math.round(element.getBoundingClientRect().bottom - visibleBottom),
+        ),
+      );
+    };
+    update();
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [ref]);
+  return occluded;
 }
 
 function Group({
