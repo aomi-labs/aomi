@@ -260,6 +260,7 @@ export const registry: RegistryComponent[] = [
       "lib/capabilities/skill-catalog.ts",
       "lib/capabilities/skill-label.ts",
       "components/control-bar/app-metadata.ts",
+      "components/control-bar/app-indicator.tsx",
       "lib/apps/app-identity.ts",
       "components/control-bar/api-key-input.tsx",
       "components/control-bar/connect-button.tsx",
