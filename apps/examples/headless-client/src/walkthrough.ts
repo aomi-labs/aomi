@@ -5,7 +5,7 @@
  * and no hidden helpers. Run it, then read it from top to bottom.
  */
 
-import { Aomi, type MessageEvent } from "@aomi-labs/client";
+import { Aomi, PipelineApiError, type MessageEvent } from "@aomi-labs/client";
 
 const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
 
@@ -74,16 +74,32 @@ console.log(
 // 5. Pipeline is a catalog + deterministic Build lifecycle on the same facade.
 // Listing the app and skill directories is read-only and lets an integrator
 // discover the live catalog instead of hard-coding a second registry.
-const [apps, skills] = await Promise.all([
-  aomi.raw.pipeline.apps.list(),
-  aomi.raw.pipeline.skills.list(),
-]);
 console.log("\n6. Pipeline catalog");
-for (const entry of apps.entries.slice(0, 4)) {
-  console.log(`   app       ${entry.name}`);
-}
-for (const entry of skills.entries.slice(0, 4)) {
-  console.log(`   skill     ${entry.name}`);
+let pipelineAvailable = true;
+try {
+  const [apps, skills] = await Promise.all([
+    aomi.raw.pipeline.apps.list(),
+    aomi.raw.pipeline.skills.list(),
+  ]);
+  for (const entry of apps.entries.slice(0, 4)) {
+    console.log(`   app       ${entry.name}`);
+  }
+  for (const entry of skills.entries.slice(0, 4)) {
+    console.log(`   skill     ${entry.name}`);
+  }
+} catch (error) {
+  if (
+    !(error instanceof PipelineApiError) ||
+    error.status !== 403 ||
+    error.code !== "insufficient_scope"
+  ) {
+    throw error;
+  }
+  pipelineAvailable = false;
+  console.log(
+    "   This deployment requires an authorized account for Pipeline.",
+  );
+  console.log("   Use the OAuth example to inspect the catalog here.");
 }
 
 // Optionally demonstrate a real catalog operation. The high-level build call:
@@ -99,7 +115,7 @@ const pipelineApp = process.env.AOMI_PIPELINE_APP?.trim();
 const pipelineOperation = process.env.AOMI_PIPELINE_OPERATION?.trim();
 const pipelineArgs = process.env.AOMI_PIPELINE_ARGS?.trim();
 
-if (pipelineApp && pipelineOperation && pipelineArgs) {
+if (pipelineAvailable && pipelineApp && pipelineOperation && pipelineArgs) {
   const args = parseArguments(pipelineArgs);
   const operation = await aomi.pipeline
     .app(pipelineApp)
@@ -117,7 +133,9 @@ if (pipelineApp && pipelineOperation && pipelineArgs) {
 } else {
   console.log("\n7. Pipeline build skipped");
   console.log(
-    "   Set AOMI_PIPELINE_APP, AOMI_PIPELINE_OPERATION, and AOMI_PIPELINE_ARGS to run it.",
+    pipelineAvailable
+      ? "   Set AOMI_PIPELINE_APP, AOMI_PIPELINE_OPERATION, and AOMI_PIPELINE_ARGS to run it."
+      : "   Guest Pipeline access is disabled on this deployment.",
   );
 }
 

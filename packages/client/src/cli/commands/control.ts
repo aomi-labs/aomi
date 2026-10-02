@@ -4,6 +4,7 @@ import { createControlClient } from "../context";
 import { printDataFileLocation, printJson } from "../output";
 import type { CliConfig } from "../types";
 import { fatal } from "../errors";
+import { isTerminalCommit } from "../../commits";
 
 export async function statusCommand(config: CliConfig): Promise<void> {
   const cli = CliSession.load();
@@ -39,6 +40,10 @@ export async function statusCommand(config: CliConfig): Promise<void> {
           title: snapshot.title ?? null,
           actions: snapshot.actions.length,
           pendingActions: session.actions.pending().length,
+          commits: snapshot.commits.length,
+          pendingCommits: snapshot.commits.filter(
+            (commit) => !isTerminalCommit(commit),
+          ).length,
         },
         null,
         2,

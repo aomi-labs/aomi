@@ -10,7 +10,6 @@ import {
   DEFAULT_CLI_BASE_URL,
 } from "./client-factory";
 import { createCliPaymentFetch, type CliPaymentListener } from "./payment";
-import { readState } from "./state";
 
 export function createControlClient(
   config: CliConfig,
@@ -19,15 +18,21 @@ export function createControlClient(
   const cli = CliSession.load();
   const baseUrl = config.baseUrl ?? DEFAULT_CLI_BASE_URL;
   const staticBearer = config.accountBearer ?? cli?.toState().accountBearer;
-  const oauth: AomiOAuthTokenProvider | undefined = staticBearer
-    ? async ({ resource, scopes }) => ({
-        accessToken: staticBearer,
-        expiresAt: Number.MAX_SAFE_INTEGER,
-        resource,
-        scopes,
-        tokenType: "Bearer",
-      })
-    : cli?.createOAuthProvider(fetch);
+  const sessionBearer = createCliAuthTokenProvider(() => cli?.toState() ?? {});
+  // An explicitly supplied scoped bearer is a deliberate command override.
+  // Otherwise preserve the active Better Auth principal across control APIs.
+  const accountBearer = createCliGetAccountBearer(config) ?? sessionBearer;
+  const oauth: AomiOAuthTokenProvider | undefined = accountBearer.required
+    ? undefined
+    : staticBearer
+      ? async ({ resource, scopes }) => ({
+          accessToken: staticBearer,
+          expiresAt: Number.MAX_SAFE_INTEGER,
+          resource,
+          scopes,
+          tokenType: "Bearer",
+        })
+      : cli?.createOAuthProvider(fetch);
   const authorizedFetch = oauth
     ? wrapFetchWithPublicApiAuthorization({ fetch, baseUrl, oauth })
     : fetch;
@@ -45,12 +50,10 @@ export function createControlClient(
     // retain their legacy transport unless a real OAuth grant is configured.
     oauth: paymentFetch || staticBearer ? undefined : oauth,
     guest:
-      staticBearer || oauth
+      accountBearer.required || staticBearer || oauth
         ? false
         : (cli?.createGuestProvider(fetch, baseUrl) ?? true),
-    getAccountBearer:
-      createCliGetAccountBearer(config) ??
-      createCliAuthTokenProvider(() => readState() ?? {}),
+    getAccountBearer: accountBearer,
   });
 }
 

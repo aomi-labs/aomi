@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { act, useEffect } from "react";
+import { act, useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A tiny external store so the mocked `useParaStatus` can flip `isReady` at
@@ -139,6 +139,38 @@ describe("Para startup banner", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
     // Children keep rendering alongside the banner (additive auth layer).
     expect(screen.getByText("widget-body")).toBeTruthy();
+  });
+
+  it("keeps host state and wallet runtimes mounted when startup times out after connectors load", () => {
+    let runtimeMounts = 0;
+    function WalletRuntime() {
+      const [open, setOpen] = useState(false);
+      useEffect(() => {
+        runtimeMounts += 1;
+      }, []);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open wallet picker</button>
+          {open ? <div role="dialog">wallet-picker</div> : null}
+        </>
+      );
+    }
+    renderLayer(paraPlugin, <WalletRuntime />);
+    fireEvent.click(screen.getByText("Open wallet picker"));
+
+    act(() => {
+      vi.advanceTimersByTime(4_000);
+    });
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("dialog").textContent).toBe("wallet-picker");
+    expect(runtimeMounts).toBe(1);
+
+    act(() => {
+      paraStatus.setReady(true);
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(runtimeMounts).toBe(1);
   });
 
   it("disarms the watchdog when readiness flips true before the timeout", () => {

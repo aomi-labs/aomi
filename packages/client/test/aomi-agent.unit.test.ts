@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Aomi, AgentRun } from "../src";
-import type { Action, EventPage } from "../src";
+import type { Action, CommitView, EventPage } from "../src";
 
 const occurredAt = Date.parse("2026-08-25T00:00:00Z");
 
@@ -49,7 +49,179 @@ function page(
   return { session_id: sessionId, cursor, events, has_more: false };
 }
 
+function pendingCommit(version = 1): CommitView {
+  return {
+    version,
+    commit_id: "commit-1",
+    thread_id: "agent-commit",
+    stage_id: "evm:1",
+    chain_family: "evm",
+    chain_ref: "8453",
+    signer: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    broadcaster: "wallet",
+    state: "needs_signature",
+    transaction_id: null,
+    failure_code: null,
+    batch: null,
+    review: null,
+    wallet_attempt: null,
+    action: {
+      kind: "sign",
+      payload: {
+        kind: "evm_transaction",
+        chain_id: 8453,
+        signer: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        nonce: 2,
+        transaction: {
+          to: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          value: "0",
+          data: "0x",
+          gas_limit: 21_000,
+          max_fee_per_gas: "2",
+          max_priority_fee_per_gas: "1",
+        },
+      },
+    },
+  };
+}
+
 describe("high-level Aomi Agent", () => {
+  it.each(["initial", "streamed"] as const)(
+    "returns a %s Commit handoff without waiting for a legacy Action",
+    async (arrival) => {
+      const commit = pendingCommit();
+      const handoffPage: EventPage = {
+        ...page(commit.thread_id, [
+          {
+            type: "turn_state_changed",
+            event_id: "event-awaiting-commit",
+            sequence: 2,
+            turn_id: "turn-commit",
+            occurred_at: occurredAt,
+            state: "awaiting_action",
+          },
+        ]),
+        commits: [commit],
+      };
+      const fetch = vi.fn(async (url: string) => {
+        if (url.includes("/stream")) {
+          return new Response(
+            `event: page\ndata: ${JSON.stringify(handoffPage)}\n\n`,
+            { headers: { "content-type": "text/event-stream" } },
+          );
+        }
+        if (arrival === "initial") return Response.json(handoffPage);
+        return Response.json({
+          ...page(commit.thread_id, [
+            {
+              type: "turn_state_changed",
+              event_id: "event-processing-commit",
+              sequence: 1,
+              turn_id: "turn-commit",
+              occurred_at: occurredAt,
+              state: "processing",
+            },
+          ]),
+          has_more: true,
+        });
+      });
+      const aomi = new Aomi({
+        baseUrl: "https://api.example",
+        fetch: fetch as typeof globalThis.fetch,
+        guest: false,
+      });
+
+      const result = await aomi.agent.run("Prepare transfer", {
+        sessionId: commit.thread_id,
+      });
+
+      expect(result.commits).toEqual([commit]);
+      expect(result.actions).toEqual([]);
+      if (arrival === "streamed") {
+        expect(fetch.mock.calls.some(([url]) => url.includes("/stream"))).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it("emits the latest commit view, returns it, and wires wallet signing", async () => {
+    const commit = pendingCommit();
+    const fetch = vi.fn().mockResolvedValue(
+      Response.json({
+        ...page("agent-commit", [
+          {
+            type: "message",
+            event_id: "event-message-commit",
+            sequence: 1,
+            turn_id: "turn-1",
+            occurred_at: occurredAt,
+            sender: "agent",
+            content: "Review the transaction",
+            is_streaming: false,
+          },
+          {
+            type: "turn_state_changed",
+            event_id: "event-turn-commit",
+            sequence: 2,
+            turn_id: "turn-1",
+            occurred_at: occurredAt,
+            state: "complete",
+          },
+        ]),
+        commits: [commit, { ...commit, version: 2 }],
+      }),
+    );
+    const aomi = new Aomi({
+      baseUrl: "https://api.example",
+      fetch,
+      guest: false,
+      wallet: {
+        evm: {
+          address: commit.signer,
+          signTransaction: vi.fn(),
+        },
+      },
+    });
+    const run = aomi.agent.run("Prepare transfer", {
+      sessionId: commit.thread_id,
+    });
+    const observed: number[] = [];
+    const executable: boolean[] = [];
+    run.on("commit", (view) => {
+      observed.push(view.version);
+      executable.push(run.session.commits.canExecute(view));
+    });
+
+    const result = await run;
+
+    expect(observed).toEqual([2]);
+    expect(executable).toEqual([true]);
+    expect(result.commits).toEqual([{ ...commit, version: 2 }]);
+  });
+
+  it("opens a previously completed session with durable commits for explicit close", async () => {
+    const commit = pendingCommit();
+    const aomi = new Aomi({
+      baseUrl: "https://api.example",
+      guest: false,
+      wallet: {
+        evm: { address: commit.signer, signTransaction: vi.fn() },
+      },
+    });
+    const poll = vi.spyOn(aomi.raw.agent, "poll").mockResolvedValue({
+      ...page(commit.thread_id, []),
+      commits: [commit],
+    });
+
+    const session = await aomi.agent.openSession(commit.thread_id);
+
+    expect(poll).toHaveBeenCalledWith(commit.thread_id, { cursor: undefined });
+    expect(session.commits.all()).toEqual([commit]);
+    expect(session.commits.canExecute(commit)).toBe(true);
+    session.close();
+  });
+
   it("is awaitable and exposes canonical Action and completion events", async () => {
     const completeAction = evmAction();
     const fetch = vi.fn().mockResolvedValue(
@@ -186,34 +358,38 @@ describe("high-level Aomi Agent", () => {
       }
       if (url.includes("/v1/agent/chat/agent-wallet")) {
         const result = page("agent-wallet", [
-            {
-              type: "message",
-              event_id: "event-message-complete",
-              sequence: 5,
-              turn_id: "turn-1",
-              occurred_at: occurredAt,
-              sender: "agent",
-              content: "Executed",
-              is_streaming: false,
-            },
-            {
-              type: "turn_state_changed",
-              event_id: "event-complete",
-              sequence: 6,
-              turn_id: "turn-1",
-              occurred_at: occurredAt,
-              state: "complete",
-            },
-            {
-              type: "title_changed",
-              event_id: "event-title",
-              sequence: 7,
-              turn_id: "turn-1",
-              occurred_at: occurredAt,
-              title: "Execute action",
-            },
-          ]);
-        return url.includes("/stream") ? new Response(`event: page\ndata: ${JSON.stringify(result)}\n\n`, { headers: { "content-type": "text/event-stream" } }) : Response.json(result);
+          {
+            type: "message",
+            event_id: "event-message-complete",
+            sequence: 5,
+            turn_id: "turn-1",
+            occurred_at: occurredAt,
+            sender: "agent",
+            content: "Executed",
+            is_streaming: false,
+          },
+          {
+            type: "turn_state_changed",
+            event_id: "event-complete",
+            sequence: 6,
+            turn_id: "turn-1",
+            occurred_at: occurredAt,
+            state: "complete",
+          },
+          {
+            type: "title_changed",
+            event_id: "event-title",
+            sequence: 7,
+            turn_id: "turn-1",
+            occurred_at: occurredAt,
+            title: "Execute action",
+          },
+        ]);
+        return url.includes("/stream")
+          ? new Response(`event: page\ndata: ${JSON.stringify(result)}\n\n`, {
+              headers: { "content-type": "text/event-stream" },
+            })
+          : Response.json(result);
       }
       throw new Error(`Unexpected request ${url}`);
     });
@@ -233,7 +409,6 @@ describe("high-level Aomi Agent", () => {
     expect(aomi.wallet).toBe(wallets);
     const run = aomi.agent.run("Execute", {
       sessionId: "agent-wallet",
-
     });
     const actions = vi.fn();
     run.on("action", (action) => {

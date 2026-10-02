@@ -3,37 +3,72 @@ import { createInterface } from "node:readline/promises";
 
 import {
   Aomi,
+  commitCapabilities,
+  createAccountSessionProvider,
+  createSiweAccountAuthAdapter,
   type Action,
   type AgentRun,
+  type CommitView,
   type MessageEvent,
+  type Session as ClientSession,
   type Wallets,
 } from "@aomi-labs/client";
-import {
-  createWalletClient,
-  defineChain,
-  getAddress,
-  http,
-  isHex,
-  type Hex,
-  type SignTypedDataParameters,
-} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { createPortalOriginFetch } from "./shared/portal-origin-fetch";
+import { createViemWalletFromEnvironment } from "./shared/viem-wallet";
+import { sortedCommits } from "./shared/sorted-commits";
 
 const terminal = createInterface({ input: stdin, output: stdout });
 const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
+const portalFetch = createPortalOriginFetch(baseUrl);
 const wallet = createViemWalletFromEnvironment();
-const aomi = new Aomi({ baseUrl, wallet });
+const authMode = process.env.AOMI_WALLET_AUTH?.trim() || "guest";
+if (authMode !== "guest" && authMode !== "siwe") {
+  throw new Error("AOMI_WALLET_AUTH must be guest or siwe");
+}
+if (authMode === "siwe" && !wallet?.evm) {
+  throw new Error(
+    "SIWE mode requires AOMI_PRIVATE_KEY, EVM_CHAIN_ID, and EVM_RPC_URL",
+  );
+}
+const siweAccount =
+  authMode === "siwe"
+    ? privateKeyToAccount(process.env.AOMI_PRIVATE_KEY as `0x${string}`)
+    : undefined;
+const accountSession =
+  siweAccount && wallet?.evm
+    ? createAccountSessionProvider({
+        baseUrl,
+        fetch: portalFetch,
+        adapter: createSiweAccountAuthAdapter({
+          getSigner: async () => ({
+            address: siweAccount.address,
+            chainId: readChainId(wallet)!,
+            signMessage: (message) => siweAccount.signMessage({ message }),
+          }),
+        }),
+      })
+    : undefined;
+const aomi = new Aomi({
+  baseUrl,
+  fetch: accountSession ? portalFetch : undefined,
+  wallet,
+  ...(accountSession ? { getAccountBearer: accountSession, guest: false } : {}),
+});
+const commitOps = wallet ? commitCapabilities(wallet) : {};
 const printedMessages = new Set<string>();
 const handledActions = new Set<string>();
+const handledCommits = new Set<string>();
 
 let activeRun: AgentRun | undefined;
 let sessionId: string = crypto.randomUUID();
+let reviewQueue: Promise<void> = Promise.resolve();
 
 console.log("Aomi headless client");
 console.log(`API: ${baseUrl}`);
 console.log(
   wallet?.evm
-    ? `Mode: guest session + Viem wallet ${wallet.evm.address} on chain ${readChainId(wallet)}`
+    ? `Mode: ${authMode === "siwe" ? "SIWE account" : "guest session"} + Viem wallet ${wallet.evm.address} on chain ${readChainId(wallet)}`
     : "Mode: guest session (no wallet)",
 );
 console.log("Type a message, or /exit to quit.\n");
@@ -49,18 +84,36 @@ try {
     if (prompt === "/exit") break;
     if (!prompt) continue;
 
-    activeRun = aomi.agent.run(prompt, { sessionId });
-    activeRun.on("action", (action) => {
+    const run = aomi.agent.run(prompt, { sessionId });
+    activeRun = run;
+    run.on("action", (action) => {
       console.log(`\n[action] ${describeAction(action)} (${action.state})`);
-      if (action.state !== "pending" || handledActions.has(action.id)) return;
-      handledActions.add(action.id);
-      void reviewAction(activeRun!, action);
+      // A legacy Action holds the turn in awaiting_action, so it must be
+      // resolved against the live run before run.result() can complete.
+      queueAction(run.session, action);
+    });
+    run.on("commit", (commit) => {
+      console.log(`\n[commit] ${describeCommit(commit)} (${commit.state})`);
+      // The run closes its live session when it completes. Reopen the durable
+      // session below before executing wallet work.
     });
 
     try {
-      const result = await activeRun.result();
+      const result = await run.result();
       sessionId = result.sessionId;
       printNewAgentMessages(result.messages);
+      // A commit can arrive after the last streamed page. Reconnect to the
+      // durable view before accepting another terminal prompt.
+      const session = await aomi.agent.openSession(sessionId);
+      try {
+        for (const action of session.actions.all())
+          queueAction(session, action);
+        for (const commit of sortedCommits(session.commits.all()))
+          queueCommit(session, commit);
+        await reviewQueue;
+      } finally {
+        session.close();
+      }
     } catch (error) {
       console.error(`\n[error] ${errorMessage(error)}`);
     } finally {
@@ -70,12 +123,119 @@ try {
   }
 } finally {
   terminal.close();
+  accountSession?.dispose();
 }
 
-async function reviewAction(run: AgentRun, action: Action) {
-  if (!run.session.actions.canExecute(action.id)) {
+function queueAction(session: ClientSession, action: Action) {
+  if (action.state !== "pending") return;
+  const key = `${action.id}:${action.revision}`;
+  if (handledActions.has(key)) return;
+  handledActions.add(key);
+  enqueueReview(
+    () => reviewAction(session, action),
+    async () => {
+      handledActions.delete(key);
+      // A failed Action resolution otherwise leaves run.result() waiting on an
+      // awaiting_action turn forever. Interrupt that turn so the terminal can
+      // recover on the next prompt.
+      if (session.getSnapshot().turnState === "awaiting_action") {
+        await session.interrupt();
+      }
+    },
+  );
+}
+
+function enqueueReview(
+  review: () => Promise<void>,
+  onError: () => void | Promise<void>,
+) {
+  reviewQueue = reviewQueue.then(review).catch(async (error: unknown) => {
+    console.error(`[wallet] failed: ${errorMessage(error)}`);
+    try {
+      await onError();
+    } catch (cleanupError) {
+      console.error(`[wallet] recovery failed: ${errorMessage(cleanupError)}`);
+    }
+  });
+}
+
+function queueCommit(session: ClientSession, commit: CommitView) {
+  if (
+    !commit.action ||
+    ["confirmed", "rejected", "failed", "expired"].includes(commit.state)
+  ) {
+    return;
+  }
+  const key = `${commit.commit_id}:${commit.version}`;
+  if (handledCommits.has(key)) return;
+  handledCommits.add(key);
+  enqueueReview(
+    () => reviewCommit(session, commit),
+    () => {
+      handledCommits.delete(key);
+    },
+  );
+}
+
+async function reviewCommit(session: ClientSession, commit: CommitView) {
+  const fresh = await session.commits.refresh(commit.commit_id);
+  if (!fresh.action) return;
+  try {
+    // Execute one reviewed transition per approval. The controller can advance
+    // sign -> broadcast in one call when both capabilities are present.
+    session.commits.setCapabilities(
+      fresh.action.kind === "sign"
+        ? {
+            ...commitOps,
+            walletBroadcast: undefined,
+            venueBroadcast: undefined,
+          }
+        : { ...commitOps, sign: undefined },
+    );
+    const review = session.commits.review(commit.commit_id);
+    console.log(`\n[review] ${describeCommit(fresh)}`);
+    console.log(JSON.stringify(fresh, null, 2));
+    if (review) console.log(JSON.stringify(review, null, 2));
+    if (!session.commits.canExecute(fresh)) {
+      console.log("[wallet] the configured wallet cannot execute this commit");
+      return;
+    }
+
+    const approval = (
+      await terminal.question("Approve this commit step? [y/N] ")
+    )
+      .trim()
+      .toLowerCase();
+    if (approval !== "y" && approval !== "yes") {
+      await session.commits.reject(fresh.commit_id);
+      console.log("[wallet] rejected");
+      return;
+    }
+
+    const resolved = await session.commits.execute(fresh.commit_id, {
+      expectedVersion: fresh.version,
+      expectedReviewDigest: fresh.review?.digest,
+    });
+    console.log(`[commit] ${resolved.commit_id}: ${resolved.state}`);
+    if (resolved.action && resolved.version > fresh.version) {
+      await reviewCommit(session, resolved);
+    }
+  } finally {
+    session.commits.setCapabilities(commitOps);
+  }
+}
+
+async function reviewAction(session: ClientSession, action: Action) {
+  console.log(
+    `\n[review] ${describeAction(action)} · ${action.id} · revision ${action.revision}`,
+  );
+  console.log(JSON.stringify(action.request, null, 2));
+  if (!session.actions.canExecute(action.id)) {
     console.log("[wallet] the configured wallet cannot execute this Action");
-    await run.reject(action.id, "No compatible wallet is connected");
+    await session.actions.reject(
+      action.id,
+      "No compatible wallet capability in the partner terminal",
+    );
     return;
   }
 
@@ -83,81 +243,13 @@ async function reviewAction(run: AgentRun, action: Action) {
     .trim()
     .toLowerCase();
   if (approval !== "y" && approval !== "yes") {
-    await run.reject(action.id, "Rejected in the partner terminal");
+    await session.actions.reject(action.id, "Rejected in the partner terminal");
     console.log("[wallet] rejected");
     return;
   }
 
-  try {
-    const resolved = await run.session.actions.execute(action.id);
-    console.log(`[wallet] ${resolved.state}`);
-  } catch (error) {
-    console.error(`[wallet] failed: ${errorMessage(error)}`);
-  }
-}
-
-function createViemWalletFromEnvironment(): Wallets | undefined {
-  const rawPrivateKey = process.env.AOMI_PRIVATE_KEY?.trim();
-  const rpcUrl = process.env.EVM_RPC_URL?.trim();
-  const rawChainId = process.env.EVM_CHAIN_ID?.trim();
-
-  if (!rawPrivateKey && !rpcUrl && !rawChainId) return undefined;
-  if (!rawPrivateKey || !rpcUrl || !rawChainId) {
-    throw new Error(
-      "AOMI_PRIVATE_KEY, EVM_RPC_URL, and EVM_CHAIN_ID must be set together",
-    );
-  }
-  if (!isHex(rawPrivateKey) || rawPrivateKey.length !== 66) {
-    throw new Error("AOMI_PRIVATE_KEY must be a 32-byte 0x-prefixed hex value");
-  }
-
-  const chainId = Number(rawChainId);
-  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
-    throw new Error("EVM_CHAIN_ID must be a positive integer");
-  }
-
-  const account = privateKeyToAccount(rawPrivateKey);
-  const chain = defineChain({
-    id: chainId,
-    name: `Configured chain ${chainId}`,
-    nativeCurrency: { name: "Native token", symbol: "ETH", decimals: 18 },
-    rpcUrls: { default: { http: [rpcUrl] } },
-  });
-  const viem = createWalletClient({
-    account,
-    chain,
-    transport: http(rpcUrl),
-  });
-
-  return {
-    evm: {
-      address: account.address,
-      chainId,
-      sendTransaction: async ({
-        chainId: requestedChainId,
-        to,
-        data,
-        value,
-      }) => {
-        if (requestedChainId !== chainId) {
-          throw new Error(
-            `Wallet is configured for chain ${chainId}, not ${requestedChainId}`,
-          );
-        }
-        return viem.sendTransaction({
-          account,
-          chain,
-          to: getAddress(to),
-          data: data as Hex | undefined,
-          value: BigInt(value ?? "0"),
-        });
-      },
-      signMessage: ({ message }) =>
-        viem.signMessage({ account, message: { raw: message as Hex } }),
-      signTypedData: ({ typedData }) =>
-        account.signTypedData(typedData as SignTypedDataParameters),
-    },
-  };
+  const resolved = await session.actions.execute(action.id);
+  console.log(`[wallet] ${resolved.state}`);
 }
 
 function printNewAgentMessages(messages: readonly MessageEvent[]) {
@@ -179,6 +271,10 @@ function describeAction(action: Action): string {
     case "sign":
       return `${action.request.chainFamily.toUpperCase()} signing · ${action.request.description}`;
   }
+}
+
+function describeCommit(commit: CommitView): string {
+  return `${commit.chain_family.toUpperCase()} ${commit.action?.kind ?? "status"} · ${commit.commit_id} · ${commit.broadcaster}`;
 }
 
 function readChainId(wallets: Wallets): number | undefined {

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AccountManagement } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management";
+import { ExternalWalletCard } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management/controls";
 import type { ManagedWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
 
 const connectedWallet: ManagedWallet = {
@@ -59,6 +60,21 @@ const inactiveWallet: ManagedWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
+  it("labels an existing external wallet without labeling embedded wallets", () => {
+    const { rerender } = render(
+      <ExternalWalletCard wallet={connectedWallet} pending={null} />,
+    );
+    expect(screen.getByText("External signer")).toBeInTheDocument();
+
+    rerender(
+      <ExternalWalletCard
+        wallet={{ ...connectedWallet, kind: "embedded", provider: "privy" }}
+        pending={null}
+      />,
+    );
+    expect(screen.queryByText("External signer")).toBeNull();
+  });
+
   it("opens the canonical wallet chooser from Add more", () => {
     const onAddWallet = vi.fn();
     render(

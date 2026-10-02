@@ -108,6 +108,86 @@ describe("wrapFetchWithAccountBearer", () => {
     expect(headers.has("authorization")).toBe(false);
   });
 
+  it("uses the Agent guest identity for its durable Commit requests", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json({}),
+    );
+    const guest = Object.assign(
+      vi.fn(async () => "guest-session"),
+      {
+        clear: vi.fn(),
+      },
+    );
+    const account = bearerSource("different-account");
+    const client = new AomiClient({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchMock as typeof fetch,
+      guest,
+      getAccountBearer: account,
+    });
+
+    await client.requestResponse("GET", "/v1/agent/chat/thread-1");
+    await client.requestResponse("GET", "/api/commits/commit-1", {
+      sessionId: "thread-1",
+    });
+    await client.requestResponse("POST", "/api/commits/commit-1/manual", {
+      sessionId: "thread-1",
+      body: { kind: "rejected" },
+    });
+
+    expect(account).not.toHaveBeenCalled();
+    expect(guest).toHaveBeenCalledTimes(3);
+    for (const call of fetchMock.mock.calls) {
+      expect(new Headers(call[1]?.headers).get("authorization")).toBe(
+        "Bearer guest-session",
+      );
+    }
+  });
+
+  it("does not fall back to a guest when a required session expires", async () => {
+    const fetchMock = vi.fn(async () => Response.json({}));
+    const guest = Object.assign(
+      vi.fn(async () => "guest-session"),
+      {
+        clear: vi.fn(),
+      },
+    );
+    const account = vi.fn(async () => {
+      throw new Error("session expired");
+    }) as ReturnType<typeof vi.fn> & GetAccountBearer;
+    account.required = true;
+    const client = new AomiClient({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchMock as typeof fetch,
+      guest,
+      getAccountBearer: account,
+    });
+
+    await expect(
+      client.requestResponse("GET", "/api/commits/commit-1"),
+    ).rejects.toThrow("session expired");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(guest).not.toHaveBeenCalled();
+  });
+
+  it("does not send an anonymous request when a required session is absent", async () => {
+    const fetchMock = vi.fn(async () => Response.json({}));
+    const account = bearerSource(null);
+    account.required = true;
+    const client = new AomiClient({
+      baseUrl: "https://chat.aomi.dev",
+      fetch: fetchMock as typeof fetch,
+      getAccountBearer: account,
+      guest: true,
+    });
+
+    await expect(client.agent.sessions.list()).rejects.toThrow(
+      "Required account session is unavailable",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("sends a required widget session to Agent and Pipeline APIs", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({ sessions: [], nextCursor: null }),

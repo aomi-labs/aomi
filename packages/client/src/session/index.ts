@@ -209,6 +209,10 @@ export class ClientSession {
     } else if (this.turnState !== "awaiting_action" || page.has_more) {
       this.startStreaming();
     }
+    // A high-level run may hand off a durable commit and close this session
+    // while the submitted page is still unwinding. Do not park a new waiter
+    // after close() has already drained pending sends.
+    if (this.closed) return this.result();
     return new Promise((resolve, reject) => {
       this.pendingResolve = resolve;
       this.pendingReject = reject;
@@ -716,10 +720,14 @@ export class ClientSession {
   }
 
   private hasCompletedCallback(turnId: string): boolean {
-    const latestState = this.events.findLast(
-      (event) =>
-        event.type === "turn_state_changed" && event.turn_id === turnId,
-    );
+    let latestState: Event | undefined;
+    for (let index = this.events.length - 1; index >= 0; index--) {
+      const event = this.events[index]!;
+      if (event.type === "turn_state_changed" && event.turn_id === turnId) {
+        latestState = event;
+        break;
+      }
+    }
     const hasAnswer = this.events.some(
       (event) =>
         event.type === "message" &&

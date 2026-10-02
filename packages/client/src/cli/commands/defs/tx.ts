@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import { globalArgs, buildCliConfig, getPositionals } from "./shared";
 
 const txListDef = defineCommand({
-  meta: { name: "list", description: "List session Actions" },
+  meta: { name: "list", description: "List session commits and Actions" },
   args: { ...globalArgs },
   async run({ args }) {
     const { txCommand } = await import("../wallet");
@@ -33,17 +33,18 @@ const txSimulateDef = defineCommand({
 const txExportDef = defineCommand({
   meta: {
     name: "export",
-    description: "Export pending EVM Actions for an external wallet",
+    description: "Export an exact durable commit or pending EVM Actions",
   },
   args: {
     ...globalArgs,
     format: {
       type: "string",
-      description: "Output format: eip5792 (default), moss, or metamask",
+      description:
+        "Output format: commit, eip5792 (default), moss, or metamask",
     },
     txIds: {
       type: "positional",
-      description: "Pending EVM Action IDs to export",
+      description: "Commit ID (format commit) or pending EVM Action IDs",
       required: false,
     },
   },
@@ -57,8 +58,43 @@ const txExportDef = defineCommand({
   },
 });
 
+const txSubmitDef = defineCommand({
+  meta: {
+    name: "submit",
+    description:
+      "Report exact externally signed bytes or an externally broadcast commit hash",
+  },
+  args: {
+    ...globalArgs,
+    "signed-file": {
+      type: "string",
+      description: "aomi.commit.v1 export with top-level payloads array",
+    },
+    "tx-hash": {
+      type: "string",
+      description: "Hash of an already broadcast prepared transaction",
+    },
+    commitId: {
+      type: "positional",
+      description: "Pending durable Commit ID",
+      required: false,
+    },
+  },
+  async run({ args }) {
+    const { submitCommand } = await import("../submit");
+    const ids = getPositionals(args);
+    await submitCommand(buildCliConfig(args), ids.length === 1 ? ids[0] : "", {
+      signedFile: args["signed-file"] as string | undefined,
+      txHash: args["tx-hash"] as string | undefined,
+    });
+  },
+});
+
 const txSignDef = defineCommand({
-  meta: { name: "sign", description: "Execute pending Actions" },
+  meta: {
+    name: "sign",
+    description: "Execute reviewed commits or pending Actions",
+  },
   args: {
     ...globalArgs,
     eoa: {
@@ -73,7 +109,7 @@ const txSignDef = defineCommand({
     },
     txIds: {
       type: "positional",
-      description: "Action IDs to execute",
+      description: "Commit or Action IDs to execute",
       required: false,
     },
   },
@@ -84,12 +120,30 @@ const txSignDef = defineCommand({
   },
 });
 
+const txRejectDef = defineCommand({
+  meta: { name: "reject", description: "Reject pending commits or Actions" },
+  args: {
+    ...globalArgs,
+    txIds: {
+      type: "positional",
+      description: "Commit or Action IDs to reject",
+      required: false,
+    },
+  },
+  async run({ args }) {
+    const { rejectCommand } = await import("../wallet");
+    await rejectCommand(buildCliConfig(args), getPositionals(args));
+  },
+});
+
 export const txDef = defineCommand({
   meta: { name: "tx", description: "Transaction management" },
   subCommands: {
     list: txListDef,
     simulate: txSimulateDef,
     export: txExportDef,
+    submit: txSubmitDef,
     sign: txSignDef,
+    reject: txRejectDef,
   },
 });

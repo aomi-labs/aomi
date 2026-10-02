@@ -80,6 +80,23 @@ function client() {
 }
 
 describe("ClientSession Agent transport", () => {
+  it("settles a send when a durable handoff closes the session on the start page", async () => {
+    const api = client();
+    vi.spyOn(api.agent, "start").mockResolvedValue(
+      page([turn(1, "awaiting_action")]),
+    );
+    const session = new Session(api, { sessionId: "session-agent" });
+    session.subscribe(() => {
+      if (session.getSnapshot().turnState === "awaiting_action")
+        session.close();
+    });
+
+    await expect(session.send("prepare a commit")).resolves.toEqual({
+      messages: [],
+      title: undefined,
+    });
+  });
+
   it("reopens a completed stream for a later commit receipt and drains the new answer", async () => {
     vi.useFakeTimers();
     const api = client();
