@@ -209,3 +209,64 @@ it("renders acknowledged Stop from projected status before the terminal page arr
   expect(screen.queryByText("Working")).not.toBeInTheDocument();
   expect(transport.events.at(-1)?.type).toBe("message");
 });
+
+it("keeps an older stopped trace stopped while a later turn runs and completes", async () => {
+  transport.events = [
+    {
+      type: "message",
+      sender: "user",
+      content: "First question",
+      message_key: "first",
+    },
+    { type: "turn_state_changed", state: "processing" },
+    {
+      type: "tool_update",
+      id: "first-update",
+      call_id: "first-call",
+      tool_name: "web_search",
+      result: { stage: "started", message: "First search" },
+    },
+    { type: "turn_state_changed", state: "interrupted" },
+    {
+      type: "message",
+      sender: "user",
+      content: "Second question",
+      message_key: "second",
+    },
+    { type: "turn_state_changed", state: "processing" },
+    {
+      type: "tool_update",
+      id: "second-update",
+      call_id: "second-call",
+      tool_name: "web_search",
+      result: { stage: "started", message: "Second search" },
+    },
+  ].map((event, index) => ({
+    ...event,
+    turn_id: index < 4 ? "first-turn" : "second-turn",
+    event_id: `history-${index}`,
+    sequence: index + 1,
+    occurred_at: index + 1,
+  })) as Event[];
+  transport.turnState = "processing";
+  const view = render(<Fixture />);
+  await waitFor(() => expect(screen.getByText(/^Stopped/)).toBeInTheDocument());
+  expect(screen.getByText("Working")).toBeInTheDocument();
+  expect(screen.getAllByTestId("assistant-row")).toHaveLength(2);
+
+  transport.events = [
+    ...transport.events,
+    {
+      type: "turn_state_changed",
+      state: "complete",
+      turn_id: "second-turn",
+      event_id: "history-complete",
+      sequence: 8,
+      occurred_at: 8,
+    } as Event,
+  ];
+  transport.turnState = "complete";
+  view.rerender(<Fixture />);
+  await waitFor(() => expect(screen.getByText(/^Worked/)).toBeInTheDocument());
+  expect(screen.getByText(/^Stopped/)).toBeInTheDocument();
+});

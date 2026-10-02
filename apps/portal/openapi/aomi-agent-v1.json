@@ -4420,6 +4420,54 @@
           }
         ]
       },
+      "BranchEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "kind",
+              "target_message_key",
+              "user_message_key",
+              "content",
+              "removed_message_keys",
+              "removed_turn_ids"
+            ],
+            "properties": {
+              "type": {
+                "const": "branch"
+              },
+              "kind": {
+                "enum": ["regenerate", "edit"]
+              },
+              "target_message_key": {
+                "type": "string"
+              },
+              "user_message_key": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "removed_message_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "removed_turn_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
       "TurnStateChangedEvent": {
         "allOf": [
           {
@@ -7063,54 +7111,6 @@
             "enum": ["pending", "passed", "failed", "unavailable"]
           }
         }
-      },
-      "BranchEvent": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/EventMeta"
-          },
-          {
-            "type": "object",
-            "required": [
-              "type",
-              "kind",
-              "target_message_key",
-              "user_message_key",
-              "content",
-              "removed_message_keys",
-              "removed_turn_ids"
-            ],
-            "properties": {
-              "type": {
-                "const": "branch"
-              },
-              "kind": {
-                "enum": ["regenerate", "edit"]
-              },
-              "target_message_key": {
-                "type": "string"
-              },
-              "user_message_key": {
-                "type": "string"
-              },
-              "content": {
-                "type": "string"
-              },
-              "removed_message_keys": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "removed_turn_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        ]
       }
     },
     "securitySchemes": {

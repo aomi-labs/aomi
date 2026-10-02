@@ -861,10 +861,10 @@ export const AssistantTurnParts: FC = () => {
           ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : isLast && (ownStatus === "failed" || runtime?.turnState === "failed")
+    : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
       ? "failed"
-      : isLast &&
-          (ownStatus === "interrupted" || runtime?.turnState === "interrupted")
+      : ownStatus === "interrupted" ||
+          (isLast && runtime?.turnState === "interrupted")
         ? "interrupted"
         : "complete";
   const delegations = isLast
