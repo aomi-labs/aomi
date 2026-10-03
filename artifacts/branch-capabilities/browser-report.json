@@ -1,0 +1,885 @@
+{
+  "origin": "http://127.0.0.1:3317",
+  "frontendRoot": "/workspace/aomi",
+  "frontendBranch": "codex/chat-branch-capabilities",
+  "frontendHead": "184674548c9e7712a3cbff544a1ff79fdc201d14",
+  "integration": "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream",
+  "realBackendIntegration": "Not exercised by this fixture runner",
+  "portalHostIntegration": "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB",
+  "visualLimitations": "Shared widget default stylesheet and system font fallbacks; full Portal host could not compile within managed memory limits",
+  "scenarios": [
+    {
+      "viewport": "desktop",
+      "result": "PASS",
+      "repeatedRerunStarts": 1,
+      "totalRegenerationStarts": 2,
+      "regenerationAfterEdit": "PASS",
+      "repeatedEditStarts": 1,
+      "repeatedInterruptRequests": 1,
+      "totalInterruptRequests": 5,
+      "terminalRaceInterruptRequests": 2,
+      "uncertainAdmissionInterruptRequests": 2,
+      "uncertainStartRecoveryAndRepeatedStopRetry": "PASS (same intent/key and exact admitted turn)",
+      "unadmittedStopRestoresSendAndSameKeyRetry": "PASS",
+      "terminalUncertainStopPreservesAnswerAndRestoresSend": "PASS (complete/failed; no start replay or interruption)",
+      "combinedInterruptRequests": 9,
+      "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
+      "stopRacingFailedPreservesFailure": "PASS",
+      "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
+      "thinkingOnlyStop": "PASS",
+      "workingToolAndStreamingStop": "PASS",
+      "failedInterruptRetry": "PASS",
+      "stopBeforeStartAcknowledgement": "PASS",
+      "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
+      "streamingFrames": 3,
+      "feedbackMs": 25,
+      "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
+      "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
+      "interruptAcknowledgedMs": 746,
+      "records": [
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "Original request fixture: explain the last answer.",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_1064b8a3a32644cb80645c8e029f1306",
+          "at": 12946.800127
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "Original request fixture: explain the last answer.",
+          "regenerate": "fixture-answer-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "3",
+          "idempotencyKey": "idem_2fb020312a284098b3c1f4bd61680400",
+          "at": 13226.967239
+        },
+        {
+          "type": "stream",
+          "at": 14565.87796
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "Revised request fixture: explain it more simply.",
+          "edit": "fixture-user-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "6",
+          "idempotencyKey": "idem_e67f20e8731546ee9e4574cbb4de4185",
+          "at": 14997.555805
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "Revised request fixture: explain it more simply.",
+          "regenerate": "fixture-answer-3",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "9",
+          "idempotencyKey": "idem_a63db698cf35421fafe6deb4d2914bd6",
+          "at": 17488.702971
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "thinking interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "12",
+          "idempotencyKey": "idem_359e8dcbdfb240e087ed0e187e703582",
+          "at": 19975.770603
+        },
+        {
+          "type": "stream",
+          "at": 20053.020689
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-5",
+          "at": 20217.052983
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "stream interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "15",
+          "idempotencyKey": "idem_3c92f70fc64e4ec29fe809684cddc7e8",
+          "at": 21139.218276
+        },
+        {
+          "type": "stream",
+          "at": 21912.841187
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-6",
+          "at": 22166.062047
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "stream interruption fixture retry",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "19",
+          "idempotencyKey": "idem_f5999ffdede94748bbdb9669b3f11c91",
+          "at": 23428.736506
+        },
+        {
+          "type": "stream",
+          "at": 23560.305417
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 23658.346255
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 24775.954387
+        },
+        {
+          "type": "start",
+          "sessionId": "a658f9f8-7232-4bee-a71d-cb9ee562089e",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "stream interruption fixture delayed-start",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "23",
+          "idempotencyKey": "idem_20695e6f94884f74931f08c3e58f2296",
+          "at": 25741.073231
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-8",
+          "at": 27114.118172
+        },
+        {
+          "type": "stream",
+          "at": 27135.664229
+        },
+        {
+          "type": "start",
+          "sessionId": "e4178171-fc9a-4388-8fcd-552282f8d9fc",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "terminal race fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_88ef4b4982b646f8a58c53b22a1daa53",
+          "at": 30636.447193
+        },
+        {
+          "type": "stream",
+          "at": 30782.708347
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-9",
+          "at": 30899.292773
+        },
+        {
+          "type": "start",
+          "sessionId": "e4178171-fc9a-4388-8fcd-552282f8d9fc",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "terminal race fixture complete",
+          "regenerate": "fixture-race-answer-9",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "31",
+          "idempotencyKey": "idem_4d06aac3450d47949c4547179fe0b98b",
+          "at": 31925.033811
+        },
+        {
+          "type": "start",
+          "sessionId": "b4779688-0d76-4243-ace1-3b914033c2e8",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "terminal race fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_04d1782963474d788fb00ac2211dc69e",
+          "at": 33940.40937
+        },
+        {
+          "type": "stream",
+          "at": 34012.146227
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-11",
+          "at": 34057.700719
+        },
+        {
+          "type": "start",
+          "sessionId": "1ee68c4e-1297-4a38-a62d-2c6b681f9765",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_7382a312bcad4fb5ad6cba56d46acac4",
+          "at": 35613.225872
+        },
+        {
+          "type": "start",
+          "sessionId": "1ee68c4e-1297-4a38-a62d-2c6b681f9765",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "43",
+          "idempotencyKey": "idem_7382a312bcad4fb5ad6cba56d46acac4",
+          "at": 35750.919
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 35789.191636
+        },
+        {
+          "type": "stream",
+          "at": 35789.967768
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 36662.95632
+        },
+        {
+          "type": "start",
+          "sessionId": "1ee68c4e-1297-4a38-a62d-2c6b681f9765",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "unadmitted-start fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "44",
+          "idempotencyKey": "idem_8b62ee14bc0f4e4fab3df4fc0fe31fd7",
+          "at": 37874.816852
+        },
+        {
+          "type": "start",
+          "sessionId": "1ee68c4e-1297-4a38-a62d-2c6b681f9765",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "unadmitted-start fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "44",
+          "idempotencyKey": "idem_8b62ee14bc0f4e4fab3df4fc0fe31fd7",
+          "at": 38195.550346
+        },
+        {
+          "type": "start",
+          "sessionId": "8449130c-d51c-4939-8ad1-4ab0fac58b60",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "terminal-uncertain fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_d902c025652d44f798e7fdd52c8a9442",
+          "at": 39001.377887
+        },
+        {
+          "type": "start",
+          "sessionId": "8449130c-d51c-4939-8ad1-4ab0fac58b60",
+          "clientId": "ec592b71-6d33-466d-8dd3-d6bca9018009",
+          "message": "terminal-uncertain fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "50",
+          "idempotencyKey": "idem_ada9426a46084546bd8e80348ea097ef",
+          "at": 39451.971985
+        }
+      ],
+      "raceAcknowledgements": [
+        {
+          "session_id": "e4178171-fc9a-4388-8fcd-552282f8d9fc",
+          "cursor": "31",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-9",
+            "state": "complete"
+          }
+        },
+        {
+          "session_id": "b4779688-0d76-4243-ace1-3b914033c2e8",
+          "cursor": "39",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-11",
+            "state": "failed"
+          }
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "result": "PASS",
+      "repeatedRerunStarts": 1,
+      "totalRegenerationStarts": 2,
+      "regenerationAfterEdit": "PASS",
+      "repeatedEditStarts": 1,
+      "repeatedInterruptRequests": 1,
+      "totalInterruptRequests": 5,
+      "terminalRaceInterruptRequests": 2,
+      "uncertainAdmissionInterruptRequests": 2,
+      "uncertainStartRecoveryAndRepeatedStopRetry": "PASS (same intent/key and exact admitted turn)",
+      "unadmittedStopRestoresSendAndSameKeyRetry": "PASS",
+      "terminalUncertainStopPreservesAnswerAndRestoresSend": "PASS (complete/failed; no start replay or interruption)",
+      "combinedInterruptRequests": 9,
+      "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
+      "stopRacingFailedPreservesFailure": "PASS",
+      "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
+      "thinkingOnlyStop": "PASS",
+      "workingToolAndStreamingStop": "PASS",
+      "failedInterruptRetry": "PASS",
+      "stopBeforeStartAcknowledgement": "PASS",
+      "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
+      "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
+      "streamingFrames": 3,
+      "feedbackMs": 36,
+      "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
+      "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
+      "interruptAcknowledgedMs": 774,
+      "records": [
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "Original request fixture: explain the last answer.",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_970c87f37e684564aeee4ded41cdf0ba",
+          "at": 42370.279172
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "Original request fixture: explain the last answer.",
+          "regenerate": "fixture-answer-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "3",
+          "idempotencyKey": "idem_d2da326550064498a90677a1a64012fc",
+          "at": 42666.009569
+        },
+        {
+          "type": "stream",
+          "at": 43938.733769
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "Revised request fixture: explain it more simply.",
+          "edit": "fixture-user-1",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "6",
+          "idempotencyKey": "idem_3c63b56da2114a59b0ed5411d986262d",
+          "at": 44187.66614
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "Revised request fixture: explain it more simply.",
+          "regenerate": "fixture-answer-3",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "9",
+          "idempotencyKey": "idem_0fc65812e0b647bcba8f1913f62a5e1e",
+          "at": 46092.046515
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "thinking interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "12",
+          "idempotencyKey": "idem_be09dca0b9744ebbaba2c2645ab2cbfb",
+          "at": 47619.17909
+        },
+        {
+          "type": "stream",
+          "at": 47708.338358
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-5",
+          "at": 47817.485685
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "stream interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "15",
+          "idempotencyKey": "idem_5de83d75c82d429dbf7fdc8cbea673dc",
+          "at": 48726.832073
+        },
+        {
+          "type": "stream",
+          "at": 49187.934434
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-6",
+          "at": 49407.701397
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "stream interruption fixture retry",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "19",
+          "idempotencyKey": "idem_ba132290ec1c47febe568cf17d2317f5",
+          "at": 50598.49085
+        },
+        {
+          "type": "stream",
+          "at": 50724.855673
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 50811.977876
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-7",
+          "at": 51965.157548
+        },
+        {
+          "type": "start",
+          "sessionId": "518b0b66-09a1-40c8-b5d8-da2a61ec7d57",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "stream interruption fixture delayed-start",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "23",
+          "idempotencyKey": "idem_908e62f37acc4746900772795bdc5d9c",
+          "at": 52936.601505
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-8",
+          "at": 53770.903566
+        },
+        {
+          "type": "stream",
+          "at": 53785.9009
+        },
+        {
+          "type": "start",
+          "sessionId": "0b759ccd-b82a-4e38-98a5-d60b5ada2e58",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "terminal race fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_1536526a1553404da5682ab898189524",
+          "at": 60822.735746
+        },
+        {
+          "type": "stream",
+          "at": 60893.107958
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-9",
+          "at": 60939.880748
+        },
+        {
+          "type": "start",
+          "sessionId": "0b759ccd-b82a-4e38-98a5-d60b5ada2e58",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "terminal race fixture complete",
+          "regenerate": "fixture-race-answer-9",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "31",
+          "idempotencyKey": "idem_023b3dcffa694488a5adddb294cc7e1a",
+          "at": 62010.60765
+        },
+        {
+          "type": "start",
+          "sessionId": "5e47a09a-7d10-4a7f-b8b8-ba28b6b9cb10",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "terminal race fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_7256a637fda6477396c287c8bd72083d",
+          "at": 64910.750053
+        },
+        {
+          "type": "stream",
+          "at": 64974.510172
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-11",
+          "at": 65005.914728
+        },
+        {
+          "type": "start",
+          "sessionId": "cb5247cf-c3f0-47b9-8976-d11dd0378b2b",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_d746ef13d4f743a78985d70001539299",
+          "at": 67404.460572
+        },
+        {
+          "type": "start",
+          "sessionId": "cb5247cf-c3f0-47b9-8976-d11dd0378b2b",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "43",
+          "idempotencyKey": "idem_d746ef13d4f743a78985d70001539299",
+          "at": 67541.073452
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 67580.471161
+        },
+        {
+          "type": "stream",
+          "at": 67581.756722
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 68969.531885
+        },
+        {
+          "type": "start",
+          "sessionId": "cb5247cf-c3f0-47b9-8976-d11dd0378b2b",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "unadmitted-start fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "44",
+          "idempotencyKey": "idem_7b2e6c4d5b5f4999a63438f25184feaa",
+          "at": 76509.544107
+        },
+        {
+          "type": "start",
+          "sessionId": "cb5247cf-c3f0-47b9-8976-d11dd0378b2b",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "unadmitted-start fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "44",
+          "idempotencyKey": "idem_7b2e6c4d5b5f4999a63438f25184feaa",
+          "at": 77279.084506
+        },
+        {
+          "type": "start",
+          "sessionId": "529ce8c4-a4da-4b7d-bfe7-11f56e0787e1",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "terminal-uncertain fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_1a618263a79f4b61aa0632672ab32114",
+          "at": 84488.486012
+        },
+        {
+          "type": "start",
+          "sessionId": "529ce8c4-a4da-4b7d-bfe7-11f56e0787e1",
+          "clientId": "5d229ef1-ab51-4ca0-9292-bab4b5786310",
+          "message": "terminal-uncertain fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "50",
+          "idempotencyKey": "idem_975c3178dfc7439fa7fc529ec959bb4b",
+          "at": 93270.387944
+        }
+      ],
+      "raceAcknowledgements": [
+        {
+          "session_id": "0b759ccd-b82a-4e38-98a5-d60b5ada2e58",
+          "cursor": "31",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-9",
+            "state": "complete"
+          }
+        },
+        {
+          "session_id": "5e47a09a-7d10-4a7f-b8b8-ba28b6b9cb10",
+          "cursor": "39",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-11",
+            "state": "failed"
+          }
+        }
+      ]
+    }
+  ],
+  "browserVersion": "151.0.7922.173"
+}
