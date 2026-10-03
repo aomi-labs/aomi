@@ -68,7 +68,7 @@ function Harness({ send }: { send: ReturnType<typeof vi.fn> }) {
 }
 
 describe("message action wiring", () => {
-  it("reruns the selected completed callback answer through the server no-tools intent", async () => {
+  it("reruns the selected completed callback answer through the server branch intent", async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     render(<Harness send={send} />);
     fireEvent.click(screen.getByText("Rerun"));
@@ -121,7 +121,7 @@ describe("message action wiring", () => {
     );
   });
 
-  it("never restores a failed no-tools rerun as an ordinary executable composer prompt", async () => {
+  it("never restores a failed rerun as an ordinary executable composer prompt", async () => {
     const restore = vi.fn();
     const actions = messageActions({
       messages,

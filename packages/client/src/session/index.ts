@@ -86,6 +86,7 @@ export class ClientSession {
   private terminalDrainUntil?: number;
   private terminalTurnId?: string;
   private isSubmitting = false;
+  private branchAction?: SessionSnapshot["pendingBranch"];
   private activeSubmission?: {
     message: string;
     options: SendOptions;
@@ -489,8 +490,17 @@ export class ClientSession {
       .then(() => this.performSubmit(message, options))
       .finally(() => {
         this.activeSubmission = undefined;
+        this.publish();
       });
     this.activeSubmission = { message: text, options: { ...options }, promise };
+    this.branchAction = options.edit
+      ? { kind: "edit", messageKey: options.edit }
+      : options.regenerate
+        ? { kind: "regenerate", messageKey: options.regenerate }
+        : undefined;
+    // Publish before returning to the click handler; duplicate events already
+    // share activeSubmission even before asynchronous state preparation starts.
+    this.publish();
     return promise;
   }
 
@@ -548,25 +558,30 @@ export class ClientSession {
     let requested = false;
     try {
       if (!operation.intent) {
-        const selected = this.getUserState?.();
-        const state = selected
-          ? await this.client.prepareUserState(this.sessionId, selected)
-          : undefined;
         const target = startTargetFields({
           target: this.target,
           app: this.app,
           applicationId: this.applicationId,
         });
+        const model = this.model;
+        const clientId = this.clientId;
+        const selected = this.getUserState?.();
+        const state = selected
+          ? await this.client.prepareUserState(
+              this.sessionId,
+              structuredClone(selected),
+            )
+          : undefined;
         // An uncertain start must replay exactly the same intent and key.
         // Fresh operations refresh policy; execution still checks live authority.
         operation.intent = {
           sessionId: this.sessionId,
-          clientId: this.clientId,
+          clientId,
           message: text,
           ...(operation.regenerate ? { regenerate: operation.regenerate } : {}),
           ...(operation.edit ? { edit: operation.edit } : {}),
           ...target,
-          ...(this.model ? { model: this.model } : {}),
+          ...(model ? { model } : {}),
           ...(state
             ? {
                 userState: structuredClone(state),
@@ -1369,7 +1384,18 @@ export class ClientSession {
       ...(this.timing ? { timing: { ...this.timing } } : {}),
       ...(this.title ? { title: this.title } : {}),
       isStreaming: this.streamingActive,
-      isSubmitting: this.isSubmitting,
+      isSubmitting: this.isSubmitting || Boolean(this.activeSubmission),
+      ...((this.activeSubmission ||
+        this.isSubmitting ||
+        this.startOperation?.uncertain ||
+        ((this.turnState === "processing" ||
+          this.turnState === "awaiting_action") &&
+          (!this.turnId ||
+            (!this.acknowledgedInterrupts.has(this.turnId) &&
+              !this.terminalAcknowledgments.has(this.turnId))))) &&
+      this.branchAction
+        ? { pendingBranch: this.branchAction }
+        : {}),
       isStopping: Boolean(this.interruptOperation),
       isStartUncertain: Boolean(this.startOperation?.uncertain),
       terminalTurns: Array.from(

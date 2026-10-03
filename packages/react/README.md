@@ -101,6 +101,7 @@ Returns an `AomiRuntimeApi` object with:
 | ------------------------ | ----------------------------------------------- |
 | `isSubmitting`           | Before the first backend Event exists           |
 | `isRunning`              | Derived from authoritative `TurnState`          |
+| `pendingBranch`          | Selected Edit/Rerun until its turn settles      |
 | `events`                 | Ordered canonical Events for the active session |
 | `turnState`              | Backend-owned lifecycle                         |
 | `getMessages(threadId?)` | Assistant UI projection of `MessageEvent`s      |

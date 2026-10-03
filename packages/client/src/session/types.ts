@@ -11,7 +11,7 @@ import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
 
-/** Branch from a durable message; the server regenerates with tools disabled. */
+/** Branch from a durable message; the server retains read tools and blocks commits. */
 export type SendOptions = { regenerate?: string; edit?: string };
 
 export type SendResult = {
@@ -33,6 +33,8 @@ export type SessionSnapshot = Readonly<{
   title?: string;
   isStreaming: boolean;
   isSubmitting: boolean;
+  /** Selected branch action while admission or generation is pending. */
+  pendingBranch?: Readonly<{ kind: "edit" | "regenerate"; messageKey: string }>;
   /** True while Stop awaits authoritative server acknowledgment. */
   isStopping?: boolean;
   /** Start admission is unconfirmed; Stop can reconcile and retry its exact intent. */

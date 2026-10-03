@@ -184,6 +184,141 @@ describe("ClientSession durable conversation intents", () => {
     },
   );
 
+  it.each(["edit", "regenerate"] as const)(
+    "publishes %s immediately, keeps it pending through streaming and resets on terminal",
+    async (kind) => {
+      const { session, start, client } = await setup();
+      const ack = deferred<EventPage>();
+      start.mockReturnValue(ack.promise);
+      const options =
+        kind === "edit"
+          ? { edit: "original-request" }
+          : { regenerate: "original-answer" };
+      const pending = {
+        kind,
+        messageKey: kind === "edit" ? "original-request" : "original-answer",
+      };
+      const sent = session.sendAsync(
+        kind === "edit" ? revisedText : originalText,
+        options,
+      );
+      // No microtask, network ACK or React render is required for the latch.
+      expect(session.getSnapshot().isSubmitting).toBe(true);
+      expect(session.getSnapshot().pendingBranch).toEqual(pending);
+      const duplicate = session.sendAsync(
+        kind === "edit" ? revisedText : originalText,
+        options,
+      );
+      await Promise.resolve();
+      expect(start).toHaveBeenCalledOnce();
+      expect(start.mock.calls[0]![0]).toMatchObject({
+        ...options,
+        mode: "direct",
+        app: "original-app",
+        model: "original-model",
+        clientId: "original-client",
+      });
+      ack.resolve({
+        ...page([
+          {
+            ...meta(4, "replacement-turn"),
+            type: "turn_state_changed",
+            state: "processing",
+          },
+        ]),
+        started_turn_id: "replacement-turn",
+      });
+      await Promise.all([sent, duplicate]);
+      expect(session.getSnapshot().isSubmitting).toBe(false);
+      expect(session.getSnapshot().pendingBranch).toEqual(pending);
+      await expect(session.sendAsync(originalText, options)).rejects.toThrow(
+        "Wait for the current generation",
+      );
+      expect(start).toHaveBeenCalledOnce();
+      vi.mocked(client.agent.poll).mockResolvedValue(
+        page([
+          {
+            ...meta(5, "replacement-turn"),
+            type: "turn_state_changed",
+            state: "failed",
+          },
+        ]),
+      );
+      await session.fetchCurrentState();
+      expect(session.getSnapshot().pendingBranch).toBeUndefined();
+      session.close();
+    },
+  );
+
+  it("keeps the selected app/model while wallet preparation awaits, and resets branch feedback after Stop", async () => {
+    const { session, start, client } = await setup();
+    const walletState =
+      deferred<Awaited<ReturnType<typeof client.prepareUserState>>>();
+    const prepare = vi
+      .spyOn(client, "prepareUserState")
+      .mockReturnValue(walletState.promise);
+    session.syncRuntimeOptions({
+      target: { mode: "direct", app: "original-app" },
+      model: "original-model",
+      clientId: "original-client",
+      getUserState: () => ({ ext: { selected: "original-chain-context" } }),
+    });
+    const sent = session.sendAsync(revisedText, { edit: "original-request" });
+    await Promise.resolve();
+    expect(prepare).toHaveBeenCalledOnce();
+    session.syncRuntimeOptions({
+      target: { mode: "auto" },
+      model: "different-model",
+      clientId: "different-client",
+    });
+    start.mockResolvedValue({
+      ...page([
+        {
+          ...meta(4, "replacement-turn"),
+          type: "turn_state_changed",
+          state: "processing",
+        },
+      ]),
+      started_turn_id: "replacement-turn",
+    });
+    walletState.resolve({ ext: { selected: "original-chain-context" } });
+    await sent;
+    expect(start.mock.calls[0]![0]).toMatchObject({
+      mode: "direct",
+      app: "original-app",
+      model: "original-model",
+      clientId: "original-client",
+      userState: { ext: { selected: "original-chain-context" } },
+    });
+    expect(session.getSnapshot().pendingBranch?.kind).toBe("edit");
+    vi.spyOn(client.agent, "interrupt").mockResolvedValue({
+      ...page([]),
+      terminal_turn: { turn_id: "replacement-turn", state: "interrupted" },
+      stopped_turn_id: "replacement-turn",
+    });
+    await session.interrupt();
+    expect(session.getSnapshot().pendingBranch).toBeUndefined();
+    expect(session.getSnapshot().isSubmitting).toBe(false);
+    session.close();
+  });
+
+  it("clears pending branch after a definitive rejected start and allows retry", async () => {
+    const { session, start } = await setup();
+    start.mockRejectedValueOnce(
+      new AgentApiError(400, "invalid_edit", "Not saved", false),
+    );
+    const sent = session.sendAsync(revisedText, { edit: "original-request" });
+    expect(session.getSnapshot().pendingBranch?.kind).toBe("edit");
+    await expect(sent).rejects.toThrow("Not saved");
+    expect(session.getSnapshot().pendingBranch).toBeUndefined();
+    expect(session.getSnapshot().isSubmitting).toBe(false);
+    start.mockResolvedValueOnce(acceptedBranch("edit"));
+    await session.sendAsync(revisedText, { edit: "original-request" });
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(session.getSnapshot().pendingBranch).toBeUndefined();
+    session.close();
+  });
+
   it.each([
     [{ edit: "" }, "edit requires a durable user message key"],
     [{ edit: "   " }, "edit requires a durable user message key"],

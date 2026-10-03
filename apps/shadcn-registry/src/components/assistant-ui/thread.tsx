@@ -12,6 +12,7 @@ import {
   CopyIcon,
   ImageIcon,
   LandmarkIcon,
+  LoaderCircleIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -671,10 +672,17 @@ function useTouchActions() {
 
 const AssistantActionBar: FC = () => {
   const touchActions = useTouchActions();
+  const runtime = useOptionalAomiRuntime();
+  const key = useMessage(
+    (state) => state.metadata?.custom?.aomiResponseMessageKey,
+  );
+  const pending =
+    runtime?.pendingBranch?.kind === "regenerate" &&
+    runtime.pendingBranch.messageKey === key;
   return (
     <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide={touchActions ? "never" : "not-last"}
+      hideWhenRunning={!pending}
+      autohide={pending || touchActions ? "never" : "not-last"}
       autohideFloat="single-branch"
       className="aui-assistant-action-bar-root text-aomi-muted data-floating:absolute data-floating:rounded-xl data-floating:border data-floating:bg-aomi-raised data-floating:p-1 flex items-center gap-3.5 pt-0.5"
     >
@@ -699,8 +707,17 @@ const AssistantActionBar: FC = () => {
           size="icon"
           className="aui-button-icon hover:text-aomi-fg size-5 p-0 transition-colors hover:bg-transparent"
           aria-label="Rerun"
+          disabled={pending}
+          aria-busy={pending || undefined}
         >
-          <RefreshCwIcon className="size-[15px]" />
+          <RefreshCwIcon
+            className={cn("size-[15px]", pending && "animate-spin")}
+          />
+          {pending && (
+            <span role="status" className="sr-only">
+              Rerunning response…
+            </span>
+          )}
         </Button>
       </ActionBarPrimitive.Reload>
     </ActionBarPrimitive.Root>
@@ -758,10 +775,15 @@ const UserMessage: FC = () => {
 
 const UserActionBar: FC = () => {
   const touchActions = useTouchActions();
+  const runtime = useOptionalAomiRuntime();
+  const key = useMessage((state) => state.metadata?.custom?.aomiUserMessageKey);
+  const pending =
+    runtime?.pendingBranch?.kind === "edit" &&
+    runtime.pendingBranch.messageKey === key;
   return (
     <ActionBarPrimitive.Root
-      hideWhenRunning
-      autohide={touchActions ? "never" : "always"}
+      hideWhenRunning={!pending}
+      autohide={pending || touchActions ? "never" : "always"}
       className="aui-user-action-bar-root flex flex-col items-end"
     >
       <ActionBarPrimitive.Edit asChild>
@@ -770,8 +792,19 @@ const UserActionBar: FC = () => {
           size="icon"
           className="aui-button-icon aui-user-action-edit text-aomi-muted hover:text-aomi-fg size-7 rounded-lg p-0 transition-colors hover:bg-transparent"
           aria-label="Edit"
+          disabled={pending}
+          aria-busy={pending || undefined}
         >
-          <PencilIcon className="size-3.5" />
+          {pending ? (
+            <LoaderCircleIcon className="size-3.5 animate-spin" />
+          ) : (
+            <PencilIcon className="size-3.5" />
+          )}
+          {pending && (
+            <span role="status" className="sr-only">
+              Resending edited message…
+            </span>
+          )}
         </Button>
       </ActionBarPrimitive.Edit>
     </ActionBarPrimitive.Root>
@@ -779,6 +812,8 @@ const UserActionBar: FC = () => {
 };
 
 const EditComposer: FC = () => {
+  const runtime = useOptionalAomiRuntime();
+  const pending = Boolean(runtime?.pendingBranch);
   return (
     <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 px-2 first:mt-4">
       <ComposerPrimitive.Root className="aui-edit-composer-root max-w-7/8 bg-aomi-surface-2 ml-auto flex w-full flex-col rounded-2xl">
@@ -794,8 +829,13 @@ const EditComposer: FC = () => {
             </Button>
           </ComposerPrimitive.Cancel>
           <ComposerPrimitive.Send asChild>
-            <Button size="sm" aria-label="Save and resend">
-              Save and resend
+            <Button
+              size="sm"
+              aria-label="Save and resend"
+              disabled={pending}
+              aria-busy={pending || undefined}
+            >
+              {pending ? "Resending…" : "Save and resend"}
             </Button>
           </ComposerPrimitive.Send>
         </div>

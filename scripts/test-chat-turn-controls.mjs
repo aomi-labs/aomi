@@ -347,7 +347,7 @@ try {
               started_turn_id: `fixture-turn-${turn}`,
             });
           }
-          await delay(intent.regenerate ? 700 : 150);
+          await delay(intent.regenerate || intent.edit ? 1_200 : 150);
           const answer = intent.regenerate
             ? "Regenerated answer fixture: original actions were not repeated."
             : intent.edit
@@ -492,6 +492,19 @@ try {
         button.click();
         button.click();
       });
+      const rerunPending = page
+        .getByRole("button", { name: "Rerun", exact: true })
+        .last();
+      await expect(rerunPending).toBeVisible();
+      await expect(rerunPending).toBeDisabled();
+      await expect(rerunPending).toHaveAttribute("aria-busy", "true");
+      await expect(
+        page.getByRole("status").filter({ hasText: "Rerunning response" }),
+      ).toBeAttached();
+      await page.screenshot({
+        path: `${output}/${viewport.name}-rerun-pending.png`,
+        fullPage: true,
+      });
       await expect(
         page.getByText(
           "Regenerated answer fixture: original actions were not repeated.",
@@ -539,6 +552,21 @@ try {
           button.click();
           button.click();
         });
+      const editPending = page
+        .getByRole("button", { name: "Edit", exact: true })
+        .first();
+      await expect(editPending).toBeVisible();
+      await expect(editPending).toBeDisabled();
+      await expect(editPending).toHaveAttribute("aria-busy", "true");
+      await expect(
+        page
+          .getByRole("status")
+          .filter({ hasText: "Resending edited message" }),
+      ).toBeAttached();
+      await page.screenshot({
+        path: `${output}/${viewport.name}-edit-pending.png`,
+        fullPage: true,
+      });
       await expect(
         page.getByText(
           "Edited answer fixture: the selected request was replaced.",

@@ -534,6 +534,7 @@ export function AomiRuntimeCore({
       // Chat API
       isRunning,
       isSubmitting: snapshot.isSubmitting,
+      pendingBranch: snapshot.pendingBranch,
       isStopping: snapshot.isStopping ?? false,
       getMessages,
       sendMessage,
@@ -574,6 +575,7 @@ export function AomiRuntimeCore({
       isRunning,
       snapshot.isSubmitting,
       snapshot.isStopping,
+      snapshot.pendingBranch,
       getMessages,
       sendMessage,
       cancelGeneration,
