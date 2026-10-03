@@ -305,6 +305,7 @@ export function AomiRuntimeCore({
         snapshot.liveMessages,
         snapshot.stoppedTurnId,
         snapshot.terminalTurns,
+        snapshot.pendingReplacesMessageKey,
       ),
     [
       snapshot.events,
@@ -312,6 +313,7 @@ export function AomiRuntimeCore({
       snapshot.liveMessages,
       snapshot.stoppedTurnId,
       snapshot.terminalTurns,
+      snapshot.pendingReplacesMessageKey,
     ],
   );
   const isRunning =
@@ -327,7 +329,6 @@ export function AomiRuntimeCore({
         snapshot.turnState,
         snapshot.isSubmitting,
         snapshot.pendingUserMessage,
-        snapshot.turnId,
       ));
 
   useEffect(() => {

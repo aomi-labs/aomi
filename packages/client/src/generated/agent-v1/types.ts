@@ -959,9 +959,9 @@ export interface components {
     StartTurnIntent: {
       sessionId?: string | null;
       message: string;
-      /** @description Durable completed assistant message_key in this session. Rerun its original user request from preceding context as a persistent branch. All tools disabled; transaction outcomes retained. */
+      /** @description Durable completed assistant message_key in this session. Replace the conversation from the user message before it and rerun that message as a normal turn. */
       regenerate?: string | null;
-      /** @description User message_key to replace with message. Persist a branch discarding subsequent transcript; mutually exclusive with regenerate. All tools disabled; recorded outcomes retained. */
+      /** @description User message_key to replace with message. Replace the conversation from that message and run the new text as a normal turn; mutually exclusive with regenerate. */
       edit?: string | null;
       applicationId?: number | null;
       app?: string | null;

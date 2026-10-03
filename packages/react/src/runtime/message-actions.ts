@@ -11,7 +11,8 @@ function textContent(content: ThreadMessageLike["content"]): string {
         .join("\n");
 }
 
-/** Select durable turns; the server owns conversation branches and tool safety. */
+/** Edit and Rerun replace the conversation from a durable message, as in a
+ * linear chat; the server runs the replacement as a normal turn. */
 export function messageActions({
   messages,
   send,
@@ -31,11 +32,10 @@ export function messageActions({
     try {
       await send(text, options);
     } catch {
-      if (!options?.regenerate && !options?.edit) restore(restoreText);
-      else
-        unavailable(
-          "The message could not be regenerated. Please retry the selected turn.",
-        );
+      if (options?.edit) unavailable("Couldn't edit the message. Try again.");
+      else if (options?.regenerate)
+        unavailable("Couldn't rerun the response. Try again.");
+      else restore(restoreText);
     }
   };
   return {

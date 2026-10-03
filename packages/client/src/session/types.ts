@@ -11,7 +11,11 @@ import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
 
-/** Branch from a durable message; the server regenerates with tools disabled. */
+/**
+ * Replace the conversation from a durable message and continue it as a normal
+ * turn. `edit` is a user message key; `regenerate` reruns the user message
+ * before an assistant message key.
+ */
 export type SendOptions = { regenerate?: string; edit?: string };
 
 export type SendResult = {
@@ -51,6 +55,8 @@ export type SessionSnapshot = Readonly<{
    * page or two). Render this so the just-sent message never disappears.
    */
   pendingUserMessage?: string;
+  /** User message key that `pendingUserMessage` replaces (Edit or Rerun). */
+  pendingReplacesMessageKey?: string;
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** Per-turn browser-clock durations; receipt is distinct from rendering. */
   timing?: Readonly<{
