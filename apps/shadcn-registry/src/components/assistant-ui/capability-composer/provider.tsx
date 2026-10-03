@@ -29,6 +29,8 @@ import type {
 type CapabilityComposerContextValue = {
   mentions: CapabilityMention[];
   policy: ExecutionPolicy;
+  /** Explicit host tag or active Direct target; an Auto allowlist is not selection. */
+  selectedApp: DirectRoutingApp | AppTagRequest | null;
   hintsEnabled: boolean;
   hostError: string | null;
   capabilityPickerRequest: number;
@@ -108,6 +110,8 @@ export function CapabilityComposerProvider({
       : undefined) ??
     normalizedRouting.directApps[0] ??
     null;
+  const selectedApp =
+    initialAppTag ?? (policy === "direct" ? selectedDirectApp : null);
   const [mentions, setMentions] = useState<CapabilityMention[]>([]);
 
   useEffect(
@@ -215,6 +219,7 @@ export function CapabilityComposerProvider({
     () => ({
       mentions,
       policy,
+      selectedApp,
       hintsEnabled,
       hostError: normalizedRouting.error,
       capabilityPickerRequest,
@@ -242,6 +247,7 @@ export function CapabilityComposerProvider({
       policy,
       prepareSubmit,
       retainMentions,
+      selectedApp,
     ],
   );
 
