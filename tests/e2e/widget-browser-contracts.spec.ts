@@ -178,9 +178,7 @@ test("anonymous widget renews an expired session after the first 401", async ({
       statuses.push(response.status());
     }
   });
-  await sendPrompt(page, "renew the anonymous widget session", {
-    expectReply: false,
-  });
+  await sendPrompt(page, "renew the anonymous widget session");
   const second = await renewed;
   expect(second.session.access_token).not.toBe(first.session.access_token);
   expect(statuses).toContain(401);
