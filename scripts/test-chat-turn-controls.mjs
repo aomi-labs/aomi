@@ -231,7 +231,8 @@ try {
               thread.events
                 .slice(0, thread.events.indexOf(selected))
                 .findLast(
-                  (entry) => entry.type === "message" && entry.sender === "user",
+                  (entry) =>
+                    entry.type === "message" && entry.sender === "user",
                 );
           const removed = user
             ? thread.events.slice(thread.events.indexOf(user))
@@ -343,8 +344,12 @@ try {
             });
           }
           await delay(intent.regenerate || intent.edit ? 700 : 150);
-          const answer = intent.regenerate
-            ? "Regenerated answer fixture: original actions were not repeated."
+          // The widget's Rerun is an edit that resends the same text.
+          const rerun =
+            intent.regenerate ||
+            (intent.edit && user?.content === intent.message);
+          const answer = rerun
+            ? "Rerun answer fixture: the request ran again."
             : intent.edit
               ? "Edited answer fixture: the selected request was replaced."
               : "Initial answer fixture: ready for edit and rerun.";
@@ -500,21 +505,21 @@ try {
         fullPage: true,
       });
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
-      assert.equal(
-        records.filter((record) => record.type === "start" && record.regenerate)
-          .length,
-        1,
-        "Repeated Rerun must issue one start",
+      const reruns = records.filter(
+        (record) => record.type === "start" && record.edit,
       );
-      assert.equal(
-        records.find((record) => record.regenerate)?.regenerate,
-        "fixture-answer-1",
-        "Rerun must target the selected durable answer",
+      assert.equal(reruns.length, 1, "Repeated Rerun must issue one start");
+      assert.deepEqual(
+        [reruns[0].edit, reruns[0].message],
+        [
+          "fixture-user-1",
+          "Original request fixture: explain the last answer.",
+        ],
+        "Rerun must resend the request before the selected answer",
       );
       await expect(
         page.getByText("Initial answer fixture: ready for edit and rerun.", {
@@ -552,10 +557,9 @@ try {
         }),
       ).toBeVisible({ timeout: 400 });
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toHaveCount(0, { timeout: 400 });
       await page.screenshot({
         path: `${output}/${viewport.name}-edit-pending.png`,
@@ -568,7 +572,10 @@ try {
         ),
       ).toBeVisible();
       const edits = records.filter(
-        (record) => record.type === "start" && record.edit,
+        (record) =>
+          record.type === "start" &&
+          record.edit &&
+          record.message.startsWith("Revised request fixture"),
       );
       assert.equal(edits.length, 1, "Repeated save must issue one edit");
       assert.equal(
@@ -591,10 +598,9 @@ try {
         }),
       ).toBeVisible();
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toHaveCount(0);
       await expect(page.locator(".aui-user-message-root")).toHaveCount(1);
       await page.screenshot({
@@ -606,18 +612,17 @@ try {
         .last()
         .click();
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       const rerunAfterEdit = records
-        .filter((entry) => entry.type === "start" && entry.regenerate)
+        .filter((entry) => entry.type === "start" && entry.edit)
         .at(-1);
       assert.equal(
-        rerunAfterEdit.regenerate,
-        "fixture-answer-3",
-        "Rerun after edit must target the edited answer",
+        rerunAfterEdit.edit,
+        "fixture-user-3",
+        "Rerun after edit must resend the edited request",
       );
       assert.equal(
         rerunAfterEdit.message,
@@ -853,10 +858,9 @@ try {
         await expect(page.getByRole("dialog")).toHaveCount(0);
       }
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(
         page.getByText("Original request fixture: explain the last answer.", {
@@ -952,15 +956,17 @@ try {
       suppressedTerminalTurn = undefined;
       await completedRerun.evaluate((button) => button.click());
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       const raceRerun = records
         .filter((entry) => entry.type === "start")
         .at(-1);
-      assert.equal(raceRerun.regenerate, completedResponseKey);
+      assert.equal(
+        raceRerun.edit,
+        completedResponseKey.replace("fixture-race-answer-", "fixture-user-"),
+      );
       assert.equal(raceRerun.message, "terminal race fixture complete");
       await startFreshRace("failed");
       await expect(

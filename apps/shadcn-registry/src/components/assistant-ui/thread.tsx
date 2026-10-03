@@ -6,8 +6,6 @@ import {
   BoxIcon,
   CableIcon,
   CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CoinsIcon,
   CopyIcon,
   ImageIcon,
@@ -25,7 +23,6 @@ import {
 
 import {
   ActionBarPrimitive,
-  BranchPickerPrimitive,
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
@@ -646,7 +643,6 @@ const AssistantMessage: FC = () => {
                   showFinishedEmptyMessage ? "mt-0" : "mt-2",
                 )}
               >
-                <BranchPicker />
                 <AssistantActionBar />
               </div>
             )}
@@ -749,8 +745,6 @@ const UserMessage: FC = () => {
             Message wasn&apos;t sent. {sendFailure}
           </p>
         )}
-
-        <BranchPicker className="aui-user-branch-picker col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
       </div>
     </MessagePrimitive.Root>
   );
@@ -801,35 +795,5 @@ const EditComposer: FC = () => {
         </div>
       </ComposerPrimitive.Root>
     </div>
-  );
-};
-
-const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
-  className,
-  ...rest
-}) => {
-  return (
-    <BranchPickerPrimitive.Root
-      hideWhenSingleBranch
-      className={cn(
-        "aui-branch-picker-root text-muted-foreground -ml-2 mr-2 inline-flex items-center text-xs",
-        className,
-      )}
-      {...rest}
-    >
-      <BranchPickerPrimitive.Previous asChild>
-        <TooltipIconButton tooltip="Previous">
-          <ChevronLeftIcon />
-        </TooltipIconButton>
-      </BranchPickerPrimitive.Previous>
-      <span className="aui-branch-picker-state font-medium">
-        <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
-      </span>
-      <BranchPickerPrimitive.Next asChild>
-        <TooltipIconButton tooltip="Next">
-          <ChevronRightIcon />
-        </TooltipIconButton>
-      </BranchPickerPrimitive.Next>
-    </BranchPickerPrimitive.Root>
   );
 };

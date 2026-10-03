@@ -14,10 +14,12 @@ sources_of_truth:
 Edit and Rerun work like a linear chat: they replace the conversation from a
 user message onward and continue it with a normal turn, with the same app,
 tools and signing rules as any other message. Edit sends the revised text with
-`edit` set to the selected user's durable `message_key`. Rerun sends the
-original request text with `regenerate` set to the selected completed answer's
-`message_key`; the server reruns the user message before it. The options are
-mutually exclusive.
+`edit` set to the selected user's durable `message_key`. The widget's Rerun
+sends the request before the selected answer unchanged, also with `edit`, so it
+works for failed or stopped answers too. SDK callers may instead pass
+`regenerate` with a completed answer's `message_key`; the server then reruns the
+user message before it. The options are mutually exclusive. Threads are
+linear, so the widget renders no branch picker.
 
 The session echoes the new request at once and publishes the replaced user key
 as `SessionSnapshot.pendingReplacesMessageKey`, so the runtime hides the

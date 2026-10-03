@@ -2,7 +2,23 @@
 
 ## Last Updated
 
-2026-10-02 — MOBILE TRANSACTION SHEET (aomi#691; worktree `mobile-tx-panel`,
+2026-10-03 — EDIT AND RERUN AS LINEAR REPLACEMENT (follow-up to #699; worktree
+  `chat-edit-rerun`, branch `fix/chat-edit-rerun-clean`). Edit and Rerun now
+  work like ChatGPT: they replace the conversation from the selected user
+  message and continue it as a normal turn with the app's usual tools (paired
+  backend change in product-mono). The SDK echoes the new request at once and
+  publishes `pendingReplacesMessageKey`, so the thread drops the replaced
+  messages on click. Rerun resends the request before the answer as an
+  `edit`, which also works on failed or stopped answers. The widget no longer
+  renders assistant-ui's branch picker, because threads are linear.
+  Verified on a local stack with a real model: Edit and Rerun fetch fresh
+  DefiLlama prices, and a follow-up and a reload show only the replacement.
+
+Pending:
+- On a local guest session, reloading the page opens a new empty chat; the
+  replaced thread is intact in Recent. Not caused by this change.
+
+Previous: 2026-10-02 — MOBILE TRANSACTION SHEET (aomi#691; worktree `mobile-tx-panel`,
   branch `work/mobile-tx-panel`, uncommitted). On phone viewports
   (`max-width: 639px`) the activity panel is a bottom sheet over the chat and
   composer instead of the 352px floating rail. It has a scrim, a drag handle

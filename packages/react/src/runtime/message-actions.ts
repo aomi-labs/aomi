@@ -26,17 +26,32 @@ export function messageActions({
 }) {
   const submit = async (
     text: string,
-    options?: SendOptions,
-    restoreText = text,
+    options: SendOptions | undefined,
+    onFailure: () => void,
   ) => {
     try {
       await send(text, options);
     } catch {
-      if (options?.edit) unavailable("Couldn't edit the message. Try again.");
-      else if (options?.regenerate)
-        unavailable("Couldn't rerun the response. Try again.");
-      else restore(restoreText);
+      onFailure();
     }
+  };
+  /** Replace the conversation from a user message with `text`. */
+  const replace = async (
+    request: ThreadMessageLike | undefined,
+    text: string,
+    capabilities: unknown,
+    failure: string,
+  ) => {
+    const target = request?.metadata?.custom?.aomiUserMessageKey;
+    if (request?.role !== "user" || typeof target !== "string" || !target) {
+      unavailable("Only a saved request can be edited or rerun");
+      return;
+    }
+    await submit(
+      appendCapabilityHints(text, capabilities),
+      { edit: target },
+      () => unavailable(failure),
+    );
   };
   return {
     onNew: async (message: AppendMessage) => {
@@ -48,60 +63,40 @@ export function messageActions({
             message.runConfig?.custom?.aomiCapabilityHints,
           ),
           undefined,
-          text,
+          () => restore(text),
         );
     },
     onEdit: async (message: AppendMessage) => {
       const original = messages.find(
         (candidate) => candidate.id === message.sourceId,
       );
-      if (!original || original.role !== "user") {
-        unavailable("The selected message is no longer available");
-        return;
-      }
       const revised = textContent(message.content);
       if (!revised.trim()) return;
-      const target = original.metadata?.custom?.aomiUserMessageKey;
-      if (typeof target !== "string" || !target) {
-        unavailable("Only a saved user message can be edited");
-        return;
-      }
-      const hints = message.runConfig?.custom?.aomiCapabilityHints ?? {
-        capabilities: original.metadata?.custom?.aomiCapabilityHints,
-      };
-      await submit(
-        appendCapabilityHints(revised, hints),
-        { edit: target },
+      await replace(
+        original,
         revised,
+        message.runConfig?.custom?.aomiCapabilityHints ?? {
+          capabilities: original?.metadata?.custom?.aomiCapabilityHints,
+        },
+        "Couldn't edit the message. Try again.",
       );
     },
+    // Rerun resends the request before the answer, replacing that answer and
+    // everything after it. This also works for failed or stopped answers.
     onReload: async (parentId: string | null) => {
       const parentIndex =
         parentId === null
           ? -1
           : messages.findIndex((message) => message.id === parentId);
-      if (parentId !== null && parentIndex < 0) {
-        unavailable("The selected response is no longer available");
-        return;
-      }
-      const answer = messages[parentIndex + 1];
-      const target = answer?.metadata?.custom?.aomiResponseMessageKey;
-      if (
-        answer?.role !== "assistant" ||
-        typeof target !== "string" ||
-        !target
-      ) {
-        unavailable("Only a completed answer can be rerun");
-        return;
-      }
       const request = messages
         .slice(0, parentIndex + 1)
         .findLast((message) => message.role === "user");
-      if (!request) {
-        unavailable("The original request is no longer available");
-        return;
-      }
-      await submit(textContent(request.content), { regenerate: target });
+      await replace(
+        request,
+        request ? textContent(request.content) : "",
+        { capabilities: request?.metadata?.custom?.aomiCapabilityHints },
+        "Couldn't rerun the response. Try again.",
+      );
     },
   };
 }
