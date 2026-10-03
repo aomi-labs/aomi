@@ -2,7 +2,7 @@
   "origin": "http://127.0.0.1:3317",
   "frontendRoot": "/workspace/aomi",
   "frontendBranch": "codex/696-chat-turn-controls",
-  "frontendHead": "13c5a313dc25bd50baf382739740fe51bea000b0",
+  "frontendHead": "24f398f38aed025f769511fef0acb54d1bff822f",
   "integration": "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream",
   "realBackendIntegration": "Not exercised by this fixture runner",
   "portalHostIntegration": "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB",
@@ -18,7 +18,9 @@
       "repeatedInterruptRequests": 1,
       "totalInterruptRequests": 5,
       "terminalRaceInterruptRequests": 2,
-      "combinedInterruptRequests": 7,
+      "uncertainAdmissionInterruptRequests": 2,
+      "uncertainStartRecoveryAndRepeatedStopRetry": "PASS (same intent/key and exact admitted turn)",
+      "combinedInterruptRequests": 9,
       "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
       "stopRacingFailedPreservesFailure": "PASS",
       "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
@@ -29,15 +31,15 @@
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
       "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 23,
+      "feedbackMs": 22,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
-      "interruptAcknowledgedMs": 732,
+      "interruptAcknowledgedMs": 727,
       "records": [
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -48,12 +50,13 @@
               "client_type": "web_ui"
             }
           },
-          "at": 7380.873151
+          "idempotencyKey": "idem_8240a63310654406b310b648335529a8",
+          "at": 7389.148636
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -66,16 +69,17 @@
             }
           },
           "cursor": "3",
-          "at": 7671.604386
+          "idempotencyKey": "idem_4fa3dd7c19f14566ae98d0611325ec11",
+          "at": 7681.330402
         },
         {
           "type": "stream",
-          "at": 8523.635258
+          "at": 8478.568101
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -88,12 +92,13 @@
             }
           },
           "cursor": "6",
-          "at": 8781.692976
+          "idempotencyKey": "idem_72312492c5ac4e2f8236d3c4c60f5c7b",
+          "at": 8810.298945
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -106,12 +111,13 @@
             }
           },
           "cursor": "9",
-          "at": 9176.214293
+          "idempotencyKey": "idem_7f17049655054093bc387e3129099600",
+          "at": 9204.850752
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -123,21 +129,22 @@
             }
           },
           "cursor": "12",
-          "at": 10277.890799
+          "idempotencyKey": "idem_81e214aea3ee4d179ea0af7590ec1773",
+          "at": 10734.391306
         },
         {
           "type": "stream",
-          "at": 10333.486782
+          "at": 10809.874315
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 10453.769785
+          "at": 10944.39729
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -149,21 +156,22 @@
             }
           },
           "cursor": "15",
-          "at": 11347.379917
+          "idempotencyKey": "idem_24e76b2c16c748cd9d0a505315a3d8a9",
+          "at": 11845.099963
         },
         {
           "type": "stream",
-          "at": 11447.586731
+          "at": 11934.977113
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 11894.430093
+          "at": 12361.815725
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -175,26 +183,27 @@
             }
           },
           "cursor": "19",
-          "at": 13054.462636
+          "idempotencyKey": "idem_49a0fc9138bf4ba9822cbf98f375c012",
+          "at": 13552.500538
         },
         {
           "type": "stream",
-          "at": 13139.13525
+          "at": 13660.130026
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 13231.450426
+          "at": 13738.277747
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 14254.015157
+          "at": 14830.08594
         },
         {
           "type": "start",
-          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "904e1fcb-8763-48dd-ad33-a076ca07c0b1",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -206,21 +215,22 @@
             }
           },
           "cursor": "23",
-          "at": 15177.600443
+          "idempotencyKey": "idem_4cff212199834fafa874d08f62f5723e",
+          "at": 15749.336366
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 15976.143298
+          "at": 16718.471248
         },
         {
           "type": "stream",
-          "at": 15995.959495
+          "at": 16730.992991
         },
         {
           "type": "start",
-          "sessionId": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "c445f4a1-e0ef-45c6-9b83-00d91b1a8b1d",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "terminal race fixture complete",
           "mode": "auto",
           "userState": {
@@ -231,21 +241,22 @@
               "client_type": "web_ui"
             }
           },
-          "at": 19655.699971
+          "idempotencyKey": "idem_0a9487aee7f342909a9b364c377c84f0",
+          "at": 20051.55662
         },
         {
           "type": "stream",
-          "at": 19724.438202
+          "at": 20122.166637
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-9",
-          "at": 19773.368928
+          "at": 20161.55543
         },
         {
           "type": "start",
-          "sessionId": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "c445f4a1-e0ef-45c6-9b83-00d91b1a8b1d",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "terminal race fixture complete",
           "regenerate": "fixture-race-answer-9",
           "mode": "auto",
@@ -258,12 +269,13 @@
             }
           },
           "cursor": "31",
-          "at": 20686.539663
+          "idempotencyKey": "idem_fa5e9bdb4ac74a7792a68da57d0f9e53",
+          "at": 21106.017605
         },
         {
           "type": "start",
-          "sessionId": "bfc1a82a-1724-41c9-ba25-55ecae2b6528",
-          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "sessionId": "8970f9e6-f1ef-4a74-8736-5b5fbf2a517a",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
           "message": "terminal race fixture failed",
           "mode": "auto",
           "userState": {
@@ -274,21 +286,71 @@
               "client_type": "web_ui"
             }
           },
-          "at": 22250.884067
+          "idempotencyKey": "idem_61c34d455bc64c32b4e2929d852a638e",
+          "at": 22464.015102
         },
         {
           "type": "stream",
-          "at": 22311.467243
+          "at": 22532.460938
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-11",
-          "at": 22337.648165
+          "at": 22560.673925
+        },
+        {
+          "type": "start",
+          "sessionId": "d4326030-fdf4-477b-9d55-1eec3a5e8483",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_c2b63b6abe444b0393d82cb67689d9a6",
+          "at": 24074.817465
+        },
+        {
+          "type": "start",
+          "sessionId": "d4326030-fdf4-477b-9d55-1eec3a5e8483",
+          "clientId": "f79d701e-826b-4201-9ba1-d156137194ce",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "43",
+          "idempotencyKey": "idem_c2b63b6abe444b0393d82cb67689d9a6",
+          "at": 24159.997174
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 24191.458297
+        },
+        {
+          "type": "stream",
+          "at": 24191.655315
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 25309.604233
         }
       ],
       "raceAcknowledgements": [
         {
-          "session_id": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
+          "session_id": "c445f4a1-e0ef-45c6-9b83-00d91b1a8b1d",
           "cursor": "31",
           "events": [],
           "has_more": false,
@@ -298,7 +360,7 @@
           }
         },
         {
-          "session_id": "bfc1a82a-1724-41c9-ba25-55ecae2b6528",
+          "session_id": "8970f9e6-f1ef-4a74-8736-5b5fbf2a517a",
           "cursor": "39",
           "events": [],
           "has_more": false,
@@ -319,7 +381,9 @@
       "repeatedInterruptRequests": 1,
       "totalInterruptRequests": 5,
       "terminalRaceInterruptRequests": 2,
-      "combinedInterruptRequests": 7,
+      "uncertainAdmissionInterruptRequests": 2,
+      "uncertainStartRecoveryAndRepeatedStopRetry": "PASS (same intent/key and exact admitted turn)",
+      "combinedInterruptRequests": 9,
       "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
       "stopRacingFailedPreservesFailure": "PASS",
       "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
@@ -330,15 +394,15 @@
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
       "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 24,
+      "feedbackMs": 26,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
-      "interruptAcknowledgedMs": 738,
+      "interruptAcknowledgedMs": 736,
       "records": [
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -349,12 +413,13 @@
               "client_type": "web_ui"
             }
           },
-          "at": 25584.202338
+          "idempotencyKey": "idem_91c76582df4b4ae28517337500ac3573",
+          "at": 28358.372126
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -367,16 +432,17 @@
             }
           },
           "cursor": "3",
-          "at": 25858.653948
+          "idempotencyKey": "idem_e4a0e2af3b074dc0a9be283193737bfb",
+          "at": 28621.620377
         },
         {
           "type": "stream",
-          "at": 26611.687876
+          "at": 29372.168871
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -389,12 +455,13 @@
             }
           },
           "cursor": "6",
-          "at": 26808.062723
+          "idempotencyKey": "idem_4291f8577a0e4028b0341cd0bc786164",
+          "at": 29914.438305
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -407,12 +474,13 @@
             }
           },
           "cursor": "9",
-          "at": 27116.858721
+          "idempotencyKey": "idem_0bb3e311184a41609a6049059d705b49",
+          "at": 30227.564386
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -424,21 +492,22 @@
             }
           },
           "cursor": "12",
-          "at": 28202.091839
+          "idempotencyKey": "idem_d1cb5c68e14f44ba9434aec49d333bfc",
+          "at": 31127.399489
         },
         {
           "type": "stream",
-          "at": 28283.997715
+          "at": 31201.251384
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 28407.209139
+          "at": 31313.998316
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -450,21 +519,22 @@
             }
           },
           "cursor": "15",
-          "at": 29304.476841
+          "idempotencyKey": "idem_d18e07b04d9c4be3b88b59e8f7985fbb",
+          "at": 32195.904375
         },
         {
           "type": "stream",
-          "at": 29408.988137
+          "at": 32291.971389
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 30015.469221
+          "at": 32670.010055
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -476,26 +546,27 @@
             }
           },
           "cursor": "19",
-          "at": 31155.802224
+          "idempotencyKey": "idem_1afc1d3ab9e3441a83beb4ba3263c648",
+          "at": 33805.14859
         },
         {
           "type": "stream",
-          "at": 31252.039029
+          "at": 33904.242393
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 31382.059897
+          "at": 34005.266945
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 32340.170448
+          "at": 34885.374574
         },
         {
           "type": "start",
-          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "a45041a2-682e-4cec-a3a8-7a776eea7f21",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -507,21 +578,22 @@
             }
           },
           "cursor": "23",
-          "at": 33261.402291
+          "idempotencyKey": "idem_11b5038edabe40249d58ba96fd28ed28",
+          "at": 35800.422484
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 34208.906602
+          "at": 36717.055147
         },
         {
           "type": "stream",
-          "at": 34225.282293
+          "at": 36725.705982
         },
         {
           "type": "start",
-          "sessionId": "2f30e775-3344-42ae-9631-19416907e141",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "75be5a59-6c1e-461d-b932-c824c96419bd",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "terminal race fixture complete",
           "mode": "auto",
           "userState": {
@@ -532,21 +604,22 @@
               "client_type": "web_ui"
             }
           },
-          "at": 40515.805857
+          "idempotencyKey": "idem_603bb82a77984f90bb22edde3214aab5",
+          "at": 42849.079989
         },
         {
           "type": "stream",
-          "at": 40569.505414
+          "at": 42905.087319
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-9",
-          "at": 40614.553941
+          "at": 42947.260563
         },
         {
           "type": "start",
-          "sessionId": "2f30e775-3344-42ae-9631-19416907e141",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "75be5a59-6c1e-461d-b932-c824c96419bd",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "terminal race fixture complete",
           "regenerate": "fixture-race-answer-9",
           "mode": "auto",
@@ -559,12 +632,13 @@
             }
           },
           "cursor": "31",
-          "at": 41477.449429
+          "idempotencyKey": "idem_e7d20781d7284d4dab6b1131639a5a03",
+          "at": 44093.170685
         },
         {
           "type": "start",
-          "sessionId": "4b98f67e-53c0-420a-b60e-2d297fa1b13c",
-          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "sessionId": "4f1f14ab-bc63-4faa-8deb-daf9389e5e76",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
           "message": "terminal race fixture failed",
           "mode": "auto",
           "userState": {
@@ -575,21 +649,71 @@
               "client_type": "web_ui"
             }
           },
-          "at": 44824.368769
+          "idempotencyKey": "idem_6999bb2968ef4b4db7afecdbc8dc3e68",
+          "at": 46559.824284
         },
         {
           "type": "stream",
-          "at": 44873.136391
+          "at": 46614.195939
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-11",
-          "at": 44907.395832
+          "at": 46640.719596
+        },
+        {
+          "type": "start",
+          "sessionId": "aafb342d-9594-448c-9385-5226186fa4ad",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "idempotencyKey": "idem_c7764ec1a55144f4b40c42c177caf71d",
+          "at": 49127.467926
+        },
+        {
+          "type": "start",
+          "sessionId": "aafb342d-9594-448c-9385-5226186fa4ad",
+          "clientId": "7bd075da-a1b7-4731-a7f8-7a21ece9b106",
+          "message": "uncertain-start interruption fixture",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "43",
+          "idempotencyKey": "idem_c7764ec1a55144f4b40c42c177caf71d",
+          "at": 49219.068743
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 49246.685441
+        },
+        {
+          "type": "stream",
+          "at": 49247.245457
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-12",
+          "at": 50115.883095
         }
       ],
       "raceAcknowledgements": [
         {
-          "session_id": "2f30e775-3344-42ae-9631-19416907e141",
+          "session_id": "75be5a59-6c1e-461d-b932-c824c96419bd",
           "cursor": "31",
           "events": [],
           "has_more": false,
@@ -599,7 +723,7 @@
           }
         },
         {
-          "session_id": "4b98f67e-53c0-420a-b60e-2d297fa1b13c",
+          "session_id": "4f1f14ab-bc63-4faa-8deb-daf9389e5e76",
           "cursor": "39",
           "events": [],
           "has_more": false,

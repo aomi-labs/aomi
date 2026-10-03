@@ -3,6 +3,38 @@
 Companion PRs: [frontend #699](https://github.com/aomi-labs/aomi/pull/699) and
 [backend #1232](https://github.com/aomi-labs/product-mono/pull/1232).
 
+## Final uncertain-admission follow-up
+
+Stop remains visible after an uncertain start acknowledgment. Recovery walks
+bounded history, then replays the original intent, idempotency key and funding
+selection to obtain its exact admitted turn. Failed/repeated Stop stays scoped
+to that identity; unrelated/newer turns keep running. An unadmitted idle request
+is not replayed solely to cancel it. Repeated Stop callers share error feedback.
+
+Backend source `a28d3b5ace71970708664f1ddc2bee276dd2cc9a` adds the necessary
+paired guest fix: an existing request replay returns before the new-admission
+active-turn quota. New keys still enforce quota and release denied claims.
+The PostgreSQL regression and every job in
+[backend CI](https://github.com/aomi-labs/product-mono/actions/runs/37123810900)
+passed. No API/schema or migration changed.
+
+Managed local checks passed **69 tests**, including **22 SDK terminal/ownership
+cases**, plus SDK/library typechecks and scoped ESLint. Chromium desktop and
+mobile passed all scenarios; this directory contains **28 screenshots** and the
+successful request report. Its tested runtime source is
+`24f398f38aed025f769511fef0acb54d1bff822f`. Later changes only correct the separate
+production-browser upstream fixture and strengthen its renewal assertion.
+
+The earlier [frontend CI run](https://github.com/aomi-labs/aomi/actions/runs/37124644965)
+passed packages, consumer compatibility, apps and guest Chromium. Its production
+browser failure was traced to an invalid fixture: the second response reused
+sequences 1–3 in the same session after a successful 401 → token renewal → 200.
+The baseline SDK already rejects nonmonotonic events; the new Stop behavior
+exposed that hidden rejection. The corrected fixture keeps conversation-wide
+sequences/history/cursors, and the renewal test now requires the second reply.
+The immutable consumer source and public ordering checks remain unchanged.
+Consult the PR checks for final-head production-browser verification.
+
 ## Browser evidence
 
 Screenshots show the actual shared AomiFrame, Thread, React runtime and SDK
@@ -17,18 +49,20 @@ request counts and timings are in [browser-report.json](browser-report.json).
 Desktop is 1440 × 1000; mobile is 390 × 844 with touch enabled. Timings include
 a synthetic 650 ms Stop acknowledgment delay and do not measure a real provider.
 
-| Scenario                                                | Desktop                                     | Mobile                                     |
-| ------------------------------------------------------- | ------------------------------------------- | ------------------------------------------ |
-| Edit original request                                   | [Edit](desktop-edit.png)                    | [Edit](mobile-edit.png)                    |
-| Rerun edited request                                    | [Rerun](desktop-rerun-edited.png)           | [Rerun](mobile-rerun-edited.png)           |
-| Partial streamed response                               | [Streaming](desktop-streaming.png)          | [Streaming](mobile-streaming.png)          |
-| Immediate disabled icon-only Stop feedback              | [Pending Stop](desktop-stopping.png)        | [Pending Stop](mobile-stopping.png)        |
-| Frozen partial response after acknowledgment            | [Stopped](desktop-stopped.png)              | [Stopped](mobile-stopped.png)              |
-| Failed Stop with retry                                  | [Retry](desktop-stop-retry.png)             | [Retry](mobile-stop-retry.png)             |
-| Stop before delayed start acknowledgment                | [Early Stop](desktop-early-stopped.png)     | [Early Stop](mobile-early-stopped.png)     |
-| Durable edited conversation after reload                | [Reload](desktop-reloaded.png)              | [Reload](mobile-reloaded.png)              |
-| Stop racing with completion: answer and Rerun preserved | [Complete](desktop-stop-completed-race.png) | [Complete](mobile-stop-completed-race.png) |
-| Stop racing with failure: Failed state preserved        | [Failed](desktop-stop-failed-race.png)      | [Failed](mobile-stop-failed-race.png)      |
+| Scenario                                                | Desktop                                            | Mobile                                            |
+| ------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- |
+| Edit original request                                   | [Edit](desktop-edit.png)                           | [Edit](mobile-edit.png)                           |
+| Rerun edited request                                    | [Rerun](desktop-rerun-edited.png)                  | [Rerun](mobile-rerun-edited.png)                  |
+| Partial streamed response                               | [Streaming](desktop-streaming.png)                 | [Streaming](mobile-streaming.png)                 |
+| Immediate disabled icon-only Stop feedback              | [Pending Stop](desktop-stopping.png)               | [Pending Stop](mobile-stopping.png)               |
+| Frozen partial response after acknowledgment            | [Stopped](desktop-stopped.png)                     | [Stopped](mobile-stopped.png)                     |
+| Failed Stop with retry                                  | [Retry](desktop-stop-retry.png)                    | [Retry](mobile-stop-retry.png)                    |
+| Stop before delayed start acknowledgment                | [Early Stop](desktop-early-stopped.png)            | [Early Stop](mobile-early-stopped.png)            |
+| Durable edited conversation after reload                | [Reload](desktop-reloaded.png)                     | [Reload](mobile-reloaded.png)                     |
+| Stop racing with completion: answer and Rerun preserved | [Complete](desktop-stop-completed-race.png)        | [Complete](mobile-stop-completed-race.png)        |
+| Stop racing with failure: Failed state preserved        | [Failed](desktop-stop-failed-race.png)             | [Failed](mobile-stop-failed-race.png)             |
+| Uncertain admitted start: failed Stop stays actionable  | [Recovery retry](desktop-uncertain-stop-retry.png) | [Recovery retry](mobile-uncertain-stop-retry.png) |
+| Retried Stop acknowledges the exact recovered turn      | [Recovered Stop](desktop-uncertain-stopped.png)    | [Recovered Stop](mobile-uncertain-stopped.png)    |
 
 The runner verifies triple Rerun and double edit Save create one request each,
 Rerun after edit uses revised text, triple Stop creates one interruption,
