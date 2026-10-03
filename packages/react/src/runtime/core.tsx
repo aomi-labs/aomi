@@ -214,6 +214,7 @@ export function AomiRuntimeCore({
   const remoteThreadIdsRef = useRef(new Set<string>());
   const warmedThreadIdsRef = useRef(new Set<string>());
   const warmPromisesRef = useRef(new Map<string, Promise<void>>());
+  const cancelPromisesRef = useRef(new Map<string, Promise<void>>());
   const [isThreadLoading, setIsThreadLoading] = useState(false);
 
   const warmThread = useCallback(async (threadId: string) => {
@@ -369,22 +370,23 @@ export function AomiRuntimeCore({
   // External store runtime
   // ---------------------------------------------------------------------------
   const cancelThreadGeneration = useCallback(
-    async (threadId: string) => {
-      try {
-        await orchestratorCancel(threadId);
-      } catch (error) {
-        const current = sessionManager.get(threadId)?.getSnapshot();
-        const retryable =
-          current?.isStartUncertain ||
-          current?.turnState === "processing" ||
-          current?.turnState === "awaiting_action";
-        notificationContext.showNotification({
-          type: "error",
-          title: "Unable to stop generation",
-          message: `${error instanceof Error ? error.message : "The Stop request failed"}. ${retryable ? "Generation may still be running. Try Stop again." : "Refresh the conversation to check its status."}`,
-        });
-      }
-    },
+    (threadId: string) =>
+      runSingleFlight(cancelPromisesRef.current, threadId, async () => {
+        try {
+          await orchestratorCancel(threadId);
+        } catch (error) {
+          const current = sessionManager.get(threadId)?.getSnapshot();
+          const retryable =
+            current?.isStartUncertain ||
+            current?.turnState === "processing" ||
+            current?.turnState === "awaiting_action";
+          notificationContext.showNotification({
+            type: "error",
+            title: "Unable to stop generation",
+            message: `${error instanceof Error ? error.message : "The Stop request failed"}. ${retryable ? "Generation may still be running. Try Stop again." : "Refresh the conversation to check its status."}`,
+          });
+        }
+      }),
     [orchestratorCancel, notificationContext, sessionManager],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});

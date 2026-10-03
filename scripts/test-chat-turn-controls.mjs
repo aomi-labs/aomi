@@ -945,6 +945,9 @@ try {
       });
       await expect(uncertainStop).toBeVisible();
       const uncertainTurn = `fixture-turn-${turn}`;
+      const stopErrorsBefore = await page
+        .getByText("Unable to stop generation", { exact: true })
+        .count();
       failNextInterrupt = true;
       await uncertainStop.evaluate((button) => {
         button.click();
@@ -952,6 +955,9 @@ try {
       });
       await expect(
         page.getByText("Unable to stop generation", { exact: true }),
+      ).toHaveCount(stopErrorsBefore + 1);
+      await expect(
+        page.getByText("Unable to stop generation", { exact: true }).first(),
       ).toBeVisible();
       await expect(uncertainStop).toBeEnabled();
       await page.screenshot({
