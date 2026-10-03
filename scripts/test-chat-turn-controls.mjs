@@ -918,6 +918,10 @@ try {
         fullPage: true,
       });
       assert.equal(interruptCount - legacyInterruptRequests, 2);
+      const newChat = page.getByRole("button", {
+        name: "New chat",
+        exact: true,
+      });
       if (!(await newChat.isVisible()))
         await page
           .getByRole("button", { name: "Toggle Sidebar", exact: true })
