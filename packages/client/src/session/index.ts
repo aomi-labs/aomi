@@ -1165,8 +1165,26 @@ export class ClientSession {
   private hasTerminalAnswer(): boolean {
     const turnId = this.terminalTurnId;
     if (!turnId) return false;
-    if (turnId.startsWith("broadcast-terminal:"))
+    if (turnId.startsWith("broadcast-terminal:")) {
+      const latestState = this.events.findLast(
+        (event) =>
+          event.type === "turn_state_changed" && event.turn_id === turnId,
+      );
+      const failed =
+        this.terminalAcknowledgments.get(turnId) === "failed" ||
+        (latestState?.type === "turn_state_changed" &&
+          latestState.state === "failed");
+      if (failed) {
+        return this.events.some(
+          (event) =>
+            event.type === "message" &&
+            event.turn_id === turnId &&
+            this.isCallbackResponse(event) &&
+            event.content.trim().length > 0,
+        );
+      }
       return this.hasCompletedCallback(turnId);
+    }
     return this.events.some(
       (event) =>
         event.type === "message" &&

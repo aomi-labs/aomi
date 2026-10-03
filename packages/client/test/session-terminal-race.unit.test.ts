@@ -71,23 +71,21 @@ function setup() {
       );
     },
   );
-  const start = vi
-    .spyOn(client.agent, "start")
-    .mockResolvedValue(
-      page(
-        [
-          {
-            ...meta(1),
-            type: "message",
-            sender: "user",
-            message_key: "request-1",
-            content: "Explain",
-          },
-          state(2, "processing"),
-        ],
-        { started_turn_id: "turn-1" },
-      ),
-    );
+  const start = vi.spyOn(client.agent, "start").mockResolvedValue(
+    page(
+      [
+        {
+          ...meta(1),
+          type: "message",
+          sender: "user",
+          message_key: "request-1",
+          content: "Explain",
+        },
+        state(2, "processing"),
+      ],
+      { started_turn_id: "turn-1" },
+    ),
+  );
   const interrupt = vi.spyOn(client.agent, "interrupt");
   const session = new Session(client, { sessionId });
   return { session, client, start, interrupt, streams };
@@ -318,44 +316,47 @@ describe("ClientSession Stop terminal races", () => {
     },
   );
 
-  it("finishes a bounded completed callback when its canonical final response arrives", async () => {
-    vi.useFakeTimers();
-    const { session, start, interrupt, streams } = setup();
-    const callbackTurn = "broadcast-terminal:owned-batch";
-    start.mockResolvedValue(
-      page(
-        [
-          {
-            ...meta(1, callbackTurn),
-            type: "message",
-            sender: "user",
-            message_key: "request-1",
-            content: "Explain",
-          },
-          state(2, "processing", callbackTurn),
-        ],
-        { started_turn_id: callbackTurn },
-      ),
-    );
-    const sent = session.send("Explain");
-    await vi.advanceTimersByTimeAsync(0);
-    interrupt.mockResolvedValue(
-      page([], { terminal_turn: { turn_id: callbackTurn, state: "complete" } }),
-    );
-    await session.interrupt();
-    expect(session.getSnapshot()).toMatchObject({
-      turnId: callbackTurn,
-      turnState: "complete",
-      isStreaming: true,
-    });
-    streams[0]!("page", page([answer(3, callbackTurn)]));
-    await expect(sent).resolves.toMatchObject({
-      messages: expect.arrayContaining([answer(3, callbackTurn)]),
-    });
-    expect(session.getSnapshot().isStreaming).toBe(false);
-    expect(session.getSnapshot().stoppedTurnId).toBeUndefined();
-    session.close();
-  });
+  it.each(["complete", "failed"] as const)(
+    "finishes a bounded %s callback when its canonical final response arrives",
+    async (outcome) => {
+      vi.useFakeTimers();
+      const { session, start, interrupt, streams } = setup();
+      const callbackTurn = "broadcast-terminal:owned-batch";
+      start.mockResolvedValue(
+        page(
+          [
+            {
+              ...meta(1, callbackTurn),
+              type: "message",
+              sender: "user",
+              message_key: "request-1",
+              content: "Explain",
+            },
+            state(2, "processing", callbackTurn),
+          ],
+          { started_turn_id: callbackTurn },
+        ),
+      );
+      const sent = session.send("Explain");
+      await vi.advanceTimersByTimeAsync(0);
+      interrupt.mockResolvedValue(
+        page([], { terminal_turn: { turn_id: callbackTurn, state: outcome } }),
+      );
+      await session.interrupt();
+      expect(session.getSnapshot()).toMatchObject({
+        turnId: callbackTurn,
+        turnState: outcome,
+        isStreaming: true,
+      });
+      streams[0]!("page", page([answer(3, callbackTurn)]));
+      await expect(sent).resolves.toMatchObject({
+        messages: expect.arrayContaining([answer(3, callbackTurn)]),
+      });
+      expect(session.getSnapshot().isStreaming).toBe(false);
+      expect(session.getSnapshot().stoppedTurnId).toBeUndefined();
+      session.close();
+    },
+  );
 
   it("keeps a newer accepted turn active when an older completion ACK arrives late", async () => {
     vi.useFakeTimers();
