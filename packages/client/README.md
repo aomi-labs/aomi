@@ -898,7 +898,13 @@ Session files live under `~/.aomi/sessions/` by default, with an active session
 pointer stored in the state root.
 
 A start transport failure may occur after admission. `isStartUncertain` remains
-true until the exact operation is confirmed; Stop recovers its original intent
+true while active work may need reconciliation; Stop recovers its original intent
 and idempotency key and never substitutes an unrelated active turn. A different
 message is blocked during this uncertainty. Retrying the same message retains
 the original operation; failed Stop remains retryable without losing its scope.
+
+When fully drained history has no active work (or the session does not exist),
+Stop releases the optimistic running state and restores Send. The original
+intent/key remains available for a deliberate same-message retry. Canonical
+terminal answers are preserved; matching text does not prove ownership or cause
+a new start. Failed or stalled history reads remain retryable.

@@ -657,17 +657,36 @@ export class ClientSession {
 
   private async recoverUncertainStart(
     operation: NonNullable<ClientSession["startOperation"]>,
-  ): Promise<string> {
+  ): Promise<string | undefined> {
     if (operation.turnId) return operation.turnId;
     if (!operation.intent) throw operation.error;
+    const settleWithoutActiveTurn = (page?: EventPage) => {
+      // Exhausted canonical history needs no cancellation. Retain the exact
+      // request for a Send retry without keeping its optimistic running state.
+      // Terminal messages cannot establish request ownership by matching text.
+      operation.uncertain = false;
+      this.pendingUserMessage = undefined;
+      this.error = undefined;
+      if (page && this.isTerminal() && this.turnState !== "interrupted")
+        this.drainTerminalPage(page);
+      return undefined;
+    };
     // History alone cannot correlate an active turn with this request. Use it
     // only to establish possible admission; never replay an idle request just
     // to cancel it. Follow bounded pages before deciding there is no evidence.
     while (!this.closed) {
       const previousCursor = this.cursor;
-      const page = await this.fetchPage().catch(() => {
+      const page = await this.fetchPage().catch((error: unknown) => {
+        if (
+          error instanceof AgentApiError &&
+          error.status === 404 &&
+          error.code === "session_not_found" &&
+          !error.retryable
+        )
+          return undefined;
         throw operation.error;
       });
+      if (!page) return settleWithoutActiveTurn();
       const states = new Map<string, TurnState>();
       for (const event of this.events) {
         if (!event.turn_id || event.sequence <= operation.sinceSequence)
@@ -680,8 +699,8 @@ export class ClientSession {
         [...states.values()].some((state) => !TERMINAL_TURN_STATES.has(state))
       )
         break;
-      if (!page.has_more || this.cursor === previousCursor)
-        throw operation.error;
+      if (!page.has_more) return settleWithoutActiveTurn(page);
+      if (this.cursor === previousCursor) throw operation.error;
     }
     if (this.closed) throw new Error("Session is closed");
     // Replaying the exact stored intent/key returns its admitted identity,

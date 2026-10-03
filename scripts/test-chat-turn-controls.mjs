@@ -77,6 +77,7 @@ try {
     let suppressedTerminalTurn;
     const raceAcknowledgements = [];
     const uncertainStarts = new Map();
+    const unadmittedStarts = new Set();
     const streams = new Set();
     const event = (type, data) => ({
       type,
@@ -189,6 +190,28 @@ try {
           const recovered = uncertainStarts.get(idempotencyKey);
           if (recovered)
             return json({ ...eventPage([]), started_turn_id: recovered });
+          if (
+            intent.message === "unadmitted-start fixture" &&
+            !unadmittedStarts.has(idempotencyKey)
+          ) {
+            unadmittedStarts.add(idempotencyKey);
+            thread = {
+              id: intent.sessionId,
+              events: [],
+              state: "complete",
+              currentPrompt: intent.message,
+            };
+            return json(
+              {
+                error: {
+                  code: "upstream_unavailable",
+                  message: "Controlled failure before admission",
+                  retryable: true,
+                },
+              },
+              503,
+            );
+          }
           turn++;
           if (thread?.id !== intent.sessionId)
             thread = { id: intent.sessionId, events: [], state: "complete" };
@@ -340,6 +363,27 @@ try {
           );
           thread.events.push(...initial);
           thread.state = "complete";
+          if (intent.message.startsWith("terminal-uncertain fixture ")) {
+            const outcome = intent.message.endsWith("failed")
+              ? "failed"
+              : "complete";
+            initial.findLast(
+              (entry) => entry.type === "message" && entry.sender === "agent",
+            ).content =
+              `Terminal-uncertain ${outcome}: durable answer preserved.`;
+            initial.at(-1).state = outcome;
+            thread.state = outcome;
+            return json(
+              {
+                error: {
+                  code: "upstream_unavailable",
+                  message: "Controlled lost terminal start response",
+                  retryable: true,
+                },
+              },
+              503,
+            );
+          }
           return json({
             ...eventPage(initial),
             started_turn_id: `fixture-turn-${turn}`,
@@ -996,6 +1040,101 @@ try {
         uncertainInterrupts.every((entry) => entry.turnId === uncertainTurn),
       );
       assert.equal(interruptCount - legacyInterruptRequests, 4);
+      const resetConversation = async () => {
+        if (!(await newChat.isVisible()))
+          await page
+            .getByRole("button", { name: "Toggle Sidebar", exact: true })
+            .first()
+            .click();
+        await newChat.click();
+        if (viewport.name === "mobile") {
+          await page.keyboard.press("Escape");
+          await expect(page.getByRole("dialog")).toHaveCount(0);
+        }
+      };
+      const send = page.getByRole("button", {
+        name: "Send message",
+        exact: true,
+      });
+      const errorsBeforeIdleRecovery = await page
+        .getByText("Unable to stop generation", { exact: true })
+        .count();
+      await resetConversation();
+      await composer.fill("unadmitted-start fixture");
+      await send.click();
+      await expect(uncertainStop).toBeVisible();
+      await uncertainStop.evaluate((button) => {
+        button.click();
+        button.click();
+      });
+      await expect(send).toBeEnabled();
+      await expect(uncertainStop).toHaveCount(0);
+      await expect(composer).toHaveText("unadmitted-start fixture");
+      await page.screenshot({
+        path: `${output}/${viewport.name}-unadmitted-send.png`,
+        fullPage: true,
+      });
+      await send.click();
+      await expect(
+        page.getByText("Initial answer fixture: ready for edit and rerun.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(send).toBeEnabled();
+      const unadmittedRequests = records.filter(
+        (entry) =>
+          entry.type === "start" &&
+          entry.message === "unadmitted-start fixture",
+      );
+      assert.equal(unadmittedRequests.length, 2);
+      assert.equal(
+        unadmittedRequests[0].idempotencyKey,
+        unadmittedRequests[1].idempotencyKey,
+      );
+      for (const outcome of ["complete", "failed"]) {
+        await resetConversation();
+        await composer.fill(`terminal-uncertain fixture ${outcome}`);
+        await send.click();
+        await expect(uncertainStop).toBeVisible();
+        await uncertainStop.evaluate((button) => {
+          button.click();
+          button.click();
+        });
+        await expect(send).toBeEnabled();
+        await expect(uncertainStop).toHaveCount(0);
+        await expect(
+          page
+            .getByText(
+              `Terminal-uncertain ${outcome}: durable answer preserved.`,
+              { exact: true },
+            )
+            .last(),
+        ).toBeVisible();
+        if (outcome === "complete")
+          await expect(
+            page.getByRole("button", { name: "Rerun", exact: true }),
+          ).toBeEnabled();
+        else
+          await expect(
+            page.getByRole("button", { name: /^Failed/ }),
+          ).toBeVisible();
+        await page.screenshot({
+          path: `${output}/${viewport.name}-terminal-uncertain-${outcome}.png`,
+          fullPage: true,
+        });
+        assert.equal(
+          records.filter(
+            (entry) =>
+              entry.type === "start" &&
+              entry.message === `terminal-uncertain fixture ${outcome}`,
+          ).length,
+          1,
+        );
+      }
+      await expect(
+        page.getByText("Unable to stop generation", { exact: true }),
+      ).toHaveCount(errorsBeforeIdleRecovery);
+      assert.equal(interruptCount - legacyInterruptRequests, 4);
       assert.deepEqual(unexpected, []);
       report.scenarios.push({
         viewport: viewport.name,
@@ -1010,6 +1149,9 @@ try {
         uncertainAdmissionInterruptRequests: 2,
         uncertainStartRecoveryAndRepeatedStopRetry:
           "PASS (same intent/key and exact admitted turn)",
+        unadmittedStopRestoresSendAndSameKeyRetry: "PASS",
+        terminalUncertainStopPreservesAnswerAndRestoresSend:
+          "PASS (complete/failed; no start replay or interruption)",
         combinedInterruptRequests: interruptCount,
         stopRacingCompletePreservesFinalAnswerAndRerun: "PASS",
         stopRacingFailedPreservesFailure: "PASS",

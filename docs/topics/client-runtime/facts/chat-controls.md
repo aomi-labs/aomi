@@ -69,7 +69,11 @@ The optional `SessionSnapshot.isStartUncertain` keeps Stop visible even when the
 last known turn is terminal. Stop follows bounded canonical pages for possible
 new activity, then replays that exact key to recover `started_turn_id`; it never
 selects a turn by matching text or by choosing the latest processing event.
-An idle history does not trigger a new start solely to cancel it. Failed recovery
+Exhausted history with no active work, or a missing session, releases the running
+state and optimistic echo while retaining the original intent/key for a Send
+retry. Terminal answers remain canonical and use the normal final-answer drain;
+matching text never establishes admission ownership. No start is replayed solely
+to cancel an idle request. Failed or stalled history reads retain uncertainty. Failed recovery
 and failed interruption remain actionable; repeated Stop joins a single request
 and targets the recovered identity until acknowledgment. Newer or unrelated runs
 retain their state/stream. The guest backend resolves accepted/completed replay
