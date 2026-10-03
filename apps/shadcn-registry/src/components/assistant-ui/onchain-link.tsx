@@ -1,6 +1,7 @@
 import { CHAINS_BY_ID } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { ExternalLink } from "lucide-react";
+import bs58 from "bs58";
 import type { ComponentPropsWithoutRef } from "react";
 
 import { EtherscanIcon } from "@/components/icons/apps";
@@ -8,7 +9,8 @@ import { EtherscanIcon } from "@/components/icons/apps";
 type ExplorerKind = "tx" | "address" | "token" | "block";
 
 export type ExplorerLink = {
-  chainId: number;
+  /** EVM chain ID; Solana has no EVM numeric identity. */
+  chainId: number | null;
   chainName: string;
   href: string;
 };
@@ -17,7 +19,7 @@ const TX_ID = /^0x[a-fA-F0-9]{64}$/;
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const BLOCK_ID = /^(?:0|[1-9][0-9]*|0x[a-fA-F0-9]{64})$/;
 
-/** Classify configured explorer URL shapes for display, not proof of inclusion. */
+/** Classify known explorer URL shapes for display, not proof of inclusion. */
 export function recognizeOnchainLink(href: string): ExplorerLink | null {
   let url: URL;
   try {
@@ -33,6 +35,18 @@ export function recognizeOnchainLink(href: string): ExplorerLink | null {
     url.hash
   )
     return null;
+
+  // Solscan's mainnet account/token and transaction pages. Recognize only
+  // supplied links; never infer a network or construct a URL from bare text.
+  if (url.origin === "https://solscan.io") {
+    const match = url.pathname.match(
+      /^\/(account|token|tx)\/([1-9A-HJ-NP-Za-km-z]{32,88})$/,
+    );
+    if (!match) return null;
+    const size = bs58.decode(match[2]).length;
+    if (size !== (match[1] === "tx" ? 64 : 32)) return null;
+    return { chainId: null, chainName: "Solana", href };
+  }
 
   for (const [id, chain] of Object.entries(CHAINS_BY_ID)) {
     const chainId = Number(id);
