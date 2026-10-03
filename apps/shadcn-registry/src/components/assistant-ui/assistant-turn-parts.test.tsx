@@ -333,7 +333,7 @@ describe("AssistantTurnParts lifecycle", () => {
 
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
     expect(view.container.querySelector(".text-aomi-success")).toBeTruthy();
-    expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+    expect(view.queryByText(/failed before it could finish/i)).toBeNull();
   });
 
   it.each(["failed", "interrupted"])(
@@ -351,14 +351,18 @@ describe("AssistantTurnParts lifecycle", () => {
       view.rerender(<AssistantTurnParts />);
 
       expect(view.queryByRole("button", { name: /Working/ })).toBeNull();
-      expect(view.getByRole("button", { name: /Stopped/ })).toBeTruthy();
+      expect(
+        view.getByRole("button", {
+          name: terminal === "failed" ? /Failed/ : /Stopped/,
+        }),
+      ).toBeTruthy();
       if (terminal === "failed") {
         expect(view.container.querySelector(".text-aomi-danger")).toBeTruthy();
         expect(
-          view.getByText(/this run stopped before it could finish/i),
+          view.getByText(/this run failed before it could finish/i),
         ).toBeTruthy();
       } else {
-        expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+        expect(view.queryByText(/failed before it could finish/i)).toBeNull();
       }
     },
   );
@@ -371,11 +375,11 @@ describe("AssistantTurnParts lifecycle", () => {
     const view = render(<AssistantTurnParts />);
 
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
-  it("keeps partial text in a stopped trace beside the failed-turn fallback", () => {
+  it("keeps partial text in a failed trace beside the failed-turn fallback", () => {
     state.running = false;
     state.turnState = "failed";
     state.includeTool = false;
@@ -383,12 +387,12 @@ describe("AssistantTurnParts lifecycle", () => {
 
     const view = render(<AssistantTurnParts />);
 
-    expect(view.getByRole("button", { name: /Stopped/ })).toBeTruthy();
+    expect(view.getByRole("button", { name: /Failed/ })).toBeTruthy();
     expect(view.container.querySelector(".aui-working-trace")).toContainElement(
       view.getByText(state.answerText),
     );
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
@@ -401,7 +405,7 @@ describe("AssistantTurnParts lifecycle", () => {
 
     expect(view.queryByRole("button")).toBeNull();
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
@@ -413,7 +417,7 @@ describe("AssistantTurnParts lifecycle", () => {
     const view = render(<AssistantTurnParts />);
 
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
-    expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+    expect(view.queryByText(/failed before it could finish/i)).toBeNull();
   });
 
   it.each(["awaiting_action", "processing"])(
