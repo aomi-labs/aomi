@@ -294,17 +294,22 @@ export function AomiRuntimeCore({
         snapshot.pendingUserMessage,
         snapshot.liveMessages,
         snapshot.stoppedTurnId,
+        snapshot.terminalTurns,
       ),
     [
       snapshot.events,
       snapshot.pendingUserMessage,
       snapshot.liveMessages,
       snapshot.stoppedTurnId,
+      snapshot.terminalTurns,
     ],
   );
   const isRunning =
     snapshot.isSubmitting ||
     ((!snapshot.stoppedTurnId || snapshot.stoppedTurnId !== snapshot.turnId) &&
+      !snapshot.terminalTurns?.some(
+        (turn) => turn.turnId === snapshot.turnId,
+      ) &&
       logicalTurnRunning(
         snapshot.events,
         currentMessages,

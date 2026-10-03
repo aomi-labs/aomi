@@ -4262,7 +4262,11 @@
           },
           "stopped_turn_id": {
             "type": "string",
-            "description": "The requested interrupt turn is durably terminal; independent of page position."
+            "description": "Present only when the requested turn is durably interrupted; independent of page position."
+          },
+          "terminal_turn": {
+            "$ref": "#/components/schemas/TerminalTurn",
+            "description": "Actual terminal outcome of the requested interrupt, including completion or failure that won the race; independent of pagination."
           },
           "session_id": {
             "type": "string"
@@ -4284,6 +4288,19 @@
             "items": {
               "$ref": "#/components/schemas/CommitView"
             }
+          }
+        }
+      },
+      "TerminalTurn": {
+        "type": "object",
+        "required": ["turn_id", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "turn_id": {
+            "type": "string"
+          },
+          "state": {
+            "enum": ["complete", "failed", "interrupted"]
           }
         }
       },

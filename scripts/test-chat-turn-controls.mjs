@@ -74,6 +74,8 @@ try {
     let streamFrames = 0;
     let failNextInterrupt = false;
     let startGate;
+    let suppressedTerminalTurn;
+    const raceAcknowledgements = [];
     const streams = new Set();
     const event = (type, data) => ({
       type,
@@ -178,7 +180,8 @@ try {
           const intent = request.postDataJSON();
           records.push({ type: "start", ...intent, at: performance.now() });
           turn++;
-          thread ??= { id: intent.sessionId, events: [], state: "complete" };
+          if (thread?.id !== intent.sessionId)
+            thread = { id: intent.sessionId, events: [], state: "complete" };
           thread.currentPrompt = intent.message;
           const target = intent.regenerate ?? intent.edit;
           const selected =
@@ -228,6 +231,28 @@ try {
                   message_key: `fixture-user-${turn}`,
                 }),
               ];
+          if (!target && intent.message.startsWith("terminal race fixture ")) {
+            thread.state = "processing";
+            initial.push(
+              event("turn_state_changed", { state: "processing" }),
+              event("tool_update", {
+                id: `fixture-tool-${turn}`,
+                call_id: `fixture-call-${turn}`,
+                tool_name: "get_balance",
+                result: { status: "working", fixture: true },
+              }),
+              event("message", {
+                sender: "agent",
+                content: `Durable ${intent.message.endsWith("failed") ? "failed" : "completed"} answer fixture before Stop acknowledgment.`,
+                message_key: `fixture-race-answer-${turn}`,
+              }),
+            );
+            thread.events.push(...initial);
+            return json({
+              ...eventPage(initial),
+              started_turn_id: `fixture-turn-${turn}`,
+            });
+          }
           if (intent.message.includes("interruption fixture")) {
             thread.state = "processing";
             initial.push(event("turn_state_changed", { state: "processing" }));
@@ -322,6 +347,23 @@ try {
               503,
             );
           }
+          if (thread.currentPrompt.startsWith("terminal race fixture ")) {
+            const state = thread.currentPrompt.endsWith("failed")
+              ? "failed"
+              : "complete";
+            const cursor = String(sequence);
+            const terminal = event("turn_state_changed", { state });
+            thread.state = state;
+            thread.events.push(terminal);
+            suppressedTerminalTurn = terminal.turn_id;
+            const acknowledgment = {
+              ...eventPage([]),
+              cursor,
+              terminal_turn: { turn_id: terminal.turn_id, state },
+            };
+            raceAcknowledgements.push(acknowledgment);
+            return json(acknowledgment);
+          }
           thread.state = "interrupted";
           const terminal = event("turn_state_changed", {
             state: "interrupted",
@@ -332,13 +374,24 @@ try {
               thread.currentPrompt.includes("delayed-start") ? [] : [terminal],
             ),
             stopped_turn_id: terminal.turn_id,
+            terminal_turn: { turn_id: terminal.turn_id, state: "interrupted" },
           });
         }
         if (/^\/v1\/agent\/chat\/[^/]+$/.test(path)) {
           if (startGate) await startGate;
           const cursor = Number(url.searchParams.get("cursor") ?? 0);
           return json(
-            eventPage(thread.events.filter((entry) => entry.sequence > cursor)),
+            eventPage(
+              thread.events.filter(
+                (entry) =>
+                  entry.sequence > cursor &&
+                  !(
+                    entry.turn_id === suppressedTerminalTurn &&
+                    entry.type === "turn_state_changed" &&
+                    entry.state !== "processing"
+                  ),
+              ),
+            ),
           );
         }
         unexpected.push(`${request.method()} ${path}`);
@@ -735,6 +788,113 @@ try {
         path: `${output}/${viewport.name}-reloaded.png`,
         fullPage: true,
       });
+      const legacyInterruptRequests = interruptCount;
+      const startFreshRace = async (state) => {
+        suppressedTerminalTurn = undefined;
+        const newChat = page.getByRole("button", {
+          name: "New chat",
+          exact: true,
+        });
+        if (!(await newChat.isVisible()))
+          await page
+            .getByRole("button", { name: "Toggle Sidebar", exact: true })
+            .first()
+            .click();
+        await newChat.click();
+        if (viewport.name === "mobile") {
+          await page.keyboard.press("Escape");
+          await expect(page.getByRole("dialog")).toHaveCount(0);
+        }
+        await composer.fill(`terminal race fixture ${state}`);
+        await page
+          .getByRole("button", { name: "Send message", exact: true })
+          .click();
+        await expect(
+          page.getByText(
+            `Durable ${state === "failed" ? "failed" : "completed"} answer fixture before Stop acknowledgment.`,
+            { exact: true },
+          ),
+        ).toBeVisible();
+        const responseKey = `fixture-race-answer-${turn}`;
+        await page
+          .getByRole("button", { name: "Stop generating", exact: true })
+          .evaluate((button) => {
+            button.click();
+            button.click();
+          });
+        await expect(
+          page.getByRole("button", {
+            name: "Stopping generation",
+            exact: true,
+          }),
+        ).toBeDisabled();
+        await expect(
+          page.getByRole("button", { name: "Send message", exact: true }),
+        ).toBeVisible();
+        const acknowledgment = raceAcknowledgements.at(-1);
+        assert.equal(acknowledgment.terminal_turn.state, state);
+        assert.deepEqual(acknowledgment.events, []);
+        assert.equal(acknowledgment.stopped_turn_id, undefined);
+        return responseKey;
+      };
+      const completedResponseKey = await startFreshRace("complete");
+      await expect(page.locator(".aui-working-answer")).toHaveText(
+        "Durable completed answer fixture before Stop acknowledgment.",
+      );
+      await expect(page.locator(".aui-working-trace-header")).toContainText(
+        "Worked",
+      );
+      await expect(page.getByRole("button", { name: /^Stopped/ })).toHaveCount(
+        0,
+      );
+      const completedRerun = page.getByRole("button", {
+        name: "Rerun",
+        exact: true,
+      });
+      await expect(completedRerun).toBeVisible();
+      await page.screenshot({
+        path: `${output}/${viewport.name}-stop-completed-race.png`,
+        fullPage: true,
+      });
+      suppressedTerminalTurn = undefined;
+      await completedRerun.evaluate((button) => button.click());
+      await expect(
+        page.getByText(
+          "Regenerated answer fixture: original actions were not repeated.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      const raceRerun = records
+        .filter((entry) => entry.type === "start")
+        .at(-1);
+      assert.equal(raceRerun.regenerate, completedResponseKey);
+      assert.equal(raceRerun.message, "terminal race fixture complete");
+      await startFreshRace("failed");
+      await expect(
+        page.getByText(
+          "Durable failed answer fixture before Stop acknowledgment.",
+          {
+            exact: true,
+          },
+        ),
+      ).toBeVisible();
+      await expect(page.locator(".aui-working-trace-header")).toContainText(
+        "Failed",
+      );
+      await expect(
+        page.getByRole("button", { name: /^Stopped|^Worked/ }),
+      ).toHaveCount(0);
+      await expect(page.locator(".aui-working-answer")).toHaveCount(0);
+      await expect(
+        page.getByText("This run failed before it could finish.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page.screenshot({
+        path: `${output}/${viewport.name}-stop-failed-race.png`,
+        fullPage: true,
+      });
+      assert.equal(interruptCount - legacyInterruptRequests, 2);
       assert.deepEqual(unexpected, []);
       report.scenarios.push({
         viewport: viewport.name,
@@ -744,7 +904,13 @@ try {
         regenerationAfterEdit: "PASS",
         repeatedEditStarts: 1,
         repeatedInterruptRequests: 1,
-        totalInterruptRequests: interruptCount,
+        totalInterruptRequests: legacyInterruptRequests,
+        terminalRaceInterruptRequests: interruptCount - legacyInterruptRequests,
+        combinedInterruptRequests: interruptCount,
+        stopRacingCompletePreservesFinalAnswerAndRerun: "PASS",
+        stopRacingFailedPreservesFailure: "PASS",
+        boundedTerminalAcknowledgement:
+          "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
         thinkingOnlyStop: "PASS",
         workingToolAndStreamingStop: "PASS",
         failedInterruptRetry: "PASS",
@@ -760,6 +926,7 @@ try {
           "PASS (stopped_turn_id without terminal event)",
         interruptAcknowledgedMs: Math.round(settledMs),
         records,
+        raceAcknowledgements,
       });
     } catch (error) {
       await page

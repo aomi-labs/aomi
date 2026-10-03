@@ -37,6 +37,11 @@ export type SessionSnapshot = Readonly<{
   isStopping?: boolean;
   /** Scoped Stop ACK; the durable terminal event may arrive in a later page. */
   stoppedTurnId?: string;
+  /** Scoped terminal ACKs retained until their ordered history catches up. */
+  terminalTurns?: readonly Readonly<{
+    turnId: string;
+    state: "complete" | "failed" | "interrupted";
+  }>[];
   /**
    * Optimistic echo of the outbound message for the in-flight turn. Set the
    * moment `send`/`sendAsync` is called and cleared when the server's own

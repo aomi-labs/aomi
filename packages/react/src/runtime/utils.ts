@@ -6,6 +6,7 @@ import {
   type ChainInfo,
   type Event,
   type MessageEvent,
+  type SessionSnapshot,
   type ToolCompleteEvent,
   type ToolUpdateEvent,
   type TurnState,
@@ -501,8 +502,7 @@ export function projectAssistantMessages(
             event.message_key &&
             event.content.trim() &&
             event.is_streaming !== true &&
-            terminal?.state === "complete" &&
-            terminal.sequence > event.sequence
+            terminal?.state === "complete"
           )
             projection.responseMessageKey = event.message_key;
           upsertPart(projection, projection.textParts, key, {
@@ -552,6 +552,14 @@ export function projectAssistantMessages(
       if (!("parts" in entry)) return entry;
       const root = entry.message.id.slice("turn:".length);
       const callbackTurns = continuationTurnIds.get(root);
+      const callbackTerminalStates = Object.fromEntries(
+        (callbackTurns ?? []).flatMap((turnId) => {
+          const state = terminalTurns.get(turnId)?.state;
+          return state && ["complete", "failed", "interrupted"].includes(state)
+            ? [[turnId, state]]
+            : [];
+        }),
+      );
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
@@ -573,6 +581,9 @@ export function projectAssistantMessages(
                     : {}),
                   ...(callbackTurns
                     ? { aomiContinuationTurnIds: callbackTurns }
+                    : {}),
+                  ...(Object.keys(callbackTerminalStates).length
+                    ? { aomiContinuationTurnStates: callbackTerminalStates }
                     : {}),
                 },
               },
@@ -599,6 +610,7 @@ export function projectRuntimeMessages(
   pendingUserMessage?: string,
   liveMessages: readonly MessageEvent[] = [],
   stoppedTurnId?: string,
+  terminalTurns: SessionSnapshot["terminalTurns"] = [],
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -615,15 +627,37 @@ export function projectRuntimeMessages(
     if (index < 0) index = visible.length;
     visible.splice(index, 0, message);
   }
-  // A bounded interrupt page can acknowledge Stop before the durable terminal
-  // event reaches this cursor. Render that acknowledged state immediately;
-  // this display record never advances or mutates the canonical event ledger.
-  if (stoppedTurnId) {
+  // Scoped ACKs can precede their durable events in bounded history. Retain
+  // the actual outcome across newer turns, without changing the audit ledger.
+  const acknowledged = new Map(
+    (terminalTurns ?? []).map((turn) => [turn.turnId, turn.state]),
+  );
+  if (stoppedTurnId && !acknowledged.has(stoppedTurnId))
+    acknowledged.set(stoppedTurnId, "interrupted");
+  for (const [turnId, state] of acknowledged) {
+    const latestState = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    if (
+      latestState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(latestState.state)
+    )
+      continue;
+    const durableTerminal = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" &&
+        event.turn_id === turnId &&
+        ["complete", "failed", "interrupted"].includes(event.state),
+    );
     visible.push({
       type: "turn_state_changed",
-      event_id: `stopped:${stoppedTurnId}`,
-      turn_id: stoppedTurnId,
-      state: "interrupted",
+      event_id: `terminal-ack:${turnId}`,
+      turn_id: turnId,
+      state:
+        durableTerminal?.type === "turn_state_changed"
+          ? durableTerminal.state
+          : state,
       sequence: (visible.at(-1)?.sequence ?? 0) + 1,
       occurred_at: Date.now() / 1000,
     });

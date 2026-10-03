@@ -88,6 +88,10 @@ export class ClientSession {
   };
   private interruptOperation?: Promise<void>;
   private acknowledgedInterrupts = new Set<string>();
+  private terminalAcknowledgments = new Map<
+    string,
+    "complete" | "failed" | "interrupted"
+  >();
   private supersededTurns = new Set<string>();
   private callbackOwners = new Map<string, string>();
   private pendingUserMessage?: {
@@ -263,7 +267,24 @@ export class ClientSession {
     // or another click must join the same request. A pending start must settle
     // first so Stop never interrupts the previous turn by mistake.
     const operation = Promise.resolve().then(async () => {
-      if (submission) await submission;
+      if (submission) {
+        try {
+          await submission;
+        } catch (error) {
+          // A definitive client error rejects admission; the send path already
+          // reports it. Timeouts and uncertain network/server errors may have
+          // admitted work and must remain visible to the caller of Stop.
+          if (
+            error instanceof AgentApiError &&
+            !error.retryable &&
+            error.status >= 400 &&
+            error.status < 500 &&
+            ![408, 429].includes(error.status)
+          )
+            return;
+          throw error;
+        }
+      }
       if (this.closed || !this.turnId || this.isTerminal()) return;
       const turnId = this.turnId;
       const page = await this.client.agent.interrupt(this.sessionId, turnId);
@@ -272,48 +293,68 @@ export class ClientSession {
           "Agent response session does not match the request",
         );
       }
-      const acknowledged =
-        page.stopped_turn_id === turnId ||
-        page.events.some(
-          (event) =>
-            event.type === "turn_state_changed" &&
-            event.turn_id === turnId &&
-            TERMINAL_TURN_STATES.has(event.state),
-        );
-      if (!acknowledged && !(this.turnId === turnId && this.isTerminal())) {
+      if (
+        (page.terminal_turn && page.terminal_turn.turn_id !== turnId) ||
+        (page.stopped_turn_id && page.stopped_turn_id !== turnId)
+      ) {
+        throw new TypeError("Agent response turn does not match the request");
+      }
+      const terminalEvent = page.events.findLast(
+        (event) =>
+          event.type === "turn_state_changed" &&
+          event.turn_id === turnId &&
+          TERMINAL_TURN_STATES.has(event.state),
+      );
+      const observedState =
+        this.turnId === turnId && this.isTerminal()
+          ? this.turnState
+          : undefined;
+      // The durable terminal event wins over older stopped-only responses.
+      // Completion or failure can settle while the Stop request is in flight.
+      const terminalState =
+        terminalEvent?.type === "turn_state_changed"
+          ? terminalEvent.state
+          : (observedState ??
+            page.terminal_turn?.state ??
+            (page.stopped_turn_id === turnId ? "interrupted" : undefined));
+      if (!terminalState || !TERMINAL_TURN_STATES.has(terminalState)) {
         throw new Error("The server has not confirmed that generation stopped");
       }
-      const wasAcknowledged = this.acknowledgedInterrupts.has(turnId);
-      this.acknowledgedInterrupts.add(turnId);
+      const outcome = terminalState as "complete" | "failed" | "interrupted";
+      const priorOutcome = this.terminalAcknowledgments.get(turnId);
+      const wasInterrupted = this.acknowledgedInterrupts.has(turnId);
+      this.terminalAcknowledgments.set(turnId, outcome);
+      if (outcome === "interrupted") this.acknowledgedInterrupts.add(turnId);
+      else this.acknowledgedInterrupts.delete(turnId);
       try {
-        this.applyEventPage(page);
+        this.applyEventPage(page, this.turnId === turnId ? undefined : turnId);
       } catch (error) {
-        if (!wasAcknowledged) this.acknowledgedInterrupts.delete(turnId);
+        if (priorOutcome)
+          this.terminalAcknowledgments.set(turnId, priorOutcome);
+        else this.terminalAcknowledgments.delete(turnId);
+        if (wasInterrupted) this.acknowledgedInterrupts.add(turnId);
+        else this.acknowledgedInterrupts.delete(turnId);
         throw error;
       }
-      // A long history can paginate the terminal event behind the ACK. The
-      // scoped acknowledgment confirms this turn without fabricating an event
-      // in the durable ledger or skipping its ordered cursor.
-      if (page.stopped_turn_id === turnId) {
-        const terminalEvent = page.events.findLast(
-          (event) =>
-            event.type === "turn_state_changed" &&
-            event.turn_id === turnId &&
-            TERMINAL_TURN_STATES.has(event.state),
-        );
-        this.turnId = turnId;
-        this.turnState =
-          terminalEvent?.type === "turn_state_changed"
-            ? terminalEvent.state
-            : "interrupted";
-      }
-      // Preserve partial text, but freeze it when the server confirms Stop.
-      for (const [key, message] of this.liveMessages) {
-        if (message.turn_id === turnId) {
-          this.liveMessages.set(key, { ...message, is_streaming: false });
+      if (outcome === "interrupted") {
+        for (const [key, message] of this.liveMessages) {
+          if (message.turn_id === turnId) {
+            this.liveMessages.set(key, { ...message, is_streaming: false });
+          }
         }
       }
-      if (this.turnId === turnId && this.isTerminal()) this.finish();
+      // An older Stop response may arrive after canonical history accepted a
+      // newer turn. Keep its scoped outcome without stopping that newer stream.
+      if (this.turnId !== turnId) return;
+      this.turnState = outcome;
+      this.terminalTurnId = turnId;
+      if (outcome === "interrupted") {
+        this.finish();
+      } else {
+        // A winning completion may precede its durable final answer. Keep the
+        // normal bounded drain so that answer and its response key still land.
+        this.drainTerminalPage(page);
+      }
     });
     this.interruptOperation = operation.then(
       () => {
@@ -600,7 +641,7 @@ export class ClientSession {
     }
   }
 
-  private applyEventPage(page: EventPage): void {
+  private applyEventPage(page: EventPage, inactiveTurnId?: string): void {
     if (page.session_id !== this.sessionId) {
       throw new TypeError("Agent response session does not match the request");
     }
@@ -612,7 +653,10 @@ export class ClientSession {
         if (event.type === "action" && this.replaceActionEvent(event)) {
           this.actions.ingest(event);
           this.lastPageNewEvents += 1;
-          if (this.canOwnActiveTurn(event)) {
+          if (
+            (!inactiveTurnId || event.turn_id !== inactiveTurnId) &&
+            this.canOwnActiveTurn(event)
+          ) {
             this.turnId = event.turn_id ?? this.turnId;
           }
           continue;
@@ -630,11 +674,14 @@ export class ClientSession {
         this.storeVersion += 1;
         this.lastPageNewEvents += 1;
         this.trackCallbackOwner(event);
-        const ownsActiveTurn = this.canOwnActiveTurn(event);
+        const ownsActiveTurn =
+          (!inactiveTurnId || event.turn_id !== inactiveTurnId) &&
+          this.canOwnActiveTurn(event);
         const staleBusyState =
           event.type === "turn_state_changed" &&
           event.turn_id !== null &&
-          this.acknowledgedInterrupts.has(event.turn_id) &&
+          (this.acknowledgedInterrupts.has(event.turn_id) ||
+            this.terminalAcknowledgments.has(event.turn_id)) &&
           !TERMINAL_TURN_STATES.has(event.state);
         if (ownsActiveTurn && !staleBusyState)
           this.turnId = event.turn_id ?? this.turnId;
@@ -702,6 +749,22 @@ export class ClientSession {
           case "turn_state_changed":
             if (!ownsActiveTurn || staleBusyState) break;
             this.turnState = event.state;
+            if (
+              this.terminalAcknowledgments.has(event.turn_id ?? "") &&
+              TERMINAL_TURN_STATES.has(event.state)
+            ) {
+              this.terminalAcknowledgments.set(
+                event.turn_id!,
+                event.state as "complete" | "failed" | "interrupted",
+              );
+            }
+            if (
+              event.state !== "interrupted" &&
+              TERMINAL_TURN_STATES.has(event.state) &&
+              event.turn_id
+            ) {
+              this.acknowledgedInterrupts.delete(event.turn_id);
+            }
             if (event.state === "interrupted" && event.turn_id) {
               this.acknowledgedInterrupts.add(event.turn_id);
             }
@@ -1033,14 +1096,13 @@ export class ClientSession {
       (event) =>
         event.type === "message" &&
         event.turn_id === turnId &&
-        latestState !== undefined &&
-        event.sequence < latestState.sequence &&
         this.isCallbackResponse(event) &&
         event.content.trim().length > 0,
     );
     return (
-      latestState?.type === "turn_state_changed" &&
-      latestState.state === "complete" &&
+      ((latestState?.type === "turn_state_changed" &&
+        latestState.state === "complete") ||
+        this.terminalAcknowledgments.get(turnId) === "complete") &&
       hasAnswer
     );
   }
@@ -1160,6 +1222,10 @@ export class ClientSession {
       isStreaming: this.streamingActive,
       isSubmitting: this.isSubmitting,
       isStopping: Boolean(this.interruptOperation),
+      terminalTurns: Array.from(
+        this.terminalAcknowledgments,
+        ([turnId, state]) => ({ turnId, state }),
+      ),
       ...(!this.isSubmitting &&
       !this.pendingUserMessage &&
       this.turnId &&

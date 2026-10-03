@@ -28,13 +28,20 @@ events cannot become active again. The backend disables tools during branch
 generation so signed or completed actions are not repeated.
 
 Stop publishes `isStopping` immediately and deduplicates concurrent requests.
-The control stays an icon-only button and becomes disabled while streaming continues until
-acknowledgement. `started_turn_id` and `stopped_turn_id` identify accepted starts
-and stops independently of bounded event pages, preserving the ordered cursor.
-An acknowledged Stop freezes partial text and restores the composer. A failure
-keeps streaming available and shows a retry message. Backend cancellation
-signals the provider before runtime lock cleanup; transaction receipts remain
-durable.
+The control stays an icon-only button and becomes disabled while streaming
+continues until acknowledgement. `started_turn_id` identifies an accepted start.
+Interrupt responses carry `terminal_turn` with the requested turn's actual
+`complete`, `failed`, or `interrupted` outcome, independently of bounded event
+pages. `stopped_turn_id` is present only for an interrupted turn. These
+acknowledgements preserve the ordered cursor and do not fabricate ledger events.
+
+An interrupted outcome freezes partial text and restores the composer. If
+completion or failure wins the race with Stop, its answer and terminal status
+remain intact, and a completed answer retains its Rerun identity. The client
+drains remaining result pages and keeps scoped terminal acknowledgements until
+durable history catches up. A rejected interruption keeps streaming available
+and shows a retry message. Backend cancellation targets the requested provider
+turn before runtime lock cleanup; transaction receipts remain durable.
 
 Run `node scripts/test-chat-turn-controls.mjs` against a running local Portal,
 using `LOCAL_PORTAL_URL` when its origin differs from `http://localhost:3000`.
@@ -43,7 +50,8 @@ memory budget, `--harness` starts the source widget in a small Vite host. This
 mounts the same `AomiFrame`, Thread, runtime, and SDK; its visible disclosure
 identifies fixture data and the unverified Portal host integration.
 The runner exercises desktop and mobile controls, partial HTTP SSE output,
-repeated clicks, cancellation failure/retry, early Stop, and reload persistence.
+repeated clicks, cancellation failure/retry, early Stop, reload persistence, and
+Stop racing with completed or failed answers behind bounded history.
 It writes screenshots and a JSON timing report to `artifacts/issue-696` (or
 `CHAT_CONTROLS_ARTIFACTS`). Identity, REST responses, and model output are
 synthetic fixtures; these results do not establish hosted authentication,
