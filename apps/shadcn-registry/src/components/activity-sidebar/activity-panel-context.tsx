@@ -11,6 +11,13 @@ import {
   type ReactNode,
 } from "react";
 
+/** Phones get the activity bottom sheet; wider viewports keep the rail. */
+export const PHONE_QUERY = "(max-width: 639px)";
+
+const isPhone = () =>
+  typeof window !== "undefined" &&
+  Boolean(window.matchMedia?.(PHONE_QUERY).matches);
+
 type ActivityPanelContextValue = {
   worthShowing: boolean;
   reviewing: boolean;
@@ -47,7 +54,9 @@ export const ActivityPanelProvider: FC<{ children: ReactNode }> = ({
           ? current
           : { worthShowing, reviewing },
       );
-      if (becameWorthShowing) setOpen(true);
+      // Desktop opens the rail with the first activity. A phone waits for the
+      // header button, or for a wallet request (see ActivitySidebar).
+      if (becameWorthShowing && !isPhone()) setOpen(true);
       else if (!worthShowing) setOpen(false);
     },
     [],
