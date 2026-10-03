@@ -97,7 +97,9 @@ jobs:
         run: pnpm --filter @aomi-labs/account pack --pack-destination /tmp/aomi-account-pack
 
       - name: Run workspace tests and committed OpenAPI contract
-        run: pnpm exec vitest run
+        run: |
+          pnpm exec vitest run
+          pnpm --filter @aomi-labs/widget-lib exec vitest run --config vitest.config.ts src/components/assistant-ui/onchain-link.test.tsx
 
   consumer-compat:
     name: Consumer compatibility · packed SDK and widget
