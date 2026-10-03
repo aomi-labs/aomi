@@ -693,8 +693,10 @@ export function AllowanceSettlementSection({
                     )} monthly allowance.`
                   : `Compute fully covered by your allowance (${usd(
                       payment.allowanceAppliedUsd,
-                    )} applied).`}{" "}
-                On-chain fees {payment.onchainNote}.
+                    )} applied).`}
+                {payment.onchainNote.trim() && (
+                  <> On-chain fees {payment.onchainNote.trim()}.</>
+                )}
               </span>
             </div>
           </>

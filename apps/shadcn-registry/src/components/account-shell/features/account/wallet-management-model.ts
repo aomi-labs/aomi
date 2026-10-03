@@ -1,5 +1,9 @@
 import type { LinkedAuthAccount } from "../../../../lib/wallet-kit/account/types";
 import type { WalletRow } from "../../../../lib/wallet-kit/composer/wallet-state";
+export {
+  accountDisplayName,
+  providerEmailDisplayHint,
+} from "../../../../lib/wallet-kit/account/display";
 import type { WalletPolicy } from "./types";
 
 export type ManagedWallet = WalletRow & {
@@ -33,6 +37,7 @@ export function visibleSignInMethods(
   return accounts.filter(
     (account) =>
       account.provider !== "better_auth" &&
+      account.provider !== "email" &&
       account.provider !== "wallet" &&
       account.provider !== "siwe" &&
       account.provider !== "siws",

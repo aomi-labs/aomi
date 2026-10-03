@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   ChartNoAxesCombined,
   Settings2,
@@ -38,13 +38,13 @@ const NAV: {
   {
     id: "account",
     label: "Account",
-    description: "Wallets, sign-in methods, and signing",
+    description: "Wallets and sign-in methods",
     Icon: UserRound,
   },
   {
     id: "policy",
     label: "Policy",
-    description: "On-chain permissions for delegated agents",
+    description: "Wallet signing and on-chain permissions",
     Icon: ShieldCheck,
   },
   {
@@ -150,6 +150,11 @@ export function SettingsModal({
   );
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
+  const hadSession = useRef(status === "ready");
+  useEffect(() => {
+    if (status === "ready") hadSession.current = true;
+    else if (status === "anonymous" && hadSession.current) onClose();
+  }, [status, onClose]);
   const activeNav = NAV.find((item) => item.id === tab) ?? NAV[0];
 
   const renderContent = () => {
@@ -199,7 +204,7 @@ export function SettingsModal({
         return (
           <>
             {errorBanner}
-            <AccountSettings />
+            <AccountSettings onClose={onClose} />
           </>
         );
       case "usage":

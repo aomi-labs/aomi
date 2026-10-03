@@ -259,7 +259,7 @@ export function AccountMenu({
                   <span className="border-aomi-border flex size-[22px] items-center justify-center rounded-full border">
                     <PlusIcon size={12} />
                   </span>
-                  Add wallet
+                  Add more
                 </button>
               ) : null}
             </div>

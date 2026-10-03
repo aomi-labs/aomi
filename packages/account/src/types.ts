@@ -54,6 +54,7 @@ export type DbAomiAuthIdentity = {
   email: string | null;
   displayLabel: string | null;
   providerMetadata: Record<string, unknown>;
+  verifiedAt?: Date | null;
   linkedAt: Date;
   lastSeenAt: Date;
   revokedAt: Date | null;

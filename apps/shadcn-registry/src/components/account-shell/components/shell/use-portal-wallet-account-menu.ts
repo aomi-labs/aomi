@@ -11,6 +11,10 @@ import {
 } from "../../lib/account-overview";
 import { useShellTransport } from "../../transport";
 import { useSettings } from "../../lib/use-settings";
+import {
+  accountDisplayName,
+  providerEmailDisplayHint,
+} from "../../features/account/wallet-management-model";
 
 /**
  * Shared Portal and widget account menu config for the sidebar wallet chip.
@@ -34,6 +38,9 @@ export function usePortalWalletAccountMenu(
   const { accounts, accountGuest, accountUser, accountError, identity } =
     adapter;
   const activeAccount = accounts.find((account) => account.active);
+  const displayEmailHint = accountUser
+    ? providerEmailDisplayHint(identity, adapter.accountLinkedAccounts ?? [])
+    : undefined;
 
   useEffect(() => {
     if (!accountUser || accountGuest) {
@@ -82,8 +89,7 @@ export function usePortalWalletAccountMenu(
 
     return {
       enabled: true,
-      primaryLine:
-        accountUser.displayName ?? accountUser.email ?? "Aomi account",
+      primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
@@ -112,6 +118,7 @@ export function usePortalWalletAccountMenu(
     accountError,
     accountGuest,
     accountUser,
+    displayEmailHint,
     activeAccount?.walletName,
     identity.chainId,
     identity.svmCluster,

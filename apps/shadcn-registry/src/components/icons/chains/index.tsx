@@ -48,6 +48,32 @@ export function BaseIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function BaseSepoliaIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      {...props}
+    >
+      <g dangerouslySetInnerHTML={{ __html: BaseIconMarkup }} />
+      <circle cx="18" cy="6" r="3.5" fill="var(--aomi-raised, white)" />
+      <circle cx="18" cy="6" r="3.5" stroke="currentColor" strokeWidth="1" />
+      <text
+        x="18"
+        y="7.5"
+        textAnchor="middle"
+        fontSize="5"
+        fontWeight="bold"
+        fill="currentColor"
+      >
+        T
+      </text>
+    </svg>
+  );
+}
+
 const EthereumIconMarkup =
   '<path d="M12 3L6.375 12.1667L12 15.4301L17.625 12.1667L12 3Z" fill="currentColor"/><path d="M12 16.4778L6.375 13.2157L12 21L17.625 13.2157L12 16.4778Z" fill="currentColor" opacity="0.62"/><path d="M12 3V9.6516L17.625 12.1667L12 3Z" fill="currentColor" opacity="0.42"/><path d="M12 9.6516V15.4301L6.375 12.1667L12 9.6516Z" fill="currentColor" opacity="0.28"/>';
 

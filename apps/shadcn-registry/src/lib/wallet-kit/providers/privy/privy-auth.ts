@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useIdentityToken,
   usePrivy,
   useSignTransaction,
   useWallets,
@@ -16,7 +17,6 @@ import type { AuthMethodId } from "../../config/types";
 export type PrivyHook = ReturnType<typeof usePrivy>;
 export type PrivyAccessTokenHook = PrivyHook & {
   getAccessToken?: () => Promise<string | null>;
-  getIdentityToken?: () => Promise<string | null>;
 };
 export type SmartWalletsHook = ReturnType<typeof useSmartWallets>;
 export type SolanaWalletsHook = ReturnType<typeof useSolanaWallets>;
@@ -41,7 +41,6 @@ const DISCONNECTED_PRIVY: PrivyAccessTokenHook = {
   login: async () => undefined,
   logout: async () => undefined,
   getAccessToken: async () => null,
-  getIdentityToken: async () => null,
 } as unknown as PrivyAccessTokenHook;
 
 const DISCONNECTED_SMART_WALLETS: SmartWalletsHook = {
@@ -86,6 +85,14 @@ export function useSafePrivy(): PrivyAccessTokenHook {
     return usePrivy() as PrivyAccessTokenHook;
   } catch {
     return DISCONNECTED_PRIVY;
+  }
+}
+
+export function useSafePrivyIdentityToken(): string | null {
+  try {
+    return useIdentityToken().identityToken;
+  } catch {
+    return null;
   }
 }
 

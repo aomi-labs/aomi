@@ -7,11 +7,10 @@ import {
   requestWalletPickerOpen,
   WalletSignInOptionsContext,
 } from "../../../control-bar/wallet-picker-context";
-import { AccountSigningView } from "./account-signing";
 import { AccountManagement, type AddSignInOption } from "./account-management";
 import { useAccountAcl } from "./use-account-acl";
 import {
-  isProviderSigningWallet,
+  providerEmailDisplayHint,
   visibleSignInMethods,
   type ManagedWallet,
 } from "./wallet-management-model";
@@ -19,7 +18,7 @@ import { walletKey } from "../../../../lib/wallet-kit/wallet-utils";
 import { resolveWalletBrandKey } from "./wallet-brands";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
-export function AccountSettings() {
+export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const adapter = useAomiWalletKit();
   const providerOptions = useContext(WalletSignInOptionsContext);
   const acl = useAccountAcl();
@@ -42,10 +41,12 @@ export function AccountSettings() {
     () => visibleSignInMethods(adapter.accountLinkedAccounts ?? []),
     [adapter.accountLinkedAccounts],
   );
-  const providerWallets = useMemo(
-    () => acl.wallets.filter(isProviderSigningWallet),
-    [acl.wallets],
-  );
+  const displayEmailHint = adapter.accountUser
+    ? providerEmailDisplayHint(
+        adapter.identity,
+        adapter.accountLinkedAccounts ?? [],
+      )
+    : undefined;
   const addSignInOptions = useMemo<AddSignInOption[]>(
     () =>
       (providerOptions.length
@@ -63,16 +64,18 @@ export function AccountSettings() {
     key: string,
     action: () => Promise<void>,
     refresh = true,
-  ) => {
+  ): Promise<boolean> => {
     setPending(key);
     setActionError(null);
     try {
       await action();
       if (refresh) await acl.refresh();
+      return true;
     } catch (cause) {
       setActionError(
         cause instanceof Error ? cause.message : "Something went wrong.",
       );
+      return false;
     } finally {
       setPending(null);
     }
@@ -176,6 +179,7 @@ export function AccountSettings() {
     <div className="flex flex-col">
       <AccountManagement
         user={adapter.accountUser}
+        displayEmailHint={displayEmailHint}
         wallets={wallets}
         signInMethods={signInMethods}
         canAddWallet
@@ -184,15 +188,16 @@ export function AccountSettings() {
         error={actionError ?? (acl.status === "error" ? acl.error : null)}
         onRenameAccount={
           adapter.updateAccount
-            ? async (displayName) =>
-                run("account:rename", () =>
+            ? async (displayName) => {
+                await run("account:rename", () =>
                   adapter.updateAccount!({ displayName: displayName || null }),
-                )
+                );
+              }
             : undefined
         }
         onAddWallet={requestWalletPickerOpen}
-        onAddSignIn={async (option) =>
-          run(`add-sign-in:${option.id}`, async () => {
+        onAddSignIn={async (option) => {
+          await run(`add-sign-in:${option.id}`, async () => {
             const provider = providerOptions.find(
               (provider) => provider.id === option.id,
             );
@@ -205,8 +210,8 @@ export function AccountSettings() {
               return;
             }
             await adapter.connect();
-          })
-        }
+          });
+        }}
         onLinkWallet={linkWallet}
         onConnectWallet={connectWallet}
         onSelectWallet={async (wallet) => {
@@ -217,14 +222,15 @@ export function AccountSettings() {
         }}
         onDisconnectWallet={
           adapter.disconnect
-            ? async (wallet) =>
-                run(`disconnect:${wallet.key}`, () =>
+            ? async (wallet) => {
+                await run(`disconnect:${wallet.key}`, () =>
                   adapter.disconnect!(
                     wallet.family === "evm" && wallet.connectionId
                       ? { accountId: wallet.connectionId }
                       : { family: wallet.family },
                   ),
-                )
+                );
+              }
             : undefined
         }
         onUnlinkWallet={adapter.unlinkLinkedWallet ? unlinkWallet : undefined}
@@ -240,9 +246,16 @@ export function AccountSettings() {
               }
             : undefined
         }
-        onSignOut={async () =>
-          run("account:signout", () => signOutAndDisconnect(adapter), false)
-        }
+        onSignOut={async () => {
+          if (
+            await run(
+              "account:signout",
+              () => signOutAndDisconnect(adapter),
+              false,
+            )
+          )
+            onClose?.();
+        }}
         onDeleteAccount={
           adapter.deleteAccount
             ? async () => {
@@ -253,40 +266,21 @@ export function AccountSettings() {
                 ) {
                   return;
                 }
+                let deleted = false;
                 await run(
                   "account:delete",
                   async () => {
                     await adapter.deleteAccount!();
+                    deleted = true;
                     await adapter.disconnect?.({ family: "all" });
                   },
                   false,
                 );
+                if (deleted) onClose?.();
               }
             : undefined
         }
       />
-
-      {acl.status === "loading" ? (
-        <p className="text-aomi-muted mx-auto w-full max-w-[780px] px-6 pb-6 text-[12px]">
-          Loading provider signing settings…
-        </p>
-      ) : providerWallets.length ? (
-        <div className="border-aomi-border border-t">
-          <AccountSigningView
-            wallets={providerWallets}
-            delegatedAccounts={acl.delegatedAccounts}
-            onCommit={acl.commitMode}
-            onPrepare={acl.prepareMode}
-            onSelectWallet={acl.selectWallet}
-            onRevokeDelegation={acl.revokeDelegation}
-            onStopAllAuto={acl.stopAllAuto}
-            canConnectPrivy={acl.canConnectPrivy}
-            onConnectPrivy={acl.connectPrivy}
-            onRenewDelegation={acl.renewDelegation}
-            blockedReason={acl.blockedReason}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

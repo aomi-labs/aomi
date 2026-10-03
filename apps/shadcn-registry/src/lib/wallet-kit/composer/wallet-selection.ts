@@ -1,8 +1,29 @@
 import type { WalletFamily } from "../types";
+import { walletKey } from "../wallet-utils";
 
 const STORAGE_PREFIX = "aomi.wallet.operating.v1";
 
 export type WalletSelection = Partial<Record<WalletFamily, string>>;
+
+export function selectedWalletKeys(
+  stored: WalletSelection,
+  active: Partial<Record<WalletFamily, { address: string }>>,
+  linked?: readonly { family: WalletFamily; address: string }[],
+): WalletSelection {
+  const selection: WalletSelection = linked ? { ...stored } : {};
+  for (const family of ["evm", "svm"] as const) {
+    const current = active[family];
+    if (!current) continue;
+    const key = walletKey(family, current.address);
+    if (
+      !linked ||
+      linked.some((wallet) => walletKey(wallet.family, wallet.address) === key)
+    ) {
+      selection[family] = key;
+    }
+  }
+  return selection;
+}
 
 export type WalletSelectionStorage = Pick<
   Storage,

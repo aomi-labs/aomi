@@ -187,7 +187,7 @@ describe("DualWalletBar account menu", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Quick switch wallet" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Add wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
 
     expect(openPicker).toHaveBeenCalledTimes(1);
     expect(
@@ -216,9 +216,9 @@ describe("DualWalletBar account menu", () => {
 
     expect(screen.getByText("Alice")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
-    expect(
-      screen.getByRole("menu", { name: "Account menu" }),
-    ).toBeInTheDocument();
+    const accountMenu = screen.getByRole("menu", { name: "Account menu" });
+    expect(accountMenu).toBeInTheDocument();
+    expect(accountMenu).toHaveTextContent("Alice");
     expect(openPicker).not.toHaveBeenCalled();
   });
 
@@ -398,8 +398,8 @@ describe("DualWalletBar account menu", () => {
 });
 
 it("keeps the account menu available without wallet picker rows", () => {
-  const rows = adapterState.current.walletModalRows;
-  adapterState.current.walletModalRows = [];
+  const rows = adapterState.current.wallets;
+  adapterState.current.wallets = [];
   const onManageAccount = vi.fn();
   try {
     render(<ConnectButton accountMenu={{ enabled: true, onManageAccount }} />);
@@ -408,6 +408,6 @@ it("keeps the account menu available without wallet picker rows", () => {
     expect(onManageAccount).toHaveBeenCalledOnce();
     expect(openPicker).not.toHaveBeenCalled();
   } finally {
-    adapterState.current.walletModalRows = rows;
+    adapterState.current.wallets = rows;
   }
 });

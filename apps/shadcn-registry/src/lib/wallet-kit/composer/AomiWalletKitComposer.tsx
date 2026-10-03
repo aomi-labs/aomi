@@ -15,6 +15,7 @@ import { resolveWalletState } from "./wallet-state";
 import {
   browserWalletSelectionStorage,
   readWalletSelection,
+  selectedWalletKeys,
   writeWalletSelection,
 } from "./wallet-selection";
 import { walletKey } from "../wallet-utils";
@@ -88,15 +89,15 @@ export function AomiWalletKitComposer({
       }),
     [account.wallets, canManageAccount, evm, svm, transformAccounts],
   );
-  const selection = useMemo(() => {
-    if (accountId) return storedSelection;
-    const selected: typeof storedSelection = {};
-    for (const family of ["evm", "svm"] as const) {
-      const active = registryState.activeByFamily[family];
-      if (active) selected[family] = walletKey(family, active.address);
-    }
-    return selected;
-  }, [accountId, registryState.activeByFamily, storedSelection]);
+  const selection = useMemo(
+    () =>
+      selectedWalletKeys(
+        storedSelection,
+        registryState.activeByFamily,
+        accountId ? account.wallets : undefined,
+      ),
+    [account.wallets, accountId, registryState.activeByFamily, storedSelection],
+  );
   const mountedProviders = useMemo(
     () =>
       [...new Set([auth.provider, auth.sessionProvider, auth.embeddedProvider])]
@@ -113,10 +114,21 @@ export function AomiWalletKitComposer({
             : account.user
               ? {
                   id: account.user.id,
-                  status: account.status === "ready" ? "ready" : "loading",
+                  status:
+                    account.status === "ready"
+                      ? "ready"
+                      : account.status === "error"
+                        ? "error"
+                        : "loading",
                 }
               : auth.status === "authenticated"
-                ? { id: "pending", status: "loading" }
+                ? {
+                    id: "pending",
+                    status:
+                      account.status === "error"
+                        ? ("error" as const)
+                        : ("loading" as const),
+                  }
                 : null,
         linked: account.wallets
           .filter((wallet) => wallet.kind !== "smart_account")
@@ -149,8 +161,15 @@ export function AomiWalletKitComposer({
               connection.walletKind !== "embedded" ||
               execution.canSignFor?.(connection.family, connection.address) ===
                 true,
+            signerSelectable:
+              connection.walletKind === "embedded" &&
+              execution.canSelectFor?.(
+                connection.family,
+                connection.address,
+              ) === true,
           })),
         mountedProviders,
+        providerSettled: execution.providerSettled,
         selection,
       }),
     [
@@ -174,7 +193,10 @@ export function AomiWalletKitComposer({
       changed = true;
     }
     for (const family of ["evm", "svm"] as const) {
-      if (!storedSelection[family] && walletState.operating[family]) {
+      if (
+        walletState.operating[family] &&
+        storedSelection[family] !== walletState.operating[family]
+      ) {
         writeWalletSelection(
           selectionStorage,
           accountId,
@@ -283,6 +305,7 @@ export function AomiWalletKitComposer({
       wallets: walletState.wallets,
       accountStatus: account.status,
       accountError: account.error,
+      accountConflict: account.conflict,
       accountGuest: account.guest,
       // Temporary Better Auth guests are a transport principal, never an
       // account-management principal. Keep that boundary at the adapter too,
@@ -363,6 +386,7 @@ export function AomiWalletKitComposer({
     account.linkedAccounts,
     account.status,
     account.error,
+    account.conflict,
     account.guest,
     account.deleteAccount,
     account.updateAccount,

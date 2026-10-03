@@ -8,7 +8,7 @@ import {
 import type { AuthRuntime, SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import { brandDisplayName } from "../runtime/evm/brands";
-import type { AccountRuntime, AccountWallet } from "./types";
+import type { AccountConflict, AccountRuntime, AccountWallet } from "./types";
 import type { AomiAccount, SvmCluster, WalletFamily } from "../types";
 import {
   AomiAccountRequestError,
@@ -91,6 +91,9 @@ export function useAomiBackendAccountRuntime(input: {
   );
   const [errorVersion, setErrorVersion] = useState(0);
   const [accountError, setAccountError] = useState<string | undefined>();
+  const [accountConflict, setAccountConflict] = useState<
+    AccountConflict | undefined
+  >();
   const refreshContextKey = JSON.stringify([
     input.enabled,
     input.widgetAuth?.mode ?? "native",
@@ -202,6 +205,7 @@ export function useAomiBackendAccountRuntime(input: {
       providerSessionAttempted.current = null;
       credentialFailed.current = null;
       setAccountError(undefined);
+      setAccountConflict(undefined);
     }
   }, [input.auth.status, input.auth.subject]);
 
@@ -322,6 +326,7 @@ export function useAomiBackendAccountRuntime(input: {
       if (!hasAccount) accountCreateInFlight.current = attemptKey;
       try {
         setAccountError(undefined);
+        setAccountConflict(undefined);
         // Provider sign-in is an account transition, not a link operation on
         // the disposable guest. Revoke the guest cookie before the Better Auth
         // provider endpoint establishes the durable session.
@@ -341,7 +346,13 @@ export function useAomiBackendAccountRuntime(input: {
           error.code === "already_linked_to_another_account"
         ) {
           setAccountError(error.message);
+          setAccountConflict({
+            code: "already_linked_to_another_account",
+            signalType: error.signalType,
+            provider: input.auth.provider,
+          });
         } else {
+          setAccountConflict(undefined);
           setAccountError(
             "Your wallet is connected, but Aomi sign-in failed. Try signing in again.",
           );
@@ -406,6 +417,7 @@ export function useAomiBackendAccountRuntime(input: {
   return {
     status: input.enabled ? status : "disabled",
     error: accountError,
+    conflict: accountConflict,
     guest: account?.guest === true,
     user: account?.guest ? undefined : (account?.user ?? undefined),
     linkedAccounts: account?.guest ? [] : (account?.linkedAccounts ?? []),
@@ -437,6 +449,7 @@ export function useAomiBackendAccountRuntime(input: {
       providerSessionAttempted.current = null;
       credentialFailed.current = null;
       setAccountError(undefined);
+      setAccountConflict(undefined);
       // Cookie sessions sign out through Better Auth. Widget sessions own
       // their canonical revocation and provider teardown, avoiding a second
       // revocation through the retired compatibility facade.
@@ -472,6 +485,7 @@ export function useAomiBackendAccountRuntime(input: {
       providerSessionAttempted.current = null;
       credentialFailed.current = null;
       setAccountError(undefined);
+      setAccountConflict(undefined);
       // Mirror signOut: revoke the widget session too so the just-deleted
       // account's cached WST can't be replayed or silently re-minted on a
       // force-refresh. Always run the widget teardown even if delete throws.

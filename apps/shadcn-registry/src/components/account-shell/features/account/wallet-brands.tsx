@@ -6,6 +6,7 @@
  */
 
 import { Wallet as WalletIcon } from "lucide-react";
+import { PrivyWalletIcon } from "../../../icons/wallets";
 import { markup, type BrandProps } from "./brand-mark";
 
 export const MetaMaskMark = markup(
@@ -38,11 +39,17 @@ export const ParaMark = markup(
   "#FF4E1B",
 );
 
-export const PrivyMark = markup(
-  "0 0 24 24",
-  '<rect x="4" y="4" width="7" height="7" rx="2" fill="currentColor"/><rect x="13" y="4" width="7" height="7" rx="2" fill="currentColor" opacity="0.88"/><rect x="4" y="13" width="7" height="7" rx="2" fill="currentColor" opacity="0.88"/>',
-  "#FF775F",
-);
+export function PrivyMark({ size = 14, style, ...props }: BrandProps) {
+  return (
+    <PrivyWalletIcon
+      width={size}
+      height={size}
+      className="shrink-0"
+      style={{ color: "#FF775F", ...style }}
+      {...props}
+    />
+  );
+}
 
 export function PhantomMark({ size = 16, ...props }: BrandProps) {
   return (

@@ -113,6 +113,8 @@ export type SvmExecutionRuntime = ReturnType<typeof buildSvmTransactionMethods>;
 export type ExecutionRuntime = {
   evm: EvmExecutionRuntime;
   canSignFor?: (family: "evm" | "svm", address: string) => boolean;
+  canSelectFor?: (family: "evm" | "svm", address: string) => boolean;
+  providerSettled?: (family: "evm" | "svm", provider: string) => boolean;
 };
 
 export type AccountTransform = (accounts: AomiAccount[]) => AomiAccount[];

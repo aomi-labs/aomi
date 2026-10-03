@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 
 import { AccountSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-settings";
+import { ProviderPolicySettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/provider-policy-settings";
 import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
 import type { WalletRow } from "../../../../shadcn-registry/src/lib/wallet-kit/composer/wallet-state";
@@ -21,6 +22,9 @@ const PRIVY_SVM = "8xKnQm4kZ7wRt2YbNc5vHj3PqLsDgFxA6eU9QpS1TzWv";
 const walletKit = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   connectSocial: vi.fn(async () => undefined),
+  signOutAccount: vi.fn(async () => undefined),
+  deleteAccount: vi.fn(async () => undefined),
+  disconnect: vi.fn(async () => undefined),
   signTypedData: vi.fn(async () => ({ signature: "0xsignature" })),
   signSolanaMessage: vi.fn(async () => ({ signature: "c2ln" })),
   openAccountUI: vi.fn(async () => undefined),
@@ -202,6 +206,7 @@ function installFetchRecorder(overrides: Record<string, () => Response> = {}) {
 async function renderAcl(
   connectProvider?: () => Promise<void>,
   provider = "para",
+  account = Boolean(connectProvider),
 ) {
   await act(async () => {
     render(
@@ -220,7 +225,7 @@ async function renderAcl(
             : []
         }
       >
-        <AccountSettings />
+        {account ? <AccountSettings /> : <ProviderPolicySettings />}
       </WalletSignInOptionsContext.Provider>,
     );
   });
@@ -234,8 +239,11 @@ const click = async (el: HTMLElement) => {
 };
 
 const findWalletRow = async () =>
-  (await screen.findAllByText(/0x71c7…976f/i)).at(-1)!;
-const findPrivyRow = async () => (await screen.findAllByText("Privy")).at(-1)!;
+  screen.findByRole("button", {
+    name: `Configure ${CONNECTED_EVM.toLowerCase()}`,
+  });
+const findPrivyRow = async () =>
+  screen.findByRole("button", { name: `Configure ${PRIVY_SVM}` });
 
 const paths = (calls: FetchCall[]) =>
   calls.map(
@@ -253,6 +261,9 @@ describe("account ACL wiring", () => {
   beforeEach(() => {
     walletKit.connect.mockClear();
     walletKit.connectSocial.mockClear();
+    walletKit.signOutAccount.mockClear();
+    walletKit.deleteAccount.mockClear();
+    walletKit.disconnect.mockClear();
     walletKit.identity = {
       address: CONNECTED_EVM,
       svmAddress: PRIVY_SVM,
@@ -278,12 +289,53 @@ describe("account ACL wiring", () => {
     seedAccountOverview(null);
   });
 
+  it("closes account settings after signing out", async () => {
+    installFetchRecorder();
+    const onClose = vi.fn();
+    await act(async () => render(<AccountSettings onClose={onClose} />));
+
+    await click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(walletKit.signOutAccount).toHaveBeenCalledOnce();
+    expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("closes after deleting the account but stays open if deletion fails", async () => {
+    installFetchRecorder();
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    const onClose = vi.fn();
+    walletKit.deleteAccount.mockRejectedValueOnce(new Error("Delete failed"));
+    await act(async () => render(<AccountSettings onClose={onClose} />));
+
+    await click(screen.getByRole("button", { name: "Delete" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Delete failed");
+
+    await click(screen.getByRole("button", { name: "Delete" }));
+    expect(walletKit.deleteAccount).toHaveBeenCalledTimes(2);
+    expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it.each(["evm", "svm"])(
     "reviews the unsigned %s payload before requesting a signature",
     async (chain) => {
       const { calls } = installFetchRecorder(
         chain === "svm"
           ? {
+              "/api/account": () =>
+                Response.json({
+                  ...ACCOUNT,
+                  signing_policies: ACCOUNT.signing_policies.map((policy) =>
+                    policy.address.chain === "svm"
+                      ? { ...policy, mode: "manual" }
+                      : policy,
+                  ),
+                }),
               "/api/account/authorization/challenge": () =>
                 Response.json({
                   permit: {
@@ -341,6 +393,15 @@ describe("account ACL wiring", () => {
   it("authorizes a connected Para Solana wallet without an extension signer", async () => {
     walletKit.signSolanaMessage.mockClear();
     const { calls } = installFetchRecorder({
+      "/api/account": () =>
+        Response.json({
+          ...ACCOUNT,
+          signing_policies: ACCOUNT.signing_policies.map((policy) =>
+            policy.address.chain === "svm"
+              ? { ...policy, mode: "manual" }
+              : policy,
+          ),
+        }),
       "/api/account/authorization/challenge": () =>
         Response.json({
           permit: { wallet: PRIVY_SVM },
@@ -374,6 +435,15 @@ describe("account ACL wiring", () => {
       const { calls } = installFetchRecorder(
         chain === "svm"
           ? {
+              "/api/account": () =>
+                Response.json({
+                  ...ACCOUNT,
+                  signing_policies: ACCOUNT.signing_policies.map((policy) =>
+                    policy.address.chain === "svm"
+                      ? { ...policy, mode: "manual" }
+                      : policy,
+                  ),
+                }),
               "/api/account/authorization/challenge": () =>
                 Response.json({
                   permit: { wallet: PRIVY_SVM },
@@ -438,7 +508,10 @@ describe("account ACL wiring", () => {
           }),
       });
       await renderAcl(chooseProvider, provider);
-      await click(screen.getByRole("button", { name: "Connect", exact: true }));
+      await click(screen.getByRole("button", { name: /^Actions for/ }));
+      await click(
+        screen.getByRole("menuitem", { name: "Connect", exact: true }),
+      );
       expect(chooseProvider).toHaveBeenCalledOnce();
       expect(walletKit.connect).not.toHaveBeenCalled();
       expect(walletKit.connectSocial).not.toHaveBeenCalled();
@@ -454,9 +527,10 @@ describe("account ACL wiring", () => {
     expect(paths(calls).filter((path) => path === "/api/account")).toHaveLength(
       1,
     );
-    // Privy provenance + live delegation render inside the expanded row.
-    await click(await findPrivyRow());
-    expect(screen.getByText(/Privy · Session delegation/)).toBeTruthy();
+    await click(screen.getByRole("button", { name: "Manage" }));
+    expect(
+      screen.getByRole("button", { name: "Revoke delegation" }),
+    ).toBeTruthy();
   });
 
   it("offers server auto from current delegated capability, not the saved mode", async () => {
@@ -471,12 +545,8 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await findPrivyRow());
-
     expect(
-      screen
-        .getByRole("button", { name: /Auto(?!-approve)/ })
-        .hasAttribute("disabled"),
+      screen.getByRole("button", { name: "Set up" }).hasAttribute("disabled"),
     ).toBe(false);
   });
 
@@ -484,7 +554,7 @@ describe("account ACL wiring", () => {
     runtime.setUser.mockClear();
     const { calls } = installFetchRecorder();
     await renderAcl();
-    await click(await findPrivyRow());
+    await click(screen.getByRole("button", { name: "Manage" }));
     await click(screen.getByRole("button", { name: "Use for this session" }));
     expect(runtime.setUser).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -498,7 +568,7 @@ describe("account ACL wiring", () => {
     runtime.setUser.mockClear();
     installFetchRecorder();
     await renderAcl();
-    await click(await findPrivyRow());
+    await click(screen.getByRole("button", { name: "Manage" }));
     await click(screen.getByRole("button", { name: "Use for this session" }));
     const update = runtime.setUser.mock.calls[0]?.[0] as Record<
       string,
@@ -522,12 +592,8 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await findPrivyRow());
-
-    expect(screen.getByText("Delegation expired")).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: /Auto(?!-approve)/ }),
-    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Renew" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
   });
 
   it("refuses an expired reviewed permit without signing or refreshing it silently", async () => {
@@ -653,9 +719,7 @@ describe("account ACL wiring", () => {
       },
     });
     await renderAcl();
-    await click(await findWalletRow());
-    await click(screen.getByRole("button", { name: /Auto(?!-approve)/ }));
-    await click(screen.getByText("Review change"));
+    await click(screen.getByRole("button", { name: "Set up" }));
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     expect(bodyOf(calls, "/api/account/authorization/challenge")).toMatchObject(
       { mode: "server_auto" },
@@ -694,9 +758,7 @@ describe("account ACL wiring", () => {
       name: /^Auto-approve/,
     });
     expect(accept).toHaveProperty("disabled", false);
-    expect(
-      screen.getByRole("button", { name: /^Auto(?!-approve)/ }),
-    ).toHaveProperty("disabled", true);
+    expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
     expect(screen.getByRole("button", { name: /^Locked/ })).toHaveProperty(
       "disabled",
       false,
@@ -766,8 +828,10 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    await click(await findPrivyRow());
-    await click(await screen.findByText("Revoke"));
+    await click(screen.getByRole("button", { name: "Manage" }));
+    await click(
+      await screen.findByRole("button", { name: "Revoke delegation" }),
+    );
 
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/providers/privy/delegation"),
@@ -818,8 +882,9 @@ describe("account ACL wiring", () => {
         }),
     });
 
-    await renderAcl();
-    await click(await screen.findByRole("button", { name: "Link" }));
+    await renderAcl(undefined, "para", true);
+    await click(await screen.findByRole("button", { name: /^Actions for/ }));
+    await click(screen.getByRole("menuitem", { name: "Link" }));
 
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/authorization/commit"),
@@ -848,7 +913,9 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await screen.findByText("0x71c7…976f");
+    expect((await screen.findAllByText("0x71c7…976f")).length).toBeGreaterThan(
+      0,
+    );
     expect(
       screen.queryByRole("button", { name: "Provision agent wallet" }),
     ).toBeNull();
