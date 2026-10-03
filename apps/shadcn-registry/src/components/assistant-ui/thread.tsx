@@ -51,7 +51,6 @@ import {
   useThreadTaskRuns,
 } from "@aomi-labs/react";
 import { AppIndicator } from "@/components/control-bar/app-indicator";
-import { normalizeAomiRouting } from "./routing";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
@@ -434,7 +433,7 @@ const ComposerAction: FC = () => {
   const hideWallet = controlBarProps.hideWallet ?? true;
   const hideNetwork = controlBarProps.hideNetwork ?? false;
   const hideAppSecrets = controlBarProps.hideAppSecrets ?? false;
-  const { hostError } = useCapabilityComposer();
+  const { hostError, selectedApp } = useCapabilityComposer();
   const safety = useThreadSafety();
   const committingSafety = Boolean(safety?.pending && safety.busy);
 
@@ -447,12 +446,7 @@ const ComposerAction: FC = () => {
           <CapabilityPickerButton />
           {!hideModel && <ModelSelect />}
           {!hideSafety && <SafetySelect />}
-          <AppIndicator
-            app={
-              controlBarProps.initialAppTag ??
-              normalizeAomiRouting(controlBarProps.routing).directApps[0]
-            }
-          />
+          <AppIndicator app={selectedApp ?? undefined} />
           {/* Renders only when the directly targeted app asks the signed-in
               user for app credentials. */}
           {!hideAppSecrets && <AppSecretsDialog />}

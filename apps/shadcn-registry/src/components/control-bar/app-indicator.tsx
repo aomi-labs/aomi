@@ -22,9 +22,9 @@ export function AppIndicator({
       ? String(candidate.applicationId) === String(app.applicationId)
       : candidate.name === app.app,
   );
-  const identity = resolveAppIdentity(
-    descriptor ?? app.app ?? `application-${app.applicationId}`,
-  );
+  const configuredApp = descriptor ?? app.app;
+  if (!configuredApp) return null;
+  const identity = resolveAppIdentity(configuredApp);
   const Icon = getAppIcon(identity.brandId) ?? AppWindow;
 
   return (

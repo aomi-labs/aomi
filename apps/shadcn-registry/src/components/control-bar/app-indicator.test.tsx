@@ -54,3 +54,16 @@ describe("composer app indicator", () => {
     ).toHaveTextContent("Private Agent");
   });
 });
+
+it("waits for a configured name when only an application id is known", () => {
+  const view = render(<AppIndicator app={{ applicationId: 42 }} />);
+  expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  fixture.apps = [
+    { name: "research", applicationId: 42, label: "Research App" },
+  ];
+  view.rerender(<AppIndicator app={{ applicationId: 42 }} />);
+  expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
+  fixture.apps = [];
+  view.rerender(<AppIndicator app={{ applicationId: 42 }} />);
+  expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+});
