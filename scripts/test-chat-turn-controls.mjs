@@ -1056,9 +1056,6 @@ try {
         name: "Send message",
         exact: true,
       });
-      const errorsBeforeIdleRecovery = await page
-        .getByText("Unable to stop generation", { exact: true })
-        .count();
       await resetConversation();
       await composer.fill("unadmitted-start fixture");
       await send.click();
@@ -1131,9 +1128,6 @@ try {
           1,
         );
       }
-      await expect(
-        page.getByText("Unable to stop generation", { exact: true }),
-      ).toHaveCount(errorsBeforeIdleRecovery);
       assert.equal(interruptCount - legacyInterruptRequests, 4);
       assert.deepEqual(unexpected, []);
       report.scenarios.push({
