@@ -354,6 +354,7 @@ describe("ClientSession Stop terminal races", () => {
       session.syncRuntimeOptions({
         model: "changed-model",
         clientId: "changed-client",
+        inferenceFunding: "user_byok",
       });
       pending.reject(failure);
       await rejected;
@@ -378,6 +379,22 @@ describe("ClientSession Stop terminal races", () => {
       session.close();
     },
   );
+
+  it("clears the optimistic echo when resending the same uncertain request confirms admission", async () => {
+    const { session, start } = setup();
+    start.mockRejectedValueOnce(new TypeError("Lost start response"));
+    await expect(session.sendAsync("Explain")).rejects.toThrow(
+      "Lost start response",
+    );
+    await session.sendAsync("Explain");
+    expect(start.mock.calls[1]![1]).toEqual(start.mock.calls[0]![1]);
+    expect(session.getSnapshot()).toMatchObject({
+      turnId: "turn-1",
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
+    session.close();
+  });
 
   it("keeps Stop actionable with no admitted run and recovers after a later retry", async () => {
     const { session, client, start, interrupt } = setup();

@@ -596,6 +596,7 @@ export class ClientSession {
           "Agent response session does not match the request",
         );
       }
+      operation.uncertain = false;
       if (page.started_turn_id) {
         // Bind the accepted identity before reducing a bounded historical page:
         // only its own user event may clear the pending echo.
@@ -697,8 +698,8 @@ export class ClientSession {
       throw new TypeError(
         "Unable to confirm the pending request's admitted turn",
       );
+    this.applyEventPage(page, page.started_turn_id);
     operation.turnId = page.started_turn_id;
-    this.applyEventPage(page, operation.turnId);
     if (!this.turnId || this.isTerminal() || this.turnId === operation.turnId) {
       this.acceptedTurnId = operation.turnId;
       this.turnId = operation.turnId;
