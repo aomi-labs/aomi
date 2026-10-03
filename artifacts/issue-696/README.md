@@ -3,7 +3,29 @@
 Companion PRs: [frontend #699](https://github.com/aomi-labs/aomi/pull/699) and
 [backend #1232](https://github.com/aomi-labs/product-mono/pull/1232).
 
-## Final uncertain-admission follow-up
+## Terminal or unadmitted recovery (latest)
+
+The last review follow-up releases the optimistic running state when canonical
+history is fully drained with no active work, or the session is missing. It
+retains the original intent/key for a deliberate Send retry. Completed/failed
+answers stay canonical, including their normal final-answer drain. Stop neither
+infers request ownership from matching text nor replays an idle request to start
+new work. Failed/stalled history reads preserve actionable uncertainty.
+
+Source `13cd4cf11f96d287a13cf3dfbbc3b29380cb824a` passed **74 focused tests**
+(including **27 SDK terminal/ownership cases**), SDK/library types, scoped lint,
+and every desktop/mobile browser scenario. There are **34 current screenshots**
+and a successful browser report. New browser assertions check Send restoration,
+original composer text, same-key Send retry, completed answer/Rerun retention,
+Failed retention, and no extra start replay or cancellation for terminal history.
+Backend code, API schema and migrations are unchanged in this follow-up.
+
+The main-synchronized preceding source `b994d7c1` passed full CI, including all
+16 production browser contracts and packed consumer compatibility. See #699
+checks for verification of the new final head. Earlier results below are
+historical and are not substitutes for that gate.
+
+## Earlier uncertain-admission follow-up
 
 Stop remains visible after an uncertain start acknowledgment. Recovery walks
 bounded history, then replays the original intent, idempotency key and funding
@@ -20,8 +42,8 @@ passed. No API/schema or migration changed.
 
 Managed local checks passed **69 tests**, including **22 SDK terminal/ownership
 cases**, plus SDK/library typechecks and scoped ESLint. Chromium desktop and
-mobile passed all scenarios; this directory contains **28 screenshots** and the
-successful request report. Its tested runtime source is
+mobile passed all scenarios with **28 screenshots** on that revision. Its
+tested runtime source was
 `24f398f38aed025f769511fef0acb54d1bff822f`. Later changes only correct the separate
 production-browser upstream fixture and strengthen its renewal assertion.
 
@@ -63,6 +85,10 @@ a synthetic 650 ms Stop acknowledgment delay and do not measure a real provider.
 | Stop racing with failure: Failed state preserved        | [Failed](desktop-stop-failed-race.png)             | [Failed](mobile-stop-failed-race.png)             |
 | Uncertain admitted start: failed Stop stays actionable  | [Recovery retry](desktop-uncertain-stop-retry.png) | [Recovery retry](mobile-uncertain-stop-retry.png) |
 | Retried Stop acknowledges the exact recovered turn      | [Recovered Stop](desktop-uncertain-stopped.png)    | [Recovered Stop](mobile-uncertain-stopped.png)    |
+
+| Unadmitted request releases Stop and restores Send | [Send restored](desktop-unadmitted-send.png) | [Send restored](mobile-unadmitted-send.png) |
+| Completed uncertain start preserves answer and Rerun | [Completed](desktop-terminal-uncertain-complete.png) | [Completed](mobile-terminal-uncertain-complete.png) |
+| Failed uncertain start preserves Failed and restores Send | [Failed](desktop-terminal-uncertain-failed.png) | [Failed](mobile-terminal-uncertain-failed.png) |
 
 The runner verifies triple Rerun and double edit Save create one request each,
 Rerun after edit uses revised text, triple Stop creates one interruption,
