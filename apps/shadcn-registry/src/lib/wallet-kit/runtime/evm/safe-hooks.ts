@@ -28,6 +28,7 @@ import { canonicalWalletKey } from "../../catalog/wallet-branding";
 export type WagmiConfigShape = {
   chains: readonly Chain[];
   connectors: readonly Connector[];
+  isConnectorConnected?: (uid: string) => boolean;
 };
 
 const DISCONNECTED_WAGMI_CONFIG: WagmiConfigShape = {
@@ -86,6 +87,7 @@ export function useSafeWagmiConfig(): WagmiConfigShape {
     return {
       chains: config.chains ?? [],
       connectors: config.connectors ?? [],
+      isConnectorConnected: (uid) => config.state.connections.has(uid),
     };
   } catch {
     return DISCONNECTED_WAGMI_CONFIG;

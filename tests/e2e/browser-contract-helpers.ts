@@ -137,6 +137,7 @@ export async function signInThroughUi(
     privateKeys?: string[];
     svmSecretKey?: string;
     rejectSignatures?: boolean;
+    evmBrand?: "MetaMask" | "Rabby";
     navigate?: boolean;
   },
 ) {
@@ -146,6 +147,7 @@ export async function signInThroughUi(
     evmPrivateKeys: input.privateKeys,
     svmSecretKey: input.svmSecretKey,
     rejectSignatures: input.rejectSignatures,
+    evmBrand: input.evmBrand,
   });
   if (input.navigate !== false) {
     await page.goto(input.pageOrigin, { waitUntil: "domcontentloaded" });
@@ -165,7 +167,10 @@ export async function signInThroughUi(
   await expect(picker).toBeVisible();
   await picker
     .getByRole("button", {
-      name: input.family === "evm" ? "Connect MetaMask" : "Connect Phantom",
+      name:
+        input.family === "evm"
+          ? `Connect ${input.evmBrand ?? "MetaMask"}`
+          : "Connect Phantom",
     })
     .click();
   const finishDialog = page.getByRole("dialog", { name: "Finish signing in" });

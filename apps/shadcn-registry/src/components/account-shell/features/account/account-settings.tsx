@@ -149,7 +149,9 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
                 (wallet.walletName ?? wallet.label ?? "").toLowerCase();
         });
         if (option) {
-          await adapter.connectEvmWallet(option.id);
+          await adapter.connectEvmWallet(option.id, {
+            expectedAddress: wallet.address,
+          });
           return;
         }
       }

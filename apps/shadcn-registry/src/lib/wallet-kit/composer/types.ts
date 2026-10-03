@@ -70,7 +70,10 @@ export type WalletRuntime<F extends WalletFamily> = {
   accounts: (now: number) => AomiAccount[];
   activeAccount?: AomiAccount;
   options: readonly AomiWalletOption[];
-  connect: (optionId?: string) => Promise<void>;
+  connect: (
+    optionId?: string,
+    options?: { expectedAddress?: string },
+  ) => Promise<void>;
   disconnect: (accountId?: string) => Promise<void>;
   selectAccount: (accountId: string) => Promise<void>;
   selectNetwork: (networkId: string | number) => Promise<void>;
