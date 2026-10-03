@@ -1,10 +1,12 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
+  projectConversationEvents,
   SUPPORTED_CHAINS as CLIENT_SUPPORTED_CHAINS,
   type ChainInfo,
   type Event,
   type MessageEvent,
+  type SessionSnapshot,
   type ToolCompleteEvent,
   type ToolUpdateEvent,
   type TurnState,
@@ -157,8 +159,19 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
     role,
     content: content as ThreadMessageLike["content"],
     createdAt: new Date(parseTimestamp(msg.occurred_at)),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+    ...(role === "user"
+      ? {
+          metadata: {
+            custom: {
+              ...(msg.message_key
+                ? { aomiUserMessageKey: msg.message_key }
+                : {}),
+              ...(capabilityHints.length > 0
+                ? { aomiCapabilityHints: capabilityHints }
+                : {}),
+            },
+          },
+        }
       : {}),
   } satisfies ThreadMessageLike;
 
@@ -332,7 +345,9 @@ export function logicalTurnRunning(
   turnState?: TurnState,
   isSubmitting = false,
   pendingUserMessage?: string,
+  activeTurnId?: string,
 ): boolean {
+  events = projectConversationEvents(events);
   // An accepted start can precede its durable user event in a later page.
   if (isSubmitting || pendingUserMessage) return true;
   // A late callback completion belongs to its original operation. It must
@@ -341,6 +356,16 @@ export function logicalTurnRunning(
   const latestUserTurn = events.findLast(
     (event) => event.type === "message" && event.sender === "user",
   )?.turn_id;
+  // A branch start can be acknowledged before its branch event reaches this
+  // bounded page. It has no new user echo, so the accepted run must keep Stop
+  // available while the previous conversation is still projected.
+  if (
+    activeTurnId &&
+    activeTurnId !== latestUserTurn &&
+    !activeTurnId.startsWith("broadcast-terminal:") &&
+    (turnState === "processing" || turnState === "awaiting_action")
+  )
+    return true;
   const ownState = latestUserTurn
     ? events.findLast(
         (event) =>
@@ -389,6 +414,7 @@ function rootTurn(turnId: string, owners: ReadonlyMap<string, string>): string {
 export function projectAssistantMessages(
   events: readonly Event[],
 ): ThreadMessageLike[] {
+  events = projectConversationEvents(events);
   const output: Array<ThreadMessageLike | AssistantProjection> = [];
   const assistantTurns = new Map<string, AssistantProjection>();
   const terminalTurns = new Map<
@@ -476,8 +502,7 @@ export function projectAssistantMessages(
             event.message_key &&
             event.content.trim() &&
             event.is_streaming !== true &&
-            terminal?.state === "complete" &&
-            terminal.sequence > event.sequence
+            terminal?.state === "complete"
           )
             projection.responseMessageKey = event.message_key;
           upsertPart(projection, projection.textParts, key, {
@@ -527,15 +552,27 @@ export function projectAssistantMessages(
       if (!("parts" in entry)) return entry;
       const root = entry.message.id.slice("turn:".length);
       const callbackTurns = continuationTurnIds.get(root);
+      const callbackTerminalStates = Object.fromEntries(
+        (callbackTurns ?? []).flatMap((turnId) => {
+          const state = terminalTurns.get(turnId)?.state;
+          return state && ["complete", "failed", "interrupted"].includes(state)
+            ? [[turnId, state]]
+            : [];
+        }),
+      );
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
         ...(entry.finalAnswerStartIndex !== undefined ||
         callbackTurns ||
-        entry.responseMessageKey
+        entry.responseMessageKey ||
+        terminalTurns.has(root)
           ? {
               metadata: {
                 custom: {
+                  ...(terminalTurns.has(root)
+                    ? { aomiTurnState: terminalTurns.get(root)!.state }
+                    : {}),
                   ...(entry.responseMessageKey
                     ? { aomiResponseMessageKey: entry.responseMessageKey }
                     : {}),
@@ -544,6 +581,9 @@ export function projectAssistantMessages(
                     : {}),
                   ...(callbackTurns
                     ? { aomiContinuationTurnIds: callbackTurns }
+                    : {}),
+                  ...(Object.keys(callbackTerminalStates).length
+                    ? { aomiContinuationTurnStates: callbackTerminalStates }
                     : {}),
                 },
               },
@@ -569,6 +609,8 @@ export function projectRuntimeMessages(
   events: readonly Event[],
   pendingUserMessage?: string,
   liveMessages: readonly MessageEvent[] = [],
+  stoppedTurnId?: string,
+  terminalTurns: SessionSnapshot["terminalTurns"] = [],
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -584,6 +626,41 @@ export function projectRuntimeMessages(
     });
     if (index < 0) index = visible.length;
     visible.splice(index, 0, message);
+  }
+  // Scoped ACKs can precede their durable events in bounded history. Retain
+  // the actual outcome across newer turns, without changing the audit ledger.
+  const acknowledged = new Map(
+    (terminalTurns ?? []).map((turn) => [turn.turnId, turn.state]),
+  );
+  if (stoppedTurnId && !acknowledged.has(stoppedTurnId))
+    acknowledged.set(stoppedTurnId, "interrupted");
+  for (const [turnId, state] of acknowledged) {
+    const latestState = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    if (
+      latestState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(latestState.state)
+    )
+      continue;
+    const durableTerminal = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" &&
+        event.turn_id === turnId &&
+        ["complete", "failed", "interrupted"].includes(event.state),
+    );
+    visible.push({
+      type: "turn_state_changed",
+      event_id: `terminal-ack:${turnId}`,
+      turn_id: turnId,
+      state:
+        durableTerminal?.type === "turn_state_changed"
+          ? durableTerminal.state
+          : state,
+      sequence: (visible.at(-1)?.sequence ?? 0) + 1,
+      occurred_at: Date.now() / 1000,
+    });
   }
   const projected = projectAssistantMessages(visible);
   if (pendingUserMessage === undefined) return projected;

@@ -27,6 +27,124 @@ const meta = (
   type,
 });
 
+it("keeps Stop available for an accepted branch before its bounded event arrives", () => {
+  const events: Event[] = [
+    {
+      ...meta(1, "message", "original"),
+      type: "message",
+      sender: "user",
+      message_key: "saved-user",
+      content: "Original request",
+    },
+    {
+      ...meta(2, "turn_state_changed", "original"),
+      type: "turn_state_changed",
+      state: "complete",
+    },
+  ];
+  const messages = projectRuntimeMessages(events);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "processing",
+      false,
+      undefined,
+      "accepted-branch",
+    ),
+  ).toBe(true);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "complete",
+      false,
+      undefined,
+      "accepted-branch",
+    ),
+  ).toBe(false);
+  expect(
+    logicalTurnRunning(
+      events,
+      messages,
+      "processing",
+      false,
+      undefined,
+      "broadcast-terminal:older",
+    ),
+  ).toBe(false);
+});
+
+it("replaces an edited request and later history while the new branch streams", () => {
+  const events: Event[] = [
+    {
+      ...meta(1, "message", "original"),
+      type: "message",
+      sender: "user",
+      message_key: "saved-user",
+      content: "Arc",
+    },
+    {
+      ...meta(2, "message", "original"),
+      type: "message",
+      sender: "agent",
+      message_key: "saved-answer",
+      content: "Original answer",
+    },
+    {
+      ...meta(3, "turn_state_changed", "original"),
+      type: "turn_state_changed",
+      state: "complete",
+    },
+    {
+      ...meta(4, "message", "later"),
+      type: "message",
+      sender: "user",
+      message_key: "later-user",
+      content: "Later turn",
+    },
+    {
+      ...meta(5, "branch", "edited"),
+      type: "branch",
+      kind: "edit",
+      target_message_key: "saved-user",
+      user_message_key: "saved-user",
+      content: "Base",
+      removed_message_keys: ["saved-answer", "later-user"],
+      removed_turn_ids: ["original", "later"],
+    },
+    {
+      ...meta(6, "turn_state_changed", "edited"),
+      type: "turn_state_changed",
+      state: "processing",
+    },
+    {
+      ...meta(7, "message", "edited"),
+      type: "message",
+      sender: "agent",
+      message_key: "edited-answer",
+      content: "Partial answer",
+      is_streaming: true,
+    },
+  ];
+  const projected = projectRuntimeMessages(events);
+  expect(projected).toHaveLength(2);
+  expect(projected[0]).toMatchObject({
+    id: "aomi-user-0",
+    content: [{ type: "text", text: "Base" }],
+    metadata: { custom: { aomiUserMessageKey: "saved-user" } },
+  });
+  expect(projected[1]?.id).toBe("turn:edited");
+  expect(logicalTurnRunning(events, projected, "processing")).toBe(true);
+  const stopped = projectRuntimeMessages(events, undefined, [], "edited");
+  expect(stopped[1]?.metadata?.custom).toMatchObject({
+    aomiTurnState: "interrupted",
+  });
+  expect(projectRuntimeMessages(JSON.parse(JSON.stringify(events)))).toEqual(
+    projected,
+  );
+});
+
 it("keeps an accepted optimistic turn running before its durable user event", () => {
   const events = callbackEvents;
   expect(

@@ -16,6 +16,7 @@ import {
 const transport = vi.hoisted(() => ({
   events: [] as Event[],
   turnState: "complete" as TurnState,
+  stoppedTurnId: undefined as string | undefined,
 }));
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
@@ -41,14 +42,17 @@ function AssistantMessage() {
   );
 }
 function Fixture() {
-  const messages = projectRuntimeMessages(transport.events);
+  const messages = projectRuntimeMessages(
+    transport.events,
+    undefined,
+    [],
+    transport.stoppedTurnId,
+  );
   const runtime = useExternalStoreRuntime({
     messages,
-    isRunning: logicalTurnRunning(
-      transport.events,
-      messages,
-      transport.turnState,
-    ),
+    isRunning:
+      !transport.stoppedTurnId &&
+      logicalTurnRunning(transport.events, messages, transport.turnState),
     onNew: async () => {},
     convertMessage: (message) => message,
   });
@@ -66,7 +70,10 @@ function Fixture() {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  transport.stoppedTurnId = undefined;
+});
 
 it("keeps Copy hidden and one trace active through receipts and a second-chain commit, then settles", async () => {
   transport.events = [];
@@ -164,3 +171,123 @@ it("keeps Copy hidden and one trace active through receipts and a second-chain c
   expect(screen.getByText(/Worked/)).toBeTruthy();
   expect(screen.getByText("All steps completed.")).toBeTruthy();
 });
+
+it("renders acknowledged Stop from projected status before the terminal page arrives", async () => {
+  transport.events = [
+    {
+      type: "message",
+      sender: "user",
+      content: "Explain",
+      message_key: "request",
+    },
+    { type: "turn_state_changed", state: "processing" },
+    {
+      type: "tool_update",
+      id: "search-update",
+      call_id: "search-call",
+      tool_name: "web_search",
+      result: { stage: "started", message: "Checking sources" },
+    },
+    {
+      type: "message",
+      sender: "agent",
+      content: "Partial answer",
+      message_key: "partial",
+      is_streaming: true,
+    },
+  ].map((event, index) => ({
+    ...event,
+    turn_id: "turn-stop",
+    event_id: `stop-${index}`,
+    sequence: index + 1,
+    occurred_at: index + 1,
+  })) as Event[];
+  transport.turnState = "interrupted";
+  transport.stoppedTurnId = "turn-stop";
+  render(<Fixture />);
+  await waitFor(() => expect(screen.getByText(/^Stopped/)).toBeInTheDocument());
+  expect(screen.queryByText("Working")).not.toBeInTheDocument();
+  expect(transport.events.at(-1)?.type).toBe("message");
+});
+
+it.each([
+  { state: "interrupted", label: "Stopped", otherLabel: "Failed" },
+  { state: "failed", label: "Failed", otherLabel: "Stopped" },
+])(
+  "keeps an older $state trace truthful while a later turn runs and completes",
+  async ({ state, label, otherLabel }) => {
+    transport.events = [
+      {
+        type: "message",
+        sender: "user",
+        content: "First question",
+        message_key: "first",
+      },
+      { type: "turn_state_changed", state: "processing" },
+      {
+        type: "tool_update",
+        id: "first-update",
+        call_id: "first-call",
+        tool_name: "web_search",
+        result: { stage: "started", message: "First search" },
+      },
+      { type: "turn_state_changed", state },
+      {
+        type: "message",
+        sender: "user",
+        content: "Second question",
+        message_key: "second",
+      },
+      { type: "turn_state_changed", state: "processing" },
+      {
+        type: "tool_update",
+        id: "second-update",
+        call_id: "second-call",
+        tool_name: "web_search",
+        result: { stage: "started", message: "Second search" },
+      },
+    ].map((event, index) => ({
+      ...event,
+      turn_id: index < 4 ? "first-turn" : "second-turn",
+      event_id: `history-${index}`,
+      sequence: index + 1,
+      occurred_at: index + 1,
+    })) as Event[];
+    transport.turnState = "processing";
+    const view = render(<Fixture />);
+    const statusLabel = new RegExp(`^${label}`);
+    await waitFor(() =>
+      expect(screen.getByText(statusLabel)).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(new RegExp(`^${otherLabel}`)),
+    ).not.toBeInTheDocument();
+    if (state === "failed")
+      expect(
+        screen.getByText("This run failed before it could finish."),
+      ).toBeInTheDocument();
+    expect(screen.getByText("Working")).toBeInTheDocument();
+    expect(screen.getAllByTestId("assistant-row")).toHaveLength(2);
+
+    transport.events = [
+      ...transport.events,
+      {
+        type: "turn_state_changed",
+        state: "complete",
+        turn_id: "second-turn",
+        event_id: "history-complete",
+        sequence: 8,
+        occurred_at: 8,
+      } as Event,
+    ];
+    transport.turnState = "complete";
+    view.rerender(<Fixture />);
+    await waitFor(() =>
+      expect(screen.getByText(/^Worked/)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(statusLabel)).toBeInTheDocument();
+    expect(
+      screen.queryByText(new RegExp(`^${otherLabel}`)),
+    ).not.toBeInTheDocument();
+  },
+);

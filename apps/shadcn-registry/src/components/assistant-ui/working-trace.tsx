@@ -23,7 +23,7 @@ import {
   walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
-import type { Event } from "@aomi-labs/client";
+import type { Event, TurnState } from "@aomi-labs/client";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
 import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
@@ -466,7 +466,7 @@ export const WorkingTrace: FC<{
         ? completedSeconds != null
           ? `Worked for ${formatDuration(completedSeconds)}`
           : "Worked it out"
-        : `Stopped${elapsedLabel}`;
+        : `${outcome === "failed" ? "Failed" : "Stopped"}${elapsedLabel}`;
 
   // Keep the status treatment continuous from Thinking into Working. The newest
   // revealed step retains its contextual shimmer while the header consistently
@@ -816,6 +816,19 @@ export const AssistantTurnParts: FC = () => {
       (s.metadata?.custom as { aomiContinuationTurnIds?: string[] } | undefined)
         ?.aomiContinuationTurnIds,
   );
+  const projectedContinuationStates = useMessage(
+    (s) =>
+      (
+        s.metadata?.custom as
+          | { aomiContinuationTurnStates?: Record<string, TurnState> }
+          | undefined
+      )?.aomiContinuationTurnStates,
+  );
+  const projectedTurnState = useMessage(
+    (s) =>
+      (s.metadata?.custom as { aomiTurnState?: TurnState } | undefined)
+        ?.aomiTurnState,
+  );
   const running = useMessage((s) => s.status?.type === "running");
   const isLast = useMessage((s) => s.isLast);
   const runtime = useOptionalAomiRuntime();
@@ -830,14 +843,22 @@ export const AssistantTurnParts: FC = () => {
           event.type === "turn_state_changed" && event.turn_id === turnId,
       )
     : undefined;
+  const stoppedContinuation = (continuationTurnIds ?? [])
+    .map((turnId) => projectedContinuationStates?.[turnId])
+    .findLast((state) => state === "failed" || state === "interrupted");
   const ownStatus =
-    ownState?.type === "turn_state_changed" ? ownState.state : undefined;
+    stoppedContinuation ??
+    projectedTurnState ??
+    (ownState?.type === "turn_state_changed" ? ownState.state : undefined);
   const ownTerminal =
     ownStatus !== undefined &&
     ["complete", "failed", "interrupted"].includes(ownStatus);
   const ownStopped = ownStatus === "failed" || ownStatus === "interrupted";
   const walletContinuation = walletContinuationPending(
-    continuationTurnIds ?? [],
+    (continuationTurnIds ?? []).filter((turnId) => {
+      const state = projectedContinuationStates?.[turnId];
+      return !state || !["complete", "failed", "interrupted"].includes(state);
+    }),
     turnEvents,
   );
   // A commit returns before wallet approval and the backend marks its model
@@ -855,10 +876,10 @@ export const AssistantTurnParts: FC = () => {
           ))));
   const outcome: WorkingTraceOutcome = live
     ? "running"
-    : isLast && (ownStatus === "failed" || runtime?.turnState === "failed")
+    : ownStatus === "failed" || (isLast && runtime?.turnState === "failed")
       ? "failed"
-      : isLast &&
-          (ownStatus === "interrupted" || runtime?.turnState === "interrupted")
+      : ownStatus === "interrupted" ||
+          (isLast && runtime?.turnState === "interrupted")
         ? "interrupted"
         : "complete";
   const delegations = isLast
@@ -993,6 +1014,6 @@ export const AssistantTurnParts: FC = () => {
 
 const TurnFailureFallback: FC = () => (
   <p className="text-aomi-danger mt-2 text-sm leading-5" role="status">
-    This run stopped before it could finish.
+    This run failed before it could finish.
   </p>
 );

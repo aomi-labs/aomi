@@ -395,7 +395,9 @@ new integrations should use `target` so routing intent is unambiguous.
 | `stopStreaming()`     | Stop the current stream and scheduled reconnect                   |
 | `close()`             | Stop streaming and release listeners                              |
 
-To reconsider a completed assistant answer, pass `{ regenerate: messageKey }` as the second argument to `send` or `sendAsync`. The key must identify a completed assistant message in the same session. The server appends a new answer with all tools disabled; it preserves the original conversation and transaction outcomes.
+To regenerate a completed assistant answer, pass the original request text and `{ regenerate: messageKey }` to `send` or `sendAsync`. The server resolves the saved request and preceding context from the completed assistant key. To edit a request, send the revised text with `{ edit: userMessageKey }`. These options are mutually exclusive. The server records a durable branch, replacing the selected answer and later active turns; edits replace the selected user text. Original events and transaction outcomes remain available for audit. Regeneration and editing disable tools so completed actions cannot be replayed. `SessionSnapshot.messages` contains the active conversation; `SessionSnapshot.events` retains the durable ledger. `projectConversationEvents(events)` derives active turns and traces from that ledger.
+
+`interrupt()` immediately publishes `isStopping`, deduplicates pending requests, and keeps receiving partial text until the server acknowledges the actual terminal outcome. Only an interrupted outcome freezes partial text and sets `stoppedTurnId`. If completion or failure wins the race, its answer and status are preserved while final result pages drain. Optional `terminalTurns` retain scoped outcomes across bounded history without changing the audit ledger or cursor. A failed cancellation leaves streaming active and allows retry; a late response for an older turn cannot stop a newer active turn.
 
 #### Snapshot
 
@@ -894,3 +896,15 @@ $ npx @aomi-labs/client session close           # clears the active local sessio
 
 Session files live under `~/.aomi/sessions/` by default, with an active session
 pointer stored in the state root.
+
+A start transport failure may occur after admission. `isStartUncertain` remains
+true while active work may need reconciliation; Stop recovers its original intent
+and idempotency key and never substitutes an unrelated active turn. A different
+message is blocked during this uncertainty. Retrying the same message retains
+the original operation; failed Stop remains retryable without losing its scope.
+
+When fully drained history has no active work (or the session does not exist),
+Stop releases the optimistic running state and restores Send. The original
+intent/key remains available for a deliberate same-message retry. Canonical
+terminal answers are preserved; matching text does not prove ownership or cause
+a new start. Failed or stalled history reads remain retryable.
