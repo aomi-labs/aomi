@@ -61,3 +61,16 @@ The paired backend change is
 [product-mono#1232](https://github.com/aomi-labs/product-mono/pull/1232).
 Frontend and backend must support the branch event and acknowledgment fields
 together for the complete behavior, including history pagination and reload.
+
+### Uncertain start admission
+
+A lost start response retains the exact intent, idempotency key and funding lane.
+The optional `SessionSnapshot.isStartUncertain` keeps Stop visible even when the
+last known turn is terminal. Stop follows bounded canonical pages for possible
+new activity, then replays that exact key to recover `started_turn_id`; it never
+selects a turn by matching text or by choosing the latest processing event.
+An idle history does not trigger a new start solely to cancel it. Failed recovery
+and failed interruption remain actionable; repeated Stop joins a single request
+and targets the recovered identity until acknowledgment. Newer or unrelated runs
+retain their state/stream. The guest backend resolves accepted/completed replay
+before checking new-admission concurrency.

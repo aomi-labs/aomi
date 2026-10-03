@@ -132,7 +132,7 @@ export function AomiRuntimeCore({
         markControlSynced();
       }
     },
-    onSendError: (_threadId, error) => {
+    onSendError: (threadId, error) => {
       const httpStatus = getHttpStatus(error);
 
       if (httpStatus === 402) {
@@ -178,6 +178,15 @@ export function AomiRuntimeCore({
           title: "Account busy",
           message:
             "Another operation is still running. Your message is in the composer; send it when that operation finishes.",
+        });
+        return;
+      }
+
+      if (sessionManager.get(threadId)?.getSnapshot().isStartUncertain) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Unable to confirm message",
+          message: `${error instanceof Error ? error.message : "The start response was unavailable"}. The request may have been accepted. Use Stop to check and stop it.`,
         });
         return;
       }
@@ -306,6 +315,7 @@ export function AomiRuntimeCore({
   );
   const isRunning =
     snapshot.isSubmitting ||
+    snapshot.isStartUncertain ||
     ((!snapshot.stoppedTurnId || snapshot.stoppedTurnId !== snapshot.turnId) &&
       !snapshot.terminalTurns?.some(
         (turn) => turn.turnId === snapshot.turnId,
@@ -363,14 +373,19 @@ export function AomiRuntimeCore({
       try {
         await orchestratorCancel(threadId);
       } catch (error) {
+        const current = sessionManager.get(threadId)?.getSnapshot();
+        const retryable =
+          current?.isStartUncertain ||
+          current?.turnState === "processing" ||
+          current?.turnState === "awaiting_action";
         notificationContext.showNotification({
           type: "error",
           title: "Unable to stop generation",
-          message: `${error instanceof Error ? error.message : "The Stop request failed"}. Generation may still be running. Try Stop again.`,
+          message: `${error instanceof Error ? error.message : "The Stop request failed"}. ${retryable ? "Generation may still be running. Try Stop again." : "Refresh the conversation to check its status."}`,
         });
       }
     },
-    [orchestratorCancel, notificationContext],
+    [orchestratorCancel, notificationContext, sessionManager],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const runtime = useExternalStoreRuntime({

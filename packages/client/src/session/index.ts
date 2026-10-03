@@ -70,6 +70,11 @@ export class ClientSession {
     edit?: string;
     idempotencyKey: string;
     intent?: StartTurnIntent;
+    inferenceFunding?: SessionOptions["inferenceFunding"];
+    sinceSequence: number;
+    uncertain?: boolean;
+    error?: unknown;
+    turnId?: string;
   };
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private streamingActive = false;
@@ -260,7 +265,11 @@ export class ClientSession {
     if (this.interruptOperation) return this.interruptOperation;
     if (this.closed) return Promise.reject(new Error("Session is closed"));
     const submission = this.activeSubmission?.promise;
-    if (!submission && (!this.turnId || this.isTerminal())) {
+    if (
+      !submission &&
+      !this.startOperation?.uncertain &&
+      (!this.turnId || this.isTerminal())
+    ) {
       return Promise.resolve();
     }
     // Install the operation before publishing: even a synchronous subscriber
@@ -274,19 +283,18 @@ export class ClientSession {
           // A definitive client error rejects admission; the send path already
           // reports it. Timeouts and uncertain network/server errors may have
           // admitted work and must remain visible to the caller of Stop.
-          if (
-            error instanceof AgentApiError &&
-            !error.retryable &&
-            error.status >= 400 &&
-            error.status < 500 &&
-            ![408, 429].includes(error.status)
-          )
-            return;
-          throw error;
+          if (isDefinitiveStartRejection(error)) return;
+          if (!this.startOperation?.uncertain) throw error;
         }
       }
-      if (this.closed || !this.turnId || this.isTerminal()) return;
-      const turnId = this.turnId;
+      if (this.closed) return;
+      const uncertainStart = this.startOperation?.uncertain
+        ? this.startOperation
+        : undefined;
+      const turnId = uncertainStart
+        ? await this.recoverUncertainStart(uncertainStart)
+        : this.turnId;
+      if (!turnId || (!uncertainStart && this.isTerminal())) return;
       const page = await this.client.agent.interrupt(this.sessionId, turnId);
       if (page.session_id !== this.sessionId) {
         throw new TypeError(
@@ -335,6 +343,14 @@ export class ClientSession {
         if (wasInterrupted) this.acknowledgedInterrupts.add(turnId);
         else this.acknowledgedInterrupts.delete(turnId);
         throw error;
+      }
+      this.error = undefined;
+      if (
+        this.startOperation === uncertainStart &&
+        uncertainStart?.turnId === turnId
+      ) {
+        this.startOperation = undefined;
+        this.pendingUserMessage = undefined;
       }
       if (outcome === "interrupted") {
         for (const [key, message] of this.liveMessages) {
@@ -451,6 +467,17 @@ export class ClientSession {
       return Promise.reject(new Error("A message is already being submitted"));
     }
     if (
+      this.startOperation?.uncertain &&
+      (this.startOperation.message !== text ||
+        this.startOperation.regenerate !== options.regenerate ||
+        this.startOperation.edit !== options.edit)
+    )
+      return Promise.reject(
+        new Error(
+          "Resolve the pending request before sending a different message",
+        ),
+      );
+    if (
       this.interruptOperation ||
       this.turnState === "processing" ||
       this.turnState === "awaiting_action"
@@ -495,6 +522,8 @@ export class ClientSession {
             regenerate: options.regenerate,
             edit: options.edit,
             idempotencyKey: `idem_${crypto.randomUUID().replaceAll("-", "")}`,
+            sinceSequence: this.events.at(-1)?.sequence ?? 0,
+            inferenceFunding: this.inferenceFunding,
           };
     this.startOperation = operation;
     this.terminalDrainUntil = undefined;
@@ -516,6 +545,7 @@ export class ClientSession {
           };
     this.error = undefined;
     this.publish();
+    let requested = false;
     try {
       if (!operation.intent) {
         const selected = this.getUserState?.();
@@ -548,6 +578,7 @@ export class ClientSession {
       // it is a read position, not part of what was requested, and the stored
       // intent must replay byte-for-byte on an uncertain start. The server
       // strips it before hashing, so sending it never changes idempotency.
+      requested = true;
       const page = await this.client.agent.start(
         {
           ...operation.intent,
@@ -555,12 +586,11 @@ export class ClientSession {
         },
         {
           idempotencyKey: operation.idempotencyKey,
-          inferenceFunding: this.inferenceFunding,
+          inferenceFunding: operation.inferenceFunding,
         },
       );
       if (this.timing && this.sentAt !== undefined)
         this.timing.acknowledgedMs = performance.now() - this.sentAt;
-      this.startOperation = undefined;
       if (page.session_id !== this.sessionId) {
         throw new TypeError(
           "Agent response session does not match the request",
@@ -605,11 +635,15 @@ export class ClientSession {
           : undefined;
         this.terminalDrainUntil = undefined;
       }
+      this.startOperation = undefined;
       return page;
     } catch (error) {
       this.error = error;
-      this.pendingUserMessage = undefined;
-      if (error instanceof AgentApiError && !error.retryable) {
+      if (requested && !isDefinitiveStartRejection(error)) {
+        operation.uncertain = true;
+        operation.error = error;
+      } else {
+        this.pendingUserMessage = undefined;
         this.startOperation = undefined;
       }
       throw error;
@@ -618,6 +652,78 @@ export class ClientSession {
       this.resumeCompletedCallbacks();
       this.publish();
     }
+  }
+
+  private async recoverUncertainStart(
+    operation: NonNullable<ClientSession["startOperation"]>,
+  ): Promise<string> {
+    if (operation.turnId) return operation.turnId;
+    if (!operation.intent) throw operation.error;
+    // History alone cannot correlate an active turn with this request. Use it
+    // only to establish possible admission; never replay an idle request just
+    // to cancel it. Follow bounded pages before deciding there is no evidence.
+    while (!this.closed) {
+      const previousCursor = this.cursor;
+      const page = await this.fetchPage().catch(() => {
+        throw operation.error;
+      });
+      const states = new Map<string, TurnState>();
+      for (const event of this.events) {
+        if (!event.turn_id || event.sequence <= operation.sinceSequence)
+          continue;
+        if (event.type === "branch") states.set(event.turn_id, "processing");
+        if (event.type === "turn_state_changed")
+          states.set(event.turn_id, event.state);
+      }
+      if (
+        [...states.values()].some((state) => !TERMINAL_TURN_STATES.has(state))
+      )
+        break;
+      if (!page.has_more || this.cursor === previousCursor)
+        throw operation.error;
+    }
+    if (this.closed) throw new Error("Session is closed");
+    // Replaying the exact stored intent/key returns its admitted identity,
+    // independent of history position. A different client's active turn is
+    // never a Stop target. Runtime option changes cannot alter this replay.
+    const page = await this.client.agent.start(
+      { ...operation.intent, ...(this.cursor ? { cursor: this.cursor } : {}) },
+      {
+        idempotencyKey: operation.idempotencyKey,
+        inferenceFunding: operation.inferenceFunding,
+      },
+    );
+    if (page.session_id !== this.sessionId || !page.started_turn_id)
+      throw new TypeError(
+        "Unable to confirm the pending request's admitted turn",
+      );
+    operation.turnId = page.started_turn_id;
+    this.applyEventPage(page, operation.turnId);
+    if (!this.turnId || this.isTerminal() || this.turnId === operation.turnId) {
+      this.acceptedTurnId = operation.turnId;
+      this.turnId = operation.turnId;
+      const ownState = this.events.findLast(
+        (event) =>
+          event.type === "turn_state_changed" &&
+          event.turn_id === operation.turnId,
+      );
+      this.turnState =
+        ownState?.type === "turn_state_changed" ? ownState.state : "processing";
+      if (this.pendingUserMessage)
+        this.pendingUserMessage.turnId = operation.turnId;
+    }
+    if (
+      this.events.some(
+        (event) =>
+          event.type === "message" &&
+          event.sender === "user" &&
+          event.turn_id === operation.turnId &&
+          event.sequence > operation.sinceSequence,
+      )
+    )
+      this.pendingUserMessage = undefined;
+    if (!this.isTerminal()) this.startStreaming();
+    return operation.turnId;
   }
 
   private async fetchPage(): Promise<EventPage> {
@@ -736,6 +842,7 @@ export class ClientSession {
             if (
               event.sender === "user" &&
               ownsActiveTurn &&
+              !this.startOperation?.uncertain &&
               this.pendingUserMessage &&
               (!this.pendingUserMessage.turnId ||
                 event.turn_id === this.pendingUserMessage.turnId) &&
@@ -773,11 +880,15 @@ export class ClientSession {
             }
             break;
           case "branch":
-            this.acceptedTurnId = event.turn_id ?? undefined;
+            if (ownsActiveTurn)
+              this.acceptedTurnId = event.turn_id ?? undefined;
             // The branch is itself an accepted run acknowledgment. Its
             // processing event can be behind a page boundary, so retire the
             // previous terminal scope immediately without inventing an event.
-            if (!this.acknowledgedInterrupts.has(event.turn_id ?? "")) {
+            if (
+              ownsActiveTurn &&
+              !this.acknowledgedInterrupts.has(event.turn_id ?? "")
+            ) {
               this.turnState = "processing";
               this.terminalTurnId = undefined;
               this.terminalDrainUntil = undefined;
@@ -1240,6 +1351,7 @@ export class ClientSession {
       isStreaming: this.streamingActive,
       isSubmitting: this.isSubmitting,
       isStopping: Boolean(this.interruptOperation),
+      isStartUncertain: Boolean(this.startOperation?.uncertain),
       terminalTurns: Array.from(
         this.terminalAcknowledgments,
         ([turnId, state]) => ({ turnId, state }),
@@ -1358,4 +1470,15 @@ function startTargetFields(options: {
     };
   }
   return options.app ? { app: options.app } : {};
+}
+
+function isDefinitiveStartRejection(error: unknown): boolean {
+  return (
+    error instanceof AgentApiError &&
+    !error.retryable &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    ![408, 429].includes(error.status) &&
+    error.code !== "request_in_flight"
+  );
 }

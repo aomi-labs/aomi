@@ -311,10 +311,176 @@ describe("ClientSession Stop terminal races", () => {
       pending.reject(failure);
       await Promise.all([rejected, warning]);
       expect(interrupt).not.toHaveBeenCalled();
-      expect(session.getSnapshot().isStopping).toBe(false);
+      expect(session.getSnapshot()).toMatchObject({
+        isStopping: false,
+        isStartUncertain: true,
+      });
       session.close();
     },
   );
+
+  it.each([
+    new TypeError("Lost start response"),
+    new AgentApiError(503, "upstream_unavailable", "Lost start response", true),
+    new AgentApiError(408, "request_timeout", "Lost start response", false),
+  ])(
+    "recovers the exact admitted intent through bounded history after %s",
+    async (failure) => {
+      const { session, client, start, interrupt } = setup();
+      const pending = deferred<EventPage>();
+      start.mockReturnValueOnce(pending.promise);
+      start.mockResolvedValueOnce(
+        page([], { started_turn_id: "owned-turn", has_more: true }),
+      );
+      const poll = vi
+        .spyOn(client.agent, "poll")
+        .mockResolvedValueOnce(
+          page(
+            [answer(1, "previous-turn"), state(2, "complete", "previous-turn")],
+            { has_more: true },
+          ),
+        )
+        .mockResolvedValueOnce(page([state(3, "processing", "owned-turn")]));
+      interrupt.mockResolvedValue(
+        page([], {
+          terminal_turn: { turn_id: "owned-turn", state: "interrupted" },
+        }),
+      );
+      const sent = session.sendAsync("Explain");
+      const rejected = expect(sent).rejects.toThrow("Lost start response");
+      const stopped = session.interrupt();
+      expect(session.interrupt()).toBe(stopped);
+      await Promise.resolve();
+      session.syncRuntimeOptions({
+        model: "changed-model",
+        clientId: "changed-client",
+      });
+      pending.reject(failure);
+      await rejected;
+      await stopped;
+      expect(poll).toHaveBeenCalledTimes(2);
+      expect(start).toHaveBeenCalledTimes(2);
+      const { cursor: _initialCursor, ...initial } = start.mock.calls[0]![0];
+      const { cursor: _recoveryCursor, ...recovered } = start.mock.calls[1]![0];
+      expect(recovered).toEqual(initial);
+      expect(start.mock.calls[1]![1]?.idempotencyKey).toBe(
+        start.mock.calls[0]![1]?.idempotencyKey,
+      );
+      expect(interrupt).toHaveBeenCalledExactlyOnceWith(
+        sessionId,
+        "owned-turn",
+      );
+      expect(session.getSnapshot()).toMatchObject({
+        isStartUncertain: false,
+        isStopping: false,
+        stoppedTurnId: "owned-turn",
+      });
+      session.close();
+    },
+  );
+
+  it("keeps Stop actionable with no admitted run and recovers after a later retry", async () => {
+    const { session, client, start, interrupt } = setup();
+    const failure = new TypeError("Lost start response");
+    start.mockRejectedValueOnce(failure);
+    await expect(session.sendAsync("Explain")).rejects.toBe(failure);
+    const poll = vi.spyOn(client.agent, "poll").mockResolvedValueOnce(page([]));
+    await expect(session.interrupt()).rejects.toBe(failure);
+    expect(start).toHaveBeenCalledOnce();
+    expect(interrupt).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({
+      isStartUncertain: true,
+      pendingUserMessage: "Explain",
+    });
+    await expect(session.sendAsync("Different request")).rejects.toThrow(
+      "Resolve the pending request",
+    );
+    poll.mockResolvedValueOnce(page([state(3, "processing", "owned-turn")]));
+    start.mockResolvedValueOnce(page([], { started_turn_id: "owned-turn" }));
+    interrupt.mockRejectedValueOnce(new Error("Stop transport lost"));
+    await expect(session.interrupt()).rejects.toThrow("Stop transport lost");
+    expect(session.getSnapshot().isStartUncertain).toBe(true);
+    interrupt.mockResolvedValueOnce(
+      page([], {
+        terminal_turn: { turn_id: "owned-turn", state: "interrupted" },
+      }),
+    );
+    const retried = session.interrupt();
+    expect(session.interrupt()).toBe(retried);
+    await retried;
+    expect(interrupt.mock.calls).toEqual([
+      [sessionId, "owned-turn"],
+      [sessionId, "owned-turn"],
+    ]);
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(session.getSnapshot().isStartUncertain).toBe(false);
+    session.close();
+  });
+
+  it("never substitutes an unrelated active turn when exact admission cannot be confirmed", async () => {
+    const { session, client, start, interrupt } = setup();
+    start.mockRejectedValueOnce(new TypeError("Lost start response"));
+    await expect(session.sendAsync("Explain")).rejects.toThrow(
+      "Lost start response",
+    );
+    vi.spyOn(client.agent, "poll").mockResolvedValue(
+      page([state(3, "processing", "other-client-turn")]),
+    );
+    start.mockRejectedValue(
+      new AgentApiError(
+        409,
+        "execution_conflict",
+        "Different run active",
+        false,
+      ),
+    );
+    await expect(session.interrupt()).rejects.toThrow("Different run active");
+    await expect(session.interrupt()).rejects.toThrow("Different run active");
+    expect(interrupt).not.toHaveBeenCalled();
+    expect(session.getSnapshot()).toMatchObject({
+      turnId: "other-client-turn",
+      isStartUncertain: true,
+    });
+    session.close();
+  });
+
+  it("stops only the original replay identity while a newer branch remains active", async () => {
+    const { session, client, start, interrupt } = setup();
+    start.mockRejectedValueOnce(new TypeError("Lost start response"));
+    await expect(
+      session.sendAsync("Explain", { edit: "original-user" }),
+    ).rejects.toThrow("Lost start response");
+    vi.spyOn(client.agent, "poll").mockResolvedValue(
+      page([
+        state(1, "complete", "owned-turn"),
+        {
+          ...meta(2, "newer-turn"),
+          type: "branch",
+          mode: "edit",
+          source_message_key: "newer-user",
+          message_key: "newer-user",
+          content: "Newer request",
+          removed_message_keys: [],
+          removed_turn_ids: [],
+        } as Event,
+        state(3, "processing", "newer-turn"),
+      ]),
+    );
+    start.mockResolvedValueOnce(page([], { started_turn_id: "owned-turn" }));
+    interrupt.mockResolvedValueOnce(
+      page([], { terminal_turn: { turn_id: "owned-turn", state: "complete" } }),
+    );
+    await session.interrupt();
+    expect(interrupt).toHaveBeenCalledExactlyOnceWith(sessionId, "owned-turn");
+    expect(session.getSnapshot()).toMatchObject({
+      turnId: "newer-turn",
+      turnState: "processing",
+      isStreaming: true,
+      isStartUncertain: false,
+    });
+    expect(session.getSnapshot().stoppedTurnId).toBeUndefined();
+    session.close();
+  });
 
   it.each(["complete", "failed"] as const)(
     "finishes a bounded %s callback when its canonical final response arrives",

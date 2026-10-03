@@ -896,3 +896,9 @@ $ npx @aomi-labs/client session close           # clears the active local sessio
 
 Session files live under `~/.aomi/sessions/` by default, with an active session
 pointer stored in the state root.
+
+A start transport failure may occur after admission. `isStartUncertain` remains
+true until the exact operation is confirmed; Stop recovers its original intent
+and idempotency key and never substitutes an unrelated active turn. A different
+message is blocked during this uncertainty. Retrying the same message retains
+the original operation; failed Stop remains retryable without losing its scope.

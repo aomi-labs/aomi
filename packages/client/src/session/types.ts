@@ -35,6 +35,8 @@ export type SessionSnapshot = Readonly<{
   isSubmitting: boolean;
   /** True while Stop awaits authoritative server acknowledgment. */
   isStopping?: boolean;
+  /** Start admission is unconfirmed; Stop can reconcile and retry its exact intent. */
+  isStartUncertain?: boolean;
   /** Scoped Stop ACK; the durable terminal event may arrive in a later page. */
   stoppedTurnId?: string;
   /** Scoped terminal ACKs retained until their ordered history catches up. */

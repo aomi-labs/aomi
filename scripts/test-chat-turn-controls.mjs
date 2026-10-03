@@ -76,6 +76,7 @@ try {
     let startGate;
     let suppressedTerminalTurn;
     const raceAcknowledgements = [];
+    const uncertainStarts = new Map();
     const streams = new Set();
     const event = (type, data) => ({
       type,
@@ -178,7 +179,16 @@ try {
           });
         if (path === "/v1/agent/chat" && request.method() === "POST") {
           const intent = request.postDataJSON();
-          records.push({ type: "start", ...intent, at: performance.now() });
+          const idempotencyKey = request.headers()["idempotency-key"];
+          records.push({
+            type: "start",
+            ...intent,
+            idempotencyKey,
+            at: performance.now(),
+          });
+          const recovered = uncertainStarts.get(idempotencyKey);
+          if (recovered)
+            return json({ ...eventPage([]), started_turn_id: recovered });
           turn++;
           if (thread?.id !== intent.sessionId)
             thread = { id: intent.sessionId, events: [], state: "complete" };
@@ -266,6 +276,19 @@ try {
                 }),
               );
             thread.events.push(...initial);
+            if (intent.message.includes("uncertain-start")) {
+              uncertainStarts.set(idempotencyKey, `fixture-turn-${turn}`);
+              return json(
+                {
+                  error: {
+                    code: "upstream_unavailable",
+                    message: "Controlled lost start response after admission",
+                    retryable: true,
+                  },
+                },
+                503,
+              );
+            }
             if (intent.message.includes("delayed-start")) {
               startGate = delay(700);
               await startGate;
@@ -895,6 +918,74 @@ try {
         fullPage: true,
       });
       assert.equal(interruptCount - legacyInterruptRequests, 2);
+      if (!(await newChat.isVisible()))
+        await page
+          .getByRole("button", { name: "Toggle Sidebar", exact: true })
+          .first()
+          .click();
+      await newChat.click();
+      if (viewport.name === "mobile") {
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+      }
+      await composer.fill("uncertain-start interruption fixture");
+      await page
+        .getByRole("button", { name: "Send message", exact: true })
+        .click();
+      await expect(
+        page.getByText("Unable to confirm message", { exact: true }),
+      ).toBeVisible();
+      const uncertainStop = page.getByRole("button", {
+        name: "Stop generating",
+        exact: true,
+      });
+      await expect(uncertainStop).toBeVisible();
+      const uncertainTurn = `fixture-turn-${turn}`;
+      failNextInterrupt = true;
+      await uncertainStop.evaluate((button) => {
+        button.click();
+        button.click();
+      });
+      await expect(
+        page.getByText("Unable to stop generation", { exact: true }),
+      ).toBeVisible();
+      await expect(uncertainStop).toBeEnabled();
+      await page.screenshot({
+        path: `${output}/${viewport.name}-uncertain-stop-retry.png`,
+        fullPage: true,
+      });
+      await uncertainStop.evaluate((button) => {
+        button.click();
+        button.click();
+      });
+      await expect(
+        page.getByRole("button", { name: /^Stopped/ }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Stop generating", exact: true }),
+      ).toHaveCount(0);
+      await page.screenshot({
+        path: `${output}/${viewport.name}-uncertain-stopped.png`,
+        fullPage: true,
+      });
+      const uncertainRequests = records.filter(
+        (entry) =>
+          entry.type === "start" &&
+          entry.message === "uncertain-start interruption fixture",
+      );
+      assert.equal(uncertainRequests.length, 2);
+      assert.equal(
+        uncertainRequests[0].idempotencyKey,
+        uncertainRequests[1].idempotencyKey,
+      );
+      const uncertainInterrupts = records
+        .filter((entry) => entry.type === "interrupt")
+        .slice(-2);
+      assert.equal(uncertainInterrupts.length, 2);
+      assert.ok(
+        uncertainInterrupts.every((entry) => entry.turnId === uncertainTurn),
+      );
+      assert.equal(interruptCount - legacyInterruptRequests, 4);
       assert.deepEqual(unexpected, []);
       report.scenarios.push({
         viewport: viewport.name,
@@ -905,7 +996,10 @@ try {
         repeatedEditStarts: 1,
         repeatedInterruptRequests: 1,
         totalInterruptRequests: legacyInterruptRequests,
-        terminalRaceInterruptRequests: interruptCount - legacyInterruptRequests,
+        terminalRaceInterruptRequests: 2,
+        uncertainAdmissionInterruptRequests: 2,
+        uncertainStartRecoveryAndRepeatedStopRetry:
+          "PASS (same intent/key and exact admitted turn)",
         combinedInterruptRequests: interruptCount,
         stopRacingCompletePreservesFinalAnswerAndRerun: "PASS",
         stopRacingFailedPreservesFailure: "PASS",
