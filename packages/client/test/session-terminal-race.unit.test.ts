@@ -461,43 +461,66 @@ describe("ClientSession Stop terminal races", () => {
     session.close();
   });
 
-  it("stops only the original replay identity while a newer branch remains active", async () => {
-    const { session, client, start, interrupt } = setup();
-    start.mockRejectedValueOnce(new TypeError("Lost start response"));
-    await expect(
-      session.sendAsync("Explain", { edit: "original-user" }),
-    ).rejects.toThrow("Lost start response");
-    vi.spyOn(client.agent, "poll").mockResolvedValue(
-      page([
-        state(1, "complete", "owned-turn"),
-        {
-          ...meta(2, "newer-turn"),
-          type: "branch",
-          mode: "edit",
-          source_message_key: "newer-user",
-          message_key: "newer-user",
-          content: "Newer request",
-          removed_message_keys: [],
-          removed_turn_ids: [],
-        } as Event,
-        state(3, "processing", "newer-turn"),
-      ]),
-    );
-    start.mockResolvedValueOnce(page([], { started_turn_id: "owned-turn" }));
-    interrupt.mockResolvedValueOnce(
-      page([], { terminal_turn: { turn_id: "owned-turn", state: "complete" } }),
-    );
-    await session.interrupt();
-    expect(interrupt).toHaveBeenCalledExactlyOnceWith(sessionId, "owned-turn");
-    expect(session.getSnapshot()).toMatchObject({
-      turnId: "newer-turn",
-      turnState: "processing",
-      isStreaming: true,
-      isStartUncertain: false,
-    });
-    expect(session.getSnapshot().stoppedTurnId).toBeUndefined();
-    session.close();
-  });
+  it.each(["branch", "ordinary"] as const)(
+    "stops only the original replay identity while a newer %s remains active",
+    async (kind) => {
+      const { session, client, start, interrupt } = setup();
+      start.mockResolvedValueOnce(
+        page([answer(3), state(4, "complete")], { started_turn_id: "turn-1" }),
+      );
+      await session.sendAsync("Previous");
+      start.mockRejectedValueOnce(new TypeError("Lost start response"));
+      await expect(
+        session.sendAsync(
+          "Explain",
+          kind === "branch" ? { edit: "original-user" } : {},
+        ),
+      ).rejects.toThrow("Lost start response");
+      vi.spyOn(client.agent, "poll").mockResolvedValue(
+        page([
+          state(5, "complete", "owned-turn"),
+          kind === "branch"
+            ? ({
+                ...meta(6, "newer-turn"),
+                type: "branch",
+                mode: "edit",
+                source_message_key: "newer-user",
+                message_key: "newer-user",
+                content: "Newer request",
+                removed_message_keys: [],
+                removed_turn_ids: [],
+              } as Event)
+            : {
+                ...meta(6, "newer-turn"),
+                type: "message",
+                sender: "user",
+                content: "Newer request",
+                message_key: "newer-user",
+              },
+          state(7, "processing", "newer-turn"),
+        ]),
+      );
+      start.mockResolvedValueOnce(page([], { started_turn_id: "owned-turn" }));
+      interrupt.mockResolvedValueOnce(
+        page([], {
+          terminal_turn: { turn_id: "owned-turn", state: "complete" },
+        }),
+      );
+      await session.interrupt();
+      expect(interrupt).toHaveBeenCalledExactlyOnceWith(
+        sessionId,
+        "owned-turn",
+      );
+      expect(session.getSnapshot()).toMatchObject({
+        turnId: "newer-turn",
+        turnState: "processing",
+        isStreaming: true,
+        isStartUncertain: false,
+      });
+      expect(session.getSnapshot().stoppedTurnId).toBeUndefined();
+      session.close();
+    },
+  );
 
   it.each(["complete", "failed"] as const)(
     "finishes a bounded %s callback when its canonical final response arrives",

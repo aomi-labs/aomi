@@ -937,7 +937,7 @@ export class ClientSession {
         (this.acceptedTurnId === this.turnId &&
           (!this.isSubmitting || this.timingTurnId === this.turnId))) &&
       (this.isSubmitting ||
-        this.pendingUserMessage ||
+        (this.pendingUserMessage && !this.startOperation?.uncertain) ||
         this.turnState === "processing" ||
         this.turnState === "awaiting_action")
     ) {
