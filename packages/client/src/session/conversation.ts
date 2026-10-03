@@ -1,6 +1,7 @@
 import type { Event, MessageEvent } from "../agent/types";
 
-/** Active conversation derived from the durable, append-only branch ledger.
+/** Active conversation derived from the append-only event ledger. A `branch`
+ * event (Edit or Rerun) removes a user message and everything after it.
  * Removed events remain in SessionSnapshot.events for receipts and audit.
  */
 export function projectConversationEvents(events: readonly Event[]): Event[] {
@@ -12,11 +13,14 @@ export function projectConversationEvents(events: readonly Event[]): Event[] {
     if (event.type === "branch") {
       for (const key of event.removed_message_keys) removedKeys.add(key);
       for (const turn of event.removed_turn_ids) removedTurns.add(turn);
-      // The request keeps its durable key and position, but belongs to the
-      // newly accepted run. This also makes Stop target the regenerated run.
-      removedKeys.delete(event.user_message_key);
+      // Branches from the first release kept the user message, with new text
+      // and the new run's turn, instead of removing it.
+      const legacy = !event.removed_message_keys.includes(
+        event.user_message_key,
+      );
       active = active.flatMap((previous) => {
         if (
+          legacy &&
           previous.type === "message" &&
           previous.sender === "user" &&
           previous.message_key === event.user_message_key

@@ -345,7 +345,6 @@ export function logicalTurnRunning(
   turnState?: TurnState,
   isSubmitting = false,
   pendingUserMessage?: string,
-  activeTurnId?: string,
 ): boolean {
   events = projectConversationEvents(events);
   // An accepted start can precede its durable user event in a later page.
@@ -356,16 +355,6 @@ export function logicalTurnRunning(
   const latestUserTurn = events.findLast(
     (event) => event.type === "message" && event.sender === "user",
   )?.turn_id;
-  // A branch start can be acknowledged before its branch event reaches this
-  // bounded page. It has no new user echo, so the accepted run must keep Stop
-  // available while the previous conversation is still projected.
-  if (
-    activeTurnId &&
-    activeTurnId !== latestUserTurn &&
-    !activeTurnId.startsWith("broadcast-terminal:") &&
-    (turnState === "processing" || turnState === "awaiting_action")
-  )
-    return true;
   const ownState = latestUserTurn
     ? events.findLast(
         (event) =>
@@ -611,6 +600,7 @@ export function projectRuntimeMessages(
   liveMessages: readonly MessageEvent[] = [],
   stoppedTurnId?: string,
   terminalTurns: SessionSnapshot["terminalTurns"] = [],
+  pendingReplacesMessageKey?: string,
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -664,6 +654,14 @@ export function projectRuntimeMessages(
   }
   const projected = projectAssistantMessages(visible);
   if (pendingUserMessage === undefined) return projected;
+  // Edit and Rerun replace the conversation from this user message onward.
+  const replaced = projected.findIndex(
+    (message) =>
+      message.role === "user" &&
+      message.metadata?.custom?.aomiUserMessageKey ===
+        pendingReplacesMessageKey,
+  );
+  if (pendingReplacesMessageKey && replaced >= 0) projected.length = replaced;
 
   const userMessageOrdinal = projected.reduce(
     (count, message) => count + Number(message.role === "user"),

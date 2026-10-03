@@ -103,6 +103,7 @@ export class ClientSession {
     content: string;
     sinceSequence: number;
     turnId?: string;
+    replaces?: string;
   };
   private events: Event[] = [];
   private eventIds = new Set<string>();
@@ -536,13 +537,11 @@ export class ClientSession {
     // message event yet (it can trail in a later page). Hold an optimistic
     // echo so consumers can render the outbound message immediately; it is
     // cleared the moment the server's own user message event lands.
-    this.pendingUserMessage =
-      options.regenerate || options.edit
-        ? undefined
-        : {
-            content: text,
-            sinceSequence: this.events.at(-1)?.sequence ?? 0,
-          };
+    this.pendingUserMessage = {
+      content: text,
+      sinceSequence: this.events.at(-1)?.sequence ?? 0,
+      replaces: this.replacedUserMessageKey(options),
+    };
     this.error = undefined;
     this.publish();
     let requested = false;
@@ -902,6 +901,10 @@ export class ClientSession {
           case "branch":
             if (ownsActiveTurn)
               this.acceptedTurnId = event.turn_id ?? undefined;
+            // Branches from the first release kept the user message and sent
+            // no new user event, so nothing else would clear the echo.
+            if (!event.removed_message_keys.includes(event.user_message_key))
+              this.pendingUserMessage = undefined;
             // The branch is itself an accepted run acknowledgment. Its
             // processing event can be behind a page boundary, so retire the
             // previous terminal scope immediately without inventing an event.
@@ -916,7 +919,6 @@ export class ClientSession {
             for (const turnId of event.removed_turn_ids)
               this.supersededTurns.add(turnId);
             this.timingTurnId = event.turn_id ?? undefined;
-            this.pendingUserMessage = undefined;
             for (const [key, message] of this.liveMessages) {
               if (
                 event.removed_message_keys.includes(key) ||
@@ -942,6 +944,22 @@ export class ClientSession {
       this.applyingPage = false;
     }
     this.publish();
+  }
+
+  /** The user message an Edit or Rerun replaces, for its optimistic echo. */
+  private replacedUserMessageKey(options: SendOptions): string | undefined {
+    if (options.edit) return options.edit;
+    if (!options.regenerate) return undefined;
+    const messages = conversationMessages(this.events);
+    const answer = messages.findIndex(
+      (message) => message.message_key === options.regenerate,
+    );
+    return (
+      messages
+        .slice(0, Math.max(answer, 0))
+        .findLast((message) => message.sender === "user")?.message_key ??
+      undefined
+    );
   }
 
   /** Keep late wallet delivery in the audit ledger without changing Stop's target. */
@@ -1384,6 +1402,9 @@ export class ClientSession {
         : {}),
       ...(this.pendingUserMessage
         ? { pendingUserMessage: this.pendingUserMessage.content }
+        : {}),
+      ...(this.pendingUserMessage?.replaces
+        ? { pendingReplacesMessageKey: this.pendingUserMessage.replaces }
         : {}),
       actionAttempts: this.actions.allAttempts(),
       ...(this.error === undefined ? {} : { error: this.error }),

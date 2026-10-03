@@ -27,55 +27,106 @@ const meta = (
   type,
 });
 
-it("keeps Stop available for an accepted branch before its bounded event arrives", () => {
-  const events: Event[] = [
-    {
-      ...meta(1, "message", "original"),
-      type: "message",
-      sender: "user",
-      message_key: "saved-user",
-      content: "Original request",
-    },
-    {
-      ...meta(2, "turn_state_changed", "original"),
-      type: "turn_state_changed",
-      state: "complete",
-    },
-  ];
-  const messages = projectRuntimeMessages(events);
-  expect(
-    logicalTurnRunning(
-      events,
-      messages,
-      "processing",
-      false,
-      undefined,
-      "accepted-branch",
-    ),
-  ).toBe(true);
-  expect(
-    logicalTurnRunning(
-      events,
-      messages,
-      "complete",
-      false,
-      undefined,
-      "accepted-branch",
-    ),
-  ).toBe(false);
-  expect(
-    logicalTurnRunning(
-      events,
-      messages,
-      "processing",
-      false,
-      undefined,
-      "broadcast-terminal:older",
-    ),
-  ).toBe(false);
+const edited: Event[] = [
+  {
+    ...meta(1, "message", "original"),
+    type: "message",
+    sender: "user",
+    message_key: "saved-user",
+    content: "Arc",
+  },
+  {
+    ...meta(2, "message", "original"),
+    type: "message",
+    sender: "agent",
+    message_key: "saved-answer",
+    content: "Original answer",
+  },
+  {
+    ...meta(3, "turn_state_changed", "original"),
+    type: "turn_state_changed",
+    state: "complete",
+  },
+  {
+    ...meta(4, "message", "later"),
+    type: "message",
+    sender: "user",
+    message_key: "later-user",
+    content: "Later turn",
+  },
+];
+
+it("shows an Edit or Rerun in place of the replaced message before the server answers", () => {
+  const projected = projectRuntimeMessages(
+    edited,
+    "Base",
+    [],
+    undefined,
+    [],
+    "saved-user",
+  );
+  expect(projected).toEqual([
+    expect.objectContaining({
+      id: "aomi-user-0",
+      role: "user",
+      content: [{ type: "text", text: "Base" }],
+    }),
+  ]);
+  expect(logicalTurnRunning(edited, projected, "complete", false, "Base")).toBe(
+    true,
+  );
 });
 
-it("replaces an edited request and later history while the new branch streams", () => {
+it("replaces the edited request and later history with the new turn", () => {
+  const events: Event[] = [
+    ...edited,
+    {
+      ...meta(5, "branch", "edited"),
+      type: "branch",
+      kind: "edit",
+      target_message_key: "saved-user",
+      user_message_key: "saved-user",
+      content: "Base",
+      removed_message_keys: ["saved-user", "saved-answer", "later-user"],
+      removed_turn_ids: ["original", "later"],
+    },
+    {
+      ...meta(6, "message", "edited"),
+      type: "message",
+      sender: "user",
+      message_key: "edited-user",
+      content: "Base",
+    },
+    {
+      ...meta(7, "turn_state_changed", "edited"),
+      type: "turn_state_changed",
+      state: "processing",
+    },
+  ];
+  // The echo stays until its user event lands; the branch already hid the
+  // replaced message, so the echo is appended in its place.
+  expect(
+    projectRuntimeMessages(
+      events.slice(0, 5),
+      "Base",
+      [],
+      undefined,
+      [],
+      "saved-user",
+    ).map((message) => message.id),
+  ).toEqual(["aomi-user-0"]);
+  const projected = projectRuntimeMessages(events);
+  expect(projected).toEqual([
+    expect.objectContaining({
+      id: "aomi-user-0",
+      content: [{ type: "text", text: "Base" }],
+      metadata: { custom: { aomiUserMessageKey: "edited-user" } },
+    }),
+  ]);
+  expect(logicalTurnRunning(events, projected, "processing")).toBe(true);
+});
+
+it("projects first-release branches that edited the user message in place", () => {
   const events: Event[] = [
     {
       ...meta(1, "message", "original"),

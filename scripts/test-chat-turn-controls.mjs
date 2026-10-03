@@ -23,7 +23,7 @@ if (harness) {
   await vite.listen();
 }
 const output = resolve(
-  process.env.CHAT_CONTROLS_ARTIFACTS ?? "artifacts/issue-696",
+  process.env.CHAT_CONTROLS_ARTIFACTS ?? "/tmp/chat-controls-artifacts",
 );
 mkdirSync(output, { recursive: true });
 const report = {
@@ -223,47 +223,43 @@ try {
               (entry) =>
                 entry.type === "message" && entry.message_key === target,
             );
+          // Edit and Rerun remove the selected user message and everything
+          // after it, then run the prompt as a normal turn.
           const user = intent.edit
             ? selected
-            : intent.regenerate
-              ? thread.events.find(
+            : selected &&
+              thread.events
+                .slice(0, thread.events.indexOf(selected))
+                .findLast(
                   (entry) =>
-                    entry.type === "message" &&
-                    entry.sender === "user" &&
-                    (entry.turn_id === selected.turn_id ||
-                      entry.message_key ===
-                        thread.events.findLast(
-                          (candidate) =>
-                            candidate.type === "branch" &&
-                            candidate.turn_id === selected.turn_id,
-                        )?.user_message_key),
-                )
-              : undefined;
-          const initial = target
-            ? [
-                event("branch", {
-                  kind: intent.edit ? "edit" : "regenerate",
-                  target_message_key: target,
-                  user_message_key: user.message_key,
-                  content: intent.message,
-                  removed_message_keys: thread.events
-                    .filter(
-                      (entry) =>
-                        entry.type === "message" && entry.sender === "agent",
-                    )
-                    .map((entry) => entry.message_key),
-                  removed_turn_ids: [
-                    ...new Set(thread.events.map((entry) => entry.turn_id)),
-                  ],
-                }),
-              ]
-            : [
-                event("message", {
-                  sender: "user",
-                  content: intent.message,
-                  message_key: `fixture-user-${turn}`,
-                }),
-              ];
+                    entry.type === "message" && entry.sender === "user",
+                );
+          const removed = user
+            ? thread.events.slice(thread.events.indexOf(user))
+            : [];
+          const initial = [
+            ...(target
+              ? [
+                  event("branch", {
+                    kind: intent.edit ? "edit" : "regenerate",
+                    target_message_key: target,
+                    user_message_key: user.message_key,
+                    content: intent.message,
+                    removed_message_keys: removed
+                      .filter((entry) => entry.type === "message")
+                      .map((entry) => entry.message_key),
+                    removed_turn_ids: [
+                      ...new Set(removed.map((entry) => entry.turn_id)),
+                    ],
+                  }),
+                ]
+              : []),
+            event("message", {
+              sender: "user",
+              content: intent.message,
+              message_key: `fixture-user-${turn}`,
+            }),
+          ];
           if (!target && intent.message.startsWith("terminal race fixture ")) {
             thread.state = "processing";
             initial.push(
@@ -347,9 +343,13 @@ try {
               started_turn_id: `fixture-turn-${turn}`,
             });
           }
-          await delay(intent.regenerate ? 700 : 150);
-          const answer = intent.regenerate
-            ? "Regenerated answer fixture: original actions were not repeated."
+          await delay(intent.regenerate || intent.edit ? 700 : 150);
+          // The widget's Rerun is an edit that resends the same text.
+          const rerun =
+            intent.regenerate ||
+            (intent.edit && user?.content === intent.message);
+          const answer = rerun
+            ? "Rerun answer fixture: the request ran again."
             : intent.edit
               ? "Edited answer fixture: the selected request was replaced."
               : "Initial answer fixture: ready for edit and rerun.";
@@ -492,22 +492,34 @@ try {
         button.click();
         button.click();
       });
+      // The replaced answer leaves at once while the request stays and the
+      // new answer is generated (the fixture holds it for 700 ms).
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Initial answer fixture: ready for edit and rerun.", {
+          exact: true,
+        }),
+      ).toHaveCount(0, { timeout: 400 });
+      await expect(page.locator(".aui-user-message-root")).toHaveCount(1);
+      await page.screenshot({
+        path: `${output}/${viewport.name}-rerun-pending.png`,
+        fullPage: true,
+      });
+      await expect(
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
-      assert.equal(
-        records.filter((record) => record.type === "start" && record.regenerate)
-          .length,
-        1,
-        "Repeated Rerun must issue one start",
+      const reruns = records.filter(
+        (record) => record.type === "start" && record.edit,
       );
-      assert.equal(
-        records.find((record) => record.regenerate)?.regenerate,
-        "fixture-answer-1",
-        "Rerun must target the selected durable answer",
+      assert.equal(reruns.length, 1, "Repeated Rerun must issue one start");
+      assert.deepEqual(
+        [reruns[0].edit, reruns[0].message],
+        [
+          "fixture-user-1",
+          "Original request fixture: explain the last answer.",
+        ],
+        "Rerun must resend the request before the selected answer",
       );
       await expect(
         page.getByText("Initial answer fixture: ready for edit and rerun.", {
@@ -540,16 +552,37 @@ try {
           button.click();
         });
       await expect(
+        page.getByText("Revised request fixture: explain it more simply.", {
+          exact: true,
+        }),
+      ).toBeVisible({ timeout: 400 });
+      await expect(
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
+      ).toHaveCount(0, { timeout: 400 });
+      await page.screenshot({
+        path: `${output}/${viewport.name}-edit-pending.png`,
+        fullPage: true,
+      });
+      await expect(
         page.getByText(
           "Edited answer fixture: the selected request was replaced.",
           { exact: true },
         ),
       ).toBeVisible();
       const edits = records.filter(
-        (record) => record.type === "start" && record.edit,
+        (record) =>
+          record.type === "start" &&
+          record.edit &&
+          record.message.startsWith("Revised request fixture"),
       );
       assert.equal(edits.length, 1, "Repeated save must issue one edit");
-      assert.equal(edits[0].edit, "fixture-user-1");
+      assert.equal(
+        edits[0].edit,
+        "fixture-user-2",
+        "Edit must target the request that Rerun re-sent",
+      );
       assert.match(
         edits[0].message,
         /Revised request fixture: explain it more simply/,
@@ -565,10 +598,9 @@ try {
         }),
       ).toBeVisible();
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toHaveCount(0);
       await expect(page.locator(".aui-user-message-root")).toHaveCount(1);
       await page.screenshot({
@@ -580,18 +612,17 @@ try {
         .last()
         .click();
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       const rerunAfterEdit = records
-        .filter((entry) => entry.type === "start" && entry.regenerate)
+        .filter((entry) => entry.type === "start" && entry.edit)
         .at(-1);
       assert.equal(
-        rerunAfterEdit.regenerate,
-        "fixture-answer-3",
-        "Rerun after edit must target the edited answer",
+        rerunAfterEdit.edit,
+        "fixture-user-3",
+        "Rerun after edit must resend the edited request",
       );
       assert.equal(
         rerunAfterEdit.message,
@@ -827,10 +858,9 @@ try {
         await expect(page.getByRole("dialog")).toHaveCount(0);
       }
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(
         page.getByText("Original request fixture: explain the last answer.", {
@@ -926,15 +956,17 @@ try {
       suppressedTerminalTurn = undefined;
       await completedRerun.evaluate((button) => button.click());
       await expect(
-        page.getByText(
-          "Regenerated answer fixture: original actions were not repeated.",
-          { exact: true },
-        ),
+        page.getByText("Rerun answer fixture: the request ran again.", {
+          exact: true,
+        }),
       ).toBeVisible();
       const raceRerun = records
         .filter((entry) => entry.type === "start")
         .at(-1);
-      assert.equal(raceRerun.regenerate, completedResponseKey);
+      assert.equal(
+        raceRerun.edit,
+        completedResponseKey.replace("fixture-race-answer-", "fixture-user-"),
+      );
       assert.equal(raceRerun.message, "terminal race fixture complete");
       await startFreshRace("failed");
       await expect(

@@ -59,11 +59,18 @@ function acceptedBranch(kind: "edit" | "regenerate"): EventPage {
         kind === "edit" ? "original-request" : "original-answer",
       user_message_key: "original-request",
       content: kind === "edit" ? revisedText : originalText,
-      removed_message_keys: ["original-answer"],
+      removed_message_keys: ["original-request", "original-answer"],
       removed_turn_ids: ["original-turn"],
     },
     {
       ...meta(5, "replacement-turn"),
+      type: "message",
+      sender: "user",
+      content: kind === "edit" ? revisedText : originalText,
+      message_key: "replacement-request",
+    },
+    {
+      ...meta(6, "replacement-turn"),
       type: "message",
       sender: "agent",
       content: "Replacement answer",
@@ -71,7 +78,7 @@ function acceptedBranch(kind: "edit" | "regenerate"): EventPage {
       is_streaming: false,
     },
     {
-      ...meta(6, "replacement-turn"),
+      ...meta(7, "replacement-turn"),
       type: "turn_state_changed",
       state: "complete",
     },
@@ -130,7 +137,7 @@ describe("ClientSession durable conversation intents", () => {
       .messages.filter((message) => message.sender === "user");
     expect(userMessages).toEqual([
       expect.objectContaining({
-        message_key: "original-request",
+        message_key: "replacement-request",
         content: revisedText,
         turn_id: "replacement-turn",
       }),
@@ -145,41 +152,33 @@ describe("ClientSession durable conversation intents", () => {
   });
 
   it.each(["edit", "regenerate"] as const)(
-    "does not append an optimistic user message while %s awaits branch acknowledgment",
+    "echoes the replacement for the selected user message while %s awaits acknowledgment",
     async (kind) => {
       const { session, start } = await setup();
       const ack = deferred<EventPage>();
       start.mockReturnValue(ack.promise);
-      const snapshots: Array<string | undefined> = [];
-      const unsubscribe = session.subscribe(() =>
-        snapshots.push(session.getSnapshot().pendingUserMessage),
-      );
       const options: SendOptions =
         kind === "edit"
           ? { edit: "original-request" }
           : { regenerate: "original-answer" };
-      const sent = session.sendAsync(
-        kind === "edit" ? revisedText : originalText,
-        options,
-      );
+      const text = kind === "edit" ? revisedText : originalText;
+      const sent = session.sendAsync(text, options);
       await Promise.resolve();
-      expect(session.getSnapshot().isSubmitting).toBe(true);
-      expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
-      expect(
-        session
-          .getSnapshot()
-          .messages.filter((message) => message.sender === "user"),
-      ).toEqual([history[0]]);
+      expect(session.getSnapshot()).toMatchObject({
+        isSubmitting: true,
+        pendingUserMessage: text,
+        pendingReplacesMessageKey: "original-request",
+      });
       expect(start.mock.calls[0]![0]).toMatchObject(options);
       ack.resolve(acceptedBranch(kind));
       await sent;
-      expect(snapshots.every((pending) => pending === undefined)).toBe(true);
+      expect(session.getSnapshot().pendingUserMessage).toBeUndefined();
+      expect(session.getSnapshot().pendingReplacesMessageKey).toBeUndefined();
       expect(
         session
           .getSnapshot()
           .messages.filter((message) => message.sender === "user"),
       ).toHaveLength(1);
-      unsubscribe();
       session.close();
     },
   );
@@ -318,17 +317,18 @@ describe("ClientSession durable conversation intents", () => {
 
   it("allows the active turn's own admitted wallet callback to continue", async () => {
     const { session, start, client } = await setup();
-    const branch = acceptedBranch("edit").events[0]!;
+    const [branch, request] = acceptedBranch("edit").events;
     start.mockResolvedValue(
       page([
-        branch,
+        branch!,
+        request!,
         {
-          ...meta(5, "replacement-turn"),
+          ...meta(6, "replacement-turn"),
           type: "turn_state_changed",
           state: "processing",
         },
         {
-          ...meta(6, "replacement-turn"),
+          ...meta(7, "replacement-turn"),
           type: "message",
           sender: "agent",
           content: "",
@@ -353,7 +353,7 @@ describe("ClientSession durable conversation intents", () => {
     vi.mocked(client.agent.poll).mockResolvedValue(
       page([
         {
-          ...meta(7, callbackTurn),
+          ...meta(8, callbackTurn),
           type: "turn_state_changed",
           state: "processing",
         },

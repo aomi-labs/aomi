@@ -68,16 +68,15 @@ function Harness({ send }: { send: ReturnType<typeof vi.fn> }) {
 }
 
 describe("message action wiring", () => {
-  it("reruns the selected completed callback answer through the server no-tools intent", async () => {
+  it("reruns an answer by resending the request before it", async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     render(<Harness send={send} />);
     fireEvent.click(screen.getByText("Rerun"));
     await waitFor(() =>
       expect(send).toHaveBeenCalledWith("Supply USDC", {
-        regenerate: "broadcast-terminal:batch:response",
+        edit: "original:user",
       }),
     );
-    expect(send.mock.calls[0]![0]).not.toContain("Reconsider");
   });
 
   it("editing targets the saved user message with revised text", async () => {
@@ -102,7 +101,7 @@ describe("message action wiring", () => {
     ]);
   });
 
-  it("rejects unfinished or tool-only projected rows without sending", async () => {
+  it("rejects requests without a saved message key without sending", async () => {
     const send = vi.fn();
     const unavailable = vi.fn();
     const actions = messageActions({
@@ -117,20 +116,24 @@ describe("message action wiring", () => {
     await actions.onReload("aomi-user-0");
     expect(send).not.toHaveBeenCalled();
     expect(unavailable).toHaveBeenCalledWith(
-      "Only a completed answer can be rerun",
+      "Only a saved request can be edited or rerun",
     );
   });
 
-  it("never restores a failed no-tools rerun as an ordinary executable composer prompt", async () => {
+  it("reports a failed rerun instead of restoring it into the composer", async () => {
     const restore = vi.fn();
+    const unavailable = vi.fn();
     const actions = messageActions({
       messages,
       send: vi.fn().mockRejectedValue(new Error("busy")),
       restore,
-      unavailable: vi.fn(),
+      unavailable,
     });
     await actions.onReload("aomi-user-0");
     expect(restore).not.toHaveBeenCalled();
+    expect(unavailable).toHaveBeenCalledWith(
+      "Couldn't rerun the response. Try again.",
+    );
   });
 
   it("preserves capability chips rehydrated from the selected user message", async () => {
