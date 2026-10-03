@@ -2,7 +2,7 @@
   "origin": "http://127.0.0.1:3317",
   "frontendRoot": "/workspace/aomi",
   "frontendBranch": "codex/696-chat-turn-controls",
-  "frontendHead": "54d3fe3ae8b3ac38dd37142ddfe4680f93b08821",
+  "frontendHead": "13c5a313dc25bd50baf382739740fe51bea000b0",
   "integration": "Actual shared widget AomiFrame/Thread + SDK/runtime source in Vite; synthetic account-session availability, REST and HTTP SSE upstream",
   "realBackendIntegration": "Not exercised by this fixture runner",
   "portalHostIntegration": "BLOCKED: Webpack heap OOM at managed 6GiB; Turbopack process-tree memory ceiling at5.6GiB",
@@ -17,6 +17,11 @@
       "repeatedEditStarts": 1,
       "repeatedInterruptRequests": 1,
       "totalInterruptRequests": 5,
+      "terminalRaceInterruptRequests": 2,
+      "combinedInterruptRequests": 7,
+      "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
+      "stopRacingFailedPreservesFailure": "PASS",
+      "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
       "thinkingOnlyStop": "PASS",
       "workingToolAndStreamingStop": "PASS",
       "failedInterruptRetry": "PASS",
@@ -24,15 +29,15 @@
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
       "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 25,
+      "feedbackMs": 23,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
-      "interruptAcknowledgedMs": 741,
+      "interruptAcknowledgedMs": 732,
       "records": [
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -43,12 +48,12 @@
               "client_type": "web_ui"
             }
           },
-          "at": 9191.167267
+          "at": 7380.873151
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -61,16 +66,16 @@
             }
           },
           "cursor": "3",
-          "at": 9493.551908
+          "at": 7671.604386
         },
         {
           "type": "stream",
-          "at": 10254.045535
+          "at": 8523.635258
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -83,12 +88,12 @@
             }
           },
           "cursor": "6",
-          "at": 10598.430329
+          "at": 8781.692976
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -101,12 +106,12 @@
             }
           },
           "cursor": "9",
-          "at": 10955.826539
+          "at": 9176.214293
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -118,21 +123,21 @@
             }
           },
           "cursor": "12",
-          "at": 11927.104126
+          "at": 10277.890799
         },
         {
           "type": "stream",
-          "at": 11992.782644
+          "at": 10333.486782
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 12144.493212
+          "at": 10453.769785
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -144,21 +149,21 @@
             }
           },
           "cursor": "15",
-          "at": 13027.831113
+          "at": 11347.379917
         },
         {
           "type": "stream",
-          "at": 13135.638369
+          "at": 11447.586731
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 13588.460645
+          "at": 11894.430093
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -170,26 +175,26 @@
             }
           },
           "cursor": "19",
-          "at": 14787.694268
+          "at": 13054.462636
         },
         {
           "type": "stream",
-          "at": 14892.879628
+          "at": 13139.13525
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 14978.406697
+          "at": 13231.450426
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 16122.230268
+          "at": 14254.015157
         },
         {
           "type": "start",
-          "sessionId": "bc15441f-986d-4b49-a552-83754c40a606",
-          "clientId": "ca0e6cdb-33fd-4b0c-ab57-9340d23178fe",
+          "sessionId": "75fe5edd-c3cf-4db5-9c2b-623bcc61bb3b",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -201,16 +206,106 @@
             }
           },
           "cursor": "23",
-          "at": 17059.482145
+          "at": 15177.600443
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 18002.226387
+          "at": 15976.143298
         },
         {
           "type": "stream",
-          "at": 18005.239197
+          "at": 15995.959495
+        },
+        {
+          "type": "start",
+          "sessionId": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "message": "terminal race fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 19655.699971
+        },
+        {
+          "type": "stream",
+          "at": 19724.438202
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-9",
+          "at": 19773.368928
+        },
+        {
+          "type": "start",
+          "sessionId": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "message": "terminal race fixture complete",
+          "regenerate": "fixture-race-answer-9",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "31",
+          "at": 20686.539663
+        },
+        {
+          "type": "start",
+          "sessionId": "bfc1a82a-1724-41c9-ba25-55ecae2b6528",
+          "clientId": "c54c0fab-369c-4611-b416-899b875ea1f3",
+          "message": "terminal race fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 22250.884067
+        },
+        {
+          "type": "stream",
+          "at": 22311.467243
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-11",
+          "at": 22337.648165
+        }
+      ],
+      "raceAcknowledgements": [
+        {
+          "session_id": "571d1d4d-42c4-4fdc-a5aa-fee0a4c42abe",
+          "cursor": "31",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-9",
+            "state": "complete"
+          }
+        },
+        {
+          "session_id": "bfc1a82a-1724-41c9-ba25-55ecae2b6528",
+          "cursor": "39",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-11",
+            "state": "failed"
+          }
         }
       ]
     },
@@ -223,6 +318,11 @@
       "repeatedEditStarts": 1,
       "repeatedInterruptRequests": 1,
       "totalInterruptRequests": 5,
+      "terminalRaceInterruptRequests": 2,
+      "combinedInterruptRequests": 7,
+      "stopRacingCompletePreservesFinalAnswerAndRerun": "PASS",
+      "stopRacingFailedPreservesFailure": "PASS",
+      "boundedTerminalAcknowledgement": "PASS (complete/failed terminal_turn without terminal events or stopped_turn_id)",
       "thinkingOnlyStop": "PASS",
       "workingToolAndStreamingStop": "PASS",
       "failedInterruptRetry": "PASS",
@@ -230,15 +330,15 @@
       "earlierStoppedTraceAfterNewTurnAndReload": "PASS",
       "iconOnlyPendingStop": "PASS (disabled, unchanged size, no visible text, accessible label retained)",
       "streamingFrames": 3,
-      "feedbackMs": 26,
+      "feedbackMs": 24,
       "latencyMeasurement": "Browser MutationObserver timestamps from click to pending control and click to visible Send; synthetic 650ms upstream acknowledgement delay",
       "boundedInterruptAcknowledgement": "PASS (stopped_turn_id without terminal event)",
-      "interruptAcknowledgedMs": 739,
+      "interruptAcknowledgedMs": 738,
       "records": [
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "Original request fixture: explain the last answer.",
           "mode": "auto",
           "userState": {
@@ -249,12 +349,12 @@
               "client_type": "web_ui"
             }
           },
-          "at": 22770.209155
+          "at": 25584.202338
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "Original request fixture: explain the last answer.",
           "regenerate": "fixture-answer-1",
           "mode": "auto",
@@ -267,16 +367,16 @@
             }
           },
           "cursor": "3",
-          "at": 23040.22911
+          "at": 25858.653948
         },
         {
           "type": "stream",
-          "at": 23789.35939
+          "at": 26611.687876
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "Revised request fixture: explain it more simply.",
           "edit": "fixture-user-1",
           "mode": "auto",
@@ -289,12 +389,12 @@
             }
           },
           "cursor": "6",
-          "at": 23999.262721
+          "at": 26808.062723
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "Revised request fixture: explain it more simply.",
           "regenerate": "fixture-answer-3",
           "mode": "auto",
@@ -307,12 +407,12 @@
             }
           },
           "cursor": "9",
-          "at": 24446.522894
+          "at": 27116.858721
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "thinking interruption fixture",
           "mode": "auto",
           "userState": {
@@ -324,21 +424,21 @@
             }
           },
           "cursor": "12",
-          "at": 25349.196819
+          "at": 28202.091839
         },
         {
           "type": "stream",
-          "at": 25422.499733
+          "at": 28283.997715
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-5",
-          "at": 25530.103573
+          "at": 28407.209139
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "stream interruption fixture",
           "mode": "auto",
           "userState": {
@@ -350,21 +450,21 @@
             }
           },
           "cursor": "15",
-          "at": 26452.691834
+          "at": 29304.476841
         },
         {
           "type": "stream",
-          "at": 26563.037972
+          "at": 29408.988137
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-6",
-          "at": 26961.927889
+          "at": 30015.469221
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "stream interruption fixture retry",
           "mode": "auto",
           "userState": {
@@ -376,26 +476,26 @@
             }
           },
           "cursor": "19",
-          "at": 28117.057322
+          "at": 31155.802224
         },
         {
           "type": "stream",
-          "at": 28382.215711
+          "at": 31252.039029
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 28484.51571
+          "at": 31382.059897
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-7",
-          "at": 29499.159178
+          "at": 32340.170448
         },
         {
           "type": "start",
-          "sessionId": "07e924ed-1ee4-48d6-a13e-11001d2462ca",
-          "clientId": "005b812b-190d-4e49-a799-f4e244707560",
+          "sessionId": "336af050-3982-4be4-94ee-84a778d9973d",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
           "message": "stream interruption fixture delayed-start",
           "mode": "auto",
           "userState": {
@@ -407,16 +507,106 @@
             }
           },
           "cursor": "23",
-          "at": 30624.438233
+          "at": 33261.402291
         },
         {
           "type": "interrupt",
           "turnId": "fixture-turn-8",
-          "at": 31437.958121
+          "at": 34208.906602
         },
         {
           "type": "stream",
-          "at": 31449.35205
+          "at": 34225.282293
+        },
+        {
+          "type": "start",
+          "sessionId": "2f30e775-3344-42ae-9631-19416907e141",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "message": "terminal race fixture complete",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 40515.805857
+        },
+        {
+          "type": "stream",
+          "at": 40569.505414
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-9",
+          "at": 40614.553941
+        },
+        {
+          "type": "start",
+          "sessionId": "2f30e775-3344-42ae-9631-19416907e141",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "message": "terminal race fixture complete",
+          "regenerate": "fixture-race-answer-9",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "cursor": "31",
+          "at": 41477.449429
+        },
+        {
+          "type": "start",
+          "sessionId": "4b98f67e-53c0-420a-b60e-2d297fa1b13c",
+          "clientId": "e2a7a6fc-30f8-4df9-8d2d-4fc485473fa8",
+          "message": "terminal race fixture failed",
+          "mode": "auto",
+          "userState": {
+            "connection": {
+              "is_connected": false
+            },
+            "ext": {
+              "client_type": "web_ui"
+            }
+          },
+          "at": 44824.368769
+        },
+        {
+          "type": "stream",
+          "at": 44873.136391
+        },
+        {
+          "type": "interrupt",
+          "turnId": "fixture-turn-11",
+          "at": 44907.395832
+        }
+      ],
+      "raceAcknowledgements": [
+        {
+          "session_id": "2f30e775-3344-42ae-9631-19416907e141",
+          "cursor": "31",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-9",
+            "state": "complete"
+          }
+        },
+        {
+          "session_id": "4b98f67e-53c0-420a-b60e-2d297fa1b13c",
+          "cursor": "39",
+          "events": [],
+          "has_more": false,
+          "terminal_turn": {
+            "turn_id": "fixture-turn-11",
+            "state": "failed"
+          }
         }
       ]
     }
