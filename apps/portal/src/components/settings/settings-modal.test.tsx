@@ -32,7 +32,6 @@ vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/general",
   () => ({
-    GeneralAppearance: () => <div>Local appearance</div>,
     GeneralSettings: ({
       onManageAccount,
       onViewUsage,
@@ -182,13 +181,15 @@ describe("SettingsModal directory shell", () => {
     view.rerender(<SettingsModal onClose={vi.fn()} initialTab="account" />);
     expect(screen.getByText("Account content")).toBe(content);
     expect(content).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("Refreshing");
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
-  it("renders local appearance while the first session is restoring", () => {
+  it("shows a centered spinner while the first session is restoring", () => {
     session.status = "establishing";
     render(<SettingsModal onClose={vi.fn()} />);
-    expect(screen.getByText("Local appearance")).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "Connecting your account" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("General content")).toBeNull();
   });
 });

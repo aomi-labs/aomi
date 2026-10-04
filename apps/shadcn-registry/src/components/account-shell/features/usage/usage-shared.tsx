@@ -9,7 +9,7 @@ import type {
   MonthlyStatement,
   UsagePeriod,
 } from "./types";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, LoaderCircle } from "lucide-react";
 import { SectionHeader } from "../../../ui/aomi/section-header";
 
 /* ---------------------------------------------------------------------- */
@@ -685,22 +685,6 @@ export function AllowanceSettlementSection({
               </span>
             </div>
             <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
-              {allowanceStatus === "loading" || allowanceStatus === "error" ? (
-                <p role="status" className="text-aomi-muted text-[12px]">
-                  {allowanceStatus === "loading"
-                    ? "Refreshing allowance…"
-                    : "Showing your last known allowance."}
-                  {allowanceStatus === "error" && onRetryAllowance ? (
-                    <button
-                      type="button"
-                      onClick={onRetryAllowance}
-                      className="hover:text-aomi-fg ml-2 underline underline-offset-2"
-                    >
-                      Retry
-                    </button>
-                  ) : null}
-                </p>
-              ) : null}
               <Meter pct={creditsPct} over={over} />
               <span className="text-aomi-muted text-[12px] leading-snug">
                 Paid via {payment.settledVia}.{" "}
@@ -723,13 +707,18 @@ export function AllowanceSettlementSection({
               Monthly credits
             </span>
             <span className="text-aomi-muted text-[12px]">
-              {allowanceStatus === "loading" || allowanceStatus === "idle"
-                ? "Loading…"
-                : hasAllowance
-                  ? `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
-                  : allowanceAvailable
-                    ? "No monthly allowance"
-                    : "Unavailable"}
+              {allowanceStatus === "loading" || allowanceStatus === "idle" ? (
+                <LoaderCircle
+                  aria-label="Loading"
+                  className="inline size-3.5 animate-spin motion-reduce:animate-none"
+                />
+              ) : hasAllowance ? (
+                `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
+              ) : allowanceAvailable ? (
+                "No monthly allowance"
+              ) : (
+                "Unavailable"
+              )}
               {allowanceStatus === "error" && onRetryAllowance ? (
                 <button
                   type="button"

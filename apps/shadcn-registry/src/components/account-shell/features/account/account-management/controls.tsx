@@ -20,7 +20,6 @@ import type { LinkedAuthAccount } from "../../../../../lib/wallet-kit/account/ty
 import { shortenAddress } from "../account-api";
 import { WalletProviderAvatar } from "../wallet-brands";
 import type { ManagedWallet } from "../wallet-management-model";
-import { WalletNativeBalance } from "../wallet-native-balance";
 import {
   addressLineStatus,
   familyName,
@@ -219,12 +218,7 @@ function AddressLine({
         size={17}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:items-center">
-          <span className="type-row truncate">{title}</span>
-          {wallet.kind === "external" ? (
-            <StatusPill>External signer</StatusPill>
-          ) : null}
-        </span>
+        <span className="type-row truncate">{title}</span>
         <span className="type-address text-aomi-muted truncate">{address}</span>
       </span>
     </>
@@ -309,7 +303,7 @@ function AddressLine({
             {status.action.label}
           </button>
         ) : null}
-        <WalletAddressDetails address={wallet.address} />
+        <CopyAddressButton address={wallet.address} />
         {menuActions.length ? (
           <WalletActionsMenu
             label={`Actions for ${title} ${short}`}
@@ -334,66 +328,32 @@ function AddressLine({
           unavailable until this wallet is ready.
         </p>
       ) : null}
-      <div className="pb-2.5 pl-[58px] pr-3.5 sm:basis-full">
-        <WalletNativeBalance wallet={wallet} />
-      </div>
     </div>
   );
 }
 
-function WalletAddressDetails({ address }: { address: string }) {
+function CopyAddressButton({ address }: { address: string }) {
   const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
   return (
-    <Popover
-      onOpenChange={() => {
-        setCopied(false);
-        setCopyFailed(false);
-      }}
+    <button
+      type="button"
+      aria-label={copied ? "Address copied" : `Copy address ${address}`}
+      title={address}
+      className={aomiButton({ variant: "ghost", size: "icon" })}
+      onClick={() =>
+        void navigator.clipboard
+          .writeText(address)
+          .then(() => setCopied(true))
+          .catch(() => undefined)
+      }
     >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={`View full address ${address}`}
-          className={aomiButton({ variant: "ghost", size: "icon" })}
-        >
-          <Copy size={14} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="border-aomi-border bg-aomi-raised text-aomi-fg w-72 max-w-[calc(100vw-2rem)] p-3"
-        align="end"
-      >
-        <p className="type-meta text-aomi-muted mb-1">Wallet address</p>
-        <p className="type-address select-all [overflow-wrap:anywhere]">
-          {address}
-        </p>
-        <button
-          type="button"
-          className={cn(
-            aomiButton({ variant: "secondary", size: "sm" }),
-            "mt-3",
-          )}
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(address);
-              setCopied(true);
-              setCopyFailed(false);
-            } catch {
-              setCopyFailed(true);
-            }
-          }}
-        >
-          {copied ? <Check /> : <Copy />}
-          {copied ? "Copied" : "Copy address"}
-        </button>
-        {copyFailed ? (
-          <p role="status" className="type-meta text-aomi-muted mt-2">
-            Select the address above to copy it.
-          </p>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
   );
 }
 

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { AomiButton } from "../../../ui/aomi/button";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import {
   ModalHeader,
   ModalNav,
@@ -17,7 +18,7 @@ import {
   ModalShell,
   ModalSidebar,
 } from "../../../ui/aomi/modal-shell";
-import { GeneralAppearance, GeneralSettings } from "../../features/general";
+import { GeneralSettings } from "../../features/general";
 import { AccountSettings } from "../../features/account";
 import { UsageSettings } from "../../features/usage";
 import { PolicyPage } from "../../features/policy";
@@ -84,7 +85,7 @@ function GateNotice({
   onRetry,
   onConnect,
 }: {
-  status: Exclude<AomiSessionStatus, "ready">;
+  status: Exclude<AomiSessionStatus, "ready" | "establishing">;
   walletConnected?: boolean;
   detail?: string;
   onRetry: () => void;
@@ -117,11 +118,6 @@ function GateNotice({
             <GateAction onClick={onConnect}>Connect account</GateAction>
           )}
         </>
-      )}
-      {status === "establishing" && (
-        <span className="type-meta text-aomi-muted">
-          Connecting your account…
-        </span>
       )}
       {status === "error" && (
         <>
@@ -165,24 +161,20 @@ export function SettingsModal({
   const activeNav = NAV.find((item) => item.id === tab) ?? NAV[0];
 
   const renderContent = () => {
-    if (
-      status === "anonymous" ||
-      (status === "establishing" && !hadSession.current) ||
-      (status === "error" && !hadSession.current)
-    ) {
+    if (status === "establishing" && !hadSession.current) {
+      return <LoadingPane label="Connecting your account" />;
+    }
+    if (status === "anonymous" || (status === "error" && !hadSession.current)) {
       return (
-        <div className="w-full px-6 pb-6 pt-1">
-          {tab === "general" ? <GeneralAppearance /> : null}
-          <GateNotice
-            status={status}
-            walletConnected={adapter.identity.isConnected}
-            detail={adapter.accountError}
-            onRetry={retry}
-            onConnect={() => {
-              void adapter.connect?.();
-            }}
-          />
-        </div>
+        <GateNotice
+          status={status}
+          walletConnected={adapter.identity.isConnected}
+          detail={adapter.accountError}
+          onRetry={retry}
+          onConnect={() => {
+            void adapter.connect?.();
+          }}
+        />
       );
     }
 
@@ -191,14 +183,9 @@ export function SettingsModal({
       // their own width.
       <div
         data-settings-column
-        className="w-full px-6 pb-6 pt-1"
+        className="flex w-full flex-1 flex-col px-6 pb-6 pt-1"
         key={adapter.accountUser?.id ?? "session"}
       >
-        {status === "establishing" ? (
-          <p role="status" className="type-meta text-aomi-muted mb-3">
-            Refreshing your account…
-          </p>
-        ) : null}
         {status === "error" && (
           <div className="border-aomi-border bg-aomi-surface-2 text-aomi-muted type-meta rounded-control mb-5 flex items-center justify-between gap-3 border px-3.5 py-2.5">
             <span>
@@ -209,30 +196,23 @@ export function SettingsModal({
             </AomiButton>
           </div>
         )}
-        {visited.includes("general") ? (
-          <div hidden={tab !== "general"}>
-            <GeneralSettings
-              onManageAccount={() => selectTab("account")}
-              onViewUsage={() => selectTab("usage")}
-              onFixWallets={() => selectTab("account")}
-            />
+        {NAV.filter(({ id }) => visited.includes(id)).map(({ id }) => (
+          <div key={id} hidden={tab !== id} className="flex flex-1 flex-col">
+            {id === "general" ? (
+              <GeneralSettings
+                onManageAccount={() => selectTab("account")}
+                onViewUsage={() => selectTab("usage")}
+                onFixWallets={() => selectTab("account")}
+              />
+            ) : id === "account" ? (
+              <AccountSettings onClose={onClose} />
+            ) : id === "usage" ? (
+              <UsageSettings />
+            ) : (
+              <PolicyPage />
+            )}
           </div>
-        ) : null}
-        {visited.includes("account") ? (
-          <div hidden={tab !== "account"}>
-            <AccountSettings onClose={onClose} />
-          </div>
-        ) : null}
-        {visited.includes("usage") ? (
-          <div hidden={tab !== "usage"}>
-            <UsageSettings />
-          </div>
-        ) : null}
-        {visited.includes("policy") ? (
-          <div hidden={tab !== "policy"}>
-            <PolicyPage />
-          </div>
-        ) : null}
+        ))}
       </div>
     );
   };

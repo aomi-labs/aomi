@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { AccountSigningView } from "./account-signing";
 import { useAccountAcl } from "./use-account-acl";
 
@@ -8,11 +9,7 @@ export function SigningSettings() {
   const acl = useAccountAcl();
 
   if (acl.status === "loading") {
-    return (
-      <p role="status" className="type-meta text-aomi-muted">
-        Loading signing settings…
-      </p>
-    );
+    return <LoadingPane label="Loading signing settings" />;
   }
 
   if (acl.status === "error") {

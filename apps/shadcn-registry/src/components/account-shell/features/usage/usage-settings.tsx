@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "../../link";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { useUsageStatement } from "./use-usage-statement";
 import {
   AllowanceSettlementSection,
@@ -23,25 +24,18 @@ export function UsageSettings() {
   const month = statement.month;
 
   if (!month) {
-    return (
-      <div>
-        {statement.status === "error" ? (
-          <p className="text-aomi-danger text-[13px]">
-            {statement.error ?? "Couldn't load usage."}
-            <button
-              onClick={statement.retry}
-              className="hover:text-aomi-fg ml-2 underline underline-offset-2"
-            >
-              Retry
-            </button>
-          </p>
-        ) : (
-          <p className="text-aomi-muted flex items-center gap-2 text-[13px]">
-            <Loader2 size={14} className="animate-spin" />
-            Loading usage…
-          </p>
-        )}
-      </div>
+    return statement.status === "error" ? (
+      <p className="text-aomi-danger text-[13px]">
+        {statement.error ?? "Couldn't load usage."}
+        <button
+          onClick={statement.retry}
+          className="hover:text-aomi-fg ml-2 underline underline-offset-2"
+        >
+          Retry
+        </button>
+      </p>
+    ) : (
+      <LoadingPane label="Loading usage" />
     );
   }
 

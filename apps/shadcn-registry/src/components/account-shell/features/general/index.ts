@@ -1,1 +1,1 @@
-export { GeneralSettings, GeneralAppearance } from "./general-settings";
+export { GeneralSettings } from "./general-settings";

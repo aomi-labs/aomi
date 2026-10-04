@@ -80,30 +80,18 @@ export function GeneralSettings({
           onManageAccount={onManageAccount}
           onViewUsage={onViewUsage}
         />
-        <p role="status" className="type-meta text-aomi-muted min-h-4">
-          {allowance.status === "loading" ? (
-            allowance.data ? (
-              "Refreshing allowance…"
-            ) : (
-              "Loading allowance…"
-            )
-          ) : allowance.status === "error" ? (
-            <>
-              {allowance.data
-                ? "Showing your last known allowance. "
-                : "Allowance unavailable. "}
-              <button
-                type="button"
-                className="hover:text-aomi-fg underline underline-offset-2"
-                onClick={() => void allowance.refresh()}
-              >
-                Retry
-              </button>
-            </>
-          ) : allowance.data && allowance.data.included === 0 ? (
-            "No monthly allowance on this account."
-          ) : null}
-        </p>
+        {allowance.status === "error" && !allowance.data ? (
+          <p role="alert" className="type-meta text-aomi-muted">
+            Allowance unavailable.{" "}
+            <button
+              type="button"
+              className="hover:text-aomi-fg underline underline-offset-2"
+              onClick={() => void allowance.refresh()}
+            >
+              Retry
+            </button>
+          </p>
+        ) : null}
       </section>
 
       <section className="flex flex-col gap-2">
@@ -144,23 +132,6 @@ export function GeneralSettings({
         </div>
       </section>
     </div>
-  );
-}
-
-/** Local preferences remain available while the account session restores. */
-export function GeneralAppearance() {
-  return (
-    <section className="flex flex-col gap-2">
-      <SettingsSectionHeading
-        title="Preferences"
-        detail="Appearance on this device"
-      />
-      <div className={settingsPanelClass}>
-        <FlatSettingRow label="Theme">
-          <ThemePreference />
-        </FlatSettingRow>
-      </div>
-    </section>
   );
 }
 

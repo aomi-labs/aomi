@@ -8,7 +8,7 @@ import {
   type FC,
   type ReactNode,
 } from "react";
-import { Loader2, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { TransactionSafetyMode } from "@aomi-labs/client";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,9 @@ function rememberedDefault(): TransactionSafetyMode {
   return "balanced";
 }
 
+/** Each chat's last loaded level this session, shown while it reloads. */
+const lastThreadMode = new Map<string, TransactionSafetyMode>();
+
 function rememberDefault(mode: TransactionSafetyMode) {
   try {
     window.localStorage.setItem(DEFAULT_KEY, mode);
@@ -107,10 +110,10 @@ function rememberDefault(mode: TransactionSafetyMode) {
 
 /**
  * This chat's transaction safety level, always named on the trigger. It is
- * present from first paint: signed out it shows the default and can't be
- * opened; a new chat shows the remembered default until the account answers.
- * A started chat never borrows the default: it reads as loading until its own
- * level arrives, and as unavailable (with a retry) if that fails.
+ * present from first paint and never shows a loading state: signed out it
+ * shows the default and can't be opened; while a level loads the trigger is
+ * inert and shows this chat's last known level, else the account default.
+ * A started chat whose level fails to load reads as unavailable (with a retry).
  * Outside a ThreadSafetyProvider nothing gates the first send, so the level
  * locks until the chat has started.
  */
@@ -121,53 +124,42 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
   const walletKit = useAomiWalletKit();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const threadId = useOptionalAomiRuntime()?.currentThreadId;
   const accountMode = safety.account?.mode;
   useEffect(() => {
     if (accountMode) rememberDefault(accountMode);
   }, [accountMode]);
 
   const signedIn = Boolean(walletKit.accountUser) && !walletKit.accountGuest;
-  if (signedIn && safety.started && !safety.mode && !safety.unavailable) {
-    return (
-      <Button
-        type="button"
-        variant="ghost"
-        aria-disabled="true"
-        aria-busy="true"
-        aria-label="Guard policy: Loading"
-        className={cn(
-          controlSelectTriggerClass,
-          "hover:text-aomi-muted w-auto cursor-default justify-start hover:bg-transparent",
-          className,
-        )}
-      >
-        <div className="flex items-center gap-px md:gap-1.5">
-          <Loader2 className="h-3 w-3 shrink-0 animate-spin opacity-60" />
-          <span className="truncate">Loading</span>
-        </div>
-        <ControlSelectChevron />
-      </Button>
-    );
-  }
+  if (threadId && safety.started && safety.mode)
+    lastThreadMode.set(threadId, safety.mode);
 
   if (!signedIn || (!safety.mode && !safety.unavailable)) {
-    const level = transactionSafetyLevel(rememberedDefault());
+    const level = transactionSafetyLevel(
+      (threadId && lastThreadMode.get(threadId)) ||
+        safety.account?.mode ||
+        rememberedDefault(),
+    );
     return (
       <Button
         type="button"
         variant="ghost"
         aria-disabled="true"
+        aria-busy={signedIn}
         aria-label={`Guard policy: ${level.label}`}
         title={signedIn ? undefined : "Sign in to change the guard policy"}
         className={cn(
           controlSelectTriggerClass,
           "hover:text-aomi-muted w-auto cursor-default justify-start hover:bg-transparent",
           !signedIn && "opacity-60",
+          level.danger && "text-aomi-danger hover:text-aomi-danger",
           className,
         )}
       >
         <div className="flex items-center gap-px md:gap-1.5">
-          <level.Icon className="h-3 w-3 shrink-0 opacity-60" />
+          <level.Icon
+            className={cn("h-3 w-3 shrink-0", !level.danger && "opacity-60")}
+          />
           <span className="truncate">{level.label}</span>
         </div>
         <ControlSelectChevron />

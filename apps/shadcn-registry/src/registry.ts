@@ -76,7 +76,6 @@ export const registry: RegistryComponent[] = [
       "components/account-shell/features/account/wallet-bind.ts",
       "components/account-shell/features/account/wallet-brands.tsx",
       "components/account-shell/features/account/wallet-management-model.ts",
-      "components/account-shell/features/account/wallet-native-balance.tsx",
       "components/account-shell/lib/use-credit-allowance.ts",
       "components/account-shell/features/account/wallet-policy-row.tsx",
       "components/account-shell/features/general/general-settings.tsx",
@@ -124,6 +123,7 @@ export const registry: RegistryComponent[] = [
       "components/ui/aomi/confirm-dialog.tsx",
       "components/ui/aomi/list-group.tsx",
       "components/ui/aomi/modal-shell.tsx",
+      "components/ui/aomi/loading-pane.tsx",
       "components/ui/aomi/section-header.tsx",
       "components/ui/aomi/segmented.tsx",
       "components/ui/aomi/status-pill.tsx",
@@ -326,7 +326,6 @@ export const registry: RegistryComponent[] = [
     name: "assistant-thread",
     file: [
       "components/assistant-ui/thread.tsx",
-      "components/assistant-ui/response-pending.tsx",
       "components/assistant-ui/assistant-message-row.tsx",
       "components/assistant-ui/thread-loading.ts",
       "components/assistant-ui/capability-message-text.tsx",

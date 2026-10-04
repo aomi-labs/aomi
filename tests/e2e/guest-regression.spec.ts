@@ -223,9 +223,6 @@ test("guest response settles once and the same conversation survives refresh", a
   const protectedContent = page.getByTestId("portal-frame-content");
   await expect(portalShell).toHaveAttribute("aria-busy", "true");
   await expect(protectedContent).toHaveAttribute("inert", "");
-  await expect(portalShell.getByRole("status")).toHaveText(
-    "Restoring session… Your composer will be ready shortly.",
-  );
   // The protected composer cannot accept a draft while session authority is unresolved.
   const heldInput = protectedContent
     .locator('[role="textbox"][aria-label="Message input"]')

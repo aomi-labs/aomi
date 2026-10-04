@@ -439,9 +439,7 @@ export function PortalAomiFrame() {
           showSidebar
           walletPosition="footer"
           walletFamilies={["evm", "solana"]}
-          walletConnectLabel={
-            restoringSession ? "Restoring session…" : "Sign in"
-          }
+          walletConnectLabel="Sign in"
           walletAccountMenu={walletAccountMenu}
           className="portal-aomi-frame rounded-none border-0 shadow-none"
           clientOptions={clientOptions}
@@ -485,14 +483,6 @@ export function PortalAomiFrame() {
           )}
         </AomiFrame.Root>
       </div>
-      {restoringSession && (
-        <p
-          role="status"
-          className="text-muted-foreground bg-background pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs"
-        >
-          Restoring session… Your composer will be ready shortly.
-        </p>
-      )}
     </main>
   );
 }

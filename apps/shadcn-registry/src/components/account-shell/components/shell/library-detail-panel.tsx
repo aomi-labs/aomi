@@ -19,6 +19,7 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { cn } from "@aomi-labs/react";
 import { getChainIcon, getSkillIcon } from "../../../icons";
 import { AomiButton } from "../../../ui/aomi/button";
@@ -561,9 +562,7 @@ function SkillDetails({
       {error ? (
         <p className="type-control text-aomi-danger px-5">{error}</p>
       ) : !detail ? (
-        <div className="type-control text-aomi-muted flex items-center gap-2 px-5">
-          <Loader2 className="size-3.5 animate-spin" /> Loading details…
-        </div>
+        <LoadingPane label="Loading details" />
       ) : (
         <div className="space-y-5 px-5">
           <DetailSection title="Works on">

@@ -184,7 +184,6 @@ describe("PortalAomiFrame account bootstrap", () => {
 
     const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
     expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
-    expect(screen.getByRole("status")).toHaveTextContent("Restoring session");
     expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
 
     walletKitState.current = {

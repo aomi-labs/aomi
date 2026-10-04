@@ -8,6 +8,7 @@ import type {
 } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { listGroupClass } from "../../../ui/aomi/list-group";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { SectionHeader } from "../../../ui/aomi/section-header";
 import { useShellTransport } from "../../transport";
 import {
@@ -193,9 +194,7 @@ export function TransactionSafetySettings() {
           })}
         </div>
       ) : !error ? (
-        <p role="status" className="type-meta text-aomi-muted">
-          Loading your guard policy…
-        </p>
+        <LoadingPane label="Loading your guard policy" className="min-h-44" />
       ) : null}
       {error ? (
         <p role="alert" className="type-meta text-aomi-danger break-words">

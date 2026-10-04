@@ -52,7 +52,6 @@ import { AppIndicator } from "@/components/control-bar/app-indicator";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
-import { ResponsePending } from "./response-pending";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
 import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
@@ -567,12 +566,14 @@ const AssistantMessageSkeleton: FC<{ widths?: string[] }> = ({
 };
 
 const AssistantLoadingDot: FC = () => {
-  const runtime = useOptionalAomiRuntime();
   return (
-    <ResponsePending
-      creating={Boolean(runtime?.isSubmitting && runtime.events.length === 0)}
-      stopping={Boolean(runtime?.isStopping)}
-    />
+    <div
+      role="status"
+      aria-label="Waiting for response"
+      className="aui-assistant-loading-dot-wrapper flex min-h-6 items-center px-1"
+    >
+      <span className="aui-assistant-loading-dot bg-aomi-fg block size-2.5 animate-pulse rounded-full" />
+    </div>
   );
 };
 

@@ -21,6 +21,7 @@ export {
   ModalShell,
   ModalSidebar,
 } from "./modal-shell";
+export { LoadingPane } from "./loading-pane";
 export { HelpHint, SectionHeader } from "./section-header";
 export { Segmented, type SegmentedOption } from "./segmented";
 export { StatusPill, type StatusTone } from "./status-pill";

@@ -67,10 +67,8 @@ export function usePortalWalletAccountMenu(
       secondaryLine,
       noticeLine:
         accountError ??
-        (allowance.status === "error"
-          ? credits
-            ? "Showing your last known allowance. Refresh in Settings."
-            : "Couldn’t load allowance. Retry in Settings."
+        (allowance.status === "error" && !credits
+          ? "Couldn’t load allowance. Retry in Settings."
           : undefined),
       walletLabel: activeAccount?.walletName,
       themeLabel: isDark ? "Dark" : "Light",

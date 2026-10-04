@@ -154,7 +154,8 @@ describe("SafetySelect", () => {
     window.localStorage.removeItem("aomi:transaction-safety-default");
   });
 
-  it("reads as loading, never the default, while a started chat's level loads", async () => {
+  it("quietly shows the account default while a started chat's level loads", async () => {
+    state.runtime = { currentThreadId: "chat-unseen", events: [{}] };
     state.thread = policy("unrestricted", 4, "thread");
     let answerThread: (() => void) | undefined;
     const request = state.request.getMockImplementation()!;
@@ -169,10 +170,10 @@ describe("SafetySelect", () => {
     await act(async () => {});
 
     const loading = screen.getByRole("button", {
-      name: "Guard policy: Loading",
+      name: "Guard policy: Balanced",
     });
     expect(loading).toHaveAttribute("aria-busy", "true");
-    expect(screen.queryByText("Balanced")).toBeNull();
+    expect(loading).toHaveAttribute("aria-disabled", "true");
 
     await act(async () => answerThread!());
     const yolo = await trigger();

@@ -2,7 +2,8 @@
 
 import { useShellTransport } from "../../transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Library, Loader2 } from "lucide-react";
+import { ArrowLeft, Library } from "lucide-react";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { AomiButton } from "../../../ui/aomi/button";
 import {
@@ -303,9 +304,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
               </AomiButton>
             </div>
           ) : waiting ? (
-            <div className="type-meta text-aomi-muted flex min-h-44 items-center justify-center gap-2">
-              <Loader2 className="size-3.5 animate-spin" /> Loading library…
-            </div>
+            <LoadingPane label="Loading library" className="h-full" />
           ) : visible.length === 0 ? (
             <EmptyList />
           ) : (

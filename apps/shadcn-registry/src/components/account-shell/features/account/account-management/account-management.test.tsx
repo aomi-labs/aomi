@@ -437,7 +437,7 @@ describe("unified account wallets", () => {
         }),
       ).toHaveLength(action ? 1 : 0);
       expect(
-        line.getByRole("button", { name: `View full address ${item.address}` }),
+        line.getByRole("button", { name: `Copy address ${item.address}` }),
       ).toBeInTheDocument();
       if (action) fireEvent.click(line.getByRole("button", { name: action }));
     };
