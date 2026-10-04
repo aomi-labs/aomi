@@ -1,8 +1,25 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  MessagePrimitive,
+  ThreadListPrimitive,
+  ThreadPrimitive,
+  useMessage,
+} from "@assistant-ui/react";
+import { AssistantRuntimeBoundary } from "../../../../../packages/react/src/runtime/assistant-runtime-boundary";
 
-import { PortalAomiFrame, ThreadUrlBootstrap } from "./portal-aomi-frame";
+import {
+  PortalAomiFrame,
+  ThreadUrlBootstrap,
+  createThreadUrlNavigation,
+} from "./portal-aomi-frame";
 
 const walletKitState = vi.hoisted(() => ({
   current: {
@@ -538,6 +555,67 @@ describe("PortalAomiFrame account bootstrap", () => {
 });
 
 describe("ThreadUrlBootstrap", () => {
+  function RuntimeMessage() {
+    const id = useMessage((message) => message.id);
+    return <MessagePrimitive.Root>{id}</MessagePrimitive.Root>;
+  }
+
+  function RuntimeUrlHarness() {
+    const [threadId, setThreadId] = useState("saved");
+    const [navigation] = useState(createThreadUrlNavigation);
+    const restore = useRef<(text: string) => void>(() => {});
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: threadId,
+      threadMetadata: new Map([
+        ["saved", { title: "Saved", status: "regular" }],
+        ["new", { title: "New Chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => threadId === "saved"),
+      selectThread: vi.fn((id: string) => setThreadId(id)),
+      createThread: vi.fn(async () => {
+        setThreadId("new");
+        return "new";
+      }),
+    };
+    return (
+      <AssistantRuntimeBoundary
+        key={threadId}
+        restoreComposerText={restore}
+        adapter={{
+          messages:
+            threadId === "saved"
+              ? [
+                  {
+                    id: "saved-message",
+                    role: "user",
+                    content: [{ type: "text", text: "Saved conversation" }],
+                  },
+                ]
+              : [],
+          convertMessage: (message) => message,
+          onNew: vi.fn(),
+          adapters: {
+            threadList: {
+              threadId,
+              threads: [{ id: "saved", title: "Saved", status: "regular" }],
+              onSwitchToNewThread: () => setThreadId("new"),
+              onSwitchToThread: (id: string) => setThreadId(id),
+            },
+          },
+        }}
+      >
+        <ThreadUrlBootstrap navigation={navigation} />
+        <ThreadListPrimitive.New>New chat</ThreadListPrimitive.New>
+        <ThreadPrimitive.Root>
+          <ThreadPrimitive.Messages
+            components={{ UserMessage: RuntimeMessage }}
+          />
+        </ThreadPrimitive.Root>
+      </AssistantRuntimeBoundary>
+    );
+  }
+
   afterEach(() => {
     window.history.replaceState({}, "", "/");
     runtimeState.current = {
@@ -572,6 +650,34 @@ describe("ThreadUrlBootstrap", () => {
     expect(runtimeState.current.selectThread).toHaveBeenCalledWith(
       "mcp-linked",
     );
+  });
+
+  it("clears the saved URL on real New chat and restores messages through browser back and forward", async () => {
+    window.history.replaceState({}, "", "/?app=default&thread=saved");
+    const push = vi.spyOn(window.history, "pushState");
+    render(<RuntimeUrlHarness />);
+    expect(screen.getByText("saved-message")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    await waitFor(() => expect(window.location.search).toBe("?app=default"));
+    expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
+
+    await act(async () => {
+      window.history.back();
+    });
+    await waitFor(() =>
+      expect(screen.getByText("saved-message")).toBeVisible(),
+    );
+    expect(window.location.search).toBe("?app=default&thread=saved");
+
+    await act(async () => {
+      window.history.forward();
+    });
+    await waitFor(() =>
+      expect(screen.queryByText("saved-message")).not.toBeInTheDocument(),
+    );
+    expect(window.location.search).toBe("?app=default");
+    expect(push).toHaveBeenCalledTimes(1);
+    push.mockRestore();
   });
 
   it("does not inspect another account's URL while its session is restoring", () => {

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   AomiFrame,
   useAomiWalletKit,
@@ -80,7 +86,45 @@ function PortalComposer({
 }
 
 /** Open an account-owned thread linked by MCP wallet-approval handoff. */
-export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
+type ThreadUrlSnapshot = {
+  navigating: boolean;
+  requestedThread: string | null | undefined;
+};
+
+export function createThreadUrlNavigation() {
+  let snapshot: ThreadUrlSnapshot = {
+    navigating: true,
+    requestedThread: undefined,
+  };
+  const listeners = new Set<() => void>();
+  const update = (next: ThreadUrlSnapshot) => {
+    snapshot = next;
+    listeners.forEach((listener) => listener());
+  };
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    navigate: (requestedThread: string | null) =>
+      update({ navigating: true, requestedThread }),
+    settle: () => update({ ...snapshot, navigating: false }),
+    sync: (requestedThread: string | null) =>
+      update({ navigating: false, requestedThread }),
+  };
+}
+export type ThreadUrlNavigation = ReturnType<typeof createThreadUrlNavigation>;
+
+export function ThreadUrlBootstrap({
+  ready = true,
+  navigation,
+}: {
+  ready?: boolean;
+  navigation?: ThreadUrlNavigation;
+}) {
   const {
     currentThreadId,
     selectThread,
@@ -92,27 +136,32 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
     events = [],
     isRemoteThread,
   } = useAomiRuntime();
-  const [requestedThread, setRequestedThread] = useState<
-    string | null | undefined
-  >(undefined);
-  const navigating = useRef(true);
+  const [localNavigation] = useState(createThreadUrlNavigation);
+  const locationState = navigation ?? localNavigation;
+  const { navigating, requestedThread } = useSyncExternalStore(
+    locationState.subscribe,
+    locationState.getSnapshot,
+    locationState.getSnapshot,
+  );
   useEffect(() => {
     const readLocation = () => {
-      navigating.current = true;
-      setRequestedThread(
+      locationState.navigate(
         new URLSearchParams(window.location.search).get("thread")?.trim() ||
           null,
       );
     };
-    readLocation();
+    // Assistant-ui's per-chat boundary remounts this subtree. Only initial
+    // host restoration or browser navigation should reopen the current URL.
+    if (locationState.getSnapshot().requestedThread === undefined)
+      readLocation();
     window.addEventListener("popstate", readLocation);
     return () => window.removeEventListener("popstate", readLocation);
-  }, []);
+  }, [locationState]);
 
   useEffect(() => {
     if (
       !ready ||
-      !navigating.current ||
+      !navigating ||
       requestedThread === undefined ||
       threadListLoading ||
       threadListError
@@ -135,7 +184,7 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
           message:
             "This chat may have been archived or belongs to another account. Start a new chat or choose one from Recent.",
         });
-        setRequestedThread(null);
+        locationState.navigate(null);
         void createThread();
         return;
       }
@@ -143,7 +192,7 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
       void createThread();
       return;
     }
-    navigating.current = false;
+    locationState.settle();
   }, [
     ready,
     requestedThread,
@@ -156,13 +205,15 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
     showNotification,
     events,
     isRemoteThread,
+    locationState,
+    navigating,
   ]);
 
   useEffect(() => {
     if (
       !ready ||
       threadListLoading ||
-      navigating.current ||
+      navigating ||
       requestedThread === undefined
     )
       return;
@@ -178,6 +229,7 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
     if (threadId) url.searchParams.set("thread", threadId);
     else url.searchParams.delete("thread");
     window.history.pushState(null, "", url);
+    locationState.sync(threadId);
   }, [
     ready,
     currentThreadId,
@@ -185,6 +237,8 @@ export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
     requestedThread,
     isRemoteThread,
     threadListLoading,
+    locationState,
+    navigating,
   ]);
 
   return null;
@@ -194,12 +248,14 @@ function PortalFrameContents({
   openSettings,
   onWalletAccountMenuChange,
   ready,
+  navigation,
 }: {
   openSettings: (tab: SettingsTab) => void;
   onWalletAccountMenuChange: (
     menu: WalletAccountMenuOptions | undefined,
   ) => void;
   ready: boolean;
+  navigation: ThreadUrlNavigation;
 }) {
   // AomiFrame.Root creates the runtime provider. Keep this hook in its
   // subtree; calling it in PortalAomiFrame would read the provider before it
@@ -213,7 +269,7 @@ function PortalFrameContents({
     onWalletAccountMenuChange(walletAccountMenu);
   }, [onWalletAccountMenuChange, walletAccountMenu]);
 
-  return <ThreadUrlBootstrap ready={ready} />;
+  return <ThreadUrlBootstrap ready={ready} navigation={navigation} />;
 }
 
 export function PortalAomiFrame() {
@@ -332,6 +388,16 @@ export function PortalAomiFrame() {
   }
 
   const restoringSession = accountStatus === "loading" || !guestSession.checked;
+  const [threadUrlState, setThreadUrlState] = useState(() => ({
+    revision: accountFrameScope.revision,
+    navigation: createThreadUrlNavigation(),
+  }));
+  if (threadUrlState.revision !== accountFrameScope.revision) {
+    setThreadUrlState({
+      revision: accountFrameScope.revision,
+      navigation: createThreadUrlNavigation(),
+    });
+  }
 
   return (
     <main
@@ -369,6 +435,7 @@ export function PortalAomiFrame() {
           inferenceFunding={requestedApp.inferenceFunding}
         >
           <PortalFrameContents
+            navigation={threadUrlState.navigation}
             ready={!restoringSession}
             openSettings={openSettings}
             onWalletAccountMenuChange={setWalletAccountMenu}
