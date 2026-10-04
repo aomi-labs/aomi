@@ -110,6 +110,10 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   await expect
     .poll(() => new URL(page.url()).searchParams.get("thread"))
     .toBeTruthy();
+  const guard = page.getByRole("combobox", { name: "Guard policy: Balanced" });
+  await expect(reply).toBeVisible();
+  await expect(guard).toBeVisible();
+  await captureComparison("completed-chat-before-navigation", page);
   const savedUrl = page.url();
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await expect
@@ -122,6 +126,7 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   await page.goBack();
   await expect(page).toHaveURL(savedUrl);
   await expect(reply).toBeVisible();
+  await expect(guard).toBeVisible();
   await page.goForward();
   await expect
     .poll(() => new URL(page.url()).searchParams.get("thread"))
@@ -135,6 +140,7 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     .click();
   await expect(page).toHaveURL(savedUrl);
   await expect(reply).toBeVisible();
+  await expect(guard).toBeVisible();
   await settleVisuals(page);
   await captureComparison("completed-chat", page);
   await expect.soft(page).toHaveScreenshot("completed-chat.png", screenshot());

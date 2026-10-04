@@ -242,7 +242,11 @@ test("guest response settles once and the same conversation survives refresh", a
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible();
   await expect.poll(() => lists).toBeGreaterThan(0);
-  await expect(page.getByText(userMessage, { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator(".aui-user-message-root")
+      .getByText(userMessage, { exact: true }),
+  ).toBeVisible();
   const row = page.locator(`[data-thread-id="${threadId}"]`);
   await expect(row).toHaveCount(1);
   await row.locator(".aui-thread-list-item-trigger").click();
