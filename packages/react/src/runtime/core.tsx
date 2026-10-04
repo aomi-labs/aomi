@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  AssistantRuntimeProvider,
-  useExternalStoreRuntime,
+import type {
+  ExternalStoreAdapter,
+  ThreadMessageLike,
 } from "@assistant-ui/react";
 
 import {
@@ -34,6 +34,7 @@ import {
   projectRuntimeMessages,
 } from "./utils";
 import { messageActions } from "./message-actions";
+import { AssistantRuntimeBoundary } from "./assistant-runtime-boundary";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -410,7 +411,7 @@ export function AomiRuntimeCore({
     [orchestratorCancel, notificationContext, sessionManager, clearStopError],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
-  const runtime = useExternalStoreRuntime({
+  const assistantAdapter: ExternalStoreAdapter<ThreadMessageLike> = {
     messages: currentMessages,
     isLoading: isThreadLoading,
     isRunning,
@@ -444,10 +445,6 @@ export function AomiRuntimeCore({
     },
     convertMessage: (msg) => msg,
     adapters: { threadList: threadListAdapter },
-  });
-  restoreComposerTextRef.current = (text) => {
-    const composer = runtime.thread.composer;
-    if (!composer.getState().text) composer.setText(text);
   };
 
   // ---------------------------------------------------------------------------
@@ -629,9 +626,13 @@ export function AomiRuntimeCore({
 
   return (
     <AomiRuntimeApiProvider value={aomiRuntimeApi}>
-      <AssistantRuntimeProvider runtime={runtime}>
+      <AssistantRuntimeBoundary
+        key={threadContext.currentThreadId}
+        adapter={assistantAdapter}
+        restoreComposerText={restoreComposerTextRef}
+      >
         {children}
-      </AssistantRuntimeProvider>
+      </AssistantRuntimeBoundary>
     </AomiRuntimeApiProvider>
   );
 }

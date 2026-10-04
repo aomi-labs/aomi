@@ -204,12 +204,23 @@ test("guest response settles once and the same conversation survives refresh", a
   const portalShell = page.getByTestId("portal-shell");
   await expect.poll(() => heldSessions).toBeGreaterThan(0);
   await expect(portalShell).toBeVisible();
-  await expect(portalShell).toHaveAttribute("inert", "");
+  const protectedContent = page.getByTestId("portal-frame-content");
+  await expect(portalShell).toHaveAttribute("aria-busy", "true");
+  await expect(protectedContent).toHaveAttribute("inert", "");
+  await expect(portalShell.getByRole("status")).toHaveText(
+    "Restoring session… Your composer will be ready shortly.",
+  );
+  // The protected composer cannot accept a draft while session authority is unresolved.
+  const heldInput = protectedContent.locator(".aui-composer-input").first();
+  await heldInput.click({ force: true });
+  await page.keyboard.type("must not become a draft");
+  await expect(heldInput).toHaveText("");
   expect(starts).toBe(0);
   expect(lists).toBe(0);
   holdSession = false;
   releaseSession();
-  await expect(portalShell).not.toHaveAttribute("inert");
+  await expect(protectedContent).not.toHaveAttribute("inert");
+  await expect(portalShell).toHaveAttribute("aria-busy", "false");
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");
   await input.pressSequentially(userMessage);

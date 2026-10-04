@@ -339,7 +339,11 @@ export function PortalAomiFrame() {
       data-testid="portal-shell"
       className="bg-background relative h-full w-full overflow-hidden"
     >
-      <div inert={restoringSession} className="h-full w-full">
+      <div
+        data-testid="portal-frame-content"
+        inert={restoringSession}
+        className="h-full w-full"
+      >
         <AomiFrame.Root
           key={`principal-v3:${accountFrameScope.revision}`}
           width="100%"

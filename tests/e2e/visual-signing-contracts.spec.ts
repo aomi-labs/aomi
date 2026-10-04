@@ -34,13 +34,12 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   // replacement baselines or real extension verification.
   for (const width of [1440, 390, 430]) {
     await page.setViewportSize({ width, height: 1000 });
-    await page.getByRole("button", { name: "Open account menu" }).click();
     await page
-      .getByRole("menu", { name: "Account menu" })
-      .getByRole("button", { name: "Manage account" })
+      .getByRole("button", { name: "Open settings", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
     await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Account", exact: true }).click();
     await expect(
       dialog.getByRole("button", { name: /View full address/ }),
     ).toBeVisible();
@@ -49,9 +48,14 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     expect(bounds).toBeTruthy();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+    const accountCapture = testInfo.outputPath(`account-${width}px.png`);
     await page.screenshot({
-      path: testInfo.outputPath(`account-${width}px.png`),
+      path: accountCapture,
       animations: "disabled",
+    });
+    await testInfo.attach(`account-${width}px`, {
+      path: accountCapture,
+      contentType: "image/png",
     });
     await dialog.getByRole("button", { name: "Add a wallet" }).click();
     const picker = page.getByRole("dialog", {
@@ -67,9 +71,14 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
       width + 1,
     );
     expect(pickerBounds!.y + pickerBounds!.height).toBeLessThanOrEqual(1001);
+    const pickerCapture = testInfo.outputPath(`wallet-picker-${width}px.png`);
     await page.screenshot({
-      path: testInfo.outputPath(`wallet-picker-${width}px.png`),
+      path: pickerCapture,
       animations: "disabled",
+    });
+    await testInfo.attach(`wallet-picker-${width}px`, {
+      path: pickerCapture,
+      contentType: "image/png",
     });
     await page.keyboard.press("Escape");
     await expect(picker).toBeHidden();

@@ -108,7 +108,7 @@ describe("HomeTab", () => {
 
     const callout = screen.getByTestId("sdk-callout");
     expect(callout).toHaveTextContent(
-      "Active application built with SDK 5.0.0 — backend requires 5.1.0; redeploy to update.",
+      "Active application built with SDK 5.0.0 — backend requires 5.1.0; upgrade the SDK in Deployments, then redeploy to update.",
     );
     expect(screen.getByTestId("sdk-badge")).toHaveTextContent("5.0.0");
     expect(screen.getByText("Outdated")).toBeInTheDocument();

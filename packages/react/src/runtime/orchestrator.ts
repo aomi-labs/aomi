@@ -16,7 +16,7 @@ import {
 import type { AomiInferenceFundingSource } from "../interface";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
-import { isPlaceholderTitle } from "./utils";
+import { isPlaceholderTitle, reconcileGeneratedThreadTitle } from "./utils";
 import { stripCapabilityHints } from "./capability-hints";
 
 type OrchestratorOptions = {
@@ -100,7 +100,10 @@ export function useRuntimeOrchestrator(
           if (snapshot.title && snapshot.title !== lastSeenTitle) {
             lastSeenTitle = snapshot.title;
             threadsRef.current.updateThreadMetadata(threadId, {
-              title: snapshot.title,
+              title: reconcileGeneratedThreadTitle(
+                threadsRef.current.getThreadMetadata(threadId)?.title,
+                snapshot.title,
+              ),
             });
           }
           const pending =
@@ -181,7 +184,10 @@ export function useRuntimeOrchestrator(
                 titleAtRefresh
             )
               threadsRef.current.updateThreadMetadata(threadId, {
-                title: saved.title,
+                title: reconcileGeneratedThreadTitle(
+                  titleAtRefresh,
+                  saved.title,
+                ),
               });
           })
           .catch((error) =>

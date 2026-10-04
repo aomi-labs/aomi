@@ -16,7 +16,7 @@ import { useThreadContext } from "../contexts/thread-context";
 import { useUser } from "../contexts/ext-user-context";
 import { initThreadControl, type ThreadMetadata } from "../state/thread-store";
 import { getControlSessionId } from "../utils/client-session";
-import { isPlaceholderTitle } from "./utils";
+import { isPlaceholderTitle, reconcileGeneratedThreadTitle } from "./utils";
 import { SessionManager } from "./session-manager";
 import { getHttpStatus } from "./http-status";
 
@@ -109,6 +109,10 @@ export function mergeThreadListMetadata(
   for (const [threadId, metadata] of fetched) {
     merged.set(threadId, {
       ...metadata,
+      title: reconcileGeneratedThreadTitle(
+        latest.get(threadId)?.title,
+        metadata.title,
+      ),
       control: latest.get(threadId)?.control ?? metadata.control,
     });
   }
@@ -132,6 +136,7 @@ function useRemoteThreadListSync(
 ): { isThreadListLoading: boolean; threadListError: boolean } {
   const [isThreadListLoading, setIsThreadListLoading] = useState(true);
   const [threadListError, setThreadListError] = useState(false);
+  const [initialListSettled, setInitialListSettled] = useState(false);
   const prefetchCancelRef = useRef<(() => void) | null>(null);
   const hadThreadAccessRef = useRef(false);
   const { getControlState, threadContextRef, user } = context;
@@ -232,6 +237,7 @@ function useRemoteThreadListSync(
       const previouslyHadThreadAccess = hadThreadAccessRef.current;
       hadThreadAccessRef.current = false;
       setIsThreadListLoading(false);
+      setInitialListSettled(false);
       prefetchCancelRef.current?.();
       prefetchCancelRef.current = null;
 
@@ -388,6 +394,7 @@ function useRemoteThreadListSync(
         }
       } finally {
         if (!cancelled) {
+          setInitialListSettled(true);
           setIsThreadListLoading(false);
         }
       }
@@ -418,7 +425,13 @@ function useRemoteThreadListSync(
     warmThread,
   ]);
 
-  return { isThreadListLoading, threadListError };
+  return {
+    // Access can settle in the same render that enables URL restoration.
+    // Advertise loading before the request effect runs, until its first result.
+    isThreadListLoading:
+      canLoadThreads && (isThreadListLoading || !initialListSettled),
+    threadListError,
+  };
 }
 
 export function useThreadListSync({
