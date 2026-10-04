@@ -222,15 +222,15 @@ export function WalletPicker() {
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
   const [pending, setPending] = useState<string | null>(null);
+  const pendingRef = useRef(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const openerRef = useRef<HTMLElement | null>(null);
-  const autoLinkAttempted = useRef(new Set<string>());
   const canActivateWallet = useWalletActivationGuard();
 
   useEffect(() => {
     if (!open) {
-      setPending(null);
+      if (!pendingRef.current) setPending(null);
       setActionError(null);
       setAddOpen(false);
       return;
@@ -247,7 +247,9 @@ export function WalletPicker() {
 
   const runAction = useCallback(
     async (key: string, fn: () => Promise<void> | void, guard = false) => {
+      if (pendingRef.current) return;
       if (guard && !canActivateWallet()) return;
+      pendingRef.current = true;
       setPending(key);
       setActionError(null);
       try {
@@ -261,6 +263,7 @@ export function WalletPicker() {
             : "Wallet action failed",
         );
       } finally {
+        pendingRef.current = false;
         setPending(null);
       }
     },
@@ -275,42 +278,6 @@ export function WalletPicker() {
   const canManageAccounts = Boolean(
     adapter.openAccountUI && adapter.canOpenAccountUI,
   );
-
-  useEffect(() => {
-    if (
-      !open ||
-      pending !== null ||
-      !adapter.accountUser ||
-      !adapter.linkWallet ||
-      (adapter.accountWallets?.length ?? 0) > 0
-    ) {
-      return;
-    }
-    const target = connectedAccounts.find(
-      (account) => account.state === "unlinked" && account.kind === "external",
-    );
-    if (!target?.address) return;
-    const key = target.key;
-    if (autoLinkAttempted.current.has(key)) return;
-    autoLinkAttempted.current.add(key);
-    void runAction(`link:${target.connectionId}`, () =>
-      adapter.linkWallet!({
-        accountId: target.connectionId,
-        family: target.family,
-        address: target.address!,
-        chainId: target.chainId,
-      }),
-    );
-  }, [
-    adapter,
-    adapter.accountUser,
-    adapter.accountWallets,
-    adapter.linkWallet,
-    connectedAccounts,
-    open,
-    pending,
-    runAction,
-  ]);
 
   const walletActions = useMemo<WalletAction[]>(() => {
     const optionRows = [
@@ -533,22 +500,21 @@ export function WalletPicker() {
       ? "Link another provider"
       : "Other ways to sign in";
   const needsFirstWalletLink = Boolean(
-    hasConnectedWallets &&
-    (!adapter.accountUser || (adapter.accountWallets?.length ?? 0) === 0),
+    hasConnectedWallets && !adapter.accountUser,
   );
   const pickerTitle = recoveringAccountConflict
     ? "Resolve account conflict"
     : needsFirstWalletLink
       ? "Finish signing in"
-      : hasConnectedWallets
+      : adapter.accountUser || hasConnectedWallets
         ? "Add a wallet"
         : "Sign in to Aomi";
   const pickerDescription = recoveringAccountConflict
     ? "Sign in another way to open the account that owns this wallet."
     : needsFirstWalletLink
       ? "Verify the connected wallet to finish setting up your account."
-      : hasConnectedWallets
-        ? "Connect another wallet to this account."
+      : adapter.accountUser || hasConnectedWallets
+        ? "Connect a wallet, then choose Link wallet to save it to this account."
         : "Choose a wallet or another sign-in method.";
 
   const signOutAccount = useCallback(
@@ -739,7 +705,7 @@ export function WalletPicker() {
       key={`${wallet.family}:${wallet.id}`}
       wallet={wallet}
       pending={pending}
-      linkedMode={hasConnectedWallets}
+      linkedMode={Boolean(adapter.accountUser) || hasConnectedWallets}
       onClick={() =>
         void runAction(
           wallet.actionKey,
@@ -880,7 +846,7 @@ export function WalletPicker() {
                       {pickerTitle}
                     </h2>
                   </Dialog.Title>
-                  <p className="text-aomi-muted mt-0.5 truncate text-[11px] leading-snug">
+                  <p className="text-aomi-muted mt-0.5 text-[11px] leading-snug">
                     {pickerDescription}
                   </p>
                 </div>
@@ -895,6 +861,15 @@ export function WalletPicker() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
+                {pending && /^(link|connect|social|wallet):/.test(pending) ? (
+                  <p
+                    role="status"
+                    className="text-aomi-muted text-xs leading-snug"
+                  >
+                    Waiting for your wallet. Open its popup to continue or
+                    cancel.
+                  </p>
+                ) : null}
                 {actionError || adapter.accountError ? (
                   <div
                     role="alert"

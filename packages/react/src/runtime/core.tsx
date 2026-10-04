@@ -215,6 +215,15 @@ export function AomiRuntimeCore({
   const warmedThreadIdsRef = useRef(new Set<string>());
   const warmPromisesRef = useRef(new Map<string, Promise<void>>());
   const cancelPromisesRef = useRef(new Map<string, Promise<void>>());
+  const [stopErrors, setStopErrors] = useState<Record<string, string>>({});
+  const clearStopError = useCallback((threadId: string) => {
+    setStopErrors((previous) => {
+      if (!previous[threadId]) return previous;
+      const next = { ...previous };
+      delete next[threadId];
+      return next;
+    });
+  }, []);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
 
   const warmThread = useCallback(async (threadId: string) => {
@@ -354,7 +363,10 @@ export function AomiRuntimeCore({
         threadContext,
         isLoading: isThreadListLoading,
         getInitialControl: getPreferredThreadControl,
-        isRemoteThread: (threadId) => remoteThreadIdsRef.current.has(threadId),
+        isRemoteThread: (threadId) =>
+          remoteThreadIdsRef.current.has(threadId) ||
+          Boolean(threadContext.getThreadMetadata(threadId)?.pending) ||
+          Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
       }),
     [
       aomiClientRef,
@@ -373,6 +385,7 @@ export function AomiRuntimeCore({
   const cancelThreadGeneration = useCallback(
     (threadId: string) =>
       runSingleFlight(cancelPromisesRef.current, threadId, async () => {
+        clearStopError(threadId);
         try {
           await orchestratorCancel(threadId);
         } catch (error) {
@@ -381,6 +394,12 @@ export function AomiRuntimeCore({
             current?.isStartUncertain ||
             current?.turnState === "processing" ||
             current?.turnState === "awaiting_action";
+          setStopErrors((previous) => ({
+            ...previous,
+            [threadId]: retryable
+              ? "Stop was not confirmed. The response may still be running. Try Stop again."
+              : "Stop was not confirmed. Refresh this chat to check its status.",
+          }));
           notificationContext.showNotification({
             type: "error",
             title: "Unable to stop generation",
@@ -388,7 +407,7 @@ export function AomiRuntimeCore({
           });
         }
       }),
-    [orchestratorCancel, notificationContext, sessionManager],
+    [orchestratorCancel, notificationContext, sessionManager, clearStopError],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const runtime = useExternalStoreRuntime({
@@ -397,9 +416,22 @@ export function AomiRuntimeCore({
     isRunning,
     ...messageActions({
       messages: currentMessages,
-      send: (text, options) =>
-        orchestratorSendMessage(text, threadContext.currentThreadId, options),
-      restore: (text) => restoreComposerTextRef.current(text),
+      send: (text, options) => {
+        clearStopError(threadContext.currentThreadId);
+        return orchestratorSendMessage(
+          text,
+          threadContext.currentThreadId,
+          options,
+        );
+      },
+      restore: (text) => {
+        // A late failure belongs to the originating chat, not the newly selected composer.
+        if (
+          threadContextRef.current.currentThreadId ===
+          threadContext.currentThreadId
+        )
+          restoreComposerTextRef.current(text);
+      },
       unavailable: (message) =>
         notificationContext.showNotification({
           type: "error",
@@ -435,9 +467,10 @@ export function AomiRuntimeCore({
 
   const sendMessage = useCallback(
     async (text: string) => {
+      clearStopError(threadContext.currentThreadId);
       await orchestratorSendMessage(text, threadContext.currentThreadId);
     },
-    [orchestratorSendMessage, threadContext.currentThreadId],
+    [orchestratorSendMessage, threadContext.currentThreadId, clearStopError],
   );
 
   const cancelGeneration = useCallback(() => {
@@ -524,6 +557,10 @@ export function AomiRuntimeCore({
       threadViewKey: threadContext.threadViewKey,
       threadMetadata: threadContext.allThreadsMetadata,
       threadListError,
+      threadListLoading: isThreadListLoading,
+      isRemoteThread: (threadId) =>
+        remoteThreadIdsRef.current.has(threadId) ||
+        Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
       getThreadMetadata: threadContext.getThreadMetadata,
       createThread,
       deleteThread,
@@ -536,6 +573,7 @@ export function AomiRuntimeCore({
       isRunning,
       isSubmitting: snapshot.isSubmitting,
       isStopping: snapshot.isStopping ?? false,
+      stopError: stopErrors[threadContext.currentThreadId],
       getMessages,
       sendMessage,
       cancelGeneration,
@@ -569,12 +607,15 @@ export function AomiRuntimeCore({
       threadContext.getThreadMetadata,
       threadListError,
       createThread,
+      isThreadListLoading,
+      sessionManager,
       deleteThread,
       threadListAdapter,
       selectThread,
       isRunning,
       snapshot.isSubmitting,
       snapshot.isStopping,
+      stopErrors,
       getMessages,
       sendMessage,
       cancelGeneration,

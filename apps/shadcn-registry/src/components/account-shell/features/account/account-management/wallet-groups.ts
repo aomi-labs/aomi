@@ -109,10 +109,10 @@ function stateStatus(
     case "guest":
     case "unlinked":
       return {
-        label: "Not saved",
+        label: "Not linked",
         tone: "warning",
         ...(has("link")
-          ? { action: { kind: "link", label: "Confirm" } as const }
+          ? { action: { kind: "link", label: "Link wallet" } as const }
           : {}),
       };
     case "loading":

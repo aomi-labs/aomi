@@ -14,6 +14,7 @@ type FetchCall = {
 };
 
 const widgetMock = vi.hoisted(() => ({
+  accountId: "",
   getAccountCredential: vi.fn(async () => null),
   connect: vi.fn(async () => undefined),
   openAccountUI: vi.fn(async () => undefined),
@@ -44,7 +45,7 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
   formatAuthMethod: () => "Wallet",
   useAomiWalletKit: () => ({
-    accountUser: { id: "acct-user-1", displayName: "Aron" },
+    accountUser: { id: widgetMock.accountId, displayName: "Aron" },
     accountWallets: [
       {
         id: "wallet-rabby",
@@ -119,7 +120,7 @@ vi.mock("@aomi-labs/widget-lib", () => ({
 
 vi.mock("../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
   useAomiWalletKit: () => ({
-    accountUser: { id: "acct-user-1", displayName: "Aron" },
+    accountUser: { id: widgetMock.accountId, displayName: "Aron" },
     accountWallets: [
       {
         id: "wallet-rabby",
@@ -240,6 +241,14 @@ function installFetchRecorder() {
       const method =
         input instanceof Request ? input.method : (init?.method ?? "GET");
 
+      if (url.pathname === "/v1/account/credits") {
+        const position = await runtimeMock.creditsGet();
+        return Response.json({
+          period_utc_month: position.period_utc_month,
+          included_limit: position.included?.limit_microusd,
+          included_used: position.included?.used_microusd,
+        });
+      }
       if (url.pathname === "/api/account" && method === "GET") {
         return Response.json(ACCOUNT_OVERVIEW);
       }
@@ -259,8 +268,10 @@ function installFetchRecorder() {
 // routes and covered by features/account/account-acl.test.tsx; Usage still
 // renders from local fixtures (see docs/SETTINGS-REDESIGN-GAPS.md) — add its
 // route-caller test here when /api/account/usage binds.
+let accountSequence = 0;
 describe("settings route callers", () => {
   beforeEach(() => {
+    widgetMock.accountId = `settings-test-${++accountSequence}`;
     widgetMock.getAccountCredential.mockClear();
     runtimeMock.creditsGet.mockReset();
     runtimeMock.creditsGet.mockResolvedValue({

@@ -9,7 +9,11 @@ type SdkBadgeProps =
    *  the same object, so the badge can never read differently between them. */
   | { sdk: ProjectSdk }
   /** A bare stamp, for deployment rows and the backend-requirement badge. */
-  | { stamped?: string | null; required?: string | null; label?: string | null };
+  | {
+      stamped?: string | null;
+      required?: string | null;
+      label?: string | null;
+    };
 
 export function SdkBadge(props: SdkBadgeProps) {
   const compatibility: SdkCompatibility =
@@ -35,8 +39,15 @@ export function SdkBadge(props: SdkBadgeProps) {
   return (
     <span
       data-testid="sdk-badge"
+      title={
+        "sdk" in props
+          ? (props.sdk.warning ?? undefined)
+          : compatibility === "outdated"
+            ? `Requires SDK ${props.required}. Upgrade in Deployments, then redeploy.`
+            : undefined
+      }
       data-state={state}
-      className={`inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-[0.05em] whitespace-nowrap ${tone}`}
+      className={`inline-flex h-6 items-center whitespace-nowrap rounded-full border px-2 text-[10px] font-medium uppercase tracking-[0.05em] ${tone}`}
     >
       {text}
     </span>

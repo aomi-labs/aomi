@@ -1,11 +1,13 @@
 import {
   Ellipsis,
+  Copy,
+  Check,
   Loader2,
   Unlink,
   Unplug,
   UserRoundMinus,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "../../../../ui/aomi/button";
 import { StatusPill } from "../../../../ui/aomi/status-pill";
@@ -18,6 +20,7 @@ import type { LinkedAuthAccount } from "../../../../../lib/wallet-kit/account/ty
 import { shortenAddress } from "../account-api";
 import { WalletProviderAvatar } from "../wallet-brands";
 import type { ManagedWallet } from "../wallet-management-model";
+import { WalletNativeBalance } from "../wallet-native-balance";
 import {
   addressLineStatus,
   familyName,
@@ -172,6 +175,13 @@ function AddressLine({
     (wallet.provider ? titleCase(wallet.provider) : undefined) ??
     `${family} wallet`;
   const status = addressLineStatus(wallet);
+  const [checkSlow, setCheckSlow] = useState(false);
+  useEffect(() => {
+    setCheckSlow(false);
+    if (wallet.state !== "loading") return;
+    const timer = window.setTimeout(() => setCheckSlow(true), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [wallet.key, wallet.state]);
   const inlineHandler =
     status?.action?.kind === "link"
       ? onLink
@@ -209,7 +219,7 @@ function AddressLine({
         size={17}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="flex min-w-0 flex-col items-start gap-1.5 sm:flex-row sm:items-center">
           <span className="type-row truncate">{title}</span>
           {wallet.kind === "external" ? (
             <StatusPill>External signer</StatusPill>
@@ -225,7 +235,7 @@ function AddressLine({
     <div
       data-wallet-state={wallet.operating ? "active" : wallet.state}
       className={cn(
-        "group relative flex items-center transition-colors",
+        "group relative flex flex-col items-stretch transition-colors sm:flex-row sm:flex-wrap sm:items-center",
         nested && "border-aomi-border border-t",
         wallet.operating
           ? "bg-aomi-success/[0.045]"
@@ -251,7 +261,7 @@ function AddressLine({
           )}
         >
           {content}
-          <span className="type-meta text-aomi-muted ml-auto shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
+          <span className="type-meta text-aomi-muted ml-auto hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 sm:inline">
             Use for {family}
           </span>
         </button>
@@ -262,33 +272,128 @@ function AddressLine({
           {content}
         </div>
       )}
-      {status || menuActions.length ? (
-        <div className="flex shrink-0 items-center gap-2 py-2 pr-3.5">
-          {status ? (
-            <StatusPill tone={status.tone}>{status.label}</StatusPill>
-          ) : null}
-          {status?.action && inlineHandler ? (
-            <button
-              type="button"
-              disabled={pending !== null}
-              onClick={() => void inlineHandler(wallet)}
-              className={aomiButton({ variant: "secondary", size: "sm" })}
-            >
-              {busy ? <Loader2 className="animate-spin" /> : null}
-              {status.action.label}
-            </button>
-          ) : null}
-          {menuActions.length ? (
-            <WalletActionsMenu
-              label={`Actions for ${title} ${short}`}
-              actions={menuActions}
-              disabled={pending !== null}
-              busy={busy && !(status?.action && inlineHandler)}
-            />
-          ) : null}
-        </div>
+      <div
+        className={cn(
+          "flex shrink-0 flex-wrap items-center gap-2 pb-3 pl-[58px] pr-3.5 sm:py-2 sm:pl-0",
+          nested && "pb-2.5",
+        )}
+      >
+        {status ? (
+          <StatusPill tone={status.tone}>
+            {checkSlow ? "Check taking longer" : status.label}
+          </StatusPill>
+        ) : null}
+        {checkSlow && onConnect ? (
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => void onConnect(wallet)}
+            className={aomiButton({ variant: "secondary", size: "sm" })}
+          >
+            {busy ? <Loader2 className="animate-spin" /> : null}Try again
+          </button>
+        ) : null}
+        {status?.action && inlineHandler ? (
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => void inlineHandler(wallet)}
+            className={aomiButton({ variant: "secondary", size: "sm" })}
+            title={
+              status.action.kind === "link"
+                ? "Sign a message to link this wallet to your account. No transaction is sent."
+                : undefined
+            }
+          >
+            {busy ? <Loader2 className="animate-spin" /> : null}
+            {status.action.label}
+          </button>
+        ) : null}
+        <WalletAddressDetails address={wallet.address} />
+        {menuActions.length ? (
+          <WalletActionsMenu
+            label={`Actions for ${title} ${short}`}
+            actions={menuActions}
+            disabled={pending !== null}
+            busy={busy && !(status?.action && inlineHandler)}
+          />
+        ) : null}
+      </div>
+      {wallet.state === "mismatch" ? (
+        <p className="type-meta text-aomi-danger px-3.5 pb-3 [overflow-wrap:anywhere] sm:basis-full">
+          Selected in your provider: {wallet.observedAddress}. Choose{" "}
+          {wallet.address} in your wallet, then reconnect.
+        </p>
       ) : null}
+      {checkSlow ? (
+        <p
+          role="status"
+          className="type-meta text-aomi-muted px-3.5 pb-3 sm:basis-full"
+        >
+          Open your wallet to finish connecting, then try again. Signing stays
+          unavailable until this wallet is ready.
+        </p>
+      ) : null}
+      <div className="pb-2.5 pl-[58px] pr-3.5 sm:basis-full">
+        <WalletNativeBalance wallet={wallet} />
+      </div>
     </div>
+  );
+}
+
+function WalletAddressDetails({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  return (
+    <Popover
+      onOpenChange={() => {
+        setCopied(false);
+        setCopyFailed(false);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`View full address ${address}`}
+          className={aomiButton({ variant: "ghost", size: "icon" })}
+        >
+          <Copy size={14} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="border-aomi-border bg-aomi-raised text-aomi-fg w-72 max-w-[calc(100vw-2rem)] p-3"
+        align="end"
+      >
+        <p className="type-meta text-aomi-muted mb-1">Wallet address</p>
+        <p className="type-address select-all [overflow-wrap:anywhere]">
+          {address}
+        </p>
+        <button
+          type="button"
+          className={cn(
+            aomiButton({ variant: "secondary", size: "sm" }),
+            "mt-3",
+          )}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(address);
+              setCopied(true);
+              setCopyFailed(false);
+            } catch {
+              setCopyFailed(true);
+            }
+          }}
+        >
+          {copied ? <Check /> : <Copy />}
+          {copied ? "Copied" : "Copy address"}
+        </button>
+        {copyFailed ? (
+          <p role="status" className="type-meta text-aomi-muted mt-2">
+            Select the address above to copy it.
+          </p>
+        ) : null}
+      </PopoverContent>
+    </Popover>
   );
 }
 

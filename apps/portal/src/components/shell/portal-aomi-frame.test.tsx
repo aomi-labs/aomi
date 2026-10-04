@@ -34,6 +34,11 @@ const runtimeState = vi.hoisted(() => ({
     threadMetadata: new Map<string, unknown>(),
     selectThread: vi.fn(),
     createThread: vi.fn(async () => "thread-new"),
+    showNotification: vi.fn(),
+    threadListLoading: false,
+    threadListError: false,
+    isRemoteThread: vi.fn(() => false),
+    events: [],
   },
 }));
 const settingsOpenRequest = vi.hoisted(() => ({
@@ -157,10 +162,12 @@ describe("PortalAomiFrame account bootstrap", () => {
     settingsOpenRequest.current = undefined;
   });
 
-  it("waits for the initial account lookup before mounting the frame", async () => {
+  it("keeps the same inert frame mounted through initial account restoration", async () => {
     const view = render(<PortalAomiFrame />);
 
-    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+    const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
+    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Restoring session");
     expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
 
     walletKitState.current = {
@@ -176,6 +183,9 @@ describe("PortalAomiFrame account bootstrap", () => {
       "true",
     );
     expect(document.querySelector('main[aria-busy="true"]')).toBeNull();
+    expect(screen.getByTestId("aomi-frame").dataset.instance).toBe(
+      initialInstance,
+    );
   });
 
   it("mounts settings inside the frame so it can read the Aomi runtime", async () => {
@@ -238,7 +248,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     render(<PortalAomiFrame />);
 
     expect(screen.getByTestId("portal-shell")).toBeVisible();
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "true",
@@ -252,7 +262,7 @@ describe("PortalAomiFrame account bootstrap", () => {
       Response.json({ user: { id: "guest-1", isAnonymous: true } }),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert"),
+      expect(screen.getByTestId("aomi-frame").closest("[inert]")).toBeNull(),
     );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
@@ -277,7 +287,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
 
     render(<PortalAomiFrame />);
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
@@ -534,17 +544,25 @@ describe("ThreadUrlBootstrap", () => {
       currentThreadId: "initial",
       threadMetadata: new Map<string, unknown>(),
       selectThread: vi.fn(),
+      createThread: vi.fn(async () => "thread-new"),
+      showNotification: vi.fn(),
+      threadListLoading: false,
+      threadListError: false,
+      isRemoteThread: vi.fn(() => false),
+      events: [],
     };
   });
 
   it("waits for remote metadata before selecting a linked MCP thread", async () => {
     window.history.replaceState({}, "", "/?thread=mcp-linked");
+    runtimeState.current.threadListLoading = true;
     const view = render(<ThreadUrlBootstrap />);
     expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
 
     runtimeState.current = {
       ...runtimeState.current,
       threadMetadata: new Map([["mcp-linked", {}]]),
+      threadListLoading: false,
     };
     await act(async () => {
       view.rerender(<ThreadUrlBootstrap />);
@@ -554,5 +572,82 @@ describe("ThreadUrlBootstrap", () => {
     expect(runtimeState.current.selectThread).toHaveBeenCalledWith(
       "mcp-linked",
     );
+  });
+
+  it("does not inspect another account's URL while its session is restoring", () => {
+    window.history.replaceState({}, "", "/?thread=account-a-chat");
+    render(<ThreadUrlBootstrap ready={false} />);
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=account-a-chat");
+  });
+
+  it.each(["missing", "archived"])(
+    "settles an unavailable %s URL on a new chat",
+    async (kind) => {
+      window.history.replaceState({}, "", "/?app=default&thread=unavailable");
+      if (kind === "archived")
+        runtimeState.current.threadMetadata = new Map([
+          ["unavailable", { status: "archived", title: "Old chat" }],
+        ]);
+      render(<ThreadUrlBootstrap />);
+      expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+      expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+      expect(runtimeState.current.showNotification).toHaveBeenCalledOnce();
+      expect(window.location.search).toBe("?app=default");
+    },
+  );
+
+  it("preserves an established chat URL during repeated submissions", async () => {
+    window.history.replaceState({}, "", "/?thread=saved-chat");
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved-chat",
+      threadMetadata: new Map([
+        ["saved-chat", { title: "Saved chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    const push = vi.spyOn(window.history, "pushState");
+    const view = render(<ThreadUrlBootstrap />);
+    runtimeState.current.threadMetadata = new Map([
+      ["saved-chat", { title: "Saved chat", status: "regular", pending: true }],
+    ]);
+    view.rerender(<ThreadUrlBootstrap />);
+    runtimeState.current.threadMetadata = new Map([
+      [
+        "saved-chat",
+        { title: "Saved chat", status: "regular", pending: false },
+      ],
+    ]);
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?thread=saved-chat");
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
+  });
+
+  it("opens a browser-back target once without adding a second history entry", async () => {
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "chat-b",
+      threadMetadata: new Map([
+        ["chat-a", { title: "A", status: "regular" }],
+        ["chat-b", { title: "B", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    window.history.replaceState({}, "", "/?thread=chat-b");
+    const view = render(<ThreadUrlBootstrap />);
+    const push = vi.spyOn(window.history, "pushState");
+    await act(async () => {
+      window.history.replaceState({}, "", "/?thread=chat-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(runtimeState.current.selectThread).toHaveBeenCalledOnce();
+    runtimeState.current.currentThreadId = "chat-a";
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?thread=chat-a");
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
   });
 });

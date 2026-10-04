@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,10 +52,6 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   const [open, setOpen] = useState(false);
   const { resetHighlight, commandHighlightProps } = useControlMenuHighlight();
 
-  useEffect(() => {
-    void getAvailableModels();
-  }, [getAvailableModels]);
-
   const threadControl = getCurrentThreadControl();
   const rawSelected = threadControl.model;
   const modelMode =
@@ -72,14 +68,24 @@ export const ModelSelect: FC<ModelSelectProps> = ({
     return (
       <Button
         variant="ghost"
-        disabled
+        disabled={state.modelsLoading !== false}
+        onClick={() => void getAvailableModels()}
+        title={
+          state.modelsLoading !== false
+            ? "Loading models"
+            : "Retry loading models"
+        }
         className={cn(
           "h-8 w-auto min-w-[100px] rounded-full px-2 text-xs",
           "text-aomi-muted",
           className,
         )}
       >
-        <span className="truncate">Loading...</span>
+        <span className="truncate">
+          {state.modelsLoading !== false
+            ? "Loading…"
+            : "Models unavailable · Retry"}
+        </span>
       </Button>
     );
   }

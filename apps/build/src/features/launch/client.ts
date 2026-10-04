@@ -17,6 +17,7 @@ import {
   type GitHubSessionInfo,
   type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
+import { buildFetch } from "@build/lib/session-expiry";
 import { sessionScopedFetch } from "@build/lib/settings-api";
 import {
   type LaunchActivateResult,
@@ -41,6 +42,7 @@ export { LaunchRequestError };
 export type { GithubAppOAuthStartResponse };
 
 const client = createLaunchClient({
+  fetch: buildFetch,
   backendFetch: sessionScopedFetch,
 });
 

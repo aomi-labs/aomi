@@ -80,27 +80,112 @@ function PortalComposer({
 }
 
 /** Open an account-owned thread linked by MCP wallet-approval handoff. */
-export function ThreadUrlBootstrap() {
-  const { currentThreadId, selectThread, threadMetadata } = useAomiRuntime();
-  const appliedRef = useRef(false);
+export function ThreadUrlBootstrap({ ready = true }: { ready?: boolean }) {
+  const {
+    currentThreadId,
+    selectThread,
+    createThread,
+    threadMetadata,
+    threadListLoading,
+    threadListError,
+    showNotification,
+    events = [],
+    isRemoteThread,
+  } = useAomiRuntime();
+  const [requestedThread, setRequestedThread] = useState<
+    string | null | undefined
+  >(undefined);
+  const navigating = useRef(true);
+  useEffect(() => {
+    const readLocation = () => {
+      navigating.current = true;
+      setRequestedThread(
+        new URLSearchParams(window.location.search).get("thread")?.trim() ||
+          null,
+      );
+    };
+    readLocation();
+    window.addEventListener("popstate", readLocation);
+    return () => window.removeEventListener("popstate", readLocation);
+  }, []);
 
   useEffect(() => {
-    if (appliedRef.current) return;
-    const threadId = new URLSearchParams(window.location.search)
-      .get("thread")
-      ?.trim();
-    if (!threadId) return;
-    if (threadId === currentThreadId) {
-      appliedRef.current = true;
+    if (
+      !ready ||
+      !navigating.current ||
+      requestedThread === undefined ||
+      threadListLoading ||
+      threadListError
+    )
+      return;
+    if (requestedThread) {
+      const metadata = threadMetadata.get(requestedThread);
+      if (metadata && metadata.status !== "archived") {
+        if (requestedThread !== currentThreadId) {
+          selectThread(requestedThread);
+          return;
+        }
+      } else {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("thread");
+        window.history.replaceState(null, "", url);
+        showNotification({
+          type: "error",
+          title: "Conversation unavailable",
+          message:
+            "This chat may have been archived or belongs to another account. Start a new chat or choose one from Recent.",
+        });
+        setRequestedThread(null);
+        void createThread();
+        return;
+      }
+    } else if (isRemoteThread?.(currentThreadId) ?? events.length > 0) {
+      void createThread();
       return;
     }
-    // selectThread intentionally creates a new local thread for unknown ids.
-    // Wait for the authenticated remote-thread list to hydrate first so an
-    // MCP handoff cannot race startup and silently land on a blank chat.
-    if (!threadMetadata.has(threadId)) return;
-    appliedRef.current = true;
-    selectThread(threadId);
-  }, [currentThreadId, selectThread, threadMetadata]);
+    navigating.current = false;
+  }, [
+    ready,
+    requestedThread,
+    currentThreadId,
+    createThread,
+    selectThread,
+    threadMetadata,
+    threadListLoading,
+    threadListError,
+    showNotification,
+    events,
+    isRemoteThread,
+  ]);
+
+  useEffect(() => {
+    if (
+      !ready ||
+      threadListLoading ||
+      navigating.current ||
+      requestedThread === undefined
+    )
+      return;
+    const metadata = threadMetadata.get(currentThreadId);
+    const threadId =
+      metadata &&
+      (isRemoteThread?.(currentThreadId) ?? metadata.title !== "New Chat") &&
+      metadata.status !== "archived"
+        ? currentThreadId
+        : null;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("thread") === threadId) return;
+    if (threadId) url.searchParams.set("thread", threadId);
+    else url.searchParams.delete("thread");
+    window.history.pushState(null, "", url);
+  }, [
+    ready,
+    currentThreadId,
+    threadMetadata,
+    requestedThread,
+    isRemoteThread,
+    threadListLoading,
+  ]);
 
   return null;
 }
@@ -108,11 +193,13 @@ export function ThreadUrlBootstrap() {
 function PortalFrameContents({
   openSettings,
   onWalletAccountMenuChange,
+  ready,
 }: {
   openSettings: (tab: SettingsTab) => void;
   onWalletAccountMenuChange: (
     menu: WalletAccountMenuOptions | undefined,
   ) => void;
+  ready: boolean;
 }) {
   // AomiFrame.Root creates the runtime provider. Keep this hook in its
   // subtree; calling it in PortalAomiFrame would read the provider before it
@@ -126,7 +213,7 @@ function PortalFrameContents({
     onWalletAccountMenuChange(walletAccountMenu);
   }, [onWalletAccountMenuChange, walletAccountMenu]);
 
-  return <ThreadUrlBootstrap />;
+  return <ThreadUrlBootstrap ready={ready} />;
 }
 
 export function PortalAomiFrame() {
@@ -188,11 +275,9 @@ export function PortalAomiFrame() {
   const principalId =
     accountUserId ??
     (guestSession.userId ? `guest:${guestSession.userId}` : null);
-  const [hasResolvedInitialAccount, setHasResolvedInitialAccount] = useState(
-    accountStatus !== "loading",
-  );
   const [accountFrameScope, setAccountFrameScope] = useState(() => ({
     accountUserId: principalId,
+    initialized: false,
     revision: 0,
   }));
   const requestedApp = useRequestedAppConfig();
@@ -229,99 +314,101 @@ export function PortalAomiFrame() {
   }, []);
   // In-chat controls (the composer's safety menu) deep-link into Settings.
   useSettingsOpenRequest(openSettings);
-  useEffect(() => {
-    if (accountStatus !== "loading") {
-      setHasResolvedInitialAccount(true);
-    }
-  }, [accountStatus]);
-
   if (
     accountStatus !== "loading" &&
-    accountFrameScope.accountUserId !== principalId
+    guestSession.checked &&
+    (!accountFrameScope.initialized ||
+      accountFrameScope.accountUserId !== principalId)
   ) {
     setAccountFrameScope({
       accountUserId: principalId,
+      initialized: true,
       // A backend thread is owned by the principal that created it. Always
       // remount across an identity transition so an anonymous or previous
       // account's in-flight session cannot be submitted by the new principal.
-      revision: accountFrameScope.revision + 1,
+      revision:
+        accountFrameScope.revision + (accountFrameScope.initialized ? 1 : 0),
     });
   }
 
-  if (!hasResolvedInitialAccount) {
-    return (
-      <main
-        aria-busy="true"
-        className="bg-background relative h-full w-full overflow-hidden"
-      />
-    );
-  }
+  const restoringSession = accountStatus === "loading" || !guestSession.checked;
 
   return (
     <main
-      aria-busy={!guestSession.checked}
+      aria-busy={restoringSession}
       data-testid="portal-shell"
-      inert={!guestSession.checked}
       className="bg-background relative h-full w-full overflow-hidden"
     >
-      <AomiFrame.Root
-        key={`principal-v2:${accountFrameScope.revision}:${accountFrameScope.accountUserId ?? "preauth"}`}
-        width="100%"
-        height="100%"
-        backendUrl={backendUrl}
-        applicationId={lockedApplicationId}
-        agentTarget={
-          lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
-        }
-        accountSessionAvailable={Boolean(accountUser || guestSession.userId)}
-        // Always open on the new-chat starting screen. Thread history remains
-        // available in the sidebar, but the previously active thread is not
-        // restored after a reload.
-        persistThread={false}
-        showSidebar
-        walletPosition="footer"
-        walletFamilies={["evm", "solana"]}
-        walletConnectLabel="Sign in"
-        walletAccountMenu={walletAccountMenu}
-        className="portal-aomi-frame aui-suggestions-marquee rounded-none border-0 shadow-none"
-        clientOptions={clientOptions}
-        inferenceFunding={requestedApp.inferenceFunding}
-      >
-        <PortalFrameContents
-          openSettings={openSettings}
-          onWalletAccountMenuChange={setWalletAccountMenu}
-        />
-        <AomiFrame.Header>
-          <HeaderControls
-            showSettings={Boolean(accountUser)}
-            onOpenSettings={() => openSettings("general")}
-            onOpenPackages={() => setOverlay("packages")}
+      <div inert={restoringSession} className="h-full w-full">
+        <AomiFrame.Root
+          key={`principal-v3:${accountFrameScope.revision}`}
+          width="100%"
+          height="100%"
+          backendUrl={backendUrl}
+          applicationId={lockedApplicationId}
+          agentTarget={
+            lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
+          }
+          accountSessionAvailable={Boolean(accountUser || guestSession.userId)}
+          // The host restores saved chats from the URL through ThreadUrlBootstrap.
+          // Without a thread URL, open the new-chat starting screen.
+          persistThread={false}
+          showSidebar
+          walletPosition="footer"
+          walletFamilies={["evm", "solana"]}
+          walletConnectLabel={
+            restoringSession ? "Restoring session…" : "Sign in"
+          }
+          walletAccountMenu={walletAccountMenu}
+          className="portal-aomi-frame rounded-none border-0 shadow-none"
+          clientOptions={clientOptions}
+          inferenceFunding={requestedApp.inferenceFunding}
+        >
+          <PortalFrameContents
+            ready={!restoringSession}
+            openSettings={openSettings}
+            onWalletAccountMenuChange={setWalletAccountMenu}
           />
-        </AomiFrame.Header>
-        <PortalComposer
-          enabledApps={enabledApps}
-          lockedTarget={lockedTarget}
-          appTag={appTag}
-        />
-        <SvmWalletBindingGate />
-        {/* Inside the frame so they see the Aomi runtime (the settings
+          <AomiFrame.Header>
+            <HeaderControls
+              showSettings={Boolean(accountUser)}
+              onOpenSettings={() => openSettings("general")}
+              onOpenPackages={() => setOverlay("packages")}
+            />
+          </AomiFrame.Header>
+          <PortalComposer
+            enabledApps={enabledApps}
+            lockedTarget={lockedTarget}
+            appTag={appTag}
+          />
+          <SvmWalletBindingGate />
+          {/* Inside the frame so they see the Aomi runtime (the settings
             account tab needs the live thread id); portalled to <body> so one
             backdrop still covers the sidebar and chat as one surface. */}
-        {overlay === "settings" && (
-          <OverlayPortal>
-            <SettingsModal
-              key={settingsTab}
-              initialTab={settingsTab}
-              onClose={() => setOverlay("none")}
-            />
-          </OverlayPortal>
-        )}
-        {overlay === "packages" && (
-          <OverlayPortal>
-            <PackagesModal onClose={() => setOverlay("none")} />
-          </OverlayPortal>
-        )}
-      </AomiFrame.Root>
+          {overlay === "settings" && (
+            <OverlayPortal>
+              <SettingsModal
+                key={settingsTab}
+                initialTab={settingsTab}
+                onClose={() => setOverlay("none")}
+              />
+            </OverlayPortal>
+          )}
+          {overlay === "packages" && (
+            <OverlayPortal>
+              <PackagesModal onClose={() => setOverlay("none")} />
+            </OverlayPortal>
+          )}
+        </AomiFrame.Root>
+      </div>
+      {restoringSession && (
+        <p
+          role="status"
+          className="text-muted-foreground bg-background pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs"
+        >
+          Restoring session… Your composer will be ready shortly.
+        </p>
+      )}
     </main>
   );
 }

@@ -1007,13 +1007,22 @@ export const AssistantTurnParts: FC = () => {
       {live && parts.length === 0 && pending.length === 0 && (
         <MinimalWorkingTrace />
       )}
-      {outcome === "failed" && <TurnFailureFallback />}
+      {outcome === "failed" && <TurnFailureFallback turnId={turnId} />}
     </>
   );
 };
 
-const TurnFailureFallback: FC = () => (
-  <p className="text-aomi-danger mt-2 text-sm leading-5" role="status">
-    This run failed before it could finish.
-  </p>
+const TurnFailureFallback: FC<{ turnId?: string }> = ({ turnId }) => (
+  <div className="text-aomi-danger mt-2 text-sm leading-5" role="status">
+    <p>This run failed before it could finish.</p>
+    <p className="text-aomi-muted mt-1">Use Rerun to try again.</p>
+    {turnId && (
+      <details className="text-aomi-muted mt-1 text-xs">
+        <summary className="cursor-pointer">Failure details</summary>
+        <p className="mt-1 break-all">
+          Turn: <code>{turnId}</code>
+        </p>
+      </details>
+    )}
+  </div>
 );

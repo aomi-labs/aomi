@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mounted = vi.hoisted(() => ({ config: undefined as unknown }));
+
 // Stub the heavy composer provider so importing the plugin does not pull in
 // the full wallet-kit runtime tree.
 vi.mock("./PrivyPluginProvider", () => ({
@@ -9,9 +11,16 @@ vi.mock("./PrivyPluginProvider", () => ({
 }));
 
 vi.mock("@privy-io/react-auth", () => ({
-  PrivyProvider: ({ children }: { children: ReactNode }) => (
-    <div data-testid="privy-provider">{children}</div>
-  ),
+  PrivyProvider: ({
+    children,
+    config,
+  }: {
+    children: ReactNode;
+    config: unknown;
+  }) => {
+    mounted.config = config;
+    return <div data-testid="privy-provider">{children}</div>;
+  },
 }));
 
 vi.mock("@privy-io/react-auth/smart-wallets", () => ({
@@ -23,9 +32,8 @@ vi.mock("@privy-io/react-auth/smart-wallets", () => ({
 // end up with a resolvable "privy" plugin (the widget-consumer ?provider=privy
 // route went blank when this side effect was missing).
 const { privyPlugin } = await import("./privy-plugin");
-const { getWalletProvider, requireWalletProvider } = await import(
-  "../plugin-registry"
-);
+const { getWalletProvider, requireWalletProvider } =
+  await import("../plugin-registry");
 
 describe("Privy plugin registration (route-level mount contract)", () => {
   const envKey = "NEXT_PUBLIC_PRIVY_APP_ID";
@@ -72,6 +80,9 @@ describe("Privy plugin registration (route-level mount contract)", () => {
       </>,
     );
     expect(screen.getByTestId("privy-provider")).toBeTruthy();
+    expect(mounted.config).toMatchObject({
+      externalWallets: { walletConnect: { enabled: false } },
+    });
     expect(screen.getByText("widget-body")).toBeTruthy();
   });
 

@@ -70,8 +70,7 @@ export function CapabilityComposerProvider({
   routing?: AomiRoutingConfig;
   initialAppTag?: AppTagRequest;
 }) {
-  const { getAuthorizedApps, onAgentModeSelect, onAgentTargetSelect } =
-    useControl();
+  const { onAgentModeSelect, onAgentTargetSelect } = useControl();
   const threadContext = useThreadContext();
   const composerRuntime = useComposerRuntime();
   const normalizedRouting = useMemo(
@@ -125,12 +124,8 @@ export function CapabilityComposerProvider({
   const [capabilityPickerRequest, setCapabilityPickerRequest] = useState(0);
 
   useEffect(() => {
-    void getAuthorizedApps();
-  }, [getAuthorizedApps]);
-
-  useEffect(() => {
     setMentions([]);
-  }, [policy, threadContext.threadViewKey]);
+  }, [policy, threadContext.currentThreadId]);
 
   // Offer the host's app tag once, after the mount-time mention reset above.
   const [appTagRequest, setAppTagRequest] = useState<AppTagRequest | null>(

@@ -26,6 +26,8 @@ export type ThreadMetadata = {
   status: ThreadStatus;
   lastActiveAt?: string | number;
   control: ThreadControlState;
+  /** Local first submission, before the server acknowledges the conversation. */
+  pending?: boolean;
 };
 
 export function initThreadControl(): ThreadControlState {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo, useRef, useState } from "react";
 import { signOutAndDisconnect } from "../../../../lib/wallet-kit/account/sign-out";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import {
-  requestWalletPickerOpen,
+  WalletPickerProvider,
+  useWalletPicker,
   WalletSignInOptionsContext,
 } from "../../../control-bar/wallet-picker-context";
+import { WalletPicker } from "../../../control-bar/wallet-picker";
 import { useConfirmDialog } from "../../../ui/aomi/confirm-dialog";
 import { AccountManagement } from "./account-management";
 import { shortenAddress } from "./account-api";
@@ -22,7 +24,19 @@ import { titleCase } from "./account-management/controls";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
+  return (
+    <WalletPickerProvider listenForOpenRequests={false}>
+      <AccountSettingsContent onClose={onClose} />
+    </WalletPickerProvider>
+  );
+}
+
+function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
+  const { openPicker } = useWalletPicker();
   const adapter = useAomiWalletKit();
+  const adapterRef = useRef(adapter);
+  adapterRef.current = adapter;
+  const pendingRef = useRef(false);
   const providerOptions = useContext(WalletSignInOptionsContext);
   const acl = useAccountAcl();
   const [pending, setPending] = useState<string | null>(null);
@@ -56,6 +70,8 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
     action: () => Promise<void>,
     refresh = true,
   ): Promise<boolean> => {
+    if (pendingRef.current) return false;
+    pendingRef.current = true;
     setPending(key);
     setActionError(null);
     try {
@@ -68,6 +84,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
       );
       return false;
     } finally {
+      pendingRef.current = false;
       setPending(null);
     }
   };
@@ -138,6 +155,21 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         }`,
       );
 
+      const selected = adapterRef.current.accounts.find(
+        (account) =>
+          account.family === wallet.family &&
+          brand &&
+          resolveWalletBrandKey(
+            `${account.walletName ?? ""} ${account.provider ?? ""}`,
+          ) === brand &&
+          walletKey(account.family, account.address) !== wallet.key,
+      );
+      if (selected) {
+        throw new Error(
+          `Your wallet currently exposes ${selected.address}. Select the saved address ${wallet.address} in your wallet, then reconnect. Disconnect the current device connection first if your wallet will not reopen.`,
+        );
+      }
+
       if (wallet.family === "evm" && adapter.connectEvmWallet) {
         const option = adapter.evmWallets?.find((candidate) => {
           const candidateBrand = resolveWalletBrandKey(
@@ -149,7 +181,22 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
                 (wallet.walletName ?? wallet.label ?? "").toLowerCase();
         });
         if (option) {
-          await adapter.connectEvmWallet(option.id);
+          try {
+            await adapter.connectEvmWallet(option.id);
+          } catch (cause) {
+            if (
+              cause instanceof Error &&
+              /connector already connected/i.test(cause.message)
+            ) {
+              const selectedAddress = adapterRef.current.accounts.find(
+                (account) => account.family === wallet.family,
+              )?.address;
+              throw new Error(
+                `${selectedAddress ? `Your wallet currently exposes ${selectedAddress}. ` : "This wallet already has a device connection. "}Select ${wallet.address} in your wallet. If it will not reopen, disconnect its current device connection and try Connect again.`,
+              );
+            }
+            throw cause;
+          }
           return;
         }
       }
@@ -191,7 +238,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
               }
             : undefined
         }
-        onAddWallet={requestWalletPickerOpen}
+        onAddWallet={openPicker}
         onLinkWallet={linkWallet}
         onConnectWallet={connectWallet}
         onSelectWallet={async (wallet) => {
@@ -267,6 +314,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
             : undefined
         }
       />
+      <WalletPicker />
       {dialog}
     </div>
   );

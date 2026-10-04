@@ -75,7 +75,7 @@ describe("AccountManagement wallet actions", () => {
     expect(screen.queryByText("External signer")).toBeNull();
   });
 
-  it("opens the canonical wallet chooser from Add more", () => {
+  it("opens the canonical wallet chooser from Add a wallet", () => {
     const onAddWallet = vi.fn();
     render(
       <AccountManagement
@@ -88,7 +88,7 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
 
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });

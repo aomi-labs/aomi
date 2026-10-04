@@ -17,7 +17,7 @@ import {
   ModalShell,
   ModalSidebar,
 } from "../../../ui/aomi/modal-shell";
-import { GeneralSettings } from "../../features/general";
+import { GeneralAppearance, GeneralSettings } from "../../features/general";
 import { AccountSettings } from "../../features/account";
 import { UsageSettings } from "../../features/usage";
 import { PolicyPage } from "../../features/policy";
@@ -150,6 +150,13 @@ export function SettingsModal({
   );
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
+  const [visited, setVisited] = useState<SettingsTab[]>([
+    accountOnly ? "account" : initialTab,
+  ]);
+  const selectTab = (next: SettingsTab) => {
+    setTab(next);
+    setVisited((tabs) => (tabs.includes(next) ? tabs : [...tabs, next]));
+  };
   const hadSession = useRef(status === "ready");
   useEffect(() => {
     if (status === "ready") hadSession.current = true;
@@ -158,27 +165,40 @@ export function SettingsModal({
   const activeNav = NAV.find((item) => item.id === tab) ?? NAV[0];
 
   const renderContent = () => {
-    if (status === "anonymous" || status === "establishing") {
+    if (
+      status === "anonymous" ||
+      (status === "establishing" && !hadSession.current) ||
+      (status === "error" && !hadSession.current)
+    ) {
       return (
-        <GateNotice
-          status={status}
-          walletConnected={adapter.identity.isConnected}
-          detail={adapter.accountError}
-          onRetry={retry}
-          onConnect={() => {
-            void adapter.connect?.();
-          }}
-        />
+        <div className="w-full px-6 pb-6 pt-1">
+          {tab === "general" ? <GeneralAppearance /> : null}
+          <GateNotice
+            status={status}
+            walletConnected={adapter.identity.isConnected}
+            detail={adapter.accountError}
+            onRetry={retry}
+            onConnect={() => {
+              void adapter.connect?.();
+            }}
+          />
+        </div>
       );
-    }
-    if (status === "error" && tab === "general") {
-      return <GateNotice status={status} onRetry={retry} />;
     }
 
     return (
       // Every tab fills the pane on the header's px-6 edges; pages never set
       // their own width.
-      <div data-settings-column className="w-full px-6 pb-6 pt-1">
+      <div
+        data-settings-column
+        className="w-full px-6 pb-6 pt-1"
+        key={adapter.accountUser?.id ?? "session"}
+      >
+        {status === "establishing" ? (
+          <p role="status" className="type-meta text-aomi-muted mb-3">
+            Refreshing your account…
+          </p>
+        ) : null}
         {status === "error" && (
           <div className="border-aomi-border bg-aomi-surface-2 text-aomi-muted type-meta rounded-control mb-5 flex items-center justify-between gap-3 border px-3.5 py-2.5">
             <span>
@@ -189,19 +209,30 @@ export function SettingsModal({
             </AomiButton>
           </div>
         )}
-        {tab === "general" ? (
-          <GeneralSettings
-            onManageAccount={() => setTab("account")}
-            onViewUsage={() => setTab("usage")}
-            onFixWallets={() => setTab("account")}
-          />
-        ) : tab === "account" ? (
-          <AccountSettings onClose={onClose} />
-        ) : tab === "usage" ? (
-          <UsageSettings />
-        ) : (
-          <PolicyPage />
-        )}
+        {visited.includes("general") ? (
+          <div hidden={tab !== "general"}>
+            <GeneralSettings
+              onManageAccount={() => selectTab("account")}
+              onViewUsage={() => selectTab("usage")}
+              onFixWallets={() => selectTab("account")}
+            />
+          </div>
+        ) : null}
+        {visited.includes("account") ? (
+          <div hidden={tab !== "account"}>
+            <AccountSettings onClose={onClose} />
+          </div>
+        ) : null}
+        {visited.includes("usage") ? (
+          <div hidden={tab !== "usage"}>
+            <UsageSettings />
+          </div>
+        ) : null}
+        {visited.includes("policy") ? (
+          <div hidden={tab !== "policy"}>
+            <PolicyPage />
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -222,7 +253,7 @@ export function SettingsModal({
                 label={label}
                 icon={Icon}
                 active={id === tab}
-                onClick={() => setTab(id)}
+                onClick={() => selectTab(id)}
               />
             ),
           )}

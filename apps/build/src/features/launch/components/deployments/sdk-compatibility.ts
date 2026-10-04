@@ -99,8 +99,8 @@ export function projectSdk(
     : "";
   const warning = outdated
     ? mixed || unrecorded
-      ? `Live apps run SDK ${runtimeVersions.join(", ")}${requires}${unrecorded ? "; some runtime SDK records are missing" : ""}; redeploy to update.`
-      : `Active application built with SDK ${runtime}${requires}; redeploy to update.`
+      ? `Live apps run SDK ${runtimeVersions.join(", ")}${requires}${unrecorded ? "; some runtime SDK records are missing" : ""}; upgrade the SDK in Deployments, then redeploy to update.`
+      : `Active application built with SDK ${runtime}${requires}; upgrade the SDK in Deployments, then redeploy to update.`
     : unrecorded
       ? `Runtime SDK unrecorded for the active application${
           declared ? ` (repository declares ${declared})` : ""

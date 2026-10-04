@@ -1,5 +1,6 @@
 "use client";
 
+import { buildFetch } from "@build/lib/session-expiry";
 import { API_PATHS } from "@build/lib/api-paths";
 import { HttpRequestError, parseRetryAfter } from "@build/lib/request-retry";
 
@@ -24,7 +25,7 @@ const OPERATE_FETCH_TIMEOUT_MS = 25_000;
 async function operateJson<T>(url: string, label: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await buildFetch(url, {
       signal: AbortSignal.timeout(OPERATE_FETCH_TIMEOUT_MS),
     });
   } catch (err) {

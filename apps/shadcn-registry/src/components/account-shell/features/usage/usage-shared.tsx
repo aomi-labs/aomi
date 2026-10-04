@@ -647,6 +647,7 @@ export function AllowanceSettlementSection({
   month,
   showAllowance = true,
   allowanceStatus = "ready",
+  allowanceAvailable = allowanceStatus === "ready",
   allowanceError,
   onRetryAllowance,
   children,
@@ -655,6 +656,7 @@ export function AllowanceSettlementSection({
   /** Hide when viewing a past month — profile credits only match the current month. */
   showAllowance?: boolean;
   allowanceStatus?: "idle" | "loading" | "ready" | "error";
+  allowanceAvailable?: boolean;
   allowanceError?: string;
   onRetryAllowance?: () => void;
   children?: ReactNode;
@@ -671,7 +673,7 @@ export function AllowanceSettlementSection({
         detail="How usage is paid"
       />
       <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
-        {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
+        {showAllowance && allowanceAvailable && hasAllowance ? (
           <>
             <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
               <span className="text-aomi-fg text-[13px] font-medium">
@@ -683,6 +685,22 @@ export function AllowanceSettlementSection({
               </span>
             </div>
             <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
+              {allowanceStatus === "loading" || allowanceStatus === "error" ? (
+                <p role="status" className="text-aomi-muted text-[12px]">
+                  {allowanceStatus === "loading"
+                    ? "Refreshing allowance…"
+                    : "Showing your last known allowance."}
+                  {allowanceStatus === "error" && onRetryAllowance ? (
+                    <button
+                      type="button"
+                      onClick={onRetryAllowance}
+                      className="hover:text-aomi-fg ml-2 underline underline-offset-2"
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                </p>
+              ) : null}
               <Meter pct={creditsPct} over={over} />
               <span className="text-aomi-muted text-[12px] leading-snug">
                 Paid via {payment.settledVia}.{" "}
@@ -709,7 +727,9 @@ export function AllowanceSettlementSection({
                 ? "Loading…"
                 : hasAllowance
                   ? `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
-                  : "Unavailable"}
+                  : allowanceAvailable
+                    ? "No monthly allowance"
+                    : "Unavailable"}
               {allowanceStatus === "error" && onRetryAllowance ? (
                 <button
                   type="button"

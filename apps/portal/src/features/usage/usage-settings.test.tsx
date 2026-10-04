@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank",
@@ -7,6 +7,12 @@ vi.mock(
     CreditBank: () => <div>Credit Bank</div>,
   }),
 );
+
+const account = vi.hoisted(() => ({ id: "" }));
+vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+  useAomiWalletKit: () => ({ accountUser: { id: account.id } }),
+}));
+let accountSequence = 0;
 
 import { UsageSettings } from "../../../../shadcn-registry/src/components/account-shell/features/usage/usage-settings";
 
@@ -43,6 +49,9 @@ const CREDITS = {
 };
 
 describe("usage settings wiring", () => {
+  beforeEach(() => {
+    account.id = `usage-test-${++accountSequence}`;
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

@@ -29,13 +29,38 @@ export type SigningPolicy = AomiSigningPolicy;
 export type UserAccount = AomiUserAccount;
 type ChainKind = AomiChainKind;
 
+const accountReads = new WeakMap<
+  ShellRequest,
+  Map<string, Promise<AccountProfile>>
+>();
+
+function readAccountProfile(
+  request: ShellRequest,
+  scope?: string,
+): Promise<AccountProfile> {
+  if (!scope) return request<AccountProfile>("/api/account");
+  let pending = accountReads.get(request);
+  if (!pending) {
+    pending = new Map();
+    accountReads.set(request, pending);
+  }
+  const existing = pending.get(scope);
+  if (existing) return existing;
+  const read = request<AccountProfile>("/api/account").finally(() => {
+    if (pending.get(scope) === read) pending.delete(scope);
+  });
+  pending.set(scope, read);
+  return read;
+}
+
 export async function fetchAccountAcl(
   request: ShellRequest = accountScopedFetch,
+  scope?: string,
 ): Promise<{
   wallets: WalletPolicy[];
   delegatedAccounts: DelegatedAccountView[];
 }> {
-  const data = await request<AccountProfile>("/api/account");
+  const data = await readAccountProfile(request, scope);
   const owned = new Set(
     data.user_accounts.map((account) => addressKey(account.address)),
   );

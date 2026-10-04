@@ -10,6 +10,7 @@ import {
   CopyIcon,
   ImageIcon,
   LandmarkIcon,
+  LoaderCircleIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -51,6 +52,7 @@ import { AppIndicator } from "@/components/control-bar/app-indicator";
 import { useComposerControl } from "@/components/aomi-frame";
 import { AomiMark } from "@/components/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
+import { ResponsePending } from "./response-pending";
 import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
 import { ModelSelect } from "@/components/control-bar/model-select";
 import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
@@ -76,19 +78,22 @@ import { TraceAttributionProvider } from "./trace-attribution";
 
 export const Thread: FC = () => {
   const composerRuntime = useComposerRuntime();
-  const { threadViewKey } = useThreadContext();
+  const { currentThreadId } = useThreadContext();
+  const previousThread = useRef(currentThreadId);
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
   const controlBarProps = composerControl.controlBarProps ?? {};
   const isReviewingAction = Boolean(aomiRuntime?.pendingActions.length);
 
   useEffect(() => {
+    if (previousThread.current === currentThreadId) return;
+    previousThread.current = currentThreadId;
     try {
       composerRuntime.setText("");
     } catch (error) {
       console.error("Failed to reset composer input:", error);
     }
-  }, [composerRuntime, threadViewKey]);
+  }, [composerRuntime, currentThreadId]);
 
   return (
     <CapabilityComposerProvider
@@ -367,6 +372,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
       />
       <ComposerAction />
       <ComposerSafetyStatus />
+      <ComposerStopStatus />
     </ComposerPrimitive.Root>
   );
 };
@@ -495,7 +501,11 @@ const ComposerAction: FC = () => {
                   : undefined
               }
             >
-              <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+              {aomiRuntime?.isStopping ? (
+                <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+              )}
             </Button>
           </ComposerPrimitive.Cancel>
         </ThreadPrimitive.If>
@@ -557,11 +567,23 @@ const AssistantMessageSkeleton: FC<{ widths?: string[] }> = ({
 };
 
 const AssistantLoadingDot: FC = () => {
+  const runtime = useOptionalAomiRuntime();
   return (
-    <div className="aui-assistant-loading-dot-wrapper flex min-h-6 items-center px-1">
-      <span className="aui-assistant-loading-dot bg-aomi-fg block size-2.5 animate-pulse rounded-full" />
-    </div>
+    <ResponsePending
+      creating={Boolean(runtime?.isSubmitting && runtime.events.length === 0)}
+      stopping={Boolean(runtime?.isStopping)}
+    />
   );
+};
+
+/** Keep a failed Stop visible beside the retry control after the toast expires. */
+const ComposerStopStatus: FC = () => {
+  const runtime = useOptionalAomiRuntime();
+  return runtime?.stopError ? (
+    <p role="alert" className="text-aomi-danger px-4 pb-3 text-[12px]">
+      {runtime.stopError}
+    </p>
+  ) : null;
 };
 
 const AssistantMessage: FC = () => {
@@ -582,12 +604,7 @@ const AssistantMessage: FC = () => {
   const hasLiveTaskRun = Object.values(taskRuns).some(
     (run) => run.status === "running",
   );
-  const showLoadingDot =
-    isEmpty &&
-    isRunning &&
-    isLast &&
-    Boolean(runtime?.isSubmitting) &&
-    !hasLiveTaskRun;
+  const showLoadingDot = isEmpty && isRunning && isLast && !hasLiveTaskRun;
   const showFinishedEmptyMessage = isEmpty && !isRunning;
 
   return (

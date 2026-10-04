@@ -1,15 +1,22 @@
 "use client";
 
-import { type FC, useEffect, useRef, useState } from "react";
+import { type FC, type RefObject, useEffect, useRef, useState } from "react";
 import {
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useThreadList,
   useThreadListItem,
 } from "@assistant-ui/react";
-import { ArchiveIcon, MoreHorizontalIcon, PlusIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  CheckIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
+import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -47,8 +54,9 @@ const ThreadListNew: FC = () => {
 
 const ThreadListItems: FC = () => {
   const isLoading = useThreadList((t) => t.isLoading);
+  const hasThreads = useThreadList((t) => t.threadIds.length > 0);
 
-  if (isLoading) {
+  if (isLoading && !hasThreads) {
     return <ThreadListSkeleton />;
   }
 
@@ -103,7 +111,56 @@ const ThreadListSkeleton: FC = () => {
 
 const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
+  const runtime = useOptionalAomiRuntime();
+  const saved = runtime?.isRemoteThread?.(thread.id) !== false;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const savingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const optionsRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    } else if (wasEditing.current) {
+      optionsRef.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
+  const startRename = () => {
+    setTitle(thread.title ?? "New Chat");
+    setError(null);
+    setMenuOpen(false);
+    setEditing(true);
+  };
+  const saveRename = async () => {
+    if (savingRef.current || !runtime) return;
+    const normalized = title.trim();
+    if (!normalized) {
+      setError("Enter a chat title.");
+      return;
+    }
+    if (normalized.length > 120) {
+      setError("Use 120 characters or fewer.");
+      return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      await runtime.renameThread(thread.id, normalized);
+      setEditing(false);
+    } catch {
+      setError("Couldn't rename this chat. Try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelClose = () => {
@@ -123,21 +180,81 @@ const ThreadListItem: FC = () => {
   return (
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
-      className="aui-thread-list-item group/thread hover:bg-aomi-hover focus-visible:bg-aomi-hover data-active:bg-aomi-accent-subtle flex w-full min-w-0 items-center rounded-lg pr-2 transition-all focus-visible:outline-none"
+      className="aui-thread-list-item group/thread hover:bg-aomi-hover focus-visible:bg-aomi-hover data-active:bg-aomi-accent-subtle flex w-full min-w-0 flex-wrap items-center rounded-lg pr-2 transition-all focus-visible:outline-none"
       onMouseEnter={cancelClose}
       onMouseLeave={scheduleClose}
     >
-      <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
-        {/* Sky dot marks the active session, per the design mock */}
-        <span className="bg-aomi-accent-strong group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0" />
-        <ThreadListItemTitle />
-      </ThreadListItemPrimitive.Trigger>
-      <ThreadListItemMenu
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onContentMouseEnter={cancelClose}
-        onContentMouseLeave={scheduleClose}
-      />
+      {editing ? (
+        <form
+          className="flex w-full min-w-0 items-center gap-1 py-1.5 pl-3"
+          onClick={(event) => event.stopPropagation()}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveRename();
+          }}
+        >
+          <input
+            ref={inputRef}
+            aria-label="Chat title"
+            value={title}
+            disabled={saving}
+            maxLength={120}
+            aria-invalid={Boolean(error)}
+            onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !saving) {
+                event.preventDefault();
+                setEditing(false);
+              }
+            }}
+            className="border-aomi-border bg-aomi-bg text-aomi-fg focus-visible:ring-aomi-accent min-w-0 flex-1 rounded-md border px-2 py-1 text-sm outline-none focus-visible:ring-1"
+          />
+          <Button
+            type="submit"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0"
+            aria-label={saving ? "Saving chat title" : "Save chat title"}
+            aria-busy={saving}
+            disabled={saving}
+          >
+            <CheckIcon className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0"
+            aria-label="Cancel rename"
+            disabled={saving}
+            onClick={() => setEditing(false)}
+          >
+            <XIcon className="size-3.5" />
+          </Button>
+        </form>
+      ) : (
+        <>
+          <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
+            {/* Sky dot marks the active session, per the design mock */}
+            <span className="bg-aomi-accent-strong group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0" />
+            <ThreadListItemTitle />
+          </ThreadListItemPrimitive.Trigger>
+          <ThreadListItemMenu
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            onContentMouseEnter={cancelClose}
+            onContentMouseLeave={scheduleClose}
+            onRename={runtime && saved ? startRename : undefined}
+            saved={saved}
+            triggerRef={optionsRef}
+          />
+        </>
+      )}
+      {editing && error && (
+        <p role="alert" className="text-destructive w-full px-3 pb-2 text-xs">
+          {error}
+        </p>
+      )}
     </ThreadListItemPrimitive.Root>
   );
 };
@@ -155,7 +272,18 @@ const ThreadListItemMenu: FC<{
   onOpenChange: (open: boolean) => void;
   onContentMouseEnter: () => void;
   onContentMouseLeave: () => void;
-}> = ({ open, onOpenChange, onContentMouseEnter, onContentMouseLeave }) => {
+  onRename?: () => void;
+  triggerRef?: RefObject<HTMLButtonElement | null>;
+  saved?: boolean;
+}> = ({
+  open,
+  onOpenChange,
+  onContentMouseEnter,
+  onContentMouseLeave,
+  onRename,
+  triggerRef,
+  saved = true,
+}) => {
   // Collapsed to zero width by default so the title uses the full row; on row
   // hover / keyboard focus (scoped to *this* row via the named group) it
   // expands and the title reflows to a truncated "…". Named group so an
@@ -170,6 +298,7 @@ const ThreadListItemMenu: FC<{
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           className={cn(
             "aui-thread-list-item-menu-trigger text-aomi-muted hover:text-aomi-fg h-7 shrink-0 overflow-hidden rounded-md transition-all",
             revealClass,
@@ -196,9 +325,21 @@ const ThreadListItemMenu: FC<{
         onMouseEnter={onContentMouseEnter}
         onMouseLeave={onContentMouseLeave}
       >
+        {onRename && (
+          <button
+            type="button"
+            disabled={!saved}
+            className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            onClick={onRename}
+          >
+            <PencilIcon className="text-aomi-muted size-4" />
+            Rename
+          </button>
+        )}
         <ThreadListItemPrimitive.Archive asChild>
           <button
             type="button"
+            disabled={!saved}
             className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();

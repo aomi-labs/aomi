@@ -16,6 +16,8 @@ import {
 import type { AomiInferenceFundingSource } from "../interface";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
+import { isPlaceholderTitle } from "./utils";
+import { stripCapabilityHints } from "./capability-hints";
 
 type OrchestratorOptions = {
   getUserState: () => UserState;
@@ -76,14 +78,36 @@ export function useRuntimeOrchestrator(
       }
 
       const session = sessionManager.getOrCreate(threadId, sessionOptions);
+      let lastSeenTitle: string | undefined;
       sessionSubscriptions.current.set(
         threadId,
         session.subscribe(() => {
           const snapshot = session.getSnapshot();
           const metadata = threadsRef.current.getThreadMetadata(threadId);
-          if (snapshot.title && metadata?.title !== snapshot.title) {
+          if (
+            snapshot.pendingUserMessage &&
+            metadata &&
+            (metadata.title === "New Chat" ||
+              isPlaceholderTitle(metadata.title))
+          ) {
+            threadsRef.current.updateThreadMetadata(threadId, {
+              title:
+                stripCapabilityHints(snapshot.pendingUserMessage)
+                  .trim()
+                  .slice(0, 80) || "New Chat",
+            });
+          }
+          if (snapshot.title && snapshot.title !== lastSeenTitle) {
+            lastSeenTitle = snapshot.title;
             threadsRef.current.updateThreadMetadata(threadId, {
               title: snapshot.title,
+            });
+          }
+          const pending =
+            snapshot.isSubmitting || Boolean(snapshot.isStartUncertain);
+          if (metadata?.pending !== pending) {
+            threadsRef.current.updateThreadMetadata(threadId, {
+              pending,
             });
           }
         }),
@@ -136,11 +160,33 @@ export function useRuntimeOrchestrator(
       try {
         await optionsRef.current.prepareThreadForSend?.(threadId);
         const session = getSession(threadId);
+        const hadTurn = Boolean(session.getSnapshot().turnId);
         await session.sendAsync(text, sendOptions);
+        optionsRef.current.onSendSuccess?.(threadId);
         threadsRef.current.updateThreadMetadata(threadId, {
           lastActiveAt: new Date().toISOString(),
         });
-        optionsRef.current.onSendSuccess?.(threadId);
+        // A turn's title event can arrive separately from its start response.
+        // Reconcile the saved summary without waiting for a full page reload.
+        if (hadTurn || sendOptions || session.getSnapshot().title) return;
+        const titleAtRefresh =
+          threadsRef.current.getThreadMetadata(threadId)?.title;
+        void clientRef.current.agent.sessions
+          .get(threadId)
+          .then((saved) => {
+            if (sessionManager.get(threadId) !== session) return;
+            if (
+              saved.title &&
+              threadsRef.current.getThreadMetadata(threadId)?.title ===
+                titleAtRefresh
+            )
+              threadsRef.current.updateThreadMetadata(threadId, {
+                title: saved.title,
+              });
+          })
+          .catch((error) =>
+            console.debug("Unable to refresh chat title", error),
+          );
       } catch (error) {
         await optionsRef.current.onSendError?.(threadId, error);
         throw error;

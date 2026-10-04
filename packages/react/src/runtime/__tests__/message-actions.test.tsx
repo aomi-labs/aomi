@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   ActionBarPrimitive,
@@ -11,6 +17,7 @@ import {
   type ThreadMessageLike,
 } from "@assistant-ui/react";
 import { messageActions } from "../message-actions";
+import { useRef } from "react";
 
 const messages: ThreadMessageLike[] = [
   {
@@ -185,5 +192,75 @@ describe("message action wiring", () => {
       'Selected app task target: {"app":"aave"}',
     );
     expect(restore).not.toHaveBeenCalled();
+  });
+});
+
+function NewMessageHarness({ send }: { send: ReturnType<typeof vi.fn> }) {
+  const restore = useRef<(text: string) => void>(() => {});
+  const runtime = useExternalStoreRuntime({
+    messages: [] as ThreadMessageLike[],
+    ...messageActions({
+      messages: [],
+      send,
+      restore: (text) => restore.current(text),
+      unavailable: vi.fn(),
+    }),
+    convertMessage: (message: ThreadMessageLike) => message,
+  });
+  restore.current = (text) => {
+    if (!runtime.thread.composer.getState().text)
+      runtime.thread.composer.setText(text);
+  };
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      <ComposerPrimitive.Root>
+        <ComposerPrimitive.Input aria-label="New request" />
+        <ComposerPrimitive.Send>Send request</ComposerPrimitive.Send>
+      </ComposerPrimitive.Root>
+    </AssistantRuntimeProvider>
+  );
+}
+
+describe("new request composer", () => {
+  it("clears during admission and stays clear after success without duplicate submit", async () => {
+    let resolve!: () => void;
+    const send = vi.fn(
+      () =>
+        new Promise<void>((done) => {
+          resolve = done;
+        }),
+    );
+    render(<NewMessageHarness send={send} />);
+    const input = screen.getByLabelText("New request");
+    fireEvent.change(input, { target: { value: "Check my balance" } });
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => expect(send).toHaveBeenCalledOnce());
+    expect(input).toHaveValue("");
+    fireEvent.submit(input.closest("form")!);
+    await act(async () => resolve());
+    expect(send).toHaveBeenCalledOnce();
+    expect(input).toHaveValue("");
+  });
+
+  it("restores a failed request without replacing a newer draft", async () => {
+    let reject!: (error: Error) => void;
+    const send = vi.fn(
+      () =>
+        new Promise<void>((_done, fail) => {
+          reject = fail;
+        }),
+    );
+    render(<NewMessageHarness send={send} />);
+    const input = screen.getByLabelText("New request");
+    fireEvent.change(input, { target: { value: "Check my balance" } });
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => expect(send).toHaveBeenCalledOnce());
+    await act(async () => reject(new Error("start uncertain")));
+    expect(input).toHaveValue("Check my balance");
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    fireEvent.change(input, { target: { value: "My newer draft" } });
+    await act(async () => reject(new Error("not admitted")));
+    expect(input).toHaveValue("My newer draft");
   });
 });

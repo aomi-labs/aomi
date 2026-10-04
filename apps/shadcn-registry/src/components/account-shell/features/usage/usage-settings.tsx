@@ -60,6 +60,7 @@ export function UsageSettings() {
           month={month}
           showAllowance={statement.isCurrentMonth}
           allowanceStatus={statement.allowanceStatus}
+          allowanceAvailable={statement.allowanceAvailable}
           allowanceError={statement.allowanceError}
           onRetryAllowance={statement.retryAllowance}
         >

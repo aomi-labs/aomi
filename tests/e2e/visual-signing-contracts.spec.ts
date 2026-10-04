@@ -27,8 +27,59 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test("signed-in chat, account, settings, and usage surfaces match visual contracts", async ({
   page,
-}) => {
+}, testInfo) => {
   await signIn(page);
+  // Capture responsive account evidence with the controlled signer before
+  // comparing existing desktop baselines. These are review artifacts, not
+  // replacement baselines or real extension verification.
+  for (const width of [1440, 390, 430]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.getByRole("button", { name: "Open account menu" }).click();
+    await page
+      .getByRole("menu", { name: "Account menu" })
+      .getByRole("button", { name: "Manage account" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /View full address/ }),
+    ).toBeVisible();
+    await settleVisuals(page);
+    const bounds = await dialog.boundingBox();
+    expect(bounds).toBeTruthy();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({
+      path: testInfo.outputPath(`account-${width}px.png`),
+      animations: "disabled",
+    });
+    await dialog.getByRole("button", { name: "Add a wallet" }).click();
+    const picker = page.getByRole("dialog", {
+      name: /Add a wallet|Add wallet/,
+    });
+    await expect(picker).toBeVisible();
+    await settleVisuals(page);
+    const pickerBounds = await picker.locator(":scope > div").boundingBox();
+    expect(pickerBounds).toBeTruthy();
+    expect(pickerBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(pickerBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(pickerBounds!.x + pickerBounds!.width).toBeLessThanOrEqual(
+      width + 1,
+    );
+    expect(pickerBounds!.y + pickerBounds!.height).toBeLessThanOrEqual(1001);
+    await page.screenshot({
+      path: testInfo.outputPath(`wallet-picker-${width}px.png`),
+      animations: "disabled",
+    });
+    await page.keyboard.press("Escape");
+    await expect(picker).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Add a wallet" }),
+    ).toBeFocused();
+    await dialog.getByRole("button", { name: "Close settings" }).click();
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await settleVisuals(page);
   await expect(page).toHaveScreenshot("signed-in-new-chat.png", screenshot());
 

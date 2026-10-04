@@ -257,14 +257,14 @@ const Composer: FC<ComposerProps> = ({
   welcomeTitle,
   className,
 }) => {
-  const { currentThreadId, threadViewKey } = useAomiRuntime();
+  const { currentThreadId } = useAomiRuntime();
 
   return (
     <ComposerControlContext.Provider
       value={{ enabled: withControl, controlBarProps, welcomeTitle }}
     >
       <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>
-        <Thread key={`${currentThreadId}-${threadViewKey}`} />
+        <Thread key={currentThreadId} />
         {children}
       </div>
     </ComposerControlContext.Provider>
