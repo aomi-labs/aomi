@@ -371,7 +371,6 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
       />
       <ComposerAction />
       <ComposerSafetyStatus />
-      <ComposerStopStatus />
     </ComposerPrimitive.Root>
   );
 };
@@ -575,16 +574,6 @@ const AssistantLoadingDot: FC = () => {
       <span className="aui-assistant-loading-dot bg-aomi-fg block size-2.5 animate-pulse rounded-full" />
     </div>
   );
-};
-
-/** Keep a failed Stop visible beside the retry control after the toast expires. */
-const ComposerStopStatus: FC = () => {
-  const runtime = useOptionalAomiRuntime();
-  return runtime?.stopError ? (
-    <p role="alert" className="text-aomi-danger px-4 pb-3 text-[12px]">
-      {runtime.stopError}
-    </p>
-  ) : null;
 };
 
 const AssistantMessage: FC = () => {

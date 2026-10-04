@@ -3,6 +3,6 @@
 import { SigningSettings } from "../account/provider-policy-settings";
 
 /** Per-wallet signing. */
-export function PolicySettings() {
-  return <SigningSettings />;
+export function PolicySettings({ onLoad }: { onLoad?: () => void }) {
+  return <SigningSettings onLoad={onLoad} />;
 }

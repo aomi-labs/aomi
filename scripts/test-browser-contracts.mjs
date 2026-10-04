@@ -303,16 +303,6 @@ try {
 }
 
 async function startPostgres() {
-  // Some local Linux hosts cannot reach Docker's bridge ports. Keep CI's
-  // default isolated bridge; the opt-in fixture still binds only loopback.
-  const network = process.env.BROWSER_CONTRACT_POSTGRES_NETWORK;
-  if (network && (network !== "host" || process.platform !== "linux")) {
-    throw new Error(
-      "Host Postgres fixture networking requires Linux and the value host",
-    );
-  }
-  const hostNetwork = network === "host";
-  if (hostNetwork) postgresPort = await freePort();
   const docker = spawn(
     "docker",
     [
@@ -327,19 +317,9 @@ async function startPostgres() {
       "POSTGRES_USER=fixture",
       "-e",
       "POSTGRES_DB=fixture",
-      ...(hostNetwork
-        ? ["--network", "host", "-e", `PGPORT=${postgresPort}`]
-        : ["-p", "127.0.0.1::5432"]),
+      "-p",
+      "127.0.0.1::5432",
       "postgres:16-alpine",
-      ...(hostNetwork
-        ? [
-            "postgres",
-            "-c",
-            "listen_addresses=127.0.0.1",
-            "-c",
-            `port=${postgresPort}`,
-          ]
-        : []),
     ],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
@@ -347,7 +327,7 @@ async function startPostgres() {
   if (started.code !== 0) {
     throw new Error(`Isolated Postgres failed to start: ${started.output}`);
   }
-  for (let attempt = 0; !hostNetwork && attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const mapped = await command("docker", ["port", container, "5432/tcp"]);
     const match = mapped.output.match(/127\.0\.0\.1:(\d+)/);
     if (match) {
@@ -362,7 +342,6 @@ async function startPostgres() {
       "exec",
       container,
       "pg_isready",
-      ...(hostNetwork ? ["-h", "127.0.0.1", "-p", String(postgresPort)] : []),
       "-U",
       "fixture",
       "-d",

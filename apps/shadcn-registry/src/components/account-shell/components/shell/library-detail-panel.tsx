@@ -619,6 +619,7 @@ function SkillDetails({
 
 export function LibraryDetailPanel({
   selection,
+  loading = false,
   installed,
   installedReady,
   busy,
@@ -629,6 +630,8 @@ export function LibraryDetailPanel({
   onTrySkill,
 }: {
   selection: LibrarySelection | null;
+  /** The library is still loading: keep the panel empty. */
+  loading?: boolean;
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
@@ -649,9 +652,11 @@ export function LibraryDetailPanel({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-5">
         {!selection ? (
-          <div className="type-control text-aomi-muted flex flex-1 items-center justify-center px-6 text-center">
-            Select an app or skill to see its details.
-          </div>
+          loading ? null : (
+            <div className="type-control text-aomi-muted flex flex-1 items-center justify-center px-6 text-center">
+              Select an app or skill to see its details.
+            </div>
+          )
         ) : selection.kind === "app" ? (
           <AppDetails
             app={selection.item}

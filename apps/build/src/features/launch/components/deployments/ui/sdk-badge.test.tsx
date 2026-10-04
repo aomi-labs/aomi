@@ -39,9 +39,5 @@ describe("SdkBadge", () => {
     const badge = screen.getByTestId("sdk-badge");
     expect(badge).toHaveAttribute("data-state", "outdated");
     expect(badge).toHaveTextContent("5.0.0");
-    expect(badge.getAttribute("title")).toContain("backend requires 5.1.0");
-    expect(badge.getAttribute("title")).toContain(
-      "upgrade the SDK in Deployments",
-    );
   });
 });

@@ -180,7 +180,6 @@ export function useAuthEndpoints(): {
       appDescriptors: ctx.state.appDescriptors,
       defaultApp: ctx.state.defaultApp,
       modelsLoading: ctx.state.modelsLoading,
-      modelsError: ctx.state.modelsError,
     },
     actions: {
       getAvailableModels: ctx.getAvailableModels,
@@ -309,7 +308,6 @@ export function ControlContextProvider({
     apiKey: apiKey.state.apiKey,
     appPlatforms,
     applicationId,
-    accountSessionAvailable,
   });
 
   // Refs for the auth-endpoint state so per-thread-control callbacks can read
@@ -353,7 +351,6 @@ export function ControlContextProvider({
     appDescriptors: authEndpoints.state.appDescriptors,
     defaultApp: authEndpoints.state.defaultApp,
     modelsLoading: authEndpoints.state.modelsLoading,
-    modelsError: authEndpoints.state.modelsError,
   };
 
   const aggregateStateRef = useRef(aggregateState);

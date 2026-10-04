@@ -13,7 +13,7 @@
 // `getControlSessionId` callback (provided by the caller) reads from refs
 // inside, so the effect deps stay quiet across thread switches.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MutableRefObject } from "react";
 import type {
   AomiAppDescriptor,
@@ -29,8 +29,8 @@ export type AuthEndpointsState = {
   authorizedApps: string[];
   appDescriptors: AomiAppDescriptor[];
   defaultApp: string | null;
+  /** False once the latest model read settled (success or failure). */
   modelsLoading?: boolean;
-  modelsError?: boolean;
 };
 
 export type AuthEndpointsActions = {
@@ -51,7 +51,6 @@ type UseAuthEndpointsOptions = {
   appPlatforms?: AomiPlatformFilter;
   /** Hosted app this runtime is scoped to; routed on by the edge. */
   applicationId?: ApplicationId;
-  accountSessionAvailable?: boolean;
 };
 
 function getDefaultApp(apps: string[]): string | null {
@@ -71,7 +70,6 @@ export function useAuthEndpointsImpl({
   apiKey,
   appPlatforms,
   applicationId,
-  accountSessionAvailable = false,
 }: UseAuthEndpointsOptions): {
   state: AuthEndpointsState;
   actions: AuthEndpointsActions;
@@ -81,107 +79,54 @@ export function useAuthEndpointsImpl({
     : (appPlatforms ?? "");
   // Primitive so the callbacks below stay stable across renders.
   const appId = applicationId?.toString() ?? "";
-  const client = aomiClientRef.current;
-  const scope = JSON.stringify([
-    apiKey,
-    accountSessionAvailable,
-    appId,
-    appPlatformsKey,
-  ]);
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
-  const modelFlights = useRef(new Map<string, Promise<string[]>>());
-  const appFlights = useRef(new Map<string, Promise<string[]>>());
-  const flightClient = useRef(client);
-  if (flightClient.current !== client) {
-    flightClient.current = client;
-    modelFlights.current.clear();
-    appFlights.current.clear();
-  }
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [defaultModel, setDefaultModel] = useState<string | null>(null);
   const [authorizedApps, setAuthorizedApps] = useState<string[]>([]);
   const [appDescriptors, setAppDescriptors] = useState<AomiAppDescriptor[]>([]);
   const [defaultApp, setDefaultApp] = useState<string | null>(null);
   const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState(false);
 
   const getAvailableModels = useCallback(async (): Promise<string[]> => {
-    const pending = modelFlights.current.get(scope);
-    if (pending) return pending;
     setModelsLoading(true);
-    setModelsError(false);
-    const request = (async () => {
-      try {
-        const models = await client.getModels(getControlSessionId(), {
-          applicationId: appId,
-        });
-        if (scopeRef.current === scope && aomiClientRef.current === client) {
-          setAvailableModels(models);
-          setDefaultModel(resolveAutoModel(models));
-        }
-        return models;
-      } catch (error) {
-        console.error("Failed to fetch models:", error);
-        if (scopeRef.current === scope && aomiClientRef.current === client)
-          setModelsError(true);
-        return [];
-      }
-    })();
-    modelFlights.current.set(scope, request);
     try {
-      return await request;
+      const models = await aomiClientRef.current.getModels(
+        getControlSessionId(),
+        { applicationId: appId },
+      );
+      setAvailableModels(models);
+      setDefaultModel(resolveAutoModel(models));
+      return models;
+    } catch (error) {
+      console.error("Failed to fetch models:", error);
+      return [];
     } finally {
-      if (modelFlights.current.get(scope) === request)
-        modelFlights.current.delete(scope);
-      if (scopeRef.current === scope && aomiClientRef.current === client)
-        setModelsLoading(false);
+      setModelsLoading(false);
     }
-  }, [aomiClientRef, client, getControlSessionId, appId, scope]);
+  }, [aomiClientRef, getControlSessionId, appId]);
 
   const getAuthorizedApps = useCallback(async (): Promise<string[]> => {
-    const pending = appFlights.current.get(scope);
-    if (pending) return pending;
-    const request = (async () => {
-      try {
-        const descriptors = await client.getApps(getControlSessionId(), {
+    try {
+      const descriptors = await aomiClientRef.current.getApps(
+        getControlSessionId(),
+        {
           apiKey: apiKeyRef.current ?? undefined,
           platforms: appPlatforms,
           applicationId: appId,
-        });
-        const names = namesFromDescriptors(descriptors);
-        if (scopeRef.current === scope && aomiClientRef.current === client) {
-          setAuthorizedApps(names);
-          setAppDescriptors(descriptors);
-          setDefaultApp(getDefaultApp(names));
-        }
-        return names;
-      } catch (error) {
-        console.error("Failed to fetch apps:", error);
-        if (scopeRef.current === scope && aomiClientRef.current === client) {
-          setAuthorizedApps(["default"]);
-          setAppDescriptors([{ name: "default" }]);
-          setDefaultApp("default");
-        }
-        return ["default"];
-      }
-    })();
-    appFlights.current.set(scope, request);
-    try {
-      return await request;
-    } finally {
-      if (appFlights.current.get(scope) === request)
-        appFlights.current.delete(scope);
+        },
+      );
+      const names = namesFromDescriptors(descriptors);
+      setAuthorizedApps(names);
+      setAppDescriptors(descriptors);
+      setDefaultApp(getDefaultApp(names));
+      return names;
+    } catch (error) {
+      console.error("Failed to fetch apps:", error);
+      setAuthorizedApps(["default"]);
+      setAppDescriptors([{ name: "default" }]);
+      setDefaultApp("default");
+      return ["default"];
     }
-  }, [
-    aomiClientRef,
-    client,
-    apiKeyRef,
-    getControlSessionId,
-    appPlatformsKey,
-    appId,
-    scope,
-  ]);
+  }, [aomiClientRef, apiKeyRef, getControlSessionId, appPlatformsKey, appId]);
 
   // Fetch models on mount. Fetch apps whenever the auth context changes —
   // apiKey is the trigger; scoped to apiKey/clientId state, NOT to thread
@@ -201,7 +146,6 @@ export function useAuthEndpointsImpl({
       appDescriptors,
       defaultApp,
       modelsLoading,
-      modelsError,
     },
     actions: { getAvailableModels, getAuthorizedApps },
   };

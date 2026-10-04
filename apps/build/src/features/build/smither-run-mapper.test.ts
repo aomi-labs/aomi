@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { BuildRunSnapshot, BuildRunStage } from "./run-contracts";
+import type {
+  BuildRunSnapshot,
+  BuildRunStage,
+} from "./run-contracts";
 import {
   completionMessage,
   flagsFromSnapshot,
@@ -146,13 +149,12 @@ describe("streamEventsFromSnapshot times", () => {
 });
 
 describe("completionMessage", () => {
-  it("preserves supplied failure detail and the run identifier with recovery guidance", () => {
+  it("includes the failure detail and run id", () => {
     const message = completionMessage(
       snapshot([], "failed", { error: "Quota unavailable", runId: "run-123" }),
     );
     expect(message).toContain("Quota unavailable");
     expect(message).toContain("run-123");
-    expect(message).toContain("Review the activity log and try again");
   });
   it("prefers the curate agent's structured report", () => {
     const message = completionMessage(

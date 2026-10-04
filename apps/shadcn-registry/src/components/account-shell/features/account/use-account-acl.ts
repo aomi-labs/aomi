@@ -98,13 +98,6 @@ export function useAccountAcl(): AccountAcl {
     [request],
   );
   const adapter = useAomiWalletKit();
-  const accountScope = adapter.accountGuest
-    ? undefined
-    : adapter.accountUser?.id;
-  const scopeRef = useRef(accountScope);
-  scopeRef.current = accountScope;
-  const [loadedScope, setLoadedScope] = useState(accountScope);
-  const loadedScopeRef = useRef(accountScope);
   const runtime = useOptionalAomiRuntime();
   const privyDelegation = usePrivyDelegation();
   const [wallets, setWallets] = useState<WalletPolicy[]>([]);
@@ -137,36 +130,19 @@ export function useAccountAcl(): AccountAcl {
   );
 
   const refresh = useCallback(async () => {
-    if (!accountScope) {
-      setWallets([]);
-      setDelegatedAccounts([]);
-      setLoadedScope(undefined);
-      loadedScopeRef.current = undefined;
-      setStatus("error");
-      setError("Sign in to view your account settings.");
-      return;
-    }
     try {
-      const account = await fetchAccountAcl(request, accountScope);
-      if (!mounted.current || scopeRef.current !== accountScope) return;
-      loadedScopeRef.current = accountScope;
-      setLoadedScope(accountScope);
+      const account = await fetchAccountAcl(request);
+      if (!mounted.current) return;
       setWallets(account.wallets);
       setDelegatedAccounts(account.delegatedAccounts);
       setStatus("ready");
       setError(undefined);
     } catch (cause) {
-      if (!mounted.current || scopeRef.current !== accountScope) return;
-      if (loadedScopeRef.current !== accountScope) {
-        setWallets([]);
-        setDelegatedAccounts([]);
-      }
-      loadedScopeRef.current = accountScope;
-      setLoadedScope(accountScope);
+      if (!mounted.current) return;
       setStatus("error");
       setError(explainAccountError(cause));
     }
-  }, [accountScope, request]);
+  }, [request]);
 
   useEffect(() => {
     void refresh();
@@ -477,10 +453,10 @@ export function useAccountAcl(): AccountAcl {
 
   return useMemo(
     () => ({
-      status: loadedScope === accountScope ? status : ("loading" as const),
-      error: loadedScope === accountScope ? error : undefined,
-      wallets: loadedScope === accountScope ? wallets : [],
-      delegatedAccounts: loadedScope === accountScope ? delegatedAccounts : [],
+      status,
+      error,
+      wallets,
+      delegatedAccounts,
       refresh,
       prepareMode,
       commitMode,
@@ -494,8 +470,6 @@ export function useAccountAcl(): AccountAcl {
       blockedReason,
     }),
     [
-      accountScope,
-      loadedScope,
       bindWallet,
       blockedReason,
       canConnectPrivy,

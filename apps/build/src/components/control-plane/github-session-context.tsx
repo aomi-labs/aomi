@@ -2,12 +2,9 @@
 
 import {
   createContext,
-  Fragment,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -51,24 +48,7 @@ export function signedOutGitHubAccount(): GitHubAccountState {
 }
 
 export function GitHubSessionProvider({ children }: { children: ReactNode }) {
-  const [account, setAccountState] = useState<GitHubAccountState>(initialState);
-  const principalRef = useRef<string | null | undefined>(undefined);
-  const [scopeRevision, setScopeRevision] = useState(0);
-  const setAccount = useCallback((next: GitHubAccountState) => {
-    if (!next.loading) {
-      const principal = next.signedIn
-        ? (next.githubLogin?.trim().toLowerCase() ?? null)
-        : null;
-      if (
-        principalRef.current !== undefined &&
-        principalRef.current !== principal
-      ) {
-        setScopeRevision((revision) => revision + 1);
-      }
-      principalRef.current = principal;
-    }
-    setAccountState(next);
-  }, []);
+  const [account, setAccount] = useState<GitHubAccountState>(initialState);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,11 +58,11 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [setAccount]);
+  }, []);
 
   useEffect(() => {
     const expire = () =>
-      setAccountState((current) =>
+      setAccount((current) =>
         current.signedIn ? { ...current, expired: true } : current,
       );
     window.addEventListener(BUILD_SESSION_EXPIRED, expire);
@@ -104,19 +84,19 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.removeEventListener("focus", resume);
     };
-  }, [account.expired, setAccount]);
+  }, [account.expired]);
 
   const value = useMemo(
     () => ({
       account,
       setAccount,
     }),
-    [account, setAccount],
+    [account],
   );
 
   return (
     <GitHubSessionContext.Provider value={value}>
-      <Fragment key={scopeRevision}>{children}</Fragment>
+      {children}
     </GitHubSessionContext.Provider>
   );
 }

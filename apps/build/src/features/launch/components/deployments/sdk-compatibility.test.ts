@@ -47,7 +47,7 @@ describe("projectSdk", () => {
       label: "5.0.0",
     });
     expect(sdk.warning).toBe(
-      "Active application built with SDK 5.0.0 — backend requires 5.1.0; upgrade the SDK in Deployments, then redeploy to update.",
+      "Active application built with SDK 5.0.0 — backend requires 5.1.0; redeploy to update.",
     );
   });
 
@@ -211,7 +211,7 @@ describe("projectSdk", () => {
       label: "SDK mixed",
     });
     expect(sdk.warning).toBe(
-      "Live apps run SDK 5.0.0, 5.1.0 — backend requires 5.1.0; upgrade the SDK in Deployments, then redeploy to update.",
+      "Live apps run SDK 5.0.0, 5.1.0 — backend requires 5.1.0; redeploy to update.",
     );
   });
 });

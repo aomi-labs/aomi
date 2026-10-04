@@ -1,17 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { getChainInfo } from "@aomi-labs/react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
+import type { AomiCreditPosition } from "@aomi-labs/client";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { ChevronRight, Shield, UserRound } from "lucide-react";
 import { countDriftedWallets } from "../account/wallet-attention";
 import { useAccountAcl } from "../account/use-account-acl";
 import { walletConnectionSummary } from "../account/wallet-management-model";
 import {
-  type CreditAllowance,
+  creditAllowanceFromPosition,
   useAccountOverview,
 } from "../../lib/account-overview";
-import { useCreditAllowance } from "../../lib/use-credit-allowance";
 import { useSettings, type ColorMode } from "../../lib/use-settings";
 import {
   Divider,
@@ -35,9 +35,30 @@ export function GeneralSettings({
 }) {
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
+  const { settings, updateSetting } = useSettings();
   const account = useAccountOverview();
+  const { account: runtimeAccount } = useAomiRuntime();
   const acl = useAccountAcl();
-  const allowance = useCreditAllowance();
+  const [credits, setCredits] = useState<AomiCreditPosition | null>(null);
+
+  useEffect(() => {
+    if (!adapter.accountUser || adapter.accountGuest) {
+      setCredits(null);
+      return;
+    }
+    let mounted = true;
+    void runtimeAccount.credits
+      .get({ limit: 1 })
+      .then((position) => {
+        if (mounted) setCredits(position);
+      })
+      .catch(() => {
+        if (mounted) setCredits(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [adapter.accountGuest, adapter.accountUser, runtimeAccount]);
 
   const networkTicker = identity.chainId
     ? getChainInfo(identity.chainId)?.ticker
@@ -55,6 +76,12 @@ export function GeneralSettings({
     adapter.accountUser?.email ||
     account?.user.verified_email ||
     "Aomi account";
+
+  const themeChoices: { mode: ColorMode; label: string }[] = [
+    { mode: "dark", label: "Dark" },
+    { mode: "light", label: "Light" },
+    { mode: "auto", label: "System" },
+  ];
 
   return (
     <div className="flex flex-col gap-5">
@@ -76,22 +103,10 @@ export function GeneralSettings({
           walletDesc={linkedWalletStatus}
           tier={account?.user.tier}
           memberSince={formatMemberSince(account?.user.created_at)}
-          allowance={allowance.data}
+          credits={credits}
           onManageAccount={onManageAccount}
           onViewUsage={onViewUsage}
         />
-        {allowance.status === "error" && !allowance.data ? (
-          <p role="alert" className="type-meta text-aomi-muted">
-            Allowance unavailable.{" "}
-            <button
-              type="button"
-              className="hover:text-aomi-fg underline underline-offset-2"
-              onClick={() => void allowance.refresh()}
-            >
-              Retry
-            </button>
-          </p>
-        ) : null}
       </section>
 
       <section className="flex flex-col gap-2">
@@ -101,7 +116,22 @@ export function GeneralSettings({
         />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
-            <ThemePreference />
+            <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
+              {themeChoices.map(({ mode, label }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => updateSetting("colorMode", mode)}
+                  className={`rounded-md px-3 py-1 text-[12px] leading-none transition-colors ${
+                    settings.colorMode === mode
+                      ? "bg-aomi-surface-2 text-aomi-fg font-medium"
+                      : "text-aomi-muted hover:text-aomi-fg"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </FlatSettingRow>
 
           <Divider />
@@ -135,35 +165,12 @@ export function GeneralSettings({
   );
 }
 
-function ThemePreference() {
-  const { settings, updateSetting } = useSettings();
-  const choices: { mode: ColorMode; label: string }[] = [
-    { mode: "dark", label: "Dark" },
-    { mode: "light", label: "Light" },
-    { mode: "auto", label: "System" },
-  ];
-  return (
-    <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
-      {choices.map(({ mode, label }) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => updateSetting("colorMode", mode)}
-          className={`rounded-md px-3 py-1 text-[12px] leading-none transition-colors ${settings.colorMode === mode ? "bg-aomi-surface-2 text-aomi-fg font-medium" : "text-aomi-muted hover:text-aomi-fg"}`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function AccountSummaryCard({
   primary,
   walletDesc,
   tier,
   memberSince,
-  allowance,
+  credits,
   onManageAccount,
   onViewUsage,
 }: {
@@ -171,14 +178,15 @@ function AccountSummaryCard({
   walletDesc: string;
   tier?: string;
   memberSince?: string;
-  allowance?: CreditAllowance & { period?: string };
+  credits?: AomiCreditPosition | null;
   onManageAccount?: () => void;
   onViewUsage?: () => void;
 }) {
+  const allowance = creditAllowanceFromPosition(credits);
   const creditsUsed = allowance?.used ?? 0;
   const creditsIncluded = allowance?.included ?? 0;
   const remaining = Math.max(0, creditsIncluded - creditsUsed);
-  const periodLabel = formatPeriodLabel(allowance?.period);
+  const periodLabel = formatPeriodLabel(credits?.period_utc_month);
   const hasAllowance = creditsIncluded > 0;
 
   return (

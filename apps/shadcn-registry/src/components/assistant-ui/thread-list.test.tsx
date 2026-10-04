@@ -99,13 +99,13 @@ describe("chat Rename", () => {
     expect(actions.renameThread).toHaveBeenCalledTimes(2);
   });
 
-  it("validates blank titles and cancels with Escape without sending", async () => {
+  it("disables Save for blank titles and cancels with Escape without sending", async () => {
     actions.renameThread.mockReset();
     render(<Harness />);
     const input = await openRename();
     fireEvent.change(input, { target: { value: "   " } });
+    expect(screen.getByLabelText("Save chat title")).toBeDisabled();
     fireEvent.submit(input.closest("form")!);
-    expect(screen.getByRole("alert")).toHaveTextContent("Enter a chat title");
     fireEvent.keyDown(input, { key: "Escape" });
     expect(screen.queryByLabelText("Chat title")).toBeNull();
     expect(actions.renameThread).not.toHaveBeenCalled();

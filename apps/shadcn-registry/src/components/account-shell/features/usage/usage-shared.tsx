@@ -647,7 +647,6 @@ export function AllowanceSettlementSection({
   month,
   showAllowance = true,
   allowanceStatus = "ready",
-  allowanceAvailable = allowanceStatus === "ready",
   allowanceError,
   onRetryAllowance,
   children,
@@ -656,7 +655,6 @@ export function AllowanceSettlementSection({
   /** Hide when viewing a past month — profile credits only match the current month. */
   showAllowance?: boolean;
   allowanceStatus?: "idle" | "loading" | "ready" | "error";
-  allowanceAvailable?: boolean;
   allowanceError?: string;
   onRetryAllowance?: () => void;
   children?: ReactNode;
@@ -673,7 +671,7 @@ export function AllowanceSettlementSection({
         detail="How usage is paid"
       />
       <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
-        {showAllowance && allowanceAvailable && hasAllowance ? (
+        {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
           <>
             <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
               <span className="text-aomi-fg text-[13px] font-medium">
@@ -714,8 +712,6 @@ export function AllowanceSettlementSection({
                 />
               ) : hasAllowance ? (
                 `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
-              ) : allowanceAvailable ? (
-                "No monthly allowance"
               ) : (
                 "Unavailable"
               )}

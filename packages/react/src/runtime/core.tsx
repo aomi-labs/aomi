@@ -216,15 +216,6 @@ export function AomiRuntimeCore({
   const warmedThreadIdsRef = useRef(new Set<string>());
   const warmPromisesRef = useRef(new Map<string, Promise<void>>());
   const cancelPromisesRef = useRef(new Map<string, Promise<void>>());
-  const [stopErrors, setStopErrors] = useState<Record<string, string>>({});
-  const clearStopError = useCallback((threadId: string) => {
-    setStopErrors((previous) => {
-      if (!previous[threadId]) return previous;
-      const next = { ...previous };
-      delete next[threadId];
-      return next;
-    });
-  }, []);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
 
   const warmThread = useCallback(async (threadId: string) => {
@@ -386,7 +377,6 @@ export function AomiRuntimeCore({
   const cancelThreadGeneration = useCallback(
     (threadId: string) =>
       runSingleFlight(cancelPromisesRef.current, threadId, async () => {
-        clearStopError(threadId);
         try {
           await orchestratorCancel(threadId);
         } catch (error) {
@@ -395,12 +385,6 @@ export function AomiRuntimeCore({
             current?.isStartUncertain ||
             current?.turnState === "processing" ||
             current?.turnState === "awaiting_action";
-          setStopErrors((previous) => ({
-            ...previous,
-            [threadId]: retryable
-              ? "Stop was not confirmed. The response may still be running. Try Stop again."
-              : "Stop was not confirmed. Refresh this chat to check its status.",
-          }));
           notificationContext.showNotification({
             type: "error",
             title: "Unable to stop generation",
@@ -408,7 +392,7 @@ export function AomiRuntimeCore({
           });
         }
       }),
-    [orchestratorCancel, notificationContext, sessionManager, clearStopError],
+    [orchestratorCancel, notificationContext, sessionManager],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const assistantAdapter: ExternalStoreAdapter<ThreadMessageLike> = {
@@ -417,14 +401,8 @@ export function AomiRuntimeCore({
     isRunning,
     ...messageActions({
       messages: currentMessages,
-      send: (text, options) => {
-        clearStopError(threadContext.currentThreadId);
-        return orchestratorSendMessage(
-          text,
-          threadContext.currentThreadId,
-          options,
-        );
-      },
+      send: (text, options) =>
+        orchestratorSendMessage(text, threadContext.currentThreadId, options),
       restore: (text) => {
         // A late failure belongs to the originating chat, not the newly selected composer.
         if (
@@ -464,10 +442,9 @@ export function AomiRuntimeCore({
 
   const sendMessage = useCallback(
     async (text: string) => {
-      clearStopError(threadContext.currentThreadId);
       await orchestratorSendMessage(text, threadContext.currentThreadId);
     },
-    [orchestratorSendMessage, threadContext.currentThreadId, clearStopError],
+    [orchestratorSendMessage, threadContext.currentThreadId],
   );
 
   const cancelGeneration = useCallback(() => {
@@ -570,7 +547,6 @@ export function AomiRuntimeCore({
       isRunning,
       isSubmitting: snapshot.isSubmitting,
       isStopping: snapshot.isStopping ?? false,
-      stopError: stopErrors[threadContext.currentThreadId],
       getMessages,
       sendMessage,
       cancelGeneration,
@@ -612,7 +588,6 @@ export function AomiRuntimeCore({
       isRunning,
       snapshot.isSubmitting,
       snapshot.isStopping,
-      stopErrors,
       getMessages,
       sendMessage,
       cancelGeneration,

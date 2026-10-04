@@ -20,8 +20,6 @@ const CONNECTED_EVM = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F";
 const PRIVY_SVM = "8xKnQm4kZ7wRt2YbNc5vHj3PqLsDgFxA6eU9QpS1TzWv";
 
 const walletKit = vi.hoisted(() => ({
-  accountUser: { id: "acct-1" } as { id: string } | undefined,
-  accountGuest: false,
   connect: vi.fn(async () => undefined),
   connectSocial: vi.fn(async () => undefined),
   signOutAccount: vi.fn(async () => undefined),
@@ -265,8 +263,6 @@ const bodyOf = (calls: FetchCall[], path: string) => {
 
 describe("account ACL wiring", () => {
   beforeEach(() => {
-    walletKit.accountUser = { id: "acct-1" };
-    walletKit.accountGuest = false;
     walletKit.connect.mockClear();
     walletKit.connectSocial.mockClear();
     walletKit.signOutAccount.mockClear();
@@ -297,19 +293,6 @@ describe("account ACL wiring", () => {
     seedAccountOverview(null);
   });
 
-  it.each(["unresolved", "guest"])(
-    "does not probe signing policy for an %s account",
-    async (state) => {
-      if (state === "unresolved") walletKit.accountUser = undefined;
-      else walletKit.accountGuest = true;
-      const { calls } = installFetchRecorder();
-      await renderAcl();
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Sign in to view your account settings.",
-      );
-      expect(paths(calls)).not.toContain("/api/account");
-    },
-  );
   it("closes account settings after signing out", async () => {
     installFetchRecorder();
     const onClose = vi.fn();

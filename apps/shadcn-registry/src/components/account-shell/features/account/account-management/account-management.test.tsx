@@ -1,12 +1,11 @@
 import {
-  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { shortenAddress } from "../account-api";
 import {
   visibleSignInMethods,
@@ -182,9 +181,7 @@ describe("unified account wallets", () => {
     );
     const hint = await screen.findByRole("tooltip");
     expect(hint).toHaveTextContent(/one EVM and one SVM/);
-    expect(hint).toHaveTextContent(/Linked wallets are saved to this account/);
-    expect(hint).toHaveTextContent(/On this device means a wallet connection/);
-    expect(hint).toHaveTextContent(/Connecting a wallet does not link it/);
+    expect(hint).toHaveTextContent(/Click an address to make it active/);
     expect(hint).not.toHaveTextContent(/Connected:/);
     expect(hint).not.toHaveTextContent(/Linked:/);
   });
@@ -600,36 +597,5 @@ describe("unified account wallets", () => {
     expect(remove).toBeDisabled();
     fireEvent.click(remove);
     expect(onUnlinkSignIn).not.toHaveBeenCalled();
-  });
-});
-
-describe("wallet check feedback", () => {
-  afterEach(() => vi.useRealTimers());
-  it("offers recovery after a slow check without making the wallet selectable", async () => {
-    vi.useFakeTimers();
-    const checking = wallet("0xchecking", "evm", {
-      state: "loading",
-      connected: false,
-      operating: false,
-      actions: [],
-    });
-    const onConnectWallet = vi.fn(async () => undefined);
-    const onSelectWallet = vi.fn();
-    render(
-      <AccountManagement
-        {...props([checking])}
-        onConnectWallet={onConnectWallet}
-        onSelectWallet={onSelectWallet}
-      />,
-    );
-    expect(screen.getByText("Checking…")).toBeTruthy();
-    await act(async () => {
-      vi.advanceTimersByTime(15_000);
-    });
-    expect(screen.getByText("Check taking longer")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Make .* active/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(onConnectWallet).toHaveBeenCalledWith(checking);
-    expect(onSelectWallet).not.toHaveBeenCalled();
   });
 });

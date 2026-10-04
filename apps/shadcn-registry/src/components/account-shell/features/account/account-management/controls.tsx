@@ -174,13 +174,6 @@ function AddressLine({
     (wallet.provider ? titleCase(wallet.provider) : undefined) ??
     `${family} wallet`;
   const status = addressLineStatus(wallet);
-  const [checkSlow, setCheckSlow] = useState(false);
-  useEffect(() => {
-    setCheckSlow(false);
-    if (wallet.state !== "loading") return;
-    const timer = window.setTimeout(() => setCheckSlow(true), 15_000);
-    return () => window.clearTimeout(timer);
-  }, [wallet.key, wallet.state]);
   const inlineHandler =
     status?.action?.kind === "link"
       ? onLink
@@ -273,19 +266,7 @@ function AddressLine({
         )}
       >
         {status ? (
-          <StatusPill tone={status.tone}>
-            {checkSlow ? "Check taking longer" : status.label}
-          </StatusPill>
-        ) : null}
-        {checkSlow && onConnect ? (
-          <button
-            type="button"
-            disabled={pending !== null}
-            onClick={() => void onConnect(wallet)}
-            className={aomiButton({ variant: "secondary", size: "sm" })}
-          >
-            {busy ? <Loader2 className="animate-spin" /> : null}Try again
-          </button>
+          <StatusPill tone={status.tone}>{status.label}</StatusPill>
         ) : null}
         {status?.action && inlineHandler ? (
           <button
@@ -293,11 +274,6 @@ function AddressLine({
             disabled={pending !== null}
             onClick={() => void inlineHandler(wallet)}
             className={aomiButton({ variant: "secondary", size: "sm" })}
-            title={
-              status.action.kind === "link"
-                ? "Sign a message to link this wallet to your account. No transaction is sent."
-                : undefined
-            }
           >
             {busy ? <Loader2 className="animate-spin" /> : null}
             {status.action.label}
@@ -313,21 +289,6 @@ function AddressLine({
           />
         ) : null}
       </div>
-      {wallet.state === "mismatch" ? (
-        <p className="type-meta text-aomi-danger px-3.5 pb-3 [overflow-wrap:anywhere] sm:basis-full">
-          Selected in your provider: {wallet.observedAddress}. Choose{" "}
-          {wallet.address} in your wallet, then reconnect.
-        </p>
-      ) : null}
-      {checkSlow ? (
-        <p
-          role="status"
-          className="type-meta text-aomi-muted px-3.5 pb-3 sm:basis-full"
-        >
-          Open your wallet to finish connecting, then try again. Signing stays
-          unavailable until this wallet is ready.
-        </p>
-      ) : null}
     </div>
   );
 }

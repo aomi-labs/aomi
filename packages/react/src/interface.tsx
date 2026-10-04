@@ -88,8 +88,6 @@ export type AomiRuntimeApi = {
   isSubmitting: boolean;
   /** True while Stop awaits the server's acknowledgment. */
   isStopping?: boolean;
-  /** Last Stop failure for this chat, retained until retry or a new turn. */
-  stopError?: string;
   /** Get messages for a thread (defaults to currentThreadId) */
   getMessages: (threadId?: string) => ThreadMessageLike[];
   /** Send a message to the current thread */

@@ -27,129 +27,19 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test("signed-in chat, account, settings, and usage surfaces match visual contracts", async ({
   page,
-}, testInfo) => {
+}) => {
   await signIn(page);
-  const captureComparison = async (name: string, target: Page | Locator) => {
-    const path = testInfo.outputPath(`candidate-${name}.png`);
-    await target.screenshot({ path, animations: "disabled" });
-    await testInfo.attach(`candidate-${name}`, {
-      path,
-      contentType: "image/png",
-    });
-  };
-  // Capture responsive account evidence with the controlled signer before
-  // comparing existing desktop baselines. These are review artifacts, not
-  // replacement baselines or real extension verification.
-  for (const width of [1440, 390, 430]) {
-    await page.setViewportSize({ width, height: 1000 });
-    await page
-      .getByRole("button", { name: "Open settings", exact: true })
-      .click();
-    const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "Account", exact: true }).click();
-    await expect(
-      dialog.getByRole("button", { name: /View full address/ }),
-    ).toBeVisible();
-    await settleVisuals(page);
-    const bounds = await dialog.boundingBox();
-    expect(bounds).toBeTruthy();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
-    const accountCapture = testInfo.outputPath(`account-${width}px.png`);
-    await page.screenshot({
-      path: accountCapture,
-      animations: "disabled",
-    });
-    await testInfo.attach(`account-${width}px`, {
-      path: accountCapture,
-      contentType: "image/png",
-    });
-    await dialog.getByRole("button", { name: "Add a wallet" }).click();
-    const picker = page.getByRole("dialog", {
-      name: /Add a wallet|Add wallet/,
-    });
-    await expect(picker).toBeVisible();
-    await settleVisuals(page);
-    const pickerBounds = await picker.locator(":scope > div").boundingBox();
-    expect(pickerBounds).toBeTruthy();
-    expect(pickerBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(pickerBounds!.y).toBeGreaterThanOrEqual(0);
-    expect(pickerBounds!.x + pickerBounds!.width).toBeLessThanOrEqual(
-      width + 1,
-    );
-    expect(pickerBounds!.y + pickerBounds!.height).toBeLessThanOrEqual(1001);
-    const pickerCapture = testInfo.outputPath(`wallet-picker-${width}px.png`);
-    await page.screenshot({
-      path: pickerCapture,
-      animations: "disabled",
-    });
-    await testInfo.attach(`wallet-picker-${width}px`, {
-      path: pickerCapture,
-      contentType: "image/png",
-    });
-    await page.keyboard.press("Escape");
-    await expect(picker).toBeHidden();
-    await expect(dialog).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: "Add a wallet" }),
-    ).toBeFocused();
-    await dialog.getByRole("button", { name: "Close settings" }).click();
-  }
-  await page.setViewportSize({ width: 1440, height: 1000 });
   await settleVisuals(page);
-  await captureComparison("signed-in-new-chat", page);
-  await expect
-    .soft(page)
-    .toHaveScreenshot("signed-in-new-chat.png", screenshot());
+  await expect(page).toHaveScreenshot("signed-in-new-chat.png", screenshot());
 
   await sendPrompt(page, "visual completed trace");
-  const reply = page
-    .locator(".aui-assistant-message-root")
-    .filter({ hasText: "Controlled reply for visual completed trace" });
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("thread"))
-    .toBeTruthy();
-  const guard = page.getByRole("combobox", { name: "Guard policy: Balanced" });
-  await expect(reply).toBeVisible();
-  await expect(guard).toBeVisible();
-  await captureComparison("completed-chat-before-navigation", page);
-  const savedUrl = page.url();
-  await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("thread"))
-    .toBeNull();
-  await expect(reply).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await page.goBack();
-  await expect(page).toHaveURL(savedUrl);
-  await expect(reply).toBeVisible();
-  await expect(guard).toBeVisible();
-  await page.goForward();
-  await expect
-    .poll(() => new URL(page.url()).searchParams.get("thread"))
-    .toBeNull();
-  await expect(reply).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "What should happen on-chain?" }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "visual completed trace", exact: true })
-    .click();
-  await expect(page).toHaveURL(savedUrl);
-  await expect(reply).toBeVisible();
-  await expect(guard).toBeVisible();
   await settleVisuals(page);
-  await captureComparison("completed-chat", page);
-  await expect.soft(page).toHaveScreenshot("completed-chat.png", screenshot());
+  await expect(page).toHaveScreenshot("completed-chat.png", screenshot());
 
   await page.getByRole("button", { name: "Open account menu" }).click();
   const menu = page.getByRole("menu", { name: "Account menu" });
   await expect(menu).toBeVisible();
-  await captureComparison("account-menu", menu);
-  await expect.soft(menu).toHaveScreenshot("account-menu.png", screenshot());
+  await expect(menu).toHaveScreenshot("account-menu.png", screenshot());
 
   await menu.getByRole("button", { name: "Manage account" }).click();
   const accountSettings = page.getByRole("dialog", {
@@ -158,10 +48,10 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   });
   await expect(accountSettings).toBeVisible();
   await settleVisuals(page);
-  await captureComparison("account-settings", accountSettings);
-  await expect
-    .soft(accountSettings)
-    .toHaveScreenshot("account-settings.png", screenshot());
+  await expect(accountSettings).toHaveScreenshot(
+    "account-settings.png",
+    screenshot(),
+  );
   await accountSettings.getByRole("button", { name: "Close settings" }).click();
 
   await page.getByRole("button", { name: "Open account menu" }).click();
@@ -175,10 +65,7 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     timeout: 30_000,
   });
   await settleVisuals(page);
-  await captureComparison("usage-settings", settings);
-  await expect
-    .soft(settings)
-    .toHaveScreenshot("usage-settings.png", screenshot());
+  await expect(settings).toHaveScreenshot("usage-settings.png", screenshot());
 });
 
 test("wallet handoff failure, rejection, replay, and reload preserve one durable Action", async ({

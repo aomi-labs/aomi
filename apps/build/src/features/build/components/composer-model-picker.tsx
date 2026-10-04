@@ -14,7 +14,7 @@ const MODEL_OPTIONS = [
     id: "aomi",
     label: "Aomi",
     available: true,
-    hint: "Build default",
+    hint: "Current",
   },
 ] as const;
 
@@ -26,7 +26,7 @@ type ComposerModelPickerProps = {
 };
 
 /**
- * Show the configured Build model until a supported catalog is available.
+ * Cursor-like model control for Create. Selection stays on Aomi.
  */
 export function ComposerModelPicker({
   className,
@@ -75,9 +75,9 @@ export function ComposerModelPicker({
           open && "context-chip--open",
           disabled && "pointer-events-none opacity-50",
         )}
-        title="Model for Build"
+        title="Model for Create (Preview)"
       >
-        <span className="text-foreground font-medium">{current.label}</span>
+        <span className="font-medium text-foreground">{current.label}</span>
         <ChevronDown
           className={cn(
             "size-3.5 opacity-60 transition-transform duration-150",
@@ -96,8 +96,7 @@ export function ComposerModelPicker({
           <div className="border-border/60 border-b px-3 py-2">
             <p className="text-foreground text-[12px] font-medium">Model</p>
             <p className="text-dim text-[11px] leading-snug">
-              Build uses its configured model. Other model choices are not
-              available here yet.
+              Preview — remote models not connected yet
             </p>
           </div>
 

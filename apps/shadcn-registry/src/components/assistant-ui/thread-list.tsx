@@ -118,7 +118,6 @@ const ThreadListItem: FC = () => {
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const savingRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
@@ -138,17 +137,8 @@ const ThreadListItem: FC = () => {
     setEditing(true);
   };
   const saveRename = async () => {
-    if (savingRef.current || !runtime) return;
     const normalized = title.trim();
-    if (!normalized) {
-      setError("Enter a chat title.");
-      return;
-    }
-    if (normalized.length > 120) {
-      setError("Use 120 characters or fewer.");
-      return;
-    }
-    savingRef.current = true;
+    if (saving || !runtime || !normalized) return;
     setSaving(true);
     setError(null);
     try {
@@ -157,7 +147,6 @@ const ThreadListItem: FC = () => {
     } catch {
       setError("Couldn't rename this chat. Try again.");
     } finally {
-      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -216,7 +205,7 @@ const ThreadListItem: FC = () => {
             className="size-7 shrink-0"
             aria-label={saving ? "Saving chat title" : "Save chat title"}
             aria-busy={saving}
-            disabled={saving}
+            disabled={saving || !title.trim()}
           >
             <CheckIcon className="size-3.5" />
           </Button>

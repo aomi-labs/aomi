@@ -161,8 +161,9 @@ export function ModalNavItem({
   icon: IconComponent;
   active: boolean;
   onClick: () => void;
-  /** Trailing tally, e.g. the number of entries in a Library section. */
-  count?: number;
+  /** Trailing tally, e.g. the number of entries in a Library section;
+   * "loading" draws a placeholder until it is known. */
+  count?: number | "loading";
 }) {
   return (
     <button
@@ -183,7 +184,12 @@ export function ModalNavItem({
       <span className="min-w-0 flex-1 whitespace-nowrap text-left">
         {label}
       </span>
-      {count !== undefined ? (
+      {count === "loading" ? (
+        <span
+          aria-hidden="true"
+          className="bg-aomi-surface-2 h-3 w-4 animate-pulse rounded-sm"
+        />
+      ) : count !== undefined ? (
         <span className="type-meta tabular-nums">{count}</span>
       ) : null}
     </button>

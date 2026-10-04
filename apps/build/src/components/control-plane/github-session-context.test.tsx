@@ -33,22 +33,6 @@ beforeEach(() => {
     .mockResolvedValue({ signedIn: true, githubLogin: "builder" });
 });
 describe("browser session recovery", () => {
-  it("clears the previous principal's mounted draft when another account returns", async () => {
-    render(
-      <GitHubSessionProvider>
-        <Work />
-      </GitHubSessionProvider>,
-    );
-    await screen.findByText("Ready");
-    fireEvent.change(screen.getByLabelText("Draft"), {
-      target: { value: "Account A draft" },
-    });
-    fireEvent(window, new Event(BUILD_SESSION_EXPIRED));
-    session.mockResolvedValue({ signedIn: true, githubLogin: "other-builder" });
-    fireEvent.focus(window);
-    await waitFor(() => expect(screen.getByText("Ready")).toBeTruthy());
-    expect(screen.getByLabelText("Draft")).toHaveValue("");
-  });
   it("retains unsent work during expiry and rechecks authentication on return", async () => {
     render(
       <GitHubSessionProvider>

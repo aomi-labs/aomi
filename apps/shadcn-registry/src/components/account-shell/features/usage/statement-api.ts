@@ -326,15 +326,12 @@ function statementNullableNumber(value: unknown, field: string): number | null {
 
 export async function fetchCreditAllowance(
   request: ShellRequest = accountScopedFetch,
-): Promise<CreditAllowance & { period?: string }> {
+): Promise<CreditAllowance> {
   const position = statementObject(
     await request<unknown>("/v1/account/credits?limit=1"),
     "account credits",
   );
   return {
-    ...(typeof position.period_utc_month === "string"
-      ? { period: position.period_utc_month }
-      : {}),
     included:
       statementNumber(position.included_limit, "included_limit") /
       MICROUSD_PER_CREDIT,

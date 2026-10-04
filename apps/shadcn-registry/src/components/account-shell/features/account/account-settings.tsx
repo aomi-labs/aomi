@@ -34,8 +34,6 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
 function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
   const { openPicker } = useWalletPicker();
   const adapter = useAomiWalletKit();
-  const adapterRef = useRef(adapter);
-  adapterRef.current = adapter;
   const pendingRef = useRef(false);
   const providerOptions = useContext(WalletSignInOptionsContext);
   const acl = useAccountAcl();
@@ -155,21 +153,6 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
         }`,
       );
 
-      const selected = adapterRef.current.accounts.find(
-        (account) =>
-          account.family === wallet.family &&
-          brand &&
-          resolveWalletBrandKey(
-            `${account.walletName ?? ""} ${account.provider ?? ""}`,
-          ) === brand &&
-          walletKey(account.family, account.address) !== wallet.key,
-      );
-      if (selected) {
-        throw new Error(
-          `Your wallet currently exposes ${selected.address}. Select the saved address ${wallet.address} in your wallet, then reconnect. Disconnect the current device connection first if your wallet will not reopen.`,
-        );
-      }
-
       if (wallet.family === "evm" && adapter.connectEvmWallet) {
         const option = adapter.evmWallets?.find((candidate) => {
           const candidateBrand = resolveWalletBrandKey(
@@ -181,22 +164,7 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
                 (wallet.walletName ?? wallet.label ?? "").toLowerCase();
         });
         if (option) {
-          try {
-            await adapter.connectEvmWallet(option.id);
-          } catch (cause) {
-            if (
-              cause instanceof Error &&
-              /connector already connected/i.test(cause.message)
-            ) {
-              const selectedAddress = adapterRef.current.accounts.find(
-                (account) => account.family === wallet.family,
-              )?.address;
-              throw new Error(
-                `${selectedAddress ? `Your wallet currently exposes ${selectedAddress}. ` : "This wallet already has a device connection. "}Select ${wallet.address} in your wallet. If it will not reopen, disconnect its current device connection and try Connect again.`,
-              );
-            }
-            throw cause;
-          }
+          await adapter.connectEvmWallet(option.id);
           return;
         }
       }

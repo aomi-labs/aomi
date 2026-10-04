@@ -557,13 +557,13 @@ function AccountMenu({
 
 export function ControlPlaneShell({ children }: { children: React.ReactNode }) {
   return (
-    <GitHubSessionProvider>
-      <ControlPlaneQueryProvider>
+    <ControlPlaneQueryProvider>
+      <GitHubSessionProvider>
         <ToastProvider>
           <ControlPlaneShellContent>{children}</ControlPlaneShellContent>
         </ToastProvider>
-      </ControlPlaneQueryProvider>
-    </GitHubSessionProvider>
+      </GitHubSessionProvider>
+    </ControlPlaneQueryProvider>
   );
 }
 
@@ -702,10 +702,7 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
             role="alert"
             className="border-warning/30 bg-warning/10 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"
           >
-            <p>
-              Your session expired. Sign in again in a new tab, then return here
-              to continue your work.
-            </p>
+            <p>Session expired.</p>
             <a
               href={GITHUB_SIGNIN_URL}
               target="_blank"

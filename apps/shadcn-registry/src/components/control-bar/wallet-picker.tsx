@@ -514,7 +514,7 @@ export function WalletPicker() {
     : needsFirstWalletLink
       ? "Verify the connected wallet to finish setting up your account."
       : adapter.accountUser || hasConnectedWallets
-        ? "Connect a wallet, then choose Link wallet to save it to this account."
+        ? "Connect another wallet to this account."
         : "Choose a wallet or another sign-in method.";
 
   const signOutAccount = useCallback(
@@ -846,7 +846,7 @@ export function WalletPicker() {
                       {pickerTitle}
                     </h2>
                   </Dialog.Title>
-                  <p className="text-aomi-muted mt-0.5 text-[11px] leading-snug">
+                  <p className="text-aomi-muted mt-0.5 truncate text-[11px] leading-snug">
                     {pickerDescription}
                   </p>
                 </div>
@@ -861,15 +861,6 @@ export function WalletPicker() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
-                {pending && /^(link|connect|social|wallet):/.test(pending) ? (
-                  <p
-                    role="status"
-                    className="text-aomi-muted text-xs leading-snug"
-                  >
-                    Waiting for your wallet. Open its popup to continue or
-                    cancel.
-                  </p>
-                ) : null}
                 {actionError || adapter.accountError ? (
                   <div
                     role="alert"

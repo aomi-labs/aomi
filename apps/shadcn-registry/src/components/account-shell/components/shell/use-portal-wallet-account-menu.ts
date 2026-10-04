@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAomiRuntime } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import type { WalletAccountMenuOptions } from "../../../control-bar/account-menu-types";
-import { formatAllowanceSummary } from "../../lib/account-overview";
-import { useCreditAllowance } from "../../lib/use-credit-allowance";
+import {
+  creditAllowanceFromPosition,
+  formatAllowanceSummary,
+  type CreditAllowance,
+} from "../../lib/account-overview";
 import { useShellTransport } from "../../transport";
 import { useSettings } from "../../lib/use-settings";
 import {
@@ -26,8 +30,8 @@ export function usePortalWalletAccountMenu(
     embedded?: boolean;
   } = {},
 ): WalletAccountMenuOptions | undefined {
-  const allowance = useCreditAllowance();
-  const credits = allowance.data;
+  const { account: runtimeAccount } = useAomiRuntime();
+  const [credits, setCredits] = useState<CreditAllowance | null>(null);
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();
   const adapter = useAomiWalletKit();
@@ -37,6 +41,25 @@ export function usePortalWalletAccountMenu(
   const displayEmailHint = accountUser
     ? providerEmailDisplayHint(identity, adapter.accountLinkedAccounts ?? [])
     : undefined;
+
+  useEffect(() => {
+    if (!accountUser || accountGuest) {
+      setCredits(null);
+      return;
+    }
+    let mounted = true;
+    void runtimeAccount.credits
+      .get({ limit: 1 })
+      .then((position) => {
+        if (mounted) setCredits(creditAllowanceFromPosition(position));
+      })
+      .catch(() => {
+        if (mounted) setCredits(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [accountGuest, accountUser, runtimeAccount]);
 
   return useMemo(() => {
     // A Better Auth guest is only transport for guest chat. Do not present it
@@ -51,9 +74,7 @@ export function usePortalWalletAccountMenu(
         ? formatAllowanceSummary(credits.used, credits.included)
         : credits
           ? `${Math.max(0, credits.included - credits.used).toLocaleString()} credits left`
-          : allowance.status === "error"
-            ? "Allowance unavailable"
-            : "Loading allowance…";
+          : "Loading allowance…";
 
     const isDark =
       settings.colorMode === "dark" ||
@@ -65,11 +86,7 @@ export function usePortalWalletAccountMenu(
       enabled: true,
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
-      noticeLine:
-        accountError ??
-        (allowance.status === "error" && !credits
-          ? "Couldn’t load allowance. Retry in Settings."
-          : undefined),
+      noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
       themeLabel: isDark ? "Dark" : "Light",
       onToggleTheme:
@@ -96,7 +113,6 @@ export function usePortalWalletAccountMenu(
     onManageAccount,
     onOpenSettings,
     credits,
-    allowance.status,
     settings.colorMode,
     updateSetting,
     themeRoot,

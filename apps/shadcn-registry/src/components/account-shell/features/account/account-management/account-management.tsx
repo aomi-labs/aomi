@@ -178,7 +178,7 @@ export function AccountManagement({
         <SectionHeader
           title="Wallets & access"
           className="flex-wrap sm:flex-nowrap"
-          help="Linked wallets are saved to this account for sign-in. On this device means a wallet connection is available here. Active selects the exact ready signer for each family: one EVM and one SVM at a time. Connecting a wallet does not link it; Link wallet asks you to sign a message, without sending a transaction. Disconnect ends a device connection; unlink removes account access."
+          help="Each address can be active for its family: one EVM and one SVM at a time. Click an address to make it active; a status appears only when an address needs attention, such as one that is not on this device or not yet saved to your account."
           detail={`${wallets.length} ${
             wallets.length === 1 ? "address" : "addresses"
           } · ${onDevice} on this device`}

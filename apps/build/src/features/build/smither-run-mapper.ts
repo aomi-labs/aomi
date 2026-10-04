@@ -43,8 +43,7 @@ function roleFor(stage: BuildRunStage): string {
   ) {
     return "Tester";
   }
-  if (phase.startsWith("deploy") || phase.startsWith("result"))
-    return "Shipper";
+  if (phase.startsWith("deploy") || phase.startsWith("result")) return "Shipper";
   if (stage.kind === "agent") return "Reviewer";
   if (stage.kind === "clarify" || stage.kind === "approval") return "Decision";
   return "Planner";
@@ -154,7 +153,7 @@ export function flagsFromSnapshot(snapshot: BuildRunSnapshot): RunViewFlags {
  *  structured report over anything synthesized. */
 export function completionMessage(snapshot: BuildRunSnapshot): string {
   if (snapshot.error) {
-    return `The build hit an error: ${snapshot.error}\n\nReview the activity log and try again. Run: \`${snapshot.runId}\`.`;
+    return `The build hit an error: ${snapshot.error}\n\nRun: \`${snapshot.runId}\`.`;
   }
   if (snapshot.status === "failed") {
     const failedStage = snapshot.stages.find((s) => s.status === "failed");
@@ -168,7 +167,6 @@ export function completionMessage(snapshot: BuildRunSnapshot): string {
       "Next: ship to Projects or download the files.",
     ].join("\n\n");
   }
-  const summary =
-    snapshot.result?.summary ?? `\`${snapshot.app}\` built and validated.`;
+  const summary = snapshot.result?.summary ?? `\`${snapshot.app}\` built and validated.`;
   return `${summary}\n\nNext: ship to Projects or download the files.`;
 }
