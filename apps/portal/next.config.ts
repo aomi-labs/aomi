@@ -94,6 +94,8 @@ const nextConfig: NextConfig = {
   experimental: {
     externalDir: true,
     webpackMemoryOptimizations: true,
+    // Limit parallel page collection on managed local fixture builds.
+    ...(process.env.BROWSER_CONTRACT_BUILD_CPUS === "1" ? { cpus: 1 } : {}),
   },
   images: {
     unoptimized: true,
@@ -110,6 +112,7 @@ const nextConfig: NextConfig = {
     "@getpara/react-sdk",
   ],
   turbopack: {
+    root: workspaceRoot,
     resolveAlias: {
       "@portal": "./src",
       ...widgetTurbopackAliases,
