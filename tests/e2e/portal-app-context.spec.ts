@@ -278,6 +278,10 @@ for (const viewport of [
       await expect(
         page.getByText("Existing fixture answer.", { exact: true }),
       ).toBeVisible();
+      await expect
+        .poll(() => new URL(page.url()).searchParams.has("thread"))
+        .toBe(true);
+      const savedUrl = page.url();
       indicator = await visibleIndicator(page);
       await expect(indicator).toHaveText("Hoodit");
       await page.screenshot({
@@ -294,6 +298,27 @@ for (const viewport of [
       await expect
         .poll(async () => (await visibleIndicator(page)).textContent())
         .toContain("Hoodit");
+      await expect
+        .poll(() => new URL(page.url()).searchParams.has("thread"))
+        .toBe(false);
+      await expect(
+        page.getByText("Existing fixture answer.", { exact: true }),
+      ).toBeHidden();
+      await page.goBack();
+      await expect(page).toHaveURL(savedUrl);
+      await expect(
+        page.getByText("Existing fixture answer.", { exact: true }),
+      ).toBeVisible();
+      await page.goForward();
+      await expect
+        .poll(() => new URL(page.url()).searchParams.has("thread"))
+        .toBe(false);
+      await expect(
+        page.getByText("Existing fixture answer.", { exact: true }),
+      ).toBeHidden();
+      expect(new URL(page.url()).searchParams.get("app")).toBe(
+        new URL(savedUrl).searchParams.get("app"),
+      );
       if (viewport.name === "desktop") {
         await page
           .locator("header")

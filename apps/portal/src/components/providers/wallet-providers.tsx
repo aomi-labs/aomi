@@ -61,7 +61,8 @@ import {
 const paraApiKey = process.env.NEXT_PUBLIC_PARA_API_KEY?.trim() ?? "";
 const paraEnvironmentSetting =
   process.env.NEXT_PUBLIC_PARA_ENVIRONMENT?.trim() ?? "";
-const paraEnvironment = paraEnvironmentSetting === "PROD" ? "PROD" : "BETA";
+const paraEnvironment: "PROD" | "BETA" =
+  paraEnvironmentSetting === "PROD" ? "PROD" : "BETA";
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() ?? "";
 
 const walletConnectProjectId =
@@ -196,7 +197,13 @@ export function WalletProviders({ children, e2eWallet }: Props) {
   const [browserAuthOrigin, setBrowserAuthOrigin] =
     useState<BrowserAuthOrigin | null>(() => getBrowserAuthOrigin());
   useEffect(() => {
-    setBrowserAuthOrigin(getBrowserAuthOrigin());
+    const origin = getBrowserAuthOrigin();
+    setBrowserAuthOrigin((previous) =>
+      previous?.authDomain === origin?.authDomain &&
+      previous?.authUri === origin?.authUri
+        ? previous
+        : origin,
+    );
   }, []);
   // Keeps the real chain ids (1, 8453, ...) and swaps only the RPC url, so the
   // UI still reads "Ethereum · Mainnet" while transactions hit a local fork.
@@ -219,10 +226,13 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     }),
     [browserAuthOrigin, hostedOrigin],
   );
-  const evmWallets =
-    typeof window !== "undefined" && walletConnectProjectId
-      ? (["metamask", "rabby", "coinbase", "walletconnect"] as const)
-      : (["metamask", "rabby", "coinbase"] as const);
+  const evmWallets = useMemo(
+    () =>
+      typeof window !== "undefined" && walletConnectProjectId
+        ? (["metamask", "rabby", "coinbase", "walletconnect"] as const)
+        : (["metamask", "rabby", "coinbase"] as const),
+    [],
+  );
   const routeProvider = requestedDeviceAuthProvider(pathname, searchParams);
   const routeProviderFailure = routeProvider
     ? providerConfigurationFailure(routeProvider, {
@@ -236,11 +246,44 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       ? null
       : routeProvider
     : (signIn?.provider ?? (privyAppId ? "privy" : paraApiKey ? "para" : null));
-  const auth = selectedProvider
-    ? selectedProvider === "privy"
-      ? ({ provider: "privy" } as const)
-      : ({ provider: "para", methods: ["email", "google"] } as const)
-    : false;
+  const auth = useMemo(
+    () =>
+      selectedProvider
+        ? selectedProvider === "privy"
+          ? ({ provider: "privy" } as const)
+          : ({ provider: "para", methods: ["email", "google"] } as const)
+        : false,
+    [selectedProvider],
+  );
+  const providers = useMemo(
+    () =>
+      ({
+        para: paraApiKey
+          ? {
+              appName: "Aomi Labs",
+              appDescription: "Aomi portal testing",
+              apiKey: paraApiKey,
+              environment: paraEnvironment,
+            }
+          : false,
+        privy: privyAppId ? { appId: privyAppId, appName: "Aomi Labs" } : false,
+      }) as const,
+    [],
+  );
+  // Route updates must not recreate the provider's Wagmi configuration and
+  // discard the currently connected signer. Actual chain routing stays reactive.
+  const wallets = useMemo(
+    () => ({
+      evm: {
+        chains: routedChains,
+        appName: "Aomi Labs",
+        wallets: evmWallets,
+        walletConnectProjectId,
+      },
+      solana: { networks: solanaNetworks, preferDirectSend: true },
+    }),
+    [routedChains, evmWallets],
+  );
 
   if (e2eWallet) {
     return (
@@ -276,34 +319,8 @@ export function WalletProviders({ children, e2eWallet }: Props) {
         initializing={!providerRestored}
         auth={hostedOrigin ? false : auth}
         account={account}
-        providers={{
-          para: paraApiKey
-            ? {
-                appName: "Aomi Labs",
-                appDescription: "Aomi portal testing",
-                apiKey: paraApiKey,
-                environment: paraEnvironment,
-              }
-            : false,
-          privy: privyAppId
-            ? {
-                appId: privyAppId,
-                appName: "Aomi Labs",
-              }
-            : false,
-        }}
-        wallets={{
-          evm: {
-            chains: routedChains,
-            appName: "Aomi Labs",
-            wallets: evmWallets,
-            walletConnectProjectId,
-          },
-          solana: {
-            networks: solanaNetworks,
-            preferDirectSend: true,
-          },
-        }}
+        providers={providers}
+        wallets={wallets}
       >
         {providerRestored &&
           !isDeviceAuthRoute(pathname) &&

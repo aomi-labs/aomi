@@ -29,6 +29,14 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   page,
 }, testInfo) => {
   await signIn(page);
+  const captureComparison = async (name: string, target: Page | Locator) => {
+    const path = testInfo.outputPath(`candidate-${name}.png`);
+    await target.screenshot({ path, animations: "disabled" });
+    await testInfo.attach(`candidate-${name}`, {
+      path,
+      contentType: "image/png",
+    });
+  };
   // Capture responsive account evidence with the controlled signer before
   // comparing existing desktop baselines. These are review artifacts, not
   // replacement baselines or real extension verification.
@@ -90,16 +98,52 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await settleVisuals(page);
-  await expect(page).toHaveScreenshot("signed-in-new-chat.png", screenshot());
+  await captureComparison("signed-in-new-chat", page);
+  await expect
+    .soft(page)
+    .toHaveScreenshot("signed-in-new-chat.png", screenshot());
 
   await sendPrompt(page, "visual completed trace");
+  const reply = page
+    .locator(".aui-assistant-message-root")
+    .filter({ hasText: "Controlled reply for visual completed trace" });
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("thread"))
+    .toBeTruthy();
+  const savedUrl = page.url();
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("thread"))
+    .toBeNull();
+  await expect(reply).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "What should happen on-chain?" }),
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(savedUrl);
+  await expect(reply).toBeVisible();
+  await page.goForward();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("thread"))
+    .toBeNull();
+  await expect(reply).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "What should happen on-chain?" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "visual completed trace", exact: true })
+    .click();
+  await expect(page).toHaveURL(savedUrl);
+  await expect(reply).toBeVisible();
   await settleVisuals(page);
-  await expect(page).toHaveScreenshot("completed-chat.png", screenshot());
+  await captureComparison("completed-chat", page);
+  await expect.soft(page).toHaveScreenshot("completed-chat.png", screenshot());
 
   await page.getByRole("button", { name: "Open account menu" }).click();
   const menu = page.getByRole("menu", { name: "Account menu" });
   await expect(menu).toBeVisible();
-  await expect(menu).toHaveScreenshot("account-menu.png", screenshot());
+  await captureComparison("account-menu", menu);
+  await expect.soft(menu).toHaveScreenshot("account-menu.png", screenshot());
 
   await menu.getByRole("button", { name: "Manage account" }).click();
   const accountSettings = page.getByRole("dialog", {
@@ -108,10 +152,10 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   });
   await expect(accountSettings).toBeVisible();
   await settleVisuals(page);
-  await expect(accountSettings).toHaveScreenshot(
-    "account-settings.png",
-    screenshot(),
-  );
+  await captureComparison("account-settings", accountSettings);
+  await expect
+    .soft(accountSettings)
+    .toHaveScreenshot("account-settings.png", screenshot());
   await accountSettings.getByRole("button", { name: "Close settings" }).click();
 
   await page.getByRole("button", { name: "Open account menu" }).click();
@@ -125,7 +169,10 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
     timeout: 30_000,
   });
   await settleVisuals(page);
-  await expect(settings).toHaveScreenshot("usage-settings.png", screenshot());
+  await captureComparison("usage-settings", settings);
+  await expect
+    .soft(settings)
+    .toHaveScreenshot("usage-settings.png", screenshot());
 });
 
 test("wallet handoff failure, rejection, replay, and reload preserve one durable Action", async ({

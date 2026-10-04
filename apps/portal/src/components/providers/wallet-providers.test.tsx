@@ -1,9 +1,17 @@
 import type { ReactNode } from "react";
+import type { Chain } from "viem";
+import type {
+  WalletsConfig,
+  ProvidersConfig,
+} from "../../../../shadcn-registry/src/lib/wallet-kit/config/types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const walletKit = vi.hoisted(() => ({
   auth: undefined as unknown,
+  wallets: undefined as WalletsConfig | undefined,
+  providers: undefined as ProvidersConfig | undefined,
+  account: undefined as unknown,
   providerMounts: 0,
   privyDelegationMounts: 0,
   throwOnProviderMount: "",
@@ -14,6 +22,7 @@ const walletKit = vi.hoisted(() => ({
 const navigation = vi.hoisted(() => ({
   pathname: "/settings",
   search: "",
+  chains: undefined as readonly [Chain, ...Chain[]] | undefined,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -30,7 +39,19 @@ vi.mock("@aomi-labs/widget-lib", async () => {
   const WalletSignInOptionsContext = React.createContext<
     readonly { id: string; connect: () => Promise<void> }[]
   >([]);
-  function MockSdk({ auth, children }: { auth: unknown; children: ReactNode }) {
+  function MockSdk({
+    auth,
+    wallets,
+    providers,
+    account,
+    children,
+  }: {
+    auth: unknown;
+    wallets?: WalletsConfig;
+    providers?: ProvidersConfig;
+    account?: unknown;
+    children: ReactNode;
+  }) {
     if (React.useContext(ProviderOwner)) {
       throw new Error("Multiple PrivyProvider instances found");
     }
@@ -38,6 +59,9 @@ vi.mock("@aomi-labs/widget-lib", async () => {
       throw new Error(walletKit.throwOnProviderMount);
     }
     walletKit.auth = auth;
+    walletKit.wallets = wallets;
+    walletKit.providers = providers;
+    walletKit.account = account;
     const choices = React.useContext(WalletSignInOptionsContext);
     React.useEffect(() => {
       walletKit.providerMounts += 1;
@@ -90,7 +114,7 @@ vi.mock("@aomi-labs/widget-lib", async () => {
     }),
     useFullTestnet: (chains: unknown) => ({
       enabled: false,
-      routedChains: chains,
+      routedChains: navigation.chains ?? chains,
       routedChainIds: new Set<number>(),
     }),
   };
@@ -116,6 +140,9 @@ describe("WalletProviders Privy configuration", () => {
     vi.unstubAllEnvs();
     vi.resetModules();
     walletKit.auth = undefined;
+    walletKit.wallets = undefined;
+    walletKit.providers = undefined;
+    walletKit.account = undefined;
     walletKit.providerMounts = 0;
     walletKit.privyDelegationMounts = 0;
     walletKit.throwOnProviderMount = "";
@@ -123,6 +150,46 @@ describe("WalletProviders Privy configuration", () => {
     walletKit.connectSocial.mockClear();
     navigation.pathname = "/settings";
     navigation.search = "";
+    navigation.chains = undefined;
+  });
+
+  it("preserves wallet configuration through chat URL changes while auth selection stays reactive", async () => {
+    vi.stubEnv("NEXT_PUBLIC_PRIVY_APP_ID", "privy-app");
+    vi.stubEnv("NEXT_PUBLIC_PARA_API_KEY", "para-key");
+    window.localStorage.setItem("aomi:wallet-provider", "para");
+    navigation.pathname = "/";
+    const { WalletProviders } = await import("./wallet-providers");
+    const view = render(<WalletProviders>chat</WalletProviders>);
+    await waitFor(() =>
+      expect(walletKit.auth).toMatchObject({ provider: "para" }),
+    );
+    const original = {
+      wallets: walletKit.wallets,
+      auth: walletKit.auth,
+      providers: walletKit.providers,
+      account: walletKit.account,
+    };
+    for (const search of ["thread=saved-chat", "thread=other-chat", ""]) {
+      navigation.search = search;
+      view.rerender(<WalletProviders>chat</WalletProviders>);
+      expect(walletKit.wallets?.evm).toBe(original.wallets?.evm);
+      expect(walletKit.wallets?.solana).toBe(original.wallets?.solana);
+      expect(walletKit.auth).toBe(original.auth);
+      expect(walletKit.providers).toBe(original.providers);
+      expect(walletKit.account).toBe(original.account);
+    }
+    navigation.pathname = "/oauth/device";
+    navigation.search = "provider=privy";
+    view.rerender(<WalletProviders>chat</WalletProviders>);
+    expect(walletKit.auth).toEqual({ provider: "privy" });
+    expect(walletKit.wallets?.evm).toBe(original.wallets?.evm);
+    const { baseSepolia } = await import("wagmi/chains");
+    navigation.chains = [baseSepolia];
+    view.rerender(<WalletProviders>chat</WalletProviders>);
+    expect(walletKit.wallets?.evm).not.toBe(original.wallets?.evm);
+    expect(walletKit.wallets?.evm && walletKit.wallets.evm.chains).toBe(
+      navigation.chains,
+    );
   });
 
   it("serves children on the server without mounting an auth SDK", async () => {

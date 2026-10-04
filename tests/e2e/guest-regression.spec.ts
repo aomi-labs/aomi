@@ -211,7 +211,9 @@ test("guest response settles once and the same conversation survives refresh", a
     "Restoring session… Your composer will be ready shortly.",
   );
   // The protected composer cannot accept a draft while session authority is unresolved.
-  const heldInput = protectedContent.locator(".aui-composer-input").first();
+  const heldInput = protectedContent
+    .locator('[role="textbox"][aria-label="Message input"]')
+    .first();
   await heldInput.click({ force: true });
   await page.keyboard.type("must not become a draft");
   await expect(heldInput).toHaveText("");

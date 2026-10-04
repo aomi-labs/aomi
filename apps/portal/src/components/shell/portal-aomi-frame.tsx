@@ -138,11 +138,12 @@ export function ThreadUrlBootstrap({
   } = useAomiRuntime();
   const [localNavigation] = useState(createThreadUrlNavigation);
   const locationState = navigation ?? localNavigation;
-  const { navigating, requestedThread } = useSyncExternalStore(
+  const navigationSnapshot = useSyncExternalStore(
     locationState.subscribe,
     locationState.getSnapshot,
     locationState.getSnapshot,
   );
+  const { navigating, requestedThread } = navigationSnapshot;
   useEffect(() => {
     const readLocation = () => {
       locationState.navigate(
@@ -159,6 +160,7 @@ export function ThreadUrlBootstrap({
   }, [locationState]);
 
   useEffect(() => {
+    if (locationState.getSnapshot() !== navigationSnapshot) return;
     if (
       !ready ||
       !navigating ||
@@ -207,16 +209,27 @@ export function ThreadUrlBootstrap({
     isRemoteThread,
     locationState,
     navigating,
+    navigationSnapshot,
   ]);
 
   useEffect(() => {
+    const latest = locationState.getSnapshot();
+    if (latest !== navigationSnapshot) return;
     if (
       !ready ||
       threadListLoading ||
-      navigating ||
-      requestedThread === undefined
+      latest.navigating ||
+      latest.requestedThread === undefined
     )
       return;
+    const url = new URL(window.location.href);
+    const locationThread = url.searchParams.get("thread")?.trim() || null;
+    // Next can render its changed search params before our popstate listener
+    // runs. A changed browser location wins over this render's old chat.
+    if (locationThread !== latest.requestedThread) {
+      locationState.navigate(locationThread);
+      return;
+    }
     const metadata = threadMetadata.get(currentThreadId);
     const threadId =
       metadata &&
@@ -224,7 +237,6 @@ export function ThreadUrlBootstrap({
       metadata.status !== "archived"
         ? currentThreadId
         : null;
-    const url = new URL(window.location.href);
     if (url.searchParams.get("thread") === threadId) return;
     if (threadId) url.searchParams.set("thread", threadId);
     else url.searchParams.delete("thread");
@@ -239,6 +251,7 @@ export function ThreadUrlBootstrap({
     threadListLoading,
     locationState,
     navigating,
+    navigationSnapshot,
   ]);
 
   return null;

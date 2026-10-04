@@ -688,6 +688,29 @@ describe("ThreadUrlBootstrap", () => {
     expect(window.location.search).toBe("?thread=account-a-chat");
   });
 
+  it("does not replace browser navigation when a router render precedes popstate", async () => {
+    window.history.replaceState({}, "", "/?app=hoodit&thread=saved");
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved",
+      threadMetadata: new Map([
+        ["saved", { title: "Saved", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    const view = render(<ThreadUrlBootstrap />);
+    const push = vi.spyOn(window.history, "pushState");
+    window.history.replaceState({}, "", "/?app=hoodit");
+    runtimeState.current.threadMetadata = new Map(
+      runtimeState.current.threadMetadata,
+    );
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?app=hoodit");
+    expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
+  });
+
   it.each(["missing", "archived"])(
     "settles an unavailable %s URL on a new chat",
     async (kind) => {
