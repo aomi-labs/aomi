@@ -52,6 +52,7 @@ test("guest response settles once and the same conversation survives refresh", a
   let heldSessions = 0;
   let starts = 0;
   let lists = 0;
+  const summaryReads: string[] = [];
   await page.route("**/*", (route) => {
     if (
       new URL(route.request().url()).origin ===
@@ -112,6 +113,21 @@ test("guest response settles once and the same conversation survives refresh", a
             archived: false,
           })),
         nextCursor: null,
+      });
+    }
+    const session = path.match(/^\/v1\/agent\/sessions\/([^/]+)$/);
+    if (session && request.method() === "GET") {
+      if (!guestId) return json({ error: { code: "invalid_token" } }, 401);
+      const id = decodeURIComponent(session[1]);
+      const thread = threads.get(id);
+      if (!thread || thread.owner !== guestId)
+        return json({ error: { code: "session_not_found" } }, 404);
+      summaryReads.push(id);
+      return json({
+        id,
+        title: userMessage,
+        updatedAt: thread.events.at(-1)!.occurred_at * 1000,
+        archived: false,
       });
     }
     if (path === "/v1/agent/chat" && request.method() === "POST") {
@@ -238,6 +254,7 @@ test("guest response settles once and the same conversation survives refresh", a
   expect(starts).toBe(1);
   expect(threads.size).toBe(1);
   const threadId = [...threads.keys()][0];
+  await expect.poll(() => summaryReads).toEqual([threadId]);
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible();
@@ -294,5 +311,6 @@ test("guest response settles once and the same conversation survives refresh", a
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(row).toHaveCount(1);
   expect(starts).toBe(1);
+  expect(summaryReads).toEqual([threadId]);
   expect(unexpectedRequests).toEqual([]);
 });
