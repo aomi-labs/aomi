@@ -95,7 +95,7 @@ import { AomiFrame } from "@/components/aomi-frame";
     withControl={true}
     controlBarProps={{
       hideModel: false,
-      hideApp: false,
+      hideSafety: false,
       hideApiKey: true,
       hideWallet: false,
     }}
@@ -128,11 +128,11 @@ import { ControlBar } from "@/components/control-bar";
 // Full control bar (all controls visible)
 <ControlBar />
 
-// Minimal: just model and app
+// Minimal: just model and transaction safety
 <ControlBar hideApiKey hideWallet />
 
 // Custom: hide defaults, add your own
-<ControlBar hideModel hideApp hideApiKey hideWallet>
+<ControlBar hideModel hideSafety hideApiKey hideWallet>
   <MyCustomModelPicker />
   <MyCustomWalletButton />
 </ControlBar>
@@ -140,15 +140,46 @@ import { ControlBar } from "@/components/control-bar";
 
 ### ControlBar Props Reference
 
-| Prop          | Type        | Default | Description                      |
-| ------------- | ----------- | ------- | -------------------------------- |
-| `hideModel`   | `boolean`   | `false` | Hide the model selector dropdown |
-| `hideApp`     | `boolean`   | `false` | Hide the app/agent selector      |
-| `hideApiKey`  | `boolean`   | `false` | Hide the API key input button    |
-| `hideWallet`  | `boolean`   | `true`  | Hide the wallet connect button   |
-| `hideNetwork` | `boolean`   | `false` | Hide the network selector        |
-| `className`   | `string`    | --      | Additional CSS classes           |
-| `children`    | `ReactNode` | --      | Custom controls to append        |
+| Prop          | Type                | Default     | Description                                                      |
+| ------------- | ------------------- | ----------- | ---------------------------------------------------------------- |
+| `hideModel`   | `boolean`           | `false`     | Hide the model selector dropdown                                 |
+| `hideSafety`  | `boolean`           | `false`     | Hide the per-chat transaction safety selector                    |
+| `hideApiKey`  | `boolean`           | `false`     | Hide the API key input button                                    |
+| `hideWallet`  | `boolean`           | `true`      | Hide the wallet connect button                                   |
+| `hideNetwork` | `boolean`           | `false`     | Hide the network selector                                        |
+| `routing`     | `AomiRoutingConfig` | Auto        | Host-owned agent routing; see [Routing](#routing)                |
+| `className`   | `string`            | --          | Additional CSS classes                                           |
+| `children`    | `ReactNode`         | --          | Custom controls to append                                        |
+
+The transaction safety selector (Strict, Balanced, Yolo) is always shown unless
+`hideSafety` is set. It can be changed only by a signed-in account whose backend
+serves the transaction safety API; otherwise it shows the default level,
+disabled.
+
+### Routing
+
+Routing is a host setting. The widget shows no mode or app picker: every chat
+runs the routing's `defaultMode`. Users can still tag apps, skills, and chains
+per message with the composer's **+** picker in Auto.
+
+```tsx
+// Default: Auto routing
+<AomiFrame.Composer withControl />
+
+// Pin every chat to one app (Direct)
+<AomiFrame.Composer
+  withControl
+  controlBarProps={{
+    routing: {
+      targets: [{ mode: "direct", apps: [{ app: "my-app" }] }],
+    },
+  }}
+/>
+```
+
+To change routing at runtime, pass a new `routing` value. With several Direct
+apps, chats use the first one unless your code selects another listed app via
+`useControl().onAgentTargetSelect(...)`.
 
 ## Control State Management
 
@@ -186,7 +217,7 @@ function MyComponent() {
   // Update state
   setApiKey("sk-new-key");
   await onModelSelect("gpt-4o");
-  onAppSelect("defi");
+  onAppSelect("defi"); // Headless runtimes; inside AomiFrame, `routing` decides
 }
 ```
 
@@ -331,7 +362,7 @@ Use props to toggle features:
     withControl
     controlBarProps={{
       hideModel: true,
-      hideApp: true,
+      hideSafety: true,
       hideWallet: true,
       hideNetwork: true,
     }}

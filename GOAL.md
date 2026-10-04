@@ -1,3 +1,18 @@
+# PR #698 app indicator correction — 2026-10-03
+
+The composer indicator now follows the explicit host app tag or active Direct
+target from its capability provider. Auto allowlists do not select an app. Routing
+and Portal URL/locked behavior are preserved. ID-only apps wait for catalog names
+instead of showing fabricated application-ID labels. In the isolated `pr-698`
+frontend worktree, 55 focused tests, six boundary tests, eight desktop/mobile
+browser scenarios, lint, widget/Portal types, formatting, boundaries, registry
+and package builds, and trusted-base packed-widget compatibility passed. The PR
+retains its existing widget patch bump to 3.0.19 (main is 3.0.18).
+
+# Web search and fetch chips — 2026-09-29
+
+In the `agent-usefulness` worktree, the working trace shows up to three unique result domains (globe chips, `www.` stripped) for `web_search`, legacy `brave_search`, and `search_docs`, from JSON `results[]` or legacy `URL:` lines. While a search is pending, or when it finds no domains, a search chip shows the truncated query with the full text as its tooltip. The "N results" count chip is gone. The new `web_fetch` step reads "Read page" and shows the host actually read after redirects, or the requested host while pending. Widget patch version: 3.0.17.
+
 # Completed chat answer visibility — 2026-09-24
 
 In the isolated `codex/chat-final-response-visible` frontend worktree, the

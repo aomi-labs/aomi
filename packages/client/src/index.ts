@@ -20,6 +20,7 @@ export type {
 } from "./account/credits";
 export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
+export { projectConversationEvents } from "./session/conversation";
 export {
   EvmPipelineTransport,
   PipelineApiError,
@@ -111,7 +112,11 @@ export type {
   TurnState,
   TurnStateChangedEvent,
 } from "./agent/types";
-export { ActionHandler } from "./actions";
+export {
+  ActionHandler,
+  requiresSignatureAdmission,
+  MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
+} from "./actions";
 export type {
   ActionAttempt,
   ActionAttemptState,
@@ -319,6 +324,7 @@ export type {
   SessionOptions,
   SessionRuntimeOptions,
   SessionSnapshot,
+  SendOptions,
   SendResult,
 } from "./session";
 
@@ -341,6 +347,7 @@ export {
   parseChainId,
 } from "./wallet-utils";
 export { walletCapabilities } from "./wallet/capabilities";
+export { normalizeEvmWalletTarget } from "./wallet/target";
 export { walletUserState } from "./wallet/user-state";
 export type {
   EvmWallet,
@@ -412,3 +419,16 @@ export type {
 } from "./aa";
 export { summarizeSimulation, SimulationApiError } from "./simulation";
 export * from "./commits";
+export * from "./commit-lifecycle";
+
+export {
+  TransactionSafetyTransport,
+  transactionSafetyPolicy,
+} from "./transaction-safety";
+export type {
+  TransactionSafetyMode,
+  TransactionSafetyPolicy,
+  TransactionSafetyAssessment,
+  TransactionSafetyDecision,
+  TransactionSafetyProjection,
+} from "./transaction-safety";

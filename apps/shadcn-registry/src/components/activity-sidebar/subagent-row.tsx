@@ -5,6 +5,7 @@ import { Bot, Check, CircleAlert, LoaderCircle } from "lucide-react";
 import { cn, type TaskRunState } from "@aomi-labs/react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { focusRing } from "./presentation";
 
 export function SubagentRow({
   agent,
@@ -35,7 +36,8 @@ export function SubagentRow({
         aria-controls={hasMessage ? `subagent-${agent.agentId}` : undefined}
         onClick={() => hasMessage && setOpen((current) => !current)}
         className={cn(
-          "flex w-full items-center gap-2.5 text-left",
+          focusRing,
+          "rounded-control flex w-full items-center gap-2.5 text-left",
           hasMessage ? "cursor-pointer" : "cursor-default",
         )}
       >

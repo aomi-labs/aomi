@@ -1,4 +1,5 @@
 import type { ActionCapabilities } from "../actions";
+import { commitCapabilities, type CommitCapabilities } from "../commits";
 import { AomiClient } from "../client";
 import { createGuestSessionProvider } from "../guest-auth";
 import type { AomiClientOptions } from "../types";
@@ -14,6 +15,7 @@ import {
   type AomiAuthStrategy,
 } from "./auth";
 import { AomiPipeline } from "./pipeline";
+import type { TransactionSafetyTransport } from "../transaction-safety";
 import type { AccountTransport } from "../account/credits";
 import { createEvmPaymentClient } from "../payment";
 
@@ -25,8 +27,12 @@ type AomiManagedAuthOptions = Omit<
 };
 
 type AomiExecutionOptions =
-  | { wallet?: Wallets; actions?: never }
-  | { actions?: ActionCapabilities; wallet?: never };
+  | { wallet?: Wallets; actions?: never; commits?: CommitCapabilities }
+  | {
+      actions?: ActionCapabilities;
+      wallet?: never;
+      commits?: CommitCapabilities;
+    };
 
 export type AomiOptions = (
   | AomiManagedAuthOptions
@@ -40,11 +46,13 @@ export class Aomi {
   readonly pipeline: AomiPipeline;
   readonly agent: AomiAgent;
   readonly account: AccountTransport;
+  readonly transactionSafety: TransactionSafetyTransport;
   readonly auth: AomiAuthController;
   readonly wallet?: Wallets;
 
   constructor(options: AomiOptions) {
-    const { actions, wallet, auth, ...unmanagedClientOptions } = options;
+    const { actions, commits, wallet, auth, ...unmanagedClientOptions } =
+      options;
     const clientOptions: AomiClientOptions = unmanagedClientOptions;
     const fetchImpl = clientOptions.fetch ?? globalThis.fetch.bind(globalThis);
     const paidClientOptions: AomiClientOptions = {
@@ -103,10 +111,16 @@ export class Aomi {
 
     this.wallet = wallet;
     const capabilities = wallet ? walletCapabilities(wallet) : (actions ?? {});
-    this.pipeline = new AomiPipeline(this.raw.pipeline);
+    const commitOps = commits ?? (wallet ? commitCapabilities(wallet) : {});
+    this.pipeline = new AomiPipeline(this.raw.pipeline, this.raw, commitOps);
     this.account = this.raw.account;
-    this.agent = new AomiAgent(this.raw.agent, this.raw, capabilities, () =>
-      wallet ? walletUserState(wallet) : undefined,
+    this.transactionSafety = this.raw.transactionSafety;
+    this.agent = new AomiAgent(
+      this.raw.agent,
+      this.raw,
+      capabilities,
+      () => (wallet ? walletUserState(wallet) : undefined),
+      commitOps,
     );
   }
 }

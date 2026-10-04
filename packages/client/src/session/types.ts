@@ -11,6 +11,13 @@ import type { UserState } from "../user-state";
 import type { AomiInferenceFundingSource } from "../agent/types";
 import type { CommitView, CommitCapabilities } from "../commits";
 
+/**
+ * Replace the conversation from a durable message and continue it as a normal
+ * turn. `edit` is a user message key; `regenerate` reruns the user message
+ * before an assistant message key.
+ */
+export type SendOptions = { regenerate?: string; edit?: string };
+
 export type SendResult = {
   messages: readonly MessageEvent[];
   title?: string;
@@ -30,6 +37,17 @@ export type SessionSnapshot = Readonly<{
   title?: string;
   isStreaming: boolean;
   isSubmitting: boolean;
+  /** True while Stop awaits authoritative server acknowledgment. */
+  isStopping?: boolean;
+  /** Start admission is unconfirmed; Stop can reconcile and retry its exact intent. */
+  isStartUncertain?: boolean;
+  /** Scoped Stop ACK; the durable terminal event may arrive in a later page. */
+  stoppedTurnId?: string;
+  /** Scoped terminal ACKs retained until their ordered history catches up. */
+  terminalTurns?: readonly Readonly<{
+    turnId: string;
+    state: "complete" | "failed" | "interrupted";
+  }>[];
   /**
    * Optimistic echo of the outbound message for the in-flight turn. Set the
    * moment `send`/`sendAsync` is called and cleared when the server's own
@@ -37,6 +55,8 @@ export type SessionSnapshot = Readonly<{
    * page or two). Render this so the just-sent message never disappears.
    */
   pendingUserMessage?: string;
+  /** User message key that `pendingUserMessage` replaces (Edit or Rerun). */
+  pendingReplacesMessageKey?: string;
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** Per-turn browser-clock durations; receipt is distinct from rendering. */
   timing?: Readonly<{

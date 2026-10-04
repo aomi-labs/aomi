@@ -6,12 +6,13 @@ import { HeaderControls } from "../../../../shadcn-registry/src/components/accou
 const setActivityOpen = vi.fn();
 let activityAvailable = false;
 let activityOpen = false;
+let activityReviewing = false;
 
 vi.mock("@aomi-labs/widget-lib", () => ({
   NetworkSelect: () => <button type="button">Network</button>,
   useActivityPanel: () => ({
     worthShowing: activityAvailable,
-    reviewing: false,
+    reviewing: activityReviewing,
     open: activityOpen,
     setOpen: setActivityOpen,
   }),
@@ -27,7 +28,7 @@ vi.mock(
   () => ({
     useActivityPanel: () => ({
       worthShowing: activityAvailable,
-      reviewing: false,
+      reviewing: activityReviewing,
       open: activityOpen,
       setOpen: setActivityOpen,
     }),
@@ -48,6 +49,7 @@ afterEach(() => {
   cleanup();
   activityAvailable = false;
   activityOpen = false;
+  activityReviewing = false;
   setActivityOpen.mockReset();
 });
 
@@ -110,5 +112,22 @@ describe("HeaderControls", () => {
 
     fireEvent.click(activity);
     expect(setActivityOpen).toHaveBeenCalledWith(true);
+  });
+
+  it("marks a hidden wallet request on the activity button", () => {
+    activityAvailable = true;
+    activityReviewing = true;
+    const { rerender } = render(
+      <HeaderControls onOpenSettings={vi.fn()} onOpenPackages={vi.fn()} />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Review transactions" }),
+    ).toContainElement(screen.getByTestId("activity-review-dot"));
+
+    activityOpen = true;
+    rerender(
+      <HeaderControls onOpenSettings={vi.fn()} onOpenPackages={vi.fn()} />,
+    );
+    expect(screen.queryByTestId("activity-review-dot")).not.toBeInTheDocument();
   });
 });

@@ -7,7 +7,9 @@ import {
   requestWalletPickerOpen,
   WalletSignInOptionsContext,
 } from "../../../control-bar/wallet-picker-context";
-import { AccountManagement, type AddSignInOption } from "./account-management";
+import { useConfirmDialog } from "../../../ui/aomi/confirm-dialog";
+import { AccountManagement } from "./account-management";
+import { shortenAddress } from "./account-api";
 import { useAccountAcl } from "./use-account-acl";
 import {
   providerEmailDisplayHint,
@@ -16,6 +18,7 @@ import {
 } from "./wallet-management-model";
 import { walletKey } from "../../../../lib/wallet-kit/wallet-utils";
 import { resolveWalletBrandKey } from "./wallet-brands";
+import { titleCase } from "./account-management/controls";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
@@ -24,6 +27,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
   const acl = useAccountAcl();
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirmDialog();
 
   const wallets = useMemo(
     () =>
@@ -47,19 +51,6 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         adapter.accountLinkedAccounts ?? [],
       )
     : undefined;
-  const addSignInOptions = useMemo<AddSignInOption[]>(
-    () =>
-      (providerOptions.length
-        ? providerOptions
-        : (adapter.socialLoginOptions ?? [])
-      ).map((option) => ({
-        id: option.id,
-        label: option.label,
-        ready: option.status !== "unavailable",
-      })),
-    [adapter.socialLoginOptions, providerOptions],
-  );
-
   const run = async (
     key: string,
     action: () => Promise<void>,
@@ -106,7 +97,13 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
 
   const unlinkWallet = async (wallet: ManagedWallet) => {
     if (!adapter.unlinkLinkedWallet || !wallet.linkedWalletId) return;
-    if (!window.confirm(`Unlink ${wallet.address} from this account?`)) return;
+    const confirmed = await confirm({
+      title: "Unlink this wallet?",
+      description: `${shortenAddress(wallet.address)} will no longer be saved to this account. The wallet and its funds are not affected.`,
+      confirmLabel: "Unlink",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     await run(`unlink:${wallet.key}`, () =>
       adapter.unlinkLinkedWallet!(wallet.linkedWalletId!),
     );
@@ -183,7 +180,6 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         wallets={wallets}
         signInMethods={signInMethods}
         canAddWallet
-        addSignInOptions={addSignInOptions}
         pending={pending}
         error={actionError ?? (acl.status === "error" ? acl.error : null)}
         onRenameAccount={
@@ -196,22 +192,6 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
             : undefined
         }
         onAddWallet={requestWalletPickerOpen}
-        onAddSignIn={async (option) => {
-          await run(`add-sign-in:${option.id}`, async () => {
-            const provider = providerOptions.find(
-              (provider) => provider.id === option.id,
-            );
-            if (provider) {
-              await provider.connect();
-              return;
-            }
-            if (adapter.connectSocial) {
-              await adapter.connectSocial(option.id);
-              return;
-            }
-            await adapter.connect();
-          });
-        }}
         onLinkWallet={linkWallet}
         onConnectWallet={connectWallet}
         onSelectWallet={async (wallet) => {
@@ -237,9 +217,14 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         onUnlinkSignIn={
           adapter.unlinkLinkedAccount
             ? async (account) => {
-                if (!window.confirm(`Unlink ${account.provider} sign-in?`)) {
-                  return;
-                }
+                const name = titleCase(account.provider);
+                const confirmed = await confirm({
+                  title: `Unlink ${name} sign-in?`,
+                  description: `You will no longer be able to sign in to this account with ${name}.`,
+                  confirmLabel: "Unlink",
+                  tone: "danger",
+                });
+                if (!confirmed) return;
                 await run(`unlink-identity:${account.id}`, () =>
                   adapter.unlinkLinkedAccount!(account.id),
                 );
@@ -259,13 +244,14 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
         onDeleteAccount={
           adapter.deleteAccount
             ? async () => {
-                if (
-                  !window.confirm(
-                    "Delete this Aomi account? Linked wallets and sign-in methods will be freed.",
-                  )
-                ) {
-                  return;
-                }
+                const confirmed = await confirm({
+                  title: "Delete this Aomi account?",
+                  description:
+                    "Linked wallets and sign-in methods will be freed. This can't be undone.",
+                  confirmLabel: "Delete account",
+                  tone: "danger",
+                });
+                if (!confirmed) return;
                 let deleted = false;
                 await run(
                   "account:delete",
@@ -281,6 +267,7 @@ export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
             : undefined
         }
       />
+      {dialog}
     </div>
   );
 }

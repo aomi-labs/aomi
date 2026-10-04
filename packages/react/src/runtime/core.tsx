@@ -5,7 +5,6 @@ import type { ReactNode } from "react";
 import {
   AssistantRuntimeProvider,
   useExternalStoreRuntime,
-  type AppendMessage,
 } from "@assistant-ui/react";
 
 import {
@@ -34,7 +33,7 @@ import {
   projectAssistantMessages,
   projectRuntimeMessages,
 } from "./utils";
-import { appendCapabilityHints } from "./capability-hints";
+import { messageActions } from "./message-actions";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -54,16 +53,6 @@ async function runSingleFlight(
       flights.delete(threadId);
     }
   }
-}
-
-function appendMessageText(message: AppendMessage): string {
-  return message.content
-    .filter(
-      (part): part is Extract<typeof part, { type: "text" }> =>
-        part.type === "text",
-    )
-    .map((part) => part.text)
-    .join("\n");
 }
 
 // =============================================================================
@@ -143,7 +132,7 @@ export function AomiRuntimeCore({
         markControlSynced();
       }
     },
-    onSendError: (_threadId, error) => {
+    onSendError: (threadId, error) => {
       const httpStatus = getHttpStatus(error);
 
       if (httpStatus === 402) {
@@ -180,6 +169,28 @@ export function AomiRuntimeCore({
         return;
       }
 
+      if (
+        error instanceof AgentApiError &&
+        error.code === "execution_conflict"
+      ) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Account busy",
+          message:
+            "Another operation is still running. Your message is in the composer; send it when that operation finishes.",
+        });
+        return;
+      }
+
+      if (sessionManager.get(threadId)?.getSnapshot().isStartUncertain) {
+        notificationContext.showNotification({
+          type: "error",
+          title: "Unable to confirm message",
+          message: `${error instanceof Error ? error.message : "The start response was unavailable"}. The request may have been accepted. Use Stop to check and stop it.`,
+        });
+        return;
+      }
+
       // Every other failure was previously swallowed — the composer text
       // vanished with no feedback at all.
       notificationContext.showNotification({
@@ -203,6 +214,7 @@ export function AomiRuntimeCore({
   const remoteThreadIdsRef = useRef(new Set<string>());
   const warmedThreadIdsRef = useRef(new Set<string>());
   const warmPromisesRef = useRef(new Map<string, Promise<void>>());
+  const cancelPromisesRef = useRef(new Map<string, Promise<void>>());
   const [isThreadLoading, setIsThreadLoading] = useState(false);
 
   const warmThread = useCallback(async (threadId: string) => {
@@ -291,15 +303,33 @@ export function AomiRuntimeCore({
         snapshot.events,
         snapshot.pendingUserMessage,
         snapshot.liveMessages,
+        snapshot.stoppedTurnId,
+        snapshot.terminalTurns,
+        snapshot.pendingReplacesMessageKey,
       ),
-    [snapshot.events, snapshot.pendingUserMessage, snapshot.liveMessages],
+    [
+      snapshot.events,
+      snapshot.pendingUserMessage,
+      snapshot.liveMessages,
+      snapshot.stoppedTurnId,
+      snapshot.terminalTurns,
+      snapshot.pendingReplacesMessageKey,
+    ],
   );
-  const isRunning = logicalTurnRunning(
-    snapshot.events,
-    currentMessages,
-    snapshot.turnState,
-    snapshot.isSubmitting,
-  );
+  const isRunning =
+    snapshot.isSubmitting ||
+    snapshot.isStartUncertain ||
+    ((!snapshot.stoppedTurnId || snapshot.stoppedTurnId !== snapshot.turnId) &&
+      !snapshot.terminalTurns?.some(
+        (turn) => turn.turnId === snapshot.turnId,
+      ) &&
+      logicalTurnRunning(
+        snapshot.events,
+        currentMessages,
+        snapshot.turnState,
+        snapshot.isSubmitting,
+        snapshot.pendingUserMessage,
+      ));
 
   useEffect(() => {
     if (!threadPersistenceKey) return;
@@ -340,31 +370,45 @@ export function AomiRuntimeCore({
   // ---------------------------------------------------------------------------
   // External store runtime
   // ---------------------------------------------------------------------------
+  const cancelThreadGeneration = useCallback(
+    (threadId: string) =>
+      runSingleFlight(cancelPromisesRef.current, threadId, async () => {
+        try {
+          await orchestratorCancel(threadId);
+        } catch (error) {
+          const current = sessionManager.get(threadId)?.getSnapshot();
+          const retryable =
+            current?.isStartUncertain ||
+            current?.turnState === "processing" ||
+            current?.turnState === "awaiting_action";
+          notificationContext.showNotification({
+            type: "error",
+            title: "Unable to stop generation",
+            message: `${error instanceof Error ? error.message : "The Stop request failed"}. ${retryable ? "Generation may still be running. Try Stop again." : "Refresh the conversation to check its status."}`,
+          });
+        }
+      }),
+    [orchestratorCancel, notificationContext, sessionManager],
+  );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
   const runtime = useExternalStoreRuntime({
     messages: currentMessages,
     isLoading: isThreadLoading,
     isRunning,
-    onNew: async (message: AppendMessage) => {
-      const text = appendMessageText(message);
-      if (text) {
-        try {
-          const hintedText = appendCapabilityHints(
-            text,
-            message.runConfig?.custom?.aomiCapabilityHints,
-          );
-          await orchestratorSendMessage(
-            hintedText,
-            threadContext.currentThreadId,
-          );
-        } catch (error) {
-          console.error("Failed to send message:", error);
-          restoreComposerTextRef.current(text);
-        }
-      }
-    },
+    ...messageActions({
+      messages: currentMessages,
+      send: (text, options) =>
+        orchestratorSendMessage(text, threadContext.currentThreadId, options),
+      restore: (text) => restoreComposerTextRef.current(text),
+      unavailable: (message) =>
+        notificationContext.showNotification({
+          type: "error",
+          title: "Message action unavailable",
+          message,
+        }),
+    }),
     onCancel: async () => {
-      await orchestratorCancel(threadContext.currentThreadId);
+      await cancelThreadGeneration(threadContext.currentThreadId);
     },
     convertMessage: (msg) => msg,
     adapters: { threadList: threadListAdapter },
@@ -397,8 +441,8 @@ export function AomiRuntimeCore({
   );
 
   const cancelGeneration = useCallback(() => {
-    void orchestratorCancel(threadContext.currentThreadId);
-  }, [orchestratorCancel, threadContext.currentThreadId]);
+    void cancelThreadGeneration(threadContext.currentThreadId);
+  }, [cancelThreadGeneration, threadContext.currentThreadId]);
 
   const getMessages = useCallback(
     (threadId?: string) => {
@@ -467,6 +511,7 @@ export function AomiRuntimeCore({
   const aomiRuntimeApi: AomiRuntimeApi = useMemo(
     () => ({
       account: aomiClient.account,
+      transactionSafety: aomiClient.transactionSafety,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
@@ -490,6 +535,7 @@ export function AomiRuntimeCore({
       // Chat API
       isRunning,
       isSubmitting: snapshot.isSubmitting,
+      isStopping: snapshot.isStopping ?? false,
       getMessages,
       sendMessage,
       cancelGeneration,
@@ -528,6 +574,7 @@ export function AomiRuntimeCore({
       selectThread,
       isRunning,
       snapshot.isSubmitting,
+      snapshot.isStopping,
       getMessages,
       sendMessage,
       cancelGeneration,

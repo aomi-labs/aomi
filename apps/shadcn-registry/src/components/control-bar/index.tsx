@@ -4,10 +4,12 @@ import type { ReactNode, FC } from "react";
 import { cn } from "@aomi-labs/react";
 import { NetworkSelect } from "./network-select";
 import { ModelSelect } from "./model-select";
+import { SafetySelect } from "./safety-select";
 import { ApiKeyInput } from "./api-key-input";
 import { ConnectButton } from "./connect-button";
 import { SecretInput } from "./secret-input";
 import type { AomiRoutingConfig } from "@/components/assistant-ui/routing";
+import type { AppTagRequest } from "@/components/assistant-ui/capability-composer/model";
 import { AppSecretsDialog } from "./app-secrets-dialog";
 
 // =============================================================================
@@ -20,12 +22,19 @@ export type ControlBarProps = {
   children?: ReactNode;
   /** Hide the model selector */
   hideModel?: boolean;
-  /** @deprecated Constrain `routing` instead. */
+  /** Hide the per-chat transaction safety selector (signed-in accounts only) */
+  hideSafety?: boolean;
+  /** @deprecated There is no app selector; pin a Direct app with `routing`. */
   hideApp?: boolean;
-  /** Execution modes and Direct apps exposed by this host. */
+  /**
+   * Host-owned agent routing with no user-facing control. Chats run
+   * `defaultMode`: Auto unless the host allows only Direct.
+   */
   routing?: AomiRoutingConfig;
   /** Account-enabled app names offered by the composer capability picker. */
   enabledAppIds?: readonly string[];
+  /** Open the composer with this app tagged, as if chosen from the + picker. */
+  initialAppTag?: AppTagRequest;
   /** Hide the API key input */
   hideApiKey?: boolean;
   /** Hide the wallet connect button (default: true) */
@@ -46,6 +55,7 @@ export const ControlBar: FC<ControlBarProps> = ({
   className,
   children,
   hideModel = false,
+  hideSafety = false,
   hideApiKey = false,
   hideWallet = true,
   hideNetwork = false,
@@ -56,6 +66,7 @@ export const ControlBar: FC<ControlBarProps> = ({
     <div className={cn("flex items-center gap-1", className)}>
       {!hideNetwork && <NetworkSelect />}
       {!hideModel && <ModelSelect />}
+      {!hideSafety && <SafetySelect />}
       {!hideWallet && <ConnectButton />}
       {!hideSecrets && <SecretInput />}
       {!hideAppSecrets && <AppSecretsDialog />}
@@ -70,6 +81,7 @@ export const ControlBar: FC<ControlBarProps> = ({
 // =============================================================================
 
 export { ModelSelect, type ModelSelectProps } from "./model-select";
+export { SafetySelect, type SafetySelectProps } from "./safety-select";
 export type {
   AomiRoutingConfig,
   DirectRoutingApp,

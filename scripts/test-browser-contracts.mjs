@@ -286,13 +286,13 @@ try {
   if (
     code !== 0 ||
     !stats ||
-    stats.expected !== 13 ||
+    stats.expected !== 16 ||
     stats.skipped !== 0 ||
     stats.unexpected !== 0 ||
     stats.flaky !== 0
   ) {
     throw new Error(
-      `Browser contract suite failed or omitted mandatory scenarios (expected=13, exit=${code}, stats=${JSON.stringify(stats)})`,
+      `Browser contract suite failed or omitted mandatory scenarios (expected=16, exit=${code}, stats=${JSON.stringify(stats)})`,
     );
   }
   console.log(
@@ -619,16 +619,20 @@ async function createControlledUpstream(port) {
                 }),
                 event(turn, 3, "turn_state_changed", { state: "complete" }),
               ];
+        const previousEvents = threads.get(sessionId)?.events ?? [];
+        const previousSequence = previousEvents.at(-1)?.sequence ?? 0;
+        // Event sequences are conversation-wide, including after WST renewal.
+        for (const entry of events) entry.sequence += previousSequence;
         threads.set(sessionId, {
           owner: principal.sub,
           prompt: body.message,
           updatedAt: Date.now(),
-          events,
+          events: [...previousEvents, ...events],
         });
         response.setHeader("x-request-id", `fixture-turn-${turn}`);
         return json(response, 200, {
           session_id: sessionId,
-          cursor: "3",
+          cursor: String(events.at(-1)?.sequence ?? previousSequence),
           events,
           has_more: false,
         });
@@ -641,8 +645,11 @@ async function createControlledUpstream(port) {
         }
         return json(response, 200, {
           session_id: decodeURIComponent(poll[1]),
-          cursor: "3",
-          events: url.searchParams.has("cursor") ? [] : thread.events,
+          cursor: String(thread.events.at(-1)?.sequence ?? 0),
+          events: thread.events.filter(
+            (entry) =>
+              entry.sequence > Number(url.searchParams.get("cursor") ?? 0),
+          ),
           has_more: false,
         });
       }

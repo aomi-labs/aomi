@@ -2,7 +2,74 @@
 
 ## Last Updated
 
-2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
+2026-10-03 — EDIT AND RERUN AS LINEAR REPLACEMENT (follow-up to #699; worktree
+  `chat-edit-rerun`, branch `fix/chat-edit-rerun-clean`). Edit and Rerun now
+  work like ChatGPT: they replace the conversation from the selected user
+  message and continue it as a normal turn with the app's usual tools (paired
+  backend change in product-mono). The SDK echoes the new request at once and
+  publishes `pendingReplacesMessageKey`, so the thread drops the replaced
+  messages on click. Rerun resends the request before the answer as an
+  `edit`, which also works on failed or stopped answers. The widget no longer
+  renders assistant-ui's branch picker, because threads are linear.
+  Verified on a local stack with a real model: Edit and Rerun fetch fresh
+  DefiLlama prices, and a follow-up and a reload show only the replacement.
+
+Pending:
+- On a local guest session, reloading the page opens a new empty chat; the
+  replaced thread is intact in Recent. Not caused by this change.
+
+Previous: 2026-10-02 — MOBILE TRANSACTION SHEET (aomi#691; worktree `mobile-tx-panel`,
+  branch `work/mobile-tx-panel`, uncommitted). On phone viewports
+  (`max-width: 639px`) the activity panel is a bottom sheet over the chat and
+  composer instead of the 352px floating rail. It has a scrim, a drag handle
+  and a close button, and it closes on Escape. Unlike desktop, it doesn't
+  open with the first activity. It waits for the header button, or for a
+  wallet request, which opens it. The header activity button shows an accent
+  dot while a wallet request is hidden (all widths). The sheet pads its
+  content above any part of the thread that iOS Safari's toolbar hides
+  (`100vh` layouts run under it). The transaction list now sizes its bottom
+  fade from layout height, so a card's slide-in no longer leaves the fade
+  stuck on. While signing, it shows only the desktop `TransactionList` cards and
+  `WalletReview`. Otherwise it shows the same groups as the rail. Wider
+  viewports are unchanged. The sheet loads its own `LazyMotion` features so
+  standalone consumers still see it. The review details gained "Simulation
+  passed" / "Simulation unavailable" at every width. Visual harness: added a
+  `layout=phone` fixture with light and dark phone captures. The `client.ts`
+  stub now re-exports the real client, and three stale assertions are fixed.
+
+Pending:
+- `scripts/test-transaction-review-visuals.mjs` still fails after the phone
+  captures, in its recovery and trace-chip steps. Those expectations drifted
+  on main (for example "Transaction: 0xdeadbeef").
+
+Previous: 2026-09-30 — AGENT USEFULNESS (PR #688). Working trace: DefiLlama steps
+  (prices, yields, protocols), web search/fetch domain chips, short
+  transaction titles, and a lucide fallback icon for chains without a mark.
+  Activity sidebar: the transient review lines and raw JSON detail dropdowns
+  are gone, and the review collapses smoothly on sign or reject. The network
+  pill is now read-only. Wallets: Para no longer white-screens on first
+  select, and an injected wallet reconnects on reload under Para because the
+  wallet runtime mounts once. The sidebar account chip keeps one shape and
+  drops "Switch network". UI unification: shared `components/ui/aomi/`
+  primitives and radius, shadow and type tokens. Library and Settings share a
+  modal shell. The composer mode picker is removed, and `routing` is a
+  host-only prop. A "Guard policy" selector (Strict / Balanced / Yolo =
+  `guarded_only` / `balanced` / `unrestricted`) takes its place, and the
+  Settings "Safety" tab holds the default for new chats (never Yolo) plus
+  per-wallet signing. SDK: EVM Pipeline `commit()` returns durable Commit
+  Service identities to continue with `pipeline.evm.commits(preparation)`;
+  EVM holdings use paginated indexed discovery; manual EVM message-signing
+  execution Actions fail closed.
+
+Pending:
+- Two Para logins on one account nest all Para addresses under the first
+  card, because the data has no login-to-address link.
+- Widget with `features.settings === false`: the Guard policy "Change"
+  action is a no-op.
+- UI unification phases 4–6: picker restyle, the add flow, and conflict
+  move/merge on the backend.
+
+Previous: 2026-09-24 — TELEGRAM WEBHOOK RE-ASSERT + CHECK (worktree
   `tenant-telegram-config`; product-mono worktree `bot-webhook-reassert`,
   branch `codex/bot-webhook-reassert` off origin/main, uncommitted). The
   webhook was only ever asserted at registration; an external `deleteWebhook`

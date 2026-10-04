@@ -29,5 +29,8 @@ describe("conciseSkillDescription", () => {
 it("formats namespaced skill labels without changing wire IDs", () => {
   expect(skillLabel({ name: "hoodit/coin-scanner" })).toBe("Coin Scanner");
   expect(skillLabel({ name: "hyperliquid/portfolio" })).toBe("Portfolio");
-  expect(skillLabel({ name: "lifi_swap" })).toBe("Lifi Swap");
+  expect(skillLabel({ name: "lifi_swap" })).toBe("LI.FI");
+  expect(skillLabel({ name: "evm/lifi_swap" })).toBe("LI.FI");
+  expect(skillLabel({ name: "common_erc20" })).toBe("ERC20");
+  expect(skillLabel({ name: "defillama" })).toBe("DefiLlama");
 });

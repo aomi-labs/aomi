@@ -96,6 +96,7 @@ export function GeneralSettings({
         <SettingsSectionHeading
           title="Account overview"
           detail="Profile, plan, and allowance"
+          hint="Your plan's monthly allowance pays for usage first. Anything beyond it settles from your wallet."
         />
         <AccountSummaryCard
           primary={accountName}
@@ -109,7 +110,10 @@ export function GeneralSettings({
       </section>
 
       <section className="flex flex-col gap-2">
-        <SettingsSectionHeading title="Preferences" />
+        <SettingsSectionHeading
+          title="Preferences"
+          detail="Theme, network, and wallets"
+        />
         <div className={settingsPanelClass}>
           <FlatSettingRow label="Theme">
             <div className="border-aomi-border bg-aomi-surface flex h-8 items-center rounded-lg border p-[3px]">
@@ -239,11 +243,7 @@ function AccountSummaryCard({
         </>
       )}
 
-      <div className="border-aomi-border flex items-start justify-between gap-3 border-t px-4 py-3 sm:px-5">
-        <p className="text-aomi-muted min-w-0 flex-1 text-[13px] leading-snug">
-          Usage shows spend by app. Overflow settles via wallet pay when
-          allowance is used.
-        </p>
+      <div className="border-aomi-border flex justify-end border-t px-4 py-3 sm:px-5">
         <button
           type="button"
           onClick={onViewUsage}

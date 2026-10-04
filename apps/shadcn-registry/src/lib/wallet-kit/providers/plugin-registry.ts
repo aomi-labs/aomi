@@ -28,6 +28,13 @@ export type WalletProviderPlugin = {
   wrap?: (props: {
     auth?: AuthConfig;
     children: ReactNode;
+    /**
+     * The host app over a booting wallet kit, shown while the provider cannot
+     * host `children` yet. `children` hold the wallet runtimes, which must
+     * mount once, in place: wagmi skips `reconnectOnMount` while an earlier
+     * mount's reconnect is in flight, so a second mount stays disconnected.
+     */
+    placeholder?: ReactNode;
     providers?: ProvidersConfig;
   }) => ReactNode;
   isAvailable?: (props: {

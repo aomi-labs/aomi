@@ -15,7 +15,8 @@ flowchart LR
     B --> S[Simulate]
     S --> R[Review]
     R --> X[Commit]
-    X --> F[Committed result]
+    X --> P[Prepared result]
+    P --> E[Execute through Commit Service or wallet]
 ```
 
 ## Stage or build
@@ -30,7 +31,7 @@ caller-authored transaction data.
 
 ## Simulate
 
-`POST /v1/pipeline/simulate` executes the built requests against a safe
+`POST /v1/pipeline/evm/simulate` or `POST /v1/pipeline/svm/simulate` executes the built requests against a safe
 simulation environment. The response contains evidence such as asset changes,
 approval changes, gas or fee estimates, logs, and guard results.
 
@@ -40,11 +41,72 @@ has succeeded, and it can become stale as chain state changes.
 ## Review and commit
 
 Show the user the simulated operation and its effects before signing. Then
-submit the preserved build payload through `POST /v1/pipeline/commit`.
+submit the preserved build payload through `POST /v1/pipeline/evm/commit` or
+`POST /v1/pipeline/svm/commit`.
 
-A successful EVM commit has `status: "committed"`, one `digest`, the typed
-`result`, and the original `requests`. A successful SVM commit has one
-`digest`, typed `results`, and the original `requests`.
+Both commit routes keep the legacy `status: "committed"` response label for
+compatibility. They also return `preparation_status: "prepared"`, a `digest`,
+validated `requests`, and `provider_invoked: false`. `status: "committed"` does
+not mean a transaction was signed or submitted.
+
+### EVM: durable execution group
+
+EVM commit prepares a durable execution group, or recovers the one already
+prepared for the same Build. It does not submit anything to the wallet. The
+response adds `next_required_action: "continue_commit_cohort"`, the owned
+`thread_id`, the original `actions`, and the canonical Commit Service
+`commits`. Each `execute_evm` request carries the `commitStages` references
+for its transactions.
+
+Continue through the Commit Service with the SDK:
+
+```ts
+const build = await aomi.pipeline.evm.build(input);
+const preparation = await build.commit();
+// preparation.status === "committed", preparation.provider_invoked === false
+
+const commits = aomi.pipeline.evm.commits(preparation);
+for (const view of commits.all()) {
+  if (commits.canExecute(view)) await commits.execute(view.commit_id);
+}
+commits.close();
+```
+
+`commits()` checks that the returned Actions, stage references and CommitViews
+describe one cohort, then opens a Commit controller on the public
+`/v1/pipeline/evm/commits/{id}` routes. Use `execute`, `reject` or `refresh`
+with a returned `commit_id`. Do not send `requests` to the wallet yourself: a
+durable request that is missing its CommitView must be refreshed, never sent
+directly.
+
+A retry of the same commit returns the original Action and CommitView
+identities. The returned CommitViews show the saved lifecycle state, including
+a wallet attempt that an earlier call already started, so a replay does not
+create a second wallet invocation. `provider_invoked: false` describes only the
+preparation call itself.
+
+### SVM: stateless requests
+
+SVM commit is stateless. `provider_invoked: false` means the wallet has not yet
+signed or submitted anything. The caller submits the returned `requests` and
+tracks receipts; this path creates no durable Agent Action or Commit Service
+operation.
+
+Builds with an older `hmac-sha256:` attestation must be recreated through
+`stage` and simulated again before commit. The server cannot recover required
+review guards from that older attestation, so it will not reuse its verdict.
+This affects transient portable Builds; existing durable Agent commits and
+wallet attempts keep their stored lifecycle.
+
+Portable SVM preparation supports a homogeneous instruction bundle or unsigned
+transaction requests. It simulates each prepared transaction's exact bytes
+independently; an ordered set whose later transactions depend on earlier state
+changes is not supported by this stateless path.
+
+Preparation errors include a stable `code`, `phase`, `retryable`, and
+`next_required_action` so callers can distinguish a blocked review from a
+wallet mismatch or temporary chain access failure. Provider credentials and
+raw signed transaction payloads are not included in these errors.
 
 When the same flow runs inside an Agent turn, the runtime represents the review
 boundary as a durable Action. Resolve the Action at its current revision with
@@ -52,8 +114,10 @@ the typed result requested by the server.
 
 ## Authentication
 
-Pipeline catalog reads use the `pipeline:catalog` scope. Execution routes use
-`pipeline:execute`. Access tokens are exact-resource bound to
+Pipeline catalog reads use the `pipeline:catalog` scope. Execution routes,
+including the `/v1/pipeline/evm/commits` continuation routes, use
+`pipeline:execute`. That scope reaches only the caller's own saved Pipeline
+execution groups, not chat commits. Access tokens are exact-resource bound to
 `https://chat.aomi.dev/v1/pipeline`; an Agent token is not interchangeable.
 
 ## Canonical references

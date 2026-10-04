@@ -87,14 +87,21 @@ export function createCliAuthTokenProvider(
   readState: () => Pick<CliSessionState, "accountBearer" | "auth">,
   now: () => number = Date.now,
 ): GetAccountBearer {
-  return async () => {
+  // A verified Better Auth session is the CLI's principal on every route.
+  // Keep ordinary --account-bearer/OAuth credentials optional because they
+  // are not interchangeable with a signed-in account session.
+  const required = Boolean(readState().auth);
+  const provider: GetAccountBearer = async () => {
     const state = readState();
+    if (!required) return state.accountBearer;
     const auth = state.auth;
-    if (auth?.sessionToken && auth.expiresAt > now() + AUTH_REFRESH_SKEW_MS) {
-      return auth.sessionToken;
+    if (!auth?.sessionToken || auth.expiresAt <= now() + AUTH_REFRESH_SKEW_MS) {
+      throw new Error("Aomi account session has expired; sign in again");
     }
-    return state.accountBearer;
+    return auth.sessionToken;
   };
+  if (required) provider.required = true;
+  return provider;
 }
 
 export async function signInWithCliSiwe({

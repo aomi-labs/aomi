@@ -1,10 +1,12 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
+  projectConversationEvents,
   SUPPORTED_CHAINS as CLIENT_SUPPORTED_CHAINS,
   type ChainInfo,
   type Event,
   type MessageEvent,
+  type SessionSnapshot,
   type ToolCompleteEvent,
   type ToolUpdateEvent,
   type TurnState,
@@ -12,11 +14,44 @@ import {
 } from "@aomi-labs/client";
 
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
 import {
   extractCapabilityHints,
   stripCapabilityHints,
 } from "./capability-hints";
+
+/**
+ * Teach tailwind-merge the Aomi theme names (themes/default.css): otherwise
+ * `cn("rounded-md", "rounded-card")` keeps both and CSS order picks the
+ * component default, and `type-*` never replaces a default `text-sm`.
+ */
+const twMerge = extendTailwindMerge<"aomi-type">({
+  extend: {
+    theme: {
+      radius: ["shell", "card", "control"],
+      shadow: ["popover", "modal"],
+    },
+    classGroups: {
+      "aomi-type": [
+        {
+          type: [
+            "title",
+            "row",
+            "section",
+            "control",
+            "meta",
+            "address",
+            "eyebrow",
+          ],
+        },
+      ],
+    },
+    conflictingClassGroups: {
+      "aomi-type": ["font-size", "leading"],
+      "font-size": ["aomi-type"],
+    },
+  },
+});
 
 /**
  * Utility function to merge Tailwind CSS classes with conflict resolution.
@@ -124,8 +159,19 @@ function buildInboundMessage(msg: MessageEvent): ThreadMessageLike | null {
     role,
     content: content as ThreadMessageLike["content"],
     createdAt: new Date(parseTimestamp(msg.occurred_at)),
-    ...(capabilityHints.length > 0
-      ? { metadata: { custom: { aomiCapabilityHints: capabilityHints } } }
+    ...(role === "user"
+      ? {
+          metadata: {
+            custom: {
+              ...(msg.message_key
+                ? { aomiUserMessageKey: msg.message_key }
+                : {}),
+              ...(capabilityHints.length > 0
+                ? { aomiCapabilityHints: capabilityHints }
+                : {}),
+            },
+          },
+        }
       : {}),
   } satisfies ThreadMessageLike;
 
@@ -138,6 +184,7 @@ type AssistantProjection = {
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
   finalAnswerStartIndex?: number;
+  responseMessageKey?: string;
 };
 
 /** Insert a part once per key, replacing it in place on re-delivery. */
@@ -152,7 +199,11 @@ const upsertPart = (
     registry.set(key, projection.parts.length);
     projection.parts.push(part);
   } else {
-    projection.parts[index] = part;
+    const previous = projection.parts[index];
+    projection.parts[index] =
+      previous?.type === "tool-call" && part.type === "tool-call"
+        ? { ...previous, ...part, args: part.args ?? previous.args }
+        : part;
   }
 };
 
@@ -170,10 +221,10 @@ const toolPart = (
 /**
  * The backend's event ledger bridges INLINE (sync-executed) tool steps as agent
  * `message` events carrying a `[topic, payload]` tuple in `tool_result`
- * (declared on the client's MessageEvent shape). Until the recorder emits
- * real tool_update/tool_complete events for inline tools, this is the only
- * wire shape those steps arrive in; drop it and every trace renders as an
- * empty "Working" shell.
+ * (declared on the client's MessageEvent shape). These transcript results can
+ * coexist with typed tool_update/tool_complete progress, including a later
+ * wallet callback updating the originating call. Keep both wire paths and
+ * reconcile them by call identity.
  */
 const inlineToolResult = (event: MessageEvent) => {
   // Declared on the type, but the wire is untrusted — validate before use.
@@ -293,24 +344,42 @@ export function logicalTurnRunning(
   messages: readonly ThreadMessageLike[],
   turnState?: TurnState,
   isSubmitting = false,
+  pendingUserMessage?: string,
 ): boolean {
-  if (
-    isSubmitting ||
-    turnState === "processing" ||
-    turnState === "awaiting_action"
-  ) {
-    return true;
-  }
-  const lastMessage = messages.at(-1);
+  events = projectConversationEvents(events);
+  // An accepted start can precede its durable user event in a later page.
+  if (isSubmitting || pendingUserMessage) return true;
+  // A late callback completion belongs to its original operation. It must
+  // neither stop a newer user turn nor let a stale global state keep Stop on
+  // a logical operation whose own durable callback has already completed.
+  const latestUserTurn = events.findLast(
+    (event) => event.type === "message" && event.sender === "user",
+  )?.turn_id;
+  const ownState = latestUserTurn
+    ? events.findLast(
+        (event) =>
+          event.type === "turn_state_changed" &&
+          event.turn_id === latestUserTurn,
+      )
+    : undefined;
+  const state =
+    ownState?.type === "turn_state_changed" ? ownState.state : turnState;
+  const latestMessage = latestUserTurn
+    ? messages.find((message) => message.id === `turn:${latestUserTurn}`)
+    : messages.at(-1);
   const continuationTurnIds =
-    lastMessage?.role === "assistant"
+    latestMessage?.role === "assistant"
       ? (
-          lastMessage.metadata?.custom as
+          latestMessage.metadata?.custom as
             | { aomiContinuationTurnIds?: string[] }
             | undefined
         )?.aomiContinuationTurnIds
       : undefined;
-  return walletContinuationPending(continuationTurnIds ?? [], events);
+  return (
+    state === "processing" ||
+    state === "awaiting_action" ||
+    walletContinuationPending(continuationTurnIds ?? [], events)
+  );
 }
 
 /** Walk callback ancestry without allowing malformed cycles to merge turns. */
@@ -334,8 +403,21 @@ function rootTurn(turnId: string, owners: ReadonlyMap<string, string>): string {
 export function projectAssistantMessages(
   events: readonly Event[],
 ): ThreadMessageLike[] {
+  events = projectConversationEvents(events);
   const output: Array<ThreadMessageLike | AssistantProjection> = [];
   const assistantTurns = new Map<string, AssistantProjection>();
+  const terminalTurns = new Map<
+    string,
+    { state: TurnState; sequence: number }
+  >();
+  for (const event of events) {
+    if (event.type === "turn_state_changed" && event.turn_id) {
+      terminalTurns.set(event.turn_id, {
+        state: event.state,
+        sequence: event.sequence,
+      });
+    }
+  }
   const standaloneMessages = new Map<string, number>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
@@ -358,20 +440,9 @@ export function projectAssistantMessages(
   const turnKeys = wireTurnKeys.map((turnKey) =>
     rootTurn(turnKey, continuationOwners),
   );
-  // Inline results only ever arrive as `tool_result` message events, so an
-  // inline part may be suppressed only when the SAME tool also produced a
-  // typed completion in the turn — suppressing per turn would drop a sync
-  // tool's only trace whenever any other tool in the turn completed typed.
-  const typedToolKey = (turn: string, toolName: string) =>
-    `${turn}::${toolName}`;
-  const typedToolCompletions = new Set(
-    events.flatMap((event, index) =>
-      event.type === "tool_complete" && event.tool_name !== "task"
-        ? [typedToolKey(wireTurnKeys[index]!, event.tool_name)]
-        : [],
-    ),
-  );
-
+  // Inline transcript results and typed progress are revisions of the same
+  // persisted call, even when a wallet callback has a different wire turn.
+  // A tool name alone is not identity: repeated calls must remain distinct.
   const assistantTurn = (event: Event, index: number): AssistantProjection => {
     const key = turnKeys[index]!;
     const existing = assistantTurns.get(key);
@@ -400,18 +471,12 @@ export function projectAssistantMessages(
         const key = event.message_key ?? event.event_id;
         const toolResult = inlineToolResult(event);
         if (toolResult) {
-          if (
-            !typedToolCompletions.has(
-              typedToolKey(wireTurnKeys[index]!, toolResult.toolName),
-            )
-          ) {
-            upsertPart(
-              projection,
-              projection.toolParts,
-              key,
-              inlineToolPart(toolResult, key, event.tool_call_id),
-            );
-          }
+          upsertPart(
+            projection,
+            projection.toolParts,
+            event.tool_call_id ?? `inline:${key}`,
+            inlineToolPart(toolResult, key, event.tool_call_id),
+          );
         } else {
           if (
             continuationOwners.has(event.turn_id ?? "") &&
@@ -421,6 +486,14 @@ export function projectAssistantMessages(
           ) {
             projection.finalAnswerStartIndex ??= projection.parts.length;
           }
+          const terminal = terminalTurns.get(event.turn_id ?? "");
+          if (
+            event.message_key &&
+            event.content.trim() &&
+            event.is_streaming !== true &&
+            terminal?.state === "complete"
+          )
+            projection.responseMessageKey = event.message_key;
           upsertPart(projection, projection.textParts, key, {
             type: "text",
             text: event.content,
@@ -468,18 +541,38 @@ export function projectAssistantMessages(
       if (!("parts" in entry)) return entry;
       const root = entry.message.id.slice("turn:".length);
       const callbackTurns = continuationTurnIds.get(root);
+      const callbackTerminalStates = Object.fromEntries(
+        (callbackTurns ?? []).flatMap((turnId) => {
+          const state = terminalTurns.get(turnId)?.state;
+          return state && ["complete", "failed", "interrupted"].includes(state)
+            ? [[turnId, state]]
+            : [];
+        }),
+      );
       return {
         ...entry.message,
         content: entry.parts as ThreadMessageLike["content"],
-        ...(entry.finalAnswerStartIndex !== undefined || callbackTurns
+        ...(entry.finalAnswerStartIndex !== undefined ||
+        callbackTurns ||
+        entry.responseMessageKey ||
+        terminalTurns.has(root)
           ? {
               metadata: {
                 custom: {
+                  ...(terminalTurns.has(root)
+                    ? { aomiTurnState: terminalTurns.get(root)!.state }
+                    : {}),
+                  ...(entry.responseMessageKey
+                    ? { aomiResponseMessageKey: entry.responseMessageKey }
+                    : {}),
                   ...(entry.finalAnswerStartIndex !== undefined
                     ? { aomiFinalAnswerStartIndex: entry.finalAnswerStartIndex }
                     : {}),
                   ...(callbackTurns
                     ? { aomiContinuationTurnIds: callbackTurns }
+                    : {}),
+                  ...(Object.keys(callbackTerminalStates).length
+                    ? { aomiContinuationTurnStates: callbackTerminalStates }
                     : {}),
                 },
               },
@@ -505,6 +598,9 @@ export function projectRuntimeMessages(
   events: readonly Event[],
   pendingUserMessage?: string,
   liveMessages: readonly MessageEvent[] = [],
+  stoppedTurnId?: string,
+  terminalTurns: SessionSnapshot["terminalTurns"] = [],
+  pendingReplacesMessageKey?: string,
 ): ThreadMessageLike[] {
   const visible = [...events];
   for (const message of liveMessages) {
@@ -521,8 +617,51 @@ export function projectRuntimeMessages(
     if (index < 0) index = visible.length;
     visible.splice(index, 0, message);
   }
+  // Scoped ACKs can precede their durable events in bounded history. Retain
+  // the actual outcome across newer turns, without changing the audit ledger.
+  const acknowledged = new Map(
+    (terminalTurns ?? []).map((turn) => [turn.turnId, turn.state]),
+  );
+  if (stoppedTurnId && !acknowledged.has(stoppedTurnId))
+    acknowledged.set(stoppedTurnId, "interrupted");
+  for (const [turnId, state] of acknowledged) {
+    const latestState = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" && event.turn_id === turnId,
+    );
+    if (
+      latestState?.type === "turn_state_changed" &&
+      ["complete", "failed", "interrupted"].includes(latestState.state)
+    )
+      continue;
+    const durableTerminal = visible.findLast(
+      (event) =>
+        event.type === "turn_state_changed" &&
+        event.turn_id === turnId &&
+        ["complete", "failed", "interrupted"].includes(event.state),
+    );
+    visible.push({
+      type: "turn_state_changed",
+      event_id: `terminal-ack:${turnId}`,
+      turn_id: turnId,
+      state:
+        durableTerminal?.type === "turn_state_changed"
+          ? durableTerminal.state
+          : state,
+      sequence: (visible.at(-1)?.sequence ?? 0) + 1,
+      occurred_at: Date.now() / 1000,
+    });
+  }
   const projected = projectAssistantMessages(visible);
   if (pendingUserMessage === undefined) return projected;
+  // Edit and Rerun replace the conversation from this user message onward.
+  const replaced = projected.findIndex(
+    (message) =>
+      message.role === "user" &&
+      message.metadata?.custom?.aomiUserMessageKey ===
+        pendingReplacesMessageKey,
+  );
+  if (pendingReplacesMessageKey && replaced >= 0) projected.length = replaced;
 
   const userMessageOrdinal = projected.reduce(
     (count, message) => count + Number(message.role === "user"),

@@ -2,13 +2,25 @@
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { Chain } from "viem";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useAccount } from "wagmi";
+import { useSafeSwitchChain } from "./runtime/evm/safe-hooks";
 
 export {
   isFullTestnet,
   parseRpcOverrides,
   useFullTestnet,
 } from "./full-testnet-config";
+
+/** No wallet to route while the host renders over a booting wallet kit. */
+function useSafeAccount(): Partial<
+  Pick<ReturnType<typeof useAccount>, "isConnected" | "chainId" | "connector">
+> {
+  try {
+    return useAccount();
+  } catch {
+    return {};
+  }
+}
 
 type FullTestnetWalletRouterProps = {
   enabled: boolean;
@@ -25,8 +37,8 @@ export function FullTestnetWalletRouter({
   logLabel = "FullTestnetWalletRouter",
   children,
 }: FullTestnetWalletRouterProps) {
-  const { isConnected, chainId, connector } = useAccount();
-  const { switchChainAsync } = useSwitchChain();
+  const { isConnected, chainId, connector } = useSafeAccount();
+  const { switchChainAsync } = useSafeSwitchChain();
   const attemptedChainIdsRef = useRef(new Set<number>());
   const chainsById = useMemo(
     () => Object.fromEntries(chains.map((chain) => [chain.id, chain])),

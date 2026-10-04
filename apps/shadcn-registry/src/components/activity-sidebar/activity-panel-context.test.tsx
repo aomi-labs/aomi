@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import {
   ActivityPanelProvider,
@@ -39,7 +39,10 @@ function ActivityStateHarness() {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("ActivityPanelProvider", () => {
   it("opens on first activity, then preserves explicit visibility choices", () => {
@@ -65,6 +68,23 @@ describe("ActivityPanelProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Activity clears" }));
     expect(screen.getByTestId("activity-state")).toHaveTextContent(
       "false:false",
+    );
+  });
+
+  it("leaves the phone sheet closed until the user asks for it", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({ matches: true, media: query })),
+    );
+    render(
+      <ActivityPanelProvider>
+        <ActivityStateHarness />
+      </ActivityPanelProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity arrives" }));
+    expect(screen.getByTestId("activity-state")).toHaveTextContent(
+      "true:false",
     );
   });
 });

@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
+import { readGitHubOAuthRequest } from "@build/server/cookies/github";
 
 describe("GitHub login route", () => {
   beforeEach(() => {
@@ -32,5 +33,29 @@ describe("GitHub login route", () => {
     expect(res.headers.get("location")).toContain(
       "client_id=Iv23li4wPpAfoGOJ6v0Q",
     );
+  });
+
+  it("preserves a validated template return through OAuth", async () => {
+    const res = await GET(
+      new Request(
+        "https://build.aomi.dev/api/bff/auth/github/login?resume=template&platform=community",
+      ),
+    );
+    const request = await readGitHubOAuthRequest(
+      res.cookies.get("aomi_github_oauth_request")?.value,
+    );
+    expect(request?.continuation).toEqual({
+      kind: "template",
+      platform: "community",
+    });
+  });
+
+  it("rejects an invalid template platform", async () => {
+    const res = await GET(
+      new Request(
+        "https://build.aomi.dev/api/bff/auth/github/login?resume=template&platform=https://evil.test",
+      ),
+    );
+    expect(res.status).toBe(400);
   });
 });

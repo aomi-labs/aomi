@@ -13,6 +13,7 @@ import { type ComponentPropsWithoutRef, type FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { OnchainLink } from "@/components/assistant-ui/onchain-link";
 import { cn } from "@aomi-labs/react";
 
 const MarkdownTextImpl = () => {
@@ -131,11 +132,8 @@ const defaultComponents = memoizeMarkdownComponents({
     />
   ),
   a: ({ className, ...props }) => (
-    <a
-      className={cn(
-        "aui-md-a text-primary underline underline-offset-2 hover:text-primary/80",
-        className,
-      )}
+    <OnchainLink
+      className={className}
       {...(props as ComponentPropsWithoutRef<"a">)}
     />
   ),

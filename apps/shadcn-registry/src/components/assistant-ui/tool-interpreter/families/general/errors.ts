@@ -1,11 +1,11 @@
 import { asRecord, asString, statusFact } from "../../normalize";
 import type { ToolMatcher } from "../../types";
-import { operation } from "../operation";
+import { isErrorResult, operation } from "../operation";
 
 export const matchError: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;
   const rawError = resultRecord.error;
-  if (!(resultRecord.is_error === true || rawError)) return null;
+  if (!isErrorResult(resultRecord)) return null;
   const errorRecord = asRecord(rawError);
   const code =
     asString(resultRecord.code) ??

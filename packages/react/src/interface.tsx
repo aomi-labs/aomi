@@ -15,7 +15,10 @@ import type {
   TurnState,
   UserState,
 } from "@aomi-labs/client";
-import type { AccountTransport } from "@aomi-labs/client";
+import type {
+  TransactionSafetyTransport,
+  AccountTransport,
+} from "@aomi-labs/client";
 export type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import type { ThreadMetadata } from "./state/thread-store";
 import type {
@@ -32,6 +35,8 @@ export type AomiRuntimeApi = {
   commitController?: CommitController;
   /** Shared authenticated account transport configured by the runtime. */
   account: AccountTransport;
+  /** Authenticated transaction safety user controls. Optional for older custom runtimes. */
+  transactionSafety?: TransactionSafetyTransport;
   // -------------------------------------------------------------------------
   // USER API
   // -------------------------------------------------------------------------
@@ -77,6 +82,8 @@ export type AomiRuntimeApi = {
   isRunning: boolean;
   /** True only before the first backend event for a submitted turn. */
   isSubmitting: boolean;
+  /** True while Stop awaits the server's acknowledgment. */
+  isStopping?: boolean;
   /** Get messages for a thread (defaults to currentThreadId) */
   getMessages: (threadId?: string) => ThreadMessageLike[];
   /** Send a message to the current thread */

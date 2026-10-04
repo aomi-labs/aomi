@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
+import { getAddress } from "viem";
 import {
   commitCapabilities,
   CommitController,
   isTerminalCommit,
+  type CommitCapabilities,
   type CommitRecoveryRecord,
   type CommitRecoveryStore,
   type CommitView,
@@ -117,6 +119,680 @@ const historicalExternal: CommitView = {
 };
 
 describe("Commit view surfaces", () => {
+  it("merges newer callback delivery without changing equal-version chain or review data", () => {
+    const controller = new CommitController({} as AomiClient, "thread");
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 1,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    controller.ingest(pending);
+    controller.ingest({
+      ...pending,
+      state: "failed",
+      failure_code: "stale-chain",
+      continuation: {
+        version: 1,
+        revision: 2,
+        state: "completed",
+        attempts: 1,
+      },
+    });
+    expect(controller.all()[0]).toEqual({
+      ...pending,
+      continuation: {
+        version: 1,
+        revision: 2,
+        state: "completed",
+        attempts: 1,
+      },
+    });
+    controller.ingest(pending);
+    controller.ingest({ ...pending, continuation: undefined });
+    expect(controller.all()[0].continuation?.state).toBe("completed");
+    controller.close();
+  });
+
+  it("keeps a newer continuation through a delayed refresh and a newer chain version", async () => {
+    const current: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 3,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    const stale = {
+      ...current,
+      version: current.version + 1,
+      continuation: {
+        version: 1 as const,
+        revision: 2,
+        state: "retrying" as const,
+        attempts: 1,
+      },
+    };
+    const controller = new CommitController(
+      { request: vi.fn(async () => stale) } as unknown as AomiClient,
+      "thread",
+    );
+    controller.ingest(current);
+    const refreshed = await controller.refresh(current.commit_id);
+    expect(refreshed.version).toBe(stale.version);
+    expect(refreshed.continuation).toEqual(current.continuation);
+    controller.close();
+  });
+
+  it("keeps stamped metadata immutable at its revision and accepts an initial revision zero", async () => {
+    const stamped: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    const response: CommitView = {
+      ...stamped,
+      version: 4,
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    const controller = new CommitController(
+      { request: vi.fn(async () => response) } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      controller.ingest(stamped);
+      expect(
+        (await controller.refresh(stamped.commit_id)).continuation,
+      ).toEqual(stamped.continuation);
+      controller.ingest({ ...submitted, commit_id: "initial" });
+      controller.ingest({
+        ...stamped,
+        commit_id: "initial",
+        version: 4,
+        continuation: {
+          version: 1,
+          revision: 0,
+          state: "pending",
+          attempts: 0,
+        },
+      });
+      expect(
+        controller.all().find((view) => view.commit_id === "initial")
+          ?.continuation,
+      ).toMatchObject({ revision: 0, state: "pending" });
+    } finally {
+      controller.close();
+    }
+  });
+
+  it("merges both axes independently, including absent metadata and other commit identities", () => {
+    const controller = new CommitController({} as AomiClient, "thread");
+    const current: CommitView = {
+      ...submitted,
+      continuation: {
+        version: 1,
+        revision: 3,
+        state: "completed",
+        attempts: 1,
+      },
+    };
+    controller.ingest(current);
+    controller.ingest({
+      ...current,
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { version: 1, revision: 2, state: "retrying", attempts: 1 },
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { revision: 3, state: "completed" },
+    });
+    controller.ingest({
+      ...current,
+      version: 2,
+      state: "needs_signature",
+      continuation: {
+        version: 1,
+        revision: 4,
+        state: "assistant_recovery_required",
+        attempts: 2,
+      },
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 4,
+      state: "confirmed",
+      transaction_id: "final-hash",
+      continuation: { revision: 4, state: "assistant_recovery_required" },
+    });
+    controller.ingest({
+      ...current,
+      version: 5,
+      state: "confirmed",
+      continuation: undefined,
+    });
+    expect(controller.all()[0]).toMatchObject({
+      version: 5,
+      continuation: { revision: 4 },
+    });
+    controller.ingest({
+      ...current,
+      commit_id: "another",
+      state: "confirmed",
+      continuation: { version: 1, revision: 0, state: "pending", attempts: 0 },
+    });
+    expect(
+      controller.all().find((view) => view.commit_id === "another")
+        ?.continuation,
+    ).toMatchObject({ revision: 0, state: "pending" });
+    controller.close();
+  });
+
+  it("polls terminal commits while callback delivery is pending and stops when completed", async () => {
+    vi.useFakeTimers();
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: {
+        version: 1,
+        revision: 0,
+        state: "pending",
+        attempts: 0,
+      },
+    };
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce({
+        ...pending,
+        continuation: {
+          version: 1,
+          revision: 1,
+          state: "completed",
+          attempts: 1,
+        },
+      });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      await controller.refresh(pending.commit_id);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(controller.all()[0].continuation?.state).toBe("completed");
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(request).toHaveBeenCalledTimes(2);
+    } finally {
+      controller.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it("waits for every commit in a polling round before starting another", async () => {
+    vi.useFakeTimers();
+    const pending: CommitView = {
+      ...submitted,
+      state: "confirmed",
+      continuation: { version: 1, revision: 0, state: "pending", attempts: 0 },
+    };
+    const slow = { ...pending, commit_id: "slow" };
+    let releaseSlow!: (view: CommitView) => void;
+    let slowRequests = 0;
+    const request = vi.fn(async (_method: string, path: string) => {
+      if (!path.includes("slow")) return pending;
+      slowRequests++;
+      if (slowRequests === 1)
+        return new Promise<CommitView>((resolve) => {
+          releaseSlow = resolve;
+        });
+      return slow;
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      "thread",
+    );
+    try {
+      controller.ingest(pending);
+      controller.ingest(slow);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(slowRequests).toBe(1);
+
+      releaseSlow(slow);
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(request).toHaveBeenCalledTimes(4);
+      expect(slowRequests).toBe(2);
+    } finally {
+      controller.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["completed", "assistant_recovery_required", "exhausted"] as const)(
+    "does not poll settled callback state %s or legacy terminal views",
+    async (state) => {
+      vi.useFakeTimers();
+      const request = vi.fn();
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        "thread",
+      );
+      try {
+        controller.ingest({ ...submitted, state: "confirmed" });
+        controller.ingest({
+          ...submitted,
+          version: submitted.version + 1,
+          state: "confirmed",
+          continuation: { version: 1, revision: 2, state, attempts: 1 },
+        });
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(request).not.toHaveBeenCalled();
+      } finally {
+        controller.close();
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("reports preparation before a provider prompt and clears the local phase after submission", async () => {
+    const recovery = recoveryStore();
+    let releaseWallet!: (hash: string) => void;
+    const walletResponse = new Promise<string>((resolve) => {
+      releaseWallet = resolve;
+    });
+    let latePhase:
+      | ((phase: "switching_chain" | "awaiting_wallet" | "submitting") => void)
+      | undefined;
+    const request = vi.fn(async (method: string, path: string) => {
+      if (method === "GET") return external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      return { ...external, version: 2, state: "submitted" };
+    });
+    const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+      async (_view, _payload, onPhase) => {
+        latePhase = onPhase;
+        onPhase?.("switching_chain");
+        expect(controller.submissionPhase(external.commit_id)).toBe(
+          "switching_chain",
+        );
+        onPhase?.("awaiting_wallet");
+        return walletResponse;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    controller.subscribe(() => {
+      if (controller.submissionPhase(external.commit_id) === "awaiting_wallet")
+        throw new Error("broken presentation observer");
+    });
+    const execution = controller.execute(external.commit_id);
+    expect(controller.submissionPhase(external.commit_id)).toBe("preparing");
+    await vi.waitFor(() =>
+      expect(controller.submissionPhase(external.commit_id)).toBe(
+        "awaiting_wallet",
+      ),
+    );
+    releaseWallet("0xhash");
+    await execution;
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+    latePhase?.("awaiting_wallet");
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+  });
+
+  it("refuses a new attempt when the reviewed guard explicitly blocked execution", async () => {
+    const reviewed = external.review!.request;
+    if (reviewed.type !== "execute_evm") throw new Error("fixture changed");
+    const blocked: CommitView = {
+      ...external,
+      review: {
+        ...external.review!,
+        request: {
+          ...reviewed,
+          transactions: [
+            {
+              chain_id: 8453,
+              from: external.signer,
+              to: externalPayload.transaction.to,
+              data: externalPayload.transaction.data,
+              label: "Reviewed transaction",
+              kind: "withdraw",
+            },
+          ],
+          simulation: {
+            ...reviewed.simulation,
+            status: "passed",
+            guards: [
+              { name: "eligibility", status: "failed", message: "Blocked" },
+            ],
+          },
+        },
+      },
+    };
+    const request = vi.fn(async () => blocked);
+    const walletSend = vi.fn();
+    const recovery = recoveryStore();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      blocked.thread_id,
+      {
+        walletSend,
+        walletSendPreflight: vi.fn(),
+        recovery: recovery.store,
+      },
+    );
+    await expect(controller.execute(blocked.commit_id)).rejects.toThrow(
+      "Execution is blocked",
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(walletSend).not.toHaveBeenCalled();
+    recovery.records.set(blocked.commit_id, {
+      clientRequestId: "saved-before-post",
+    });
+    await expect(controller.execute(blocked.commit_id)).rejects.toThrow(
+      "Execution is blocked",
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(controller.canExecute(blocked)).toBe(false);
+    recovery.records.set(blocked.commit_id, {
+      clientRequestId: "existing-request",
+      attemptId: "existing-attempt",
+      transactionId: "0xexisting",
+    });
+    expect(controller.canExecute(blocked)).toBe(true);
+    controller.close();
+  });
+
+  it("advertises only wallet operations available for the commit chain", () => {
+    const empty = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      unsigned.thread_id,
+      commitCapabilities({}),
+    );
+    expect(empty.canExecute(unsigned)).toBe(false);
+    expect(empty.canExecute(signed)).toBe(false);
+    empty.close();
+
+    const evmOnly = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      unsigned.thread_id,
+      commitCapabilities({
+        evm: {
+          address: external.signer,
+          signTransaction: vi.fn(),
+          broadcastTransaction: vi.fn(),
+        },
+      }),
+    );
+    expect(evmOnly.canExecute(unsigned)).toBe(false);
+    expect(evmOnly.canExecute(external)).toBe(true);
+    expect(evmOnly.canExecute(signed)).toBe(false);
+    expect(
+      evmOnly.canExecute({
+        ...external,
+        action: {
+          kind: "sign",
+          payload: {
+            ...externalPayload,
+            signer: "0x3333333333333333333333333333333333333333",
+          },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      evmOnly.canExecute({
+        ...external,
+        action: {
+          kind: "sign",
+          payload: { ...externalPayload, chain_id: 1 },
+        },
+      }),
+    ).toBe(false);
+    evmOnly.close();
+
+    const wrongWallet = new CommitController(
+      { request: vi.fn() } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities(
+        {
+          evm: {
+            address: "0x3333333333333333333333333333333333333333",
+            preparePreparedTransaction: vi.fn(),
+            sendPreparedTransaction: vi.fn(),
+          },
+        },
+        recoveryStore().store,
+      ),
+    );
+    expect(wrongWallet.canExecute(external)).toBe(false);
+    wrongWallet.close();
+  });
+
+  it("does not use a wallet when the reviewed commit changed before execution", async () => {
+    const signTransaction = vi.fn();
+    const refreshed = {
+      ...external,
+      version: 2,
+      review: { ...external.review!, digest: "new-digest" },
+    };
+    const request = vi.fn().mockResolvedValue(refreshed);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(
+      controller.execute(external.commit_id, {
+        expectedVersion: external.version,
+        expectedReviewDigest: external.review!.digest,
+      }),
+    ).rejects.toThrow("Commit review changed; refresh and review it again");
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("requires the durable review digest before executing a reviewed version", async () => {
+    const signTransaction = vi.fn();
+    const request = vi.fn().mockResolvedValue(external);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(
+      controller.execute(external.commit_id, {
+        expectedVersion: external.version,
+      }),
+    ).rejects.toThrow("Commit review digest is required for execution");
+    expect(signTransaction).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(controller.submissionPhase(external.commit_id)).toBeUndefined();
+    controller.close();
+  });
+
+  it("rejects a mismatched prepared payload before invoking the wallet", async () => {
+    const signTransaction = vi.fn();
+    const mismatched = {
+      ...external,
+      action: {
+        kind: "sign" as const,
+        payload: {
+          ...externalPayload,
+          signer: "0x3333333333333333333333333333333333333333",
+        },
+      },
+    };
+    const controller = new CommitController(
+      {
+        request: vi.fn().mockResolvedValue(mismatched),
+      } as unknown as AomiClient,
+      external.thread_id,
+      commitCapabilities({
+        evm: { address: external.signer, signTransaction },
+      }),
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "Prepared commit payload does not match its signer or chain",
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
+    controller.close();
+  });
+
+  it("accepts external signatures only for the reviewed version and sign action", async () => {
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return unsigned;
+        expect(options?.body).toEqual({
+          kind: "signed",
+          payloads: ["signed-by-external-wallet"],
+        });
+        return signed;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      unsigned.thread_id,
+    );
+    await expect(
+      controller.submitSigned(
+        unsigned.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: unsigned.version,
+        },
+      ),
+    ).resolves.toMatchObject({ state: "awaiting_broadcast" });
+    expect(request).toHaveBeenCalledTimes(2);
+    await expect(
+      controller.submitSigned(
+        unsigned.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: unsigned.version,
+        },
+      ),
+    ).rejects.toThrow("Commit review changed; refresh and review it again");
+    expect(request).toHaveBeenCalledTimes(3);
+    controller.close();
+  });
+
+  it("requires the durable digest when externally submitting a reviewed commit", async () => {
+    const request = vi.fn().mockResolvedValue(external);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+    );
+    await expect(
+      controller.submitSigned(
+        external.commit_id,
+        ["signed-by-external-wallet"],
+        {
+          expectedVersion: external.version,
+        },
+      ),
+    ).rejects.toThrow(
+      "Commit review digest is required for external submission",
+    );
+    expect(request).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("accepts an external broadcast report only for the prepared transaction", async () => {
+    const request = vi.fn(
+      async (method: string, _path: string, options?: { body?: unknown }) => {
+        if (method === "GET") return signed;
+        expect(options?.body).toEqual({
+          kind: "broadcast",
+          transaction_id: "chain-sig",
+        });
+        return submitted;
+      },
+    );
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      signed.thread_id,
+    );
+    await expect(
+      controller.submitBroadcast(signed.commit_id, "wrong-hash", {
+        expectedVersion: signed.version,
+      }),
+    ).rejects.toThrow(
+      "Broadcast transaction does not match the reviewed commit",
+    );
+    await expect(
+      controller.submitBroadcast(signed.commit_id, "chain-sig", {
+        expectedVersion: signed.version,
+      }),
+    ).resolves.toMatchObject({ state: "submitted" });
+    expect(request).toHaveBeenCalledTimes(3);
+    controller.close();
+  });
+
+  it.each(["submitted", "confirmed"] as const)(
+    "treats an already %s matching broadcast as an idempotent report",
+    async (state) => {
+      const observed = {
+        ...submitted,
+        state,
+        version: state === "confirmed" ? 4 : submitted.version,
+      };
+      const request = vi.fn().mockResolvedValue(observed);
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        observed.thread_id,
+      );
+      await expect(
+        controller.submitBroadcast(observed.commit_id, "chain-sig", {
+          expectedVersion: signed.version,
+        }),
+      ).resolves.toMatchObject({ state });
+      expect(request).toHaveBeenCalledTimes(1);
+      await expect(
+        controller.submitBroadcast(observed.commit_id, "wrong-hash", {
+          expectedVersion: signed.version,
+        }),
+      ).rejects.toThrow(
+        "Broadcast transaction does not match the reviewed commit",
+      );
+      expect(request).toHaveBeenCalledTimes(2);
+      controller.close();
+    },
+  );
+
   it.each(["refresh", "preflight", "attempt"] as const)(
     "does not invoke a wallet when the session closes during %s",
     async (stage) => {
@@ -348,18 +1024,23 @@ describe("Commit view surfaces", () => {
     controller.close();
   });
 
-  it.each([false, true])(
-    "reports an explicit provider rejection through its bound attempt (wrapped: %s)",
-    async (wrapped) => {
+  it.each([
+    [false, "switching_chain", "chain_switch", 4001],
+    [true, "awaiting_wallet", "transaction_request", 4001],
+    [false, "awaiting_wallet", "transaction_request", "4001"],
+  ] as const)(
+    "reports a %s wrapped provider rejection during %s with phase %s and code %s",
+    async (wrapped, submissionPhase, rejectionPhase, providerCode) => {
       const recovery = recoveryStore();
-      const rejected = { code: 4001 };
-      const walletSend = vi
-        .fn()
-        .mockRejectedValue(
-          wrapped
+      const rejected = { code: providerCode };
+      const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+        async (_commit, _payload, onPhase) => {
+          onPhase?.(submissionPhase);
+          throw wrapped
             ? new Error("Wallet request failed", { cause: rejected })
-            : rejected,
-        );
+            : rejected;
+        },
+      );
       const request = vi.fn(async (method: string, path: string, options) => {
         if (method === "GET") return external;
         if (path.endsWith("/wallet-attempts"))
@@ -371,7 +1052,12 @@ describe("Commit view surfaces", () => {
             request: externalPayload,
             may_invoke_wallet: true,
           };
-        expect(options.body).toEqual({ kind: "rejected" });
+        expect(options.body).toEqual({
+          kind: "rejected",
+          phase: rejectionPhase,
+          provider_code: "4001",
+          reason_category: "user_rejected",
+        });
         return { ...external, version: 2, state: "rejected", action: null };
       });
       const controller = new CommitController(
@@ -385,6 +1071,187 @@ describe("Commit view surfaces", () => {
         state: "rejected",
       });
       expect(walletSend).toHaveBeenCalledTimes(1);
+      controller.close();
+    },
+  );
+
+  it("replays the same rejection diagnostics after a lost report response", async () => {
+    const recovery = recoveryStore();
+    const rejected = { code: 4001 };
+    const walletSend: NonNullable<CommitCapabilities["walletSend"]> = vi.fn(
+      async (_commit, _payload, onPhase) => {
+        onPhase?.("awaiting_wallet");
+        throw rejected;
+      },
+    );
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    let reports = 0;
+    const request = vi.fn(async (method: string, path: string, options) => {
+      if (method === "GET") return reports ? awaiting : external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      expect(options.body).toEqual({
+        kind: "rejected",
+        phase: "transaction_request",
+        provider_code: "4001",
+        reason_category: "user_rejected",
+      });
+      reports += 1;
+      if (reports === 1) throw new Error("lost report response");
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "lost report response",
+    );
+    expect(recovery.records.get(external.commit_id)?.rejection).toEqual({
+      kind: "rejected",
+      phase: "transaction_request",
+      provider_code: "4001",
+      reason_category: "user_rejected",
+    });
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      {
+        state: "rejected",
+      },
+    );
+    expect(reports).toBe(2);
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("omits every rejection diagnostic when the adapter never reports a phase", async () => {
+    const recovery = recoveryStore();
+    const walletSend = vi.fn().mockRejectedValue({ code: 4001 });
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    const bodies: unknown[] = [];
+    const request = vi.fn(async (method: string, path: string, options) => {
+      if (method === "GET") return bodies.length ? awaiting : external;
+      if (path.endsWith("/wallet-attempts"))
+        return {
+          attempt_id: "attempt-1",
+          transport: "browser_send",
+          commit_id: external.commit_id,
+          state: "awaiting_wallet",
+          request: externalPayload,
+          may_invoke_wallet: true,
+        };
+      bodies.push(options.body);
+      if (bodies.length === 1) throw new Error("lost report response");
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).rejects.toThrow(
+      "lost report response",
+    );
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      { state: "rejected" },
+    );
+    expect(bodies).toEqual([{ kind: "rejected" }, { kind: "rejected" }]);
+    expect(walletSend).toHaveBeenCalledTimes(1);
+    controller.close();
+  });
+
+  it("heals a saved rejection with partial diagnostics before replaying it", async () => {
+    const recovery = recoveryStore();
+    recovery.records.set(external.commit_id, {
+      clientRequestId: "request-1",
+      attemptId: "attempt-1",
+      rejected: true,
+      rejection: {
+        kind: "rejected",
+        provider_code: "4001",
+        reason_category: "user_rejected",
+      },
+    });
+    const awaiting: CommitView = {
+      ...external,
+      action: null,
+      wallet_attempt: {
+        attempt_id: "attempt-1",
+        transport: "browser_send",
+        state: "awaiting_wallet",
+        transaction_id: null,
+        failure_code: null,
+      },
+    };
+    const request = vi.fn(async (method: string, _path: string, options) => {
+      if (method === "GET") return awaiting;
+      expect(options.body).toEqual({ kind: "rejected" });
+      return { ...awaiting, state: "rejected", wallet_attempt: null };
+    });
+    const walletSend = vi.fn();
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      external.thread_id,
+      { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+    );
+    await expect(controller.execute(external.commit_id)).resolves.toMatchObject(
+      { state: "rejected" },
+    );
+    expect(walletSend).not.toHaveBeenCalled();
+    expect(recovery.records.has(external.commit_id)).toBe(false);
+    controller.close();
+  });
+
+  it.each([
+    ["HTTP 422: Unprocessable Entity", false],
+    ["HTTP 408: Request Timeout", true],
+    ["network unavailable", true],
+  ] as const)(
+    "keeps the saved request ID after attempt failure %s: %s",
+    async (message, kept) => {
+      const recovery = recoveryStore();
+      const request = vi.fn(async (method: string) => {
+        if (method === "GET") return external;
+        throw new Error(message);
+      });
+      const walletSend = vi.fn();
+      const controller = new CommitController(
+        { request } as unknown as AomiClient,
+        external.thread_id,
+        { walletSend, walletSendPreflight: vi.fn(), recovery: recovery.store },
+      );
+      await expect(controller.execute(external.commit_id)).rejects.toThrow(
+        message,
+      );
+      expect(recovery.records.has(external.commit_id)).toBe(kept);
+      expect(walletSend).not.toHaveBeenCalled();
       controller.close();
     },
   );
@@ -422,6 +1289,46 @@ describe("Commit view surfaces", () => {
       controller.close();
     },
   );
+
+  it("rejects malformed wallet targets before attempt creation or provider invocation", async () => {
+    const recovery = recoveryStore();
+    const sendPreparedTransaction = vi.fn();
+    const preparePreparedTransaction = vi.fn();
+    const malformed: CommitView = {
+      ...external,
+      action: {
+        kind: "sign",
+        payload: {
+          ...externalPayload,
+          transaction: { ...externalPayload.transaction, to: "0x1234" },
+        },
+      },
+    };
+    const request = vi.fn(async (_method: string) => malformed);
+    const controller = new CommitController(
+      { request } as unknown as AomiClient,
+      malformed.thread_id,
+      {
+        ...commitCapabilities({
+          evm: {
+            address: externalPayload.signer,
+            preparePreparedTransaction,
+            sendPreparedTransaction,
+          },
+        }),
+        recovery: recovery.store,
+      },
+    );
+
+    await expect(controller.execute(malformed.commit_id)).rejects.toThrow();
+    expect(
+      request.mock.calls.filter(([method]) => method === "POST"),
+    ).toHaveLength(0);
+    expect(sendPreparedTransaction).not.toHaveBeenCalled();
+    expect(preparePreparedTransaction).not.toHaveBeenCalled();
+    expect(recovery.records.size).toBe(0);
+    controller.close();
+  });
 
   it("selects advertised browser send only after readiness succeeds", async () => {
     const recovery = recoveryStore();
@@ -598,6 +1505,57 @@ describe("Commit view surfaces", () => {
     expect(
       commitCapabilities({ evm: { address: payload.signer } }).walletSend,
     ).toBeUndefined();
+  });
+
+  it("keeps reviewed commit payload intact while normalizing wallet-bound target bytes", async () => {
+    const mixedCase = "0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa";
+    const sendPreparedTransaction = vi.fn().mockResolvedValue("0xhash");
+    const capabilities = commitCapabilities({
+      evm: {
+        address: externalPayload.signer,
+        preparePreparedTransaction: vi.fn(),
+        sendPreparedTransaction,
+      },
+    });
+    const payload = {
+      ...externalPayload,
+      transaction: { ...externalPayload.transaction, to: mixedCase },
+    };
+    await capabilities.walletSend?.(external, payload);
+    expect(sendPreparedTransaction).toHaveBeenCalledWith({
+      ...payload,
+      transaction: {
+        ...payload.transaction,
+        to: getAddress(mixedCase.toLowerCase()),
+      },
+    });
+    expect(payload.transaction.to).toBe(mixedCase);
+
+    await expect(
+      capabilities.walletSend?.(external, {
+        ...payload,
+        transaction: { ...payload.transaction, to: "0xNotAnAddress" },
+      }),
+    ).rejects.toThrow();
+    expect(sendPreparedTransaction).toHaveBeenCalledTimes(1);
+
+    const preparePreparedTransaction = vi.fn();
+    const preflight = commitCapabilities({
+      evm: {
+        address: externalPayload.signer,
+        preparePreparedTransaction,
+        sendPreparedTransaction,
+      },
+    }).walletSendPreflight!;
+    for (const invalid of ["0x1234", `0x${"g".repeat(40)}`]) {
+      await expect(
+        preflight(external, {
+          ...payload,
+          transaction: { ...payload.transaction, to: invalid },
+        }),
+      ).rejects.toThrow();
+    }
+    expect(preparePreparedTransaction).not.toHaveBeenCalled();
   });
 
   it("republishes when a review arrives after its view", () => {

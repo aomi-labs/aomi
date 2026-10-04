@@ -32,8 +32,9 @@ export function createShellTransport(
       const headers = new Headers(options.headers);
       if (path.startsWith("/api/thread/")) {
         const sessionId = getSettingsSessionId();
-        headers.set("X-Thread-Id", sessionId);
-        headers.set("X-Session-Id", sessionId);
+        if (!headers.has("X-Thread-Id")) headers.set("X-Thread-Id", sessionId);
+        if (!headers.has("X-Session-Id"))
+          headers.set("X-Session-Id", sessionId);
       }
       if (options.body && !headers.has("Content-Type"))
         headers.set("Content-Type", "application/json");

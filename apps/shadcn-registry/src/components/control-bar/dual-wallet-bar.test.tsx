@@ -36,13 +36,18 @@ vi.mock("../../lib/wallet-kit", async (importOriginal) => {
 });
 
 const adapterState: {
-  current: Pick<AomiWalletKit, "identity" | "accounts" | "wallets"> & {
+  current: Pick<
+    AomiWalletKit,
+    "identity" | "accounts" | "wallets" | "isReady" | "canConnect"
+  > & {
     selectAccount: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
     signOutAccount: ReturnType<typeof vi.fn>;
   };
 } = {
   current: {
+    isReady: true,
+    canConnect: true,
     identity: {
       status: "connected" as "connected" | "disconnected",
       isConnected: true as boolean,
@@ -70,6 +75,8 @@ const adapterState: {
 afterEach(() => {
   cleanup();
   openPicker.mockClear();
+  adapterState.current.isReady = true;
+  adapterState.current.canConnect = true;
   adapterState.current.identity = {
     status: "connected",
     isConnected: true,
@@ -101,6 +108,24 @@ describe("DualWalletBar account menu", () => {
     expect(
       screen.queryByRole("menu", { name: "Account menu" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("waits for wallet connection options before opening the picker", () => {
+    adapterState.current.isReady = false;
+    adapterState.current.canConnect = false;
+    const { rerender } = render(<DualWalletBar families={["evm"]} />);
+    const chip = screen.getByRole("button", { name: "Connect wallet" });
+    expect(chip).toBeDisabled();
+    expect(chip).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(chip);
+    expect(openPicker).not.toHaveBeenCalled();
+
+    // External wallets can connect while the additive auth provider boots.
+    adapterState.current.canConnect = true;
+    rerender(<DualWalletBar families={["evm"]} />);
+    expect(chip).toBeEnabled();
+    fireEvent.click(chip);
+    expect(openPicker).toHaveBeenCalledTimes(1);
   });
 
   it("opens AccountMenu instead of WalletPicker when enabled and connected", () => {
@@ -410,4 +435,56 @@ it("keeps the account menu available without wallet picker rows", () => {
   } finally {
     adapterState.current.wallets = rows;
   }
+});
+
+it("keeps one chip shape and expand icon when signed out and signed in", () => {
+  adapterState.current.identity = {
+    status: "disconnected",
+    isConnected: false,
+  } as AomiWalletKit["identity"];
+  adapterState.current.accounts = [];
+  const { unmount } = render(
+    <DualWalletBar families={["evm"]} disconnectedLabel="Sign in" />,
+  );
+  const signedOut = screen.getByRole("button", { name: "Sign in" });
+  const signedOutClass = signedOut.className;
+  const signedOutIcon = signedOut.querySelector("svg")?.getAttribute("class");
+  unmount();
+
+  render(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{ enabled: true, primaryLine: "Ada" }}
+    />,
+  );
+  const signedIn = screen.getByRole("button", { name: "Open account menu" });
+  expect(signedIn.className).toBe(signedOutClass);
+  expect(signedIn.querySelector(":scope > svg")?.getAttribute("class")).toBe(
+    signedOutIcon,
+  );
+});
+
+it("does not offer Switch network in the account menu", () => {
+  render(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{ enabled: true, onOpenSettings: vi.fn() }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+  expect(
+    screen.getByRole("menu", { name: "Account menu" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Switch network")).not.toBeInTheDocument();
+});
+
+it("shows the wallet chip, not the legacy connect button, while booting", () => {
+  adapterState.current.identity = {
+    status: "booting",
+    isConnected: false,
+  } as AomiWalletKit["identity"];
+  adapterState.current.accounts = [];
+  render(<ConnectButton families={["evm", "solana"]} connectLabel="Sign in" />);
+  expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  expect(screen.queryByText("Connect Wallet")).not.toBeInTheDocument();
 });

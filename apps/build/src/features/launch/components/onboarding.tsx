@@ -101,7 +101,7 @@ export function Onboarding({
       setInstallError(
         "One-click installs into your personal GitHub account. Please install the Aomi app on your personal account (not an organization), then continue.",
       );
-      const cur = loadLaunch();
+      const cur = loadLaunch(platform ?? DEFAULT_DEPLOY_PLATFORM);
       update(
         withProgress(withPath(cur, PATH), PATH, {
           installationId: undefined,
@@ -115,8 +115,24 @@ export function Onboarding({
     const redirect = readGithubRedirect(window.location.search);
     if (!redirect) {
       setInstalling(false);
-      const cur = loadLaunch();
+      const cur = loadLaunch(platform ?? DEFAULT_DEPLOY_PLATFORM);
       if (cur.pendingInstall) {
+        if (sessionInstallationId) {
+          update(
+            withRejectedInstall(
+              withPendingInstall(
+                withProgress(withPath(cur, PATH), PATH, {
+                  installationId: sessionInstallationId,
+                }),
+                null,
+              ),
+              null,
+            ),
+          );
+          setInstallError(null);
+          setInstallSuccess(true);
+          return;
+        }
         // We sent this browser to GitHub and it came back with no
         // installation id. The common cause is an App that was already
         // installed: GitHub renders its configure page rather than an
@@ -133,7 +149,7 @@ export function Onboarding({
       return;
     }
 
-    const cur = loadLaunch();
+    const cur = loadLaunch(platform ?? DEFAULT_DEPLOY_PLATFORM);
     // A fresh install supersedes any earlier rejection — clear the marker so
     // this installation can be used (and re-skipped) normally.
     const next = withRejectedInstall(
@@ -149,7 +165,7 @@ export function Onboarding({
     update(next);
     setInstallSuccess(true);
     stripRedirectParams();
-  }, [update]);
+  }, [platform, sessionInstallationId, update]);
 
   // --- auto-dismiss the install-success banner after 6s ---------------------
   useEffect(() => {
@@ -241,15 +257,15 @@ export function Onboarding({
   );
 
   /**
-   * Send the browser to GitHub.
+   * Send the browser to GitHub. An already installed App needs a fresh Build
+   * login so the session cookie gains the new installation id.
    *
    * `mode` picks the ceremony. The default install URL is
    * `apps/<slug>/installations/new`, and GitHub only runs an install for an
    * account that does not already have one — for an account that does, it
    * renders the *configure* page, which carries no signed `state` and never
-   * returns here. That is a dead end the wizard cannot detect, so
-   * `mode: "authorize"` offers the OAuth consent leg instead, which does come
-   * back with an installation id.
+   * returns here. The "Already installed" path re-runs Build's GitHub login,
+   * which refreshes the signed session and returns to this wizard.
    */
   const beginInstall = useCallback(
     async (mode: "install" | "authorize", repoName: string) => {
@@ -267,9 +283,19 @@ export function Onboarding({
         // An unscoped Build page is the Community platform, so say so and come
         // back here.
         const target = platform || readPlatform() || DEFAULT_DEPLOY_PLATFORM;
+        if (mode === "authorize") {
+          const login = new URL(
+            "/api/bff/auth/github/login",
+            window.location.origin,
+          );
+          login.searchParams.set("resume", "template");
+          login.searchParams.set("platform", target);
+          window.location.href = login.toString();
+          return;
+        }
         window.location.href = await githubAppInstallUrl({
           app: 2,
-          mode,
+          mode: "install",
           platform: target,
           returnTo: `${window.location.origin}/operate/deployments/new?platform=${encodeURIComponent(target)}`,
         });

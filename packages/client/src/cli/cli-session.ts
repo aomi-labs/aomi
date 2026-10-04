@@ -30,7 +30,9 @@ import {
   createGuestSessionProvider,
   type GuestSessionProvider,
 } from "../guest-auth";
-import { cliActionCapabilities } from "./action-capabilities";
+import { cliWallets } from "./action-capabilities";
+import { walletCapabilities } from "../wallet/capabilities";
+import { commitCapabilities } from "../commits";
 
 export class CliSession {
   private state: CliSessionState;
@@ -49,6 +51,7 @@ export class CliSession {
     if (!state) return null;
     const cli = new CliSession(state);
     if (cli.ensureSvmClusterInvariant()) cli.save();
+    cli.separateMixedGuestThread();
     return cli;
   }
 
@@ -417,7 +420,20 @@ export class CliSession {
   }
 
   setAuthSession(auth: CliAuthSession): void {
+    this.separateMixedGuestThread();
+    const previous = this.state.auth;
+    const samePrincipal =
+      previous &&
+      ((previous.betterAuthUserId &&
+        auth.betterAuthUserId &&
+        previous.betterAuthUserId === auth.betterAuthUserId) ||
+        previous.sessionToken === auth.sessionToken);
+    if (!samePrincipal) this.rotateThread();
     this.state.auth = auth;
+    // A credential from the previous principal must not be used if this
+    // account session is later cleared.
+    delete this.state.guestBearer;
+    delete this.state.oauthGrants;
     this.save();
   }
 
@@ -437,6 +453,32 @@ export class CliSession {
   clearAuthSession(): void {
     if (!this.state.auth) return;
     delete this.state.auth;
+    // Scrub the signed-in credential from its saved thread before creating a
+    // guest-owned thread. Resuming the old thread needs explicit account auth.
+    this.save();
+    this.rotateThread();
+    delete this.state.guestBearer;
+    this.save();
+  }
+
+  private rotateThread(): void {
+    this.state.sessionId = crypto.randomUUID();
+    this.state.clientId = crypto.randomUUID();
+    delete this.state.modelSynced;
+    delete this.state.secretHandles;
+  }
+
+  private separateMixedGuestThread(): void {
+    if (!this.state.auth || !this.state.guestBearer) return;
+    const auth = this.state.auth;
+    // Older CLIs could chat as a guest while retaining a signed-in token for
+    // account routes. Keep that thread guest-owned and start a new account
+    // thread rather than changing its authorization in place.
+    delete this.state.auth;
+    this.save();
+    this.rotateThread();
+    this.state.auth = auth;
+    delete this.state.guestBearer;
     this.save();
   }
 
@@ -471,7 +513,11 @@ export class CliSession {
     config?: Partial<CliConfig>,
     options?: { onPayment?: CliPaymentListener },
   ): ClientSession {
-    const oauth = this.createOAuthProvider(fetch);
+    this.separateMixedGuestThread();
+    const accountBearer = createCliAuthTokenProvider(() => this.state);
+    const oauth = accountBearer.required
+      ? undefined
+      : this.createOAuthProvider(fetch);
     const authorizedFetch = oauth
       ? wrapFetchWithPublicApiAuthorization({
           fetch,
@@ -485,16 +531,18 @@ export class CliSession {
       authorizedFetch,
     );
     const target = this.resolveAgentTarget(config);
+    const wallets = cliWallets(this, config);
     const session = new ClientSession(
       {
         baseUrl: this.state.baseUrl,
         apiKey: this.state.apiKey,
         fetch: paymentFetch,
-        getAccountBearer: createCliAuthTokenProvider(() => this.state),
+        getAccountBearer: accountBearer,
         oauth: paymentFetch ? undefined : oauth,
-        // Account auth remains additive for control routes. Public Agent and
-        // Pipeline requests still need a guest bearer until the user logs in.
-        guest: oauth ? false : this.createGuestProvider(fetch),
+        guest:
+          accountBearer.required || oauth
+            ? false
+            : this.createGuestProvider(fetch),
       },
       {
         sessionId: this.state.sessionId,
@@ -506,7 +554,8 @@ export class CliSession {
             svmAddress: this.state.svmPublicKey,
             svmCluster: this.resolvedSvmCluster(config?.svmCluster),
           }),
-        actions: cliActionCapabilities(this, config),
+        actions: walletCapabilities(wallets),
+        commits: commitCapabilities(wallets),
         inferenceFunding: config?.inferenceFunding,
       },
     );

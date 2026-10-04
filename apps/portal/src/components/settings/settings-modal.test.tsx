@@ -69,7 +69,7 @@ vi.mock(
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/policy",
   () => ({
-    PolicySettings: () => <div>Policy content</div>,
+    PolicyPage: () => <div>Policy content</div>,
   }),
 );
 
@@ -82,7 +82,7 @@ describe("SettingsModal directory shell", () => {
     render(<SettingsModal onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog", { name: "Settings" });
-    expect(dialog.style.width).toBe("1080px");
+    expect(dialog.style.width).toBe("1000px");
     expect(dialog.style.height).toBe("620px");
     expect(dialog.style.maxWidth).toBe("96%");
     expect(
@@ -93,14 +93,15 @@ describe("SettingsModal directory shell", () => {
       "true",
     );
     expect(screen.getByRole("heading", { name: "Settings" })).toHaveClass(
-      "text-[15px]",
+      "type-title",
     );
     expect(screen.getByRole("button", { name: "General" })).toHaveClass(
-      "text-[13px]",
+      "type-control",
     );
     expect(screen.getByRole("heading", { name: "General" })).toHaveClass(
-      "text-[15px]",
+      "type-title",
     );
+    expect(dialog).toHaveClass("rounded-shell", "shadow-modal");
     expect(
       screen.getByText("Appearance, defaults, and account overview"),
     ).toBeTruthy();
@@ -114,16 +115,35 @@ describe("SettingsModal directory shell", () => {
     expect(screen.getByText("Wallets and sign-in methods")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "Policy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Safety" }));
     expect(screen.getByText("Policy content")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Safety" })).toBeTruthy();
     expect(
-      screen.getByText("Wallet signing and on-chain permissions"),
+      screen.getByText("Guard policy and signing permissions"),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "View usage" }));
     expect(screen.getByText("Usage content")).toBeTruthy();
     expect(screen.getByText("Spend, allowance, and statements")).toBeTruthy();
+  });
+
+  it("gives every tab the same reading column", () => {
+    render(<SettingsModal onClose={vi.fn()} />);
+
+    for (const [tab, content] of [
+      ["General", "General content"],
+      ["Account", "Account content"],
+      ["Safety", "Policy content"],
+      ["Usage", "Usage content"],
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: tab }));
+      const column = screen
+        .getByText(content)
+        .closest("[data-settings-column]");
+      expect(column).toHaveClass("w-full", "px-6");
+      expect(column).not.toHaveClass("mx-auto");
+    }
   });
 
   it("closes from the sidebar control", () => {

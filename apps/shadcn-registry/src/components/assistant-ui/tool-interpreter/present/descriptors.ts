@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import { ClockIcon, type LucideIcon } from "lucide-react";
 
 import {
   DEFAULT_TOOL_ICON,
@@ -99,15 +99,9 @@ const descriptorById: Record<string, Descriptor> = {
   },
   "evm.account.erc20_holdings": {
     title: "fixed",
-    fixedTitle: "Get token holdings",
+    fixedTitle: "Get holdings",
     icon: SHAPE_ICONS.nativeBalance,
-    chipPlan: [
-      { kind: "chain" },
-      { kind: "count", role: "results" },
-      { kind: "address", role: "owner" },
-      { kind: "warning" },
-      { kind: "status" },
-    ],
+    chipPlan: [{ kind: "chain" }, { kind: "threshold" }, { kind: "token" }],
   },
   "evm.call.erc20.allowance": {
     title: "fixed",
@@ -181,6 +175,7 @@ const descriptorById: Record<string, Descriptor> = {
       { kind: "chain" },
       { kind: "address", role: "from" },
       { kind: "address", role: "to" },
+      { kind: "function" },
     ],
   },
   "evm.context": {
@@ -193,13 +188,13 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Get contract details",
     icon: SHAPE_ICONS.tokenLookup,
-    chipPlan: [{ kind: "chain" }, { kind: "token" }],
+    chipPlan: [{ kind: "chain" }, { kind: "contract" }],
   },
   "evm.contract.lookup.missing": {
     title: "fixed",
     fixedTitle: "Get contract details",
     icon: SHAPE_ICONS.tokenLookup,
-    chipPlan: [{ kind: "chain" }, { kind: "token" }],
+    chipPlan: [{ kind: "chain" }, { kind: "contract" }],
   },
   "evm.tx.simulate_batch": lifecycleDescriptor(
     "Simulate transaction",
@@ -218,6 +213,18 @@ const descriptorById: Record<string, Descriptor> = {
     fixedTitle: "Activate skill",
     icon: SHAPE_ICONS.skillActivation,
     chipPlan: [{ kind: "skill", repeat: true }],
+  },
+  "skill.check": {
+    title: "fixed",
+    fixedTitle: "Check active skills",
+    icon: SHAPE_ICONS.skillActivation,
+    chipPlan: [{ kind: "skill", repeat: true }],
+  },
+  "tool.sleep": {
+    title: "fixed",
+    fixedTitle: "Sleep",
+    icon: ClockIcon,
+    chipPlan: [{ kind: "requirement" }],
   },
   "task.delegate": {
     // Title comes from the operation (it carries the child's label).
@@ -267,7 +274,14 @@ const descriptorById: Record<string, Descriptor> = {
     title: "fixed",
     fixedTitle: "Search web",
     icon: SHAPE_ICONS.search,
-    chipPlan: [{ kind: "count", role: "results" }, { kind: "sourceHost" }],
+    // Result domains replace the query once the search returns any.
+    chipPlan: [{ kind: "sourceHost", repeat: true }, { kind: "query" }],
+  },
+  "web.fetch": {
+    title: "fixed",
+    fixedTitle: "Read page",
+    icon: SHAPE_ICONS.webPage,
+    chipPlan: [{ kind: "sourceHost" }],
   },
 };
 

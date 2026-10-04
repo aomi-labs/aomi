@@ -12,6 +12,21 @@ export default defineConfig({
     ["list"],
   ],
   projects: [
+    {
+      name: "portal-app-context",
+      testMatch: /portal-app-context\.spec\.ts/,
+      retries: 0,
+      use: {
+        video: "off",
+        baseURL:
+          process.env.GUEST_BROWSER_BASE_URL ??
+          process.env.LOCAL_PORTAL_URL ??
+          "http://localhost:3000",
+        launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+          ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+          : undefined,
+      },
+    },
     { name: "preview", testMatch: /preview-smoke\.spec\.ts/ },
     {
       name: "guest-regression",

@@ -30,6 +30,7 @@ import { normalizeAppDescriptor } from "./app-descriptor";
 import { UserState } from "./user-state";
 import { AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
+import { TransactionSafetyTransport } from "./transaction-safety";
 import { AccountTransport } from "./account/credits";
 import type {
   AomiOAuthTokenProvider,
@@ -137,6 +138,7 @@ function withSessionHeader(sessionId: string, init?: HeadersInit): HeadersInit {
 export function wrapFetchWithAccountBearer(
   fetchImpl: typeof fetch,
   getAccountBearer?: GetAccountBearer,
+  publicCommitAuth = false,
 ): typeof fetch {
   if (!getAccountBearer) return fetchImpl;
 
@@ -144,13 +146,17 @@ export function wrapFetchWithAccountBearer(
     const request = input instanceof Request ? input : undefined;
     const path = new URL(String(request?.url ?? input), "http://localhost")
       .pathname;
-    // Ordinary account bearers do not authorize public Agent/Pipeline APIs;
-    // those use OAuth or guest credentials. A required widget session is the
-    // public API credential for a cross-origin widget, however, so it must be
-    // forwarded to these routes as well.
+    // Commits belong to the Agent thread principal. When public auth is
+    // configured, keep its guest/OAuth identity for Commit requests too;
+    // a separate additive account bearer may belong to another user. A
+    // required session bearer remains the credential for all of these routes.
     if (
       !getAccountBearer.required &&
-      (path.startsWith("/v1/agent/") || path.startsWith("/v1/pipeline/"))
+      (path === "/v1/agent" ||
+        path.startsWith("/v1/agent/") ||
+        path === "/v1/pipeline" ||
+        path.startsWith("/v1/pipeline/") ||
+        (publicCommitAuth && isCommitPath(path)))
     ) {
       return fetchImpl(request ? request.clone() : input, init);
     }
@@ -168,6 +174,8 @@ export function wrapFetchWithAccountBearer(
         }
         bearer = undefined;
       }
+      if (getAccountBearer.required && !bearer)
+        throw new Error("Required account session is unavailable");
       if (bearer) {
         headers.set("Authorization", `Bearer ${bearer}`);
       }
@@ -180,6 +188,10 @@ export function wrapFetchWithAccountBearer(
     if (response.status !== 401) return response;
     return fetchWithBearer(true);
   };
+}
+
+function isCommitPath(path: string): boolean {
+  return path === "/api/commits" || path.startsWith("/api/commits/");
 }
 
 export function wrapFetchWithPublicApiAuthorization(input: {
@@ -252,6 +264,16 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
   const payment = new Headers(headers).has("payment-signature")
     ? ["payments:submit"]
     : [];
+  if (isCommitPath(url.pathname)) {
+    return {
+      resource: `${origin}/v1/agent` as AomiOAuthResource,
+      scopes: [
+        method.toUpperCase() === "GET" ? "agent:read" : "agent:actions:resolve",
+        ...payment,
+      ],
+      method: method.toUpperCase(),
+    };
+  }
   if (url.pathname === "/v1/agent" || url.pathname.startsWith("/v1/agent/")) {
     const scopes =
       method === "GET"
@@ -272,7 +294,10 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
     return {
       resource: `${origin}/v1/pipeline` as AomiOAuthResource,
       scopes: [
-        method === "GET" ? "pipeline:catalog" : "pipeline:execute",
+        method === "GET" &&
+        !url.pathname.startsWith("/v1/pipeline/evm/commits/")
+          ? "pipeline:catalog"
+          : "pipeline:execute",
         ...payment,
       ],
       method: method.toUpperCase(),
@@ -286,7 +311,12 @@ function publicApiPolicy(url: URL, method: string, headers?: HeadersInit) {
       /^\/v1\/account\/apps\/[^/]+\/secrets(?:\/[^/]+)?$/.test(url.pathname);
     const isAccountApp = /^\/v1\/account\/apps(?:\/[^/]+)?$/.test(url.pathname);
     let scope: string;
-    if (isAppCredential) {
+    if (url.pathname.startsWith("/v1/account/transaction-safety")) {
+      scope =
+        method.toUpperCase() === "GET"
+          ? "account:transaction-safety:read"
+          : "account:transaction-safety:write";
+    } else if (isAppCredential) {
       scope =
         method.toUpperCase() === "GET"
           ? "account:credentials:read"
@@ -354,6 +384,7 @@ export class AomiClient {
   readonly agent: AgentTransport;
   readonly pipeline: PipelineTransport;
   readonly account: AccountTransport;
+  readonly transactionSafety: TransactionSafetyTransport;
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
@@ -392,6 +423,7 @@ export class AomiClient {
     const publicApiGuest = options.getAccountBearer?.required
       ? undefined
       : guest;
+    const publicCommitAuth = Boolean(publicApiOauth || publicApiGuest);
     const authenticatedFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
         fetch: fetchImpl,
@@ -400,6 +432,7 @@ export class AomiClient {
         guest: publicApiGuest,
       }),
       options.getAccountBearer,
+      publicCommitAuth,
     );
     const authenticatedRawFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
@@ -409,6 +442,7 @@ export class AomiClient {
         guest: publicApiGuest,
       }),
       options.getAccountBearer,
+      publicCommitAuth,
     );
     this.fetchImpl = options.x402
       ? wrapFetchWithPaymentChallenges(authenticatedFetch, options.x402)
@@ -425,6 +459,10 @@ export class AomiClient {
     );
     this.pipeline = new PipelineTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),
+    );
+    this.transactionSafety = new TransactionSafetyTransport(
+      (method, path, requestOptions) =>
+        this.requestResponse(method, path, requestOptions),
     );
     this.account = new AccountTransport((method, path, requestOptions) =>
       this.requestResponse(method, path, requestOptions),

@@ -4,6 +4,7 @@ import {
   BotIcon,
   CableIcon,
   CoinsIcon,
+  FileTextIcon,
   FlameIcon,
   FlaskConicalIcon,
   GlobeIcon,
@@ -143,4 +144,5 @@ export const SHAPE_ICONS = {
   swap: ArrowRightLeftIcon,
   tokenLookup: SearchIcon,
   verified: BadgeCheckIcon,
+  webPage: FileTextIcon,
 } satisfies Record<string, LucideIcon>;

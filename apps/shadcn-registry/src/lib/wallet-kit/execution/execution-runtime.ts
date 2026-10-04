@@ -7,6 +7,7 @@ import {
 import type { EvmExecutionRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
 import type { WalletClient } from "viem";
+import { normalizeEvmWalletTarget } from "@aomi-labs/client";
 import type { EvmWallet } from "@aomi-labs/client";
 import {
   executeWalletKitTransaction,
@@ -63,13 +64,17 @@ export function buildEvmExecutionRuntime(
     if (!address || address.toLowerCase() !== payload.signer.toLowerCase())
       throw new Error("Expected signing wallet is not active");
   };
-  const selectExternalChain = async (payload: PreparedTransaction) => {
+  const selectExternalChain = async (
+    payload: PreparedTransaction,
+    onPhase?: Parameters<NonNullable<EvmWallet["sendPreparedTransaction"]>>[1],
+  ) => {
     assertActiveSignerAddress(payload);
     if (!activeConnector)
       throw new Error("Expected signing wallet is not connected");
     if (runtime.currentChainId === payload.chain_id) return;
     if (!switchChainAsync)
       throw new Error(`EVM wallet cannot switch to chain ${payload.chain_id}`);
+    onPhase?.("switching_chain");
     try {
       await switchChainAsync({
         chainId: payload.chain_id,
@@ -100,6 +105,7 @@ export function buildEvmExecutionRuntime(
       runtime.preparePreparedEvmTransaction ??
       (canSendPreparedTransaction
         ? async (payload) => {
+            normalizeEvmWalletTarget(payload.transaction.to);
             if (!activeConnector) {
               await localPreparedClient(payload);
               return;
@@ -126,17 +132,19 @@ export function buildEvmExecutionRuntime(
     sendPreparedEvmTransaction:
       runtime.sendPreparedEvmTransaction ??
       (canSendPreparedTransaction
-        ? async (payload) => {
+        ? async (payload, onPhase) => {
             const tx = payload.transaction;
+            const to = normalizeEvmWalletTarget(tx.to);
             if (activeConnector && sendTransactionAsync) {
-              await selectExternalChain(payload);
+              await selectExternalChain(payload, onPhase);
               // Browser sends use the wallet's current pending nonce. The
               // staged nonce may have changed before the user approves.
+              onPhase?.("awaiting_wallet");
               return sendTransactionAsync({
                 account: payload.signer as `0x${string}`,
                 chainId: payload.chain_id,
                 connector: activeConnector,
-                to: tx.to as `0x${string}`,
+                to,
                 data: tx.data as `0x${string}`,
                 value: BigInt(tx.value),
               }).catch((error) => {
@@ -148,11 +156,12 @@ export function buildEvmExecutionRuntime(
             }
             const { client, chain, account } =
               await localPreparedClient(payload);
+            onPhase?.("submitting");
             return client.sendTransaction({
               account,
               chain,
               type: "eip1559",
-              to: tx.to as `0x${string}`,
+              to,
               data: tx.data as `0x${string}`,
               value: BigInt(tx.value),
               gas: BigInt(tx.gas_limit),

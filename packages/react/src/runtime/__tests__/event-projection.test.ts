@@ -7,6 +7,12 @@ import {
   projectRuntimeMessages,
   walletContinuationPending,
 } from "../utils";
+import {
+  callbackEvents,
+  callbackCall,
+  callbackRoot,
+  callbackTurn,
+} from "../../../../../tests/fixtures/commit-callback-events";
 import { appendCapabilityHints } from "../capability-hints";
 
 const meta = (
@@ -21,7 +27,293 @@ const meta = (
   type,
 });
 
+const edited: Event[] = [
+  {
+    ...meta(1, "message", "original"),
+    type: "message",
+    sender: "user",
+    message_key: "saved-user",
+    content: "Arc",
+  },
+  {
+    ...meta(2, "message", "original"),
+    type: "message",
+    sender: "agent",
+    message_key: "saved-answer",
+    content: "Original answer",
+  },
+  {
+    ...meta(3, "turn_state_changed", "original"),
+    type: "turn_state_changed",
+    state: "complete",
+  },
+  {
+    ...meta(4, "message", "later"),
+    type: "message",
+    sender: "user",
+    message_key: "later-user",
+    content: "Later turn",
+  },
+];
+
+it("shows an Edit or Rerun in place of the replaced message before the server answers", () => {
+  const projected = projectRuntimeMessages(
+    edited,
+    "Base",
+    [],
+    undefined,
+    [],
+    "saved-user",
+  );
+  expect(projected).toEqual([
+    expect.objectContaining({
+      id: "aomi-user-0",
+      role: "user",
+      content: [{ type: "text", text: "Base" }],
+    }),
+  ]);
+  expect(logicalTurnRunning(edited, projected, "complete", false, "Base")).toBe(
+    true,
+  );
+});
+
+it("replaces the edited request and later history with the new turn", () => {
+  const events: Event[] = [
+    ...edited,
+    {
+      ...meta(5, "branch", "edited"),
+      type: "branch",
+      kind: "edit",
+      target_message_key: "saved-user",
+      user_message_key: "saved-user",
+      content: "Base",
+      removed_message_keys: ["saved-user", "saved-answer", "later-user"],
+      removed_turn_ids: ["original", "later"],
+    },
+    {
+      ...meta(6, "message", "edited"),
+      type: "message",
+      sender: "user",
+      message_key: "edited-user",
+      content: "Base",
+    },
+    {
+      ...meta(7, "turn_state_changed", "edited"),
+      type: "turn_state_changed",
+      state: "processing",
+    },
+  ];
+  // The echo stays until its user event lands; the branch already hid the
+  // replaced message, so the echo is appended in its place.
+  expect(
+    projectRuntimeMessages(
+      events.slice(0, 5),
+      "Base",
+      [],
+      undefined,
+      [],
+      "saved-user",
+    ).map((message) => message.id),
+  ).toEqual(["aomi-user-0"]);
+  const projected = projectRuntimeMessages(events);
+  expect(projected).toEqual([
+    expect.objectContaining({
+      id: "aomi-user-0",
+      content: [{ type: "text", text: "Base" }],
+      metadata: { custom: { aomiUserMessageKey: "edited-user" } },
+    }),
+  ]);
+  expect(logicalTurnRunning(events, projected, "processing")).toBe(true);
+});
+
+it("projects first-release branches that edited the user message in place", () => {
+  const events: Event[] = [
+    {
+      ...meta(1, "message", "original"),
+      type: "message",
+      sender: "user",
+      message_key: "saved-user",
+      content: "Arc",
+    },
+    {
+      ...meta(2, "message", "original"),
+      type: "message",
+      sender: "agent",
+      message_key: "saved-answer",
+      content: "Original answer",
+    },
+    {
+      ...meta(3, "turn_state_changed", "original"),
+      type: "turn_state_changed",
+      state: "complete",
+    },
+    {
+      ...meta(4, "message", "later"),
+      type: "message",
+      sender: "user",
+      message_key: "later-user",
+      content: "Later turn",
+    },
+    {
+      ...meta(5, "branch", "edited"),
+      type: "branch",
+      kind: "edit",
+      target_message_key: "saved-user",
+      user_message_key: "saved-user",
+      content: "Base",
+      removed_message_keys: ["saved-answer", "later-user"],
+      removed_turn_ids: ["original", "later"],
+    },
+    {
+      ...meta(6, "turn_state_changed", "edited"),
+      type: "turn_state_changed",
+      state: "processing",
+    },
+    {
+      ...meta(7, "message", "edited"),
+      type: "message",
+      sender: "agent",
+      message_key: "edited-answer",
+      content: "Partial answer",
+      is_streaming: true,
+    },
+  ];
+  const projected = projectRuntimeMessages(events);
+  expect(projected).toHaveLength(2);
+  expect(projected[0]).toMatchObject({
+    id: "aomi-user-0",
+    content: [{ type: "text", text: "Base" }],
+    metadata: { custom: { aomiUserMessageKey: "saved-user" } },
+  });
+  expect(projected[1]?.id).toBe("turn:edited");
+  expect(logicalTurnRunning(events, projected, "processing")).toBe(true);
+  const stopped = projectRuntimeMessages(events, undefined, [], "edited");
+  expect(stopped[1]?.metadata?.custom).toMatchObject({
+    aomiTurnState: "interrupted",
+  });
+  expect(projectRuntimeMessages(JSON.parse(JSON.stringify(events)))).toEqual(
+    projected,
+  );
+});
+
+it("keeps an accepted optimistic turn running before its durable user event", () => {
+  const events = callbackEvents;
+  expect(
+    logicalTurnRunning(
+      events,
+      projectAssistantMessages(events),
+      "processing",
+      false,
+      "Proceed with the prepared pair",
+    ),
+  ).toBe(true);
+  expect(
+    logicalTurnRunning(
+      events,
+      projectAssistantMessages(events),
+      "processing",
+      false,
+    ),
+  ).toBe(false);
+});
+
 describe("projectAssistantMessages", () => {
+  it("rehydrates the saved cross-turn wallet result as one call and settles its callback", () => {
+    const projected = projectAssistantMessages(callbackEvents);
+    const assistant = projected.find(
+      (message) => message.id === `turn:${callbackRoot}`,
+    )!;
+    const parts = assistant.content as Array<{
+      type: string;
+      toolCallId?: string;
+      toolName?: string;
+      result?: unknown;
+    }>;
+    expect(
+      parts.filter((part) => part.toolCallId === callbackCall),
+    ).toHaveLength(1);
+    expect(
+      parts.find((part) => part.toolCallId === callbackCall)?.result,
+    ).toMatchObject({ status: "success" });
+    expect(
+      parts.filter((part) => part.toolName === "evm_stage_tx"),
+    ).toHaveLength(3);
+    expect(
+      new Set(
+        parts
+          .filter((part) => part.type === "tool-call")
+          .map((part) => part.toolCallId),
+      ).size,
+    ).toBe(parts.filter((part) => part.type === "tool-call").length);
+    expect(logicalTurnRunning(callbackEvents, projected, "processing")).toBe(
+      false,
+    );
+    const beforeComplete = callbackEvents.filter(
+      (event) => event.sequence < 32,
+    );
+    expect(
+      logicalTurnRunning(
+        beforeComplete,
+        projectAssistantMessages(beforeComplete),
+        "complete",
+      ),
+    ).toBe(true);
+    expect(
+      projectAssistantMessages([
+        ...callbackEvents,
+        callbackEvents.find((event) => event.sequence === 15)!,
+      ]),
+    ).toEqual(projected);
+  });
+
+  it("does not stop a new active user turn when an older callback completes late", () => {
+    const events: Event[] = [
+      ...callbackEvents.filter((event) => event.sequence < 32),
+      {
+        ...meta(33, "message", "new-user-turn"),
+        type: "message",
+        sender: "user",
+        content: "A new question",
+      },
+      {
+        ...meta(34, "turn_state_changed", "new-user-turn"),
+        type: "turn_state_changed",
+        state: "processing",
+      },
+      {
+        ...meta(35, "turn_state_changed", callbackTurn),
+        type: "turn_state_changed",
+        state: "complete",
+      },
+    ];
+    expect(
+      logicalTurnRunning(events, projectAssistantMessages(events), "complete"),
+    ).toBe(true);
+  });
+
+  it("preserves a legacy inline call when a same-name typed call has no shared identity", () => {
+    const events: Event[] = [
+      {
+        ...meta(1, "message", "turn-1"),
+        type: "message",
+        sender: "agent",
+        content: "",
+        message_key: "legacy-read",
+        tool_name: "read",
+        tool_result: ["read", "{}"],
+      },
+      {
+        ...meta(2, "tool_complete", "turn-1"),
+        type: "tool_complete",
+        id: "typed-read",
+        call_id: "distinct-read",
+        tool_name: "read",
+        result: {},
+      },
+    ];
+    expect(projectAssistantMessages(events)[0]?.content).toHaveLength(2);
+  });
+
   it("keeps frontend capability hints out of optimistic and canonical user messages", () => {
     const hinted = appendCapabilityHints("swap one eth", {
       policy: "auto",
@@ -291,6 +583,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "commit-admission",
+        tool_call_id: "commit-call",
         tool_name: "evm_commit_txs",
         tool_result: ["Commit", JSON.stringify(admission)],
       },
@@ -687,6 +980,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "inline-quote",
+        tool_call_id: "typed-quote",
         tool_name: "quote",
         tool_result: ["Quote", '{"price":"old"}'],
       },
@@ -798,6 +1092,7 @@ describe("projectAssistantMessages", () => {
         sender: "agent",
         content: "",
         message_key: "tool-step-1",
+        tool_call_id: "call-1",
         tool_name: "get_balance",
         tool_result: ["Read balance", '{"balance_eth":"6.64"}'],
       },
@@ -854,4 +1149,20 @@ describe("projectAssistantMessages", () => {
       { type: "text", text: "Done" },
     ]);
   });
+});
+
+it("targets the completed callback response rather than its projected parent for rerun", () => {
+  const answer = projectAssistantMessages(callbackEvents).find(
+    (message) => message.id === `turn:${callbackRoot}`,
+  );
+  expect(answer?.metadata?.custom?.aomiResponseMessageKey).toBe(
+    `${callbackTurn}:response`,
+  );
+  const beforeComplete = callbackEvents.filter((event) => event.sequence < 32);
+  const pending = projectAssistantMessages(beforeComplete).find(
+    (message) => message.id === `turn:${callbackRoot}`,
+  );
+  expect(pending?.metadata?.custom?.aomiResponseMessageKey).not.toBe(
+    `${callbackTurn}:response`,
+  );
 });

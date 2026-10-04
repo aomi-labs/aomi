@@ -4,6 +4,7 @@ import {
   addressFact,
   addressFromWord,
   amountFact,
+  asRecord,
   asString,
   bigintFromWord,
   calldataWord,
@@ -11,51 +12,54 @@ import {
   decodedValue,
   selectorFact,
   tokenFact,
-  uniqueFacts,
 } from "../../normalize";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import type { ToolMatcher } from "../../types";
 import { formatTokenUnits, knownToken } from "../../token-registry";
+import { isErrorResult, operation } from "../operation";
 
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-  confidence: ToolOperation["confidence"] = "high",
-): ToolOperation => ({
-  id,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence,
+const calledFunction = (signature: unknown): string | undefined => {
+  const raw = asString(signature)?.trim();
+  if (!raw) return undefined;
+  const name = /^(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|$)/.exec(
+    raw,
+  )?.[1];
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : undefined;
+};
+
+export const matchEvmCall: ToolMatcher = ({
   rawLabel,
-});
-
-export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
-  const tx =
-    resultRecord && typeof resultRecord.tx === "object"
-      ? (resultRecord.tx as Record<string, unknown>)
-      : null;
+  parsedArgs,
+  resultRecord,
+}) => {
+  if (isErrorResult(resultRecord)) return null;
+  const args = asRecord(parsedArgs);
+  const tx = asRecord(resultRecord?.tx);
   const input = asString(tx?.input);
-  if (!resultRecord || !tx || !input) return null;
   const selector = selectorFact(input);
-  if (!selector) return null;
+  const functionName = calledFunction(args?.function_signature);
+  if (!tx && !args) return null;
+  if (!selector && !functionName && !args?.to) return null;
 
-  const selectorMeta = EVM_SELECTOR_REGISTRY[selector.value];
-  const firstAddress = addressFromWord(calldataWord(input, 0));
-  const secondAddress = addressFromWord(calldataWord(input, 1));
-  const secondAmount = bigintFromWord(calldataWord(input, 1));
-  const decoded = decodedValue(resultRecord);
-  const token = knownToken(tx.chain_id, tx.to);
+  const selectorMeta = selector
+    ? EVM_SELECTOR_REGISTRY[selector.value]
+    : undefined;
+  const firstAddress = input ? addressFromWord(calldataWord(input, 0)) : null;
+  const secondAddress = input ? addressFromWord(calldataWord(input, 1)) : null;
+  const secondAmount = input ? bigintFromWord(calldataWord(input, 1)) : null;
+  const decoded = resultRecord ? decodedValue(resultRecord) : null;
+  const token = knownToken(tx?.chain_id ?? args?.chain_id, tx?.to ?? args?.to);
 
   if (selectorMeta?.kind === "erc20_balance") {
-    return op("evm.call.erc20.balance_of", rawLabel, [
+    return operation("evm.call.erc20.balance_of", rawLabel, [
       chainFactFromRecord(tx),
       tokenFact(token?.symbol),
       addressFact(firstAddress, "owner", "decoded"),
     ]);
   }
 
-  if (selectorMeta?.kind === "erc20_metadata") {
+  if (selector && selectorMeta?.kind === "erc20_metadata") {
     const isDecimals = selectorMeta.name === "decimals";
-    return op(
+    return operation(
       isDecimals ? "evm.call.erc20.decimals" : "evm.call.erc20.metadata",
       rawLabel,
       [
@@ -76,7 +80,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   }
 
   if (selectorMeta?.kind === "erc20_allowance") {
-    return op("evm.call.erc20.allowance", rawLabel, [
+    return operation("evm.call.erc20.allowance", rawLabel, [
       chainFactFromRecord(tx),
       tokenFact(token?.symbol),
       addressFact(firstAddress, "owner", "decoded"),
@@ -85,7 +89,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   }
 
   if (selectorMeta?.kind === "erc20_approve") {
-    return op("evm.call.erc20.approve", rawLabel, [
+    return operation("evm.call.erc20.approve", rawLabel, [
       chainFactFromRecord(tx),
       tokenFact(token?.symbol),
       addressFact(firstAddress, "spender", "decoded"),
@@ -100,7 +104,7 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
   }
 
   if (selectorMeta?.kind === "erc20_transfer") {
-    return op("evm.call.erc20.transfer", rawLabel, [
+    return operation("evm.call.erc20.transfer", rawLabel, [
       chainFactFromRecord(tx),
       tokenFact(token?.symbol),
       addressFact(firstAddress, "recipient", "decoded"),
@@ -108,14 +112,21 @@ export const matchEvmCall: ToolMatcher = ({ rawLabel, resultRecord }) => {
     ]);
   }
 
-  return op(
+  return operation(
     "evm.call.generic",
     rawLabel,
     [
-      chainFactFromRecord(tx),
-      addressFact(tx.from, "from"),
-      addressFact(tx.to, "to"),
+      chainFactFromRecord(tx) ?? chainFactFromRecord(args, "args"),
+      addressFact(tx?.from ?? args?.from, "from"),
+      addressFact(tx?.to ?? args?.to, "to"),
+      functionName
+        ? {
+            kind: "function",
+            value: functionName,
+            source: "args",
+          }
+        : null,
     ],
-    "medium",
+    { confidence: "medium" },
   );
 };

@@ -167,6 +167,58 @@ describe("AssistantTurnParts lifecycle", () => {
     ).toBeTruthy();
   });
 
+  it("keeps callback response prose inside Working until its own durable completion", () => {
+    state.continuationTurnIds = ["broadcast-terminal:fixture-batch"];
+    state.finalAnswerStartIndex = 1;
+    state.answerText = "The pair is prepared. Awaiting your confirmation.";
+    state.events = [
+      { type: "turn_state_changed", turn_id: "turn-1", state: "complete" },
+      {
+        type: "turn_state_changed",
+        turn_id: "broadcast-terminal:fixture-batch",
+        state: "processing",
+      },
+    ];
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
+    state.events.push({
+      type: "turn_state_changed",
+      turn_id: "broadcast-terminal:fixture-batch",
+      state: "complete",
+    });
+    state.running = false;
+    state.turnState = "complete";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.container.querySelectorAll(".aui-working-answer")).toHaveLength(
+      1,
+    );
+    expect(
+      view.container.querySelector(".aui-working-answer"),
+    ).toHaveTextContent(state.answerText);
+  });
+
+  it("retains trailing intermediate narration in Working and promotes only the final prose", () => {
+    state.middleText = "I will prepare the next pair.";
+    state.answerText = "The pair is prepared; awaiting confirmation.";
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    state.running = false;
+    state.turnState = "complete";
+    view.rerender(<AssistantTurnParts />);
+    expect(view.container.querySelectorAll(".aui-working-answer")).toHaveLength(
+      1,
+    );
+    expect(
+      view.container.querySelector(".aui-working-answer"),
+    ).toHaveTextContent(state.answerText);
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.middleText),
+    );
+  });
+
   it("promotes a text-only reply only when the turn completes", () => {
     state.includeTool = false;
     state.answerText = "Here is the answer.";
@@ -187,6 +239,18 @@ describe("AssistantTurnParts lifecycle", () => {
       view.container.querySelector(".aui-working-answer"),
     ).toHaveTextContent(state.answerText);
     expect(view.getAllByText(state.answerText)).toHaveLength(1);
+  });
+
+  it("does not infer a historical answer from a later turn's completion", () => {
+    state.running = false;
+    state.isLast = false;
+    state.turnState = "complete";
+    state.answerText = "Still drafting the answer.";
+    const view = render(<AssistantTurnParts />);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
   });
 
   it.each([undefined, 3])(
@@ -269,7 +333,7 @@ describe("AssistantTurnParts lifecycle", () => {
 
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
     expect(view.container.querySelector(".text-aomi-success")).toBeTruthy();
-    expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+    expect(view.queryByText(/failed before it could finish/i)).toBeNull();
   });
 
   it.each(["failed", "interrupted"])(
@@ -287,14 +351,18 @@ describe("AssistantTurnParts lifecycle", () => {
       view.rerender(<AssistantTurnParts />);
 
       expect(view.queryByRole("button", { name: /Working/ })).toBeNull();
-      expect(view.getByRole("button", { name: /Stopped/ })).toBeTruthy();
+      expect(
+        view.getByRole("button", {
+          name: terminal === "failed" ? /Failed/ : /Stopped/,
+        }),
+      ).toBeTruthy();
       if (terminal === "failed") {
         expect(view.container.querySelector(".text-aomi-danger")).toBeTruthy();
         expect(
-          view.getByText(/this run stopped before it could finish/i),
+          view.getByText(/this run failed before it could finish/i),
         ).toBeTruthy();
       } else {
-        expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+        expect(view.queryByText(/failed before it could finish/i)).toBeNull();
       }
     },
   );
@@ -307,11 +375,11 @@ describe("AssistantTurnParts lifecycle", () => {
     const view = render(<AssistantTurnParts />);
 
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
-  it("shows the failed-turn fallback without a tool trace", () => {
+  it("keeps partial text in a failed trace beside the failed-turn fallback", () => {
     state.running = false;
     state.turnState = "failed";
     state.includeTool = false;
@@ -319,9 +387,12 @@ describe("AssistantTurnParts lifecycle", () => {
 
     const view = render(<AssistantTurnParts />);
 
-    expect(view.queryByRole("button")).toBeNull();
+    expect(view.getByRole("button", { name: /Failed/ })).toBeTruthy();
+    expect(view.container.querySelector(".aui-working-trace")).toContainElement(
+      view.getByText(state.answerText),
+    );
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
@@ -334,7 +405,7 @@ describe("AssistantTurnParts lifecycle", () => {
 
     expect(view.queryByRole("button")).toBeNull();
     expect(
-      view.getByText(/this run stopped before it could finish/i),
+      view.getByText(/this run failed before it could finish/i),
     ).toBeTruthy();
   });
 
@@ -346,7 +417,7 @@ describe("AssistantTurnParts lifecycle", () => {
     const view = render(<AssistantTurnParts />);
 
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
-    expect(view.queryByText(/stopped before it could finish/i)).toBeNull();
+    expect(view.queryByText(/failed before it could finish/i)).toBeNull();
   });
 
   it.each(["awaiting_action", "processing"])(
@@ -384,8 +455,8 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
     const trace = view.container.querySelector(".aui-working-trace");
     const answer = view.getByText(state.answerText);
-    expect(trace).not.toContainElement(answer);
-    expect(answer.closest(".aui-working-answer")).toBeTruthy();
+    expect(trace).toContainElement(answer);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
 
     state.events = [
       ...state.events,
@@ -403,7 +474,9 @@ describe("AssistantTurnParts lifecycle", () => {
     view.rerender(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
     expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
-    expect(view.getByText(state.answerText)).toBe(answer);
+    expect(
+      view.getByText(state.answerText).closest(".aui-working-answer"),
+    ).toBeTruthy();
 
     // Completion remains settled when the durable projection rerenders.
     view.rerender(<AssistantTurnParts />);
@@ -491,7 +564,8 @@ describe("AssistantTurnParts lifecycle", () => {
     expect(view.getByRole("button", { name: /Working/ })).toBeTruthy();
     expect(trace?.querySelectorAll(".aui-working-step")).toHaveLength(2);
     expect(trace).toContainElement(view.getByText(state.middleText));
-    expect(trace).not.toContainElement(answer);
+    expect(trace).toContainElement(answer);
+    expect(view.container.querySelector(".aui-working-answer")).toBeNull();
 
     state.events = [
       ...state.events,
@@ -512,6 +586,8 @@ describe("AssistantTurnParts lifecycle", () => {
     view.rerender(<AssistantTurnParts />);
     expect(view.getByRole("button", { name: /Worked/ })).toBeTruthy();
     expect(view.container.querySelector(".aui-working-trace")).toBe(trace);
-    expect(view.getByText(state.answerText)).toBe(answer);
+    expect(
+      view.getByText(state.answerText).closest(".aui-working-answer"),
+    ).toBeTruthy();
   });
 });

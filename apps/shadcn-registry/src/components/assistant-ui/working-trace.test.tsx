@@ -12,6 +12,7 @@ import {
   ReceiptTextIcon,
 } from "lucide-react";
 
+import type { Event } from "@aomi-labs/client";
 import type { TaskRunState } from "@aomi-labs/react";
 
 vi.mock("@/components/assistant-ui/markdown-text", async () => {
@@ -27,6 +28,7 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
 });
 
 import {
+  activeWorkDurationMs,
   buildTraceItems,
   MinimalWorkingTrace,
   RenderedText,
@@ -46,6 +48,91 @@ const run = (steps: TaskRunState["steps"]): TaskRunState => ({
 });
 
 describe("WorkingTrace", () => {
+  it("shows active Working time and freezes the elapsed duration on completion", () => {
+    vi.useFakeTimers();
+    try {
+      const startedAtMs = Date.now() - 5_000;
+      const view = render(
+        <WorkingTrace
+          running
+          items={[{ kind: "note", key: "note", text: "Checking the request" }]}
+          revealed={1}
+          startedAtMs={startedAtMs}
+        />,
+      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("5s");
+      expect(view.getByLabelText("Working time")).toHaveClass(
+        "inline-flex",
+        "items-center",
+        "leading-none",
+      );
+      expect(view.getByText("1 step").className).toBe(
+        view.getByLabelText("Working time").className,
+      );
+      act(() => vi.advanceTimersByTime(2_000));
+      expect(view.getByLabelText("Working time")).toHaveTextContent("7s");
+      view.rerender(
+        <WorkingTrace
+          running={false}
+          items={[]}
+          revealed={0}
+          startedAtMs={startedAtMs}
+        />,
+      );
+      expect(view.queryByLabelText("Working time")).toBeNull();
+      expect(
+        view.getByRole("button", { name: /Worked for 7s/ }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconstructs active time across reload and pauses for wallet approval", () => {
+    const now = Date.now();
+    const seconds = (ms: number) => ms / 1_000;
+    const phase = (
+      sequence: number,
+      turnId: string,
+      state: "processing" | "awaiting_action",
+      atMs: number,
+    ): Event => ({
+      event_id: `event-${sequence}`,
+      sequence,
+      type: "turn_state_changed",
+      turn_id: turnId,
+      state,
+      occurred_at: seconds(atMs),
+    });
+    const events = [
+      phase(1, "turn", "processing", now - 100_000),
+      phase(2, "turn", "awaiting_action", now - 95_000),
+      phase(3, "callback", "processing", now - 2_000),
+    ];
+    expect(activeWorkDurationMs(events, ["turn", "callback"], now)).toBe(7_000);
+    expect(
+      activeWorkDurationMs(events.slice(0, 2), ["turn", "callback"], now),
+    ).toBe(5_000);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(now);
+      const view = render(
+        <WorkingTrace
+          running
+          items={[]}
+          revealed={0}
+          phaseEvents={events}
+          phaseTurnIds={["turn", "callback"]}
+        />,
+      );
+      expect(view.getByLabelText("Working time")).toHaveTextContent("7s");
+      act(() => vi.advanceTimersByTime(2_000));
+      expect(view.getByLabelText("Working time")).toHaveTextContent("9s");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps ownership and transaction facts without an overflow bubble", () => {
     const { getByText, queryByText, container } = render(
       <ToolStepRow
@@ -461,6 +548,82 @@ describe("WorkingTrace", () => {
     expect(container).toHaveTextContent("Show all 2 steps");
   });
 
+  it("keeps the live inner window at the latest child step", () => {
+    const item = (state: TaskRunState) => ({
+      kind: "agent" as const,
+      agentId: state.agentId,
+      run: state,
+      order: 0,
+      key: state.agentId,
+    });
+    const { container, rerender } = render(
+      <WorkingTrace running items={[item(run([]))]} revealed={1} />,
+    );
+    const viewport = container.querySelector<HTMLElement>(
+      ".aui-working-trace-viewport",
+    )!;
+    const setScrollTop = vi.fn();
+    let scrollTop = 80;
+    Object.defineProperties(viewport, {
+      scrollHeight: { configurable: true, get: () => 640 },
+      clientHeight: { configurable: true, get: () => 200 },
+      scrollTop: {
+        configurable: true,
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+          setScrollTop(value);
+        },
+      },
+    });
+    fireEvent.scroll(viewport);
+    rerender(
+      <WorkingTrace
+        running
+        items={[
+          item(
+            run([
+              {
+                kind: "tool_call",
+                toolName: "get_chain_context",
+                args: null,
+                resultPreview: "",
+                childSeq: 1,
+              },
+            ]),
+          ),
+        ]}
+        revealed={1}
+      />,
+    );
+    expect(setScrollTop).toHaveBeenCalledWith(640);
+    expect(viewport.scrollTop).toBe(640);
+    expect(container).toHaveTextContent("2 steps");
+    expect(container).toHaveTextContent("Get chain context");
+
+    rerender(
+      <WorkingTrace
+        running
+        items={[
+          item(
+            run([
+              {
+                kind: "tool_call",
+                toolName: "get_chain_context",
+                args: null,
+                resultPreview: "Chain context resolved",
+                childSeq: 1,
+              },
+            ]),
+          ),
+        ]}
+        revealed={1}
+      />,
+    );
+    expect(setScrollTop).toHaveBeenCalledWith(640);
+    expect(viewport.scrollTop).toBe(640);
+  });
+
   it("keeps a failed delegation at its transcript position after recovery", () => {
     const failedRun: TaskRunState = {
       ...run([]),
@@ -689,5 +852,5 @@ it("keeps ownership badges visible in the mother and delegated trace", () => {
       />
     </TraceAttributionContext.Provider>,
   );
-  expect(getAllByText("Lifi Swap")).toHaveLength(2);
+  expect(getAllByText("LI.FI")).toHaveLength(2);
 });

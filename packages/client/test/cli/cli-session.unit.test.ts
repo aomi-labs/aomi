@@ -372,6 +372,210 @@ describe("CLI session lifecycle", () => {
     ).toHaveLength(1);
   });
 
+  it("uses the same signed-in principal for Agent and Commit requests", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/auth/sign-in/anonymous") {
+          throw new Error("signed-in requests must not bootstrap a guest");
+        }
+        expect(new Headers(init?.headers).get("authorization")).toBe(
+          "Bearer account-session",
+        );
+        if (path === "/v1/agent/sessions") {
+          return Response.json({ sessions: [] });
+        }
+        if (path === "/api/commits/commit-1") {
+          return Response.json({ ok: true });
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    cli.setAuthSession({
+      sessionToken: "account-session",
+      expiresAt: Date.now() + 60_000,
+      betterAuthUserId: "account-1",
+    });
+
+    const session = cli.createClientSession();
+    await expect(session.client.agent.sessions.list()).resolves.toEqual({
+      sessions: [],
+    });
+    await expect(
+      session.client.request("GET", "/api/commits/commit-1", {
+        sessionId: cli.sessionId,
+      }),
+    ).resolves.toEqual({ ok: true });
+    session.close();
+    const { createControlClient } = await import("../../src/cli/context");
+    await expect(
+      createControlClient({
+        baseUrl: "https://chat-staging.aomi.dev",
+        secrets: {},
+      }).agent.sessions.list(),
+    ).resolves.toEqual({ sessions: [] });
+
+    expect(
+      fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname),
+    ).toEqual([
+      "/v1/agent/sessions",
+      "/api/commits/commit-1",
+      "/v1/agent/sessions",
+    ]);
+  });
+
+  it("does not fall back to guest or another bearer when account auth expires", async () => {
+    vi.stubGlobal("location", undefined);
+    const fetchMock = vi.fn(async () => Response.json({ sessions: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      accountBearer: "unrelated-oauth-token",
+      secrets: {},
+    });
+    cli.setAuthSession({
+      sessionToken: "expired-account-session",
+      expiresAt: Date.now() - 1,
+    });
+
+    const session = cli.createClientSession();
+    await expect(session.client.agent.sessions.list()).rejects.toThrow(
+      /session has expired/i,
+    );
+    session.close();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("honors an explicit scoped control bearer over a stored account session", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        expect(new Headers(init?.headers).get("authorization")).toBe(
+          "Bearer scoped-control-token",
+        );
+        return Response.json({ sessions: [] });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { createControlClient } = await import("../../src/cli/context");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    cli.setAuthSession({
+      sessionToken: "stored-account-session",
+      expiresAt: Date.now() - 1,
+    });
+
+    await expect(
+      createControlClient({
+        baseUrl: "https://chat-staging.aomi.dev",
+        accountBearer: "scoped-control-token",
+        secrets: {},
+      }).agent.sessions.list(),
+    ).resolves.toEqual({ sessions: [] });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a guest thread separate when signing in and rotates again on sign-out", async () => {
+    vi.stubGlobal("location", undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/auth/sign-in/anonymous") {
+          return Response.json({ token: "guest-session" });
+        }
+        if (path === "/v1/agent/sessions") {
+          return Response.json({ sessions: [] });
+        }
+        return new Response(null, { status: 404 });
+      }),
+    );
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { listStoredSessions, readState } =
+      await import("../../src/cli/state");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    const guestThreadId = cli.sessionId;
+    const guestClient = cli.createClientSession();
+    await guestClient.client.agent.sessions.list();
+    guestClient.close();
+    expect(readState()?.guestBearer).toBe("guest-session");
+
+    cli.setAuthSession({
+      sessionToken: "account-session",
+      expiresAt: Date.now() + 60_000,
+      betterAuthUserId: "account-1",
+    });
+    const accountThreadId = cli.sessionId;
+    expect(accountThreadId).not.toBe(guestThreadId);
+    expect(readState()?.guestBearer).toBeUndefined();
+    expect(readState()?.auth?.sessionToken).toBe("account-session");
+    expect(
+      listStoredSessions().find((entry) => entry.sessionId === guestThreadId)
+        ?.state,
+    ).toMatchObject({
+      guestBearer: "guest-session",
+      auth: undefined,
+    });
+
+    cli.clearAuthSession();
+    expect(cli.sessionId).not.toBe(accountThreadId);
+    expect(readState()?.auth).toBeUndefined();
+    expect(readState()?.guestBearer).toBeUndefined();
+    expect(
+      listStoredSessions().find((entry) => entry.sessionId === accountThreadId)
+        ?.state.auth,
+    ).toBeUndefined();
+  });
+
+  it("upgrades a legacy mixed guest/account state without transferring the guest thread", async () => {
+    const { CliSession } = await import("../../src/cli/cli-session");
+    const { listStoredSessions, readState, writeState } =
+      await import("../../src/cli/state");
+    const cli = CliSession.create({
+      baseUrl: "https://chat-staging.aomi.dev",
+      secrets: {},
+    });
+    const legacyThreadId = cli.sessionId;
+    const auth = {
+      sessionToken: "account-session",
+      expiresAt: Date.now() + 60_000,
+      betterAuthUserId: "account-1",
+    };
+    writeState({ ...readState()!, guestBearer: "guest-session", auth });
+
+    const upgraded = CliSession.load()!;
+    expect(upgraded.sessionId).not.toBe(legacyThreadId);
+    expect(readState()?.auth).toEqual(auth);
+    expect(readState()?.guestBearer).toBeUndefined();
+    expect(
+      listStoredSessions().find((entry) => entry.sessionId === legacyThreadId)
+        ?.state,
+    ).toMatchObject({
+      guestBearer: "guest-session",
+      auth: undefined,
+    });
+
+    const accountThreadId = upgraded.sessionId;
+    upgraded.setAuthSession({
+      ...auth,
+      sessionToken: "refreshed-account-session",
+    });
+    expect(upgraded.sessionId).toBe(accountThreadId);
+  });
+
   it("persists explicit wallet, chain, and backend settings on the active session", async () => {
     const { setWalletCommand, setChainCommand, setBackendCommand } =
       await import("../../src/cli/commands/preferences");

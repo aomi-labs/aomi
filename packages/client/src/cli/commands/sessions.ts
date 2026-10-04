@@ -16,6 +16,7 @@ import {
 import { createCliAuthTokenProvider } from "../auth";
 import { estimateTokenCount, printKeyValueTable } from "../tables";
 import type { CliConfig } from "../types";
+import { isTerminalCommit } from "../../commits";
 
 type RemoteSessionStats = {
   topic: string;
@@ -23,6 +24,7 @@ type RemoteSessionStats = {
   tokenCountEstimate: number;
   toolCalls: number;
   pendingActions: number;
+  pendingCommits: number;
 };
 
 async function fetchRemoteSessionStats(
@@ -51,6 +53,9 @@ async function fetchRemoteSessionStats(
       pendingActions: page.events.filter(
         (event) => event.type === "action" && event.state === "pending",
       ).length,
+      pendingCommits: (page.commits ?? []).filter(
+        (commit) => !isTerminalCommit(commit),
+      ).length,
     };
   } catch {
     return null;
@@ -76,6 +81,7 @@ function printSessionSummary(
     ],
     ["🛠 tool calls", stats ? String(stats.toolCalls) : "n/a"],
     ["⚡ pending actions", stats ? String(stats.pendingActions) : "n/a"],
+    ["🔐 pending commits", stats ? String(stats.pendingCommits) : "n/a"],
   ]);
 }
 

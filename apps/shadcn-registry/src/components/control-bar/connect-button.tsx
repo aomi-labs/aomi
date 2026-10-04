@@ -131,9 +131,13 @@ export const ConnectButton: FC<ConnectButtonProps> = ({
   const adapter = useAomiWalletKit();
   const pickerFamilies =
     families && families.length > 0 ? families : inferWalletFamilies(adapter);
+  // While the wallet kit boots nothing can connect yet; keep the picker chip
+  // rather than flashing the single-button fallback.
   const shouldUsePicker = Boolean(
     pickerFamilies.length > 0 &&
-    (adapter.canConnect || adapter.wallets.length > 0),
+    (adapter.identity.status === "booting" ||
+      adapter.canConnect ||
+      adapter.wallets.length > 0),
   );
 
   if (accountMenu?.enabled || shouldUsePicker) {

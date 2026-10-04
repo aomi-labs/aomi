@@ -1,4 +1,6 @@
-/** Minimal client exports needed by the production UI in this browser fixture. */
+/** The real client, with the few exports this browser fixture pins. */
+export * from "../../packages/client/src/index";
+
 export const SUPPORTED_CHAINS = [
   { id: 8453, name: "Base", ticker: "ETH" },
   { id: 5042, name: "Arc", ticker: "USDC" },

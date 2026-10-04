@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
+import { useAomiRuntime } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import type { WalletAccountMenuOptions } from "../../../control-bar/account-menu-types";
 import {
@@ -82,23 +82,13 @@ export function usePortalWalletAccountMenu(
         typeof document !== "undefined" &&
         (themeRoot ?? document.documentElement).classList.contains("dark"));
 
-    const networkLabel =
-      getChainInfo(identity.chainId)?.name ??
-      identity.svmCluster?.replace(/^solana:/, "") ??
-      undefined;
-
     return {
       enabled: true,
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
-      networkLabel,
       themeLabel: isDark ? "Dark" : "Light",
-      onSwitchNetwork: () =>
-        (themeRoot ?? document)
-          .querySelector<HTMLElement>("[data-aomi-network-select-trigger]")
-          ?.click(),
       onToggleTheme:
         options.theme === false
           ? undefined
@@ -120,8 +110,6 @@ export function usePortalWalletAccountMenu(
     accountUser,
     displayEmailHint,
     activeAccount?.walletName,
-    identity.chainId,
-    identity.svmCluster,
     onManageAccount,
     onOpenSettings,
     credits,

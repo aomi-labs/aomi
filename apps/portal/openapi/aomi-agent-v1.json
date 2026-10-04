@@ -18,6 +18,8 @@
     "GET /v1/account/apps/{applicationId}/secrets",
     "GET /v1/account/credits",
     "GET /v1/account/statement",
+    "GET /v1/account/transaction-safety",
+    "GET /v1/account/transaction-safety/threads/{threadId}",
     "GET /v1/agent/chat/{sessionId}",
     "GET /v1/agent/chat/{sessionId}/stream",
     "GET /v1/agent/sessions",
@@ -32,6 +34,7 @@
     "GET /v1/pipeline/evm/account",
     "GET /v1/pipeline/evm/build",
     "GET /v1/pipeline/evm/commit",
+    "GET /v1/pipeline/evm/commits/{commitId}",
     "GET /v1/pipeline/evm/context",
     "GET /v1/pipeline/evm/contract",
     "GET /v1/pipeline/evm/encode-call",
@@ -64,6 +67,9 @@
     "POST /v1/pipeline/evm/account",
     "POST /v1/pipeline/evm/build",
     "POST /v1/pipeline/evm/commit",
+    "POST /v1/pipeline/evm/commits/{commitId}/manual",
+    "POST /v1/pipeline/evm/commits/{commitId}/wallet-attempts",
+    "POST /v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report",
     "POST /v1/pipeline/evm/context",
     "POST /v1/pipeline/evm/contract",
     "POST /v1/pipeline/evm/encode-call",
@@ -79,7 +85,10 @@
     "POST /v1/pipeline/svm/program",
     "POST /v1/pipeline/svm/simulate",
     "POST /v1/pipeline/svm/stage",
-    "POST /v1/pipeline/svm/token-holdings"
+    "POST /v1/pipeline/svm/token-holdings",
+    "POST /v1/task/build",
+    "PUT /v1/account/transaction-safety",
+    "PUT /v1/account/transaction-safety/threads/{threadId}"
   ],
   "paths": {
     "/health": {
@@ -1231,6 +1240,257 @@
         ]
       }
     },
+    "/v1/pipeline/evm/commits/{commitId}": {
+      "get": {
+        "operationId": "getPipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/commits/{commitId}/manual": {
+      "post": {
+        "operationId": "resolvePipelineCommit",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitManual"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/commits/{commitId}/wallet-attempts": {
+      "post": {
+        "operationId": "claimPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitWalletAttemptView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
+    "/v1/pipeline/evm/commits/{commitId}/wallet-attempts/{attemptId}/report": {
+      "post": {
+        "operationId": "reportPipelineWalletAttempt",
+        "parameters": [
+          {
+            "name": "commitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "x-thread-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "attemptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Continue the exact owner-bound standalone Pipeline cohort through Commit Service. Pipeline-only credentials cannot access chat commits.",
+        "responses": {
+          "200": {
+            "description": "Canonical durable lifecycle state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitView"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitWalletAttemptOutcome"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["pipeline:execute"]
+          }
+        ]
+      }
+    },
     "/v1/pipeline/evm/build": {
       "get": {
         "operationId": "describeevmbuild",
@@ -1256,7 +1516,7 @@
       },
       "post": {
         "operationId": "buildevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1321,7 +1581,7 @@
       },
       "post": {
         "operationId": "stageevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1386,7 +1646,7 @@
       },
       "post": {
         "operationId": "simulateevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1451,7 +1711,7 @@
       },
       "post": {
         "operationId": "commitevmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1520,7 +1780,7 @@
       },
       "post": {
         "operationId": "buildsvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1585,7 +1845,7 @@
       },
       "post": {
         "operationId": "stagesvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1650,7 +1910,7 @@
       },
       "post": {
         "operationId": "simulatesvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -1715,7 +1975,7 @@
       },
       "post": {
         "operationId": "commitsvmPipeline",
-        "description": "Stateless chain lifecycle operation. The complete portable Build moves by value; commit revalidates and re-simulates before custody.",
+        "description": "The complete portable Build moves by value. EVM commit revalidates and re-simulates, then publishes an owner-bound durable cohort without invoking a wallet. Continue through the returned thread and Commit Service references. SVM retains its existing wallet preparation contract.",
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
@@ -1924,7 +2184,7 @@
       },
       "post": {
         "operationId": "readEvmTokenHoldings",
-        "description": "Read an ERC-20 token balance for a holder. A token filter is required today; unfiltered enumeration is not yet supported on EVM.",
+        "description": "Discover nonzero ERC-20 holdings on one configured Alchemy Portfolio network, with exact decimal USD ranking, filters and live pagination. Excludes native currency and NFTs.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2389,6 +2649,192 @@
         ]
       }
     },
+    "/v1/task/build": {
+      "post": {
+        "operationId": "buildTask",
+        "security": [
+          {
+            "aomiOAuth": ["task:build"]
+          }
+        ],
+        "description": "Authenticated natural-language task preparation. First request freezes an unsigned payload and returns a payment challenge valid for at most five minutes and never beyond the frozen build expiry without calldata. Retrieval requires the same principal, quoteId and private retrievalToken plus Payment-Signature, or recovery of an already accepted purchase. Supplying Payment-Signature additionally requires payments:submit scope. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Payment-Signature",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["intent", "chainId", "sender"],
+                    "properties": {
+                      "transactionSafetyMode": {
+                        "$ref": "#/components/schemas/TransactionSafetyMode",
+                        "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+                      },
+                      "intent": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 8000
+                      },
+                      "chainId": {
+                        "type": "integer",
+                        "enum": [5042, 5042002]
+                      },
+                      "sender": {
+                        "type": "string"
+                      },
+                      "payer": {
+                        "type": "string"
+                      },
+                      "constraints": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "maxOutgoingUsdcWei": {
+                            "type": "string",
+                            "pattern": "^[0-9]+$",
+                            "description": "Maximum gross outgoing native USDC in 18-decimal base units, represented as an integer string."
+                          },
+                          "maxGasUnits": {
+                            "type": "integer",
+                            "format": "uint64",
+                            "minimum": 0,
+                            "description": "Maximum simulated gas units across all actions."
+                          },
+                          "allowedTargets": {
+                            "type": "array",
+                            "default": [],
+                            "items": {
+                              "type": "string",
+                              "pattern": "^0x[0-9a-fA-F]{40}$"
+                            },
+                            "description": "If nonempty, every action target must be in this allowlist."
+                          },
+                          "minimumReceived": {
+                            "type": "array",
+                            "default": [],
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": ["asset", "amount"],
+                              "properties": {
+                                "asset": {
+                                  "type": "string",
+                                  "description": "Currently supported: native (18-decimal USDC units) or Arc USDC precompile 0x3600000000000000000000000000000000000000 (6-decimal units). Other assets fail closed because received-balance evidence is unavailable."
+                                },
+                                "amount": {
+                                  "type": "string",
+                                  "pattern": "^[0-9]+$",
+                                  "description": "Minimum net increase in the sender balance across the simulated batch, in the specified asset's base units."
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "idempotencyKey": {
+                        "type": "string",
+                        "description": "Required in body or Idempotency-Key header."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["quoteId", "retrievalToken"],
+                    "properties": {
+                      "quoteId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "retrievalToken": {
+                        "type": "string",
+                        "writeOnly": true
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Exact frozen JSON artifact bytes (build, report, safe summary and pricing), released only after payment acceptance. Payment-Response is returned when available; accepted is distinct from batch settlement.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["summary"],
+                  "properties": {
+                    "summary": {
+                      "$ref": "#/components/schemas/TaskSummary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Payment submitted or ambiguous; retry the same quote/token for recovery. Artifact remains private."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Safe summary, pricing, quoteId, expiresAt, SHA-256 payloadHash, EdDSA attestation, retrievalToken and base64 Gateway paymentRequired. No build/calldata/full report.",
+            "headers": {
+              "Payment-Required": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["summary"],
+                  "properties": {
+                    "summary": {
+                      "$ref": "#/components/schemas/TaskSummary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Request key conflict, active preparation, or incompatible payment replay."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/account/apps": {
       "get": {
         "operationId": "listAccountApps",
@@ -2722,6 +3168,214 @@
           }
         ]
       }
+    },
+    "/v1/account/transaction-safety": {
+      "get": {
+        "operationId": "getTransactionSafetyDefault",
+        "description": "Authenticated transaction safety preference. Danger mode cannot be an account default; writes compare the expected revision atomically.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authoritative policy selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionSafetyPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Policy revision changed; read and review before retrying",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:transaction-safety:read"]
+          }
+        ]
+      },
+      "put": {
+        "operationId": "setTransactionSafetyDefault",
+        "description": "Authenticated transaction safety preference. Danger mode cannot be an account default; writes compare the expected revision atomically.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authoritative policy selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionSafetyPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Policy revision changed; read and review before retrying",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransactionSafetyUpdate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:transaction-safety:write"]
+          }
+        ]
+      }
+    },
+    "/v1/account/transaction-safety/threads/{threadId}": {
+      "get": {
+        "operationId": "getTransactionSafetyThread",
+        "description": "Authenticated transaction safety preference. Danger mode cannot be an account default; writes compare the expected revision atomically.",
+        "parameters": [
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative policy selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionSafetyPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Policy revision changed; read and review before retrying",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:transaction-safety:read"]
+          }
+        ]
+      },
+      "put": {
+        "operationId": "setTransactionSafetyThread",
+        "description": "Authenticated transaction safety preference. Danger mode cannot be an account default; writes compare the expected revision atomically.",
+        "parameters": [
+          {
+            "name": "threadId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative policy selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionSafetyPolicy"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "description": "Policy revision changed; read and review before retrying",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransactionSafetyUpdate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "aomiOAuth": ["account:transaction-safety:write"]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2872,6 +3526,18 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 32000
+          },
+          "regenerate": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Durable completed assistant message_key in this session. Replace the conversation from the user message before it and rerun that message as a normal turn."
+          },
+          "edit": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "User message_key to replace with message. Replace the conversation from that message and run the new text as a normal turn; mutually exclusive with regenerate."
           },
           "applicationId": {
             "type": ["integer", "null"]
@@ -3151,6 +3817,18 @@
           },
           "failure_code": {
             "type": ["string", "null"]
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["chain_switch", "transaction_request"]
+          },
+          "provider_code": {
+            "type": "string",
+            "enum": ["4001"]
+          },
+          "reason_category": {
+            "type": "string",
+            "enum": ["user_rejected"]
           }
         }
       },
@@ -3245,10 +3923,60 @@
             "properties": {
               "kind": {
                 "const": "rejected"
+              },
+              "phase": {
+                "type": "string",
+                "enum": ["chain_switch", "transaction_request"]
+              },
+              "provider_code": {
+                "type": "string",
+                "enum": ["4001"]
+              },
+              "reason_category": {
+                "type": "string",
+                "enum": ["user_rejected"]
               }
             }
           }
         ]
+      },
+      "CommitContinuationView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "state", "attempts"],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "retrying",
+              "completed",
+              "assistant_recovery_required",
+              "exhausted"
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "effect_reconciliation_required",
+              "empty_assistant_result",
+              "execution_stopped",
+              "continuation_retry_exhausted"
+            ]
+          }
+        }
       },
       "CommitView": {
         "type": "object",
@@ -3321,6 +4049,11 @@
           "transaction_id": {
             "type": ["string", "null"]
           },
+          "transaction_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Public explorer link for a confirmed transaction when the receipt RPC has a public origin."
+          },
           "failure_code": {
             "type": ["string", "null"]
           },
@@ -3353,6 +4086,9 @@
                 "type": "null"
               }
             ]
+          },
+          "continuation": {
+            "$ref": "#/components/schemas/CommitContinuationView"
           },
           "action": {
             "oneOf": [
@@ -3407,6 +4143,10 @@
                 }
               }
             ]
+          },
+          "signing_mode": {
+            "type": "string",
+            "enum": ["manual", "external", "auto"]
           }
         }
       },
@@ -3516,6 +4256,18 @@
         "required": ["session_id", "cursor", "events", "has_more"],
         "additionalProperties": false,
         "properties": {
+          "started_turn_id": {
+            "type": "string",
+            "description": "Admitted run identity on start responses, independent of bounded history pages; retained on replay."
+          },
+          "stopped_turn_id": {
+            "type": "string",
+            "description": "Present only when the requested turn is durably interrupted; independent of page position."
+          },
+          "terminal_turn": {
+            "$ref": "#/components/schemas/TerminalTurn",
+            "description": "Actual terminal outcome of the requested interrupt, including completion or failure that won the race; independent of pagination."
+          },
           "session_id": {
             "type": "string"
           },
@@ -3536,6 +4288,19 @@
             "items": {
               "$ref": "#/components/schemas/CommitView"
             }
+          }
+        }
+      },
+      "TerminalTurn": {
+        "type": "object",
+        "required": ["turn_id", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "turn_id": {
+            "type": "string"
+          },
+          "state": {
+            "enum": ["complete", "failed", "interrupted"]
           }
         }
       },
@@ -3572,6 +4337,9 @@
             "$ref": "#/components/schemas/MessageEvent"
           },
           {
+            "$ref": "#/components/schemas/BranchEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnStateChangedEvent"
           },
           {
@@ -3606,6 +4374,7 @@
           "propertyName": "type",
           "mapping": {
             "message": "#/components/schemas/MessageEvent",
+            "branch": "#/components/schemas/BranchEvent",
             "turn_state_changed": "#/components/schemas/TurnStateChangedEvent",
             "tool_update": "#/components/schemas/ToolUpdateEvent",
             "tool_complete": "#/components/schemas/ToolCompleteEvent",
@@ -3663,6 +4432,54 @@
               "tool_arguments": {},
               "is_streaming": {
                 "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "BranchEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "kind",
+              "target_message_key",
+              "user_message_key",
+              "content",
+              "removed_message_keys",
+              "removed_turn_ids"
+            ],
+            "properties": {
+              "type": {
+                "const": "branch"
+              },
+              "kind": {
+                "enum": ["regenerate", "edit"]
+              },
+              "target_message_key": {
+                "type": "string"
+              },
+              "user_message_key": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "removed_message_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "removed_turn_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -4083,6 +4900,20 @@
               },
               "simulation": {
                 "$ref": "#/components/schemas/PipelineSimulation"
+              },
+              "commitStages": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "readOnly": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": "Server-authored ordered durable Commit Service stage references. Clients must resolve all references and use Commit Service; never fall back to a direct wallet send."
+              },
+              "transactionSafety": {
+                "$ref": "#/components/schemas/TransactionSafetyProjection"
               }
             }
           },
@@ -4103,6 +4934,9 @@
               },
               "simulation": {
                 "$ref": "#/components/schemas/PipelineSimulation"
+              },
+              "transactionSafety": {
+                "$ref": "#/components/schemas/TransactionSafetyProjection"
               }
             }
           },
@@ -4508,6 +5342,9 @@
           },
           "requestKind": {
             "type": "string"
+          },
+          "transactionSafety": {
+            "$ref": "#/components/schemas/TransactionSafetyProjection"
           }
         }
       },
@@ -4870,24 +5707,48 @@
       },
       "PipelineEvmTokenHoldingsRequest": {
         "type": "object",
-        "required": ["chain_id", "token_address"],
         "properties": {
           "chain_id": {
-            "type": "integer",
+            "type": ["integer", "null"],
             "minimum": 1,
-            "description": "EVM chain ID to read."
-          },
-          "token_address": {
-            "type": "string",
-            "description": "ERC-20 token contract address. Required — holdings enumeration without a token filter is not yet supported on EVM."
+            "description": "null (the default for balance questions) scans every indexed mainnet in one call. Set one chain id only when the chain is already fixed or to page that chain with cursor."
           },
           "holder_address": {
             "type": ["string", "null"],
-            "description": "Holder to read. Defaults to the connected EVM wallet."
+            "description": "Optional wallet address. Omit to use the backend-resolved execution account; pass an explicit address to inspect that address exactly."
           },
-          "block_tag": {
+          "limit": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Page size (default 20). For top N assets, set N here and sort_by=usd_value, sort_order=desc."
+          },
+          "cursor": {
             "type": ["string", "null"],
-            "description": "Optional block tag; defaults to latest."
+            "description": "For a selected chain only: opaque next_cursor from its previous response. Keep chain, holder, filters and sorting unchanged. Pages are live, not a snapshot."
+          },
+          "sort_by": {
+            "type": "string",
+            "enum": ["usd_value", "symbol", "token_address"],
+            "description": "Default usd_value. Never rank different tokens by raw balance."
+          },
+          "sort_order": {
+            "type": "string",
+            "enum": ["asc", "desc"],
+            "description": "Default desc. Unknown USD values always sort last under usd_value."
+          },
+          "query": {
+            "type": ["string", "null"],
+            "maxLength": 256,
+            "description": "Case-insensitive substring of token symbol, name or contract address."
+          },
+          "min_usd_value": {
+            "type": ["string", "null"],
+            "description": "Minimum USD value as a decimal string. null uses 1 to hide spam dust. Once the wallet total is known, raise it to about 0.1% of that total so immaterial balances stay hidden; pass \"0\" when small balances matter, such as checking gas."
+          },
+          "include_unpriced": {
+            "type": ["boolean", "null"],
+            "description": "null/true keeps tokens without a price, sorted after priced ones, since any token may be real; false hides them."
           }
         }
       },
@@ -4895,32 +5756,103 @@
         "type": "object",
         "required": [
           "chain_id",
-          "token",
+          "chain_name",
           "holder",
-          "balance_raw",
-          "balance",
-          "decimals"
+          "source",
+          "complete",
+          "items",
+          "total_matching",
+          "next_cursor",
+          "hidden",
+          "warnings"
         ],
         "properties": {
           "chain_id": {
             "type": "integer"
           },
-          "token": {
+          "chain_name": {
             "type": "string"
           },
           "holder": {
             "type": "string"
           },
-          "balance_raw": {
-            "type": "string",
-            "description": "Raw base-unit amount; may exceed f64 precision."
+          "hidden": {
+            "type": "object",
+            "description": "Counts filtered out by min_usd_value or for lacking a price.",
+            "properties": {
+              "below_min_usd": {
+                "type": "integer"
+              },
+              "unpriced": {
+                "type": "integer"
+              }
+            }
           },
-          "balance": {
+          "source": {
             "type": "string",
-            "description": "Decimal-adjusted numeric string."
+            "enum": ["alchemy_portfolio"]
           },
-          "decimals": {
+          "complete": {
+            "type": "boolean",
+            "description": "True when all indexer pages were traversed; incomplete traversal returns an error. Does not imply price coverage or a stable snapshot."
+          },
+          "total_matching": {
             "type": "integer"
+          },
+          "next_cursor": {
+            "type": ["string", "null"]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "token_address",
+                "symbol",
+                "name",
+                "decimals",
+                "balance_raw",
+                "balance",
+                "price_usd",
+                "value_usd",
+                "price_updated_at"
+              ],
+              "properties": {
+                "token_address": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": ["string", "null"]
+                },
+                "name": {
+                  "type": ["string", "null"]
+                },
+                "decimals": {
+                  "type": ["integer", "null"]
+                },
+                "balance_raw": {
+                  "type": "string"
+                },
+                "balance": {
+                  "type": ["string", "null"]
+                },
+                "price_usd": {
+                  "type": ["string", "null"]
+                },
+                "value_usd": {
+                  "type": ["string", "null"]
+                },
+                "price_updated_at": {
+                  "type": ["string", "null"]
+                }
+              }
+            }
           }
         }
       },
@@ -5357,7 +6289,13 @@
       },
       "PipelineLifecycleRequest": {
         "type": "object",
-        "description": "Build request, explicit stage input, or a complete portable Build envelope depending on the endpoint."
+        "description": "Build request, explicit stage input, or a complete portable Build envelope depending on the endpoint.",
+        "properties": {
+          "transactionSafetyMode": {
+            "$ref": "#/components/schemas/TransactionSafetyMode",
+            "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
+          }
+        }
       },
       "PipelineBuild": {
         "type": "object",
@@ -5413,7 +6351,17 @@
           },
           "attestation": {
             "type": "string",
-            "description": "Server authentication of the Build, its owner, and app scope."
+            "description": "Server authentication of the Build owner, app scope, status, and simulation guard evidence. Older attestation versions require a new stage and simulation."
+          },
+          "transactionSafetyMode": {
+            "$ref": "#/components/schemas/TransactionSafetyMode",
+            "description": "Transaction safety selection sealed into this EVM Build digest and attestation."
+          },
+          "guardEvidence": {
+            "type": "object",
+            "readOnly": true,
+            "additionalProperties": true,
+            "description": "Server-authored exact operation evidence carried unchanged with the sealed EVM Build."
           }
         }
       },
@@ -5423,17 +6371,104 @@
         "required": ["status", "digest", "result", "requests"],
         "properties": {
           "status": {
-            "const": "committed"
+            "const": "committed",
+            "description": "Legacy preparation response label; returned CommitViews describe the durable cohort, which may already be invoked on replay."
+          },
+          "preparation_status": {
+            "const": "prepared"
+          },
+          "provider_invoked": {
+            "const": false,
+            "description": "This preparation endpoint did not invoke a provider. Returned CommitViews own the current cohort lifecycle."
+          },
+          "next_required_action": {
+            "type": "string",
+            "enum": ["submit_wallet_request", "continue_commit_cohort"]
           },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
-          "result": {},
+          "result": {
+            "type": "object",
+            "required": ["provider_invoked", "next_required_action"],
+            "properties": {
+              "provider_invoked": {
+                "const": false,
+                "description": "This preparation endpoint did not invoke a provider. Returned CommitViews own the current cohort lifecycle."
+              },
+              "next_required_action": {
+                "type": "string",
+                "enum": ["submit_wallet_request", "continue_commit_cohort"]
+              }
+            }
+          },
           "requests": {
-            "type": "array"
+            "type": "array",
+            "description": "Durable Action requests with ordered commitStages. Continue through canonical CommitViews; replay may recover an already invoked cohort.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequest"
+            }
+          },
+          "thread_id": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            }
+          },
+          "commits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommitView"
+            }
           }
         }
+      },
+      "CommitManual": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "payloads"],
+            "properties": {
+              "kind": {
+                "const": "signed"
+              },
+              "payloads": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "transaction_id"],
+            "properties": {
+              "kind": {
+                "const": "broadcast"
+              },
+              "transaction_id": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "rejected"
+              }
+            }
+          }
+        ]
       },
       "PipelineSvmCommitResult": {
         "type": "object",
@@ -5441,17 +6476,39 @@
         "required": ["status", "digest", "results", "requests"],
         "properties": {
           "status": {
-            "const": "committed"
+            "const": "committed",
+            "description": "Legacy response label; wallet submission has not occurred."
+          },
+          "preparation_status": {
+            "const": "prepared"
+          },
+          "provider_invoked": {
+            "const": false
+          },
+          "next_required_action": {
+            "const": "submit_wallet_request"
           },
           "digest": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
           "results": {
-            "type": "array"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider_invoked": {
+                  "const": false
+                },
+                "next_required_action": {
+                  "const": "submit_wallet_request"
+                }
+              }
+            }
           },
           "requests": {
-            "type": "array"
+            "type": "array",
+            "description": "Validated wallet intents; no durable Agent Action IDs. The wallet provider has not been invoked. SVM transactions are exact-byte simulated independently; ordered cross-transaction state dependencies are unsupported."
           }
         }
       },
@@ -5470,7 +6527,7 @@
         "additionalProperties": false,
         "properties": {
           "status": {
-            "enum": ["passed", "failed"]
+            "enum": ["passed", "failed", "unavailable"]
           },
           "balanceChanges": {
             "type": "array",
@@ -5670,7 +6727,7 @@
             "type": "string"
           },
           "status": {
-            "enum": ["passed", "failed", "warning"]
+            "enum": ["passed", "failed", "warning", "unavailable"]
           },
           "message": {
             "type": ["string", "null"]
@@ -5720,6 +6777,357 @@
             "minimum": 1
           }
         }
+      },
+      "TaskSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transactionSafety",
+          "interpretedTask",
+          "expectedEffects",
+          "approvals",
+          "gas",
+          "constraints",
+          "source",
+          "actionCount",
+          "outgoingUsdcWei"
+        ],
+        "properties": {
+          "transactionSafety": {
+            "$ref": "#/components/schemas/TransactionSafetyProjection"
+          },
+          "interpretedTask": {
+            "type": "string"
+          },
+          "expectedEffects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineBalanceChange"
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineApprovalChange"
+            }
+          },
+          "gas": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PipelineGasEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "constraints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineGuardResult"
+            }
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "chainId",
+              "blockNumber",
+              "blockHash",
+              "engine",
+              "rules"
+            ],
+            "properties": {
+              "chainId": {
+                "type": "integer"
+              },
+              "blockNumber": {
+                "type": "integer"
+              },
+              "blockHash": {
+                "type": "string"
+              },
+              "engine": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "string"
+              }
+            }
+          },
+          "actionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outgoingUsdcWei": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "TransactionSafetyMode": {
+        "type": "string",
+        "enum": ["guarded_only", "balanced", "unrestricted"]
+      },
+      "TransactionSafetyPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "revision", "scope", "source"],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TransactionSafetyMode"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["account_default", "thread"]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["default", "user"]
+          }
+        }
+      },
+      "TransactionSafetyUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "expectedRevision"],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TransactionSafetyMode"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "GuardCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "guardId",
+          "operationIds",
+          "state",
+          "evidenceIds",
+          "ruleVersion"
+        ],
+        "properties": {
+          "guardId": {
+            "type": "string"
+          },
+          "operationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "type": "string",
+            "enum": ["checking", "complete", "unavailable", "stale"]
+          },
+          "evidenceIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ruleVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "GuardFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "code", "severity", "operationIds", "message"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["info", "warning", "critical"]
+          },
+          "operationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "GuardLimitation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "operationIds", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "operationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "GuardAssessment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "assessmentDigest",
+          "candidateDigest",
+          "registryVersion",
+          "coverage",
+          "state",
+          "supportedOperationCount",
+          "totalOperationCount",
+          "findings",
+          "limitations"
+        ],
+        "properties": {
+          "checks": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GuardCheck"
+            }
+          },
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "assessmentDigest": {
+            "type": "string"
+          },
+          "candidateDigest": {
+            "type": "string"
+          },
+          "registryVersion": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string",
+            "enum": ["supported", "partial", "generic"]
+          },
+          "state": {
+            "type": "string",
+            "enum": ["checking", "complete", "unavailable", "stale"]
+          },
+          "supportedOperationCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalOperationCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuardFinding"
+            }
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuardLimitation"
+            }
+          }
+        }
+      },
+      "TransactionSafetyDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assessmentDigest",
+          "mode",
+          "policyRevision",
+          "eligibility",
+          "reasonCode",
+          "bypassedFindingIds",
+          "bypassedRequirements"
+        ],
+        "properties": {
+          "assessmentDigest": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TransactionSafetyMode"
+          },
+          "policyRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "eligibility": {
+            "type": "string",
+            "enum": ["eligible", "blocked", "waiting"]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "bypassedFindingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bypassedRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AuthorityEligibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["eligibility", "reasonCode"],
+        "properties": {
+          "eligibility": {
+            "type": "string",
+            "enum": ["eligible", "blocked", "waiting"]
+          },
+          "reasonCode": {
+            "type": "string"
+          }
+        }
+      },
+      "TransactionSafetyProjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assessment", "decision", "authority", "simulationStatus"],
+        "properties": {
+          "assessment": {
+            "$ref": "#/components/schemas/GuardAssessment"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/TransactionSafetyDecision"
+          },
+          "authority": {
+            "$ref": "#/components/schemas/AuthorityEligibility"
+          },
+          "simulationStatus": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed", "unavailable"]
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -5735,7 +7143,10 @@
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
               "agent:actions:resolve": "Resolve a durable Agent Action",
               "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
+              "task:build": "Prepare and purchase an immutable unsigned task artifact",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
+              "account:transaction-safety:read": "Read owned transaction safety preferences",
+              "account:transaction-safety:write": "Update owned transaction safety preferences",
               "account:apps:read": "Read available applications and installed state",
               "account:apps:write": "Install and remove applications",
               "account:credentials:read": "Read credential declarations and presence without values",
@@ -5754,6 +7165,7 @@
         "x-aomi-resources": {
           "agent": "https://chat.aomi.dev/v1/agent",
           "pipeline": "https://chat.aomi.dev/v1/pipeline",
+          "task": "https://chat.aomi.dev/v1/task",
           "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
           "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
           "account": "https://chat.aomi.dev/v1/account"

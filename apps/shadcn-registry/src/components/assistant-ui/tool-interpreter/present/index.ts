@@ -41,9 +41,14 @@ const outcomeFor = (operation: ToolOperation): ToolOutcome => {
   if (operation.failed) return "failed";
   const status = operation.facts.find((fact) => fact.kind === "status")?.value;
   if (status === "failed" || status === "error") return "failed";
-  if (status === "rejected" || status === "expired" || status === "revoked")
+  if (
+    status === "rejected" ||
+    status === "expired" ||
+    status === "revoked" ||
+    status === "refunded"
+  )
     return "cancelled";
-  if (status === "incomplete") return "incomplete";
+  if (status === "incomplete" || status === "partial") return "incomplete";
   if (
     status === "pending" ||
     status === "pending_approval" ||
@@ -63,6 +68,7 @@ const outcomeFor = (operation: ToolOperation): ToolOutcome => {
       "prepared",
       "success",
       "complete",
+      "completed",
     ].includes(status)
   )
     return "success";

@@ -1,26 +1,31 @@
 "use client";
 
 import { AccountSigningView } from "./account-signing";
-import { isProviderSigningWallet } from "./wallet-management-model";
 import { useAccountAcl } from "./use-account-acl";
 
-export function ProviderPolicySettings() {
+/** Safety tab: how each linked wallet signs, wired to the account ACL. */
+export function SigningSettings() {
   const acl = useAccountAcl();
-  const wallets = acl.wallets.filter(isProviderSigningWallet);
 
   if (acl.status === "loading") {
     return (
-      <p className="text-aomi-muted mx-auto w-full max-w-[780px] px-6 py-6 text-[12px]">
-        Loading provider signing settings…
+      <p role="status" className="type-meta text-aomi-muted">
+        Loading signing settings…
       </p>
     );
   }
 
-  if (!wallets.length) return null;
+  if (acl.status === "error") {
+    return (
+      <p role="alert" className="type-meta text-aomi-danger">
+        {acl.error ?? "Could not load your signing settings."}
+      </p>
+    );
+  }
 
   return (
     <AccountSigningView
-      wallets={wallets}
+      wallets={acl.wallets}
       delegatedAccounts={acl.delegatedAccounts}
       onCommit={acl.commitMode}
       onPrepare={acl.prepareMode}

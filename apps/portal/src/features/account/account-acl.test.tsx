@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 
 import { AccountSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-settings";
-import { ProviderPolicySettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/provider-policy-settings";
+import { SigningSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/provider-policy-settings";
 import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
 import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
 import type { WalletRow } from "../../../../shadcn-registry/src/lib/wallet-kit/composer/wallet-state";
@@ -225,7 +225,7 @@ async function renderAcl(
             : []
         }
       >
-        {account ? <AccountSettings /> : <ProviderPolicySettings />}
+        {account ? <AccountSettings /> : <SigningSettings />}
       </WalletSignInOptionsContext.Provider>,
     );
   });
@@ -238,12 +238,16 @@ const click = async (el: HTMLElement) => {
   });
 };
 
-const findWalletRow = async () =>
-  screen.findByRole("button", {
-    name: `Configure ${CONNECTED_EVM.toLowerCase()}`,
+/** A wallet's Ask me / Auto / Locked switch on the Safety tab. */
+const findSigning = (address: string) =>
+  screen.findByRole("radiogroup", {
+    name: (name) => name.endsWith(` ${address}`),
   });
-const findPrivyRow = async () =>
-  screen.findByRole("button", { name: `Configure ${PRIVY_SVM}` });
+const findWalletRow = async () => findSigning(CONNECTED_EVM.toLowerCase());
+const findPrivyRow = async () => findSigning(PRIVY_SVM);
+/** Pick a signing mode; a change opens the review dialog (or explains why not). */
+const choose = async (row: HTMLElement, label: string) =>
+  click(within(row).getByRole("radio", { name: label }));
 
 const paths = (calls: FetchCall[]) =>
   calls.map(
@@ -303,19 +307,21 @@ describe("account ACL wiring", () => {
 
   it("closes after deleting the account but stays open if deletion fails", async () => {
     installFetchRecorder();
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
     const onClose = vi.fn();
     walletKit.deleteAccount.mockRejectedValueOnce(new Error("Delete failed"));
     await act(async () => render(<AccountSettings onClose={onClose} />));
 
     await click(screen.getByRole("button", { name: "Delete" }));
+    await click(screen.getByRole("button", { name: "Cancel" }));
+    expect(walletKit.deleteAccount).not.toHaveBeenCalled();
+
+    await click(screen.getByRole("button", { name: "Delete" }));
+    await click(screen.getByRole("button", { name: "Delete account" }));
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent("Delete failed");
 
     await click(screen.getByRole("button", { name: "Delete" }));
+    await click(screen.getByRole("button", { name: "Delete account" }));
     expect(walletKit.deleteAccount).toHaveBeenCalledTimes(2);
     expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
     expect(onClose).toHaveBeenCalledOnce();
@@ -352,18 +358,17 @@ describe("account ACL wiring", () => {
           : {},
       );
       await renderAcl();
-      await click(
+      await choose(
         chain === "evm" ? await findWalletRow() : await findPrivyRow(),
+        "Auto",
       );
-      await click(screen.getByText("Auto-approve"));
-      await click(screen.getByText("Review change"));
-      const dialog = screen.getByRole("dialog", {
+      const dialog = screen.getByRole("alertdialog", {
         name: "Confirm signing policy",
       });
       expect(dialog.textContent).toContain(
         chain === "evm" ? CONNECTED_EVM.toLowerCase() : PRIVY_SVM,
       );
-      expect(dialog.textContent).toContain("Auto-approve");
+      expect(dialog.textContent).toContain("Ask me → Auto");
       expect(
         within(dialog).getByLabelText("Payload to sign").textContent,
       ).toContain(
@@ -373,7 +378,7 @@ describe("account ACL wiring", () => {
       expect(walletKit.signSolanaMessage).not.toHaveBeenCalled();
       expect(paths(calls)).toContain("/api/account/authorization/challenge");
       await click(within(dialog).getByRole("button", { name: "Cancel" }));
-      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("alertdialog")).toBeNull();
       expect(paths(calls)).not.toContain("/api/account/authorization/commit");
     },
   );
@@ -381,12 +386,11 @@ describe("account ACL wiring", () => {
   it("refuses to authorize a wallet that is not the operating wallet", async () => {
     walletKit.identity.address = "0x1111111111111111111111111111111111111111";
     walletKit.wallets[0] = { ...walletKit.wallets[0], operating: false };
-    installFetchRecorder();
+    const { calls } = installFetchRecorder();
     await renderAcl();
-    await click(await findWalletRow());
-    await click(screen.getByText("Auto-approve"));
-    const authorize = screen.getByText("Review change");
-    expect(authorize.hasAttribute("disabled")).toBe(true);
+    await choose(await findWalletRow(), "Auto");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
     expect(walletKit.signTypedData).not.toHaveBeenCalled();
   });
 
@@ -409,11 +413,7 @@ describe("account ACL wiring", () => {
         }),
     });
     await renderAcl();
-    await click(await findPrivyRow());
-    await click(screen.getByText("Auto-approve"));
-    const authorize = screen.getByText("Review change");
-    expect(authorize.hasAttribute("disabled")).toBe(false);
-    await click(authorize);
+    await choose(await findPrivyRow(), "Auto");
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     expect(walletKit.signSolanaMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -453,11 +453,10 @@ describe("account ACL wiring", () => {
           : {},
       );
       await renderAcl();
-      await click(
+      await choose(
         chain === "evm" ? await findWalletRow() : await findPrivyRow(),
+        "Auto",
       );
-      await click(screen.getByText("Auto-approve"));
-      await click(screen.getByText("Review change"));
       await click(screen.getByRole("button", { name: "Sign to approve" }));
       await screen.findByText("Wallet signing cancelled");
       expect(paths(calls)).not.toContain("/api/account/authorization/commit");
@@ -508,10 +507,7 @@ describe("account ACL wiring", () => {
           }),
       });
       await renderAcl(chooseProvider, provider);
-      await click(screen.getByRole("button", { name: /^Actions for/ }));
-      await click(
-        screen.getByRole("menuitem", { name: "Connect", exact: true }),
-      );
+      await click(screen.getByRole("button", { name: "Connect" }));
       expect(chooseProvider).toHaveBeenCalledOnce();
       expect(walletKit.connect).not.toHaveBeenCalled();
       expect(walletKit.connectSocial).not.toHaveBeenCalled();
@@ -612,9 +608,7 @@ describe("account ACL wiring", () => {
         }),
     });
     await renderAcl();
-    await click(await findWalletRow());
-    await click(screen.getByText("Auto-approve"));
-    await click(screen.getByText("Review change"));
+    await choose(await findWalletRow(), "Auto");
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     expect(screen.getByText(/This authorization expired/)).toBeTruthy();
     expect(walletKit.signTypedData).not.toHaveBeenCalled();
@@ -632,12 +626,10 @@ describe("account ACL wiring", () => {
         Response.json({ permit: {} }),
     });
     await renderAcl();
-    await click(await findWalletRow());
-    await click(screen.getByText("Auto-approve"));
-    await click(screen.getByText("Review change"));
+    await choose(await findWalletRow(), "Auto");
     expect(screen.getByText(/authorization payload is missing/)).toBeTruthy();
     expect(
-      screen.queryByRole("dialog", { name: "Confirm signing policy" }),
+      screen.queryByRole("alertdialog", { name: "Confirm signing policy" }),
     ).toBeNull();
     expect(walletKit.signTypedData).not.toHaveBeenCalled();
     expect(paths(calls)).not.toContain("/api/account/authorization/commit");
@@ -647,11 +639,7 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    const row = await findWalletRow();
-
-    await click(row);
-    await click(await screen.findByText("Auto-approve"));
-    await click(await screen.findByText("Review change"));
+    await choose(await findWalletRow(), "Auto");
     const reviewed = JSON.parse(
       screen.getByLabelText("Payload to sign").textContent ?? "",
     );
@@ -752,25 +740,16 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await findWalletRow());
+    const row = await findWalletRow();
 
-    const accept = await screen.findByRole("button", {
-      name: /^Auto-approve/,
-    });
-    expect(accept).toHaveProperty("disabled", false);
+    expect(
+      within(row)
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Ask me", "Auto", "Locked"]);
     expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
-    expect(screen.getByRole("button", { name: /^Locked/ })).toHaveProperty(
-      "disabled",
-      false,
-    );
 
-    await click(accept);
-    const authorize = await screen.findByRole("button", {
-      name: "Review change",
-    });
-    expect(authorize).toHaveProperty("disabled", false);
-
-    await click(authorize);
+    await choose(row, "Auto");
     await click(screen.getByRole("button", { name: "Sign to approve" }));
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/authorization/commit"),
@@ -787,17 +766,12 @@ describe("account ACL wiring", () => {
     const { calls } = installFetchRecorder();
 
     await renderAcl();
-    const row = await findWalletRow();
-
-    await click(row);
-    await click(await screen.findByText("Auto-approve"));
+    await choose(await findWalletRow(), "Auto");
 
     expect(
       screen.getByText("Connect a Ethereum wallet to sign this authorization."),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: /Review change/ }),
-    ).toHaveProperty("disabled", true);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(paths(calls)).not.toContain("/api/account/authorization/challenge");
   });
 
@@ -812,9 +786,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    await click(await findWalletRow());
-    await click(await screen.findByText("Auto-approve"));
-    await click(await screen.findByText("Review change"));
+    await choose(await findWalletRow(), "Auto");
     await click(screen.getByRole("button", { name: "Sign to approve" }));
 
     expect(
@@ -883,8 +855,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl(undefined, "para", true);
-    await click(await screen.findByRole("button", { name: /^Actions for/ }));
-    await click(screen.getByRole("menuitem", { name: "Link" }));
+    await click(await screen.findByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/authorization/commit"),
@@ -913,7 +884,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl();
-    expect((await screen.findAllByText("0x71c7…976f")).length).toBeGreaterThan(
+    expect((await screen.findAllByText(/0x71c7…976f/)).length).toBeGreaterThan(
       0,
     );
     expect(

@@ -194,14 +194,14 @@ export function AomiWalletKitComposer({
     }
     for (const family of ["evm", "svm"] as const) {
       if (
-        walletState.operating[family] &&
-        storedSelection[family] !== walletState.operating[family]
+        walletState.persist[family] &&
+        storedSelection[family] !== walletState.persist[family]
       ) {
         writeWalletSelection(
           selectionStorage,
           accountId,
           family,
-          walletState.operating[family],
+          walletState.persist[family],
         );
         changed = true;
       }
@@ -212,7 +212,7 @@ export function AomiWalletKitComposer({
     selectionStorage,
     storedSelection,
     walletState.clearSelection,
-    walletState.operating,
+    walletState.persist,
   ]);
 
   useEffect(() => {

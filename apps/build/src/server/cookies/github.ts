@@ -49,6 +49,7 @@ export interface GitHubCliLoginRequest {
 
 export type GitHubOAuthContinuation =
   | { kind: "browser" }
+  | { kind: "template"; platform: string }
   | { kind: "claim"; projectId: number }
   | ({ kind: "cli" } & GitHubCliLoginRequest);
 
@@ -132,6 +133,13 @@ function cliContinuation(value: unknown): GitHubOAuthContinuation | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
   if (candidate.kind === "browser") return { kind: "browser" };
+  if (
+    candidate.kind === "template" &&
+    typeof candidate.platform === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9.-]{0,99}$/.test(candidate.platform)
+  ) {
+    return { kind: "template", platform: candidate.platform };
+  }
   if (
     candidate.kind === "claim" &&
     typeof candidate.projectId === "number" &&

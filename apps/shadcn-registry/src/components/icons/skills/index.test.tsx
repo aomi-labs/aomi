@@ -24,6 +24,7 @@ const BUILT_IN_SKILL_IDS = [
   "convex",
   "curve",
   "debridge",
+  "defillama",
   "drift",
   "dummy",
   "eigenlayer",
@@ -155,6 +156,6 @@ describe("skill icon mapping", () => {
 
     expect(new Set(manifestIds).size).toBe(BUILT_IN_SKILL_IDS.length);
     expect(new Set(manifestIds)).toEqual(new Set(BUILT_IN_SKILL_IDS));
-    expect(manifestIds).toHaveLength(44);
+    expect(manifestIds).toHaveLength(45);
   });
 });

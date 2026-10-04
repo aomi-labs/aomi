@@ -1,37 +1,16 @@
-import {
-  asNumber,
-  asRecord,
-  asString,
-  statusFact,
-  uniqueFacts,
-} from "../../normalize";
+import { asNumber, asRecord, asString, statusFact } from "../../normalize";
 import { toolIdentity } from "../../identity";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import type { ToolFact, ToolMatcher } from "../../types";
 import { svmClusterFact } from "./context";
 import {
   commitCountFact,
   commitStateFact,
   commitViews,
 } from "../general/commit-view";
-
-const op = (
-  id: string,
-  rawLabel: string,
-  facts: Array<ToolFact | null>,
-): ToolOperation => ({
-  id,
-  facts: uniqueFacts(facts.filter((fact): fact is ToolFact => fact != null)),
-  confidence: "high",
-  rawLabel,
-});
+import { failedFact, operation } from "../operation";
 
 const clusterFact = (value: unknown): ToolFact | null =>
   asString(value) ? svmClusterFact(value) : null;
-
-const failedFact = (result: Record<string, unknown> | null): ToolFact | null =>
-  result && (result.is_error === true || result.error)
-    ? statusFact("failed")
-    : null;
 
 const countFact = (
   ids: unknown,
@@ -66,7 +45,7 @@ export const matchSvmStage: ToolMatcher = ({
             source: "result" as const,
           }
         : null;
-  return op("svm.tx.stage", rawLabel, [
+  return operation("svm.tx.stage", rawLabel, [
     clusterFact(resultRecord?.cluster ?? storedTx?.cluster ?? firstIx?.cluster),
     count,
     failedFact(resultRecord) ?? (resultRecord ? statusFact("staged") : null),
@@ -101,7 +80,7 @@ export const matchSvmSimulation: ToolMatcher = ({
         ? statusFact(simulation.err == null ? "passed" : "failed")
         : null);
   const compute = asNumber(simulation?.units_consumed);
-  return op("svm.tx.simulate_batch", rawLabel, [
+  return operation("svm.tx.simulate_batch", rawLabel, [
     clusterFact(resultRecord?.cluster),
     simulation
       ? { kind: "count", role: "tx", value: "1", source: "result" }
@@ -140,7 +119,7 @@ export const matchSvmPendingApproval: ToolMatcher = ({
     ? chainRef.slice(4)
     : resultRecord?.cluster;
   const requested = Array.isArray(args?.tx_ids) ? args.tx_ids : [];
-  return op("svm.tx.pending_approval", rawLabel, [
+  return operation("svm.tx.pending_approval", rawLabel, [
     clusterFact(cluster),
     commitCountFact(views) ??
       (requested.length > 1 && !Array.isArray(resultRecord?.svm_ix_ids)

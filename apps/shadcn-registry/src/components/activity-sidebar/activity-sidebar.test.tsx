@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommitView, Event } from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
@@ -90,6 +90,209 @@ describe("activity signing strip", () => {
 });
 
 describe("active transaction presentation", () => {
+  it("animates unfinished callback preparation and a later wallet request beside a completed transaction", () => {
+    const self = action({
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x123",
+          to: "0x456",
+          data: "0x",
+          label: "Completed transfer",
+          kind: "transfer",
+        },
+      ],
+      simulation: simulation(),
+    });
+    const callback = "broadcast-terminal:prepared-pair";
+    const event = (sequence: number, turn: string, payload: object) =>
+      ({
+        event_id: `progress-${sequence}`,
+        sequence,
+        turn_id: turn,
+        occurred_at: sequence,
+        ...payload,
+      }) as Event;
+    const tool = (
+      sequence: number,
+      turn: string,
+      name: string,
+      result: object,
+    ) =>
+      event(sequence, turn, {
+        type: "message",
+        sender: "agent",
+        content: "",
+        tool_name: name,
+        tool_result: [name, JSON.stringify(result)],
+      });
+    const events: Event[] = [
+      event(1, "turn-1", {
+        type: "message",
+        sender: "user",
+        content: "Transfer then prepare the pair",
+      }),
+      {
+        ...self,
+        sequence: 2,
+        state: "completed",
+        result: {
+          status: "submitted",
+          legs: [{ id: "leg_1", status: "submitted", transactionId: "0xhash" }],
+        },
+      },
+      tool(3, "turn-1", "evm_commit_txs", {
+        commits: [
+          {
+            commit_id: "completed-commit",
+            batch: { batch_id: "prepared-pair" },
+          },
+        ],
+      }),
+      event(4, "turn-1", { type: "turn_state_changed", state: "complete" }),
+      event(5, callback, { type: "turn_state_changed", state: "processing" }),
+      tool(6, callback, "evm_stage_tx", {
+        pending_tx_id: 2,
+        current_lifecycle: "queued",
+        chain_id: 8453,
+        label: "Approve USDC",
+        kind: "approval",
+      }),
+      tool(7, callback, "evm_stage_tx", {
+        pending_tx_id: 3,
+        current_lifecycle: "queued",
+        chain_id: 8453,
+        label: "Supply USDC",
+        kind: "supply",
+      }),
+    ];
+    runtime.events = events;
+    runtime.isRunning = true;
+    const { rerender } = render(<ActivitySidebar />);
+    const card = (label: string) =>
+      screen.getByTitle(label).closest('[data-testid="activity-transaction"]')!;
+    expect(
+      card("Completed transfer").querySelector("[data-active-phase]"),
+    ).toBeNull();
+    expect(
+      card("Approve USDC").querySelector('[title="Stage"] [data-active-phase]'),
+    ).not.toBeNull();
+    expect(
+      card("Supply USDC").querySelector('[title="Stage"] [data-active-phase]'),
+    ).not.toBeNull();
+    runtime.events = [
+      ...events,
+      tool(8, callback, "simulate_batch", {
+        resolved_ids: [2, 3],
+        simulation: { batch_success: true },
+      }),
+    ];
+    rerender(<ActivitySidebar />);
+    expect(
+      card("Approve USDC").querySelector(
+        '[title="Simulate"] [data-active-phase]',
+      ),
+    ).not.toBeNull();
+    expect(
+      card("Supply USDC").querySelector(
+        '[title="Simulate"] [data-active-phase]',
+      ),
+    ).not.toBeNull();
+    runtime.isRunning = false;
+    runtime.events = [
+      ...runtime.events,
+      event(9, callback, { type: "turn_state_changed", state: "complete" }),
+    ];
+    rerender(<ActivitySidebar />);
+    expect(
+      card("Approve USDC").querySelector("[data-active-phase]"),
+    ).not.toBeNull();
+    expect(
+      card("Supply USDC").querySelector("[data-active-phase]"),
+    ).not.toBeNull();
+
+    // A later explicit confirmation admits the same staged sources. Their
+    // origin remains the callback, but the new durable wallet request is live.
+    runtime.events = [
+      ...runtime.events,
+      event(10, "confirm-turn", {
+        type: "message",
+        sender: "user",
+        content: "Commit that prepared pair",
+      }),
+      event(11, "confirm-turn", {
+        type: "turn_state_changed",
+        state: "processing",
+      }),
+    ];
+    runtime.commits = [2, 3].map((id, index) => ({
+      commit_id: `new-commit-${id}`,
+      thread_id: "thread-1",
+      stage_id: `evm:${id}`,
+      chain_family: "evm",
+      chain_ref: "8453",
+      state: "needs_signature",
+      version: 1,
+      created_at: 1,
+      updated_at: 1,
+      metadata: {},
+      action: null,
+      review: null,
+      wallet_attempt: null,
+      batch: {
+        batch_id: "new-pair",
+        index,
+        ordered_commit_ids: ["new-commit-2", "new-commit-3"],
+        ordered_stage_ids: ["evm:2", "evm:3"],
+        sources: [
+          {
+            thread_id: "thread-1",
+            chain_family: "evm",
+            chain_ref: "8453",
+            stage_id: `evm:${id}`,
+            source_id: id,
+          },
+        ],
+        review_digest: "review",
+        predecessor_commit_id: index ? "new-commit-2" : null,
+      },
+    })) as unknown as CommitView[];
+    runtime.isRunning = true;
+    rerender(<ActivitySidebar />);
+    expect(
+      card("Approve USDC").querySelector(
+        '[title="Commit"] [data-active-phase]',
+      ),
+    ).not.toBeNull();
+    expect(
+      card("Supply USDC").querySelector('[title="Commit"] [data-active-phase]'),
+    ).not.toBeNull();
+    runtime.commitController = {
+      submissionPhase: () => "awaiting_wallet",
+    } as unknown as typeof runtime.commitController;
+    rerender(<ActivitySidebar />);
+    expect(
+      card("Approve USDC").querySelector(
+        '[title="Not yet signed"] [data-active-phase]',
+      ),
+    ).not.toBeNull();
+    expect(
+      card("Completed transfer").querySelector("[data-active-phase]"),
+    ).toBeNull();
+    runtime.commitController = undefined;
+    runtime.commits = runtime.commits.map((commit) => ({
+      ...commit,
+      state: "confirmed",
+    }));
+    runtime.isRunning = false;
+    rerender(<ActivitySidebar />);
+    expect(
+      card("Approve USDC").querySelector("[data-active-phase]"),
+    ).toBeNull();
+    expect(card("Supply USDC").querySelector("[data-active-phase]")).toBeNull();
+  });
+
   it("moves animation to signing, then stops for completed work", () => {
     const current = action({
       type: "execute_evm",
@@ -141,7 +344,7 @@ describe("active transaction presentation", () => {
         .querySelector("[data-active-phase]"),
     ).toBeNull();
   });
-  it("does not animate an older unresolved request when a new turn is working", () => {
+  it("keeps an unfinished request animated when a newer turn begins", () => {
     const current = action({
       type: "execute_evm",
       transactions: [
@@ -175,7 +378,52 @@ describe("active transaction presentation", () => {
       screen
         .getByTestId("activity-transaction")
         .querySelector("[data-active-phase]"),
-    ).toBeNull();
+    ).not.toBeNull();
+  });
+  it("stops animating staged work that never got a commit once a newer turn begins", () => {
+    const user = (sequence: number, turn: string) =>
+      ({
+        type: "message",
+        event_id: `user-${sequence}`,
+        sequence,
+        turn_id: turn,
+        occurred_at: sequence,
+        sender: "user",
+        content: "Request",
+      }) as Event;
+    const staged = {
+      type: "message",
+      event_id: "stage",
+      sequence: 2,
+      turn_id: "turn-1",
+      occurred_at: 2,
+      sender: "agent",
+      content: "",
+      tool_name: "evm_stage_tx",
+      tool_result: [
+        "evm_stage_tx",
+        JSON.stringify({
+          pending_tx_id: 1,
+          current_lifecycle: "queued",
+          chain_id: 8453,
+          label: "Old transfer",
+          kind: "transfer",
+        }),
+      ],
+    } as Event;
+    runtime.pendingActions = [];
+    runtime.commits = [];
+    runtime.commitController = undefined;
+    runtime.isRunning = false;
+    runtime.events = [user(1, "turn-1"), staged];
+    const { rerender } = render(<ActivitySidebar />);
+    const card = () => screen.getByTestId("activity-transaction");
+    expect(card().querySelector("[data-active-phase]")).not.toBeNull();
+    expect(card()).toHaveAttribute("data-pending", "true");
+    runtime.events = [user(1, "turn-1"), staged, user(3, "turn-2")];
+    rerender(<ActivitySidebar />);
+    expect(card().querySelector("[data-active-phase]")).toBeNull();
+    expect(card()).not.toHaveAttribute("data-pending");
   });
   it("uses Library skill display labels", () => {
     runtime.pendingActions = [];
@@ -198,7 +446,7 @@ describe("active transaction presentation", () => {
     expect(screen.getByText("Aave")).toBeInTheDocument();
     expect(screen.queryByText("aave")).not.toBeInTheDocument();
 
-    const toggle = screen.getByRole("button", { name: "Skills 1" });
+    const toggle = screen.getByRole("button", { name: "Skills" });
     const content = container.querySelector(
       '[data-activity-group-content="Skills"]',
     );
@@ -257,10 +505,7 @@ describe("active transaction presentation", () => {
         />
       </TraceAttributionContext.Provider>,
     );
-    for (const title of [
-      "App: Hoodit / Skill: Portfolio",
-      "Skill: Lifi Swap",
-    ]) {
+    for (const title of ["App: Hoodit / Skill: Portfolio", "Skill: LI.FI"]) {
       const badges = screen.getAllByTitle(title);
       expect(badges).toHaveLength(2);
       expect(badges[0].outerHTML).toBe(badges[1].outerHTML);
@@ -419,8 +664,11 @@ describe("unified live transaction review", () => {
       screen.queryByRole("button", { name: /^Transactions/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Wallet request: 1 transaction/),
+      screen.getByRole("heading", { name: "Transactions" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Wallet request: 1 transaction/),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(runtime.executeAction).toHaveBeenCalledWith("first"),
@@ -479,8 +727,11 @@ describe("unified live transaction review", () => {
     render(<ActivitySidebar />);
     expect(screen.queryByText("Past transactions")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Transactions 1" }),
+      screen.getByRole("button", { name: "Transactions" }),
     ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("heading", { name: "Transactions" }).nextElementSibling,
+    ).toHaveTextContent("1");
     expect(screen.getByText("Send past")).toBeInTheDocument();
     expect(screen.queryByTestId("transaction-review")).not.toBeInTheDocument();
   });
@@ -626,12 +877,46 @@ describe("unified live transaction review", () => {
     expect(labels()).toEqual(expected);
     expect(screen.getAllByTitle("Signed")).toHaveLength(3);
 
+    runtime.commits = runtime.commits.map((commit, index) =>
+      index === 0
+        ? {
+            ...commit,
+            continuation: {
+              version: 1 as const,
+              state: "assistant_recovery_required" as const,
+              attempts: 2,
+              reason_code: "effect_reconciliation_required" as const,
+            },
+          }
+        : commit,
+    );
+    view.rerender(<ActivitySidebar />);
+    expect(
+      screen.queryByText(
+        "Redeem all Morpho shares: Assistant response needs recovery",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTitle("Signed")).toHaveLength(3);
+
     runtime.commits = runtime.commits.map((commit, index) => ({
       ...commit,
       batch: commit.batch && { ...commit.batch, index: [2, 0, 1][index] },
     }));
     view.rerender(<ActivitySidebar />);
     expect(labels()).toEqual([expected[1], expected[2], expected[0]]);
+    runtime.commits = runtime.commits.map((commit) =>
+      commit.continuation
+        ? {
+            ...commit,
+            continuation: {
+              ...commit.continuation,
+              state: "completed" as const,
+            },
+          }
+        : commit,
+    );
+    view.rerender(<ActivitySidebar />);
+    expect(screen.queryByText(/Assistant response needs recovery/)).toBeNull();
   });
   it("expands the shared list and distinguishes pending from finalized without Review labels", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({
@@ -663,5 +948,100 @@ describe("unified live transaction review", () => {
       screen.getByRole("button", { name: "Show all 5 transactions" }),
     ).toHaveAttribute("aria-expanded", "false");
     expect(runtime.executeAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("phone-width activity sheet", () => {
+  beforeEach(() => {
+    runtime.events = [];
+    runtime.pendingActions = [];
+    runtime.commits = [];
+    runtime.actionAttempts.clear();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(max-width: 639px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("reviews a pending request in a bottom sheet with the desktop card and review", () => {
+    const current = action({
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x123",
+          to: "0x456",
+          data: "0x",
+          label: "Transfer",
+          kind: "transfer",
+        },
+      ],
+      simulation: simulation(),
+    });
+    runtime.pendingActions = [current];
+    runtime.events = [current];
+    render(<ActivitySidebar />);
+    const sheet = screen.getByRole("dialog", { name: "Review transaction" });
+    expect(sheet).toContainElement(screen.getByTestId("activity-transaction"));
+    expect(sheet).toContainElement(screen.getByTestId("transaction-review"));
+    expect(screen.getByTitle("Not yet signed")).toBeInTheDocument();
+    expect(screen.getByText("Simulation passed")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Skills" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("complementary", { name: "Chat activity" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("holds focus in the sheet and returns it to the opener on close", () => {
+    const current = action({
+      type: "execute_evm",
+      transactions: [
+        {
+          chain_id: 8453,
+          from: "0x123",
+          to: "0x456",
+          data: "0x",
+          label: "Transfer",
+          kind: "transfer",
+        },
+      ],
+      simulation: simulation(),
+    });
+    runtime.pendingActions = [current];
+    runtime.events = [current];
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const { unmount } = render(
+      <div>
+        <button type="button">Chat control</button>
+        <ActivitySidebar />
+      </div>,
+    );
+    const sheet = screen.getByRole("dialog", { name: "Review transaction" });
+    expect(sheet).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Chat control" }).inert).toBe(
+      true,
+    );
+
+    const close = screen.getByRole("button", { name: "Close" });
+    close.focus();
+    fireEvent.keyDown(sheet, { key: "Tab", shiftKey: true });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
   });
 });

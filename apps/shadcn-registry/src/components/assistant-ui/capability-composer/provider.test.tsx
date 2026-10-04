@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CapabilityMentionInput } from "./input";
 import { CapabilityComposerProvider, useCapabilityComposer } from "./provider";
 import type { PickerItem } from "./model";
+import type { DirectRoutingApp } from "../routing";
+import { AppIndicator } from "../../control-bar/app-indicator";
 
 const fixture = vi.hoisted(() => ({
   text: "",
@@ -20,6 +22,10 @@ const fixture = vi.hoisted(() => ({
   threadId: "thread-a",
   onSend: () => {},
   mode: "auto" as "auto" | "direct",
+  defaultMode: "auto" as "auto" | "direct",
+  directApps: [{ app: "default" }] as DirectRoutingApp[],
+  currentApp: { app: "default" } as DirectRoutingApp,
+  appTag: undefined as undefined | { app: string; applicationId?: number },
   sent: [] as unknown[],
   getAuthorizedApps: vi.fn(async () => []),
   onAgentModeSelect: vi.fn(),
@@ -35,11 +41,20 @@ vi.mock("@assistant-ui/react", () => ({
 }));
 vi.mock("@aomi-labs/react", () => ({
   useControl: () => fixture,
+  useAuthEndpoints: () => ({
+    state: {
+      appDescriptors: [
+        { name: "default", label: "Basic" },
+        { name: "aave", applicationId: 42, metadata: { source: "builtin" } },
+        { name: "research", applicationId: 43, label: "Research App" },
+      ],
+    },
+  }),
   useThreadContext: () => ({
     currentThreadId: fixture.threadId,
     threadViewKey: fixture.threadId,
     getThreadMetadata: () => ({
-      control: { agentMode: fixture.mode, app: "default" },
+      control: { agentMode: fixture.mode, ...fixture.currentApp },
     }),
   }),
 }));
@@ -62,6 +77,7 @@ function Composer() {
   const composer = useCapabilityComposer();
   return (
     <>
+      <AppIndicator app={composer.selectedApp ?? undefined} />
       <button
         onClick={() =>
           composer.addMention({
@@ -131,9 +147,11 @@ function Harness() {
       routing={{
         targets: [
           { mode: "auto" },
-          { mode: "direct", apps: [{ app: "default" }] },
+          { mode: "direct", apps: fixture.directApps },
         ],
+        defaultMode: fixture.defaultMode,
       }}
+      initialAppTag={fixture.appTag}
     >
       <Composer />
       <CapabilityMentionInput
@@ -151,7 +169,13 @@ beforeEach(() => {
   localStorage.clear();
   fixture.threadId = "thread-a";
   fixture.mode = "auto";
+  fixture.defaultMode = "auto";
+  fixture.directApps = [{ app: "default" }];
+  fixture.currentApp = { app: "default" };
+  fixture.appTag = undefined;
   fixture.sent = [];
+  fixture.onAgentModeSelect.mockClear();
+  fixture.onAgentTargetSelect.mockClear();
 });
 afterEach(cleanup);
 
@@ -178,7 +202,7 @@ describe("capability configuration before send", () => {
       ]);
     },
   );
-  it("removes hints when selection is empty or mode becomes Direct", async () => {
+  it("removes hints when selection is empty or the host routes Direct", async () => {
     const view = render(<Harness />);
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Base"));
@@ -192,13 +216,34 @@ describe("capability configuration before send", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("Choose Base"));
     });
-    fixture.mode = "direct";
+    fixture.defaultMode = "direct";
     await act(async () => {
       view.rerender(<Harness />);
     });
     expect(fixture.runConfig).toEqual({
       custom: { preserved: "host setting" },
     });
+  });
+});
+
+describe("host-owned routing", () => {
+  it("returns a chat with a stored Direct mode to the host's Auto default", async () => {
+    fixture.mode = "direct";
+    render(<Harness />);
+    await act(async () => {});
+    expect(fixture.onAgentModeSelect).toHaveBeenCalledWith("auto", {
+      persist: false,
+    });
+  });
+
+  it("pins the host's Direct app silently", async () => {
+    fixture.defaultMode = "direct";
+    render(<Harness />);
+    await act(async () => {});
+    expect(fixture.onAgentTargetSelect).toHaveBeenCalledWith(
+      { mode: "direct", app: "default" },
+      { persist: false },
+    );
   });
 });
 
@@ -347,4 +392,91 @@ it("mounts the picker outside the composer overflow boundary", async () => {
     name: "Apps, skills, and chains",
   });
   expect(listbox.closest(".overflow-x-hidden")).toBeNull();
+});
+
+it("pre-tags a host-requested app once, like a + picker choice", async () => {
+  fixture.items = [
+    {
+      kind: "app",
+      id: "application:2937773",
+      key: "app:application:2937773",
+      label: "Cambrian",
+      appName: "cambrian",
+      applicationId: 2937773,
+      searchText: "Cambrian",
+      Icon: () => <span aria-hidden="true" />,
+    },
+  ];
+  fixture.appTag = { app: "cambrian" };
+  const view = render(<Harness />);
+  await act(async () => {});
+
+  const editor = screen.getByRole("textbox", { name: "Message input" });
+  expect(editor.querySelectorAll("[data-capability-key]")).toHaveLength(1);
+  expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
+  expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
+    capabilities: [{ kind: "app", id: "application:2937773" }],
+  });
+
+  await act(async () => {
+    view.rerender(<Harness />);
+  });
+  expect(editor.querySelectorAll("[data-capability-key]")).toHaveLength(1);
+});
+
+describe("selected app context", () => {
+  it("hides allowed Direct apps under Auto, even with a stored Direct target", () => {
+    fixture.mode = "direct";
+    fixture.currentApp = { applicationId: 42 };
+    fixture.directApps = [{ app: "default" }, { applicationId: 42 }];
+    render(<Harness />);
+    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  });
+
+  it("shows the active Direct app rather than the first allowed app", () => {
+    fixture.mode = "direct";
+    fixture.defaultMode = "direct";
+    fixture.currentApp = { applicationId: 42 };
+    fixture.directApps = [{ app: "default" }, { applicationId: 42 }];
+    render(<Harness />);
+    const indicator = screen.getByLabelText("Selected app: Aave");
+    expect(indicator).toHaveTextContent(/^Aave$/);
+    expect(indicator.querySelector("svg")).not.toHaveClass("lucide-app-window");
+    expect(fixture.onAgentTargetSelect).not.toHaveBeenCalled();
+  });
+
+  it("updates the configured Direct app and clears it on an Auto transition", () => {
+    fixture.defaultMode = "direct";
+    fixture.directApps = [{ applicationId: 42 }];
+    const view = render(<Harness />);
+    expect(screen.getByLabelText("Selected app: Aave")).toBeVisible();
+    fixture.directApps = [{ applicationId: 43 }];
+    view.rerender(<Harness />);
+    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
+    expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
+    fixture.defaultMode = "auto";
+    view.rerender(<Harness />);
+    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  });
+
+  it("preserves an explicit Portal tag in Auto and follows host tag changes", () => {
+    fixture.appTag = { app: "aave", applicationId: 42 };
+    const view = render(<Harness />);
+    expect(screen.getByLabelText("Selected app: Aave")).toBeVisible();
+    fixture.appTag = { app: "research", applicationId: 43 };
+    view.rerender(<Harness />);
+    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
+    expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
+    fixture.appTag = undefined;
+    view.rerender(<Harness />);
+    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  });
+
+  it("gives the explicit host tag precedence over a Direct target", () => {
+    fixture.defaultMode = "direct";
+    fixture.appTag = { app: "research", applicationId: 43 };
+    render(<Harness />);
+    expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
+    expect(screen.queryByLabelText("Selected app: Basic")).toBeNull();
+  });
 });
