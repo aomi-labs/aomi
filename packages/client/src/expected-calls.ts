@@ -232,8 +232,19 @@ export class ExpectedCalls {
           actual: call.to,
           message: `Call ${index} targets ${call.to}, expected ${expected.to}`,
         });
-      const expectedValue = BigInt(expected.value ?? 0);
-      if (value !== null && value !== expectedValue)
+      let expectedValue: bigint | null;
+      try {
+        expectedValue = BigInt(expected.value ?? 0);
+      } catch {
+        expectedValue = null;
+        mismatches.push({
+          call: index,
+          field: "value",
+          expected: expected.value,
+          message: `Call ${index} expected value ${ExpectedCalls.format(expected.value)} is not a valid wei amount`,
+        });
+      }
+      if (value !== null && expectedValue !== null && value !== expectedValue)
         mismatches.push({
           call: index,
           field: "value",

@@ -143,9 +143,11 @@ try {
         expectedVersion: view.version,
         expectedReviewDigest: view.review?.digest,
       });
+      if (isTerminalCommit(next) && next.state !== "confirmed") failed = true;
       if (next.version <= view.version) break;
       view = next;
     }
+    if (isTerminalCommit(view) && view.state !== "confirmed") failed = true;
     console.log(
       `  state: ${view.state}${view.transaction_id ? ` · tx ${view.transaction_url ?? view.transaction_id}` : ""}`,
     );

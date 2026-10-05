@@ -316,6 +316,22 @@ describe("ExpectedCalls", () => {
     ).toBe(true);
   });
 
+  it("reports an invalid expected value through the verification contract", () => {
+    const invalid = new ExpectedCalls({
+      to: ANCHOR,
+      abi: anchorAbi,
+      functionName: "registerRoot",
+      args: [ROOT],
+      value: "not-wei",
+    });
+    const request = evmRequest([{ to: ANCHOR, data: registerRoot() }]);
+
+    expect(invalid.verify(request).mismatches).toEqual([
+      expect.objectContaining({ field: "value", expected: "not-wei" }),
+    ]);
+    expect(() => invalid.assert(request)).toThrow(CallVerificationError);
+  });
+
   it("checks the chain when one is expected", () => {
     expect(
       expectRoot.verify(
