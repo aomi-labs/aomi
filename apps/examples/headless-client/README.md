@@ -109,6 +109,10 @@ non-exportable DPoP keys and intentionally remains memory-only.
   script checks the request with `ExpectedCalls` (contract, function, root,
   zero value, passed simulation), rejects any mismatch, and only then signs
   with a local Viem key. See [Custom contract calls](#custom-contract-calls).
+- [`../web-sign`](../web-sign) is the browser version of the wallet terminal: a
+  Vite + React page that connects the visitor's injected wallet, streams Agent
+  replies, reviews and verifies each transaction, and signs with viem. Run it
+  with `pnpm example:web-sign`.
 - [`src/auth/siws-disposable.ts`](./src/auth/siws-disposable.ts) generates an
   unfunded, in-memory Solana keypair, completes the public SIWS challenge, and
   reads the Agent session list. Run `pnpm example:auth:siws:disposable`; it
