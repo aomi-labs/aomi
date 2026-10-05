@@ -56,10 +56,12 @@ function PortalComposer({
   enabledApps,
   lockedTarget,
   appTag,
+  sendDisabled,
 }: {
   enabledApps: readonly string[];
   lockedTarget?: DirectRoutingApp;
   appTag?: { app: string; applicationId?: number };
+  sendDisabled: boolean;
 }) {
   const routing = useMemo<AomiRoutingConfig>(
     () =>
@@ -74,6 +76,7 @@ function PortalComposer({
   return (
     <AomiFrame.Composer
       withControl
+      sendDisabled={sendDisabled}
       controlBarProps={{
         hideApiKey: true,
         routing,
@@ -418,11 +421,7 @@ export function PortalAomiFrame() {
       data-testid="portal-shell"
       className="bg-background relative h-full w-full overflow-hidden"
     >
-      <div
-        data-testid="portal-frame-content"
-        inert={restoringSession}
-        className="h-full w-full"
-      >
+      <div data-testid="portal-frame-content" className="h-full w-full">
         <AomiFrame.Root
           key={`principal-v3:${accountFrameScope.revision}`}
           width="100%"
@@ -462,6 +461,9 @@ export function PortalAomiFrame() {
             enabledApps={enabledApps}
             lockedTarget={lockedTarget}
             appTag={appTag}
+            // Until the account session resolves, only sending waits: the
+            // turn must run as the restored principal.
+            sendDisabled={restoringSession}
           />
           <SvmWalletBindingGate />
           {/* Inside the frame so they see the Aomi runtime (the settings

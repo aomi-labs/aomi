@@ -222,19 +222,14 @@ test("guest response settles once and the same conversation survives refresh", a
   await expect(portalShell).toBeVisible();
   const protectedContent = page.getByTestId("portal-frame-content");
   await expect(portalShell).toHaveAttribute("aria-busy", "true");
-  await expect(protectedContent).toHaveAttribute("inert", "");
-  // The protected composer cannot accept a draft while session authority is unresolved.
-  const heldInput = protectedContent
-    .locator('[role="textbox"][aria-label="Message input"]')
-    .first();
-  await heldInput.click({ force: true });
-  await page.keyboard.type("must not become a draft");
-  await expect(heldInput).toHaveText("");
+  // Controls stay usable while session authority is unresolved; only Send waits.
+  await expect(
+    protectedContent.getByRole("button", { name: "Send message" }),
+  ).toBeDisabled();
   expect(starts).toBe(0);
   expect(lists).toBe(0);
   holdSession = false;
   releaseSession();
-  await expect(protectedContent).not.toHaveAttribute("inert");
   await expect(portalShell).toHaveAttribute("aria-busy", "false");
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");

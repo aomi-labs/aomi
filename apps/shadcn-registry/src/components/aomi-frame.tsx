@@ -43,6 +43,7 @@ type ComposerControlContextValue = {
   enabled: boolean;
   controlBarProps?: Omit<ControlBarProps, "children">;
   welcomeTitle?: string;
+  sendDisabled?: boolean;
 };
 
 const ComposerControlContext = createContext<ComposerControlContextValue>({
@@ -117,6 +118,9 @@ type ComposerProps = {
   controlBarProps?: Omit<ControlBarProps, "children">;
   /** Optional empty-state title shown beneath the Aomi mark. */
   welcomeTitle?: string;
+  /** Hold sending (e.g. while the host restores the account session); the
+   * rest of the composer stays usable. */
+  sendDisabled?: boolean;
   className?: string;
 };
 
@@ -255,13 +259,19 @@ const Composer: FC<ComposerProps> = ({
   withControl = false,
   controlBarProps,
   welcomeTitle,
+  sendDisabled = false,
   className,
 }) => {
   const { currentThreadId } = useAomiRuntime();
 
   return (
     <ComposerControlContext.Provider
-      value={{ enabled: withControl, controlBarProps, welcomeTitle }}
+      value={{
+        enabled: withControl,
+        controlBarProps,
+        welcomeTitle,
+        sendDisabled,
+      }}
     >
       <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>
         <Thread key={currentThreadId} />

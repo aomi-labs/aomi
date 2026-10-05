@@ -113,10 +113,13 @@ vi.mock("@aomi-labs/widget-lib", async () => {
       ),
       Composer: ({
         controlBarProps,
+        sendDisabled,
       }: {
         controlBarProps?: { routing?: unknown; initialAppTag?: unknown };
+        sendDisabled?: boolean;
       }) => (
         <div
+          data-send-disabled={String(Boolean(sendDisabled))}
           data-routing={JSON.stringify(controlBarProps?.routing)}
           data-app-tag={JSON.stringify(controlBarProps?.initialAppTag ?? null)}
           data-testid="composer"
@@ -179,11 +182,14 @@ describe("PortalAomiFrame account bootstrap", () => {
     settingsOpenRequest.current = undefined;
   });
 
-  it("keeps the same inert frame mounted through initial account restoration", async () => {
+  it("keeps the same frame mounted, holding send, through initial account restoration", async () => {
     const view = render(<PortalAomiFrame />);
 
     const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
-    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
     expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
 
     walletKitState.current = {
@@ -264,7 +270,10 @@ describe("PortalAomiFrame account bootstrap", () => {
     render(<PortalAomiFrame />);
 
     expect(screen.getByTestId("portal-shell")).toBeVisible();
-    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "true",
@@ -278,7 +287,10 @@ describe("PortalAomiFrame account bootstrap", () => {
       Response.json({ user: { id: "guest-1", isAnonymous: true } }),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("aomi-frame").closest("[inert]")).toBeNull(),
+      expect(screen.getByTestId("composer")).toHaveAttribute(
+        "data-send-disabled",
+        "false",
+      ),
     );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
@@ -303,13 +315,19 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
 
     render(<PortalAomiFrame />);
-    expect(screen.getByTestId("aomi-frame").closest("[inert]")).not.toBeNull();
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
     });
 
-    expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "false",
+    );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "false",

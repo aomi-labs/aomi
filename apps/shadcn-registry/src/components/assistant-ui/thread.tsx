@@ -205,6 +205,7 @@ const ThreadWelcome: FC = () => {
 
 const ThreadSuggestions: FC = () => {
   const composerRuntime = useComposerRuntime();
+  const { sendDisabled } = useComposerControl();
   const safety = useThreadSafety();
   const suggestionRows = [
     {
@@ -307,6 +308,7 @@ const ThreadSuggestions: FC = () => {
                     send
                     asChild
                     onClick={(event) => {
+                      if (sendDisabled) return event.preventDefault();
                       // A held safety level must be saved before turn one.
                       if (!safety?.hasHeld()) return;
                       event.preventDefault();
@@ -344,9 +346,11 @@ const ThreadSuggestions: FC = () => {
  */
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const { prepareSubmit } = useCapabilityComposer();
+  const { sendDisabled } = useComposerControl();
   const safety = useThreadSafety();
   const committing = useRef(false);
   const submit = (event: FormEvent<HTMLFormElement>) => {
+    if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
     if (event.defaultPrevented || !safety?.hasHeld()) return;
     // Save a new chat's held safety level first so turn one runs under it.
@@ -468,7 +472,11 @@ const ComposerAction: FC = () => {
               size="icon"
               className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
-              disabled={Boolean(hostError) || committingSafety}
+              disabled={
+                Boolean(hostError) ||
+                committingSafety ||
+                Boolean(composerControl.sendDisabled)
+              }
               title={hostError ?? undefined}
             >
               <ArrowUpIcon className="aui-composer-send-icon size-4" />
