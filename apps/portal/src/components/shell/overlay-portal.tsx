@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useOptionalSidebar } from "@aomi-labs/widget-lib";
 
 /**
  * Renders full-page overlays (settings, packages) at `<body>` while keeping
@@ -17,6 +18,14 @@ import { createPortal } from "react-dom";
  */
 export function OverlayPortal({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const sidebar = useOptionalSidebar();
+  const closeMobileSidebar = sidebar?.openMobile
+    ? sidebar.setOpenMobile
+    : undefined;
+
+  // The mobile sidebar is a modal sheet: while open it blocks pointer events
+  // outside itself, which would include this overlay. Close it on open.
+  useEffect(() => closeMobileSidebar?.(false), [closeMobileSidebar]);
 
   // document.body only exists after mount; SSR renders nothing.
   useEffect(() => setHost(document.body), []);

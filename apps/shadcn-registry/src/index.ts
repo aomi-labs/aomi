@@ -53,6 +53,7 @@ export {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useOptionalSidebar,
 } from "./components/ui/sidebar";
 
 // Re-export types and utilities from @aomi-labs/react
