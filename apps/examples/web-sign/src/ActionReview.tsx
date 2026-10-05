@@ -35,20 +35,30 @@ export function ActionReview({
   const [error, setError] = useState<string>();
   const request = action.request;
 
-  const decide = (approve: boolean) => {
+  const decide = async (approve: boolean) => {
+    if (approve) {
+      const current = session.actions.get(action.id);
+      if (!current || current.revision !== action.revision) {
+        setError(
+          "This request changed. Review the updated transaction before signing.",
+        );
+        return;
+      }
+    }
     setBusy(true);
     setError(undefined);
     // execute(): the SDK calls our wallet adapter (one wallet prompt per
     // call), then reports the transaction hashes back to the agent.
     // reject(): the agent is told the user declined, and the turn continues.
-    const decision = approve
-      ? session.actions.execute(action.id)
-      : session.actions.reject(action.id, "Rejected by the user");
-    decision
-      .catch((reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : String(reason)),
-      )
-      .finally(() => setBusy(false));
+    try {
+      await (approve
+        ? session.actions.execute(action.id)
+        : session.actions.reject(action.id, "Rejected by the user"));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (action.state !== "pending") {
@@ -81,7 +91,11 @@ export function ActionReview({
           This example only signs EVM transactions. Reject it to let the agent
           continue.
         </p>
-        <button type="button" disabled={busy} onClick={() => decide(false)}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void decide(false)}
+        >
           Reject
         </button>
         {error && <p className="error">{error}</p>}
@@ -206,11 +220,15 @@ export function ActionReview({
         <button
           type="button"
           disabled={busy || !verified}
-          onClick={() => decide(true)}
+          onClick={() => void decide(true)}
         >
           {busy ? "Waiting for wallet…" : "Approve & sign"}
         </button>
-        <button type="button" disabled={busy} onClick={() => decide(false)}>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void decide(false)}
+        >
           Reject
         </button>
       </div>
