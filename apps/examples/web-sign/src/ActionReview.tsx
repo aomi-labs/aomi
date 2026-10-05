@@ -1,4 +1,4 @@
-import type { Action, Session } from "@aomi-labs/client";
+import type { Action, ActionRequest, Session } from "@aomi-labs/client";
 import { useState } from "react";
 import {
   decodeFunctionData,
@@ -18,6 +18,19 @@ export interface ActionReviewProps {
   allowedTargets: readonly string[];
   /** Used to decode calldata into a function name and arguments. */
   abi: Abi;
+}
+
+export interface EvmReviewProps {
+  request: Extract<ActionRequest, { type: "execute_evm" }>;
+  wallet: InjectedWallet;
+  allowedTargets: readonly string[];
+  abi: Abi;
+  canExecute: boolean;
+  busy: boolean;
+  error?: string;
+  title?: string;
+  onApprove: () => void;
+  onReject: () => void;
 }
 
 /**
@@ -103,6 +116,33 @@ export function ActionReview({
     );
   }
 
+  return (
+    <EvmReview
+      request={request}
+      wallet={wallet}
+      allowedTargets={allowedTargets}
+      abi={abi}
+      canExecute={session.actions.canExecute(action.id)}
+      busy={busy}
+      error={error}
+      onApprove={() => void decide(true)}
+      onReject={() => void decide(false)}
+    />
+  );
+}
+
+export function EvmReview({
+  request,
+  wallet,
+  allowedTargets,
+  abi,
+  canExecute,
+  busy,
+  error,
+  title = "Review transaction",
+  onApprove,
+  onReject,
+}: EvmReviewProps) {
   const { transactions, simulation } = request;
   // Verify before sign. These run in the browser against the exact request
   // the wallet will be asked to sign; the server runs its own checks too.
@@ -128,7 +168,7 @@ export function ActionReview({
         ]
       : []),
     {
-      ok: session.actions.canExecute(action.id),
+      ok: canExecute,
       label: "Wallet can execute this request",
     },
   ];
@@ -136,7 +176,7 @@ export function ActionReview({
 
   return (
     <article className="review">
-      <h3>Review transaction</h3>
+      <h3>{title}</h3>
 
       <ol className="calls">
         {transactions.map((tx, index) => {
@@ -217,18 +257,10 @@ export function ActionReview({
       </ul>
 
       <div className="buttons">
-        <button
-          type="button"
-          disabled={busy || !verified}
-          onClick={() => void decide(true)}
-        >
+        <button type="button" disabled={busy || !verified} onClick={onApprove}>
           {busy ? "Waiting for wallet…" : "Approve & sign"}
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void decide(false)}
-        >
+        <button type="button" disabled={busy} onClick={onReject}>
           Reject
         </button>
       </div>

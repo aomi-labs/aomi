@@ -3,6 +3,7 @@ import { useState, useSyncExternalStore, type FormEvent } from "react";
 import type { Abi } from "viem";
 
 import { ActionReview } from "./ActionReview";
+import { CommitReview } from "./CommitReview";
 import type { InjectedWallet } from "./injected-wallet";
 
 export interface ChatProps {
@@ -21,10 +22,13 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
 
   // Durable messages, then the in-progress (streaming) reply for this turn.
   const committedKeys = new Set(snapshot.messages.map((m) => m.message_key));
+  const committedTurns = new Set(snapshot.messages.map((m) => m.turn_id));
   const transcript = [
     ...snapshot.messages,
     ...(snapshot.liveMessages ?? []).filter(
-      (live) => !committedKeys.has(live.message_key),
+      (live) =>
+        !committedKeys.has(live.message_key) &&
+        !committedTurns.has(live.turn_id),
     ),
   ].filter(
     (message) =>
@@ -75,6 +79,17 @@ export function Chat({ session, wallet, allowedTargets, abi }: ChatProps) {
           key={`${action.id}:${action.revision}`}
           session={session}
           action={action}
+          wallet={wallet}
+          allowedTargets={allowedTargets}
+          abi={abi}
+        />
+      ))}
+
+      {snapshot.commits.map((commit) => (
+        <CommitReview
+          key={commit.commit_id}
+          session={session}
+          commit={commit}
           wallet={wallet}
           allowedTargets={allowedTargets}
           abi={abi}

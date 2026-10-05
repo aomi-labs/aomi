@@ -3,7 +3,8 @@
 One worked example of turning a Node `@aomi-labs/client` prototype into a web
 page anyone can use. The page:
 
-1. connects the visitor's injected EVM wallet (`window.ethereum`) through viem;
+1. discovers the visitor's injected EVM wallets through EIP-6963 and connects
+   the one they choose through viem;
 2. opens an Aomi Agent session from the browser, with no backend of your own;
 3. sends prompts and streams the agent's replies;
 4. renders each `execute_evm` Action as a readable review: target, value,
@@ -28,7 +29,7 @@ cp apps/examples/web-sign/.env.example apps/examples/web-sign/.env.local
 pnpm example:web-sign            # http://localhost:5174
 ```
 
-Click **Connect wallet**, then ask for something that needs a transaction. For
+Choose **Connect MetaMask** (or another discovered wallet), then ask for something that needs a transaction. For
 example: "Send 0.0001 ETH to vitalik.eth on Base". Use a throwaway wallet with
 small balances while you experiment.
 

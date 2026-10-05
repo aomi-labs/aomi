@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { erc20Abi } from "viem";
 
 import { Chat } from "./Chat";
-import { InjectedWallet } from "./injected-wallet";
+import { InjectedWallet, type InjectedProvider } from "./injected-wallet";
 
 const env = import.meta.env;
 const baseUrl = env.VITE_AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
@@ -57,10 +57,25 @@ class LocalCommitRecovery implements CommitRecoveryStore {
 }
 
 export function App() {
+  const [providers, setProviders] = useState<InjectedProvider[]>([]);
+  const [findingProviders, setFindingProviders] = useState(true);
   const [wallet, setWallet] = useState<InjectedWallet>();
   const [session, setSession] = useState<Session>();
   const [error, setError] = useState<string>();
   const [, setChainId] = useState<number>();
+
+  useEffect(() => {
+    void InjectedWallet.providers().then(
+      (found) => {
+        setProviders(found);
+        setFindingProviders(false);
+      },
+      (reason: unknown) => {
+        setFindingProviders(false);
+        setError(reason instanceof Error ? reason.message : String(reason));
+      },
+    );
+  }, []);
 
   // One Agent session per connected account. The SDK's Session streams the
   // conversation and owns every Action; it is the same primitive that
@@ -105,20 +120,36 @@ export function App() {
               Disconnect
             </button>
           </p>
+        ) : findingProviders ? (
+          <p className="muted">Finding browser wallets…</p>
+        ) : providers.length ? (
+          <div className="buttons">
+            {providers.map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => {
+                  setError(undefined);
+                  InjectedWallet.connect(provider.provider).then(
+                    setWallet,
+                    (reason: unknown) =>
+                      setError(
+                        reason instanceof Error
+                          ? reason.message
+                          : String(reason),
+                      ),
+                  );
+                }}
+              >
+                Connect {provider.name}
+              </button>
+            ))}
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setError(undefined);
-              InjectedWallet.connect().then(setWallet, (reason: unknown) =>
-                setError(
-                  reason instanceof Error ? reason.message : String(reason),
-                ),
-              );
-            }}
-          >
-            Connect wallet
-          </button>
+          <p className="error">
+            No injected wallet found. Install MetaMask, Rabby, or another
+            EIP-1193 wallet.
+          </p>
         )}
         {error && <p className="error">{error}</p>}
       </header>

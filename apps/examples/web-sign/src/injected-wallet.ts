@@ -9,6 +9,17 @@ import {
   type WalletClient,
 } from "viem";
 
+export interface InjectedProvider {
+  id: string;
+  name: string;
+  provider: EIP1193Provider;
+}
+
+interface Eip6963ProviderDetail {
+  info: { name: string; rdns: string; uuid: string };
+  provider: EIP1193Provider;
+}
+
 /**
  * The user's own browser wallet (window.ethereum), driven through viem.
  *
@@ -23,9 +34,35 @@ export class InjectedWallet {
     private currentChainId: number,
   ) {}
 
-  /** Prompt the injected wallet for an account. */
-  static async connect(): Promise<InjectedWallet> {
-    const provider = window.ethereum;
+  /** Discover each injected wallet without relying on an ambiguous global. */
+  static async providers(): Promise<InjectedProvider[]> {
+    const providers = new Map<string, InjectedProvider>();
+    const announce = (event: Event) => {
+      const { info, provider } = (event as CustomEvent<Eip6963ProviderDetail>)
+        .detail;
+      providers.set(info.uuid, {
+        id: info.uuid,
+        name: info.name,
+        provider,
+      });
+    };
+    window.addEventListener("eip6963:announceProvider", announce);
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    window.removeEventListener("eip6963:announceProvider", announce);
+
+    if (!providers.size && window.ethereum) {
+      providers.set("legacy", {
+        id: "legacy",
+        name: "Browser wallet",
+        provider: window.ethereum,
+      });
+    }
+    return [...providers.values()];
+  }
+
+  /** Prompt one explicitly selected injected wallet for an account. */
+  static async connect(provider: EIP1193Provider): Promise<InjectedWallet> {
     if (!provider) {
       throw new Error(
         "No injected wallet found. Install MetaMask, Rabby, or another EIP-1193 wallet.",
