@@ -31,3 +31,16 @@ export function LoadingPane({
     </div>
   );
 }
+
+/** A pulsing bar standing in for a short line of text until it loads. */
+export function LoadingLine({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "bg-aomi-surface-2 inline-block h-3 w-16 animate-pulse rounded-sm align-middle",
+        className,
+      )}
+    />
+  );
+}

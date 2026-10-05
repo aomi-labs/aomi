@@ -31,7 +31,8 @@ export function usePortalWalletAccountMenu(
   } = {},
 ): WalletAccountMenuOptions | undefined {
   const { account: runtimeAccount } = useAomiRuntime();
-  const [credits, setCredits] = useState<CreditAllowance | null>(null);
+  // undefined while loading; null when unavailable.
+  const [credits, setCredits] = useState<CreditAllowance | null>();
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();
   const adapter = useAomiWalletKit();
@@ -48,6 +49,7 @@ export function usePortalWalletAccountMenu(
       return;
     }
     let mounted = true;
+    setCredits(undefined);
     void runtimeAccount.credits
       .get({ limit: 1 })
       .then((position) => {
@@ -74,7 +76,7 @@ export function usePortalWalletAccountMenu(
         ? formatAllowanceSummary(credits.used, credits.included)
         : credits
           ? `${Math.max(0, credits.included - credits.used).toLocaleString()} credits left`
-          : "Loading allowance…";
+          : undefined;
 
     const isDark =
       settings.colorMode === "dark" ||
@@ -86,6 +88,7 @@ export function usePortalWalletAccountMenu(
       enabled: true,
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
+      secondaryLoading: credits === undefined,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
       themeLabel: isDark ? "Dark" : "Light",

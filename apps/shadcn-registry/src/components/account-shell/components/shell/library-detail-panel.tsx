@@ -19,7 +19,7 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+import { LoadingLine, LoadingPane } from "../../../ui/aomi/loading-pane";
 import { cn } from "@aomi-labs/react";
 import { getChainIcon, getSkillIcon } from "../../../icons";
 import { AomiButton } from "../../../ui/aomi/button";
@@ -270,11 +270,13 @@ function AppSecretSetup({
             </p>
             {accountUserId ? (
               <p className="type-meta text-aomi-muted mt-0.5">
-                {loading
-                  ? "Checking setup…"
-                  : ready
-                    ? "Ready to use"
-                    : "Setup required"}
+                {loading ? (
+                  <LoadingLine className="w-20" />
+                ) : ready ? (
+                  "Ready to use"
+                ) : (
+                  "Setup required"
+                )}
               </p>
             ) : (
               <p className="type-meta text-aomi-danger mt-0.5">

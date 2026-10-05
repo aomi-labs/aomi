@@ -10,6 +10,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "../../../../ui/aomi/button";
+import { LoadingLine } from "../../../../ui/aomi/loading-pane";
 import { StatusPill } from "../../../../ui/aomi/status-pill";
 import {
   Popover,
@@ -265,7 +266,11 @@ function AddressLine({
           nested && "pb-2.5",
         )}
       >
-        {status ? (
+        {status?.loading ? (
+          <span role="status" aria-label={status.label}>
+            <LoadingLine className="h-5 w-16 rounded-full" />
+          </span>
+        ) : status ? (
           <StatusPill tone={status.tone}>{status.label}</StatusPill>
         ) : null}
         {status?.action && inlineHandler ? (

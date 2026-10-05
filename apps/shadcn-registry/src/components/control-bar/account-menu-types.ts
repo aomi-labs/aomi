@@ -6,6 +6,8 @@ export type WalletAccountMenuOptions = {
   primaryLine?: string;
   /** Second line on the chip (e.g. monthly allowance). Omit to show network detail. */
   secondaryLine?: string;
+  /** The second line is still loading: show a placeholder in its place. */
+  secondaryLoading?: boolean;
   /**
    * Full-length problem description. The chip only has room for one truncated
    * line, so anything longer than a few words belongs here — the menu renders

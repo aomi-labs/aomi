@@ -79,6 +79,8 @@ export type AddressLineStatus = {
   tone: StatusTone;
   /** The one fix offered inline; both map to existing row handlers. */
   action?: { kind: "link" | "connect"; label: string };
+  /** Still being checked: shown as a placeholder pill, not text. */
+  loading?: boolean;
 };
 
 /**
@@ -116,7 +118,7 @@ function stateStatus(
           : {}),
       };
     case "loading":
-      return { label: "Checking…", tone: "neutral" };
+      return { label: "Checking", tone: "neutral", loading: true };
     case "mismatch":
       return {
         label: "Address changed",

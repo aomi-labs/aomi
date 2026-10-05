@@ -1061,12 +1061,12 @@ function FinishSignInPanel({
             }
             className="bg-aomi-fg text-aomi-bg flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[12px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? (
+            {busy || !linkAction ? (
               <Loader2Icon className="size-4 animate-spin" />
             ) : (
               <LinkIcon className="size-4" />
             )}
-            {linkAction ? "Link wallet and sign in" : "Preparing sign-in…"}
+            Link wallet and sign in
           </button>
           <p className="text-aomi-muted mt-2 px-1 text-[10px] leading-snug">
             You’ll sign a message to prove this wallet is yours. No transaction

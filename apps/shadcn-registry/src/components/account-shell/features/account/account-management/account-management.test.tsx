@@ -443,7 +443,9 @@ describe("unified account wallets", () => {
     expectLine(expired, "Session expired", "warning", "Sign in again");
     expectLine(changed, "Address changed", "danger", "Re-verify");
     expectLine(unloaded, "Para not loaded", "neutral");
-    expectLine(checking, "Checking…", "neutral");
+    expect(
+      within(lineFor(checking)).getByRole("status", { name: "Checking" }),
+    ).toBeInTheDocument();
     expectLine(faulted, "Couldn't verify", "neutral");
 
     expect(onConnectWallet.mock.calls).toEqual([

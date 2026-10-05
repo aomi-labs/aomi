@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
 import { ModalBackdrop } from "../modal-backdrop";
+import { LoadingLine } from "./loading-pane";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -185,10 +186,7 @@ export function ModalNavItem({
         {label}
       </span>
       {count === "loading" ? (
-        <span
-          aria-hidden="true"
-          className="bg-aomi-surface-2 h-3 w-4 animate-pulse rounded-sm"
-        />
+        <LoadingLine className="w-4" />
       ) : count !== undefined ? (
         <span className="type-meta tabular-nums">{count}</span>
       ) : null}

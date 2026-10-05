@@ -1,5 +1,6 @@
 "use client";
 import { useTokenMetadata } from "./token-metadata";
+import { LoadingLine } from "@/components/ui/aomi/loading-pane";
 import { useState } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
 import { cn, getChainInfo } from "@aomi-labs/react";
@@ -283,9 +284,13 @@ function AssetChange({
             }
           >
             {decimals == null && /^\d+$/.test(change.amount) ? (
-              <span className="text-aomi-muted font-normal">
-                {loading ? "Loading amount…" : "Amount unavailable"}
-              </span>
+              loading ? (
+                <LoadingLine className="w-14" />
+              ) : (
+                <span className="text-aomi-muted font-normal">
+                  Amount unavailable
+                </span>
+              )
             ) : (
               <>
                 {incoming ? "+" : outgoing ? "−" : ""}
