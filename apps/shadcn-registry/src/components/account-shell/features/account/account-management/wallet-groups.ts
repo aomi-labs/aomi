@@ -79,6 +79,8 @@ export type AddressLineStatus = {
   tone: StatusTone;
   /** The one fix offered inline; both map to existing row handlers. */
   action?: { kind: "link" | "connect"; label: string };
+  /** Still being checked: shown as a placeholder pill, not text. */
+  loading?: boolean;
 };
 
 /**
@@ -109,14 +111,14 @@ function stateStatus(
     case "guest":
     case "unlinked":
       return {
-        label: "Not saved",
+        label: "Not linked",
         tone: "warning",
         ...(has("link")
-          ? { action: { kind: "link", label: "Confirm" } as const }
+          ? { action: { kind: "link", label: "Link wallet" } as const }
           : {}),
       };
     case "loading":
-      return { label: "Checking…", tone: "neutral" };
+      return { label: "Checking", tone: "neutral", loading: true };
     case "mismatch":
       return {
         label: "Address changed",

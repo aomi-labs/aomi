@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { isUnboundWalletError } from "@aomi-labs/client";
 import { useAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@aomi-labs/widget-lib";
@@ -67,7 +68,8 @@ export function SvmWalletBindingGate() {
             });
           }}
         >
-          {binding ? "Waiting for signature…" : "Bind wallet and retry"}
+          {binding ? <Loader2 className="animate-spin" /> : null}
+          Bind wallet and retry
         </Button>
         <Button
           type="button"

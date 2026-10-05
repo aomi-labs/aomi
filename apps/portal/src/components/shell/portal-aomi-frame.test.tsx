@@ -1,8 +1,25 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import {
+  MessagePrimitive,
+  ThreadListPrimitive,
+  ThreadPrimitive,
+  useMessage,
+} from "@assistant-ui/react";
+import { AssistantRuntimeBoundary } from "../../../../../packages/react/src/runtime/assistant-runtime-boundary";
 
-import { PortalAomiFrame, ThreadUrlBootstrap } from "./portal-aomi-frame";
+import {
+  PortalAomiFrame,
+  ThreadUrlBootstrap,
+  createThreadUrlNavigation,
+} from "./portal-aomi-frame";
 
 const walletKitState = vi.hoisted(() => ({
   current: {
@@ -34,6 +51,11 @@ const runtimeState = vi.hoisted(() => ({
     threadMetadata: new Map<string, unknown>(),
     selectThread: vi.fn(),
     createThread: vi.fn(async () => "thread-new"),
+    showNotification: vi.fn(),
+    threadListLoading: false,
+    threadListError: false,
+    isRemoteThread: vi.fn(() => false),
+    events: [],
   },
 }));
 const settingsOpenRequest = vi.hoisted(() => ({
@@ -91,10 +113,13 @@ vi.mock("@aomi-labs/widget-lib", async () => {
       ),
       Composer: ({
         controlBarProps,
+        sendDisabled,
       }: {
         controlBarProps?: { routing?: unknown; initialAppTag?: unknown };
+        sendDisabled?: boolean;
       }) => (
         <div
+          data-send-disabled={String(Boolean(sendDisabled))}
           data-routing={JSON.stringify(controlBarProps?.routing)}
           data-app-tag={JSON.stringify(controlBarProps?.initialAppTag ?? null)}
           data-testid="composer"
@@ -157,10 +182,14 @@ describe("PortalAomiFrame account bootstrap", () => {
     settingsOpenRequest.current = undefined;
   });
 
-  it("waits for the initial account lookup before mounting the frame", async () => {
+  it("keeps the same frame mounted, holding send, through initial account restoration", async () => {
     const view = render(<PortalAomiFrame />);
 
-    expect(screen.queryByTestId("aomi-frame")).toBeNull();
+    const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
     expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
 
     walletKitState.current = {
@@ -176,6 +205,9 @@ describe("PortalAomiFrame account bootstrap", () => {
       "true",
     );
     expect(document.querySelector('main[aria-busy="true"]')).toBeNull();
+    expect(screen.getByTestId("aomi-frame").dataset.instance).toBe(
+      initialInstance,
+    );
   });
 
   it("mounts settings inside the frame so it can read the Aomi runtime", async () => {
@@ -238,7 +270,10 @@ describe("PortalAomiFrame account bootstrap", () => {
     render(<PortalAomiFrame />);
 
     expect(screen.getByTestId("portal-shell")).toBeVisible();
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "true",
@@ -252,7 +287,10 @@ describe("PortalAomiFrame account bootstrap", () => {
       Response.json({ user: { id: "guest-1", isAnonymous: true } }),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert"),
+      expect(screen.getByTestId("composer")).toHaveAttribute(
+        "data-send-disabled",
+        "false",
+      ),
     );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
@@ -277,13 +315,19 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
 
     render(<PortalAomiFrame />);
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute("inert");
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(8_000);
     });
 
-    expect(screen.getByTestId("portal-shell")).not.toHaveAttribute("inert");
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "false",
+    );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "false",
@@ -528,23 +572,92 @@ describe("PortalAomiFrame account bootstrap", () => {
 });
 
 describe("ThreadUrlBootstrap", () => {
+  function RuntimeMessage() {
+    const id = useMessage((message) => message.id);
+    return <MessagePrimitive.Root>{id}</MessagePrimitive.Root>;
+  }
+
+  function RuntimeUrlHarness() {
+    const [threadId, setThreadId] = useState("saved");
+    const [navigation] = useState(createThreadUrlNavigation);
+    const restore = useRef<(text: string) => void>(() => {});
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: threadId,
+      threadMetadata: new Map([
+        ["saved", { title: "Saved", status: "regular" }],
+        ["new", { title: "New Chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => threadId === "saved"),
+      selectThread: vi.fn((id: string) => setThreadId(id)),
+      createThread: vi.fn(async () => {
+        setThreadId("new");
+        return "new";
+      }),
+    };
+    return (
+      <AssistantRuntimeBoundary
+        key={threadId}
+        restoreComposerText={restore}
+        adapter={{
+          messages:
+            threadId === "saved"
+              ? [
+                  {
+                    id: "saved-message",
+                    role: "user",
+                    content: [{ type: "text", text: "Saved conversation" }],
+                  },
+                ]
+              : [],
+          convertMessage: (message) => message,
+          onNew: vi.fn(),
+          adapters: {
+            threadList: {
+              threadId,
+              threads: [{ id: "saved", title: "Saved", status: "regular" }],
+              onSwitchToNewThread: () => setThreadId("new"),
+              onSwitchToThread: (id: string) => setThreadId(id),
+            },
+          },
+        }}
+      >
+        <ThreadUrlBootstrap navigation={navigation} />
+        <ThreadListPrimitive.New>New chat</ThreadListPrimitive.New>
+        <ThreadPrimitive.Root>
+          <ThreadPrimitive.Messages
+            components={{ UserMessage: RuntimeMessage }}
+          />
+        </ThreadPrimitive.Root>
+      </AssistantRuntimeBoundary>
+    );
+  }
+
   afterEach(() => {
     window.history.replaceState({}, "", "/");
     runtimeState.current = {
       currentThreadId: "initial",
       threadMetadata: new Map<string, unknown>(),
       selectThread: vi.fn(),
+      createThread: vi.fn(async () => "thread-new"),
+      showNotification: vi.fn(),
+      threadListLoading: false,
+      threadListError: false,
+      isRemoteThread: vi.fn(() => false),
+      events: [],
     };
   });
 
   it("waits for remote metadata before selecting a linked MCP thread", async () => {
     window.history.replaceState({}, "", "/?thread=mcp-linked");
+    runtimeState.current.threadListLoading = true;
     const view = render(<ThreadUrlBootstrap />);
     expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
 
     runtimeState.current = {
       ...runtimeState.current,
       threadMetadata: new Map([["mcp-linked", {}]]),
+      threadListLoading: false,
     };
     await act(async () => {
       view.rerender(<ThreadUrlBootstrap />);
@@ -554,5 +667,133 @@ describe("ThreadUrlBootstrap", () => {
     expect(runtimeState.current.selectThread).toHaveBeenCalledWith(
       "mcp-linked",
     );
+  });
+
+  it("clears the saved URL on real New chat and restores messages through browser back and forward", async () => {
+    window.history.replaceState({}, "", "/?app=default&thread=saved");
+    const push = vi.spyOn(window.history, "pushState");
+    render(<RuntimeUrlHarness />);
+    expect(screen.getByText("saved-message")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    await waitFor(() => expect(window.location.search).toBe("?app=default"));
+    expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
+
+    await act(async () => {
+      window.history.back();
+    });
+    await waitFor(() =>
+      expect(screen.getByText("saved-message")).toBeVisible(),
+    );
+    expect(window.location.search).toBe("?app=default&thread=saved");
+
+    await act(async () => {
+      window.history.forward();
+    });
+    await waitFor(() =>
+      expect(screen.queryByText("saved-message")).not.toBeInTheDocument(),
+    );
+    expect(window.location.search).toBe("?app=default");
+    expect(push).toHaveBeenCalledTimes(1);
+    push.mockRestore();
+  });
+
+  it("does not inspect another account's URL while its session is restoring", () => {
+    window.history.replaceState({}, "", "/?thread=account-a-chat");
+    render(<ThreadUrlBootstrap ready={false} />);
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=account-a-chat");
+  });
+
+  it("does not replace browser navigation when a router render precedes popstate", async () => {
+    window.history.replaceState({}, "", "/?app=hoodit&thread=saved");
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved",
+      threadMetadata: new Map([
+        ["saved", { title: "Saved", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    const view = render(<ThreadUrlBootstrap />);
+    const push = vi.spyOn(window.history, "pushState");
+    window.history.replaceState({}, "", "/?app=hoodit");
+    runtimeState.current.threadMetadata = new Map(
+      runtimeState.current.threadMetadata,
+    );
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?app=hoodit");
+    expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
+  });
+
+  it.each(["missing", "archived"])(
+    "settles an unavailable %s URL on a new chat",
+    async (kind) => {
+      window.history.replaceState({}, "", "/?app=default&thread=unavailable");
+      if (kind === "archived")
+        runtimeState.current.threadMetadata = new Map([
+          ["unavailable", { status: "archived", title: "Old chat" }],
+        ]);
+      render(<ThreadUrlBootstrap />);
+      expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+      expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+      expect(runtimeState.current.showNotification).toHaveBeenCalledOnce();
+      expect(window.location.search).toBe("?app=default");
+    },
+  );
+
+  it("preserves an established chat URL during repeated submissions", async () => {
+    window.history.replaceState({}, "", "/?thread=saved-chat");
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "saved-chat",
+      threadMetadata: new Map([
+        ["saved-chat", { title: "Saved chat", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    const push = vi.spyOn(window.history, "pushState");
+    const view = render(<ThreadUrlBootstrap />);
+    runtimeState.current.threadMetadata = new Map([
+      ["saved-chat", { title: "Saved chat", status: "regular", pending: true }],
+    ]);
+    view.rerender(<ThreadUrlBootstrap />);
+    runtimeState.current.threadMetadata = new Map([
+      [
+        "saved-chat",
+        { title: "Saved chat", status: "regular", pending: false },
+      ],
+    ]);
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?thread=saved-chat");
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
+  });
+
+  it("opens a browser-back target once without adding a second history entry", async () => {
+    runtimeState.current = {
+      ...runtimeState.current,
+      currentThreadId: "chat-b",
+      threadMetadata: new Map([
+        ["chat-a", { title: "A", status: "regular" }],
+        ["chat-b", { title: "B", status: "regular" }],
+      ]),
+      isRemoteThread: vi.fn(() => true),
+    };
+    window.history.replaceState({}, "", "/?thread=chat-b");
+    const view = render(<ThreadUrlBootstrap />);
+    const push = vi.spyOn(window.history, "pushState");
+    await act(async () => {
+      window.history.replaceState({}, "", "/?thread=chat-a");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(runtimeState.current.selectThread).toHaveBeenCalledOnce();
+    runtimeState.current.currentThreadId = "chat-a";
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(window.location.search).toBe("?thread=chat-a");
+    expect(push).not.toHaveBeenCalled();
+    push.mockRestore();
   });
 });

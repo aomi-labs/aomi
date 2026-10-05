@@ -41,6 +41,9 @@ function PrivyAuthLayer({
       buildPrivyClientConfig({
         appLogoUrl: privy?.appLogoUrl,
         appName: privy?.appName,
+        // The additive plugin uses Aomi's external-wallet runtime. A second
+        // Privy WalletConnect client duplicates its Core and session storage.
+        walletConnectEnabled: false,
         loginMethods: enabled ? toPrivyLoginMethods(auth?.methods) : undefined,
       }),
     [auth, enabled, privy?.appLogoUrl, privy?.appName],

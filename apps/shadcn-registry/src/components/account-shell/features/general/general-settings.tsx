@@ -11,7 +11,9 @@ import { walletConnectionSummary } from "../account/wallet-management-model";
 import {
   creditAllowanceFromPosition,
   useAccountOverview,
+  useAccountOverviewStore,
 } from "../../lib/account-overview";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { useSettings, type ColorMode } from "../../lib/use-settings";
 import {
   Divider,
@@ -37,9 +39,22 @@ export function GeneralSettings({
   const identity = adapter.identity;
   const { settings, updateSetting } = useSettings();
   const account = useAccountOverview();
+  const overviewStore = useAccountOverviewStore();
+  const [overviewSettled, setOverviewSettled] = useState(false);
   const { account: runtimeAccount } = useAomiRuntime();
   const acl = useAccountAcl();
-  const [credits, setCredits] = useState<AomiCreditPosition | null>(null);
+  // undefined while loading; null when unavailable.
+  const [credits, setCredits] = useState<AomiCreditPosition | null>();
+
+  useEffect(() => {
+    let mounted = true;
+    void overviewStore.loadOnce().then(() => {
+      if (mounted) setOverviewSettled(true);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [overviewStore]);
 
   useEffect(() => {
     if (!adapter.accountUser || adapter.accountGuest) {
@@ -76,6 +91,11 @@ export function GeneralSettings({
     adapter.accountUser?.email ||
     account?.user.verified_email ||
     "Aomi account";
+
+  // The summary card draws from three reads; show it once all have answered.
+  if (!overviewSettled || credits === undefined || acl.status === "loading") {
+    return <LoadingPane label="Loading account overview" />;
+  }
 
   const themeChoices: { mode: ColorMode; label: string }[] = [
     { mode: "dark", label: "Dark" },

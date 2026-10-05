@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
 import { ModalBackdrop } from "../modal-backdrop";
+import { LoadingLine } from "./loading-pane";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -161,8 +162,9 @@ export function ModalNavItem({
   icon: IconComponent;
   active: boolean;
   onClick: () => void;
-  /** Trailing tally, e.g. the number of entries in a Library section. */
-  count?: number;
+  /** Trailing tally, e.g. the number of entries in a Library section;
+   * "loading" draws a placeholder until it is known. */
+  count?: number | "loading";
 }) {
   return (
     <button
@@ -183,7 +185,9 @@ export function ModalNavItem({
       <span className="min-w-0 flex-1 whitespace-nowrap text-left">
         {label}
       </span>
-      {count !== undefined ? (
+      {count === "loading" ? (
+        <LoadingLine className="w-4" />
+      ) : count !== undefined ? (
         <span className="type-meta tabular-nums">{count}</span>
       ) : null}
     </button>

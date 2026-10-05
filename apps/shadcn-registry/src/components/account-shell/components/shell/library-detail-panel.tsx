@@ -19,6 +19,7 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
+import { LoadingLine, LoadingPane } from "../../../ui/aomi/loading-pane";
 import { cn } from "@aomi-labs/react";
 import { getChainIcon, getSkillIcon } from "../../../icons";
 import { AomiButton } from "../../../ui/aomi/button";
@@ -269,11 +270,13 @@ function AppSecretSetup({
             </p>
             {accountUserId ? (
               <p className="type-meta text-aomi-muted mt-0.5">
-                {loading
-                  ? "Checking setup…"
-                  : ready
-                    ? "Ready to use"
-                    : "Setup required"}
+                {loading ? (
+                  <LoadingLine className="w-20" />
+                ) : ready ? (
+                  "Ready to use"
+                ) : (
+                  "Setup required"
+                )}
               </p>
             ) : (
               <p className="type-meta text-aomi-danger mt-0.5">
@@ -561,9 +564,7 @@ function SkillDetails({
       {error ? (
         <p className="type-control text-aomi-danger px-5">{error}</p>
       ) : !detail ? (
-        <div className="type-control text-aomi-muted flex items-center gap-2 px-5">
-          <Loader2 className="size-3.5 animate-spin" /> Loading details…
-        </div>
+        <LoadingPane label="Loading details" />
       ) : (
         <div className="space-y-5 px-5">
           <DetailSection title="Works on">
@@ -620,6 +621,7 @@ function SkillDetails({
 
 export function LibraryDetailPanel({
   selection,
+  loading = false,
   installed,
   installedReady,
   busy,
@@ -630,6 +632,8 @@ export function LibraryDetailPanel({
   onTrySkill,
 }: {
   selection: LibrarySelection | null;
+  /** The library is still loading: keep the panel empty. */
+  loading?: boolean;
   installed: boolean;
   installedReady: boolean;
   busy: boolean;
@@ -650,9 +654,11 @@ export function LibraryDetailPanel({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-5">
         {!selection ? (
-          <div className="type-control text-aomi-muted flex flex-1 items-center justify-center px-6 text-center">
-            Select an app or skill to see its details.
-          </div>
+          loading ? null : (
+            <div className="type-control text-aomi-muted flex flex-1 items-center justify-center px-6 text-center">
+              Select an app or skill to see its details.
+            </div>
+          )
         ) : selection.kind === "app" ? (
           <AppDetails
             app={selection.item}

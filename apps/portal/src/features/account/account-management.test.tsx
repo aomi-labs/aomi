@@ -60,22 +60,12 @@ const inactiveWallet: ManagedWallet = {
 };
 
 describe("AccountManagement wallet actions", () => {
-  it("labels an existing external wallet without labeling embedded wallets", () => {
-    const { rerender } = render(
-      <ExternalWalletCard wallet={connectedWallet} pending={null} />,
-    );
-    expect(screen.getByText("External signer")).toBeInTheDocument();
-
-    rerender(
-      <ExternalWalletCard
-        wallet={{ ...connectedWallet, kind: "embedded", provider: "privy" }}
-        pending={null}
-      />,
-    );
+  it("shows no signer-kind badge on wallet cards", () => {
+    render(<ExternalWalletCard wallet={connectedWallet} pending={null} />);
     expect(screen.queryByText("External signer")).toBeNull();
   });
 
-  it("opens the canonical wallet chooser from Add more", () => {
+  it("opens the canonical wallet chooser from Add a wallet", () => {
     const onAddWallet = vi.fn();
     render(
       <AccountManagement
@@ -88,7 +78,7 @@ describe("AccountManagement wallet actions", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
 
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });

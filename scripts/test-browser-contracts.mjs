@@ -528,6 +528,35 @@ async function createControlledUpstream(port) {
           onchain_policy_bindings: [],
         });
       }
+      if (
+        request.method === "GET" &&
+        (url.pathname === "/api/account/transaction-safety" ||
+          url.pathname === "/api/thread/transaction-safety")
+      ) {
+        const principal = await verifyPrincipal(
+          request,
+          verificationKey,
+          "aomi-backend",
+        );
+        records.push(recordFor(request, url, principal));
+        if (!principal)
+          return json(response, 401, { error: { code: "invalid_token" } });
+        const isThread = url.pathname === "/api/thread/transaction-safety";
+        if (isThread) {
+          const threadId = request.headers["x-thread-id"];
+          const thread = typeof threadId === "string" && threads.get(threadId);
+          if (!thread || thread.owner !== principal.sub)
+            return json(response, 404, {
+              error: { code: "session_not_found" },
+            });
+        }
+        return json(response, 200, {
+          mode: "balanced",
+          revision: 1,
+          scope: isThread ? "thread" : "account_default",
+          source: "default",
+        });
+      }
       if (url.pathname.startsWith("/api/")) {
         records.push(recordFor(request, url, null));
         if (url.pathname.endsWith("/models"))

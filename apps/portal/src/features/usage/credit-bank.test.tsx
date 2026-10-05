@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@aomi-labs/react", () => ({
+vi.mock("@aomi-labs/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useAomiRuntime: () => ({ account: { credits: mocks.accountCredits } }),
 }));
 

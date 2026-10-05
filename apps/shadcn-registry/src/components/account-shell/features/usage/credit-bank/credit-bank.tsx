@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { LoadingLine, LoadingPane } from "../../../../ui/aomi/loading-pane";
 import {
   AomiCreditApiError,
   type AomiCreditActivity,
@@ -22,7 +23,6 @@ import {
   ChevronDown,
   Coins,
   ExternalLink,
-  LoaderCircle,
   Plus,
   ReceiptText,
 } from "lucide-react";
@@ -64,7 +64,7 @@ function creditsFromMicrousd(amountMicrousd: number): string {
   return String(amountMicrousd / 10_000);
 }
 
-export function CreditBank() {
+export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
   const wallet = useAomiWalletKit();
   const { account } = useAomiRuntime();
   const accountScope = wallet.accountUser?.id ?? null;
@@ -93,6 +93,10 @@ export function CreditBank() {
     setPendingTopUp(next);
     setAmount(next ? creditsFromMicrousd(next.amountMicrousd) : "1000");
   }, [pendingStorageKey]);
+
+  useEffect(() => {
+    if (!loading) onLoad?.();
+  }, [loading, onLoad]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -215,14 +219,22 @@ export function CreditBank() {
         <span className="flex shrink-0 items-center gap-2">
           <span className="text-right">
             <span className="text-aomi-fg block text-[13px] font-medium tabular-nums">
-              {balance === null ? "—" : formatCreditAmount(balance)}
+              {loading && !position ? (
+                <LoadingLine className="w-12" />
+              ) : balance === null ? (
+                "—"
+              ) : (
+                formatCreditAmount(balance)
+              )}
             </span>
             <span className="text-aomi-muted block text-[11px] tabular-nums">
-              {loading && !position
-                ? "Loading…"
-                : balance === null
-                  ? "Unavailable"
-                  : `${formatUsdc(balance / 100)} value`}
+              {loading && !position ? (
+                <LoadingLine className="h-[11px] w-14" />
+              ) : balance === null ? (
+                "Unavailable"
+              ) : (
+                `${formatUsdc(balance / 100)} value`
+              )}
             </span>
           </span>
           <ChevronDown
@@ -301,13 +313,10 @@ export function CreditBank() {
               ) : null}
             </div>
             {loading && !position ? (
-              <div
-                className="text-aomi-muted flex items-center gap-2 py-3 text-xs"
-                role="status"
-              >
-                <LoaderCircle size={14} className="animate-spin" />
-                Loading recent activity…
-              </div>
+              <LoadingPane
+                label="Loading recent activity"
+                className="min-h-16"
+              />
             ) : null}
             {position?.entries.length === 0 ? (
               <div className="border-aomi-border bg-aomi-bg/40 flex items-center gap-3 rounded-lg border border-dashed px-3 py-3">

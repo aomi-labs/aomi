@@ -366,9 +366,7 @@ export function AccountSigningView({
                       {busy[CONNECT_PRIVY_KEY] && (
                         <Loader2 className="animate-spin" />
                       )}
-                      {busy[CONNECT_PRIVY_KEY]
-                        ? "Waiting for Privy…"
-                        : "Enable"}
+                      Enable
                     </AomiButton>
                   }
                 />

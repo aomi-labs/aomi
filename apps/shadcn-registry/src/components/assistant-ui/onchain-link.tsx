@@ -77,11 +77,14 @@ export function OnchainLink({
   children,
   ...props
 }: ComponentPropsWithoutRef<"a">) {
-  const explorer = href ? recognizeOnchainLink(href) : null;
+  // Unsafe schemes (javascript:, data:, ...) render as plain copyable text.
+  const safeHref = href && /^(https?:|mailto:)/i.test(href) ? href : undefined;
+  if (!safeHref) return <span className={className}>{children}</span>;
+  const explorer = recognizeOnchainLink(safeHref);
   if (!explorer) {
     return (
       <a
-        href={href}
+        href={safeHref}
         className={cn(
           "aui-md-a text-primary hover:text-primary/80 underline underline-offset-2",
           className,

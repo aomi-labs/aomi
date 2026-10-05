@@ -52,6 +52,7 @@ test("guest response settles once and the same conversation survives refresh", a
   let heldSessions = 0;
   let starts = 0;
   let lists = 0;
+  const summaryReads: string[] = [];
   await page.route("**/*", (route) => {
     if (
       new URL(route.request().url()).origin ===
@@ -112,6 +113,21 @@ test("guest response settles once and the same conversation survives refresh", a
             archived: false,
           })),
         nextCursor: null,
+      });
+    }
+    const session = path.match(/^\/v1\/agent\/sessions\/([^/]+)$/);
+    if (session && request.method() === "GET") {
+      if (!guestId) return json({ error: { code: "invalid_token" } }, 401);
+      const id = decodeURIComponent(session[1]);
+      const thread = threads.get(id);
+      if (!thread || thread.owner !== guestId)
+        return json({ error: { code: "session_not_found" } }, 404);
+      summaryReads.push(id);
+      return json({
+        id,
+        title: userMessage,
+        updatedAt: thread.events.at(-1)!.occurred_at * 1000,
+        archived: false,
       });
     }
     if (path === "/v1/agent/chat" && request.method() === "POST") {
@@ -204,12 +220,17 @@ test("guest response settles once and the same conversation survives refresh", a
   const portalShell = page.getByTestId("portal-shell");
   await expect.poll(() => heldSessions).toBeGreaterThan(0);
   await expect(portalShell).toBeVisible();
-  await expect(portalShell).toHaveAttribute("inert", "");
+  const protectedContent = page.getByTestId("portal-frame-content");
+  await expect(portalShell).toHaveAttribute("aria-busy", "true");
+  // Controls stay usable while session authority is unresolved; only Send waits.
+  await expect(
+    protectedContent.getByRole("button", { name: "Send message" }),
+  ).toBeDisabled();
   expect(starts).toBe(0);
   expect(lists).toBe(0);
   holdSession = false;
   releaseSession();
-  await expect(portalShell).not.toHaveAttribute("inert");
+  await expect(portalShell).toHaveAttribute("aria-busy", "false");
   const input = page.getByRole("textbox", { name: "Message input" });
   await expect(input).toHaveAttribute("contenteditable", "true");
   await input.pressSequentially(userMessage);
@@ -225,11 +246,16 @@ test("guest response settles once and the same conversation survives refresh", a
   expect(starts).toBe(1);
   expect(threads.size).toBe(1);
   const threadId = [...threads.keys()][0];
+  await expect.poll(() => summaryReads).toEqual([threadId]);
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("portal-shell")).toBeVisible();
   await expect.poll(() => lists).toBeGreaterThan(0);
-  await expect(page.getByText(userMessage, { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator(".aui-user-message-root")
+      .getByText(userMessage, { exact: true }),
+  ).toBeVisible();
   const row = page.locator(`[data-thread-id="${threadId}"]`);
   await expect(row).toHaveCount(1);
   await row.locator(".aui-thread-list-item-trigger").click();
@@ -277,5 +303,6 @@ test("guest response settles once and the same conversation survives refresh", a
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(row).toHaveCount(1);
   expect(starts).toBe(1);
+  expect(summaryReads).toEqual([threadId]);
   expect(unexpectedRequests).toEqual([]);
 });

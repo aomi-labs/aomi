@@ -2,7 +2,8 @@
 
 import { useShellTransport } from "../../transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Library, Loader2 } from "lucide-react";
+import { ArrowLeft, Library } from "lucide-react";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { AomiButton } from "../../../ui/aomi/button";
 import {
@@ -187,12 +188,9 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
   const selectedInstalled =
     activeSelection?.kind === "app" &&
     installedIds.has(packageIdentityKey(activeSelection.item));
-  const waiting =
-    view === "apps" || view === "installed"
-      ? catalog === null
-      : view === "skills"
-        ? skillsLoading
-        : catalog === null || skillsLoading;
+  // Apps and skills appear together: every count and list waits for both.
+  const loading =
+    (catalog === null && !catalogError) || (skillsLoading && !skillsError);
   const loadError =
     view === "apps" || view === "installed"
       ? catalogError
@@ -226,17 +224,19 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 setSelectedKey(null);
               }}
               count={
-                item.id === "discover"
-                  ? allEntries.length
-                  : item.id === "installed"
-                    ? appEntries.filter(
-                        (entry) =>
-                          entry.kind === "app" &&
-                          installedIds.has(packageIdentityKey(entry.item)),
-                      ).length
-                    : item.id === "apps"
-                      ? appEntries.length
-                      : skillEntries.length
+                loading
+                  ? "loading"
+                  : item.id === "discover"
+                    ? allEntries.length
+                    : item.id === "installed"
+                      ? appEntries.filter(
+                          (entry) =>
+                            entry.kind === "app" &&
+                            installedIds.has(packageIdentityKey(entry.item)),
+                        ).length
+                      : item.id === "apps"
+                        ? appEntries.length
+                        : skillEntries.length
               }
             />
           ))}
@@ -256,7 +256,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                   setView(category.id);
                   setSelectedKey(null);
                 }}
-                count={categoryCounts.get(category.id)}
+                count={loading ? "loading" : categoryCounts.get(category.id)}
               />
             ))}
           </ModalNav>
@@ -285,7 +285,7 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         <SectionHeader
           as="h2"
           title={listTitle}
-          count={visible.length}
+          count={loading ? undefined : visible.length}
           className="mt-4 px-1"
         />
         <div ref={listRef} className="mt-2 min-h-0 flex-1 overflow-y-auto">
@@ -302,10 +302,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
                 Retry
               </AomiButton>
             </div>
-          ) : waiting ? (
-            <div className="type-meta text-aomi-muted flex min-h-44 items-center justify-center gap-2">
-              <Loader2 className="size-3.5 animate-spin" /> Loading library…
-            </div>
+          ) : loading ? (
+            <LoadingPane label="Loading library" className="h-full" />
           ) : visible.length === 0 ? (
             <EmptyList />
           ) : (
@@ -381,7 +379,8 @@ export function PackagesModal({ onClose }: PackagesModalProps) {
         ) : null}
         <LibraryDetailPanel
           key={`${activeSelection ? selectionKey(activeSelection) : "none"}:${mobileDetailOpen}`}
-          selection={activeSelection}
+          selection={loading ? null : activeSelection}
+          loading={loading}
           installed={selectedInstalled}
           installedReady={installedReady}
           busy={

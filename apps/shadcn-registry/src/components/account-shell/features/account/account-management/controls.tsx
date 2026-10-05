@@ -1,13 +1,16 @@
 import {
   Ellipsis,
+  Copy,
+  Check,
   Loader2,
   Unlink,
   Unplug,
   UserRoundMinus,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "../../../../ui/aomi/button";
+import { LoadingLine } from "../../../../ui/aomi/loading-pane";
 import { StatusPill } from "../../../../ui/aomi/status-pill";
 import {
   Popover,
@@ -209,12 +212,7 @@ function AddressLine({
         size={17}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="type-row truncate">{title}</span>
-          {wallet.kind === "external" ? (
-            <StatusPill>External signer</StatusPill>
-          ) : null}
-        </span>
+        <span className="type-row truncate">{title}</span>
         <span className="type-address text-aomi-muted truncate">{address}</span>
       </span>
     </>
@@ -225,7 +223,7 @@ function AddressLine({
     <div
       data-wallet-state={wallet.operating ? "active" : wallet.state}
       className={cn(
-        "group relative flex items-center transition-colors",
+        "group relative flex flex-col items-stretch transition-colors sm:flex-row sm:flex-wrap sm:items-center",
         nested && "border-aomi-border border-t",
         wallet.operating
           ? "bg-aomi-success/[0.045]"
@@ -251,7 +249,7 @@ function AddressLine({
           )}
         >
           {content}
-          <span className="type-meta text-aomi-muted ml-auto shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100">
+          <span className="type-meta text-aomi-muted ml-auto hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 sm:inline">
             Use for {family}
           </span>
         </button>
@@ -262,33 +260,66 @@ function AddressLine({
           {content}
         </div>
       )}
-      {status || menuActions.length ? (
-        <div className="flex shrink-0 items-center gap-2 py-2 pr-3.5">
-          {status ? (
-            <StatusPill tone={status.tone}>{status.label}</StatusPill>
-          ) : null}
-          {status?.action && inlineHandler ? (
-            <button
-              type="button"
-              disabled={pending !== null}
-              onClick={() => void inlineHandler(wallet)}
-              className={aomiButton({ variant: "secondary", size: "sm" })}
-            >
-              {busy ? <Loader2 className="animate-spin" /> : null}
-              {status.action.label}
-            </button>
-          ) : null}
-          {menuActions.length ? (
-            <WalletActionsMenu
-              label={`Actions for ${title} ${short}`}
-              actions={menuActions}
-              disabled={pending !== null}
-              busy={busy && !(status?.action && inlineHandler)}
-            />
-          ) : null}
-        </div>
-      ) : null}
+      <div
+        className={cn(
+          "flex shrink-0 flex-wrap items-center gap-2 pb-3 pl-[58px] pr-3.5 sm:py-2 sm:pl-0",
+          nested && "pb-2.5",
+        )}
+      >
+        {status?.loading ? (
+          <span role="status" aria-label={status.label}>
+            <LoadingLine className="h-5 w-16 rounded-full" />
+          </span>
+        ) : status ? (
+          <StatusPill tone={status.tone}>{status.label}</StatusPill>
+        ) : null}
+        {status?.action && inlineHandler ? (
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => void inlineHandler(wallet)}
+            className={aomiButton({ variant: "secondary", size: "sm" })}
+          >
+            {busy ? <Loader2 className="animate-spin" /> : null}
+            {status.action.label}
+          </button>
+        ) : null}
+        <CopyAddressButton address={wallet.address} />
+        {menuActions.length ? (
+          <WalletActionsMenu
+            label={`Actions for ${title} ${short}`}
+            actions={menuActions}
+            disabled={pending !== null}
+            busy={busy && !(status?.action && inlineHandler)}
+          />
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+function CopyAddressButton({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      aria-label={copied ? "Address copied" : `Copy address ${address}`}
+      title={address}
+      className={aomiButton({ variant: "ghost", size: "icon" })}
+      onClick={() =>
+        void navigator.clipboard
+          .writeText(address)
+          .then(() => setCopied(true))
+          .catch(() => undefined)
+      }
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
   );
 }
 

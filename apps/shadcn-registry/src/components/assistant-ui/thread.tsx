@@ -10,6 +10,7 @@ import {
   CopyIcon,
   ImageIcon,
   LandmarkIcon,
+  LoaderCircleIcon,
   PencilIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -76,19 +77,22 @@ import { TraceAttributionProvider } from "./trace-attribution";
 
 export const Thread: FC = () => {
   const composerRuntime = useComposerRuntime();
-  const { threadViewKey } = useThreadContext();
+  const { currentThreadId } = useThreadContext();
+  const previousThread = useRef(currentThreadId);
   const composerControl = useComposerControl();
   const aomiRuntime = useOptionalAomiRuntime();
   const controlBarProps = composerControl.controlBarProps ?? {};
   const isReviewingAction = Boolean(aomiRuntime?.pendingActions.length);
 
   useEffect(() => {
+    if (previousThread.current === currentThreadId) return;
+    previousThread.current = currentThreadId;
     try {
       composerRuntime.setText("");
     } catch (error) {
       console.error("Failed to reset composer input:", error);
     }
-  }, [composerRuntime, threadViewKey]);
+  }, [composerRuntime, currentThreadId]);
 
   return (
     <CapabilityComposerProvider
@@ -201,6 +205,7 @@ const ThreadWelcome: FC = () => {
 
 const ThreadSuggestions: FC = () => {
   const composerRuntime = useComposerRuntime();
+  const { sendDisabled } = useComposerControl();
   const safety = useThreadSafety();
   const suggestionRows = [
     {
@@ -303,6 +308,7 @@ const ThreadSuggestions: FC = () => {
                     send
                     asChild
                     onClick={(event) => {
+                      if (sendDisabled) return event.preventDefault();
                       // A held safety level must be saved before turn one.
                       if (!safety?.hasHeld()) return;
                       event.preventDefault();
@@ -340,9 +346,11 @@ const ThreadSuggestions: FC = () => {
  */
 const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   const { prepareSubmit } = useCapabilityComposer();
+  const { sendDisabled } = useComposerControl();
   const safety = useThreadSafety();
   const committing = useRef(false);
   const submit = (event: FormEvent<HTMLFormElement>) => {
+    if (sendDisabled) return event.preventDefault();
     prepareSubmit(event);
     if (event.defaultPrevented || !safety?.hasHeld()) return;
     // Save a new chat's held safety level first so turn one runs under it.
@@ -464,7 +472,11 @@ const ComposerAction: FC = () => {
               size="icon"
               className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
-              disabled={Boolean(hostError) || committingSafety}
+              disabled={
+                Boolean(hostError) ||
+                committingSafety ||
+                Boolean(composerControl.sendDisabled)
+              }
               title={hostError ?? undefined}
             >
               <ArrowUpIcon className="aui-composer-send-icon size-4" />
@@ -495,7 +507,11 @@ const ComposerAction: FC = () => {
                   : undefined
               }
             >
-              <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+              {aomiRuntime?.isStopping ? (
+                <LoaderCircleIcon className="size-4 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Square className="aui-composer-cancel-icon fill-aomi-bg size-3" />
+              )}
             </Button>
           </ComposerPrimitive.Cancel>
         </ThreadPrimitive.If>
@@ -558,7 +574,11 @@ const AssistantMessageSkeleton: FC<{ widths?: string[] }> = ({
 
 const AssistantLoadingDot: FC = () => {
   return (
-    <div className="aui-assistant-loading-dot-wrapper flex min-h-6 items-center px-1">
+    <div
+      role="status"
+      aria-label="Waiting for response"
+      className="aui-assistant-loading-dot-wrapper flex min-h-6 items-center px-1"
+    >
       <span className="aui-assistant-loading-dot bg-aomi-fg block size-2.5 animate-pulse rounded-full" />
     </div>
   );
@@ -582,12 +602,7 @@ const AssistantMessage: FC = () => {
   const hasLiveTaskRun = Object.values(taskRuns).some(
     (run) => run.status === "running",
   );
-  const showLoadingDot =
-    isEmpty &&
-    isRunning &&
-    isLast &&
-    Boolean(runtime?.isSubmitting) &&
-    !hasLiveTaskRun;
+  const showLoadingDot = isEmpty && isRunning && isLast && !hasLiveTaskRun;
   const showFinishedEmptyMessage = isEmpty && !isRunning;
 
   return (

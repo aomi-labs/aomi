@@ -12,9 +12,15 @@ const request = vi.hoisted(() =>
 vi.mock("../../transport", () => ({
   useShellTransport: () => ({ json: request }),
 }));
-vi.mock("../account/provider-policy-settings", () => ({
-  SigningSettings: () => <div>Signing rows</div>,
-}));
+vi.mock("../account/provider-policy-settings", async () => {
+  const { useEffect } = await import("react");
+  return {
+    SigningSettings: ({ onLoad }: { onLoad?: () => void }) => {
+      useEffect(() => onLoad?.(), [onLoad]);
+      return <div>Signing rows</div>;
+    },
+  };
+});
 vi.mock("../../../../lib/wallet-kit/context", () => ({
   useAomiWalletKit: () => {
     throw new Error("Swig settings must not mount");
@@ -25,6 +31,9 @@ import { PolicyPage } from "./policy-page";
 describe("Safety page", () => {
   it("shows the default level and signing, with Swig limits hidden", async () => {
     render(<PolicyPage />);
+    expect(
+      screen.getByRole("status", { name: "Loading safety settings" }),
+    ).toBeTruthy();
     expect(
       await screen.findByRole("radiogroup", {
         name: "Guard policy",

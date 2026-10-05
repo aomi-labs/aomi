@@ -1,4 +1,5 @@
 import type { ProjectDeploymentAttempt } from "@aomi-labs/deploy";
+import { buildFetch } from "@build/lib/session-expiry";
 import { LaunchRequestError } from "@aomi-labs/deploy/launch";
 export type { ProjectDeploymentAttempt };
 
@@ -9,7 +10,6 @@ export const ATTEMPT_STAGES = [
   "Publish release",
   "Activate",
   "Verify runtime",
-  "Live",
 ] as const;
 export type AttemptStageState =
   | "waiting"
@@ -18,26 +18,44 @@ export type AttemptStageState =
   | "failed"
   | "skipped";
 
+export function attemptReadyToPromote(
+  attempt: ProjectDeploymentAttempt,
+): boolean {
+  const jobs = attempt.jobs ?? [];
+  return (
+    attempt.status === "completed" &&
+    attempt.conclusion === "success" &&
+    jobs.some(
+      (job) => job.name === "Publish release" && job.conclusion === "success",
+    ) &&
+    jobs.some(
+      (job) => job.name === "Activate" && job.conclusion === "skipped",
+    ) &&
+    jobs
+      .filter(
+        (job) =>
+          job.name === "Activate" || job.name.startsWith("Verify runtime"),
+      )
+      .every((job) => job.conclusion === "skipped")
+  );
+}
+
+export function attemptJobLabel(name: string): string {
+  // GitHub returns the unevaluated matrix name when a job was not requested.
+  return name.replace(/\s*\/\s*\$\{\{\s*matrix\.name\s*\}\}/g, "");
+}
+
 export function attemptStages(
   attempt: ProjectDeploymentAttempt,
 ): Array<{ name: string; state: AttemptStageState }> {
   const jobs = attempt.jobs ?? [];
-  const verification = jobs.filter(
-    (job) =>
-      job.name === "Verify runtime" || job.name.startsWith("Verify runtime / "),
-  );
   const failed =
     attempt.conclusion === "failure" || attempt.conclusion === "timed_out";
-  return ATTEMPT_STAGES.map((name) => {
-    if (name === "Live")
-      return {
-        name,
-        state:
-          verification.length > 0 &&
-          verification.every((job) => job.conclusion === "success")
-            ? "passed"
-            : "waiting",
-      };
+  return ATTEMPT_STAGES.filter(
+    (name) =>
+      !attemptReadyToPromote(attempt) ||
+      !["Activate", "Verify runtime", "Live"].includes(name),
+  ).map((name) => {
     if (name === "Queue build") {
       const build = jobs.find(
         (job) => job.name === "Build" || job.name.startsWith("Build / "),
@@ -96,8 +114,14 @@ export function attemptStages(
 export function attemptLabel(attempt: ProjectDeploymentAttempt): string {
   if (attempt.status === "cancelling") return "Cancelling…";
   if (attempt.conclusion === "cancelled") return "Cancelled";
+  if (attemptReadyToPromote(attempt)) return "Ready to promote";
   const stages = attemptStages(attempt);
-  if (stages.at(-1)?.state === "passed") return "Live";
+  if (
+    attempt.status === "completed" &&
+    attempt.conclusion === "success" &&
+    stages.find((stage) => stage.name === "Verify runtime")?.state === "passed"
+  )
+    return "Runtime verified";
   const failed = stages.find((stage) => stage.state === "failed");
   if (failed) return `${failed.name} failed`;
   if (attempt.status === "completed")
@@ -121,7 +145,7 @@ export async function attemptRequest<T>(
   const params = new URLSearchParams({ projectId: String(projectId) });
   if (input.runId) params.set("runId", String(input.runId));
   if (input.page) params.set("page", String(input.page));
-  const response = await fetch(
+  const response = await buildFetch(
     `/api/bff/launch/attempts?${params}`,
     input.action
       ? {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, type FC } from "react";
+import { LoadingLine } from "@/components/ui/aomi/loading-pane";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import {
@@ -101,11 +102,15 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
     .map((wallet) => wallet.detail)
     .filter(Boolean)
     .join(" · ");
-  const secondaryLine = accountMenuEnabled
-    ? (accountMenu?.secondaryLine ?? "Allowance —")
-    : connectedWallets.some((wallet) => wallet.detail)
-      ? networkDetail
-      : undefined;
+  const secondaryLine = accountMenuEnabled ? (
+    accountMenu?.secondaryLoading ? (
+      <LoadingLine className="h-[11px] w-20" />
+    ) : (
+      accountMenu?.secondaryLine
+    )
+  ) : connectedWallets.some((wallet) => wallet.detail) ? (
+    networkDetail
+  ) : undefined;
   const walletLabel =
     accountMenu?.walletLabel ??
     primaryWallet?.walletName ??
@@ -292,6 +297,7 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
             address={visibleAddress}
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
+            allowanceLoading={accountMenu?.secondaryLoading}
             noticeLine={accountMenu?.noticeLine}
             themeLabel={accountMenu?.themeLabel}
             wallets={quickSwitchWallets}

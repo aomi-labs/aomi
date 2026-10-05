@@ -122,6 +122,7 @@ export const registry: RegistryComponent[] = [
       "components/ui/aomi/confirm-dialog.tsx",
       "components/ui/aomi/list-group.tsx",
       "components/ui/aomi/modal-shell.tsx",
+      "components/ui/aomi/loading-pane.tsx",
       "components/ui/aomi/section-header.tsx",
       "components/ui/aomi/segmented.tsx",
       "components/ui/aomi/status-pill.tsx",

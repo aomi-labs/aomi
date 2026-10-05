@@ -5,7 +5,8 @@ import Link from "../../link";
 import type { MonthlyStatement } from "./types";
 import { useAccountOverview } from "../../lib/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
-import { ArrowLeft, Check, ChevronDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
   AppGroup,
@@ -68,6 +69,14 @@ export function StatementView() {
     setSubject("all");
   };
 
+  if (!month && statement.status !== "error") {
+    return (
+      <div className="bg-aomi-bg flex h-screen">
+        <LoadingPane label="Loading statement" />
+      </div>
+    );
+  }
+
   if (!month) {
     return (
       <div className="h-screen overflow-y-auto">
@@ -80,22 +89,15 @@ export function StatementView() {
               <ArrowLeft size={14} />
               Back to chat
             </Link>
-            {statement.status === "error" ? (
-              <p className="text-aomi-danger text-[13px]">
-                {statement.error ?? "Couldn't load the statement."}{" "}
-                <button
-                  onClick={statement.retry}
-                  className="hover:text-aomi-fg underline underline-offset-2"
-                >
-                  Retry
-                </button>
-              </p>
-            ) : (
-              <p className="text-aomi-muted flex items-center gap-2 text-[13px]">
-                <Loader2 size={14} className="animate-spin" />
-                Loading statement…
-              </p>
-            )}
+            <p className="text-aomi-danger text-[13px]">
+              {statement.error ?? "Couldn't load the statement."}{" "}
+              <button
+                onClick={statement.retry}
+                className="hover:text-aomi-fg underline underline-offset-2"
+              >
+                Retry
+              </button>
+            </p>
           </div>
         </div>
       </div>

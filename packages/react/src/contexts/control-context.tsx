@@ -179,6 +179,7 @@ export function useAuthEndpoints(): {
       authorizedApps: ctx.state.authorizedApps,
       appDescriptors: ctx.state.appDescriptors,
       defaultApp: ctx.state.defaultApp,
+      modelsLoading: ctx.state.modelsLoading,
     },
     actions: {
       getAvailableModels: ctx.getAvailableModels,
@@ -349,6 +350,7 @@ export function ControlContextProvider({
     authorizedApps: authEndpoints.state.authorizedApps,
     appDescriptors: authEndpoints.state.appDescriptors,
     defaultApp: authEndpoints.state.defaultApp,
+    modelsLoading: authEndpoints.state.modelsLoading,
   };
 
   const aggregateStateRef = useRef(aggregateState);

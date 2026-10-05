@@ -34,12 +34,18 @@ const LEVEL_DETAIL: Record<TransactionSafetyMode, string> = {
  * The account default every new chat starts on. It saves on change against the
  * loaded revision; a chat's own level is set from the composer, not here.
  */
-export function TransactionSafetySettings() {
+export function TransactionSafetySettings({
+  onLoad,
+}: { onLoad?: () => void } = {}) {
   const { json: request } = useShellTransport();
   const [policy, setPolicy] = useState<TransactionSafetyPolicy>();
   const [draft, setDraft] = useState<TransactionSafetyMode>();
   const [error, setError] = useState<string>();
   const alive = useRef(true);
+  const loaded = Boolean(policy || error);
+  useEffect(() => {
+    if (loaded) onLoad?.();
+  }, [loaded, onLoad]);
 
   useEffect(() => {
     alive.current = true;
@@ -192,10 +198,6 @@ export function TransactionSafetySettings() {
             );
           })}
         </div>
-      ) : !error ? (
-        <p role="status" className="type-meta text-aomi-muted">
-          Loading your guard policy…
-        </p>
       ) : null}
       {error ? (
         <p role="alert" className="type-meta text-aomi-danger break-words">

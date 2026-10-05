@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   attemptLabel,
+  attemptJobLabel,
   attemptStages,
   type ProjectDeploymentAttempt,
 } from "@build/features/launch/attempts";
@@ -312,13 +313,15 @@ function AttemptCard({
               </li>
             ))}
           </ol>
-          {attempt.jobs?.some((job) => job.name.includes(" / ")) && (
+          {attempt.jobs?.some((job) =>
+            attemptJobLabel(job.name).includes(" / "),
+          ) && (
             <ul className="space-y-1" aria-label="App progress">
               {attempt.jobs
-                .filter((job) => job.name.includes(" / "))
+                .filter((job) => attemptJobLabel(job.name).includes(" / "))
                 .map((job) => (
                   <li key={job.id} className="flex justify-between text-xs">
-                    <span>{job.name}</span>
+                    <span>{attemptJobLabel(job.name)}</span>
                     <span>
                       {job.steps.some(
                         (step) =>
@@ -334,7 +337,7 @@ function AttemptCard({
           )}
           {failedJob && (
             <p className="text-destructive text-sm">
-              {failedJob.name}:{" "}
+              {attemptJobLabel(failedJob.name)}:{" "}
               {failedJob.steps.find((step) => step.conclusion === "failure")
                 ?.name ?? "Job failed"}
             </p>

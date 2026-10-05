@@ -34,16 +34,23 @@ export function requestWalletPickerOpen() {
   window.dispatchEvent(new Event(OPEN_WALLET_PICKER_EVENT));
 }
 
-export function WalletPickerProvider({ children }: { children: ReactNode }) {
+export function WalletPickerProvider({
+  children,
+  listenForOpenRequests = true,
+}: {
+  children: ReactNode;
+  listenForOpenRequests?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const openPicker = useCallback(() => setOpen(true), []);
   const closePicker = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
+    if (!listenForOpenRequests) return;
     window.addEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
     return () =>
       window.removeEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
-  }, [openPicker]);
+  }, [listenForOpenRequests, openPicker]);
 
   const value = useMemo<WalletPickerContextValue>(
     () => ({

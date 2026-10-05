@@ -9,7 +9,7 @@ import type {
   MonthlyStatement,
   UsagePeriod,
 } from "./types";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, LoaderCircle } from "lucide-react";
 import { SectionHeader } from "../../../ui/aomi/section-header";
 
 /* ---------------------------------------------------------------------- */
@@ -705,11 +705,16 @@ export function AllowanceSettlementSection({
               Monthly credits
             </span>
             <span className="text-aomi-muted text-[12px]">
-              {allowanceStatus === "loading" || allowanceStatus === "idle"
-                ? "Loading…"
-                : hasAllowance
-                  ? `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
-                  : "Unavailable"}
+              {allowanceStatus === "loading" || allowanceStatus === "idle" ? (
+                <LoaderCircle
+                  aria-label="Loading"
+                  className="inline size-3.5 animate-spin motion-reduce:animate-none"
+                />
+              ) : hasAllowance ? (
+                `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
+              ) : (
+                "Unavailable"
+              )}
               {allowanceStatus === "error" && onRetryAllowance ? (
                 <button
                   type="button"

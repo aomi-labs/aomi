@@ -62,6 +62,10 @@ export type AomiRuntimeApi = {
   threadMetadata: Map<string, ThreadMetadata>;
   /** True when the authenticated thread list failed to load. */
   threadListError: boolean;
+  /** True during the account-owned history read. Optional for custom runtimes. */
+  threadListLoading?: boolean;
+  /** Whether the server has acknowledged this conversation. */
+  isRemoteThread?: (threadId: string) => boolean;
   /** Get metadata for a specific thread */
   getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
   /** Create a new thread and return its ID */

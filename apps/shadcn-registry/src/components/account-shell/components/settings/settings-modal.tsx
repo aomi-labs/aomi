@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
 import { AomiButton } from "../../../ui/aomi/button";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 import {
   ModalHeader,
   ModalNav,
@@ -84,7 +85,7 @@ function GateNotice({
   onRetry,
   onConnect,
 }: {
-  status: Exclude<AomiSessionStatus, "ready">;
+  status: Exclude<AomiSessionStatus, "ready" | "establishing">;
   walletConnected?: boolean;
   detail?: string;
   onRetry: () => void;
@@ -118,11 +119,6 @@ function GateNotice({
           )}
         </>
       )}
-      {status === "establishing" && (
-        <span className="type-meta text-aomi-muted">
-          Connecting your account…
-        </span>
-      )}
       {status === "error" && (
         <>
           <span className="type-meta text-aomi-muted">
@@ -150,6 +146,13 @@ export function SettingsModal({
   );
   const { status, retry } = useAomiSession();
   const adapter = useAomiWalletKit();
+  const [visited, setVisited] = useState<SettingsTab[]>([
+    accountOnly ? "account" : initialTab,
+  ]);
+  const selectTab = (next: SettingsTab) => {
+    setTab(next);
+    setVisited((tabs) => (tabs.includes(next) ? tabs : [...tabs, next]));
+  };
   const hadSession = useRef(status === "ready");
   useEffect(() => {
     if (status === "ready") hadSession.current = true;
@@ -158,7 +161,10 @@ export function SettingsModal({
   const activeNav = NAV.find((item) => item.id === tab) ?? NAV[0];
 
   const renderContent = () => {
-    if (status === "anonymous" || status === "establishing") {
+    if (status === "establishing" && !hadSession.current) {
+      return <LoadingPane label="Connecting your account" />;
+    }
+    if (status === "anonymous" || (status === "error" && !hadSession.current)) {
       return (
         <GateNotice
           status={status}
@@ -171,14 +177,15 @@ export function SettingsModal({
         />
       );
     }
-    if (status === "error" && tab === "general") {
-      return <GateNotice status={status} onRetry={retry} />;
-    }
 
     return (
       // Every tab fills the pane on the header's px-6 edges; pages never set
       // their own width.
-      <div data-settings-column className="w-full px-6 pb-6 pt-1">
+      <div
+        data-settings-column
+        className="flex w-full flex-1 flex-col px-6 pb-6 pt-1"
+        key={adapter.accountUser?.id ?? "session"}
+      >
         {status === "error" && (
           <div className="border-aomi-border bg-aomi-surface-2 text-aomi-muted type-meta rounded-control mb-5 flex items-center justify-between gap-3 border px-3.5 py-2.5">
             <span>
@@ -189,19 +196,23 @@ export function SettingsModal({
             </AomiButton>
           </div>
         )}
-        {tab === "general" ? (
-          <GeneralSettings
-            onManageAccount={() => setTab("account")}
-            onViewUsage={() => setTab("usage")}
-            onFixWallets={() => setTab("account")}
-          />
-        ) : tab === "account" ? (
-          <AccountSettings onClose={onClose} />
-        ) : tab === "usage" ? (
-          <UsageSettings />
-        ) : (
-          <PolicyPage />
-        )}
+        {NAV.filter(({ id }) => visited.includes(id)).map(({ id }) => (
+          <div key={id} hidden={tab !== id} className="flex flex-1 flex-col">
+            {id === "general" ? (
+              <GeneralSettings
+                onManageAccount={() => selectTab("account")}
+                onViewUsage={() => selectTab("usage")}
+                onFixWallets={() => selectTab("account")}
+              />
+            ) : id === "account" ? (
+              <AccountSettings onClose={onClose} />
+            ) : id === "usage" ? (
+              <UsageSettings />
+            ) : (
+              <PolicyPage />
+            )}
+          </div>
+        ))}
       </div>
     );
   };
@@ -222,7 +233,7 @@ export function SettingsModal({
                 label={label}
                 icon={Icon}
                 active={id === tab}
-                onClick={() => setTab(id)}
+                onClick={() => selectTab(id)}
               />
             ),
           )}

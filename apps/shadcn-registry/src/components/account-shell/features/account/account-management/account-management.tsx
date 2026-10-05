@@ -190,7 +190,7 @@ export function AccountManagement({
                 className={aomiButton({ variant: "secondary", size: "sm" })}
               >
                 <Plus />
-                Add more
+                Add a wallet
               </button>
             ) : undefined
           }

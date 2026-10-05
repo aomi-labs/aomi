@@ -855,7 +855,7 @@ describe("account ACL wiring", () => {
     });
 
     await renderAcl(undefined, "para", true);
-    await click(await screen.findByRole("button", { name: "Confirm" }));
+    await click(await screen.findByRole("button", { name: "Link wallet" }));
 
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/authorization/commit"),

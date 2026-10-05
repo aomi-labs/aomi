@@ -314,10 +314,15 @@ export function buildPrivyClientConfig(opts: {
   defaultChain?: Chain;
   supportedChains?: readonly Chain[];
   walletConnectProjectId?: string;
+  /** Disable only when the surrounding wallet kit owns the external connector. */
+  walletConnectEnabled?: boolean;
 }): PrivyClientConfig {
   return {
     appearance: {
-      walletList: ["detected_wallets", "metamask", "wallet_connect"],
+      walletList:
+        opts.walletConnectEnabled === false
+          ? ["detected_wallets", "metamask"]
+          : ["detected_wallets", "metamask", "wallet_connect"],
       logo: opts.appLogoUrl,
     },
     embeddedWallets: {
@@ -325,6 +330,9 @@ export function buildPrivyClientConfig(opts: {
       solana: { createOnLogin: "all-users" },
     },
     loginMethods: opts.loginMethods,
+    ...(opts.walletConnectEnabled === false
+      ? { externalWallets: { walletConnect: { enabled: false } } }
+      : {}),
     ...(opts.defaultChain ? { defaultChain: opts.defaultChain } : {}),
     ...(opts.supportedChains
       ? { supportedChains: opts.supportedChains as unknown as Chain[] }

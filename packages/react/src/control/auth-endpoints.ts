@@ -29,6 +29,8 @@ export type AuthEndpointsState = {
   authorizedApps: string[];
   appDescriptors: AomiAppDescriptor[];
   defaultApp: string | null;
+  /** False once the latest model read settled (success or failure). */
+  modelsLoading?: boolean;
 };
 
 export type AuthEndpointsActions = {
@@ -82,8 +84,10 @@ export function useAuthEndpointsImpl({
   const [authorizedApps, setAuthorizedApps] = useState<string[]>([]);
   const [appDescriptors, setAppDescriptors] = useState<AomiAppDescriptor[]>([]);
   const [defaultApp, setDefaultApp] = useState<string | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(true);
 
   const getAvailableModels = useCallback(async (): Promise<string[]> => {
+    setModelsLoading(true);
     try {
       const models = await aomiClientRef.current.getModels(
         getControlSessionId(),
@@ -95,6 +99,8 @@ export function useAuthEndpointsImpl({
     } catch (error) {
       console.error("Failed to fetch models:", error);
       return [];
+    } finally {
+      setModelsLoading(false);
     }
   }, [aomiClientRef, getControlSessionId, appId]);
 
@@ -139,6 +145,7 @@ export function useAuthEndpointsImpl({
       authorizedApps,
       appDescriptors,
       defaultApp,
+      modelsLoading,
     },
     actions: { getAvailableModels, getAuthorizedApps },
   };

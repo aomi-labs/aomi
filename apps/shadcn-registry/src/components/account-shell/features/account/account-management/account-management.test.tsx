@@ -428,15 +428,24 @@ describe("unified account wallets", () => {
     ) => {
       const line = within(lineFor(item));
       expect(line.getByText(status)).toHaveAttribute("data-status-tone", tone);
-      expect(line.queryAllByRole("button")).toHaveLength(action ? 1 : 0);
+      expect(
+        line.queryAllByRole("button", {
+          name: /^(Connect|Link wallet|Sign in again|Re-verify)$/,
+        }),
+      ).toHaveLength(action ? 1 : 0);
+      expect(
+        line.getByRole("button", { name: `Copy address ${item.address}` }),
+      ).toBeInTheDocument();
       if (action) fireEvent.click(line.getByRole("button", { name: action }));
     };
     expectLine(offline, "Not on this device", "neutral", "Connect");
-    expectLine(unlinked, "Not saved", "warning", "Confirm");
+    expectLine(unlinked, "Not linked", "warning", "Link wallet");
     expectLine(expired, "Session expired", "warning", "Sign in again");
     expectLine(changed, "Address changed", "danger", "Re-verify");
     expectLine(unloaded, "Para not loaded", "neutral");
-    expectLine(checking, "Checking…", "neutral");
+    expect(
+      within(lineFor(checking)).getByRole("status", { name: "Checking" }),
+    ).toBeInTheDocument();
     expectLine(faulted, "Couldn't verify", "neutral");
 
     expect(onConnectWallet.mock.calls).toEqual([
@@ -464,7 +473,7 @@ describe("unified account wallets", () => {
         onUnlinkWallet={onUnlinkWallet}
       />,
     );
-    expect(within(lineFor(ready)).queryByText(/Not saved|Active/)).toBeNull();
+    expect(within(lineFor(ready)).queryByText(/Not linked|Active/)).toBeNull();
     chooseAction(actionsFor(ready), "Disconnect");
     chooseAction(actionsFor(ready), "Unlink wallet");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -499,10 +508,10 @@ describe("unified account wallets", () => {
     expect(callbacks.onSelectWallet).not.toHaveBeenCalled();
   });
 
-  it("opens the existing wallet catalog through Add more", () => {
+  it("opens the existing wallet catalog through Add a wallet", () => {
     const callbacks = props([]);
     render(<AccountManagement {...callbacks} />);
-    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
     expect(callbacks.onAddWallet).toHaveBeenCalledOnce();
     expect(
       screen.queryByRole("button", { name: "Add provider" }),

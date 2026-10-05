@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,10 +52,6 @@ export const ModelSelect: FC<ModelSelectProps> = ({
   const [open, setOpen] = useState(false);
   const { resetHighlight, commandHighlightProps } = useControlMenuHighlight();
 
-  useEffect(() => {
-    void getAvailableModels();
-  }, [getAvailableModels]);
-
   const threadControl = getCurrentThreadControl();
   const rawSelected = threadControl.model;
   const modelMode =
@@ -68,18 +64,34 @@ export const ModelSelect: FC<ModelSelectProps> = ({
     ? autoBackendModel
     : (rawSelected ?? state.defaultModel ?? models[0]);
 
+  // Until the catalog arrives, show this chat's choice (or Auto) as a quiet,
+  // inert trigger so the composer doesn't flash a loading label.
   if (models.length === 0) {
+    const failed = state.modelsLoading === false;
     return (
       <Button
         variant="ghost"
-        disabled
+        aria-disabled={!failed}
+        aria-busy={!failed}
+        onClick={failed ? () => void getAvailableModels() : undefined}
+        title={failed ? "Couldn't load models. Click to retry." : undefined}
         className={cn(
-          "h-8 w-auto min-w-[100px] rounded-full px-2 text-xs",
-          "text-aomi-muted",
+          controlSelectTriggerClass,
+          "w-auto justify-start",
+          !failed &&
+            "hover:text-aomi-muted cursor-default hover:bg-transparent",
           className,
         )}
       >
-        <span className="truncate">Loading...</span>
+        <div className="flex items-center gap-px md:gap-1.5">
+          {isAuto ? (
+            <AutoModeIcon className="h-3 w-3 shrink-0 opacity-60" />
+          ) : null}
+          <span className="truncate">
+            {isAuto ? AUTO_MODEL_LABEL : (rawSelected ?? AUTO_MODEL_LABEL)}
+          </span>
+        </div>
+        <ControlSelectChevron />
       </Button>
     );
   }

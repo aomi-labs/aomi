@@ -168,4 +168,28 @@ describe("SettingsModal directory shell", () => {
     view.rerender(<SettingsModal onClose={onClose} initialTab="account" />);
     expect(onClose).toHaveBeenCalledOnce();
   });
+  it("keeps visited account content mounted during a refresh", () => {
+    const view = render(
+      <SettingsModal onClose={vi.fn()} initialTab="account" />,
+    );
+    const content = screen.getByText("Account content");
+    fireEvent.click(screen.getByRole("button", { name: "General" }));
+    expect(content).toBeInTheDocument();
+    expect(content).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Account" }));
+    session.status = "establishing";
+    view.rerender(<SettingsModal onClose={vi.fn()} initialTab="account" />);
+    expect(screen.getByText("Account content")).toBe(content);
+    expect(content).toBeVisible();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows a centered spinner while the first session is restoring", () => {
+    session.status = "establishing";
+    render(<SettingsModal onClose={vi.fn()} />);
+    expect(
+      screen.getByRole("status", { name: "Connecting your account" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("General content")).toBeNull();
+  });
 });

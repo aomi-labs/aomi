@@ -94,6 +94,16 @@ describe("on-chain explorer links", () => {
     expect(fallback).not.toHaveAttribute("target");
   });
 
+  it("renders unsafe schemes as copyable text", () => {
+    const { rerender } = render(
+      <OnchainLink href="javascript:alert(1)">Address</OnchainLink>,
+    );
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Address")).toBeTruthy();
+    rerender(<OnchainLink href="data:text/html,test">Address</OnchainLink>);
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   it("accepts configured HTTPS explorers with valid path and identifier types", () => {
     expect(
       recognizeOnchainLink(`https://basescan.org/tx/${HASH}`),

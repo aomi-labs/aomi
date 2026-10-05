@@ -118,7 +118,8 @@ describe("usePortalWalletAccountMenu account wiring", () => {
       "This wallet or sign-in method is already linked to another Aomi account.";
 
     const menu = readMenu();
-    expect(menu?.secondaryLine).toBe("Loading allowance…");
+    expect(menu?.secondaryLine).toBeUndefined();
+    expect(menu?.secondaryLoading).toBe(true);
     expect(menu?.noticeLine).toBe(walletKitState.current.accountError);
   });
 
@@ -132,7 +133,8 @@ describe("usePortalWalletAccountMenu account wiring", () => {
     const menu = readMenu(onManageAccount);
     expect(menu?.onSignIn).toBeUndefined();
     expect(menu?.primaryLine).toBe("Alice");
-    expect(menu?.secondaryLine).toBe("Loading allowance…");
+    expect(menu?.secondaryLine).toBeUndefined();
+    expect(menu?.secondaryLoading).toBe(true);
     menu?.onManageAccount?.();
     expect(onManageAccount).toHaveBeenCalledTimes(1);
   });

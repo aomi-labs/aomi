@@ -14,8 +14,11 @@ import {
   type GitHubSessionInfo,
 } from "@build/features/launch/dashboard";
 
+import { BUILD_SESSION_EXPIRED } from "@build/lib/session-expiry";
+
 export type GitHubAccountState = GitHubSessionInfo & {
   loading: boolean;
+  expired?: boolean;
 };
 
 type GitHubSessionContextValue = {
@@ -56,6 +59,32 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const expire = () =>
+      setAccount((current) =>
+        current.signedIn ? { ...current, expired: true } : current,
+      );
+    window.addEventListener(BUILD_SESSION_EXPIRED, expire);
+    return () => window.removeEventListener(BUILD_SESSION_EXPIRED, expire);
+  }, []);
+
+  useEffect(() => {
+    if (!account.expired) return;
+    let cancelled = false;
+    const resume = () => {
+      void fetchGitHubSession().then((session) => {
+        if (!cancelled && session.signedIn) {
+          setAccount({ ...session, loading: false });
+        }
+      });
+    };
+    window.addEventListener("focus", resume);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", resume);
+    };
+  }, [account.expired]);
 
   const value = useMemo(
     () => ({

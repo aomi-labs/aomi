@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  AssistantRuntimeProvider,
-  useExternalStoreRuntime,
+import type {
+  ExternalStoreAdapter,
+  ThreadMessageLike,
 } from "@assistant-ui/react";
 
 import {
@@ -35,6 +35,7 @@ import {
   projectRuntimeMessages,
 } from "./utils";
 import { messageActions } from "./message-actions";
+import { AssistantRuntimeBoundary } from "./assistant-runtime-boundary";
 
 /** Deduplicate in-flight async work keyed by thread id. */
 async function runSingleFlight(
@@ -397,7 +398,10 @@ export function AomiRuntimeCore({
         threadContext,
         isLoading: isThreadListLoading,
         getInitialControl: getPreferredThreadControl,
-        isRemoteThread: (threadId) => remoteThreadIdsRef.current.has(threadId),
+        isRemoteThread: (threadId) =>
+          remoteThreadIdsRef.current.has(threadId) ||
+          Boolean(threadContext.getThreadMetadata(threadId)?.pending) ||
+          Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
       }),
     [
       aomiClientRef,
@@ -434,7 +438,7 @@ export function AomiRuntimeCore({
     [orchestratorCancel, notificationContext, sessionManager],
   );
   const restoreComposerTextRef = useRef<(text: string) => void>(() => {});
-  const runtime = useExternalStoreRuntime({
+  const assistantAdapter: ExternalStoreAdapter<ThreadMessageLike> = {
     messages: currentMessages,
     isLoading: isThreadLoading,
     isRunning,
@@ -442,7 +446,14 @@ export function AomiRuntimeCore({
       messages: currentMessages,
       send: (text, options) =>
         orchestratorSendMessage(text, threadContext.currentThreadId, options),
-      restore: (text) => restoreComposerTextRef.current(text),
+      restore: (text) => {
+        // A late failure belongs to the originating chat, not the newly selected composer.
+        if (
+          threadContextRef.current.currentThreadId ===
+          threadContext.currentThreadId
+        )
+          restoreComposerTextRef.current(text);
+      },
       unavailable: (message) =>
         notificationContext.showNotification({
           type: "error",
@@ -455,10 +466,6 @@ export function AomiRuntimeCore({
     },
     convertMessage: (msg) => msg,
     adapters: { threadList: threadListAdapter },
-  });
-  restoreComposerTextRef.current = (text) => {
-    const composer = runtime.thread.composer;
-    if (!composer.getState().text) composer.setText(text);
   };
 
   // ---------------------------------------------------------------------------
@@ -567,6 +574,10 @@ export function AomiRuntimeCore({
       threadViewKey: threadContext.threadViewKey,
       threadMetadata: threadContext.allThreadsMetadata,
       threadListError,
+      threadListLoading: isThreadListLoading,
+      isRemoteThread: (threadId) =>
+        remoteThreadIdsRef.current.has(threadId) ||
+        Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
       getThreadMetadata: threadContext.getThreadMetadata,
       createThread,
       deleteThread,
@@ -612,6 +623,8 @@ export function AomiRuntimeCore({
       threadContext.getThreadMetadata,
       threadListError,
       createThread,
+      isThreadListLoading,
+      sessionManager,
       deleteThread,
       threadListAdapter,
       selectThread,
@@ -631,9 +644,13 @@ export function AomiRuntimeCore({
 
   return (
     <AomiRuntimeApiProvider value={aomiRuntimeApi}>
-      <AssistantRuntimeProvider runtime={runtime}>
+      <AssistantRuntimeBoundary
+        key={threadContext.currentThreadId}
+        adapter={assistantAdapter}
+        restoreComposerText={restoreComposerTextRef}
+      >
         {children}
-      </AssistantRuntimeProvider>
+      </AssistantRuntimeBoundary>
     </AomiRuntimeApiProvider>
   );
 }

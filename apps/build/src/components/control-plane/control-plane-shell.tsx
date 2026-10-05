@@ -697,6 +697,22 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
             />
           </div>
         </header>
+        {account.expired && (
+          <div
+            role="alert"
+            className="border-warning/30 bg-warning/10 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"
+          >
+            <p>Session expired.</p>
+            <a
+              href={GITHUB_SIGNIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-warning shrink-0 font-medium underline underline-offset-4"
+            >
+              Sign in again
+            </a>
+          </div>
+        )}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         <CommandPalette />
       </div>

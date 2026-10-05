@@ -40,6 +40,15 @@ describe("toPrivyLoginMethods", () => {
 });
 
 describe("buildPrivyClientConfig", () => {
+  it("leaves standalone WalletConnect behavior intact and disables the redundant additive client", () => {
+    const standalone = buildPrivyClientConfig({});
+    expect(standalone.appearance?.walletList).toContain("wallet_connect");
+    expect(standalone.externalWallets?.walletConnect).toBeUndefined();
+    const additive = buildPrivyClientConfig({ walletConnectEnabled: false });
+    expect(additive.externalWallets?.walletConnect).toEqual({ enabled: false });
+    expect(additive.appearance?.walletList).not.toContain("wallet_connect");
+    expect(additive.appearance?.walletList).toContain("metamask");
+  });
   it("creates both Ethereum and Solana embedded wallets for all users", () => {
     expect(buildPrivyClientConfig({}).embeddedWallets).toMatchObject({
       ethereum: { createOnLogin: "all-users" },

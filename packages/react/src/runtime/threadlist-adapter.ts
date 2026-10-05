@@ -27,7 +27,8 @@ function buildThreadLists(
 ) {
   const entries = Array.from(threadMetadata.entries()).filter(
     ([threadId, meta]) =>
-      !isPlaceholderTitle(meta.title) && shouldShowThread(threadId),
+      (meta.pending || !isPlaceholderTitle(meta.title)) &&
+      shouldShowThread(threadId),
   );
 
   const regularThreads = entries
@@ -140,6 +141,7 @@ export function buildThreadListAdapter({
         threadContext.updateThreadMetadata(threadId, {
           title: previousTitle,
         });
+        throw error;
       }
     },
 

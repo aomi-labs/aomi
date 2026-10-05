@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   attemptLabel,
+  attemptJobLabel,
   attemptStages,
   type ProjectDeploymentAttempt,
 } from "./attempts";
@@ -21,6 +22,31 @@ const attempt = (
     jobs,
   }) as ProjectDeploymentAttempt;
 describe("deployment stage truth", () => {
+  it("cleans matrix placeholders and hides explicitly unrequested activation", () => {
+    expect(attemptJobLabel("Verify runtime / ${{ matrix.name }}")).toBe(
+      "Verify runtime",
+    );
+    const release = attempt([
+      job("Build / demo", "success"),
+      job("Publish release", "success"),
+      job("Activate", "skipped"),
+      job("Verify runtime / ${{ matrix.name }}", "skipped"),
+    ]);
+    expect(attemptLabel(release)).toBe("Ready to promote");
+    expect(attemptStages(release).map((stage) => stage.name)).not.toContain(
+      "Activate",
+    );
+  });
+  it("does not infer a live pointer from successful CI verification", () => {
+    const incomplete = {
+      ...attempt([job("Verify runtime / demo", "success")]),
+      status: "in_progress",
+    };
+    expect(attemptLabel(incomplete)).not.toBe("Runtime verified");
+    expect(attemptStages(incomplete).map((stage) => stage.name)).not.toContain(
+      "Live",
+    );
+  });
   it("does not call a successful build live", () => {
     expect(
       attemptLabel(
@@ -40,7 +66,7 @@ describe("deployment stage truth", () => {
       "failure",
     );
     expect(attemptLabel(partial)).toBe("Verify runtime failed");
-    expect(attemptStages(partial).at(-1)?.state).toBe("waiting");
+    expect(attemptStages(partial).at(-1)?.state).toBe("failed");
     expect(
       attemptLabel(
         attempt([
@@ -48,7 +74,7 @@ describe("deployment stage truth", () => {
           job("Verify runtime / two", "success"),
         ]),
       ),
-    ).toBe("Live");
+    ).toBe("Runtime verified");
   });
   it("keeps the failed stage while other apps are still building", () => {
     const running = {

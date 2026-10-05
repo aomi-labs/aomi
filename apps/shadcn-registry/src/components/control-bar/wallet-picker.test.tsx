@@ -25,6 +25,7 @@ import {
   useWalletPicker,
 } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
+import { AccountSettings } from "../account-shell/features/account/account-settings";
 import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
 
 afterEach(cleanup);
@@ -292,6 +293,7 @@ function renderPicker(
   initiallyOpen = true,
   signInOptions: ContextType<typeof WalletSignInOptionsContext> = [],
   insideSidebar = false,
+  insideSettings = false,
 ) {
   const runtime = {
     hasBlockingActions,
@@ -308,7 +310,9 @@ function renderPicker(
           >
             <WalletSignInOptionsContext.Provider value={signInOptions}>
               <WalletPickerProvider>
-                {insideSidebar ? (
+                {insideSettings ? (
+                  <AccountSettings />
+                ) : insideSidebar ? (
                   <Sheet open>
                     <SheetContent>
                       <SheetTitle>Sidebar</SheetTitle>
@@ -1060,16 +1064,31 @@ describe("WalletPicker", () => {
     expect(linkWallet).not.toHaveBeenCalled();
   });
 
-  it("auto-links the first connected EVM wallet for an empty account", async () => {
+  it("requires an explicit link choice for an empty signed-in EVM account", async () => {
     const linkWallet = vi.fn(async () => undefined);
     renderPicker(
       makeAdapter({
         accountUser: { id: "user-1", displayName: "Ada Account" },
         accountWallets: [],
         linkWallet,
+        walletModalRows: [
+          {
+            id: "mm",
+            family: "evm",
+            address: "0xAAAAAAAA",
+            chainId: 1,
+            label: "MetaMask",
+            source: "live",
+            status: "active",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
       }),
     );
 
+    expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
+    expect(linkWallet).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Link wallet" }));
     await waitFor(() => expect(linkWallet).toHaveBeenCalledTimes(1));
     expect(linkWallet).toHaveBeenCalledWith({
       accountId: "mm",
@@ -1079,7 +1098,7 @@ describe("WalletPicker", () => {
     });
   });
 
-  it("auto-links a connected external Solana wallet for an empty account", async () => {
+  it("requires an explicit link choice for an empty signed-in Solana account", async () => {
     const linkWallet = vi.fn(async () => undefined);
     renderPicker(
       makeAdapter({
@@ -1103,9 +1122,23 @@ describe("WalletPicker", () => {
         accountUser: { id: "user-1", displayName: "Ada Account" },
         accountWallets: [],
         linkWallet,
+        walletModalRows: [
+          {
+            id: "phantom",
+            family: "svm",
+            address: "9xQpubKey",
+            label: "Phantom",
+            source: "live",
+            status: "active",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
       }),
     );
 
+    expect(screen.getByRole("dialog", { name: "Add a wallet" })).toBeTruthy();
+    expect(linkWallet).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Link wallet" }));
     await waitFor(() => expect(linkWallet).toHaveBeenCalledTimes(1));
     expect(linkWallet).toHaveBeenCalledWith({
       accountId: "phantom",
@@ -1634,5 +1667,85 @@ describe("WalletPicker", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Manage Para" })).toBeNull();
+  });
+  it("opens from Settings without a sidebar and returns focus after Escape", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          user_accounts: [],
+          delegated_accounts: [],
+          signing_policies: [],
+        }),
+      ),
+    );
+    renderPicker(
+      makeAdapter({
+        accountUser: { id: "settings-user" },
+        identity: { status: "disconnected", isConnected: false },
+        accounts: [],
+      }),
+      false,
+      false,
+      [],
+      false,
+      true,
+    );
+    const trigger = screen.getByRole("button", { name: "Add a wallet" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByRole("dialog", { name: "Add a wallet" }),
+    ).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Add a wallet" })).toBeNull(),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    vi.unstubAllGlobals();
+  });
+  it("starts only one link when two wallet actions arrive in the same tick", async () => {
+    let finish!: () => void;
+    const linkWallet = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    renderPicker(
+      makeAdapter({
+        accountUser: { id: "same-tick-account" },
+        linkWallet,
+        walletModalRows: [
+          {
+            id: "evm-a",
+            family: "evm",
+            address: "0xAAAA",
+            label: "Rabby",
+            source: "live",
+            status: "connected",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+          {
+            id: "svm-a",
+            family: "svm",
+            address: "SolanaAddr",
+            label: "Phantom",
+            source: "live",
+            status: "connected",
+            actions: [{ kind: "link", label: "Link wallet" }],
+          },
+        ],
+      }),
+    );
+    const buttons = screen.getAllByRole("button", { name: "Link wallet" });
+    act(() => {
+      fireEvent.click(buttons[0]);
+      fireEvent.click(buttons[1]);
+    });
+    expect(linkWallet).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish();
+    });
   });
 });
