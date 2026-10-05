@@ -28,11 +28,11 @@ export type Logger = {
 // =============================================================================
 
 export type AomiClientOptions = {
-  /** Base URL of the Aomi backend (e.g. "https://api.aomi.dev" or "/" for same-origin proxying) */
+  /** Base URL of the public Aomi API (e.g. "https://chat.aomi.dev" or "/" for same-origin proxying) */
   baseUrl: string;
   /** Optional fetch implementation for payment-aware browser transports and tests. */
   fetch?: typeof fetch;
-  /** Default API key for non-default apps */
+  /** App key sent as `Aomi-App-Key`. Only private Apps need one; the App owner issues it. */
   apiKey?: string;
   /** Optional x402 signer used by the bounded payment retry transport. */
   x402?: x402Client | x402HTTPClient;

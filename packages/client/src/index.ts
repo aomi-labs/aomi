@@ -20,6 +20,7 @@ export type {
 } from "./account/credits";
 export { AomiCreditApiError } from "./account/credits";
 export { AgentApiError, AgentTransport } from "./agent/transport";
+export type { AgentAppAccessErrorCode } from "./agent/transport";
 export { projectConversationEvents } from "./session/conversation";
 export {
   EvmPipelineTransport,

@@ -2,6 +2,27 @@
 
 TypeScript client for the Aomi on-chain agent backend. Works in Node.js and browsers.
 
+The production API is `https://chat.aomi.dev`; pass it as `baseUrl` (the CLI
+uses it by default).
+
+## Which credential do I need?
+
+Most integrations need nothing: start as a guest and add a credential only when
+a call asks for one.
+
+| Credential      | When you need it                                                | How to get it                                                                                                                      | How to pass it                                                |
+| --------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
+| OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
+| App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
+| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi account login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
+
+If a call fails because of the App rather than your credentials, the error
+`code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
+activated it yet), `app_key_required` (401, private App, no key sent), or
+`app_key_not_scoped` (403, the key belongs to a different App). These surface
+as `AgentApiError` with `appAccessCode` set.
+
 ## Public authorization
 
 With no auth option, `Aomi` creates and reuses an anonymous session for the
@@ -14,7 +35,7 @@ import { Aomi, oauth } from "@aomi-labs/client";
 const aomi = new Aomi({
   baseUrl: "https://chat.aomi.dev",
   auth: oauth({
-    clientId: process.env.AOMI_CLIENT_ID!,
+    clientId: process.env.AOMI_OAUTH_CLIENT_ID!,
     store: myDurableGrantStore,
     onVerification({ verificationUriComplete, verificationUri, userCode }) {
       console.log(
@@ -30,6 +51,31 @@ await aomi.auth.login({ for: "agent" });
 console.log(await aomi.auth.status());
 await aomi.auth.logout();
 ```
+
+### Register an OAuth client
+
+`oauth()` needs a public client ID. The `aomi` CLI registers one for itself;
+for your own integration, register a device client once and keep its
+`client_id` (it is not a secret, and there is no client secret):
+
+```bash
+curl -sX POST https://chat.aomi.dev/api/auth/oauth2/register \
+  -H 'content-type: application/json' \
+  -d '{
+    "client_name": "My Aomi bot",
+    "token_endpoint_auth_method": "none",
+    "grant_types": ["urn:ietf:params:oauth:grant-type:device_code", "refresh_token"],
+    "resources": ["https://chat.aomi.dev/v1/agent"],
+    "scope": "agent:read agent:write agent:actions:resolve offline_access"
+  }'
+# => { "client_id": "...", ... }  → export AOMI_OAUTH_CLIENT_ID=<client_id>
+```
+
+Registration only accepts public clients (`token_endpoint_auth_method: "none"`)
+with exactly the device-code and refresh-token grants, and exactly one REST
+resource. For Pipeline, register a second client with resource
+`https://chat.aomi.dev/v1/pipeline` and scope
+`pipeline:catalog pipeline:execute offline_access`.
 
 Agent REST uses the exact OAuth resource `https://<portal>/v1/agent`; Pipeline
 REST uses `https://<portal>/v1/pipeline`. Use a separately registered client
@@ -66,7 +112,7 @@ Direct typed access to the Agent and Pipeline transports.
 ```ts
 import { AomiClient } from "@aomi-labs/client";
 
-const client = new AomiClient({ baseUrl: "https://api.aomi.dev" });
+const client = new AomiClient({ baseUrl: "https://chat.aomi.dev" });
 const sessions = await client.agent.sessions.list();
 console.log(sessions.sessions);
 ```
@@ -83,7 +129,7 @@ wallet capabilities.
 import { Aomi } from "@aomi-labs/client";
 
 const aomi = new Aomi({
-  baseUrl: "https://api.aomi.dev",
+  baseUrl: "https://chat.aomi.dev",
   wallet: {
     evm: {
       address,
@@ -327,7 +373,7 @@ and legacy Action execution.
 import { Session, commitCapabilities } from "@aomi-labs/client";
 
 const session = new Session(
-  { baseUrl: "https://api.aomi.dev" },
+  { baseUrl: "https://chat.aomi.dev" },
   {
     actions: walletCapabilities,
     commits: commitCapabilities(wallets),
@@ -814,7 +860,7 @@ All config can be passed as flags (which take priority over env vars):
 | Flag                   | Env Variable          | Default                 | Description                                   |
 | ---------------------- | --------------------- | ----------------------- | --------------------------------------------- |
 | `--backend-url`        | `AOMI_BACKEND_URL`    | `https://chat.aomi.dev` | Aomi API/BFF URL                              |
-| `--api-key`            | `AOMI_API_KEY`        | —                       | API key for non-default apps                  |
+| `--api-key`            | `AOMI_API_KEY`        | —                       | App key — only for private Apps (from owner)  |
 | `--mode`               | `AOMI_AGENT_MODE`     | `auto`                  | Agent routing mode (`auto` or `direct`)       |
 | `--app`                | `AOMI_APP`            | —                       | Direct app (also implies Direct when omitted) |
 | `--application-id`     | `AOMI_APPLICATION_ID` | —                       | Direct hosted application identity            |
@@ -836,10 +882,11 @@ All config can be passed as flags (which take priority over env vars):
 # Use a custom backend
 npx @aomi-labs/client chat "hello" --backend-url https://my-backend.example.com
 
-# Full signing flow with all flags
+# Full signing flow with all flags.
+# --api-key is only for private Apps; the App owner gives you the key.
 npx @aomi-labs/client chat "send 0.1 ETH to vitalik.eth" \
   --public-key 0xYourAddress \
-  --api-key sk-abc123 \
+  --api-key aomi-your-private-app-key \
   --app my-agent \
   --model claude-sonnet-4
 npx @aomi-labs/client tx sign <commit-id> \

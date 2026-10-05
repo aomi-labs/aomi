@@ -34,17 +34,6 @@ function resolvePlatform(args: ActivateArgs): string {
   );
 }
 
-async function extractError(res: Response): Promise<string> {
-  try {
-    const text = await res.text();
-    const json = JSON.parse(text);
-    if (json && typeof json === "object" && json.error) return json.error as string;
-    return text || `${res.status} ${res.statusText}`;
-  } catch {
-    return `${res.status} ${res.statusText}`;
-  }
-}
-
 export async function activateCommand(args: ActivateArgs): Promise<void> {
   const state = await readDeploymentState();
 
@@ -90,12 +79,7 @@ export async function activateCommand(args: ActivateArgs): Promise<void> {
   }
 
   if (!res.ok) {
-    const msg = await extractError(res);
-    const code = res.status === 401 || res.status === 403 ? "AUTH_FAILED" : "BACKEND_ERROR";
-    if (code === "AUTH_FAILED") {
-      throw new DeployCliError(code, "Session expired; run `aomi account login`");
-    }
-    throw new DeployCliError(code, msg);
+    throw DeployCliError.fromHttpFailure(res, await res.text());
   }
 
   // Check for partial activation failures in the response body

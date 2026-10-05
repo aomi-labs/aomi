@@ -6,11 +6,16 @@ import { Aomi, oauth } from "@aomi-labs/client";
 import { createJsonFileGrantStore } from "./grant-stores";
 import { resolveHeadlessOAuthConfig } from "../shared/oauth";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
 const { resource } = resolveHeadlessOAuthConfig(baseUrl);
 const target = resource.endsWith("/v1/pipeline") ? "pipeline" : "agent";
 const clientId = process.env.AOMI_OAUTH_CLIENT_ID?.trim();
-if (!clientId) throw new Error("Set AOMI_OAUTH_CLIENT_ID to a managed client");
+if (!clientId) {
+  throw new Error(
+    "Set AOMI_OAUTH_CLIENT_ID to a public device client ID. Register one with " +
+      `POST ${baseUrl}/api/auth/oauth2/register (see packages/client/README.md, "Register an OAuth client").`,
+  );
+}
 
 // Refresh grants survive process restarts. On the first run, Aomi asks the
 // user to approve a device code. Later runs refresh silently until the user

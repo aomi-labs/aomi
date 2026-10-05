@@ -1,6 +1,6 @@
 import { Aomi, PipelineApiError } from "@aomi-labs/client";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
 
 // Guest Pipeline availability is a deployment policy. Payments and delegated
 // custody still require an authenticated account grant where guests are on.

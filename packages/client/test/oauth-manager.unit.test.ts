@@ -4,6 +4,7 @@ import {
   createAomiOAuthGrantManager,
   type AomiOAuthGrant,
 } from "../src/authorization";
+import { createAomiDeviceGrantManager } from "../src/oauth";
 
 const issuer = "https://portal.example/api/auth";
 const clientId = "managed-client";
@@ -72,4 +73,22 @@ describe("Aomi OAuth grant manager", () => {
     ).rejects.toBeInstanceOf(AomiOAuthError);
     await expect(manager.grants()).resolves.toEqual([]);
   });
+});
+
+describe("createAomiDeviceGrantManager", () => {
+  it.each([undefined, "", "  "])(
+    "explains how to register when the client ID is %j",
+    async (missing) => {
+      const fetch = vi.fn();
+      await expect(
+        createAomiDeviceGrantManager({
+          portalBaseUrl: "https://portal.example",
+          clientId: missing as unknown as string,
+          fetch,
+          onVerification: () => {},
+        }),
+      ).rejects.toThrow(/POST \/api\/auth\/oauth2\/register/);
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
 });

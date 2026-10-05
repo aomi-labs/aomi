@@ -2,7 +2,22 @@
 
 ## Last Updated
 
-2026-10-04 — EXPLORER LINKS IN REPLIES (aomi#703, paired with product-mono#1236;
+2026-10-05 — SDK CREDENTIALS AND APP ACCESS ERRORS (branch
+  `cecilia/sdk-onboarding-credentials`; pairs with the product-mono public v1
+  App access error codes). `AgentApiError` gains `appAccessCode` for
+  `app_not_found`, `app_inactive`, `app_key_required` and `app_key_not_scoped`
+  and now carries the server's `error.message`. The widget runtime shows a
+  specific notice for each and keeps the persisted thread; the public-API
+  fetch wrapper no longer refreshes the guest/OAuth credential on them (a
+  guest refresh minted a new anonymous identity). CLI deploy/status/activate
+  share `DeployCliError.fromHttpFailure`, and chat/REPL print an App-specific
+  fix. Client README gains "Which credential do I need?" and a dynamic
+  client-registration recipe; docs use `AOMI_OAUTH_CLIENT_ID` and
+  `https://chat.aomi.dev`. SDK `oauth()` still requires a registered client
+  ID (auto-registration deferred: grants are keyed by client ID and one
+  client cannot span Agent and Pipeline).
+
+Previous: 2026-10-04 — EXPLORER LINKS IN REPLIES (aomi#703, paired with product-mono#1236;
   branch `codex/1230-explorer-links`). Assistant Markdown links bare on-chain
   identifiers that this message's tool results type by field (`address`,
   `token_address`, `mint`, ...) and place on a chain (`chain_id`, `cluster`,

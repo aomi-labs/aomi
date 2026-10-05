@@ -111,3 +111,62 @@ describe("mapDeployHttpError — property-based", () => {
     );
   });
 });
+
+describe("DeployCliError.fromHttpFailure", () => {
+  const response = (status: number) => ({ status, statusText: "Status" });
+  const body = (code: string) =>
+    JSON.stringify({
+      error: { code, message: "server text", retryable: false },
+    });
+
+  it.each([
+    [401, "app_key_required", /private.*--api-key/],
+    [403, "app_key_not_scoped", /doesn't grant access.*--api-key/],
+    [409, "app_inactive", /isn't active yet/],
+    [404, "app_not_found", /--app or --application-id/],
+  ])(
+    "explains %s %s instead of blaming the login session",
+    (status, code, hint) => {
+      const err = DeployCliError.fromHttpFailure(response(status), body(code));
+      expect(err.errorCode).toBe("AUTH_FAILED");
+      expect(err.message).toMatch(hint);
+      expect(err.message).not.toMatch(/Session expired/);
+    },
+  );
+
+  it("falls back to the login hint for other 401/403 responses", () => {
+    for (const status of [401, 403]) {
+      const err = DeployCliError.fromHttpFailure(
+        response(status),
+        JSON.stringify({ error: "unauthorized" }),
+      );
+      expect(err.errorCode).toBe("AUTH_FAILED");
+      expect(err.message).toBe("Session expired; run `aomi account login`");
+    }
+  });
+
+  it("reports backend messages from either error shape or a reason", () => {
+    expect(
+      DeployCliError.fromHttpFailure(
+        response(500),
+        JSON.stringify({ error: "boom" }),
+      ).message,
+    ).toBe("boom");
+    expect(
+      DeployCliError.fromHttpFailure(response(422), body("invalid_manifest"))
+        .message,
+    ).toBe("server text");
+    expect(
+      DeployCliError.fromHttpFailure(
+        response(400),
+        JSON.stringify({ reason: "nope" }),
+      ).message,
+    ).toBe("nope");
+    const html = DeployCliError.fromHttpFailure(
+      response(502),
+      "<html>bad gateway</html>",
+    );
+    expect(html.errorCode).toBe("BACKEND_ERROR");
+    expect(html.message).toBe("502 Status");
+  });
+});

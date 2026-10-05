@@ -16,7 +16,25 @@ type RequestResponse = (
   options?: AomiRequestOptions,
 ) => Promise<Response>;
 
+/**
+ * Stable `code`s the public API returns when the request names an App the
+ * caller cannot use. None of them is fixed by retrying with the same
+ * credentials, and none of them means the conversation itself is gone.
+ */
+export type AgentAppAccessErrorCode =
+  | "app_not_found"
+  | "app_inactive"
+  | "app_key_required"
+  | "app_key_not_scoped";
+
 export class AgentApiError extends Error {
+  static readonly APP_ACCESS_CODES: readonly AgentAppAccessErrorCode[] = [
+    "app_not_found",
+    "app_inactive",
+    "app_key_required",
+    "app_key_not_scoped",
+  ];
+
   constructor(
     readonly status: number,
     readonly code: string,
@@ -27,6 +45,11 @@ export class AgentApiError extends Error {
   ) {
     super(message);
     this.name = "AgentApiError";
+  }
+
+  /** The App access failure this error reports, if it is one. */
+  get appAccessCode(): AgentAppAccessErrorCode | undefined {
+    return AgentApiError.APP_ACCESS_CODES.find((code) => code === this.code);
   }
 }
 
@@ -299,10 +322,19 @@ async function parseAgentResponse<T>(response: Response): Promise<T> {
       : typeof raw === "object" && raw !== null && "code" in raw
         ? String((raw as { code: unknown }).code)
         : "agent_request_failed";
+  // Prefer the server's human-readable message; fall back to the code.
+  const serverMessage =
+    typeof raw === "object" && raw !== null
+      ? (raw as { message?: unknown }).message
+      : undefined;
+  const message =
+    typeof serverMessage === "string" && serverMessage.trim()
+      ? serverMessage
+      : code.replaceAll("_", " ");
   throw new AgentApiError(
     response.status,
     code,
-    code.replaceAll("_", " "),
+    message,
     response.status === 408 ||
       response.status === 429 ||
       response.status >= 500,

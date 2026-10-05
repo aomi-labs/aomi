@@ -74,17 +74,7 @@ async function fetchStatus(
 
   const text = await res.text();
   if (!res.ok) {
-    const message = (() => {
-      try {
-        const json = JSON.parse(text);
-        if (json && typeof json === "object" && json.error) return json.error as string;
-      } catch {}
-      return `${res.status} ${res.statusText}`;
-    })();
-    if (res.status === 401 || res.status === 403) {
-      throw new DeployCliError("AUTH_FAILED", "Session expired; run `aomi account login`");
-    }
-    throw new DeployCliError("BACKEND_ERROR", message);
+    throw DeployCliError.fromHttpFailure(res, text);
   }
 
   try {

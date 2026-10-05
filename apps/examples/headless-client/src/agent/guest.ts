@@ -1,6 +1,6 @@
 import { Aomi } from "@aomi-labs/client";
 
-const baseUrl = process.env.AOMI_BASE_URL?.trim() || "http://localhost:3000";
+const baseUrl = process.env.AOMI_BASE_URL?.trim() || "https://chat.aomi.dev";
 
 // Guest identity and Auto agent routing are both defaults. In Node, the first
 // request creates an anonymous Better Auth session and reuses its credential.

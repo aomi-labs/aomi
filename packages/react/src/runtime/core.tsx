@@ -9,6 +9,7 @@ import {
 
 import {
   AgentApiError,
+  type AgentAppAccessErrorCode,
   type ActionCapabilities,
   type CommitCapabilities,
   type AgentTarget,
@@ -54,6 +55,36 @@ async function runSingleFlight(
     }
   }
 }
+
+/**
+ * Copy for App access failures. These say nothing about the conversation, so
+ * the persisted thread stays pinned; changing the App or its key fixes them.
+ */
+const APP_ACCESS_NOTICES: Record<
+  AgentAppAccessErrorCode,
+  { title: string; message: string }
+> = {
+  app_not_found: {
+    title: "App not found",
+    message:
+      "This App doesn't exist or is no longer available. Check the App name or ID configured for this chat.",
+  },
+  app_inactive: {
+    title: "App not active",
+    message:
+      "This App isn't active yet. Its owner needs to deploy and activate it before it can answer messages.",
+  },
+  app_key_required: {
+    title: "App key required",
+    message:
+      "This App is private — it needs an App key. Ask the App's owner for one and configure it for this chat.",
+  },
+  app_key_not_scoped: {
+    title: "App key not valid for this App",
+    message:
+      "The configured App key doesn't grant access to this App. Ask the App's owner for a key issued for it.",
+  },
+};
 
 // =============================================================================
 // Core Props
@@ -147,6 +178,18 @@ export function AomiRuntimeCore({
         // Prewarmed empty threads are intentionally durable. A quota failure
         // keeps the same thread so payment setup can retry without another
         // create/model round trip.
+        return;
+      }
+
+      const appAccessCode =
+        error instanceof AgentApiError ? error.appAccessCode : undefined;
+      if (appAccessCode) {
+        // The thread is fine; the App or its key is not. Keep the pin so the
+        // conversation resumes once the integration is fixed.
+        notificationContext.showNotification({
+          type: "error",
+          ...APP_ACCESS_NOTICES[appAccessCode],
+        });
         return;
       }
 

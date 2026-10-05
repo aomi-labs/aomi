@@ -365,6 +365,72 @@ describe("Better Auth guest bootstrap", () => {
     }
   });
 
+  it.each(["app_key_required", "app_key_not_scoped"])(
+    "keeps the guest identity when an App rejects access (%s)",
+    async (code) => {
+      vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
+      const authFetch = vi.fn().mockResolvedValue(Response.json({}));
+      const upstream = vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { error: { code, message: "App access denied", retryable: false } },
+            { status: 401 },
+          ),
+        );
+      const authorized = wrapFetchWithPublicApiAuthorization({
+        fetch: upstream as typeof fetch,
+        baseUrl: "https://chat.aomi.dev",
+        guest: createGuestSessionProvider({
+          baseUrl: "https://chat.aomi.dev",
+          fetch: authFetch as typeof fetch,
+        }),
+      });
+
+      expect(
+        (
+          await authorized("https://chat.aomi.dev/v1/agent/chat", {
+            method: "POST",
+          })
+        ).status,
+      ).toBe(401);
+      expect(upstream).toHaveBeenCalledTimes(1);
+      expect(authFetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not refresh an OAuth grant for an App access failure", async () => {
+    const upstream = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json(
+          { error: { code: "app_key_not_scoped", message: "Wrong App" } },
+          { status: 403 },
+        ),
+      );
+    const oauth = vi.fn(async (request: AomiOAuthTokenRequest) => ({
+      accessToken: "agent-token",
+      expiresAt: Date.now() + 60_000,
+      resource: request.resource,
+      scopes: request.scopes,
+    }));
+    const authorized = wrapFetchWithPublicApiAuthorization({
+      fetch: upstream as typeof fetch,
+      baseUrl: "https://chat.aomi.dev",
+      oauth,
+    });
+
+    expect(
+      (
+        await authorized("https://chat.aomi.dev/v1/agent/chat", {
+          method: "POST",
+        })
+      ).status,
+    ).toBe(403);
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(oauth).toHaveBeenCalledTimes(1);
+  });
+
   it("finishes an in-flight guest session before a wallet session transition", async () => {
     vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
     let finishGuest!: (response: Response) => void;

@@ -53,7 +53,8 @@ export const globalArgs = {
   },
   "api-key": {
     type: "string",
-    description: "API key for non-default apps",
+    description:
+      "App key — only needed for private Apps; issued by the App owner (env: AOMI_API_KEY)",
   },
   json: {
     type: "boolean",
