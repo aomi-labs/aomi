@@ -64,7 +64,7 @@ function creditsFromMicrousd(amountMicrousd: number): string {
   return String(amountMicrousd / 10_000);
 }
 
-export function CreditBank() {
+export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
   const wallet = useAomiWalletKit();
   const { account } = useAomiRuntime();
   const accountScope = wallet.accountUser?.id ?? null;
@@ -93,6 +93,10 @@ export function CreditBank() {
     setPendingTopUp(next);
     setAmount(next ? creditsFromMicrousd(next.amountMicrousd) : "1000");
   }, [pendingStorageKey]);
+
+  useEffect(() => {
+    if (!loading) onLoad?.();
+  }, [loading, onLoad]);
 
   const load = useCallback(async () => {
     setLoading(true);

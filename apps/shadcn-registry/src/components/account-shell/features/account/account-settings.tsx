@@ -21,6 +21,7 @@ import {
 import { walletKey } from "../../../../lib/wallet-kit/wallet-utils";
 import { resolveWalletBrandKey } from "./wallet-brands";
 import { titleCase } from "./account-management/controls";
+import { LoadingPane } from "../../../ui/aomi/loading-pane";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
@@ -186,6 +187,11 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
       await adapter.connect({ family: wallet.family });
     });
   };
+
+  // Wallet rows merge in signing policy from the ACL; show them once it answers.
+  if (acl.status === "loading") {
+    return <LoadingPane label="Loading account" />;
+  }
 
   return (
     <div className="flex flex-col">

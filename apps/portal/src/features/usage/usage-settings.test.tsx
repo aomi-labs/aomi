@@ -3,9 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(
   "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank",
-  () => ({
-    CreditBank: () => <div>Credit Bank</div>,
-  }),
+  async () => {
+    const { useEffect } = await import("react");
+    return {
+      CreditBank: ({ onLoad }: { onLoad?: () => void }) => {
+        useEffect(() => onLoad?.(), [onLoad]);
+        return <div>Credit Bank</div>;
+      },
+    };
+  },
 );
 
 const account = vi.hoisted(() => ({ id: "" }));

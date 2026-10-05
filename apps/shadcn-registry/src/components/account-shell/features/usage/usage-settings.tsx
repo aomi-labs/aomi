@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "../../link";
 import { ChevronDown } from "lucide-react";
 import { LoadingPane } from "../../../ui/aomi/loading-pane";
@@ -22,6 +23,19 @@ import { CreditBank } from "./credit-bank";
 export function UsageSettings() {
   const statement = useUsageStatement();
   const month = statement.month;
+  const [bankLoaded, setBankLoaded] = useState(false);
+  const allowanceSettled =
+    statement.allowanceStatus === "ready" ||
+    statement.allowanceStatus === "error";
+  // The tab appears once its first statement, allowance and credit bank have
+  // all answered; later month switches never hide it again.
+  const [shown, setShown] = useState(false);
+  if (
+    !shown &&
+    month &&
+    (!statement.isCurrentMonth || (allowanceSettled && bankLoaded))
+  )
+    setShown(true);
 
   if (!month) {
     return statement.status === "error" ? (
@@ -41,60 +55,65 @@ export function UsageSettings() {
 
   const { period } = month;
   return (
-    <div>
-      <div className="flex flex-col gap-5">
-        <PeriodTotalHero
-          periodLabel={period.periodLabel}
-          totalUsd={month.summary.totalUsd}
-        />
-
-        <SpendBreakdownSection month={month} />
-
-        <AllowanceSettlementSection
-          month={month}
-          showAllowance={statement.isCurrentMonth}
-          allowanceStatus={statement.allowanceStatus}
-          allowanceError={statement.allowanceError}
-          onRetryAllowance={statement.retryAllowance}
-        >
-          {statement.isCurrentMonth ? <CreditBank /> : null}
-        </AllowanceSettlementSection>
-
-        {month.apps.length > 0 ? (
-          <section className="flex flex-col gap-2.5">
-            <SectionHeading
-              title="By app"
-              detail="This period"
-              hint={USAGE_MATRIX_HINT}
-            />
-            <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border px-4 py-3 sm:px-5">
-              <MatrixTable month={month} />
-            </div>
-          </section>
-        ) : (
-          <p className="text-aomi-muted text-[13px]">
-            No usage this month yet.
-          </p>
-        )}
-
-        <Link
-          href="/statement"
-          className="border-aomi-border bg-aomi-raised hover:bg-aomi-surface-2/40 group flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors sm:px-5"
-        >
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium leading-none">
-              Full statement
-            </span>
-            <span className="text-aomi-muted text-[12px] leading-snug">
-              Itemized lines, past months, and filters
-            </span>
-          </div>
-          <ChevronDown
-            size={14}
-            className="text-aomi-muted group-hover:text-aomi-fg shrink-0 -rotate-90 transition-colors"
+    <>
+      {shown ? null : <LoadingPane label="Loading usage" />}
+      <div hidden={!shown}>
+        <div className="flex flex-col gap-5">
+          <PeriodTotalHero
+            periodLabel={period.periodLabel}
+            totalUsd={month.summary.totalUsd}
           />
-        </Link>
+
+          <SpendBreakdownSection month={month} />
+
+          <AllowanceSettlementSection
+            month={month}
+            showAllowance={statement.isCurrentMonth}
+            allowanceStatus={statement.allowanceStatus}
+            allowanceError={statement.allowanceError}
+            onRetryAllowance={statement.retryAllowance}
+          >
+            {statement.isCurrentMonth ? (
+              <CreditBank onLoad={() => setBankLoaded(true)} />
+            ) : null}
+          </AllowanceSettlementSection>
+
+          {month.apps.length > 0 ? (
+            <section className="flex flex-col gap-2.5">
+              <SectionHeading
+                title="By app"
+                detail="This period"
+                hint={USAGE_MATRIX_HINT}
+              />
+              <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border px-4 py-3 sm:px-5">
+                <MatrixTable month={month} />
+              </div>
+            </section>
+          ) : (
+            <p className="text-aomi-muted text-[13px]">
+              No usage this month yet.
+            </p>
+          )}
+
+          <Link
+            href="/statement"
+            className="border-aomi-border bg-aomi-raised hover:bg-aomi-surface-2/40 group flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-colors sm:px-5"
+          >
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm font-medium leading-none">
+                Full statement
+              </span>
+              <span className="text-aomi-muted text-[12px] leading-snug">
+                Itemized lines, past months, and filters
+              </span>
+            </div>
+            <ChevronDown
+              size={14}
+              className="text-aomi-muted group-hover:text-aomi-fg shrink-0 -rotate-90 transition-colors"
+            />
+          </Link>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
