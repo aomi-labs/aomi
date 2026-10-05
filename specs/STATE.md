@@ -2,20 +2,35 @@
 
 ## Last Updated
 
-2026-10-05 — SDK CREDENTIALS AND APP ACCESS ERRORS (branch
-  `cecilia/sdk-onboarding-credentials`; pairs with the product-mono public v1
-  App access error codes). `AgentApiError` gains `appAccessCode` for
-  `app_not_found`, `app_inactive`, `app_key_required` and `app_key_not_scoped`
-  and now carries the server's `error.message`. The widget runtime shows a
-  specific notice for each and keeps the persisted thread; the public-API
-  fetch wrapper no longer refreshes the guest/OAuth credential on them (a
-  guest refresh minted a new anonymous identity). CLI deploy/status/activate
-  share `DeployCliError.fromHttpFailure`, and chat/REPL print an App-specific
-  fix. Client README gains "Which credential do I need?" and a dynamic
-  client-registration recipe; docs use `AOMI_OAUTH_CLIENT_ID` and
-  `https://chat.aomi.dev`. SDK `oauth()` still requires a registered client
-  ID (auto-registration deferred: grants are keyed by client ID and one
-  client cannot span Agent and Pipeline).
+2026-10-05 — VERIFY BEFORE YOU SIGN (branch `cecilia/client-verify-calls`).
+  `@aomi-labs/client` exports `ExpectedCalls`, which checks a prepared EVM
+  request against the calls an app approved before a local key signs:
+  chain, contract, function, ABI-encoded arguments, value, and passed
+  simulation (`"unavailable"` only with `allowUnavailableSimulation`). It
+  accepts an Action, a Commit review, an EVM `sign` request's `calls`, or the
+  `SignableCommit` given to `evm.signTransaction`. `verify()` lists every
+  mismatch; `assert()` throws `CallVerificationError`. The client README's
+  Pipeline stage example now encodes real calldata, a new "Verify before you
+  sign" section shows the Commit loop, and the headless example
+  `custom-contract/anchor-root` runs it against a user-deployed registry.
+
+Pending:
+- Not run against a live backend; whether the agent builds arbitrary
+  custom-contract calls depends on the deployment's tools.
+- `@aomi-labs/client` needs a patch version bump before release (left out to
+  avoid colliding with the open bump in #692).
+- The headless example's `tsc --noEmit` fails on main: its `lib` is ES2022
+  but client source uses `Array.prototype.findLast`.
+
+Previous: 2026-10-05 — SDK CREDENTIALS AND APP ACCESS ERRORS (aomi#705). `AgentApiError`
+  gains `appAccessCode` for `app_not_found`, `app_inactive`,
+  `app_key_required` and `app_key_not_scoped` and now carries the server's
+  `error.message`. The widget runtime shows a specific notice for each and
+  keeps the persisted thread; the public-API fetch wrapper no longer refreshes
+  guest/OAuth credentials for these errors. CLI deploy/status/activate share
+  `DeployCliError.fromHttpFailure`, and chat/REPL print an App-specific fix.
+  Client README gains credential selection and dynamic client registration;
+  SDK `oauth()` still requires a registered client ID.
 
 Previous: 2026-10-04 — EXPLORER LINKS IN REPLIES (aomi#703, paired with product-mono#1236;
   branch `codex/1230-explorer-links`). Assistant Markdown links bare on-chain

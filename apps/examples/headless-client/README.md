@@ -103,6 +103,12 @@ non-exportable DPoP keys and intentionally remains memory-only.
   and typed data; Commit Service verifies and tracks the result. Set
   `AOMI_WALLET_AUTH=siwe` to sign into the same account through the SDK's public
   SIWE challenge adapter before starting Agent turns.
+- [`src/custom-contract/anchor-root.ts`](./src/custom-contract/anchor-root.ts)
+  uses Aomi as an execution layer for your own contract. The agent builds and
+  simulates `registerRoot(bytes32)` on an anchor registry you deployed; the
+  script checks the request with `ExpectedCalls` (contract, function, root,
+  zero value, passed simulation), rejects any mismatch, and only then signs
+  with a local Viem key. See [Custom contract calls](#custom-contract-calls).
 - [`src/auth/siws-disposable.ts`](./src/auth/siws-disposable.ts) generates an
   unfunded, in-memory Solana keypair, completes the public SIWS challenge, and
   reads the Agent session list. Run `pnpm example:auth:siws:disposable`; it
@@ -191,6 +197,40 @@ Use `aomi account login --wallet` with an EVM signer or
 verifies the account. The terminal example uses its own SDK session and never
 borrows the CLI's stored login.
 
+## Custom contract calls
+
+`anchor-root` needs a contract you control. Any contract exposing
+`function registerRoot(bytes32 root)` works, for example:
+
+```solidity
+contract AnchorRegistry {
+    event RootRegistered(address indexed by, bytes32 root);
+    function registerRoot(bytes32 root) external {
+        emit RootRegistered(msg.sender, root);
+    }
+}
+```
+
+Deploy it to a chain the Aomi deployment can simulate on, such as the local
+Anvil fork used by `wallet-terminal`, then run:
+
+```sh
+AOMI_PRIVATE_KEY=0xYOUR_DEVELOPMENT_PRIVATE_KEY \
+EVM_CHAIN_ID=31337 \
+EVM_RPC_URL=http://127.0.0.1:8545 \
+ANCHOR_REGISTRY_ADDRESS=0xYOUR_DEPLOYED_REGISTRY \
+ANCHOR_ROOT=0xYOUR_32_BYTE_MERKLE_ROOT \
+pnpm example:custom-contract:anchor-root
+```
+
+`ANCHOR_ROOT` is optional; without it the script registers a fresh demo hash.
+The expectation is checked twice: against the Commit review (which carries the
+simulation result) before `commits.execute`, and against the exact prepared
+transaction inside the wallet's `signTransaction`. A mismatch rejects the
+Commit and exits non-zero. Whether the agent builds the call depends on the
+deployment's model and tools; the script reports the agent's reply when no
+transaction was prepared.
+
 ## Validation inventory
 
 Run these from the repository root with the pinned workspace pnpm. Each row
@@ -198,16 +238,17 @@ names only the environment variables the example reads. A passing request
 proves its stated slice of the flow; it does not imply a wallet transaction
 was submitted.
 
-| Command                                      | Variables                                                                                                                       | Expected evidence                                                                                                                     |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `corepack pnpm example:agent:guest`          | `AOMI_BASE_URL`                                                                                                                 | A guest Agent session ID and one agent reply.                                                                                         |
-| `corepack pnpm example:pipeline:guest`       | `AOMI_BASE_URL`                                                                                                                 | Guest-visible app and skill counts when the deployment enables guest Pipeline; otherwise an explicit 403 access error.                |
-| `corepack pnpm example:walkthrough`          | `AOMI_BASE_URL`; optionally `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION`, `AOMI_PIPELINE_ARGS`                                | Two turns reuse one session; optional Pipeline section reports access policy and never commits.                                       |
-| `corepack pnpm example:oauth`                | `AOMI_BASE_URL`, `AOMI_OAUTH_CLIENT_ID`; optionally `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_STORE_PATH`                              | Device authorization and an authenticated Agent or Pipeline request, matching the client's exact resource. Requires browser approval. |
-| `corepack pnpm example:oauth-token`          | `AOMI_BASE_URL`, `AOMI_OAUTH_ACCESS_TOKEN`, `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_SCOPES`                                          | A host-supplied exact-resource token is accepted for the requested scope.                                                             |
-| `corepack pnpm example:account:credits`      | `AOMI_BASE_URL`, `AOMI_ACCOUNT_BEARER`, `AOMI_PRIVATE_KEY`; optionally `AOMI_TOP_UP_CREDITS`, `AOMI_PAYMENT_CHAIN_ID`           | Reads Credit Bank position; setting top-up credits adds a paid operation.                                                             |
-| `corepack pnpm example:wallet-terminal`      | `AOMI_BASE_URL`; for EVM wallet work also `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`; optionally `AOMI_WALLET_AUTH=siwe` | Guest or signed-in SIWE Agent session, with terminal approval for every pending Commit step or historical Action. `/exit` quits.      |
-| `corepack pnpm example:auth:siws:disposable` | `AOMI_BASE_URL`; optionally `AOMI_SIWS_CHAIN_ID`                                                                                | Disposable-key SIWS challenge/verify and authenticated Agent read; no funded key or Solana transaction.                               |
+| Command                                             | Variables                                                                                                                       | Expected evidence                                                                                                                                       |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `corepack pnpm example:agent:guest`                 | `AOMI_BASE_URL`                                                                                                                 | A guest Agent session ID and one agent reply.                                                                                                           |
+| `corepack pnpm example:pipeline:guest`              | `AOMI_BASE_URL`                                                                                                                 | Guest-visible app and skill counts when the deployment enables guest Pipeline; otherwise an explicit 403 access error.                                  |
+| `corepack pnpm example:walkthrough`                 | `AOMI_BASE_URL`; optionally `AOMI_PIPELINE_APP`, `AOMI_PIPELINE_OPERATION`, `AOMI_PIPELINE_ARGS`                                | Two turns reuse one session; optional Pipeline section reports access policy and never commits.                                                         |
+| `corepack pnpm example:oauth`                       | `AOMI_BASE_URL`, `AOMI_OAUTH_CLIENT_ID`; optionally `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_STORE_PATH`                              | Device authorization and an authenticated Agent or Pipeline request, matching the client's exact resource. Requires browser approval.                   |
+| `corepack pnpm example:oauth-token`                 | `AOMI_BASE_URL`, `AOMI_OAUTH_ACCESS_TOKEN`, `AOMI_OAUTH_RESOURCE`, `AOMI_OAUTH_SCOPES`                                          | A host-supplied exact-resource token is accepted for the requested scope.                                                                               |
+| `corepack pnpm example:account:credits`             | `AOMI_BASE_URL`, `AOMI_ACCOUNT_BEARER`, `AOMI_PRIVATE_KEY`; optionally `AOMI_TOP_UP_CREDITS`, `AOMI_PAYMENT_CHAIN_ID`           | Reads Credit Bank position; setting top-up credits adds a paid operation.                                                                               |
+| `corepack pnpm example:wallet-terminal`             | `AOMI_BASE_URL`; for EVM wallet work also `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`; optionally `AOMI_WALLET_AUTH=siwe` | Guest or signed-in SIWE Agent session, with terminal approval for every pending Commit step or historical Action. `/exit` quits.                        |
+| `corepack pnpm example:custom-contract:anchor-root` | `AOMI_BASE_URL`, `AOMI_PRIVATE_KEY`, `EVM_CHAIN_ID`, `EVM_RPC_URL`, `ANCHOR_REGISTRY_ADDRESS`; optionally `ANCHOR_ROOT`         | A Commit whose review decodes to `registerRoot(root)` on the registry with passed simulation, signed locally; mismatches are rejected with exit code 1. |
+| `corepack pnpm example:auth:siws:disposable`        | `AOMI_BASE_URL`; optionally `AOMI_SIWS_CHAIN_ID`                                                                                | Disposable-key SIWS challenge/verify and authenticated Agent read; no funded key or Solana transaction.                                                 |
 
 `corepack pnpm --filter @aomi-labs/example-headless-client build` typechecks
 every example. `corepack pnpm --filter @aomi-labs/example-headless-client test`

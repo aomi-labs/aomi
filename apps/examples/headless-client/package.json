@@ -12,6 +12,7 @@
     "wallet-terminal": "tsx src/wallet-terminal.ts",
     "auth:siws:disposable": "tsx src/auth/siws-disposable.ts",
     "account:credits": "tsx src/account/credits.ts",
+    "custom-contract:anchor-root": "tsx src/custom-contract/anchor-root.ts",
     "build": "tsc --noEmit",
     "test": "vitest run"
   },
