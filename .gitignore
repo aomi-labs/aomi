@@ -51,6 +51,7 @@ specs/FINAL-REVIEW-CHECKLIST.md
 apps/landing/public/r/dist
 apps/shadcn-registry/dist
 apps/widget-consumer/dist
+apps/examples/web-sign/dist
 
 # generated package build output
 packages/*/dist/

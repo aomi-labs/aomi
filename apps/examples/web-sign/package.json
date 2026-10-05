@@ -1,0 +1,25 @@
+{
+  "name": "@aomi-labs/example-web-sign",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --port 5174"
+  },
+  "dependencies": {
+    "@aomi-labs/client": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "viem": "^2.47.11"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5",
+    "vite": "^7.2.2"
+  }
+}
