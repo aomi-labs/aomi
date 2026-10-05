@@ -9,17 +9,36 @@ import {
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import remarkGfm from "remark-gfm";
-import { type ComponentPropsWithoutRef, type FC, memo, useState } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type FC,
+  memo,
+  useMemo,
+  useState,
+} from "react";
+import { useMessage } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { OnchainLink } from "@/components/assistant-ui/onchain-link";
+import {
+  remarkExplorerLinks,
+  toolExplorerLinks,
+} from "@/components/assistant-ui/explorer-links";
 import { cn } from "@aomi-labs/react";
 
 const MarkdownTextImpl = () => {
+  // WorkingTrace renders detached text parts outside a message runtime.
+  const content = useMessage({ optional: true })?.content;
+  const remarkPlugins = useMemo<
+    ComponentPropsWithoutRef<typeof MarkdownTextPrimitive>["remarkPlugins"]
+  >(
+    () => [remarkGfm, [remarkExplorerLinks, toolExplorerLinks(content ?? [])]],
+    [content],
+  );
   return (
     <MarkdownTextPrimitive
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={remarkPlugins}
       className="aui-md"
       components={defaultComponents}
     />
@@ -233,7 +252,7 @@ const defaultComponents = memoizeMarkdownComponents({
       <code
         className={cn(
           !isCodeBlock &&
-            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 font-mono text-[0.85em]",
+            "aui-md-inline-code rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 font-mono text-[0.85em] [overflow-wrap:anywhere]",
           className,
         )}
         {...(props as ComponentPropsWithoutRef<"code">)}

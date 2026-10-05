@@ -2,7 +2,18 @@
 
 ## Last Updated
 
-2026-10-03 — EDIT AND RERUN AS LINEAR REPLACEMENT (follow-up to #699; worktree
+2026-10-04 — EXPLORER LINKS IN REPLIES (aomi#703, paired with product-mono#1236;
+  branch `codex/1230-explorer-links`). Assistant Markdown links bare on-chain
+  identifiers that this message's tool results type by field (`address`,
+  `token_address`, `mint`, ...) and place on a chain (`chain_id`, `cluster`,
+  or a commit's `chain_family`/`chain_ref`). Transactions link only next to
+  the host's matching `transaction_url`, since forks reuse public chain IDs;
+  pool IDs and conflicting values never link. Authored links and code are
+  left alone. Solscan, Solana Explorer and the backend's explorer-only
+  networks (Robinscan, Monadscan, ...) render as explorer links; Solscan has
+  its logo. The explorer table mirrors product-mono `PUBLIC_EXPLORERS`.
+
+Previous: 2026-10-03 — EDIT AND RERUN AS LINEAR REPLACEMENT (follow-up to #699; worktree
   `chat-edit-rerun`, branch `fix/chat-edit-rerun-clean`). Edit and Rerun now
   work like ChatGPT: they replace the conversation from the selected user
   message and continue it as a normal turn with the app's usual tools (paired
