@@ -17,7 +17,7 @@
 Pending:
 - Not run against a live backend; whether the agent builds arbitrary
   custom-contract calls depends on the deployment's tools.
-- `@aomi-labs/client` is bumped to 0.9.13 for this new public API. A later PR
+- `@aomi-labs/client` is bumped to 0.9.14 for this new public API. A later PR
   that also changes the package must take the next patch after rebasing.
 - The headless example's `tsc --noEmit` fails on main: its `lib` is ES2022
   but client source uses `Array.prototype.findLast`.
