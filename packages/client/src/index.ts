@@ -433,3 +433,14 @@ export type {
   TransactionSafetyDecision,
   TransactionSafetyProjection,
 } from "./transaction-safety";
+
+export { CallVerificationError, ExpectedCalls } from "./expected-calls";
+export type {
+  CallMismatch,
+  CallVerification,
+  CallVerificationField,
+  CallVerificationSubject,
+  ExpectedCall,
+  ExpectedCallsOptions,
+  VerifiedCall,
+} from "./expected-calls";

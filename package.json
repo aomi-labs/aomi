@@ -49,6 +49,7 @@
     "example:wallet-terminal": "pnpm --filter @aomi-labs/example-headless-client wallet-terminal",
     "example:auth:siws:disposable": "pnpm --filter @aomi-labs/example-headless-client auth:siws:disposable",
     "example:account:credits": "pnpm --filter @aomi-labs/example-headless-client account:credits",
+    "example:custom-contract:anchor-root": "pnpm --filter @aomi-labs/example-headless-client custom-contract:anchor-root",
     "build:lib": "pnpm run build:client && tsup",
     "build:client": "pnpm --filter @aomi-labs/client build",
     "build:deploy": "pnpm --filter @aomi-labs/deploy build",

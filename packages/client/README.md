@@ -312,13 +312,28 @@ override is rejected. SVM cluster/payer overrides and non-base64 instruction
 data are currently unsupported and rejected rather than ignored.
 
 ```ts
+import { encodeFunctionData, parseAbi, type Address, type Hex } from "viem";
+
+// Any contract you own; here an anchor registry storing Merkle roots.
+const anchorAbi = parseAbi(["function registerRoot(bytes32 root)"]);
+const registry: Address = "0xYourAnchorRegistry";
+const root: Hex = "0xYour32ByteMerkleRoot";
+
 const staged = await client.pipeline.evm.stage({
   actions: [
     {
-      to: "0x...",
-      chain_id: 1,
-      description: "Transfer",
-      data: { signature: "", args: [], raw: "0x" },
+      to: registry,
+      chain_id: 84532,
+      description: "Register Merkle root",
+      data: {
+        signature: "registerRoot(bytes32)",
+        args: [root],
+        raw: encodeFunctionData({
+          abi: anchorAbi,
+          functionName: "registerRoot",
+          args: [root],
+        }),
+      },
       value: 0n,
     },
   ],
@@ -363,6 +378,117 @@ const skillMarkdown = await client.pipeline
 Integrations use filesystem discovery, scoped operations, and chain-specific Builds.
 The base package does not claim compile-time knowledge of live app or skill
 operations; Catalog-specific generation remains a separate later capability.
+
+### Verify before you sign
+
+When Aomi is the execution layer for your own contract, decide what you
+approve first, then check that every prepared request matches it before a
+local key signs. `ExpectedCalls` decodes each transaction's calldata with your
+ABI and compares chain, contract, function, arguments (by ABI encoding, so
+`bigint` and address or bytes casing compare exactly as the contract sees
+them) and value. It also requires simulation to have passed.
+
+```ts
+import {
+  Aomi,
+  CallVerificationError,
+  ExpectedCalls,
+  type Wallets,
+} from "@aomi-labs/client";
+import { createPublicClient, http, parseAbi, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { baseSepolia } from "viem/chains";
+
+// `registry` and `root` as in the Pipeline example above.
+const baseUrl = process.env.AOMI_BASE_URL ?? "https://api.aomi.dev";
+const expected = new ExpectedCalls({
+  chainId: baseSepolia.id,
+  to: registry,
+  abi: parseAbi(["function registerRoot(bytes32 root)"]),
+  functionName: "registerRoot",
+  args: [root],
+  // value omitted: the call must send zero ETH
+});
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
+const rpc = createPublicClient({ chain: baseSepolia, transport: http() });
+const wallet: Wallets = {
+  evm: {
+    address: account.address,
+    chainId: baseSepolia.id,
+    // Commit Service hands the wallet its prepared transaction. Check the
+    // exact payload once more before the key touches it.
+    signTransaction: async (payload) => {
+      expected.assert(payload);
+      return account.signTransaction({
+        chainId: payload.chain_id,
+        type: "eip1559",
+        to: payload.transaction.to as Hex,
+        data: payload.transaction.data as Hex,
+        value: BigInt(payload.transaction.value),
+        nonce: payload.nonce,
+        gas: BigInt(payload.transaction.gas_limit),
+        maxFeePerGas: BigInt(payload.transaction.max_fee_per_gas),
+        maxPriorityFeePerGas: BigInt(
+          payload.transaction.max_priority_fee_per_gas,
+        ),
+      });
+    },
+    broadcastTransaction: (signed) =>
+      rpc.sendRawTransaction({ serializedTransaction: signed as Hex }),
+  },
+};
+const aomi = new Aomi({ baseUrl, wallet });
+
+// 1. Intent: name the contract, function, and arguments exactly.
+const result = await aomi.agent.run(
+  `On Base Sepolia call registerRoot(bytes32) on ${registry} with root ${root}.`,
+);
+
+// 2. Aomi built and simulated it; prepared work is a durable Commit whose
+//    review is the execute_evm request with its simulation.
+const session = await aomi.agent.openSession(result.sessionId);
+try {
+  for (const commit of session.commits.all()) {
+    if (!commit.action || !session.commits.canExecute(commit)) continue;
+    try {
+      // 3. Verify: throws CallVerificationError listing every mismatch.
+      expected.assert(session.commits.review(commit.commit_id));
+    } catch (error) {
+      if (!(error instanceof CallVerificationError)) throw error;
+      await session.commits.reject(commit.commit_id);
+      throw error;
+    }
+    // 4. Sign locally and submit; Commit Service records the outcome and the
+    //    agent continues the thread with it.
+    const done = await session.commits.execute(commit.commit_id, {
+      expectedVersion: commit.version,
+      expectedReviewDigest: commit.review?.digest,
+    });
+    console.log(done.state, done.transaction_url ?? done.transaction_id);
+  }
+} finally {
+  session.close();
+}
+```
+
+`verify(subject)` returns `{ ok, simulation, calls, mismatches }` instead of
+throwing; each mismatch names its `call` index, `field` (`to`, `function`,
+`args`, `value`, `chainId`, `simulation`, `count`, `data`, or `request`) and,
+for arguments, the `argIndex`. Pass a list to `new ExpectedCalls([...])` for
+multi-transaction requests; calls match in order. Omitted `args` and `value`
+mean none and zero.
+
+Accepted subjects are an `Action` or its `request` (from `run.on("action")`),
+a Commit review (`session.commits.review(id)`), an EVM `sign` request with
+declared `calls`, and the single-transaction `SignableCommit` passed to
+`evm.signTransaction`. A `SignableCommit` carries no simulation, so check it
+against an expectation for that one call after verifying the review. A
+simulation of `"unavailable"` is rejected unless you pass
+`new ExpectedCalls(calls, { allowUnavailableSimulation: true })`; `"failed"`
+is always rejected. The runnable
+[`custom-contract/anchor-root`](../../apps/examples/headless-client/src/custom-contract/anchor-root.ts)
+example shows this loop end to end.
 
 ### Session (high-level)
 
