@@ -85,6 +85,50 @@ describe("AgentTransport", () => {
     });
   });
 
+  it.each([
+    [404, "app_not_found"],
+    [409, "app_inactive"],
+    [401, "app_key_required"],
+    [403, "app_key_not_scoped"],
+  ])(
+    "classifies %s %s as an App access failure with the server message",
+    async (status, code) => {
+      const client = new AomiClient({
+        baseUrl: "https://portal.example",
+        fetch: vi.fn().mockResolvedValue(
+          Response.json(
+            {
+              error: {
+                code,
+                message: "Readable explanation from the server",
+                retryable: false,
+              },
+            },
+            { status },
+          ),
+        ),
+        guest: false,
+      });
+      const error = await client.agent
+        .start({ sessionId: "session-1", message: "hello" })
+        .catch((value) => value);
+      expect(error).toBeInstanceOf(AgentApiError);
+      expect(error).toMatchObject({
+        status,
+        code,
+        appAccessCode: code,
+        message: "Readable explanation from the server",
+        retryable: false,
+      });
+    },
+  );
+
+  it("does not treat other failures as App access failures", () => {
+    const error = new AgentApiError(404, "session_not_found", "gone", false);
+    expect(error.appAccessCode).toBeUndefined();
+    expect(error.message).toBe("gone");
+  });
+
   it("exposes typed session management without a second client", async () => {
     const fetch = vi.fn().mockResolvedValue(Response.json({ sessions: [] }));
     const client = new AomiClient({

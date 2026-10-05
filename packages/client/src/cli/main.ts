@@ -1,6 +1,7 @@
 import { runCommand, runMain } from "citty";
 import { root, SUBCOMMAND_NAMES } from "./root";
-import { CliExit, DeployCliError } from "./errors";
+import { AgentApiError } from "../agent/transport";
+import { APP_ACCESS_CLI_HINTS, CliExit, DeployCliError } from "./errors";
 import packageJson from "../../package.json";
 
 const ROOT_SUBCOMMANDS = SUBCOMMAND_NAMES;
@@ -52,7 +53,9 @@ function printRootHelp(): void {
   console.log("OPTIONS");
   console.log("");
   console.log("  --backend-url <url>          Backend URL");
-  console.log("  --api-key <key>              API key for non-default apps");
+  console.log(
+    "  --api-key <key>              App key — only needed for private Apps (issued by the App owner)",
+  );
   console.log(
     "  --account-bearer <token>     Aomi account bearer for authenticated requests",
   );
@@ -155,7 +158,12 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       process.exit(1);
       return;
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message =
+      err instanceof AgentApiError && err.appAccessCode
+        ? APP_ACCESS_CLI_HINTS[err.appAccessCode]
+        : err instanceof Error
+          ? err.message
+          : String(err);
     console.error(`${RED}❌ ${message}${RESET}`);
     process.exit(1);
   }

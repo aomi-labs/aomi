@@ -6,12 +6,20 @@ you need.
 
 ## Quick start
 
-Run the local Portal/API stack, install workspace dependencies, and execute an
-example from the repository root:
+Install workspace dependencies and execute an example from the repository
+root. The guest, OAuth, and walkthrough examples call production
+(`https://chat.aomi.dev`) unless `AOMI_BASE_URL` says otherwise; the wallet,
+SIWS, and credit examples sign with throwaway keys and keep a local default.
 
 ```sh
+pnpm example:agent:guest
+# Against a local Portal/API stack instead:
 AOMI_BASE_URL=http://localhost:3000 pnpm example:agent:guest
 ```
+
+No key is needed: guest access is the default. You only need an OAuth client
+ID for signed-in device login (below), and an App key only when targeting a
+private App (ask its owner).
 
 Guest authentication is automatic. The first request creates a Better Auth
 anonymous session, and the Node client retains its official session cookie in
@@ -34,10 +42,12 @@ The OAuth example uses a provisioned public client and device login—never a
 client secret. Device clients are bound to one exact REST resource. The example
 uses Agent by default; set `AOMI_OAUTH_RESOURCE` to the Portal's exact
 `/v1/pipeline` resource and use a separately registered Pipeline client to
-read that catalog. Set the matching public client ID before running it:
+read that catalog. Register a public device client once (see
+[Register an OAuth client](../../../packages/client/README.md#register-an-oauth-client))
+and set its ID before running the example:
 
 ```sh
-AOMI_OAUTH_CLIENT_ID=your-managed-public-client \
+AOMI_OAUTH_CLIENT_ID=<client_id from registration> \
 pnpm example:oauth
 ```
 

@@ -28,7 +28,7 @@ import type {
 } from "./types";
 import { normalizeAppDescriptor } from "./app-descriptor";
 import { UserState } from "./user-state";
-import { AgentTransport } from "./agent/transport";
+import { AgentApiError, AgentTransport } from "./agent/transport";
 import { PipelineTransport } from "./pipeline/transport";
 import { TransactionSafetyTransport } from "./transaction-safety";
 import { AccountTransport } from "./account/credits";
@@ -254,6 +254,19 @@ export function wrapFetchWithPublicApiAuthorization(input: {
     const response = await attempt(false);
     if (response.status !== 401 && response.status !== 403) return response;
     if (input.guest && response.status === 403) return response;
+    // App access failures concern the App, not this credential. Refreshing
+    // would mint a new guest identity (orphaning its threads) for nothing.
+    const failure = (await response
+      .clone()
+      .json()
+      .catch(() => null)) as { error?: unknown } | null;
+    const failureCode =
+      typeof failure?.error === "object" && failure.error !== null
+        ? (failure.error as { code?: unknown }).code
+        : failure?.error;
+    if (AgentApiError.APP_ACCESS_CODES.some((code) => code === failureCode)) {
+      return response;
+    }
     const dpopNonce = response.headers.get("dpop-nonce") ?? undefined;
     return attempt(!dpopNonce, dpopNonce);
   };
