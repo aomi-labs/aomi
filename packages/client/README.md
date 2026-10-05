@@ -10,12 +10,12 @@ uses it by default).
 Most integrations need nothing: start as a guest and add a credential only when
 a call asks for one.
 
-| Credential      | When you need it                                                | How to get it                                                                                                | How to pass it                                                |
-| --------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                   | Omit `auth`.                                                  |
-| OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret. | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
-| App key         | Only for **private** Apps. Public Apps never need one.          | Issued by the App's owner, who creates it with the account App-keys API (`POST /api/account/app-keys`).      | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
-| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi account login`, or your own signed-in session.                                                         | `getAccountBearer`, CLI `--account-bearer`.                   |
+| Credential      | When you need it                                                | How to get it                                                                                                                      | How to pass it                                                |
+| --------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| None (guest)    | Default. Guest-safe Agent and Pipeline calls.                   | Nothing to do — the SDK creates an anonymous session on the first request.                                                         | Omit `auth`.                                                  |
+| OAuth client ID | A user signs in your CLI, bot, or server process (device flow). | Register a public device client once — see [Register an OAuth client](#register-an-oauth-client). No secret.                       | `auth: oauth({ clientId: process.env.AOMI_OAUTH_CLIENT_ID })` |
+| App key         | Only for **private** Apps. Public Apps never need one.          | Get it from the App's owner. The Aomi team issues the first key to the owner, who can rotate it with `POST /api/account/app-keys`. | `apiKey` option, CLI `--api-key`, or `AOMI_API_KEY`.          |
+| Account bearer  | Account-scoped calls (credits, App keys, linked identities).    | `aomi account login`, or your own signed-in session.                                                                               | `getAccountBearer`, CLI `--account-bearer`.                   |
 
 If a call fails because of the App rather than your credentials, the error
 `code` says why: `app_not_found` (404), `app_inactive` (409, the owner has not
