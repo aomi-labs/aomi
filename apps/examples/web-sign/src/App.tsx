@@ -44,11 +44,22 @@ class LocalCommitRecovery implements CommitRecoveryStore {
   }
 
   save(threadId: string, commitId: string, record: CommitRecoveryRecord) {
-    localStorage.setItem(this.key(threadId, commitId), JSON.stringify(record));
+    try {
+      localStorage.setItem(
+        this.key(threadId, commitId),
+        JSON.stringify(record),
+      );
+    } catch {
+      // Recovery is best-effort when storage is blocked or full.
+    }
   }
 
   remove(threadId: string, commitId: string) {
-    localStorage.removeItem(this.key(threadId, commitId));
+    try {
+      localStorage.removeItem(this.key(threadId, commitId));
+    } catch {
+      // The completed commit is already authoritative.
+    }
   }
 
   private key(threadId: string, commitId: string) {
