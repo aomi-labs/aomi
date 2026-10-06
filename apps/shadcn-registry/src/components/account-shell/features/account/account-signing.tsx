@@ -41,6 +41,8 @@ interface AccountSigningViewProps {
   canConnectPrivy: boolean;
   onConnectPrivy: () => Promise<void>;
   onRenewDelegation: (wallet: WalletPolicy) => Promise<void>;
+  /** Provision a Para agent wallet for a chain that has none yet. */
+  onCreateAgentWallet?: (chain: "evm" | "svm") => Promise<void>;
   /** Why a target mode can't be signed right now, or null when it can. */
   blockedReason?: (wallet: WalletPolicy, mode: SignerMode) => string | null;
 }
@@ -48,6 +50,8 @@ interface AccountSigningViewProps {
 /** Busy/error key for the account-wide "stop all auto-signing" action. */
 const STOP_ALL_KEY = "__stop_all__";
 const CONNECT_PRIVY_KEY = "__connect_privy__";
+const createAgentKey = (chain: "evm" | "svm") => `__create_agent_${chain}__`;
+const CHAIN_LABEL = { evm: "Ethereum", svm: "Solana" } as const;
 
 const automaticKey = (wallet: WalletPolicy) => `automatic:${wallet.id}`;
 
@@ -75,6 +79,7 @@ export function AccountSigningView({
   canConnectPrivy,
   onConnectPrivy,
   onRenewDelegation,
+  onCreateAgentWallet,
   blockedReason,
 }: AccountSigningViewProps) {
   const [drafts, setDrafts] = useState<Record<string, SignerMode>>({});
@@ -186,10 +191,32 @@ export function AccountSigningView({
   );
   const offerPrivy = canConnectPrivy && !hasActivePrivyDelegation;
 
+  // A Para login wallet can't delegate itself; Auto needs the separate Para
+  // agent wallet on that chain. Offer to create it until one exists.
+  const offerParaAgent = useMemo(
+    () =>
+      onCreateAgentWallet
+        ? (["evm", "svm"] as const).filter(
+            (chain) =>
+              wallets.some(
+                (wallet) =>
+                  wallet.chain === chain &&
+                  wallet.linkedVia === "para" &&
+                  !wallet.providerManaged,
+              ) &&
+              !wallets.some(
+                (wallet) => wallet.chain === chain && wallet.providerManaged,
+              ),
+          )
+        : [],
+    [onCreateAgentWallet, wallets],
+  );
+
   // External-only accounts have nothing to delegate; skip the whole group.
   const showAutomatic =
     automaticWallets.length > 0 ||
     offerPrivy ||
+    offerParaAgent.length > 0 ||
     hasActiveDelegations ||
     wallets.some(isProviderSigningWallet);
 
@@ -376,6 +403,31 @@ export function AccountSigningView({
               </div>
             ) : null}
 
+            {offerParaAgent.map((chain) => {
+              const key = createAgentKey(chain);
+              return (
+                <div key={key}>
+                  <ListRow
+                    title={`Enable automatic signing on ${CHAIN_LABEL[chain]}`}
+                    description="Creates a separate Para agent wallet that Aomi signs from within your rules. Your Para login wallet stays as it is."
+                    trailing={
+                      <AomiButton
+                        size="sm"
+                        disabled={Boolean(busy[key])}
+                        onClick={() =>
+                          void run(key, () => onCreateAgentWallet!(chain))
+                        }
+                      >
+                        {busy[key] && <Loader2 className="animate-spin" />}
+                        {busy[key] ? "Creating…" : "Create agent wallet"}
+                      </AomiButton>
+                    }
+                  />
+                  <ErrorLine>{errors[key]}</ErrorLine>
+                </div>
+              );
+            })}
+
             {automaticWallets.map((wallet) => {
               const recon = reconcile(wallet);
               const delegation = findDelegationForWallet(
@@ -427,7 +479,10 @@ export function AccountSigningView({
                             )}
                           />
                         </AomiButton>
-                      ) : recon.status === "drifted" ? (
+                      ) : recon.status === "drifted" ||
+                        (wallet.providerManaged &&
+                          wallet.linkedVia === "para" &&
+                          !wallet.delegationActive) ? (
                         <AomiButton
                           size="sm"
                           disabled={rowBusy}
@@ -505,7 +560,9 @@ export function AccountSigningView({
               );
             })}
 
-            {!automaticWallets.length && !offerPrivy ? (
+            {!automaticWallets.length &&
+            !offerPrivy &&
+            !offerParaAgent.length ? (
               <p className="type-control text-aomi-muted px-3.5 py-4">
                 No provider wallet is available for automatic signing.
               </p>

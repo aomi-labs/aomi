@@ -35,6 +35,7 @@ export function SigningSettings() {
       canConnectPrivy={acl.canConnectPrivy}
       onConnectPrivy={acl.connectPrivy}
       onRenewDelegation={acl.renewDelegation}
+      onCreateAgentWallet={acl.createAgentWallet}
       blockedReason={acl.blockedReason}
     />
   );

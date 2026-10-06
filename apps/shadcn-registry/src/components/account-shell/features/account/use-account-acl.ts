@@ -16,6 +16,7 @@ import { useShellTransport } from "../../transport";
 import {
   explainAccountError,
   fetchAccountAcl,
+  provisionProviderAgentWallet,
   revokeProviderDelegation,
 } from "./account-api";
 import { bindWalletVia } from "./wallet-bind";
@@ -85,6 +86,8 @@ export type AccountAcl = {
   connectPrivy: () => Promise<void>;
   /** Re-open the provider so a fresh delegation can be established. */
   renewDelegation: (wallet: WalletPolicy) => Promise<void>;
+  /** Provision the provider's server-side agent wallet for one chain. */
+  createAgentWallet: (chain: "evm" | "svm") => Promise<void>;
   /** Why this wallet can't sign the given change right now, or null if it can. */
   blockedReason: (wallet: WalletPolicy, mode: SignerMode) => string | null;
 };
@@ -438,6 +441,16 @@ export function useAccountAcl(): AccountAcl {
     await refresh();
   }, [currentThreadId, privyDelegation, refresh]);
 
+  const createAgentWallet = useCallback(
+    async (chain: "evm" | "svm") => {
+      await readable(() =>
+        provisionProviderAgentWallet("para", chain, request),
+      );
+      await refresh();
+    },
+    [refresh],
+  );
+
   const renewDelegation = useCallback(
     async (wallet: WalletPolicy) => {
       if (
@@ -445,6 +458,12 @@ export function useAccountAcl(): AccountAcl {
         wallet.provider?.toLowerCase() === "privy"
       ) {
         await connectPrivy();
+        return;
+      }
+      // A Para agent wallet's delegation lives server-side: re-provisioning
+      // renews it. Opening the Para modal cannot, so never send users there.
+      if (wallet.providerManaged && wallet.linkedVia === "para") {
+        await createAgentWallet(wallet.chain);
         return;
       }
       if (!openAccountUI) {
@@ -455,7 +474,7 @@ export function useAccountAcl(): AccountAcl {
       await openAccountUI({ family: wallet.chain });
       await refresh();
     },
-    [connectPrivy, openAccountUI, refresh],
+    [connectPrivy, createAgentWallet, openAccountUI, refresh],
   );
 
   return useMemo(
@@ -474,6 +493,7 @@ export function useAccountAcl(): AccountAcl {
       canConnectPrivy,
       connectPrivy,
       renewDelegation,
+      createAgentWallet,
       blockedReason,
     }),
     [
@@ -484,6 +504,7 @@ export function useAccountAcl(): AccountAcl {
       commitMode,
       selectWallet,
       connectPrivy,
+      createAgentWallet,
       error,
       delegatedAccounts,
       refresh,
