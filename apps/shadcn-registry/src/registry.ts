@@ -82,6 +82,7 @@ export const registry: RegistryComponent[] = [
       "components/account-shell/features/policy/index.ts",
       "components/account-shell/features/policy/policy-api.ts",
       "components/account-shell/features/policy/policy-settings.tsx",
+      "components/account-shell/features/policy/onchain-policy-settings.tsx",
       "components/account-shell/features/policy/policy-page.tsx",
       "components/account-shell/features/policy/transaction-safety-settings.tsx",
       "components/account-shell/features/policy/transaction-safety-api.ts",
