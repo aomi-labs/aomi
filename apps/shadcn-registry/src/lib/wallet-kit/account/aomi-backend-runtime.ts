@@ -307,9 +307,23 @@ export function useAomiBackendAccountRuntime(input: {
         providerSessionAttempted.current = authKey;
         return;
       }
-      // Any provider credential is exchangeable, in any order: link to the
-      // current account if one exists, otherwise create one. No policy gate.
-      const hasAccount = Boolean(account?.user) && account?.guest !== true;
+      const hasDurableAccount =
+        Boolean(account?.user) && account?.guest !== true;
+      // The authenticated provider is the login principal. A durable browser
+      // cookie left behind by another Para/Privy subject must not turn this
+      // sign-in into an implicit account-link attempt: that produces a false
+      // ownership conflict and strands the user behind the stale account.
+      const replacesStaleBrowserSession = Boolean(
+        hasDurableAccount &&
+        input.auth.subject &&
+        !account?.linkedAccounts.some(
+          (linked) =>
+            linked.provider.toLowerCase() ===
+              input.auth.provider.toLowerCase() &&
+            linked.subject === input.auth.subject,
+        ),
+      );
+      const hasAccount = hasDurableAccount && !replacesStaleBrowserSession;
       const attemptKey = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${key}`;
       if (!hasAccount && accountCreateInFlight.current) return;
       const failedAttempt = credentialFailed.current;
@@ -328,9 +342,12 @@ export function useAomiBackendAccountRuntime(input: {
         setAccountError(undefined);
         setAccountConflict(undefined);
         // Provider sign-in is an account transition, not a link operation on
-        // the disposable guest. Revoke the guest cookie before the Better Auth
-        // provider endpoint establishes the durable session.
-        if (account?.guest) await accountClient.signOut();
+        // a disposable guest or a different provider principal. Revoke only
+        // the stale Aomi/Better Auth cookie; keep the live Para/Privy session
+        // so its verified credential can establish the matching account.
+        if (account?.guest || replacesStaleBrowserSession) {
+          await accountClient.signOut();
+        }
         const result = await accountClient.exchangeProviderCredential(
           credential,
           { hasAccount },
@@ -340,6 +357,14 @@ export function useAomiBackendAccountRuntime(input: {
         await refresh();
       } catch (error) {
         credentialFailed.current = { attemptKey, failedAt: Date.now() };
+        if (replacesStaleBrowserSession) {
+          setAccount({
+            user: null,
+            linkedAccounts: [],
+            wallets: [],
+            session: null,
+          });
+        }
         if (
           error instanceof AomiAccountRequestError &&
           error.status === 409 &&
