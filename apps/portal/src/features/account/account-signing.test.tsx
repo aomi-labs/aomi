@@ -129,6 +129,27 @@ describe("policy confirmation", () => {
     ).toHaveLength(0);
   });
 
+  it("offers Renew on a Para agent wallet whose delegation was revoked, even when Locked", async () => {
+    const revokedAgent: WalletPolicy = {
+      id: "para-svm-agent",
+      address: "3TWBeAgent111111111111111111111111111111111",
+      chain: "svm",
+      linkedVia: "para",
+      provider: "para",
+      providerManaged: true,
+      desiredMode: "denied",
+      delegationActive: false,
+      authVersion: 2,
+    };
+    const onRenewDelegation = vi.fn(async () => {});
+    render(view(revokedAgent, undefined, { onRenewDelegation }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Renew" }));
+    });
+    expect(onRenewDelegation).toHaveBeenCalledWith(revokedAgent);
+    expect(screen.queryByText("Not enabled")).toBeNull();
+  });
+
   it("moves automatic signing out of the normal policy choices", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));

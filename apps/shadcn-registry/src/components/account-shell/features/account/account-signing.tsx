@@ -479,7 +479,10 @@ export function AccountSigningView({
                             )}
                           />
                         </AomiButton>
-                      ) : recon.status === "drifted" ? (
+                      ) : recon.status === "drifted" ||
+                        (wallet.providerManaged &&
+                          wallet.linkedVia === "para" &&
+                          !wallet.delegationActive) ? (
                         <AomiButton
                           size="sm"
                           disabled={rowBusy}
