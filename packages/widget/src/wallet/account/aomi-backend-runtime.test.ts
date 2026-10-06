@@ -425,7 +425,13 @@ describe("useAomiBackendAccountRuntime", () => {
       })
       .mockResolvedValue({
         user: { id: "real-user" },
-        linkedAccounts: [],
+        linkedAccounts: [
+          {
+            id: "privy-identity",
+            provider: "privy",
+            subject: "privy-user",
+          },
+        ],
         wallets: [],
         session: null,
       });
@@ -434,7 +440,13 @@ describe("useAomiBackendAccountRuntime", () => {
       status: "linked",
       account: {
         user: { id: "real-user" },
-        linkedAccounts: [],
+        linkedAccounts: [
+          {
+            id: "privy-identity",
+            provider: "privy",
+            subject: "privy-user",
+          },
+        ],
         wallets: [],
         session: null,
       },
@@ -472,6 +484,123 @@ describe("useAomiBackendAccountRuntime", () => {
         .invocationCallOrder[0]!,
     );
     await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
+  });
+
+  it.each(["para", "privy"] as const)(
+    "replaces a stale Aomi browser session when the active %s subject belongs to another account",
+    async (provider) => {
+      const credential: AomiAccountCredential = {
+        provider,
+        providerToken: "provider-session",
+      };
+      mockState.accountClient!.getAccount.mockResolvedValue({
+        user: { id: "stale-browser-account" },
+        linkedAccounts: [
+          {
+            id: "old-provider",
+            provider,
+            subject: "old-provider-subject",
+          },
+        ],
+        wallets: [],
+        session: { betterAuthUserId: "stale-better-auth-user" },
+      });
+      mockState.accountClient!.exchangeProviderCredential.mockResolvedValue({
+        status: "linked",
+        account: {
+          user: { id: "active-provider-account" },
+          linkedAccounts: [
+            {
+              id: "active-provider",
+              provider,
+              subject: "active-provider-subject",
+            },
+          ],
+          wallets: [],
+          session: { betterAuthUserId: "active-better-auth-user" },
+        },
+      });
+
+      let authenticated = false;
+      const { result, rerender } = renderHook(() =>
+        useAomiBackendAccountRuntime({
+          enabled: true,
+          baseUrl: "http://localhost:3000",
+          auth: {
+            status: authenticated ? "authenticated" : "unauthenticated",
+            provider,
+            subject: authenticated ? "active-provider-subject" : undefined,
+            getCredential: vi.fn().mockResolvedValue(credential),
+          } as never,
+          evm: { accounts: () => [] } as never,
+        }),
+      );
+
+      await waitFor(() =>
+        expect(result.current.user?.id).toBe("stale-browser-account"),
+      );
+      authenticated = true;
+      rerender();
+
+      await waitFor(() =>
+        expect(
+          mockState.accountClient?.exchangeProviderCredential,
+        ).toHaveBeenCalledWith(credential, { hasAccount: false }),
+      );
+      expect(mockState.accountClient?.signOut).toHaveBeenCalledTimes(1);
+      expect(
+        mockState.accountClient!.signOut.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockState.accountClient!.exchangeProviderCredential.mock
+          .invocationCallOrder[0]!,
+      );
+    },
+  );
+
+  it("keeps the browser session when it already belongs to the active provider subject", async () => {
+    const credential: AomiAccountCredential = {
+      provider: "para",
+      providerToken: "provider-session",
+    };
+    mockState.accountClient!.getAccount.mockResolvedValue({
+      user: { id: "matching-account" },
+      linkedAccounts: [
+        {
+          id: "para-identity",
+          provider: "para",
+          subject: "active-provider-subject",
+        },
+      ],
+      wallets: [],
+      session: { betterAuthUserId: "matching-better-auth-user" },
+    });
+    let authenticated = false;
+    const { result, rerender } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: authenticated ? "authenticated" : "unauthenticated",
+          provider: "para",
+          subject: authenticated ? "active-provider-subject" : undefined,
+          getCredential: vi.fn().mockResolvedValue(credential),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(result.current.user?.id).toBe("matching-account"),
+    );
+    authenticated = true;
+    rerender();
+
+    await waitFor(() =>
+      expect(
+        mockState.accountClient?.exchangeProviderCredential,
+      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+    );
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
   });
 
   it("shows a failed provider handoff without claiming an Aomi account exists", async () => {

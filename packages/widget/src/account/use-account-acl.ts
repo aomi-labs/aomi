@@ -25,6 +25,7 @@ import { accountProfileQuery } from "./account-overview";
 import {
   explainAccountError,
   fetchAccountAcl,
+  provisionProviderAgentWallet,
   revokeProviderDelegation,
 } from "./account-api";
 import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
@@ -116,6 +117,8 @@ export type AccountAcl = {
   connectPrivy: () => Promise<void>;
   /** Re-open the provider so a fresh delegation can be established. */
   renewDelegation: (wallet: WalletPolicy) => Promise<void>;
+  /** Provision the provider's server-side agent wallet for one chain. */
+  createAgentWallet: (chain: "evm" | "svm") => Promise<void>;
   /** Why this wallet can't sign the given change right now, or null if it can. */
   blockedReason: (wallet: WalletPolicy, mode: SignerMode) => string | null;
 };
@@ -208,7 +211,7 @@ export function useAccountAcl(): AccountAcl {
   );
 
   const signerFor = useCallback(
-    (wallet: Pick<WalletPolicy, "chain" | "address">) => {
+    (wallet: Pick<WalletPolicy, "chain" | "address" | "providerManaged">) => {
       const address = wallet.chain === "evm" ? evmAddress : svmAddress;
       const sameOperatingWallet = Boolean(
         address &&
@@ -217,13 +220,20 @@ export function useAccountAcl(): AccountAcl {
           { chain: wallet.chain, address: wallet.address },
         ),
       );
+      // A provider-managed agent wallet holds no user key, so it can never be
+      // the connected wallet. The backend arms it on a permit signed by the
+      // user's own key from the same provider (the Para login wallet), so the
+      // connected same-chain wallet is the signer there.
+      const signerMatches = wallet.providerManaged
+        ? Boolean(address)
+        : sameOperatingWallet;
       const hasSigningMethod =
         wallet.chain === "evm"
           ? Boolean(signTypedData)
           : Boolean(signSolanaMessage);
       return {
         address,
-        canSign: Boolean(sameOperatingWallet && hasSigningMethod && address),
+        canSign: Boolean(signerMatches && hasSigningMethod && address),
       };
     },
     [evmAddress, svmAddress, signSolanaMessage, signTypedData],
@@ -449,6 +459,16 @@ export function useAccountAcl(): AccountAcl {
     await refresh();
   }, [currentThreadId, privyDelegation, refresh]);
 
+  const createAgentWallet = useCallback(
+    async (chain: "evm" | "svm") => {
+      await readable(() =>
+        provisionProviderAgentWallet("para", chain, request),
+      );
+      await refresh();
+    },
+    [refresh],
+  );
+
   const renewDelegation = useCallback(
     async (wallet: WalletPolicy) => {
       if (
@@ -456,6 +476,12 @@ export function useAccountAcl(): AccountAcl {
         wallet.provider?.toLowerCase() === "privy"
       ) {
         await connectPrivy();
+        return;
+      }
+      // A Para agent wallet's delegation lives server-side: re-provisioning
+      // renews it. Opening the Para modal cannot, so never send users there.
+      if (wallet.providerManaged && wallet.linkedVia === "para") {
+        await createAgentWallet(wallet.chain);
         return;
       }
       if (!openAccountUI) {
@@ -466,7 +492,7 @@ export function useAccountAcl(): AccountAcl {
       await openAccountUI({ family: wallet.chain });
       await refresh();
     },
-    [connectPrivy, openAccountUI, refresh],
+    [connectPrivy, createAgentWallet, openAccountUI, refresh],
   );
 
   return useMemo(
@@ -485,6 +511,7 @@ export function useAccountAcl(): AccountAcl {
       canConnectPrivy,
       connectPrivy,
       renewDelegation,
+      createAgentWallet,
       blockedReason,
     }),
     [
@@ -495,6 +522,7 @@ export function useAccountAcl(): AccountAcl {
       commitMode,
       selectWallet,
       connectPrivy,
+      createAgentWallet,
       error,
       delegatedAccounts,
       refresh,

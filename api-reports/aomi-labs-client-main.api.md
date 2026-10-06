@@ -1112,10 +1112,12 @@ export interface AomiOnchainPolicyProviderCtx {
     chain_ref: string;
     // (undocumented)
     chain_status: "current" | "drifted" | "missing" | "unavailable" | null;
+    mints: Record<string, AomiOnchainAddress>;
     // (undocumented)
     provider: string;
     // (undocumented)
     remaining_native_amount: string | null;
+    remaining_token_amounts: Record<string, string>;
     // (undocumented)
     slot_windows: number[];
     // (undocumented)
@@ -1131,6 +1133,15 @@ export type AomiOnchainPolicyRule = {
     amount: string;
 } | {
     type: "recurring_native_asset_limit";
+    amount: string;
+    window: AomiPolicyWindow;
+} | {
+    type: "lifetime_token_asset_limit";
+    mint: AomiOnchainAddress;
+    amount: string;
+} | {
+    type: "recurring_token_asset_limit";
+    mint: AomiOnchainAddress;
     amount: string;
     window: AomiPolicyWindow;
 };

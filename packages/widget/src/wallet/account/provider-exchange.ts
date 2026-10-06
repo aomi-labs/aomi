@@ -71,8 +71,22 @@ export function useProviderCredentialExchange(input: {
         signedOutCredential.current === `${signedInAs(auth)}:${key}`
       )
         return;
+      const hasDurableAccount =
+        Boolean(account?.user) && account?.guest !== true;
+      // The signed-in provider is who is logging in. A browser cookie left by
+      // another Para/Privy user must not turn this sign-in into a link
+      // attempt: that reports a false conflict and strands the user.
+      const replacesStaleBrowserSession = Boolean(
+        hasDurableAccount &&
+          auth.subject &&
+          !account?.linkedAccounts.some(
+            (linked) =>
+              linked.provider.toLowerCase() === auth.provider.toLowerCase() &&
+              linked.subject === auth.subject,
+          ),
+      );
       // Link to the current account if there is one, otherwise create one.
-      const hasAccount = Boolean(account?.user) && account?.guest !== true;
+      const hasAccount = hasDurableAccount && !replacesStaleBrowserSession;
       const attempt = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${key}`;
       if (!hasAccount && creatingAccount.current) return;
       if (
@@ -87,8 +101,10 @@ export function useProviderCredentialExchange(input: {
       try {
         setError(undefined);
         setConflict(undefined);
-        // Signing in replaces the guest; it is not a link onto the guest.
-        if (account?.guest) await accountClient.signOut();
+        // Signing in replaces a guest or another provider user's session; it
+        // is not a link onto it. The live Para/Privy session stays.
+        if (account?.guest || replacesStaleBrowserSession)
+          await accountClient.signOut();
         const result = await accountClient.exchangeProviderCredential(
           credential,
           { hasAccount },
@@ -98,6 +114,13 @@ export function useProviderCredentialExchange(input: {
         await latest.current.refresh();
       } catch (cause) {
         failed.current = { attempt, at: Date.now() };
+        if (replacesStaleBrowserSession)
+          latest.current.onAccount({
+            user: null,
+            linkedAccounts: [],
+            wallets: [],
+            session: null,
+          });
         if (
           cause instanceof AomiAccountRequestError &&
           cause.status === 409 &&
@@ -124,7 +147,15 @@ export function useProviderCredentialExchange(input: {
     return () => {
       cancelled = true;
     };
-  }, [account?.guest, account?.user, accountClient, auth, enabled, status]);
+  }, [
+    account?.guest,
+    account?.user,
+    account?.linkedAccounts,
+    accountClient,
+    auth,
+    enabled,
+    status,
+  ]);
 
   /** Forget exchange state; the current host credential is not used again. */
   const forgetCredential = useCallback(async () => {

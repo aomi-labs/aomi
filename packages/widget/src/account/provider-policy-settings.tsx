@@ -34,6 +34,7 @@ export function SigningSettings({ onLoad }: { onLoad?: () => void } = {}) {
       canConnectPrivy={acl.canConnectPrivy}
       onConnectPrivy={acl.connectPrivy}
       onRenewDelegation={acl.renewDelegation}
+      onCreateAgentWallet={acl.createAgentWallet}
       blockedReason={acl.blockedReason}
     />
   );
