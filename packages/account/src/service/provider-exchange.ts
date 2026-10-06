@@ -273,7 +273,7 @@ export async function linkVerifiedProviderIdentityForUser(input: {
       identity,
     };
   } catch (error) {
-    return providerConflict(error);
+    return providerConflict(error, input.userId);
   }
 }
 
@@ -406,12 +406,22 @@ function providerForWallets(
   return provider;
 }
 
+/** `userId` is the account being linked to; a single other owner becomes the
+ * merge candidate. */
 function providerConflict(
   error: unknown,
+  userId?: AomiUserId,
 ): SignalResolution & { status: "conflict" } {
   if (error instanceof ProviderLinkRollback) return error.resolution;
   if (error instanceof IdentityConflictError) {
-    return conflict(error.signalType);
+    const others = error.owners.filter((owner) => owner !== userId);
+    return userId && others.length === 1 && error.signal
+      ? {
+          ...conflict(error.signalType),
+          owner: others[0],
+          signal: error.signal,
+        }
+      : conflict(error.signalType);
   }
   if (isIdentityAlreadyLinkedError(error)) return conflict("identity");
   throw error;

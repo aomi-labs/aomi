@@ -8,6 +8,7 @@ const queryMocks = vi.hoisted(() => ({
   countLoginFactors: vi.fn(),
   createAomiUser: vi.fn(),
   deactivateAomiUser: vi.fn(),
+  deleteBetterAuthSessions: vi.fn(),
   deleteBetterAuthSiweWallet: vi.fn(),
   deleteBetterAuthSiwsWallet: vi.fn(),
   findAuthIdentityById: vi.fn(),
@@ -17,9 +18,11 @@ const queryMocks = vi.hoisted(() => ({
   findWalletById: vi.fn(),
   listBetterAuthSiweWallets: vi.fn(),
   listBetterAuthSiwsWallets: vi.fn(),
+  listBetterAuthUserIds: vi.fn(),
   listWalletsForUser: vi.fn(),
   lockIdentityResolutionKeys: vi.fn(),
   logAccountEvent: vi.fn(),
+  mergeAccountRows: vi.fn(),
   revokeAllAuthIdentitiesForUser: vi.fn(),
   revokeAllWalletsForUser: vi.fn(),
   revokeAuthIdentity: vi.fn(),
@@ -38,6 +41,7 @@ const queryMocks = vi.hoisted(() => ({
 vi.mock("./queries", () => queryMocks);
 vi.mock("../widget-auth/store", () => ({
   deleteWidgetSessionsForProviderIdentity: vi.fn(async () => undefined),
+  deleteWidgetSessionsForUser: vi.fn(async () => 0),
 }));
 
 const tx = { tag: "transaction-client" };
@@ -165,12 +169,19 @@ describe("Better Auth anonymous account upgrade", () => {
     );
   });
 
-  it("fails closed when the verified subject already owns another canonical account", async () => {
+  it("merges the guest into the account the verified subject already opens", async () => {
     primeResolutionMocks();
     queryMocks.createAomiUser.mockResolvedValue({ id: "guest-canonical" });
     queryMocks.findSignalOwner
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce("existing-canonical");
+      .mockResolvedValueOnce("existing-canonical")
+      .mockResolvedValueOnce("guest-canonical");
+    queryMocks.listBetterAuthUserIds.mockResolvedValue(["ba-guest"]);
+    queryMocks.mergeAccountRows.mockResolvedValue({
+      chats: 2,
+      wallets: 0,
+      dropped: [],
+    });
 
     const { linkAnonymousCanonicalAccount } =
       await import("../service/account-service");
@@ -179,7 +190,16 @@ describe("Better Auth anonymous account upgrade", () => {
         anonymousBetterAuthUserId: "ba-guest",
         newBetterAuthUserId: "ba-verified",
       }),
-    ).rejects.toThrow("anonymous_account_merge_required");
+    ).resolves.toBe("existing-canonical");
+    expect(queryMocks.mergeAccountRows).toHaveBeenCalledWith({
+      sourceUserId: "guest-canonical",
+      targetUserId: "existing-canonical",
+      db: tx,
+    });
+    expect(queryMocks.deleteBetterAuthSessions).toHaveBeenCalledWith(
+      ["ba-guest"],
+      tx,
+    );
     expect(queryMocks.revokeAuthIdentity).not.toHaveBeenCalled();
   });
 });

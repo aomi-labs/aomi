@@ -187,42 +187,46 @@ describe("aomi account link management", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("links a Solana wallet through BetterAuth SIWS", async () => {
+  it("links a Solana wallet through the wallet link endpoint", async () => {
     const keypair = Keypair.generate();
     const secret = bs58.encode(keypair.secretKey);
     const { CliSession } = await import("../cli-session");
     const { accountLinkCommand } =
       await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
+    const linkUrl = "https://portal.test/v1/account/wallets/link";
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         const headers = new Headers(init?.headers);
         expect(headers.get("Authorization")).toBe("Bearer session-token");
-        if (url === "https://portal.test/api/auth/siws/nonce") {
-          expect(JSON.parse(String(init?.body))).toEqual({
-            walletAddress: keypair.publicKey.toBase58(),
-            chainId: "solana:devnet",
-            intent: "link",
-          });
+        if (url.startsWith(`${linkUrl}?`)) {
+          expect(new URL(url).searchParams.get("address")).toBe(
+            keypair.publicKey.toBase58(),
+          );
+          expect(new URL(url).searchParams.get("chainId")).toBe(
+            "solana:devnet",
+          );
           return Response.json({
             nonce: "siws-link-nonce",
             domain: "portal.test",
             uri: "https://portal.test",
           });
         }
-        if (url === "https://portal.test/api/auth/siws/verify") {
+        if (url === linkUrl && init?.method === "POST") {
           const body = JSON.parse(String(init?.body));
-          expect(body.intent).toBe("link");
-          expect(body.message).toContain(
-            "portal.test wants you to sign in with your Solana account",
-          );
+          expect(body).toMatchObject({
+            family: "svm",
+            address: keypair.publicKey.toBase58(),
+            chainId: "solana:devnet",
+            nonce: "siws-link-nonce",
+          });
           expect(body.message).toContain(
             "Only sign this message if you want this Solana wallet attached to the current Aomi account.",
           );
           expect(body.message).toContain("Nonce: siws-link-nonce");
           expect(Buffer.from(body.signature, "base64")).toHaveLength(64);
-          return Response.json({ status: "linked", success: true });
+          return Response.json({ status: "linked" });
         }
         if (url === "https://portal.test/v1/account") {
           return Response.json(accountGraph);

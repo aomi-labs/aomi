@@ -1,48 +1,50 @@
 // @vitest-environment node
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  createWalletLinkNonce,
-  verifyWalletLinkNonce,
+  consumeWalletLinkNonce,
+  issueWalletLinkNonce,
   walletLinkMessageMatches,
 } from "./wallet-linking";
 
 const address = "0x1111111111111111111111111111111111111111";
 
+const verifications = vi.hoisted(() => new Map<string, string>());
+vi.mock("../db/queries", () => ({
+  storeVerification: async (input: { identifier: string; value: string }) => {
+    verifications.set(input.identifier, input.value);
+  },
+  takeVerification: async (identifier: string) => {
+    const value = verifications.get(identifier) ?? null;
+    verifications.delete(identifier);
+    return value;
+  },
+}));
+
 describe("wallet link nonce", () => {
-  it("is scoped to the configured auth domain", () => {
-    const nonce = createWalletLinkNonce({
+  it("is single use and bound to the account, address and chain", async () => {
+    const target = {
       userId: "user-1",
+      family: "evm" as const,
       address,
       chainId: 1,
-      domain: "portal.aomi.dev",
-      secret: "secret",
-      now: 1_700_000_000_000,
-      random: "fixed",
-    });
-
+    };
+    const nonce = await issueWalletLinkNonce(target);
     expect(
-      verifyWalletLinkNonce({
-        nonce,
-        userId: "user-1",
-        address,
-        chainId: 1,
-        domain: "portal.aomi.dev",
-        secret: "secret",
-        now: 1_700_000_001_000,
+      await consumeWalletLinkNonce({ ...target, userId: "user-2", nonce }),
+    ).toBe(false);
+
+    const again = await issueWalletLinkNonce(target);
+    expect(
+      await consumeWalletLinkNonce({
+        ...target,
+        address: address.toUpperCase().replace("0X", "0x"),
+        nonce: again,
       }),
     ).toBe(true);
-    expect(
-      verifyWalletLinkNonce({
-        nonce,
-        userId: "user-1",
-        address,
-        chainId: 1,
-        domain: "embedder.example.com",
-        secret: "secret",
-        now: 1_700_000_001_000,
-      }),
-    ).toBe(false);
+    expect(await consumeWalletLinkNonce({ ...target, nonce: again })).toBe(
+      false,
+    );
   });
 
   it("requires the wallet-link message domain to match the auth domain", () => {

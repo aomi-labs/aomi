@@ -26,7 +26,6 @@ type SiwsNonceResponse = SiweNonceResponse;
 type SiwsVerifyResponse = {
   token?: unknown;
   success?: unknown;
-  status?: unknown;
   user_id?: unknown;
   user?: {
     id?: unknown;
@@ -232,7 +231,6 @@ export async function signInWithCliSiws({
     baseUrl,
     address,
     chainId,
-    intent: "sign-in",
     signMessage: (message) =>
       signSolanaMessage(
         Buffer.from(message, "utf8").toString("base64"),
@@ -281,22 +279,67 @@ export async function linkCliSiwsWallet(input: {
   const keypair = parseSolanaKeypairSecret(input.privateKey);
   const address = keypair.publicKey.toBase58();
   const chainId = input.chainId ?? DEFAULT_SVM_CLUSTER;
-  const result = await performCliSiws({
-    baseUrl: input.baseUrl,
+  const fetchImpl = input.fetch ?? fetch;
+  const portalUrl = normalizeBaseUrl(input.baseUrl);
+  const headers = new Headers({
+    Accept: "application/json",
+    Authorization: `Bearer ${input.sessionToken}`,
+    "Content-Type": "application/json",
+  });
+  const linkUrl = joinUrl(portalUrl, "/v1/account/wallets/link");
+  const nonceHttpResponse = await fetchImpl(
+    `${linkUrl}?${new URLSearchParams({ address, chainId })}`,
+    { method: "GET", headers },
+  );
+  if (!nonceHttpResponse.ok) {
+    throw new Error(
+      `SIWS link nonce failed: HTTP ${nonceHttpResponse.status} ${await safeResponseText(
+        nonceHttpResponse,
+      )}`,
+    );
+  }
+  const nonceResponse = (await nonceHttpResponse.json()) as SiwsNonceResponse;
+  const nonce =
+    typeof nonceResponse.nonce === "string" ? nonceResponse.nonce : "";
+  if (!nonce) throw new Error("SIWS link nonce response is missing nonce");
+  const message = buildSiwsMessage({
     address,
     chainId,
+    nonce,
     intent: "link",
-    sessionToken: input.sessionToken,
-    signMessage: (message) =>
-      signSolanaMessage(
-        Buffer.from(message, "utf8").toString("base64"),
-        keypair,
-      ).signatureBase64,
-    fetch: input.fetch ?? fetch,
-    now: input.now ?? Date.now,
+    domain:
+      normalizeDomain(nonceResponse.domain) ?? domainFromBaseUrl(portalUrl),
+    uri: normalizeUri(nonceResponse.uri) ?? portalUrl,
+    issuedAt: new Date((input.now ?? Date.now)()),
   });
+  const signature = signSolanaMessage(
+    Buffer.from(message, "utf8").toString("base64"),
+    keypair,
+  ).signatureBase64;
+  const linkResponse = await fetchImpl(linkUrl, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      family: "svm",
+      address,
+      chainId,
+      nonce,
+      message,
+      signature,
+    }),
+  });
+  if (!linkResponse.ok) {
+    throw new Error(
+      `SIWS link failed: HTTP ${linkResponse.status} ${await safeResponseText(
+        linkResponse,
+      )}`,
+    );
+  }
+  const body = (await linkResponse.json().catch(() => ({}))) as {
+    status?: unknown;
+  };
   return {
-    status: result.status === "noop" ? "noop" : "linked",
+    status: body.status === "noop" ? "noop" : "linked",
     address,
     chainId,
   };
@@ -306,7 +349,6 @@ async function performCliSiws(input: {
   baseUrl: string;
   address: string;
   chainId: CliSvmCluster;
-  intent: "sign-in" | "link";
   sessionToken?: string;
   signMessage: (message: string) => string;
   fetch: typeof fetch;
@@ -314,7 +356,6 @@ async function performCliSiws(input: {
 }): Promise<{
   sessionToken?: string;
   betterAuthUserId?: string;
-  status?: "linked" | "noop";
 }> {
   const portalUrl = normalizeBaseUrl(input.baseUrl);
   const headers = new Headers({
@@ -333,7 +374,6 @@ async function performCliSiws(input: {
       body: JSON.stringify({
         walletAddress: input.address,
         chainId: input.chainId,
-        intent: input.intent,
       }),
     },
   );
@@ -353,7 +393,7 @@ async function performCliSiws(input: {
     address: input.address,
     chainId: input.chainId,
     nonce,
-    intent: input.intent,
+    intent: "sign-in",
     domain:
       normalizeDomain(nonceResponse.domain) ?? domainFromBaseUrl(portalUrl),
     uri: normalizeUri(nonceResponse.uri) ?? portalUrl,
@@ -371,7 +411,6 @@ async function performCliSiws(input: {
         signature,
         walletAddress: input.address,
         chainId: input.chainId,
-        intent: input.intent,
       }),
     },
   );
@@ -385,14 +424,12 @@ async function performCliSiws(input: {
   const body = (await verifyResponse
     .json()
     .catch(() => ({}))) as SiwsVerifyResponse;
-  const status = body.status === "noop" ? "noop" : "linked";
   return {
     sessionToken:
       getSessionTokenHeader(verifyResponse.headers) ??
       (typeof body.token === "string" ? body.token : undefined),
     betterAuthUserId:
       typeof body.user?.id === "string" ? body.user.id : undefined,
-    status,
   };
 }
 

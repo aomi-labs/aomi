@@ -24,6 +24,7 @@ import {
 import { verifySiweMessage } from "./siwe";
 import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
+import { aomiAccountMergePlugin } from "./account-merge-plugin";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
 import {
@@ -362,6 +363,7 @@ export const auth = betterAuth({
       }),
     ),
     aomiProviderAuthPlugin(),
+    aomiAccountMergePlugin(),
     aomiWidgetOAuthBootstrapPlugin(),
     nextCookies(),
   ],

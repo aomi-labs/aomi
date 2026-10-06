@@ -144,7 +144,6 @@ describe("CLI BetterAuth SIWE auth", () => {
           expect(JSON.parse(String(init?.body))).toEqual({
             walletAddress: keypair.publicKey.toBase58(),
             chainId: "solana:devnet",
-            intent: "sign-in",
           });
           return Response.json({
             nonce: "solana-nonce",
@@ -159,7 +158,6 @@ describe("CLI BetterAuth SIWE auth", () => {
           );
           expect(body.message).toContain("Chain ID: solana:devnet");
           expect(Buffer.from(body.signature, "base64")).toHaveLength(64);
-          expect(body.intent).toBe("sign-in");
           return Response.json(
             {
               success: true,

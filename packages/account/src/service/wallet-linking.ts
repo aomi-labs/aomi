@@ -1,62 +1,52 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { verifySiweMessage } from "../better-auth/siwe";
+import { storeVerification, takeVerification } from "../db/queries";
+import type { WalletFamily } from "../types";
+import { normalizeWalletAddress } from "./wallet-normalization";
 
-export const DEFAULT_WALLET_LINK_NONCE_MAX_AGE_MS = 5 * 60 * 1000;
+export const WALLET_LINK_NONCE_MAX_AGE_MS = 5 * 60 * 1000;
 
-export type WalletLinkNoncePayload = {
+/** What a link nonce is bound to: the account, the address and its chain. */
+export type WalletLinkTarget = {
   userId: string;
+  family: WalletFamily;
   address: string;
-  chainId: number;
-  domain: string;
-  issuedAt: number;
+  /** EVM chain id, or the SVM cluster. */
+  chainId: number | string;
 };
 
-export function createWalletLinkNonce(input: {
-  userId: string;
-  address: string;
-  chainId: number;
-  domain: string;
-  secret: string;
-  now?: number;
-  random?: string;
-}): string {
-  const payload = {
-    userId: input.userId,
-    address: input.address.toLowerCase(),
-    chainId: input.chainId,
-    domain: input.domain,
-    issuedAt: input.now ?? Date.now(),
-    random: input.random ?? randomBytes(16).toString("base64url"),
-  };
-  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  return `${encoded}.${signWalletLinkNoncePayload(encoded, input.secret)}`;
+/** Issue a single-use link nonce, stored until the link consumes it. */
+export async function issueWalletLinkNonce(
+  target: WalletLinkTarget,
+): Promise<string> {
+  const nonce = randomBytes(16).toString("hex");
+  await storeVerification({
+    identifier: walletLinkIdentifier(nonce),
+    value: walletLinkBinding(target),
+    expiresAt: new Date(Date.now() + WALLET_LINK_NONCE_MAX_AGE_MS),
+  });
+  return nonce;
 }
 
-export function verifyWalletLinkNonce(input: {
-  nonce: string;
-  userId: string;
-  address: string;
-  chainId: number;
-  domain: string;
-  secret: string;
-  now?: number;
-  maxAgeMs?: number;
-}): boolean {
-  const [encoded, signature] = input.nonce.split(".");
-  if (!encoded || !signature) return false;
-  const expected = signWalletLinkNoncePayload(encoded, input.secret);
-  if (!timingSafeEqualString(signature, expected)) return false;
-  const payload = parseWalletLinkNoncePayload(encoded);
-  if (!payload) return false;
-  const ageMs = (input.now ?? Date.now()) - payload.issuedAt;
-  return (
-    payload.userId === input.userId &&
-    payload.address === input.address.toLowerCase() &&
-    payload.chainId === input.chainId &&
-    payload.domain === input.domain &&
-    ageMs >= 0 &&
-    ageMs <= (input.maxAgeMs ?? DEFAULT_WALLET_LINK_NONCE_MAX_AGE_MS)
-  );
+/** Consume the nonce; true only once, and only for the target it was issued to. */
+export async function consumeWalletLinkNonce(
+  input: WalletLinkTarget & { nonce: string },
+): Promise<boolean> {
+  const stored = await takeVerification(walletLinkIdentifier(input.nonce));
+  return stored !== null && stored === walletLinkBinding(input);
+}
+
+function walletLinkIdentifier(nonce: string): string {
+  return `aomi:wallet-link:${nonce}`;
+}
+
+function walletLinkBinding(target: WalletLinkTarget): string {
+  return JSON.stringify([
+    target.userId,
+    target.family,
+    normalizeWalletAddress(target.family, target.address),
+    String(target.chainId),
+  ]);
 }
 
 export async function verifyWalletLinkSignature(input: {
@@ -162,50 +152,4 @@ function readField(lines: readonly string[], field: string): string | null {
   const line = lines.find((candidate) => candidate.startsWith(prefix));
   if (!line) return null;
   return line.slice(prefix.length);
-}
-
-function signWalletLinkNoncePayload(
-  encodedPayload: string,
-  secret: string,
-): string {
-  return createHmac("sha256", secret)
-    .update(encodedPayload)
-    .digest("base64url");
-}
-
-function parseWalletLinkNoncePayload(
-  encoded: string,
-): WalletLinkNoncePayload | null {
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(encoded, "base64url").toString("utf8"),
-    ) as Record<string, unknown>;
-    if (
-      typeof parsed.userId !== "string" ||
-      typeof parsed.address !== "string" ||
-      typeof parsed.chainId !== "number" ||
-      typeof parsed.domain !== "string" ||
-      typeof parsed.issuedAt !== "number"
-    ) {
-      return null;
-    }
-    return {
-      userId: parsed.userId,
-      address: parsed.address,
-      chainId: parsed.chainId,
-      domain: parsed.domain,
-      issuedAt: parsed.issuedAt,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function timingSafeEqualString(left: string, right: string): boolean {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return (
-    leftBuffer.length === rightBuffer.length &&
-    timingSafeEqual(leftBuffer, rightBuffer)
-  );
 }

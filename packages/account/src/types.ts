@@ -108,7 +108,7 @@ export type AccountWallet = {
   chainScope?: string;
   chainId?: number;
   linkedVia: LinkedVia | (string & {});
-  label?: string;
+  label: string | null;
   verifiedAt?: number;
   lastSeenAt?: number;
 };
@@ -198,4 +198,8 @@ export type SignalResolution =
       status: "conflict";
       reason: "already_linked_to_another_account";
       signalType: SignalRef["type"];
+      /** The one other account that owns `signal`, when there is exactly one.
+       * Server-side only: it backs a merge offer and is never sent as is. */
+      owner?: AomiUserId;
+      signal?: SignalRef;
     };

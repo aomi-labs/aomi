@@ -200,7 +200,12 @@ describe("tenant-scoped identity resolution", () => {
         onAttached,
       }),
     ).rejects.toEqual(
-      new IdentityConflictError(["user-a", "user-b"], "wallet"),
+      new IdentityConflictError(["user-a", "user-b"], "wallet", {
+        type: "wallet",
+        family: "evm",
+        normalizedAddress: "0x0000000000000000000000000000000000000001",
+        chainScope: null,
+      }),
     );
     expect(queryMocks.upsertAuthIdentity).not.toHaveBeenCalled();
     expect(onAttached).not.toHaveBeenCalled();

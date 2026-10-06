@@ -60,6 +60,7 @@ import {
   resolveVerifiedProviderIdentity,
 } from "./identity-resolution";
 import { deleteWidgetSessionsForProviderIdentity } from "../widget-auth/store";
+import { mergeGuestAccount } from "./account-merge";
 import { shortAddress } from "@aomi-labs/client";
 
 // Historically this applied the portal-owned `aomi_*` schema. AUTH-001 moves
@@ -166,7 +167,9 @@ export async function getOrCreateAomiUserForBetterAuthSession(input: {
   return resolution.user;
 }
 
-/** Preserve the canonical UUID when Better Auth upgrades an anonymous user. */
+/** Keep a guest's chats when Better Auth upgrades an anonymous user: a new
+ * login adopts the guest's account, and a login that already opens an account
+ * gets the guest merged into it. */
 export async function linkAnonymousCanonicalAccount(input: {
   anonymousBetterAuthUserId: string;
   newBetterAuthUserId: string;
@@ -194,7 +197,12 @@ export async function linkAnonymousCanonicalAccount(input: {
     );
     const newOwner = await findSignalOwner(newSignal, db);
     if (newOwner && newOwner !== anonymous.id) {
-      throw new Error("anonymous_account_merge_required");
+      await mergeGuestAccount({
+        guestBetterAuthUserId: input.anonymousBetterAuthUserId,
+        accountUserId: newOwner,
+        db,
+      });
+      return newOwner;
     }
     await revokeAuthIdentity({
       userId: anonymous.id,
@@ -380,6 +388,8 @@ export async function resolveSignal(input: {
     status: "conflict",
     reason: "already_linked_to_another_account",
     signalType: input.signal.type,
+    owner: ownerId,
+    signal: input.signal,
   };
 }
 

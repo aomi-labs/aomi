@@ -524,6 +524,18 @@ export const routes = {
     handle: { GET: account.walletLinkNonce, POST: account.linkWallet },
     fallback: "widget_auth_failed",
   }),
+  merge: bind({
+    operation: "account.merge",
+    need: { capability: "account" },
+    handle: { POST: account.mergeAccount },
+    fallback: "widget_auth_failed",
+  }),
+  mergeSwitch: bind({
+    operation: "account.merge_switch",
+    need: { capability: "account" },
+    handle: { POST: account.switchToMergeSource },
+    fallback: "widget_auth_failed",
+  }),
   providerLink: bind({
     operation: "provider.link",
     need: { capability: "account" },

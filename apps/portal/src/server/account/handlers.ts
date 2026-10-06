@@ -1,27 +1,38 @@
 import "server-only";
 import {
-  createWalletLinkNonce,
+  consumeWalletLinkNonce,
   deactivateAomiAccount,
   exchangeProviderForExistingSession,
   getAccountResponseForBetterAuthSession,
   getAccountResponseForWidgetSession,
+  issueWalletLinkNonce,
   linkVerifiedProviderIdentityForUser,
+  mergeAccountWithTicket,
+  offerAccountMerge,
   renameAuthIdentity,
   renameWallet,
+  takeMergeSwitchTicket,
   unlinkAuthIdentity,
   unlinkWallet,
   updateAccountProfile,
   upsertVerifiedWallet,
-  verifyWalletLinkNonce,
   verifyWalletLinkSignature,
   walletLinkMessageMatches,
 } from "@aomi-labs/account/account";
 import {
   mintAccountBearer,
   type AomiAccountCredential,
+  type SignalResolution,
   type WalletFamily,
 } from "@aomi-labs/account";
-import { auth, readAccountAuthEnv } from "@aomi-labs/account/better-auth";
+import {
+  SIWS_CLUSTERS,
+  auth,
+  readAccountAuthEnv,
+  validSolanaAddress,
+  verifySiwsMessage,
+  type SiwsCluster,
+} from "@aomi-labs/account/better-auth";
 import { revokeWidgetSession } from "@aomi-labs/account/widget-auth";
 import { BACKEND_API_HEADERS, forward } from "@aomi-labs/account/forward";
 import { recoverMessageAddress } from "viem";
@@ -219,8 +230,7 @@ export async function linkProvider({
       identity,
       policy: descriptor.policy,
     });
-    if (result.status === "conflict")
-      return error(409, "already_linked_to_another_account", result);
+    if (result.status === "conflict") return linkConflict(current, result);
     return Response.json({
       status: "linked",
       account: await accountResponse(current),
@@ -231,11 +241,12 @@ export async function linkProvider({
     currentUserId: current.accountId,
     credential: credential as AomiAccountCredential,
   });
-  if (result.status === "conflict")
-    return error(409, "already_linked_to_another_account", result);
+  if (result.status === "conflict") return linkConflict(current, result);
   return Response.json(result);
 }
 
+/** A single-use nonce for linking an EVM or SVM address; the chain id's shape
+ * (a number or a `solana:` cluster) names the family. */
 export async function walletLinkNonce({
   request,
   principal,
@@ -243,24 +254,21 @@ export async function walletLinkNonce({
   const current = account(principal);
   const url = new URL(request.url);
   const address = url.searchParams.get("address");
-  const rawChainId = url.searchParams.get("chainId");
-  const chainId = Number(rawChainId);
-  if (!address || !rawChainId || !Number.isInteger(chainId) || chainId <= 0)
-    return error(400, "address_and_chain_id_required");
+  const target = linkTarget(address, url.searchParams.get("chainId"));
+  if (!address || !target) return error(400, "address_and_chain_id_required");
   const env = readAccountAuthEnv();
   return Response.json({
-    nonce: createWalletLinkNonce({
+    nonce: await issueWalletLinkNonce({
       userId: current.accountId,
       address,
-      chainId,
-      domain: env.siweDomain,
-      secret: env.betterAuthSecret,
+      ...target,
     }),
     domain: env.siweDomain,
     uri: env.betterAuthUrl,
   });
 }
 
+/** Link a wallet to the signed-in account: SIWE for EVM, SIWS for SVM. */
 export async function linkWallet({
   request,
   principal,
@@ -269,7 +277,7 @@ export async function linkWallet({
   const input = await body<{
     family?: WalletFamily;
     address?: string;
-    chainId?: number;
+    chainId?: number | string;
     nonce?: string;
     message?: string;
     signature?: string;
@@ -277,51 +285,168 @@ export async function linkWallet({
   }>(request);
   if (!input?.family || !input.address)
     return error(400, "family_and_address_required");
-  if (input.family !== "evm") return error(400, "unsupported_wallet_family");
-  if (!input.message || !input.signature || !input.chainId)
+  if (input.family !== "evm" && input.family !== "svm")
+    return error(400, "unsupported_wallet_family");
+  if (!input.message || !input.signature || !input.chainId || !input.nonce)
     return error(400, "wallet_signature_required");
-  const env = readAccountAuthEnv();
-  const proof = {
-    address: input.address,
-    chainId: input.chainId,
-    domain: env.siweDomain,
-  };
+  const target = linkTarget(input.address, String(input.chainId));
+  if (!target || target.family !== input.family)
+    return error(400, "address_and_chain_id_required");
   if (
-    !input.nonce ||
-    !verifyWalletLinkNonce({
-      ...proof,
-      nonce: input.nonce,
+    !(await consumeWalletLinkNonce({
       userId: current.accountId,
-      secret: env.betterAuthSecret,
-    })
-  )
-    return error(401, "invalid_wallet_link_nonce");
-  const signed = { ...proof, message: input.message, nonce: input.nonce };
-  if (
-    !(await verifyWalletLinkSignature({
-      ...signed,
-      signature: input.signature,
+      address: input.address,
+      nonce: input.nonce,
+      ...target,
     }))
   )
-    return walletSignatureMismatch(request, signed, input.signature);
+    return error(401, "invalid_wallet_link_nonce");
 
-  const resolution = await upsertVerifiedWallet({
-    userId: current.accountId,
-    family: input.family,
-    address: input.address,
-    chainId: input.chainId,
-    chainScope: null,
-    kind: "external",
-    provider: "siwe",
-    linkedVia: "siwe",
-    label: input.label ?? null,
-  });
+  const env = readAccountAuthEnv();
+  let resolution: SignalResolution;
+  if (target.family === "evm") {
+    const signed = {
+      address: input.address,
+      chainId: target.chainId,
+      domain: env.siweDomain,
+      message: input.message,
+      nonce: input.nonce,
+    };
+    if (
+      !(await verifyWalletLinkSignature({
+        ...signed,
+        signature: input.signature,
+      }))
+    )
+      return walletSignatureMismatch(request, signed, input.signature);
+    resolution = await upsertVerifiedWallet({
+      userId: current.accountId,
+      family: "evm",
+      address: input.address,
+      chainId: target.chainId,
+      chainScope: null,
+      kind: "external",
+      provider: "siwe",
+      linkedVia: "siwe",
+      label: input.label ?? null,
+    });
+  } else {
+    if (
+      !verifySiwsMessage({
+        message: input.message,
+        signature: input.signature,
+        walletAddress: input.address,
+        chainId: target.chainId,
+        intent: "link",
+        nonce: input.nonce,
+        domain: env.siweDomain,
+        uri: env.betterAuthUrl,
+      })
+    )
+      return error(401, "invalid_wallet_signature");
+    resolution = await upsertVerifiedWallet({
+      userId: current.accountId,
+      family: "svm",
+      address: input.address,
+      chainScope: null,
+      kind: "external",
+      provider: "siws",
+      linkedVia: "siws",
+      label: input.label ?? null,
+    });
+  }
   if (resolution.status === "conflict")
-    return error(409, "already_linked_to_another_account", resolution);
+    return linkConflict(current, resolution);
   return Response.json({
     status: resolution.status,
     account: await accountResponse(current),
   });
+}
+
+/** Merge the account a link just proved into the signed-in one. */
+export async function mergeAccount({
+  request,
+  principal,
+}: Call): Promise<Response> {
+  const current = account(principal);
+  const input = await body<{ ticket?: string }>(request);
+  if (!input?.ticket) return error(400, "ticket_required");
+  const result = await mergeAccountWithTicket({
+    ticket: input.ticket,
+    targetUserId: current.accountId,
+  });
+  if (result.status === "invalid_ticket")
+    return error(410, "merge_ticket_invalid");
+  if (result.status === "payment_in_progress")
+    return error(409, "account_merge_payment_in_progress");
+  return Response.json({
+    moved: result.moved,
+    account: await accountResponse(current),
+  });
+}
+
+/** Decline the merge and sign this browser in to the other account. */
+export async function switchToMergeSource({
+  request,
+  principal,
+}: Call): Promise<Response> {
+  const current = account(principal);
+  if (current.kind !== "cookie")
+    return error(400, "merge_switch_requires_browser_session");
+  const input = await body<{ ticket?: string }>(request);
+  if (!input?.ticket) return error(400, "ticket_required");
+  const result = await takeMergeSwitchTicket({
+    ticket: input.ticket,
+    targetUserId: current.accountId,
+  });
+  if (result.status === "invalid_ticket")
+    return error(410, "merge_ticket_invalid");
+  if (result.status === "unavailable")
+    return error(409, "merge_switch_unavailable");
+  const { headers } = await auth.api.switchAccountSession({
+    body: { betterAuthUserId: result.betterAuthUserId },
+    headers: request.headers,
+    returnHeaders: true,
+  });
+  return Response.json({ status: "switched" }, { headers });
+}
+
+/** A link that hit another account. With one other owner it becomes a merge
+ * offer; the owner's id never leaves the server. Guests sign in instead. */
+async function linkConflict(
+  current: Account,
+  resolution: SignalResolution & { status: "conflict" },
+): Promise<Response> {
+  const offer =
+    resolution.owner && resolution.signal && !current.guest
+      ? await offerAccountMerge({
+          targetUserId: current.accountId,
+          sourceUserId: resolution.owner,
+          credential: resolution.signal,
+        })
+      : null;
+  if (offer) return error(409, "account_merge_available", offer);
+  return error(409, "already_linked_to_another_account", {
+    signalType: resolution.signalType,
+  });
+}
+
+function linkTarget(
+  address: string | null,
+  chainId: string | null,
+):
+  | { family: "evm"; chainId: number }
+  | { family: "svm"; chainId: SiwsCluster }
+  | null {
+  if (!address || !chainId) return null;
+  if (SIWS_CLUSTERS.includes(chainId as SiwsCluster))
+    return validSolanaAddress(address)
+      ? { family: "svm", chainId: chainId as SiwsCluster }
+      : null;
+  const evmChainId = Number(chainId);
+  return Number.isInteger(evmChainId) && evmChainId > 0
+    ? { family: "evm", chainId: evmChainId }
+    : null;
 }
 
 /** A rejected wallet signature, with a redacted diagnostic of why it did not match. */
