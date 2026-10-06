@@ -2,15 +2,15 @@
 
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import nestedFixture from "./fixtures/para-widget-nested.json";
-import topLevelFixture from "./fixtures/para-widget-top-level.json";
+import nestedFixture from "../test-fixtures/para-widget-nested.json";
+import topLevelFixture from "../test-fixtures/para-widget-top-level.json";
 import {
   createParaWidgetDescriptor,
   paraUserIdentifierType,
   verifyParaJwt,
   verifyParaWidgetCredential,
-} from "../src/providers/para";
-import { getWidgetProvider } from "../src/providers";
+} from "./para";
+import { getWidgetProvider } from "./";
 
 const EVM = "0x1111111111111111111111111111111111111111";
 const SOL = "53GfEkka7UYR9KsM6ePWSNfbW678grShT41uZMjXAvoL";

@@ -4,7 +4,7 @@ import {
   normalizeRequestPath,
   scrubSentryEvent,
   scrubSentryLog,
-} from "../src/privacy";
+} from "./privacy";
 
 describe("normalizeRequestPath", () => {
   it("removes query values, fragments, identifiers, and unknown segments", () => {

@@ -32,14 +32,14 @@ const exchangeMocks = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("../src/providers", () => providerMocks);
-vi.mock("../src/service/provider-exchange", () => exchangeMocks);
-vi.mock("../src/db/queries", () => ({
+vi.mock("./providers", () => providerMocks);
+vi.mock("./service/provider-exchange", () => exchangeMocks);
+vi.mock("./db/queries", () => ({
   buildAccountResponse: vi.fn(),
 }));
 
-import { aomiProviderAuthPlugin } from "../src/better-auth/provider-plugin";
-import { setAccountDiagnosticObserver } from "../src/observability";
+import { aomiProviderAuthPlugin } from "./better-auth/provider-plugin";
+import { setAccountDiagnosticObserver } from "./observability";
 
 describe("provider auth plugin", () => {
   afterEach(() => setAccountDiagnosticObserver(undefined));

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { UserProject } from "../src/launch/browser-client";
+import type { UserProject } from "./browser-client";
 import {
   hasProjectForLaunchUrlContext,
   readLaunchUrlContext,
-} from "../src/launch/state";
+} from "./state";
 
 function source(
   installationId: number,

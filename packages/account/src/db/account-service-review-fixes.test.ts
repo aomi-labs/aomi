@@ -35,8 +35,8 @@ const queryMocks = vi.hoisted(() => ({
   withTransaction: vi.fn(),
 }));
 
-vi.mock("../src/db/queries", () => queryMocks);
-vi.mock("../src/widget-auth/store", () => ({
+vi.mock("./queries", () => queryMocks);
+vi.mock("../widget-auth/store", () => ({
   deleteWidgetSessionsForProviderIdentity: vi.fn(async () => undefined),
 }));
 
@@ -65,7 +65,7 @@ describe("getOrCreateAomiUserForBetterAuthSession email atomicity", () => {
     queryMocks.upsertEmailIdentity.mockResolvedValue({ id: "email-row" });
 
     const { getOrCreateAomiUserForBetterAuthSession } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     const user = await getOrCreateAomiUserForBetterAuthSession({
       betterAuthUserId: "ba-user-1",
@@ -89,7 +89,7 @@ describe("getOrCreateAomiUserForBetterAuthSession email atomicity", () => {
     primeResolutionMocks();
 
     const { getOrCreateAomiUserForBetterAuthSession } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     await getOrCreateAomiUserForBetterAuthSession({
       betterAuthUserId: "ba-user-1",
@@ -107,7 +107,7 @@ describe("getOrCreateAomiUserForBetterAuthSession email atomicity", () => {
     );
 
     const { getOrCreateAomiUserForBetterAuthSession } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     await expect(
       getOrCreateAomiUserForBetterAuthSession({
@@ -133,7 +133,7 @@ describe("Better Auth anonymous account upgrade", () => {
       .mockResolvedValueOnce(null);
 
     const { linkAnonymousCanonicalAccount } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
     await expect(
       linkAnonymousCanonicalAccount({
         anonymousBetterAuthUserId: "ba-guest",
@@ -173,7 +173,7 @@ describe("Better Auth anonymous account upgrade", () => {
       .mockResolvedValueOnce("existing-canonical");
 
     const { linkAnonymousCanonicalAccount } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
     await expect(
       linkAnonymousCanonicalAccount({
         anonymousBetterAuthUserId: "ba-guest",
@@ -204,7 +204,7 @@ describe("deactivateAomiAccount last-factor handling", () => {
     queryMocks.deactivateAomiUser.mockResolvedValue(true);
 
     const { deactivateAomiAccount } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     const result = await deactivateAomiAccount({ userId: "solo-user" });
 
@@ -237,7 +237,7 @@ describe("unlinkAuthIdentity last-factor handling", () => {
     queryMocks.countLoginFactors.mockResolvedValue(1);
 
     const { unlinkAuthIdentity } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     await expect(
       unlinkAuthIdentity({ userId: "user-a", identityId: "para-row" }),
@@ -264,7 +264,7 @@ describe("unlinkAuthIdentity last-factor handling", () => {
     queryMocks.revokeAuthIdentity.mockResolvedValue(true);
 
     const { unlinkAuthIdentity } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     await expect(
       unlinkAuthIdentity({ userId: "user-a", identityId: "para-row" }),
@@ -294,7 +294,7 @@ describe("unlinkWallet last-factor handling", () => {
     });
     queryMocks.countLoginFactors.mockResolvedValue(1);
 
-    const { unlinkWallet } = await import("../src/service/account-service");
+    const { unlinkWallet } = await import("../service/account-service");
 
     await expect(
       unlinkWallet({ userId: "user-a", walletId: "wallet-1" }),

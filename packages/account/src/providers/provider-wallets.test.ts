@@ -1,8 +1,8 @@
 // @vitest-environment node
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listParaWalletsForUser } from "../src/providers/para";
-import { listPrivyWalletsForUser } from "../src/providers/privy";
+import { listParaWalletsForUser } from "./para";
+import { listPrivyWalletsForUser } from "./privy";
 
 const EVM = "0x1111111111111111111111111111111111111111";
 const EVM2 = "0x2222222222222222222222222222222222222222";

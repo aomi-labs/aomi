@@ -6,10 +6,10 @@ import {
   paraTokenWalletAttestations,
   providerSessionUserSeed,
   verifyProviderCredential,
-} from "../src/providers/account-credentials";
-import { privyTokenWalletAttestations } from "../src/providers/wallet-attestation";
-import { readAccountAuthEnv } from "../src/better-auth/env";
-import type { AccountAuthEnv } from "../src/better-auth/env";
+} from "./account-credentials";
+import { privyTokenWalletAttestations } from "./wallet-attestation";
+import { readAccountAuthEnv } from "../better-auth/env";
+import type { AccountAuthEnv } from "../better-auth/env";
 
 const baseEnv: AccountAuthEnv = {
   betterAuthSecret: "secret",

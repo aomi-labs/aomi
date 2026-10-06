@@ -1,8 +1,8 @@
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
-import { readAccountAuthEnv } from "../src/better-auth/env";
-import { aomiOAuthResources } from "../src/better-auth/oauth-policy";
+import { readAccountAuthEnv } from "./env";
+import { aomiOAuthResources } from "./oauth-policy";
 
 const DEV_BETTER_AUTH_SECRET =
   "dev-better-auth-secret-change-me-at-least-32-bytes";

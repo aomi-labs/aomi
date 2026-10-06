@@ -1,24 +1,25 @@
 // @vitest-environment node
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AccountAuthEnv } from "../src/better-auth/env";
-import { createDefaultWalletAttesters } from "../src/providers/default-wallet-attesters";
+import type { AccountAuthEnv } from "./env";
+import { createDefaultWalletAttesters } from "../providers/default-wallet-attesters";
 import {
   type AttestedWallet,
   type WalletAttesterRegistry,
-} from "../src/providers/wallet-attestation";
+} from "../providers/wallet-attestation";
 import {
   fetchAttestedProviderWallets,
   mergeProviderWalletAttestations,
   resolveAttestedProviderWallets,
-} from "../src/service/account-service";
-import { setAccountInternalFailureObserver } from "../src/observability";
+} from "../service/account-service";
+import { setAccountInternalFailureObserver } from "../observability";
 
 const EVM = "0x1111111111111111111111111111111111111111";
 const EVM2 = "0x2222222222222222222222222222222222222222";
 const SOL = "53GfEkka7UYR9KsM6ePWSNfbW678grShT41uZMjXAvoL";
 
 const baseEnv: AccountAuthEnv = {
+  clientIpHeader: null,
   betterAuthSecret: "secret",
   betterAuthUrl: "http://localhost:3001",
   databaseUrl: "postgresql://postgres:postgres@localhost:5432/aomi",

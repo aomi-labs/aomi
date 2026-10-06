@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { VerifiedProviderIdentity } from "../src/providers/descriptor";
+import type { VerifiedProviderIdentity } from "./descriptor";
 
 const queryMocks = vi.hoisted(() => ({
   createAomiUser: vi.fn(),
@@ -14,13 +14,13 @@ const queryMocks = vi.hoisted(() => ({
   withTransaction: vi.fn(),
 }));
 
-vi.mock("../src/db/queries", () => queryMocks);
+vi.mock("../db/queries", () => queryMocks);
 
 import {
   attachVerifiedProviderIdentityToUser,
   IdentityConflictError,
   resolveVerifiedProviderIdentity,
-} from "../src/service/identity-resolution";
+} from "../service/identity-resolution";
 
 const globalPolicy = {
   subjectIsEnvironmentGlobal: true,

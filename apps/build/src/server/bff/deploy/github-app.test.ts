@@ -4,13 +4,13 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   handle: vi.fn(),
 }));
-vi.mock("@build/server/bff/auth", () => ({ authorize: mocks.authorize }));
-vi.mock("@build/server/bff/backend", () => ({
+vi.mock("@/server/bff/auth", () => ({ authorize: mocks.authorize }));
+vi.mock("@/server/bff/backend", () => ({
   backendClient: async () => ({
     listUserGitHubAppInstallations: mocks.list,
   }),
 }));
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: { handle: mocks.handle },
 }));
 import { githubAppInstallationsRoute } from "./github-app";

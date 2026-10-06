@@ -8,7 +8,7 @@ import type {
   DeploymentStatus,
   ProgressModel,
 } from "../types";
-import { backoffDelay, deploymentProgress } from "../launch/watch";
+import { backoffDelay, deploymentProgress } from "./watch";
 
 // Shared client reused in unit-level property tests (Properties 4)
 let client: BackendClient;

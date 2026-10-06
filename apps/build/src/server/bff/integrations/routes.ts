@@ -1,11 +1,11 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { authorize } from "@build/server/bff/auth";
+import { authorize } from "@/server/bff/auth";
 import {
   INTEGRATION_PROVIDERS,
   getIntegrationProvider,
-} from "@build/features/integrations/providers";
+} from "@/features/integrations/providers";
 
 export async function integrationsStatusRoute(req: Request) {
   const auth = await authorize(req);

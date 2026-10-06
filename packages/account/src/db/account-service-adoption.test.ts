@@ -37,7 +37,7 @@ const queryMocks = vi.hoisted(() => ({
   withTransaction: vi.fn(),
 }));
 
-vi.mock("../src/db/queries", () => queryMocks);
+vi.mock("./queries", () => queryMocks);
 
 describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
   afterEach(() => {
@@ -53,7 +53,7 @@ describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
     queryMocks.upsertEmailIdentity.mockResolvedValue({ id: "email-row" });
 
     const { linkProviderIdentity } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
     await expect(
       linkProviderIdentity({
         userId: "canonical-user",
@@ -99,7 +99,7 @@ describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
     queryMocks.updateAomiUserProfile.mockResolvedValue({ id: legacyUserId });
 
     const { getOrCreateAomiUserForBetterAuthSession } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
 
     const user = await getOrCreateAomiUserForBetterAuthSession({
       betterAuthUserId: "ba-user-1",
@@ -141,7 +141,7 @@ describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
     queryMocks.findAomiUserById.mockResolvedValue(canonicalUser);
 
     const { getOrCreateAomiUserForBetterAuthSession } =
-      await import("../src/service/account-service");
+      await import("../service/account-service");
     const user = await getOrCreateAomiUserForBetterAuthSession({
       betterAuthUserId: "ba-solana-user",
     });

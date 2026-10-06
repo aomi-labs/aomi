@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { BackendError, DeployError } from "../src/errors";
-import { identifyLaunchError, launchErrorResponse } from "../src/bff/index";
-import { RequiredSecretsCheckError } from "../src/bff/release-manifest";
+import { BackendError, DeployError } from "../errors";
+import { identifyLaunchError } from "./errors";
+import { RequiredSecretsCheckError } from "./release-manifest";
 
-describe("launch error responses", () => {
+describe("identifyLaunchError", () => {
   it.each([401, 403, 503])(
     "preserves a backend %s response while exposing classification facts",
-    async (status) => {
+    (status) => {
       const error = new BackendError(
         "deploy",
         status,
@@ -22,26 +22,17 @@ describe("launch error responses", () => {
         credential: "service",
         response: { status, error: `backend_${status}` },
       });
-      const response = launchErrorResponse(error);
-      expect(response.status).toBe(status);
-      await expect(response.json()).resolves.toEqual({
-        error: `backend_${status}`,
-      });
     },
   );
 
-  it("preserves invalid-request and required-secret user messages", async () => {
-    const invalid = launchErrorResponse(
-      new DeployError("INVALID_REQUEST", "invalid release"),
-    );
-    expect(invalid.status).toBe(400);
-    await expect(invalid.json()).resolves.toEqual({
-      error: "invalid release",
-    });
+  it("preserves invalid-request and required-secret user messages", () => {
+    expect(
+      identifyLaunchError(new DeployError("INVALID_REQUEST", "invalid release"))
+        .response,
+    ).toEqual({ status: 400, error: "invalid release" });
 
-    const unavailable = launchErrorResponse(new RequiredSecretsCheckError());
-    expect(unavailable.status).toBe(503);
-    await expect(unavailable.json()).resolves.toEqual({
+    expect(identifyLaunchError(new RequiredSecretsCheckError()).response).toEqual({
+      status: 503,
       error: "Unable to verify required secrets. Try again.",
       code: "required_secrets_github_unavailable",
       retryable: true,
@@ -49,11 +40,12 @@ describe("launch error responses", () => {
 
     // The operator-side case is NOT retryable, and says so in the body rather
     // than only in a message a browser would have to pattern-match.
-    const misconfigured = launchErrorResponse(
-      new RequiredSecretsCheckError({ reason: "bff_misconfigured" }),
-    );
-    expect(misconfigured.status).toBe(503);
-    await expect(misconfigured.json()).resolves.toEqual({
+    expect(
+      identifyLaunchError(
+        new RequiredSecretsCheckError({ reason: "bff_misconfigured" }),
+      ).response,
+    ).toEqual({
+      status: 503,
       error:
         "Required secrets cannot be verified: this deployment is missing its GitHub token.",
       code: "required_secrets_bff_misconfigured",
@@ -61,7 +53,7 @@ describe("launch error responses", () => {
     });
   });
 
-  it("carries the Manager's structured deploy_error through to the browser", async () => {
+  it("carries the Manager's structured deploy_error through to the browser", () => {
     const deployError = {
       code: "github_app_permission_missing",
       message:
@@ -92,14 +84,6 @@ describe("launch error responses", () => {
 
     expect(identifyLaunchError(error).response).toEqual({
       status: 502,
-      error: "GitHub deployment request returned HTTP 403",
-      code: "github_app_permission_missing",
-      retryable: false,
-      deployError: publicDeployError,
-    });
-    const response = launchErrorResponse(error);
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({
       error: "GitHub deployment request returned HTTP 403",
       code: "github_app_permission_missing",
       retryable: false,
@@ -153,17 +137,12 @@ describe("launch error responses", () => {
     });
   });
 
-  it("preserves the established unknown-error fallback", async () => {
-    const error = new Error("launch setup failed");
-
-    expect(identifyLaunchError(error)).toMatchObject({
+  it("never exposes an unexpected error's message", () => {
+    expect(
+      identifyLaunchError(new Error("connect ECONNREFUSED 10.0.0.4:5432")),
+    ).toMatchObject({
       origin: "local",
-      response: { status: 502, error: "launch setup failed" },
-    });
-    const response = launchErrorResponse(error);
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({
-      error: "launch setup failed",
+      response: { status: 500, error: "internal_error" },
     });
   });
 });

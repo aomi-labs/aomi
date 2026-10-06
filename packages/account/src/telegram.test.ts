@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { generateKeyPairSync, sign as signEd25519 } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { verifyTelegramInitData } from "../src/telegram";
+import { verifyTelegramInitData } from "./telegram";
 
 // A throwaway Ed25519 pair stands in for Telegram's, so these tests exercise
 // the real signature path rather than only its rejection branches.

@@ -18,6 +18,9 @@ export interface AccountAuthEnv {
    *  for a user via `GET /v1/wallets`. Distinct from `paraAudience` (the public
    *  app id used as the JWT `aud`). Never expose client-side. */
   paraApiKey?: string;
+  /** The one request header the hosting edge overwrites with the client IP;
+   *  null means every caller shares one rate-limit bucket. */
+  clientIpHeader: string | null;
 }
 
 type AccountAuthEnvInput = Record<string, string | undefined>;
@@ -57,6 +60,11 @@ export function readAccountAuthEnv(
       nonEmpty(env.NEXT_PUBLIC_PARA_API_KEY),
     paraJwksUrl: nonEmpty(env.PARA_JWKS_URL),
     paraApiKey: nonEmpty(env.PARA_API_SECRET_KEY),
+    // Vercel overwrites x-vercel-forwarded-for at ingress; a self-hosted
+    // portal names the header its own proxy overwrites.
+    clientIpHeader:
+      nonEmpty(env.AOMI_CLIENT_IP_HEADER)?.toLowerCase() ??
+      (env.VERCEL ? "x-vercel-forwarded-for" : null),
   };
 }
 

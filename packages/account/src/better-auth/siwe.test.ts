@@ -25,7 +25,7 @@ describe("SIWE diagnostics", () => {
         kind: "siwe.signature_mismatch",
         attributes: expect.objectContaining({
           reason: "missing_chain",
-          expected_address: "0x1111...1111",
+          expected_address: "0x1111…1111",
           recovered_address: null,
           chain_id: null,
         }),

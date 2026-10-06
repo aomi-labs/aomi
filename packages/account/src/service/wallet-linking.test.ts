@@ -5,7 +5,7 @@ import {
   createWalletLinkNonce,
   verifyWalletLinkNonce,
   walletLinkMessageMatches,
-} from "../src/service/wallet-linking";
+} from "./wallet-linking";
 
 const address = "0x1111111111111111111111111111111111111111";
 

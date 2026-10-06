@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 import type {
   WidgetAuthStore,
   WidgetAuthTicket,
-} from "../src/widget-auth/store";
+} from "./store";
 import {
   issueWidgetSession,
   revokeWidgetSession,
-} from "../src/widget-auth/session";
+} from "./session";
 
 function memoryStore() {
   const tickets = new Map<

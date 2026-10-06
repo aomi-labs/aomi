@@ -60,6 +60,7 @@ import {
   resolveVerifiedProviderIdentity,
 } from "./identity-resolution";
 import { deleteWidgetSessionsForProviderIdentity } from "../widget-auth/store";
+import { shortAddress } from "@aomi-labs/client";
 
 // Historically this applied the portal-owned `aomi_*` schema. AUTH-001 moves
 // durable account state to the shared backend canonical tables, so the hook now
@@ -527,7 +528,7 @@ async function getOrCreateAomiUserForWalletSignIn(
         chainScope: null,
       },
     ],
-    displayName: `${input.address.slice(0, 6)}...${input.address.slice(-4)}`,
+    displayName: shortAddress(input.address),
     onResolved: async (result, db) => {
       const wallet = await upsertVerifiedWallet({
         userId: result.user.id,

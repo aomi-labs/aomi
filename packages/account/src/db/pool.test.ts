@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import budgets from "../src/db/pool-budgets.json";
+import budgets from "./pool-budgets.json";
 import {
   resolveAccountConnectionString,
   resolveAccountPoolOptions,
   resolvePortalBudget,
-} from "../src/db/pool";
+} from "./pool";
 
 const stagingPooler = `postgresql://postgres.${budgets.staging.project_ref}:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres`;
 

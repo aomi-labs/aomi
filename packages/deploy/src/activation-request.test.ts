@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildActivationRequest,
   buildActivationRequestDiscordBody,
-} from "../src/activation-request";
+} from "./activation-request";
 
 const INPUT = {
   email: "alice@gmail.com",

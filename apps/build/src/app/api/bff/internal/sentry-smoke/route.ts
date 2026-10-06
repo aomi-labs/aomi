@@ -1,7 +1,7 @@
 import {
   BFF_SENTRY_SMOKE_HEADER,
   runBffSentrySmoke,
-} from "@aomi-labs/bff-observability/smoke";
+} from "@aomi-labs/observability/smoke";
 
 function notFound(): Response {
   return new Response(null, { status: 404 });

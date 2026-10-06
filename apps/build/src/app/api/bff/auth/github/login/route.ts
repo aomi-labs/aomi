@@ -1,4 +1,4 @@
-import { startGitHubOAuth } from "@build/server/github-auth";
+import { startGitHubOAuth } from "@/server/github-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";

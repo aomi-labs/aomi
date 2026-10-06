@@ -1,3 +1,3 @@
-import { deploymentDeactivateRoute } from "@build/server/bff/launch/routes";
+import { deploymentDeactivateRoute } from "@/server/bff/deploy/routes";
 
 export const POST = deploymentDeactivateRoute;

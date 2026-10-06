@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 
-import { BackendClient } from "../src/backend";
+import { BackendClient } from ".";
 
 function client() {
   return new BackendClient({

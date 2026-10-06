@@ -6,6 +6,7 @@ import { mcp } from "@better-auth/mcp";
 import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { oauthDeviceAuthorization } from "@better-auth/oauth-provider";
+import { accountRateLimitStorage } from "../rate-limit";
 import { getPool } from "../db/pool";
 import {
   getOrCreateAomiUserForBetterAuthSession,
@@ -145,7 +146,13 @@ export const auth = betterAuth({
   baseURL: env.betterAuthUrl,
   basePath: "/api/auth",
   disabledPaths: ["/token"],
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: env.clientIpHeader ? [env.clientIpHeader] : [],
+    },
+  },
   rateLimit: {
+    customStorage: accountRateLimitStorage,
     // Local browsers and integration suites all share the loopback IP, so the
     // production anonymous-account limit otherwise locks out every local
     // browser after ten total attempts. Hosted environments remain limited.

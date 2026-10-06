@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { startGitHubOAuth } from "@build/server/github-auth";
-import { authorize } from "@build/server/bff/auth";
+import { startGitHubOAuth } from "@/server/github-auth";
+import { authorize } from "@/server/bff/auth";
 
 export const runtime = "nodejs";
 

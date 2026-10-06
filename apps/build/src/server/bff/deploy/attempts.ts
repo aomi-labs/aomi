@@ -1,8 +1,8 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { authorize } from "@build/server/bff/auth";
-import { backendClient } from "@build/server/bff/backend";
-import { buildFailures } from "@build/server/bff/failures";
+import { authorize } from "@/server/bff/auth";
+import { backendClient } from "@/server/bff/backend";
+import { buildFailures } from "@/server/bff/failures";
 
 export async function deploymentAttemptsRoute(req: Request) {
   const write = req.method === "POST";

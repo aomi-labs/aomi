@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { FailureInput } from "@aomi-labs/bff-observability";
-import { buildFailures } from "@build/server/bff/failures";
+import type { FailureInput } from "@aomi-labs/observability";
+import { buildFailures } from "@/server/bff/failures";
 
 function expectedSandboxAbsence(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;

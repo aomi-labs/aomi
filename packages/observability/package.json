@@ -1,5 +1,5 @@
 {
-  "name": "@aomi-labs/bff-observability",
+  "name": "@aomi-labs/observability",
   "version": "0.1.0",
   "private": true,
   "description": "Server-only privacy boundary for Aomi BFF Sentry errors and failure logs.",
@@ -12,7 +12,7 @@
     "./smoke": "./src/smoke.ts"
   },
   "scripts": {
-    "test": "vitest run test",
+    "test": "vitest run src",
     "type-check": "tsc --noEmit"
   },
   "engines": {

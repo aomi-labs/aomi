@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import { createAomiUser } from "../src/db/queries";
+import { createAomiUser } from "./queries";
 
 type QueryCall = {
   sql: string;

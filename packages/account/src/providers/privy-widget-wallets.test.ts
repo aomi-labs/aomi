@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { exportSPKI, generateKeyPair, SignJWT } from "jose";
-import { privyWidgetDescriptor } from "../src/providers/privy";
+import { privyWidgetDescriptor } from "./privy";
 
 /**
  * The Telegram Mini App exchange reached `provider_hosted_wallet_missing` for

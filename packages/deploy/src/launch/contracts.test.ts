@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deploymentTargets } from "../src/launch/contracts";
+import { deploymentTargets } from "./contracts";
 
 describe("deploymentTargets", () => {
   it("preserves complete app/release pairs across wire shapes", () => {

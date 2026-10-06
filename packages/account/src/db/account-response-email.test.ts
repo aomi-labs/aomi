@@ -1,8 +1,8 @@
 // @vitest-environment node
 
 import { describe, expect, it, vi } from "vitest";
-import { buildAccountResponse } from "../src/db/queries";
-import type { DbAomiUser } from "../src/types";
+import { buildAccountResponse } from "./queries";
+import type { DbAomiUser } from "../types";
 
 const user: DbAomiUser = {
   id: "user-1",

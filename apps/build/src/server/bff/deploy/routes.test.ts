@@ -8,14 +8,14 @@ import {
   deploymentPromoteRoute,
   deploymentSecretsRoute,
   deploymentSecretsWriteRoute,
-  clearLaunchReadCache,
-  activateLaunchRoute,
-  createLaunchRepoRoute,
-  launchAppsRoute,
-  launchDeployRoute,
-  launchSdkStatusRoute,
-  launchStatusRoute,
-  redeployLaunchRoute,
+  clearDeployReadCache,
+  activateRoute,
+  createRepoRoute,
+  projectAppsRoute,
+  deployRoute,
+  sdkStatusRoute,
+  deploymentStatusRoute,
+  redeployRoute,
   requiredSecretsRoute,
 } from "./routes";
 
@@ -32,9 +32,9 @@ const telemetry = vi.hoisted(() => ({
 // tests are the only place that response shape is asserted, so the double must
 // not own it — delegate to `routeFailure` and let it emit whatever production
 // emits.
-vi.mock("@build/server/bff/failures", async () => {
+vi.mock("@/server/bff/failures", async () => {
   const { classifyFailure, identifyFailure, routeFailure } =
-    await import("@aomi-labs/bff-observability");
+    await import("@aomi-labs/observability");
   return {
     buildFailures: {
       handle: (input: Parameters<typeof identifyFailure>[0]) => {
@@ -68,13 +68,13 @@ vi.mock("@aomi-labs/account", () => ({
 }));
 
 beforeEach(() => {
-  clearLaunchReadCache();
+  clearDeployReadCache();
   telemetry.capture.mockReset();
   telemetry.log.mockReset();
 });
 
 const getGitHubSession = vi.fn();
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   getGitHubSession: () => getGitHubSession(),
   getGitHubCliSessionFromRequest: (request: Request) =>
     request.headers.get("authorization") === "Bearer cli-session"
@@ -272,7 +272,7 @@ function latestDeploymentResponse(platformRepo: string) {
   });
 }
 
-describe("createLaunchRepoRoute", () => {
+describe("createRepoRoute", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getGitHubSession.mockReset();
@@ -300,7 +300,7 @@ describe("createLaunchRepoRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await createLaunchRepoRoute(
+    const res = await createRepoRoute(
       new Request("http://localhost:3000/api/bff/launch/create", {
         method: "POST",
         headers: {
@@ -359,7 +359,7 @@ describe("CLI bearer scope", () => {
       githubLogin: "alice",
     });
 
-    const res = await launchDeployRoute(false)(
+    const res = await deployRoute(false)(
       new Request("http://localhost:3000/api/bff/deployments/deploy", {
         method: "POST",
         headers: {
@@ -377,7 +377,7 @@ describe("CLI bearer scope", () => {
   });
 });
 
-describe("launchDeployRoute", () => {
+describe("deployRoute", () => {
   beforeEach(() => {
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
@@ -396,7 +396,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const res = await POST(
       new Request("http://localhost:3000/api/bff/launch/deploy", {
         method: "POST",
@@ -419,7 +419,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(ownedSources(1, 2));
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const res = await POST(
       new Request("http://localhost:3000/api/bff/launch/deploy", {
         method: "POST",
@@ -456,7 +456,7 @@ describe("launchDeployRoute", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -491,7 +491,7 @@ describe("launchDeployRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const res = await POST(
       new Request("http://localhost:3000/api/bff/launch/deploy", {
         method: "POST",
@@ -543,7 +543,7 @@ describe("launchDeployRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(true);
+    const POST = deployRoute(true);
     const req = new Request("http://localhost:3000/api/bff/launch/preflight", {
       method: "POST",
       headers: {
@@ -579,7 +579,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -614,7 +614,7 @@ describe("launchDeployRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -669,7 +669,7 @@ describe("launchDeployRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const res = await POST(
       new Request("https://build-staging.aomi.dev/api/bff/deployments/deploy", {
         method: "POST",
@@ -709,7 +709,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(ownedSources(777));
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -734,7 +734,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -753,7 +753,7 @@ describe("launchDeployRoute", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -775,7 +775,7 @@ describe("launchDeployRoute", () => {
       .mockRejectedValueOnce(new Error("network down"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const POST = launchDeployRoute(false);
+    const POST = deployRoute(false);
     const req = new Request("http://localhost:3000/api/bff/launch/deploy", {
       method: "POST",
       headers: {
@@ -798,7 +798,7 @@ describe("launchDeployRoute", () => {
   });
 });
 
-describe("launchSdkStatusRoute", () => {
+describe("sdkStatusRoute", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
@@ -814,7 +814,7 @@ describe("launchSdkStatusRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await launchSdkStatusRoute(
+    const res = await sdkStatusRoute(
       new Request("https://build.example.test/api/bff/launch/sdk-status"),
     );
     const body = await res.json();
@@ -1104,7 +1104,7 @@ describe("deploymentPromoteRoute", () => {
   });
 });
 
-describe("redeployLaunchRoute", () => {
+describe("redeployRoute", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
@@ -1143,7 +1143,7 @@ describe("redeployLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await redeployLaunchRoute(writeReq({ projectId: 99 }));
+    const res = await redeployRoute(writeReq({ projectId: 99 }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -1178,7 +1178,7 @@ describe("redeployLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await redeployLaunchRoute(writeReq({ projectId: 99 }));
+    const res = await redeployRoute(writeReq({ projectId: 99 }));
     const body = await res.json();
 
     expect(res.status).toBe(409);
@@ -1217,7 +1217,7 @@ describe("redeployLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await redeployLaunchRoute(writeReq({ projectId: 99 }));
+    const res = await redeployRoute(writeReq({ projectId: 99 }));
     const body = await res.json();
 
     expect(res.status).toBe(409);
@@ -1330,7 +1330,7 @@ describe("deploymentDeactivateRoute", () => {
   });
 });
 
-describe("activateLaunchRoute", () => {
+describe("activateRoute", () => {
   function activateReq(body: unknown) {
     return new Request("http://localhost:3000/api/bff/launch/activate", {
       method: "POST",
@@ -1358,7 +1358,7 @@ describe("activateLaunchRoute", () => {
     getGitHubSession.mockResolvedValue(null);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const res = await activateLaunchRoute(
+    const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
@@ -1407,7 +1407,7 @@ describe("activateLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await activateLaunchRoute(
+    const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
@@ -1435,7 +1435,7 @@ describe("activateLaunchRoute", () => {
       .mockResolvedValueOnce(activationSourceWithRepo("aomi-labs/my-bot-app"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await activateLaunchRoute(
+    const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
@@ -1468,7 +1468,7 @@ describe("activateLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await activateLaunchRoute(
+    const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
@@ -1485,7 +1485,7 @@ describe("activateLaunchRoute", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(
       (
-        await activateLaunchRoute(
+        await activateRoute(
           activateReq({
             apps: ["my-bot"],
             releaseTags: ["apps-555-r1-my-bot-abc"],
@@ -1495,7 +1495,7 @@ describe("activateLaunchRoute", () => {
     ).toBe(400);
     expect(
       (
-        await activateLaunchRoute(
+        await activateRoute(
           activateReq({
             projectId: 99,
             releaseTags: ["apps-555-r1-my-bot-abc"],
@@ -1505,7 +1505,7 @@ describe("activateLaunchRoute", () => {
     ).toBe(400);
     expect(
       (
-        await activateLaunchRoute(
+        await activateRoute(
           activateReq({
             projectId: 99,
             apps: ["my-bot", "web"],
@@ -1521,7 +1521,7 @@ describe("activateLaunchRoute", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(ownedSources(1)));
     expect(
       (
-        await activateLaunchRoute(
+        await activateRoute(
           activateReq({
             projectId: 99,
             apps: ["my-bot"],
@@ -1536,7 +1536,7 @@ describe("activateLaunchRoute", () => {
     // cache so this part re-fetches ownership instead of riding part one's
     // cached (foreign-only) project list straight to a 404.
     vi.restoreAllMocks();
-    clearLaunchReadCache();
+    clearDeployReadCache();
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
       githubLogin: "alice",
@@ -1556,7 +1556,7 @@ describe("activateLaunchRoute", () => {
     );
     expect(
       (
-        await activateLaunchRoute(
+        await activateRoute(
           activateReq({
             projectId: 99,
             apps: ["my-bot"],
@@ -1580,10 +1580,11 @@ describe("activateLaunchRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await activateLaunchRoute(
+    const res = await activateRoute(
       activateReq({
         projectId: 99,
         apps: ["my-bot"],
+        actor: "forged-admin",
         releaseTags: ["apps-555-r1-my-bot-abc"],
       }),
     );
@@ -1594,6 +1595,7 @@ describe("activateLaunchRoute", () => {
       body: JSON.stringify({
         release_tags: ["apps-555-r1-my-bot-abc"],
         apps: ["my-bot"],
+        actor: "alice",
       }),
     });
   });
@@ -1725,7 +1727,7 @@ describe("requiredSecretsRoute", () => {
   });
 });
 
-describe("launchAppsRoute", () => {
+describe("projectAppsRoute", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     getGitHubSession.mockReset();
@@ -1754,7 +1756,7 @@ describe("launchAppsRoute", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await launchAppsRoute(
+    const res = await projectAppsRoute(
       new Request("http://localhost:3000/api/bff/launch/apps?projectId=1578"),
     );
 
@@ -1943,7 +1945,7 @@ describe("deploymentFeedRoute", () => {
   });
 });
 
-describe("launchStatusRoute", () => {
+describe("deploymentStatusRoute", () => {
   beforeEach(() => {
     getGitHubSession.mockResolvedValue({
       githubUserId: "42",
@@ -1966,7 +1968,7 @@ describe("launchStatusRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await launchStatusRoute(
+    const res = await deploymentStatusRoute(
       new Request(
         "http://localhost:3000/api/bff/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
       ),
@@ -2007,7 +2009,7 @@ describe("launchStatusRoute", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await launchStatusRoute(
+    const res = await deploymentStatusRoute(
       new Request(
         "http://localhost:3000/api/bff/launch/status?deploymentId=dep_141780080_r2849901c35_af4f107b0331",
       ),

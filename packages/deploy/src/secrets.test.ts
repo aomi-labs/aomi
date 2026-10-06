@@ -3,7 +3,7 @@ import {
   builderSecretSlots,
   missingRequiredSecrets,
   type SecretSlot,
-} from "../src/secrets";
+} from "./secrets";
 
 const slot = (
   name: string,

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchReleaseSecretSlots,
   missingSecretsForActivation,
-} from "../src/bff/release-manifest";
-import type { BackendClient } from "../src/backend";
+} from "./release-manifest";
+import type { BackendClient } from "../backend";
 
 function fakeFetch(routes: Record<string, { status: number; body: unknown }>) {
   return vi.fn(async (input: RequestInfo | URL) => {

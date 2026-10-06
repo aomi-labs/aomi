@@ -4,13 +4,13 @@ import { describe, expect, it } from "vitest";
 import type {
   WidgetAuthStore,
   WidgetAuthTicket,
-} from "../src/widget-auth/store";
+} from "./store";
 import {
   issueWidgetSession,
   resolveWidgetSession,
   revokeWidgetSession,
-} from "../src/widget-auth/session";
-import { observedWidgetOrigin } from "../src/widget-auth/origin";
+} from "./session";
+import { observedWidgetOrigin } from "./origin";
 
 function memoryStore() {
   const tickets = new Map<

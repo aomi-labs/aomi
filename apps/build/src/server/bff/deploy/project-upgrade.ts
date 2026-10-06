@@ -1,10 +1,10 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { backendClient } from "@build/server/bff/backend";
-import { clearLaunchReadCache } from "./routes";
-import { authorize } from "@build/server/bff/auth";
-import { buildFailures } from "@build/server/bff/failures";
+import { backendClient } from "@/server/bff/backend";
+import { clearDeployReadCache } from "./routes";
+import { authorize } from "@/server/bff/auth";
+import { buildFailures } from "@/server/bff/failures";
 
 export async function projectSdkUpgradeRoute(req: Request) {
   const auth = await authorize(req, { write: true });
@@ -31,7 +31,7 @@ export async function projectSdkUpgradeRoute(req: Request) {
     });
     // The upgrade mutates the project repo; the merged PR changes the
     // project's stamped SDK version, which the cached project list carries.
-    clearLaunchReadCache();
+    clearDeployReadCache();
     return NextResponse.json(result);
   } catch (error) {
     return buildFailures.handle({

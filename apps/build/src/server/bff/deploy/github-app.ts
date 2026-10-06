@@ -1,9 +1,9 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { backendClient } from "@build/server/bff/backend";
-import { authorize } from "@build/server/bff/auth";
-import { buildFailures } from "@build/server/bff/failures";
+import { backendClient } from "@/server/bff/backend";
+import { authorize } from "@/server/bff/auth";
+import { buildFailures } from "@/server/bff/failures";
 
 /** Builder-owned source repository access. A GET has no CSRF gate. */
 export async function githubAppInstallationsRoute(req: Request) {

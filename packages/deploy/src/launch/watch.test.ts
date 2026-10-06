@@ -5,7 +5,7 @@ import {
   runtimeAppsReady,
   waitForAppsToLoad,
   waitForDeploymentReady,
-} from "../src/launch/watch";
+} from "./watch";
 
 const expected = [{ name: "playground-example", releaseTag: "release-2" }];
 

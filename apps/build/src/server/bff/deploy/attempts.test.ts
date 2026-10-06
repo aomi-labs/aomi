@@ -5,15 +5,15 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   cancel: vi.fn(),
 }));
-vi.mock("@build/server/bff/auth", () => ({ authorize: mocks.authorize }));
-vi.mock("@build/server/bff/backend", () => ({
+vi.mock("@/server/bff/auth", () => ({ authorize: mocks.authorize }));
+vi.mock("@/server/bff/backend", () => ({
   backendClient: async () => ({
     startProjectDeploymentAttempt: mocks.start,
     projectDeploymentAttempts: mocks.list,
     cancelProjectDeploymentAttempt: mocks.cancel,
   }),
 }));
-vi.mock("@build/server/bff/failures", () => ({
+vi.mock("@/server/bff/failures", () => ({
   buildFailures: {
     handle: () => ({ response: new Response(null, { status: 502 }) }),
   },

@@ -240,7 +240,7 @@ function isKnownStackPath(value: string): boolean {
     "/apps/portal/",
     "/apps/build/",
     "/packages/account/",
-    "/packages/bff-observability/",
+    "/packages/observability/",
     "/packages/deploy/",
   ].some((fragment) => value.includes(fragment));
 }

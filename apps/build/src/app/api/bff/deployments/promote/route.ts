@@ -1,3 +1,3 @@
-import { deploymentPromoteRoute } from "@build/server/bff/launch/routes";
+import { deploymentPromoteRoute } from "@/server/bff/deploy/routes";
 
 export const POST = deploymentPromoteRoute;

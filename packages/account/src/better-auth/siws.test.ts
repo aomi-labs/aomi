@@ -4,8 +4,8 @@ import bs58 from "bs58";
 import nacl from "tweetnacl";
 import { describe, expect, it } from "vitest";
 
-import { buildSiwsMessage } from "../../client/src/siws";
-import { parseSiwsMessage, verifySiwsMessage } from "../src/better-auth/siws";
+import { buildSiwsMessage } from "../../../client/src/siws";
+import { parseSiwsMessage, verifySiwsMessage } from "./siws";
 
 const NOW = Date.parse("2030-01-02T03:04:05.000Z");
 

@@ -6,7 +6,7 @@ import {
   createPrivyAccessTokenVerifier,
   findPrivyUserByCustomAuthId,
   verifyPrivyToken,
-} from "../src/providers/privy";
+} from "./privy";
 
 afterEach(() => {
   vi.unstubAllGlobals();

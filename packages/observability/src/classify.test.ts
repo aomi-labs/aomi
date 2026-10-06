@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyFailure } from "../src/classify";
-import type { IdentifiedFailure } from "../src/failure";
+import { classifyFailure } from "./classify";
+import type { IdentifiedFailure } from "./failure";
 
 const context = { routeFamily: "/api/test", operation: "test.failure" };
 

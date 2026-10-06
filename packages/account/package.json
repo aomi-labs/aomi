@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/account",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Server-only account graph: resolve-or-create the canonical user and mint AccountBearers. Node-only; never bundle into a browser.",
   "type": "module",
   "main": "./src/index.ts",
@@ -16,7 +16,13 @@
     "./providers": "./src/providers/index.ts",
     "./telegram": "./src/telegram.ts",
     "./observability": "./src/observability.ts",
-    "./widget-auth": "./src/widget-auth/index.ts"
+    "./widget-auth": "./src/widget-auth/index.ts",
+    "./forward": "./src/forward.ts",
+    "./csrf": "./src/csrf.ts",
+    "./backend-url": "./src/backend-url.ts",
+    "./rate-limit": "./src/rate-limit.ts",
+    "./rate-limits.sql": "./src/db/rate-limits.sql",
+    "./service-topology": "./src/service-topology/index.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit"
@@ -25,7 +31,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@aomi-labs/service": "workspace:*",
     "@better-auth/cimd": "1.7.1",
     "@better-auth/mcp": "1.7.1",
     "@better-auth/oauth-provider": "1.7.1",
@@ -35,7 +40,9 @@
     "pg": "^8.22.0",
     "tweetnacl": "^1.0.3",
     "viem": "^2.47.11",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "toml": "^3.0.0",
+    "@aomi-labs/client": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=15"

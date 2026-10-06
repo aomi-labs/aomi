@@ -1,5 +1,5 @@
 // @aomi-labs/deploy — server-side typed relay for the Aomi platform deploy API.
-// (Service-identity/topology lives in @aomi-labs/service.)
+// (Service-identity/topology lives in @aomi-labs/account/service-topology.)
 
 export { BackendClient, assertServerOnly } from "./backend";
 

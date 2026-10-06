@@ -23,9 +23,9 @@ const telemetry = vi.hoisted(() => ({
   log: vi.fn(),
 }));
 
-vi.mock("@build/server/bff/failures", async () => {
+vi.mock("@/server/bff/failures", async () => {
   const { classifyFailure, identifyFailure } =
-    await import("@aomi-labs/bff-observability");
+    await import("@aomi-labs/observability");
   return {
     buildFailures: {
       handle: (input: Parameters<typeof identifyFailure>[0]) => {
@@ -81,12 +81,12 @@ const client = {
   listUserLogs: vi.fn(),
 };
 
-vi.mock("@build/server/bff/backend", () => ({
+vi.mock("@/server/bff/backend", () => ({
   backendClient: async () => client,
 }));
 
 const getGitHubSession = vi.fn();
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   getGitHubSession: () => getGitHubSession(),
 }));
 

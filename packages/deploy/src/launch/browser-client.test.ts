@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 
-import { createLaunchClient } from "../src/launch/browser-client";
+import { createLaunchClient } from "./browser-client";
 
 /** Capture the URL + body of every request the client makes. */
 function recordingClient(platform?: string) {

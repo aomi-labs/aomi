@@ -178,11 +178,6 @@ export function parseE2EAddress(value: string | null): `0x${string}` | null {
   return address as `0x${string}`;
 }
 
-export function parseE2EChainId(value: string | null): number {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
-}
-
 export function parseE2ESvmAddress(value: string | null): string | null {
   const address = value?.trim();
   if (!address) return null;
@@ -302,7 +297,7 @@ export function verifyE2EWalletCookie(
  * cookie, and `isE2EWalletEnabled()` additionally requires a non-production
  * build with `VERCEL_ENV` unset. It cannot be pointed at a deployment.
  */
-export function resolveE2ECanonicalUserId(request: Request): string | null {
+export function e2eAccountId(request: Request): string | null {
   const userId = process.env.E2E_STUB_CANONICAL_USER_ID?.trim();
   if (!userId || !isE2EWalletEnabled()) return null;
   const cookieHeader = request.headers.get("cookie") ?? "";

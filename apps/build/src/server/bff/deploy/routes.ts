@@ -1,12 +1,13 @@
 import "server-only";
+import { ownedProject } from "@aomi-labs/deploy/bff";
 
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { backendClient } from "@build/server/bff/backend";
-import { TimedPromiseCache } from "@build/server/bff/timed-promise-cache";
-import { configuredBackendUrl } from "@build/server/backend-url";
-import { buildFailures } from "@build/server/bff/failures";
-import { launchConfig, resolveLaunchPlatform } from "./config";
+import { backendClient } from "@/server/bff/backend";
+import { TimedPromiseCache } from "@/server/bff/timed-promise-cache";
+import { buildFailures } from "@/server/bff/failures";
+import { backendUrl, deployConfig } from "@/server/env";
+import { resolveDeployPlatform } from "./config";
 import {
   launchAppStatusesResult,
   missingSecretsForActivation,
@@ -23,8 +24,8 @@ import {
   isValidInstallationId,
   isValidReleaseTags,
   isValidRepo,
-} from "@build/lib/validate-input";
-import { authorize } from "@build/server/bff/auth";
+} from "@/lib/validate-input";
+import { authorize } from "@/server/bff/auth";
 
 const CREATED_REPO_PREFIX = "my-playground";
 
@@ -40,14 +41,14 @@ async function timedManagerRead<T>(
     return await run();
   } finally {
     console.info(
-      `launch bff: ${label} took ${Math.round(performance.now() - startedAt)}ms`,
+      `deploy bff: ${label} took ${Math.round(performance.now() - startedAt)}ms`,
     );
   }
 }
 
 type BackendClientInstance = Awaited<ReturnType<typeof backendClient>>;
 
-function launchErrorContext(req: Request, operation: string) {
+function deployErrorContext(req: Request, operation: string) {
   return {
     routeFamily: new URL(req.url).pathname,
     operation,
@@ -82,7 +83,7 @@ function projectPlatform(project: OwnedProject): string {
 
 // Read cache for the hot project-page GETs. Same 15s TTL as operate's, and it
 // coalesces concurrent mounts onto one manager call — but unlike operate's
-// read-only routes, launch mutations CHANGE what these reads return (preflight
+// read-only routes, deploy mutations CHANGE what these reads return (preflight
 // re-syncs the source and can register apps; activate/promote/deactivate move
 // the live release), so every source-mutating route clears it. Without that,
 // the redeploy flow's `reload()` after preflight would read a stale list and
@@ -97,7 +98,7 @@ const readCache = {
   >(READ_CACHE_TTL_MS),
 };
 
-export function clearLaunchReadCache() {
+export function clearDeployReadCache() {
   Object.values(readCache).forEach((cache) => cache.clear());
 }
 
@@ -109,8 +110,11 @@ async function findOwnedProject(
   githubUserId: string,
   projectId: number,
 ): Promise<OwnedProject | null> {
-  const projects = await cachedUserProjects(client, githubUserId);
-  return projects.find((project) => project.id === projectId) ?? null;
+  return ownedProject(
+    (input) => cachedUserProjects(client, input.githubUserId),
+    githubUserId,
+    projectId,
+  );
 }
 
 function defaultRepoName() {
@@ -137,9 +141,9 @@ function sourceRef(value: unknown): string | null {
 
 function requestedPlatformFromUrl(
   req: Request,
-  configured: ReturnType<typeof launchConfig>,
+  configured: ReturnType<typeof deployConfig>,
 ): string | null {
-  return resolveLaunchPlatform(
+  return resolveDeployPlatform(
     new URL(req.url).searchParams.get("platform") ?? undefined,
     configured,
   );
@@ -152,7 +156,7 @@ function invalidPlatformResponse(): NextResponse {
   );
 }
 
-export function launchDeployRoute(preflight: boolean) {
+export function deployRoute(preflight: boolean) {
   return async function POST(req: Request): Promise<Response> {
     const auth = await authorize(req, { write: true, cliScope: "deploy" });
     if ("response" in auth) return auth.response;
@@ -231,7 +235,7 @@ export function launchDeployRoute(preflight: boolean) {
         );
       }
 
-      const actor = typeof body.actor === "string" ? body.actor : undefined;
+      const actor = session.githubLogin;
       const { deployment } = preflight
         ? await client.preflight({
             projectId,
@@ -245,7 +249,7 @@ export function launchDeployRoute(preflight: boolean) {
           });
       // Preflight re-syncs the source (and can register new apps); deploy
       // records a new deployment. The next projects read must see it.
-      clearLaunchReadCache();
+      clearDeployReadCache();
       const projectUrl = new URL(`/projects/${projectId}`, req.url);
       projectUrl.searchParams.set("tab", "deployments");
       const targets = deploymentTargets(deployment);
@@ -269,7 +273,7 @@ export function launchDeployRoute(preflight: boolean) {
       return buildFailures.handle({
         source: "launch",
         error: err,
-        context: launchErrorContext(
+        context: deployErrorContext(
           req,
           preflight ? "launch.preflight" : "launch.deploy",
         ),
@@ -278,7 +282,7 @@ export function launchDeployRoute(preflight: boolean) {
   };
 }
 
-export async function createLaunchRepoRoute(req: Request) {
+export async function createRepoRoute(req: Request) {
   const auth = await authorize(req, { write: true });
   if ("response" in auth) return auth.response;
   const { session, visibilityGrant } = auth;
@@ -296,8 +300,8 @@ export async function createLaunchRepoRoute(req: Request) {
       );
     }
 
-    const config = launchConfig();
-    const platform = resolveLaunchPlatform(body.platform, config);
+    const config = deployConfig();
+    const platform = resolveDeployPlatform(body.platform, config);
     if (!platform) return invalidPlatformResponse();
     const client = await backendClient();
     const project = await client.scaffold({
@@ -308,7 +312,7 @@ export async function createLaunchRepoRoute(req: Request) {
       githubUserId: session.githubUserId,
       private: config.createdRepoPrivate,
     });
-    clearLaunchReadCache();
+    clearDeployReadCache();
     if (!project.repositoryLink || !project.installationId) {
       return NextResponse.json(
         { error: "backend did not return a created project" },
@@ -326,12 +330,12 @@ export async function createLaunchRepoRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "launch.create_repo"),
+      context: deployErrorContext(req, "launch.create_repo"),
     }).response;
   }
 }
 
-export async function launchStatusRoute(req: Request) {
+export async function deploymentStatusRoute(req: Request) {
   const auth = await authorize(req, { cliScope: "deployment:read" });
   if ("response" in auth) return auth.response;
   const { session } = auth;
@@ -345,8 +349,8 @@ export async function launchStatusRoute(req: Request) {
   }
 
   try {
-    const config = launchConfig();
-    const platform = resolveLaunchPlatform(
+    const config = deployConfig();
+    const platform = resolveDeployPlatform(
       new URL(req.url).searchParams.get("platform") ?? undefined,
       config,
     );
@@ -370,12 +374,12 @@ export async function launchStatusRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "launch.status"),
+      context: deployErrorContext(req, "launch.status"),
     }).response;
   }
 }
 
-export async function activateLaunchRoute(req: Request) {
+export async function activateRoute(req: Request) {
   const auth = await authorize(req, { write: true, cliScope: "activate" });
   if ("response" in auth) return auth.response;
 
@@ -452,20 +456,20 @@ export async function activateLaunchRoute(req: Request) {
       projectId: project.id,
       releaseTags,
       apps,
-      actor: typeof body.actor === "string" ? body.actor : undefined,
+      actor: session.githubLogin,
     });
-    clearLaunchReadCache();
+    clearDeployReadCache();
     return NextResponse.json(result);
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "launch.activate"),
+      context: deployErrorContext(req, "launch.activate"),
     }).response;
   }
 }
 
-export async function launchAppsRoute(req: Request) {
+export async function projectAppsRoute(req: Request) {
   const auth = await authorize(req);
   if ("response" in auth) return auth.response;
   const { session } = auth;
@@ -500,12 +504,12 @@ export async function launchAppsRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "launch.apps"),
+      context: deployErrorContext(req, "launch.apps"),
     }).response;
   }
 }
 
-export async function launchSdkStatusRoute(req: Request) {
+export async function sdkStatusRoute(req: Request) {
   try {
     const client = await backendClient();
     const status = await readCache.serverTags.get(["server_tags"], () =>
@@ -519,7 +523,7 @@ export async function launchSdkStatusRoute(req: Request) {
         requiredVersion,
         status: requiredVersion ? "unknown" : "missing",
         fixCommand: requiredVersion
-          ? `aomi-build sdk fix --backend ${configuredBackendUrl()}`
+          ? `aomi-build sdk fix --backend ${backendUrl()}`
           : null,
       },
     });
@@ -527,15 +531,10 @@ export async function launchSdkStatusRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "launch.sdk_status"),
+      context: deployErrorContext(req, "launch.sdk_status"),
     }).response;
   }
 }
-
-export const deploymentProjectsRoute = userProjectsRoute;
-export const deploymentStatusRoute = launchStatusRoute;
-export const deploymentDeployRoute = launchDeployRoute;
-export const deploymentRedeployRoute = redeployLaunchRoute;
 
 export async function deploymentHistoryRoute(req: Request) {
   const auth = await authorize(req);
@@ -563,7 +562,7 @@ export async function deploymentHistoryRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.history"),
+      context: deployErrorContext(req, "deployment.history"),
     }).response;
   }
 }
@@ -616,7 +615,7 @@ export async function deploymentFeedRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.feed"),
+      context: deployErrorContext(req, "deployment.feed"),
     }).response;
   }
 }
@@ -650,7 +649,7 @@ export async function deploymentSecretsRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.secrets_read"),
+      context: deployErrorContext(req, "deployment.secrets_read"),
     }).response;
   }
 }
@@ -706,7 +705,7 @@ export async function deploymentSecretsWriteRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.secrets_write"),
+      context: deployErrorContext(req, "deployment.secrets_write"),
     }).response;
   }
 }
@@ -746,7 +745,7 @@ export async function deploymentSecretsDeleteRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.secrets_delete"),
+      context: deployErrorContext(req, "deployment.secrets_delete"),
     }).response;
   }
 }
@@ -791,7 +790,7 @@ export async function deploymentRecordsRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.records"),
+      context: deployErrorContext(req, "deployment.records"),
     }).response;
   }
 }
@@ -886,10 +885,7 @@ export async function deploymentPromoteRoute(req: Request) {
 
     // Default the promotion actor to the signed-in GitHub user so Aomi Build
     // promotions are attributable without the client threading it.
-    const actor =
-      typeof body.actor === "string" && body.actor.trim()
-        ? body.actor
-        : session.githubLogin;
+    const actor = session.githubLogin;
     const result = await client.promoteUserProjectDeployment({
       githubUserId: session.githubUserId,
       projectId,
@@ -898,13 +894,13 @@ export async function deploymentPromoteRoute(req: Request) {
       apps: selectedApps,
       actor,
     });
-    clearLaunchReadCache();
+    clearDeployReadCache();
     return NextResponse.json(result, { status: result.ok ? 202 : 409 });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.promote"),
+      context: deployErrorContext(req, "deployment.promote"),
     }).response;
   }
 }
@@ -938,7 +934,7 @@ export async function deploymentDeactivateRoute(req: Request) {
   }
 
   try {
-    const config = launchConfig();
+    const config = deployConfig();
     const client = await backendClient();
     const project = await findOwnedProject(
       client,
@@ -952,10 +948,7 @@ export async function deploymentDeactivateRoute(req: Request) {
       );
     }
     const platform = projectPlatform(project);
-    const actor =
-      typeof body.actor === "string" && body.actor.trim()
-        ? body.actor
-        : session.githubLogin;
+    const actor = session.githubLogin;
     const applications = apps.flatMap((name) => {
       const application = project.apps.find(
         (candidate) => candidate.name === name,
@@ -976,18 +969,18 @@ export async function deploymentDeactivateRoute(req: Request) {
         actor,
       });
     }
-    clearLaunchReadCache();
+    clearDeployReadCache();
     return NextResponse.json({ ok: true, apps }, { status: 202 });
   } catch (err) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.deactivate"),
+      context: deployErrorContext(req, "deployment.deactivate"),
     }).response;
   }
 }
 
-export async function redeployLaunchRoute(req: Request) {
+export async function redeployRoute(req: Request) {
   const auth = await authorize(req, { write: true });
   if ("response" in auth) return auth.response;
   const { session } = auth;
@@ -1001,7 +994,7 @@ export async function redeployLaunchRoute(req: Request) {
   }
 
   try {
-    const config = launchConfig();
+    const config = deployConfig();
     const client = await backendClient();
     const project = await findOwnedProject(
       client,
@@ -1036,7 +1029,7 @@ export async function redeployLaunchRoute(req: Request) {
       deploymentId,
       githubUserId: session.githubUserId,
     });
-    clearLaunchReadCache();
+    clearDeployReadCache();
     return NextResponse.json({
       ok: rerun.ok,
       projectId: body.projectId,
@@ -1048,7 +1041,7 @@ export async function redeployLaunchRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.redeploy"),
+      context: deployErrorContext(req, "deployment.redeploy"),
     }).response;
   }
 }
@@ -1065,13 +1058,13 @@ export async function userProjectsRoute(req: Request) {
   const { session, visibilityGrant } = auth;
 
   try {
-    const config = launchConfig();
+    const config = deployConfig();
     const params = new URL(req.url).searchParams;
     const requestedPlatform = params.get("platform");
     const platform =
       requestedPlatform === null
         ? undefined
-        : resolveLaunchPlatform(requestedPlatform, config);
+        : resolveDeployPlatform(requestedPlatform, config);
     if (requestedPlatform !== null && !platform) {
       return invalidPlatformResponse();
     }
@@ -1108,14 +1101,12 @@ export async function userProjectsRoute(req: Request) {
             await readCache.projectDetails.get(
               [session.githubUserId, projectId, visibilityGrant ?? ""],
               async () => {
-                const project = await timedManagerRead(
-                  "get_user_project",
-                  () =>
-                    client.getUserProject({
-                      githubUserId: session.githubUserId,
-                      projectId,
-                      ...(visibilityGrant ? { visibilityGrant } : {}),
-                    }),
+                const project = await timedManagerRead("get_user_project", () =>
+                  client.getUserProject({
+                    githubUserId: session.githubUserId,
+                    projectId,
+                    ...(visibilityGrant ? { visibilityGrant } : {}),
+                  }),
                 );
                 // The manager's detail read never stamps the live SDK summary
                 // its list read carries (`sdk_version` / `sdk_versions`, from
@@ -1153,7 +1144,7 @@ export async function userProjectsRoute(req: Request) {
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.projects"),
+      context: deployErrorContext(req, "deployment.projects"),
     }).response;
   }
 }
@@ -1220,13 +1211,13 @@ export async function requiredSecretsRoute(req: Request) {
           upstream: "rust",
           upstreamStatus: err.status,
         }),
-        context: launchErrorContext(req, "deployment.required_secrets"),
+        context: deployErrorContext(req, "deployment.required_secrets"),
       }).response;
     }
     return buildFailures.handle({
       source: "launch",
       error: err,
-      context: launchErrorContext(req, "deployment.required_secrets"),
+      context: deployErrorContext(req, "deployment.required_secrets"),
     }).response;
   }
 }

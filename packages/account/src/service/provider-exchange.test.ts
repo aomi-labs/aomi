@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IdentityConflictError } from "../src/service/identity-resolution";
+import { IdentityConflictError } from "./identity-resolution";
 
 const mockState = vi.hoisted(() => ({
   resolveError: null as Error | null,
@@ -38,7 +38,7 @@ const queryMocks = vi.hoisted(() => ({
   upsertEmailIdentity: vi.fn(async () => ({ id: "email-row" })),
 }));
 
-vi.mock("../src/providers", () => ({
+vi.mock("../providers", () => ({
   createDefaultProviderCredentialVerifiers: vi.fn(),
   isVerifiedProviderTokenCredential: vi.fn(() => true),
   nativeProviderResolutionPolicy: vi.fn(() => ({
@@ -65,12 +65,12 @@ vi.mock("../src/providers", () => ({
   verifyProviderCredential: vi.fn(async () => verifiedCredential()),
 }));
 
-vi.mock("../src/service/account-service", () => serviceMocks);
-vi.mock("../src/db/queries", () => queryMocks);
+vi.mock("./account-service", () => serviceMocks);
+vi.mock("../db/queries", () => queryMocks);
 
-vi.mock("../src/service/identity-resolution", async (importOriginal) => {
+vi.mock("./identity-resolution", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../src/service/identity-resolution")>();
+    await importOriginal<typeof import("./identity-resolution")>();
   return {
     ...actual,
     resolveVerifiedProviderIdentity: vi.fn(async (input) => {
@@ -98,7 +98,7 @@ import {
   exchangeProviderForExistingSession,
   linkVerifiedProviderCredentialForUser,
   signInWithVerifiedProviderCredential,
-} from "../src/service/provider-exchange";
+} from "./provider-exchange";
 
 function verifiedCredential() {
   return {

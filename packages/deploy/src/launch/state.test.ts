@@ -12,7 +12,7 @@ import {
   withPendingInstall,
   withProgress,
   type LaunchState,
-} from "../src/launch/state";
+} from "./state";
 
 const launchState = (over: Partial<LaunchState> = {}): LaunchState => ({
   path: null,

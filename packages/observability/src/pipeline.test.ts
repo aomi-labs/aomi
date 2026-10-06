@@ -21,8 +21,8 @@ vi.mock("@sentry/nextjs", () => ({
   withIsolationScope: sentry.withIsolationScope,
 }));
 
-import { createFailurePipeline } from "../src/pipeline";
-import { getBffSentryRelease, initBffSentry } from "../src/route";
+import { createFailurePipeline } from "./pipeline";
+import { getBffSentryRelease, initBffSentry } from "./route";
 
 const context = {
   routeFamily: "/api/bff/launch/deploy",

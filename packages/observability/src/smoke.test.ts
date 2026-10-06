@@ -20,7 +20,7 @@ vi.mock("@sentry/nextjs", () => ({
 import {
   isBffSentrySmokeRequestAllowed,
   runBffSentrySmoke,
-} from "../src/smoke";
+} from "./smoke";
 
 describe("BFF Sentry smoke helper", () => {
   beforeEach(() => {

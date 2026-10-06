@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   previewWalletAuthOrigin,
   withPreviewWalletAuthOrigin,
-} from "../src/better-auth/preview-origin";
+} from "./preview-origin";
 
 const env = {
   VERCEL_ENV: "preview",
@@ -75,7 +75,7 @@ describe("preview wallet auth origin", () => {
       "postgresql://postgres:postgres@localhost:5432/aomi";
     process.env.BETTER_AUTH_URL = canonical;
     try {
-      const { auth } = await import("../src/better-auth/auth");
+      const { auth } = await import("./auth");
       const siwe = auth.options.plugins?.find(
         (plugin) => plugin.id === "siwe",
       ) as { options: { domain: string } } | undefined;

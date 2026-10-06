@@ -8,7 +8,7 @@ import {
 } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { AomiService, parseTopology } from "../topology";
+import { AomiService, parseTopology } from "./topology";
 
 // A self-contained Ed25519 keypair so the test signs and verifies for real,
 // no committed keys.

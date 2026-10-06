@@ -3,13 +3,7 @@ import "server-only";
 import { WidgetAuthError } from "@aomi-labs/account/widget-auth";
 
 import { createPublicKey } from "node:crypto";
-import {
-  exportJWK,
-  importPKCS8,
-  importSPKI,
-  SignJWT,
-  type JWK,
-} from "jose";
+import { exportJWK, importPKCS8, importSPKI, SignJWT, type JWK } from "jose";
 import {
   verifyTelegramInitData,
   type VerifiedTelegramLaunch,
@@ -17,11 +11,16 @@ import {
 import { readAccountAuthEnv } from "@aomi-labs/account/better-auth/env";
 import { findPrivyUserByCustomAuthId } from "@aomi-labs/account/providers";
 
+import {
+  deploymentTier,
+  telegramCustomAuthPrivateKey,
+  telegramWidgetBotIds,
+  type DeploymentTier,
+} from "@/server/env";
+
 const CUSTOM_AUTH_KEY_ID = "aomi-telegram-custom-auth-1";
 const CUSTOM_AUTH_TTL_SECONDS = 5 * 60;
 const TELEGRAM_LINK_MAX_AGE_MS = 5 * 60 * 1000;
-
-type CustomAuthEnvironment = "development" | "staging" | "production";
 
 export type TrustedTelegramLaunch = VerifiedTelegramLaunch & {
   customSubject: string;
@@ -33,37 +32,10 @@ export type TrustedTelegramLaunch = VerifiedTelegramLaunch & {
  * Privy user when they enter through any approved Aomi bot.
  */
 export function telegramCustomAuthSubject(input: {
-  environment: CustomAuthEnvironment;
+  environment: DeploymentTier;
   telegramUserId: string;
 }): string {
   return `aomi:telegram:${input.environment}:${input.telegramUserId}`;
-}
-
-export function customAuthEnvironment(
-  env: NodeJS.ProcessEnv = process.env,
-): CustomAuthEnvironment {
-  const backend = env.BACKEND_URL ?? env.AOMI_PROXY_BACKEND_URL ?? "";
-  try {
-    const host = new URL(backend).hostname;
-    if (host === "api-staging.aomi.dev") return "staging";
-    if (host === "api.aomi.dev") return "production";
-  } catch {
-    // Local development may not have a URL-shaped backend setting.
-  }
-  if (env.VERCEL_ENV === "production") return "production";
-  if (env.VERCEL_ENV === "preview") return "staging";
-  return "development";
-}
-
-export function allowedTelegramWidgetBotIds(
-  env: NodeJS.ProcessEnv = process.env,
-): ReadonlySet<string> {
-  return new Set(
-    (env.TELEGRAM_WIDGET_BOT_IDS ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => /^\d+$/.test(value)),
-  );
 }
 
 /** Keep every Telegram-auth route on the same policy failure semantics. */
@@ -77,13 +49,12 @@ export function statusForTrustedTelegramFailure(reason: string): number {
 export function verifyTrustedTelegramLaunch(input: {
   initData: string;
   botId: string;
-  env?: NodeJS.ProcessEnv;
   now?: number;
 }):
   | { ok: true; launch: TrustedTelegramLaunch }
   | { ok: false; reason: string } {
-  const allowed = allowedTelegramWidgetBotIds(input.env);
-  if (!allowed.has(input.botId)) return { ok: false, reason: "bot_not_allowed" };
+  if (!telegramWidgetBotIds().includes(input.botId))
+    return { ok: false, reason: "bot_not_allowed" };
 
   const verified = verifyTelegramInitData(input.initData, input.botId, {
     now: input.now,
@@ -96,7 +67,7 @@ export function verifyTrustedTelegramLaunch(input: {
     launch: {
       ...verified.launch,
       customSubject: telegramCustomAuthSubject({
-        environment: customAuthEnvironment(input.env),
+        environment: deploymentTier(),
         telegramUserId: verified.launch.telegramUserId,
       }),
     },
@@ -109,8 +80,9 @@ export async function issueTelegramCustomAuthJwt(input: {
   now?: Date;
   ttlSeconds?: number;
 }): Promise<string> {
-  const privateKeyPem = input.privateKeyPem ?? process.env.PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY;
-  if (!privateKeyPem) throw new Error("telegram_custom_auth_not_configured");
+  const privateKeyPem = input.privateKeyPem ?? telegramCustomAuthPrivateKey();
+  if (!privateKeyPem)
+    throw new WidgetAuthError("telegram_custom_auth_not_configured", 503);
   const now = input.now ?? new Date();
   const key = await importPKCS8(privateKeyPem, "ES256");
   return new SignJWT()
@@ -125,11 +97,14 @@ export async function issueTelegramCustomAuthJwt(input: {
 }
 
 /** Public half of the dedicated Custom JWT key. Safe to expose at the JWKS URL. */
-export async function telegramCustomAuthJwk(input: {
-  privateKeyPem?: string;
-} = {}): Promise<JWK> {
-  const privateKeyPem = input.privateKeyPem ?? process.env.PRIVY_TELEGRAM_CUSTOM_AUTH_PRIVATE_KEY;
-  if (!privateKeyPem) throw new Error("telegram_custom_auth_not_configured");
+export async function telegramCustomAuthJwk(
+  input: {
+    privateKeyPem?: string;
+  } = {},
+): Promise<JWK> {
+  const privateKeyPem = input.privateKeyPem ?? telegramCustomAuthPrivateKey();
+  if (!privateKeyPem)
+    throw new WidgetAuthError("telegram_custom_auth_not_configured", 503);
   const publicKeyPem = createPublicKey(privateKeyPem).export({
     format: "pem",
     type: "spki",

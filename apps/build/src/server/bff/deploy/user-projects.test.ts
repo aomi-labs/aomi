@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clearLaunchReadCache, userProjectsRoute } from "./routes";
+import { clearDeployReadCache, userProjectsRoute } from "./routes";
 
 vi.mock("@aomi-labs/account", () => ({
   portalService: () => ({
@@ -13,7 +13,7 @@ vi.mock("@aomi-labs/account", () => ({
 }));
 
 const getGitHubSession = vi.fn();
-vi.mock("@build/server/cookies/github", () => ({
+vi.mock("@/server/cookies/github", () => ({
   getGitHubSession: () => getGitHubSession(),
   getGitHubCliSessionFromRequest: () => getGitHubSession(),
 }));
@@ -44,7 +44,7 @@ describe("userProjectsRoute", () => {
     getGitHubSession.mockReset();
     // The projects read cache is module state — don't leak one test's list
     // into the next.
-    clearLaunchReadCache();
+    clearDeployReadCache();
   });
 
   it("401s when there is no GitHub session", async () => {
@@ -267,7 +267,7 @@ describe("userProjectsRoute", () => {
     expect((await narrowed.json()).projects).toHaveLength(1);
 
     // Mutations clear the cache so post-deploy reloads see fresh projects.
-    clearLaunchReadCache();
+    clearDeployReadCache();
     await userProjectsRoute(req());
     await userProjectsRoute(req(undefined, "99"));
     expect(fetchMock).toHaveBeenCalledTimes(4);

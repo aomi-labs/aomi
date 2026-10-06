@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { connectionResult } from "../src/launch/state";
+import { connectionResult } from "./state";
 
 describe("connectionResult", () => {
   it("reports a bound repository as connected", () => {

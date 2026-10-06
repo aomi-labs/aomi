@@ -7,7 +7,7 @@ import {
   revokeAuthIdentity,
   updateWalletLabel,
   upsertWallet,
-} from "../src/db/queries";
+} from "./queries";
 
 type QueryCall = {
   sql: string;
