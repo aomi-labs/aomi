@@ -808,6 +808,38 @@
         ]
       }
     },
+    "/api/account/transaction-safety": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
     "/api/account": {
       "get": {
         "responses": {
@@ -1435,6 +1467,155 @@
                                         "amount",
                                         "window"
                                       ]
+                                    },
+                                    {
+                                      "description": "Cap on one fungible token (SPL mint on SVM) the delegate may move out\nof the operating account over its lifetime.",
+                                      "type": "object",
+                                      "properties": {
+                                        "mint": {
+                                          "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                          "type": "object",
+                                          "properties": {
+                                            "chain": {
+                                              "description": "A chain family, independent of any execution protocol or persistence model.",
+                                              "type": "string",
+                                              "enum": [
+                                                "evm",
+                                                "svm"
+                                              ]
+                                            },
+                                            "address": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "chain",
+                                            "address"
+                                          ]
+                                        },
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "lifetime_token_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "mint",
+                                        "amount"
+                                      ]
+                                    },
+                                    {
+                                      "description": "Cap on one fungible token that resets every `window`.",
+                                      "type": "object",
+                                      "properties": {
+                                        "mint": {
+                                          "description": "A public address plus only the chain family needed to interpret it.\nNetwork and cluster belong on the account or binding using the address.",
+                                          "type": "object",
+                                          "properties": {
+                                            "chain": {
+                                              "description": "A chain family, independent of any execution protocol or persistence model.",
+                                              "type": "string",
+                                              "enum": [
+                                                "evm",
+                                                "svm"
+                                              ]
+                                            },
+                                            "address": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "chain",
+                                            "address"
+                                          ]
+                                        },
+                                        "amount": {
+                                          "description": "Arbitrary-precision atomic units represented on the wire as a decimal string.",
+                                          "type": "string"
+                                        },
+                                        "window": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "slots"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "blocks"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "unit": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "seconds"
+                                                  ]
+                                                },
+                                                "value": {
+                                                  "type": "integer",
+                                                  "format": "uint64",
+                                                  "minimum": 0
+                                                }
+                                              },
+                                              "required": [
+                                                "unit",
+                                                "value"
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "recurring_token_asset_limit"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "mint",
+                                        "amount",
+                                        "window"
+                                      ]
                                     }
                                   ]
                                 }
@@ -1948,55 +2129,6 @@
         ]
       }
     },
-    "/api/account/bots": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      },
-      "post": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
-    "/api/account/bots/{id}": {
-      "delete": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "accountBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "account"
-        ]
-      }
-    },
     "/api/account/model-keys": {
       "get": {
         "responses": {
@@ -2167,6 +2299,42 @@
         ],
         "x-aomi-auth": [
           "account"
+        ]
+      }
+    },
+    "/api/thread/transaction-safety": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": [],
+            "threadId": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account",
+          "thread"
         ]
       }
     },
@@ -2793,6 +2961,19 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/installations": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/builder/applications/{application_id}": {
       "get": {
         "responses": {
@@ -3266,6 +3447,32 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/user/model-keys": {
       "get": {
         "responses": {
@@ -3324,6 +3531,43 @@
         "security": [],
         "x-aomi-auth": [
           "service"
+        ]
+      }
+    },
+    "/api/account/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bots/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
         ]
       }
     },

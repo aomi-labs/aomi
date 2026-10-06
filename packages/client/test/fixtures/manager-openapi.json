@@ -134,6 +134,19 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/installations": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/builder/applications/{application_id}": {
       "get": {
         "responses": {
@@ -607,6 +620,32 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/user/model-keys": {
       "get": {
         "responses": {
@@ -665,6 +704,43 @@
         "security": [],
         "x-aomi-auth": [
           "service"
+        ]
+      }
+    },
+    "/api/account/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bots/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "account"
         ]
       }
     },
@@ -934,6 +1010,40 @@
         "security": [],
         "x-aomi-auth": [
           "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "activation"
+        ]
+      }
+    },
+    "/api/platforms/{name}/apps/{app}": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "platformBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "activation"
         ]
       }
     }
