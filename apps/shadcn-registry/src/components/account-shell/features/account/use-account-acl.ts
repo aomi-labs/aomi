@@ -190,7 +190,7 @@ export function useAccountAcl(): AccountAcl {
   );
 
   const signerFor = useCallback(
-    (wallet: Pick<WalletPolicy, "chain" | "address">) => {
+    (wallet: Pick<WalletPolicy, "chain" | "address" | "providerManaged">) => {
       const address = wallet.chain === "evm" ? evmAddress : svmAddress;
       const sameOperatingWallet = Boolean(
         address &&
@@ -199,13 +199,20 @@ export function useAccountAcl(): AccountAcl {
           { chain: wallet.chain, address: wallet.address },
         ),
       );
+      // A provider-managed agent wallet holds no user key, so it can never be
+      // the connected wallet. The backend arms it on a permit signed by the
+      // user's own key from the same provider (the Para login wallet), so the
+      // connected same-chain wallet is the signer there.
+      const signerMatches = wallet.providerManaged
+        ? Boolean(address)
+        : sameOperatingWallet;
       const hasSigningMethod =
         wallet.chain === "evm"
           ? Boolean(signTypedData)
           : Boolean(signSolanaMessage);
       return {
         address,
-        canSign: Boolean(sameOperatingWallet && hasSigningMethod && address),
+        canSign: Boolean(signerMatches && hasSigningMethod && address),
       };
     },
     [evmAddress, svmAddress, signSolanaMessage, signTypedData],
