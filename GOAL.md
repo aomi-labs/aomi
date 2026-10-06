@@ -1,3 +1,13 @@
+# Stale provider/account session handoff — 2026-10-06
+
+When Safari retains an Aomi/Better Auth account cookie for a different Para or
+Privy subject, native provider sign-in now revokes only that stale Aomi session
+and establishes the account owned by the live provider credential. Matching
+provider/account sessions remain intact, and wallet ownership checks stay
+fail-closed. Focused runtime, wallet-picker, provider, typecheck, lint,
+formatting, and package build checks pass. Widget library version is 3.0.22;
+nothing has been published or deployed.
+
 # PR #698 app indicator correction — 2026-10-03
 
 The composer indicator now follows the explicit host app tag or active Direct
