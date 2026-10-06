@@ -28,12 +28,7 @@ import {
 
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { Button } from "@/ui/button";
-import { Skeleton } from "@/ui/skeleton";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { testIds } from "@/test-ids";
 
 export const ThreadList: FC = () => {
@@ -68,13 +63,7 @@ const ThreadListNew: FC = () => {
 };
 
 const ThreadListItems: FC = () => {
-  const isLoading = useThreadList((t) => t.isLoading);
   const threadIds = useThreadList((t) => t.threadIds);
-  const hasThreads = threadIds.length > 0;
-
-  if (isLoading && !hasThreads) {
-    return <ThreadListSkeleton />;
-  }
 
   // Bind subscribers to ids: archiving removes a regular-list index before
   // its old row can unmount, so an index-bound subscriber can look up undefined.
@@ -91,53 +80,6 @@ const ThreadListRow: FC<{ id: string }> = ({ id }) => {
     <ThreadListItemRuntimeProvider runtime={runtime}>
       <ThreadListItem />
     </ThreadListItemRuntimeProvider>
-  );
-};
-
-const SKELETON_WIDTHS = [
-  "85%",
-  "72%",
-  "90%",
-  "68%",
-  "78%",
-  "95%",
-  "74%",
-  "82%",
-  "70%",
-  "88%",
-  "76%",
-  "92%",
-  "80%",
-  "69%",
-  "86%",
-  "73%",
-  "91%",
-  "77%",
-  "84%",
-  "71%",
-];
-
-const ThreadListSkeleton: FC = () => {
-  return (
-    <div
-      role="status"
-      aria-label="Loading threads"
-      aria-live="polite"
-      data-testid={testIds.skeleton}
-      className="aui-thread-list-skeleton-root flex flex-1 flex-col gap-1 overflow-hidden"
-    >
-      {SKELETON_WIDTHS.map((width, i) => (
-        <div
-          key={i}
-          className="aui-thread-list-skeleton-wrapper flex h-9 shrink-0 items-center rounded-2xl px-4"
-        >
-          <Skeleton
-            className="aui-thread-list-skeleton h-3"
-            style={{ width }}
-          />
-        </div>
-      ))}
-    </div>
   );
 };
 
