@@ -44,8 +44,13 @@ git merge-base --is-ancestor "$CANDIDATE_SHA" origin/main || {
 # tree: unrelated churn is exactly what the freeze is supposed to tolerate.
 PUBLISHABLE_PATHS=(
   packages/client
-  packages/deploy
   packages/react
+  packages/account
+  packages/deploy
+  packages/cli
+  packages/widget
+  packages/widget-lib
+  # Retain historical coverage for candidates before the widget move.
   apps/shadcn-registry
 )
 if ! git diff --quiet "$CANDIDATE_SHA" origin/main -- "${PUBLISHABLE_PATHS[@]}"; then

@@ -4,7 +4,6 @@ import { createSiweMessage } from "viem/siwe";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   expectVerifiedBffRecord,
-  fixtureKeys,
   jsonFromPage,
   requiredOrigin,
   resetContractState,
@@ -13,11 +12,12 @@ import {
   upstreamRecords,
   type AccountSnapshot,
 } from "./browser-contract-helpers";
+import { fixtureKeys } from "./fixture-wallets";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
 const consumerOrigin = requiredOrigin("BROWSER_CONTRACT_CONSUMER_URL");
 const rejectedOrigin = requiredOrigin("BROWSER_CONTRACT_REJECTED_CONSUMER_URL");
-const keys = fixtureKeys();
+const keys = fixtureKeys;
 const accountRequire = createRequire(
   new URL("../../packages/account/package.json", import.meta.url),
 );

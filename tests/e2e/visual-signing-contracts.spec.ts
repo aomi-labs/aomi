@@ -1,12 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { testIds } from "../../packages/widget/src/test-ids";
 import {
-  fixtureKeys,
   requiredOrigin,
   resetContractState,
   sendPrompt,
   signInThroughUi,
   upstreamRecords,
 } from "./browser-contract-helpers";
+import { fixtureKeys } from "./fixture-wallets";
 
 import {
   callbackEvents,
@@ -14,7 +15,7 @@ import {
 } from "../fixtures/commit-callback-events";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
-const keys = fixtureKeys();
+const keys = fixtureKeys;
 const fixedNow = new Date("2026-09-16T12:00:00.000Z");
 const actionPrompt = "prepare the deterministic wallet review";
 
@@ -48,6 +49,8 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   });
   await expect(accountSettings).toBeVisible();
   await settleVisuals(page);
+  // PR #702's Claude UI pass (b81442aa) intentionally removed the signer
+  // badge and native balance row. This baseline preserves that approved UI.
   await expect(accountSettings).toHaveScreenshot(
     "account-settings.png",
     screenshot(),
@@ -78,7 +81,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   });
 
   const sidebar = page.getByRole("complementary", { name: "Chat activity" });
-  const review = sidebar.getByTestId("transaction-review");
+  const review = sidebar.getByTestId(testIds.txReview);
   await expect(review).toBeVisible({ timeout: 30_000 });
   await expect(review).toContainText("0.000000000000000001 ETH");
   await expect(review.getByRole("button", { name: "Submit" })).toBeEnabled();
@@ -103,7 +106,10 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await openActionThread(page);
-  await expect(page.getByTestId("transaction-review")).toBeVisible({
+  await expect(
+    page.getByText("Conversation unavailable", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByTestId(testIds.txReview)).toBeVisible({
     timeout: 30_000,
   });
 
@@ -126,7 +132,7 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   await expect
     .poll(async () => {
       await finishAnimations(page);
-      return page.getByTestId("transaction-review").count();
+      return page.getByTestId(testIds.txReview).count();
     })
     .toBe(0);
   const rejected = page.locator('[aria-label$="signing: rejected"]');
@@ -172,12 +178,18 @@ test("wallet handoff failure, rejection, replay, and reload preserve one durable
   );
   expect(stale).toEqual({
     status: 409,
-    body: { error: { code: "stale_action_revision" } },
+    body: {
+      error: {
+        code: "stale_action_revision",
+        message: "Action has already changed",
+        retryable: false,
+      },
+    },
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await openActionThread(page);
-  await expect(page.getByTestId("transaction-review")).toHaveCount(0);
+  await expect(page.getByTestId(testIds.txReview)).toHaveCount(0);
   await expect(page.locator('[aria-label$="signing: rejected"]')).toHaveCount(
     1,
   );
@@ -812,7 +824,12 @@ async function finishAnimations(page: Page): Promise<void> {
 
 async function settleVisuals(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(150);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
 }
 
 async function assertSidebarDoesNotCoverComposer(

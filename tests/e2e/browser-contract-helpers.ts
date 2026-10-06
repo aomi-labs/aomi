@@ -4,6 +4,7 @@ import {
   installBrowserWallet,
   type WalletFamily,
 } from "./hosted-wallet-fixture";
+import type { UpstreamRecord } from "./fake-backend/upstream";
 
 export type AccountSnapshot = {
   guest?: boolean;
@@ -13,26 +14,6 @@ export type AccountSnapshot = {
     carrier?: string;
     betterAuthUserId?: string;
     authMethod?: string;
-  } | null;
-};
-
-export type UpstreamRecord = {
-  method: string;
-  path: string;
-  headers: Record<string, string | string[] | undefined>;
-  authorization: "verified-bff-bearer" | "absent";
-  cookie: "present" | "absent";
-  principal: {
-    sub?: string;
-    iss?: string;
-    aud?: string | string[];
-    role?: string;
-    scope?: string;
-    resource?: string;
-    auth_source?: string;
-    principal_class?: string;
-    sid?: string;
-    kid?: string;
   } | null;
 };
 
@@ -50,16 +31,6 @@ export function requiredOrigin(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
   return new URL(value).origin;
-}
-
-export function fixtureKeys(): { evm: string[]; svm: string } {
-  const evm =
-    process.env.BROWSER_CONTRACT_EVM_PRIVATE_KEYS?.split(",").filter(Boolean);
-  const svm = process.env.BROWSER_CONTRACT_SVM_SEED;
-  if (!evm || evm.length < 2 || !svm) {
-    throw new Error("Ephemeral browser contract wallet keys are required");
-  }
-  return { evm, svm };
 }
 
 export async function jsonFromPage<T>(

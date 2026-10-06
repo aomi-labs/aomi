@@ -64,7 +64,7 @@ const sourceRoots = [
   "packages/react/src",
   "apps/portal/src",
   "apps/telegram/src",
-  "apps/shadcn-registry/src",
+  "packages/widget/src",
 ];
 for (const relative of sourceRoots) {
   for (const file of sourceFiles(join(root, relative))) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Compile consumers from the trusted base against the packages this checkout ships.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -16,6 +16,7 @@ import {
   importerResolution,
   importerVersions,
   packageVersion,
+  snapshotDependencyVersion,
 } from "./consumer-lockfile.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -57,7 +58,8 @@ const packages = [
   ["@aomi-labs/client", "packages/client"],
   ["@aomi-labs/react", "packages/react"],
   ["@aomi-labs/deploy", "packages/deploy"],
-  ["@aomi-labs/widget-lib", "apps/shadcn-registry"],
+  ["@aomi-labs/widget", "packages/widget"],
+  ["@aomi-labs/widget-lib", "packages/widget-lib"],
 ].filter(([name]) => !onlyWidget || name !== "@aomi-labs/deploy");
 const consumers = onlyWidget
   ? ["apps/widget-consumer"]
@@ -127,9 +129,6 @@ if (!resolved.endsWith("/dist/host-composition.js")) {
 }
 
 function verifyFreshInstall(tarballs, temporaryRoot) {
-  const clientManifest = JSON.parse(
-    readFileSync(join(root, "packages/client/package.json"), "utf8"),
-  );
   const widgetDestination = join(temporaryRoot, "fresh-widget-install");
   const widgetManifest = {
     name: "aomi-clean-widget-install-contract",
@@ -239,14 +238,21 @@ for (const [name, value] of Object.entries({ Aomi, AomiClient, AomiRuntimeProvid
   );
   run("node", [sdkRuntimeCheck], sdkDestination);
 
-  const version = execFileSync(
+  // The client's old `aomi` bin only points users at @aomi-labs/cli.
+  const shim = spawnSync(
     join(sdkDestination, "node_modules/.bin/aomi"),
     ["--version"],
-    { cwd: sdkDestination, encoding: "utf8" },
-  ).trim();
-  if (!version.includes(clientManifest.version)) {
+    {
+      cwd: sdkDestination,
+      encoding: "utf8",
+    },
+  );
+  if (
+    shim.status !== 1 ||
+    !shim.stderr.includes("npm install -g @aomi-labs/cli")
+  ) {
     throw new Error(
-      `Packed CLI version mismatch: expected ${clientManifest.version}, got ${version}`,
+      `The client's aomi shim did not point at @aomi-labs/cli: ${shim.stderr}`,
     );
   }
 }
@@ -267,8 +273,18 @@ try {
     "@assistant-ui/tap",
     importerResolution(trustedLockfile, ".", "@assistant-ui/react-ai-sdk"),
   );
+  const trustedRadix = snapshotDependencyVersion(
+    trustedLockfile,
+    "@assistant-ui/react",
+    importerResolution(trustedLockfile, ".", "@assistant-ui/react"),
+    "radix-ui",
+  );
   for (const [name, path] of packages) {
-    if (name === "@aomi-labs/widget-lib" || name === "@aomi-labs/deploy") {
+    if (
+      name === "@aomi-labs/widget" ||
+      name === "@aomi-labs/widget-lib" ||
+      name === "@aomi-labs/deploy"
+    ) {
       // These packages have no prepack hook; build before producing the
       // exact archive consumed by the clean-install fixture.
       run("corepack", ["pnpm", "--dir", join(root, path), "build"]);
@@ -320,6 +336,12 @@ try {
         throw new Error("Trusted base lacks widget Solana peer");
       manifest.dependencies["@solana/spl-token"] =
         trustedImporters.registry["@solana/spl-token"];
+      // The historical fixture references process.env and inherited Node's
+      // ambient types from the workspace root. Restore that exact base input.
+      manifest.devDependencies["@types/node"] =
+        trustedImporters.root["@types/node"];
+      if (!manifest.devDependencies["@types/node"])
+        throw new Error("Trusted base lacks Node ambient types");
     }
     for (const field of ["dependencies", "devDependencies"]) {
       for (const name of Object.keys(manifest[field] ?? {})) {
@@ -334,7 +356,8 @@ try {
               : undefined) ??
             (name === "@solana/spl-token"
               ? trustedImporters.registry[name]
-              : undefined);
+              : undefined) ??
+            (name === "@types/node" ? trustedImporters.root[name] : undefined);
           if (!locked) {
             throw new Error(
               `Trusted lockfile lacks ${consumer} dependency ${name}`,
@@ -353,6 +376,9 @@ try {
         ...trustedImporters.widget,
         "@assistant-ui/react": trustedImporters.root["@assistant-ui/react"],
         "@assistant-ui/tap": trustedTap,
+        // Preserve the historical fixture's exact transitive input. Fresh
+        // install checks still resolve public package ranges independently.
+        "radix-ui": trustedRadix,
         "@types/node": trustedImporters.root["@types/node"],
         ...tarballs,
       },

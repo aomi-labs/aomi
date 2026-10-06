@@ -15,16 +15,12 @@ const SOURCE_EXTENSIONS = new Set([
   ".tsx",
 ]);
 const ALLOWED_PORTAL_WIDGET_IMPORTS = new Map([
-  ["@aomi-labs/widget-lib", "index.ts"],
-  ["@aomi-labs/widget-lib/host-composition", "host-composition.ts"],
-  [
-    "@aomi-labs/widget-lib/providers/para",
-    "lib/wallet-kit/providers/para/index.ts",
-  ],
-  [
-    "@aomi-labs/widget-lib/providers/privy",
-    "lib/wallet-kit/providers/privy/index.ts",
-  ],
+  ["@aomi-labs/widget", "index.ts"],
+  ["@aomi-labs/widget/host-composition", "host-composition.ts"],
+  ["@aomi-labs/widget/browser-auth", "account/browser-auth.ts"],
+  ["@aomi-labs/widget/frame", "frame/aomi-frame.tsx"],
+  ["@aomi-labs/widget/providers/para", "wallet/providers/para/index.ts"],
+  ["@aomi-labs/widget/providers/privy", "wallet/providers/privy/index.ts"],
 ]);
 
 function isTestFile(path) {
@@ -155,14 +151,14 @@ function inspectTree(root, check) {
 export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
   const portalRoot = resolve(root, "apps/portal");
   const portalSource = resolve(portalRoot, "src");
-  const widgetSource = resolve(root, "apps/shadcn-registry/src");
+  const widgetSource = resolve(root, "packages/widget/src");
   const packagesRoot = resolve(root, "packages");
   const appsRoot = resolve(root, "apps");
   const clientSource = resolve(packagesRoot, "client/src");
   const reactSource = resolve(packagesRoot, "react/src");
   const portalAliases = tsconfigAliases(resolve(portalRoot, "tsconfig.json"));
   const widgetAliases = tsconfigAliases(
-    resolve(root, "apps/shadcn-registry/tsconfig.json"),
+    resolve(root, "packages/widget/tsconfig.json"),
   );
   const packageProjects = readdirSync(packagesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -192,7 +188,6 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
       const approvedTarget = ALLOWED_PORTAL_WIDGET_IMPORTS.get(specifier);
       if (
         specifier.includes("shadcn-registry") ||
-        /^@\/(?:components|hooks|lib)(?:\/|$)/.test(specifier) ||
         (widgetDestinations.length > 0 &&
           (!approvedTarget ||
             widgetDestinations.some(
@@ -203,7 +198,7 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
         return "Portal must consume widget-owned UI through a package entrypoint";
       }
       if (
-        specifier.startsWith("@aomi-labs/widget-lib/") &&
+        specifier.startsWith("@aomi-labs/widget/") &&
         !ALLOWED_PORTAL_WIDGET_IMPORTS.has(specifier)
       ) {
         return "Portal may use only the declared widget host/provider entrypoints";
@@ -241,7 +236,7 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
       }
       if (
         isInside(importer, reactSource) &&
-        (specifier.startsWith("@aomi-labs/widget-lib") ||
+        (specifier.startsWith("@aomi-labs/widget") ||
           destinations.some((destination) =>
             isInside(destination, widgetSource),
           ))
@@ -250,7 +245,7 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
       }
       if (
         specifier.startsWith("@portal/") ||
-        specifier.startsWith("@aomi-labs/widget-lib") ||
+        specifier.startsWith("@aomi-labs/widget") ||
         destinations.some((destination) => isInside(destination, appsRoot))
       ) {
         return "workspace packages cannot depend on app-owned UI";
@@ -264,7 +259,7 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
   );
   const paths = portalConfig.compilerOptions?.paths ?? {};
   for (const alias of Object.keys(paths)) {
-    if (alias === "@aomi-labs/widget-lib/*") {
+    if (alias === "@aomi-labs/widget/*") {
       violations.push({
         path: resolve(portalRoot, "tsconfig.json"),
         line: 1,
@@ -273,21 +268,25 @@ export function checkFrontendBoundaries(root = SCRIPT_ROOT) {
       });
     }
   }
-  if (!("@aomi-labs/widget-lib/host-composition" in paths)) {
+  const portalManifest = JSON.parse(
+    readFileSync(resolve(portalRoot, "package.json"), "utf8"),
+  );
+  if (!portalManifest.dependencies?.["@aomi-labs/widget"]) {
     violations.push({
-      path: resolve(portalRoot, "tsconfig.json"),
+      path: resolve(portalRoot, "package.json"),
       line: 1,
-      specifier: "@aomi-labs/widget-lib/host-composition",
-      reason: "Portal must resolve the declared host-composition entrypoint",
+      specifier: "@aomi-labs/widget/host-composition",
+      reason:
+        "Portal must depend on the shipped widget host-composition entrypoint",
     });
   }
 
   const widgetManifest = JSON.parse(
-    readFileSync(resolve(root, "apps/shadcn-registry/package.json"), "utf8"),
+    readFileSync(resolve(root, "packages/widget/package.json"), "utf8"),
   );
   if (!widgetManifest.exports?.["./host-composition"]) {
     violations.push({
-      path: resolve(root, "apps/shadcn-registry/package.json"),
+      path: resolve(root, "packages/widget/package.json"),
       line: 1,
       specifier: "./host-composition",
       reason: "the widget package must publish the host-composition contract",

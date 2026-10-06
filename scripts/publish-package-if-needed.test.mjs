@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { publishPackageIfNeeded } from "../../../scripts/publish-package-if-needed.mjs";
+import { publishPackageIfNeeded } from "./publish-package-if-needed.mjs";
 
 const packageDirectory = path.resolve("packages/client");
 const packageManifest = JSON.parse(

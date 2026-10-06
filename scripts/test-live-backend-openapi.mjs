@@ -12,17 +12,25 @@ const openApiUrl =
 
 if (!openApiUrl) {
   console.error(
-    "Set NEXT_PUBLIC_BACKEND_URL before running the live OpenAPI contract check.",
+    "Set AOMI_BACKEND_OPENAPI_URL or NEXT_PUBLIC_BACKEND_URL before running the live OpenAPI contract check.",
   );
   process.exit(1);
 }
 
-const result = spawnSync("pnpm", ["run", "test:openapi"], {
-  env: {
-    ...process.env,
-    AOMI_BACKEND_OPENAPI_URL: openApiUrl,
+const target = new URL(openApiUrl);
+if (!["http:", "https:"].includes(target.protocol))
+  throw new Error("The live OpenAPI URL must use HTTP or HTTPS");
+
+const result = spawnSync(
+  "pnpm",
+  ["exec", "vitest", "run", "--config", "vitest.live-openapi.config.ts"],
+  {
+    env: {
+      ...process.env,
+      AOMI_BACKEND_OPENAPI_URL: openApiUrl,
+    },
+    stdio: "inherit",
   },
-  stdio: "inherit",
-});
+);
 
 process.exit(result.status ?? 1);

@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
   expectVerifiedBffRecord,
-  fixtureKeys,
   portalAccount,
   requiredOrigin,
   resetContractState,
@@ -10,9 +9,10 @@ import {
   signOutThroughUi,
   upstreamRecords,
 } from "./browser-contract-helpers";
+import { fixtureKeys } from "./fixture-wallets";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
-const keys = fixtureKeys();
+const keys = fixtureKeys;
 
 test.beforeEach(async () => resetContractState());
 test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(90_000));
@@ -49,6 +49,47 @@ for (const family of ["evm", "svm"] as const) {
     );
     expectVerifiedBffRecord(chat, account.user!.id!, "session");
     expect(wallet.blocked).toEqual([]);
+
+    if (family === "evm") {
+      const settingsRequests: string[] = [];
+      page.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (
+          path === "/v1/account" ||
+          path === "/v1/account/credits" ||
+          path === "/api/account"
+        )
+          settingsRequests.push(path);
+      });
+      let firstOpenRequests = 0;
+      for (let open = 0; open < 2; open++) {
+        await page
+          .getByRole("button", { name: "Open settings", exact: true })
+          .click();
+        const settings = page.getByRole("dialog", {
+          name: "Settings",
+          exact: true,
+        });
+        await expect(
+          settings.getByRole("navigation", { name: "Settings sections" }),
+        ).toBeVisible();
+        await settings
+          .getByRole("button", { name: "Account", exact: true })
+          .click();
+        await expect(
+          settings.getByRole("heading", { name: "Account", exact: true }),
+        ).toBeVisible();
+        await expect(
+          settings.getByRole("button", { name: "Sign out", exact: true }),
+        ).toBeVisible();
+        await settings
+          .getByRole("button", { name: "Close settings", exact: true })
+          .click();
+        await expect(settings).toBeHidden();
+        if (open === 0) firstOpenRequests = settingsRequests.length;
+        else expect(settingsRequests).toHaveLength(firstOpenRequests);
+      }
+    }
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(

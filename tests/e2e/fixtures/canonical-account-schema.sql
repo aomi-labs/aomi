@@ -15,7 +15,7 @@
 
 create extension if not exists pgcrypto;
 
-create table users (
+create table if not exists users (
   id text primary key default gen_random_uuid()::text,
   username text unique,
   applications text[] not null default array['default']::text[],
@@ -26,7 +26,7 @@ create table users (
   updated_at bigint not null default extract(epoch from now())::bigint
 );
 
-create table auth_providers (
+create table if not exists auth_providers (
   id bigserial primary key,
   user_id text not null references users(id) on delete cascade,
   provider text not null,
@@ -43,11 +43,11 @@ create table auth_providers (
   constraint auth_providers_id_user_id_key unique (id, user_id)
 );
 
-create unique index auth_providers_scoped_subject_uidx
+create unique index if not exists auth_providers_scoped_subject_uidx
   on auth_providers (provider, issuer_environment, tenant_id, subject)
   where subject is not null;
-create index auth_providers_user_idx on auth_providers (user_id);
-create index auth_providers_verified_value_idx
+create index if not exists auth_providers_user_idx on auth_providers (user_id);
+create index if not exists auth_providers_verified_value_idx
   on auth_providers (
     provider,
     issuer_environment,
@@ -57,7 +57,7 @@ create index auth_providers_verified_value_idx
   )
   where verified_at is not null;
 
-create table public_keys (
+create table if not exists public_keys (
   id bigserial primary key,
   chain_type text not null,
   address text not null,
@@ -76,7 +76,7 @@ create table public_keys (
     references auth_providers(id, user_id)
 );
 
-create index public_keys_user_idx on public_keys (user_id);
-create unique index public_keys_primary_per_provider_uidx
+create index if not exists public_keys_user_idx on public_keys (user_id);
+create unique index if not exists public_keys_primary_per_provider_uidx
   on public_keys (auth_provider_id)
   where is_primary and auth_provider_id is not null;
