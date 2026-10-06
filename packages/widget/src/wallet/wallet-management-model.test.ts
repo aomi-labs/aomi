@@ -4,7 +4,7 @@ import {
   providerEmailDisplayHint,
   visibleSignInMethods,
   walletConnectionSummary,
-} from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
+} from "@/wallet/wallet-management-model";
 
 describe("wallet management classification", () => {
   it("summarizes linked wallets that are offline on this device", () => {

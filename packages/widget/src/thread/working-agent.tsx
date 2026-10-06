@@ -17,12 +17,12 @@ import {
   type TaskRunStep,
 } from "@aomi-labs/react";
 import { useTraceAttribution } from "./trace-attribution";
-import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
+import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import {
   prefersReducedMotion,
   ToolStepRow,
   WorkingNote,
-} from "@/components/assistant-ui/working-trace-rows";
+} from "./working-trace-rows";
 
 /**
  * A delegated child agent, as one row of the working trace.

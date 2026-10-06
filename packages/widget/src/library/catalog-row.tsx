@@ -1,19 +1,19 @@
 "use client";
 import { Check, Loader2, MessageCircle, Plus } from "lucide-react";
 import { cn } from "@aomi-labs/react";
-import { aomiButton } from "../../../../ui/aomi/button";
+import { aomiButton } from "@/ui/aomi/button";
 import {
   ChainMarks,
   KindPill,
   SkillIdentity,
   type LibrarySelection,
-} from "../library-detail-panel";
-import { PackageIcon } from "../package-row";
+} from "./library-detail-panel";
+import { PackageIcon } from "./package-row";
 import {
   ARC_TESTNET_CHAIN_ID,
   isPackageAvailableOnHost,
   type CatalogPackage,
-} from "../packages-catalog";
+} from "./packages-catalog";
 import { selectionName, selectionDescription } from "./model";
 
 const rowAction = aomiButton({ variant: "secondary", size: "sm" });

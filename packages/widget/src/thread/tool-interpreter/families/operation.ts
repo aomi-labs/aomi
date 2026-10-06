@@ -1,5 +1,5 @@
-import { statusFact, uniqueFacts } from "../normalize";
-import type { ToolFact, ToolOperation } from "../types";
+import { statusFact, uniqueFacts } from "@/thread/tool-interpreter/normalize";
+import type { ToolFact, ToolOperation } from "@/thread/tool-interpreter/types";
 
 type ToolResult = Record<string, unknown> | null | undefined;
 

@@ -17,10 +17,10 @@ import {
   conciseSkillDescription,
   skillLabel,
   type SkillSummary,
-} from "../../../../../lib/capabilities/skill-catalog";
-import type { LibrarySelection } from "../library-detail-panel";
-import type { CatalogPackage } from "../packages-catalog";
-import { packageIdentityKey } from "../packages-catalog";
+} from "@/composer/capabilities/skill-catalog";
+import type { LibrarySelection } from "./library-detail-panel";
+import type { CatalogPackage } from "./packages-catalog";
+import { packageIdentityKey } from "./packages-catalog";
 
 export type LibraryView =
   | "discover"

@@ -4,9 +4,9 @@ import {
   asString,
   chainFactFromRecord,
   uniqueFacts,
-} from "../normalize";
-import type { ToolFact, ToolOperation } from "../types";
-import { isErrorResult } from "../families/operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolFact, ToolOperation } from "@/thread/tool-interpreter/types";
+import { isErrorResult } from "@/thread/tool-interpreter/families/operation";
 
 export const validResult = (
   result: Record<string, unknown> | null,

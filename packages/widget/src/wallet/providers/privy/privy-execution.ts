@@ -3,7 +3,7 @@
 import type { Hex } from "viem";
 import type { WalletTxPayload } from "@aomi-labs/react";
 import { toAAWalletCalls } from "@aomi-labs/react";
-import type { AomiTxResult } from "../../types";
+import type { AomiTxResult } from "@/wallet/types";
 import type { SmartWalletsHook } from "./privy-auth";
 
 export async function sendPrivySmartWalletTransaction({

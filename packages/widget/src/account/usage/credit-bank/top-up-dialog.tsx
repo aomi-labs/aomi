@@ -1,5 +1,7 @@
 "use client";
 
+import { useWidgetOverlay } from "@/ui/widget-scope";
+
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { LoaderCircle, WalletCards, X } from "lucide-react";
 import {
@@ -7,8 +9,8 @@ import {
   formatUsdc,
   MAX_TOP_UP_MICROUSD,
   MIN_TOP_UP_MICROUSD,
-  truncateHex,
 } from "./format";
+import { shortAddress } from "@aomi-labs/client";
 
 export function CreditTopUpDialog({
   open,
@@ -33,6 +35,7 @@ export function CreditTopUpDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const widgetOverlay = useWidgetOverlay();
   const parsedCredits = Number(credits);
   const amountMicrousd = Math.round(parsedCredits * 10_000);
   const validCredits =
@@ -46,7 +49,7 @@ export function CreditTopUpDialog({
       open={open}
       onOpenChange={(next) => !next && !busy && onClose()}
     >
-      <DialogPrimitive.Portal>
+      <DialogPrimitive.Portal container={widgetOverlay}>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-black/30 backdrop-blur-[3px]" />
         <DialogPrimitive.Content className="border-aomi-overlay-border bg-aomi-raised text-aomi-fg fixed left-1/2 top-1/2 z-[81] max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-[430px] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border shadow-[0_24px_80px_rgba(0,0,0,0.32)] focus:outline-none">
           <div className="border-aomi-border relative border-b px-5 py-4">
@@ -159,7 +162,7 @@ export function CreditTopUpDialog({
                     />
                     <span className="truncate">
                       {walletAddress
-                        ? truncateHex(walletAddress)
+                        ? shortAddress(walletAddress)
                         : "Not connected"}
                     </span>
                   </span>

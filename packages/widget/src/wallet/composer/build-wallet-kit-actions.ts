@@ -1,11 +1,11 @@
 "use client";
 
-import type { AomiAccount, AomiWalletKit } from "../types";
-import type { WalletRegistryStore } from "../registry/store";
+import type { AomiAccount, AomiWalletKit } from "@/wallet/types";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
 import type { AuthRuntime, ExecutionRuntime } from "./types";
-import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
+import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import type { SvmWalletRuntime, SvmIdentity } from "./types";
-import { toRegistryFamily } from "../wallet-utils";
+import { toRegistryFamily } from "@/wallet/wallet-utils";
 
 type BuildWalletKitActionsParams = {
   accounts: readonly AomiAccount[];
@@ -81,7 +81,8 @@ export function buildWalletKitActions({
     },
     connectEvmWallet: evm.connect,
     connectSocial: async (id: string) => {
-      await auth.login?.(`social-login:${id}`);
+      if (!auth.login) throw new Error("Wallet provider sign-in is not ready.");
+      await auth.login(`social-login:${id}`);
     },
     connectSolanaWallet: svm
       ? async (walletName: string) => {

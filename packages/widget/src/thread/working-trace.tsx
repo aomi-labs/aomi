@@ -1,6 +1,13 @@
 "use client";
 
-import { type FC, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type FC,
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   TextMessagePartProvider,
   useMessage,
@@ -18,25 +25,25 @@ import {
 
 import {
   cn,
+  useChatViewFlag,
+  useChatView,
   useOptionalAomiRuntime,
   useThreadTaskRuns,
   walletContinuationPending,
   type TaskRunState,
 } from "@aomi-labs/react";
 import type { Event, TurnState } from "@aomi-labs/client";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { MarkdownText } from "./markdown-text";
 import { useTraceAttribution } from "./trace-attribution";
-import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
-import {
-  agentStepCount,
-  WorkingAgent,
-} from "@/components/assistant-ui/working-agent";
+import { testIds } from "@/test-ids";
+import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { agentStepCount, WorkingAgent } from "./working-agent";
 import {
   prefersReducedMotion,
   toDetailString,
   ToolStepRow,
   WorkingNote,
-} from "@/components/assistant-ui/working-trace-rows";
+} from "./working-trace-rows";
 
 /** Interstitial prose and tool progress share one chronological trace. */
 
@@ -127,6 +134,7 @@ const WorkingStep: FC<{
 
   return (
     <ToolStepRow
+      viewKey={tool.toolCallId}
       interpretation={interpretToolStep({
         attribution,
         toolName: tool.toolName,
@@ -218,6 +226,7 @@ const WORKING_COLLAPSED_CHIP_CLASS =
 type WorkingTraceOutcome = "running" | "complete" | "failed" | "interrupted";
 
 export const WorkingTrace: FC<{
+  viewKey?: string;
   running: boolean;
   outcome?: WorkingTraceOutcome;
   items: TraceItem[];
@@ -233,6 +242,7 @@ export const WorkingTrace: FC<{
   phaseEvents?: readonly Event[];
   phaseTurnIds?: readonly string[];
 }> = ({
+  viewKey = "trace",
   running,
   outcome = running ? "running" : "complete",
   items,
@@ -242,8 +252,10 @@ export const WorkingTrace: FC<{
   phaseEvents,
   phaseTurnIds,
 }) => {
-  const [open, setOpen] = useState(running);
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useChatViewFlag(`${viewKey}:open`, running);
+  const [expanded, setExpanded] = useChatViewFlag(`${viewKey}:expanded`, false);
+  const observedLiveWork = useRef(running);
+  if (running) observedLiveWork.current = true;
   const [overflowing, setOverflowing] = useState(false);
   const [hasContentBelow, setHasContentBelow] = useState(false);
   // True only while the expand/collapse height tween is in flight; keeps the
@@ -317,6 +329,7 @@ export const WorkingTrace: FC<{
   // content actually overflows, so a short trace is never faded.
   const windowed = !expanded;
   useEffect(() => {
+    if (windowed && typeof ResizeObserver !== "undefined") return;
     const body = bodyRef.current;
     if (!body || !windowed) {
       setOverflowing(false);
@@ -384,7 +397,16 @@ export const WorkingTrace: FC<{
     prevOpen.current = open;
     prevWindowed.current = windowed;
 
-    if (!viewport || !open || !windowed || animating) return;
+    // With ResizeObserver, natural layout publishes the new height before paint.
+    // A synchronous read here would lay out the entire chat again on every step.
+    if (
+      typeof ResizeObserver !== "undefined" ||
+      !viewport ||
+      !open ||
+      !windowed ||
+      animating
+    )
+      return;
     if (running || followLatestRef.current) {
       viewport.scrollTop = viewport.scrollHeight;
       setHasContentBelow(false);
@@ -404,16 +426,17 @@ export const WorkingTrace: FC<{
       typeof ResizeObserver === "undefined"
     )
       return;
-    const resize = () => {
-      setOverflowing(body.offsetHeight - WORKING_WINDOW_PX > 24);
+    const resize: ResizeObserverCallback = (entries) => {
+      const entry = entries.find(({ target }) => target === body);
+      const height = entry?.borderBoxSize?.[0]?.blockSize ?? body.offsetHeight;
+      setOverflowing(height - WORKING_WINDOW_PX > 24);
       if (!animating && (running || followLatestRef.current)) {
         viewport.scrollTop = viewport.scrollHeight;
         setHasContentBelow(false);
       }
     };
     const observer = new ResizeObserver(resize);
-    observer.observe(body);
-    resize();
+    observer.observe(body, { box: "border-box" });
     return () => observer.disconnect();
   }, [open, windowed, running, animating]);
 
@@ -447,8 +470,9 @@ export const WorkingTrace: FC<{
   // Auto-collapse only once final-answer playback has actually begun. An
   // awaiting Action temporarily marks the assistant message complete, but the
   // trace must stay open through approval and the resumed model turn.
+  // A completed trace restored on a chat revisit keeps the reader's choice.
   useEffect(() => {
-    if (!fullyRevealed || !collapseReady) return;
+    if (!observedLiveWork.current || !fullyRevealed || !collapseReady) return;
     const timer = setTimeout(() => setOpen(false), 500);
     return () => clearTimeout(timer);
   }, [collapseReady, fullyRevealed]);
@@ -490,6 +514,7 @@ export const WorkingTrace: FC<{
     // path to animate through. The closed shell is transparent and only its
     // compact header chip remains visible.
     <div
+      data-testid={testIds.trace}
       className={cn(
         "aui-working-trace animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-1 mb-3 flex w-full origin-top-left flex-col overflow-hidden rounded-xl border transition-[border-color,background-color,box-shadow] duration-300 ease-out motion-reduce:animate-none motion-reduce:transition-none",
         open
@@ -683,24 +708,28 @@ export const MinimalWorkingTrace: FC = () => (
   </div>
 );
 
-export const RenderedText: FC<{ text: string }> = ({ text }) => {
-  const runtime = useOptionalAomiRuntime();
+export const RenderedText: FC<{ text: string }> = memo(function RenderedText({
+  text,
+}: {
+  text: string;
+}) {
+  const threadId = useChatView()?.threadId;
   const recorded = useRef(false);
   useLayoutEffect(() => {
     if (!recorded.current && text.trim()) {
       recorded.current = true;
       // DOM commit marker, not a claim about compositor paint or answer quality.
       performance.mark?.("aomi:answer-committed", {
-        detail: { sessionId: runtime?.currentThreadId },
+        detail: { sessionId: threadId },
       });
     }
-  }, [text, runtime?.currentThreadId]);
+  }, [text, threadId]);
   return (
     <TextMessagePartProvider text={text}>
       <MarkdownText />
     </TextMessagePartProvider>
   );
-};
+});
 
 /**
  * Reconcile the ordered transcript with the live delegation sidecar.
@@ -987,6 +1016,7 @@ export const AssistantTurnParts: FC = () => {
       {traceItems.length > 0 && (
         <WorkingTrace
           key="turn-trace"
+          viewKey={messageId}
           running={live}
           outcome={outcome}
           items={traceItems}

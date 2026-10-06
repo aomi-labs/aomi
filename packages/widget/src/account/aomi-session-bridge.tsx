@@ -1,12 +1,13 @@
 "use client";
 
-import { useShellTransport } from "../../transport";
+import { useShellTransport } from "./transport";
+import { useAomiDisplayCache } from "@aomi-labs/react";
 import { useCallback, useEffect, useState } from "react";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
+import { useAomiWalletKit } from "@/wallet/context";
 import {
   useAccountOverviewStore,
   type AccountOverview,
-} from "../../lib/account-overview";
+} from "./account-overview";
 
 const SESSION_RETRY_BUDGET_MS = 8_000;
 const SESSION_RETRY_BASE_DELAY_MS = 300;
@@ -29,14 +30,26 @@ export function useAomiSession(): {
   retry: () => void;
 } {
   const transport = useShellTransport();
+  const cache = useAomiDisplayCache();
   const { seedAccountOverview } = useAccountOverviewStore();
   const adapter = useAomiWalletKit();
   const adapterStatus = adapter.identity.status;
   const accountStatus = adapter.accountStatus;
   const accountGuest = adapter.accountGuest === true;
   const accountUserId = adapter.accountUser?.id;
-  const [probeStatus, setProbeStatus] =
-    useState<AomiSessionStatus>("establishing");
+  const cachedProfile =
+    cache &&
+    accountStatus === "ready" &&
+    accountUserId &&
+    cache.scope.account?.id === accountUserId
+      ? cache.client.getQueryData<AccountOverview>(cache.key("profile"))
+      : undefined;
+  const hasWarmProfile = Boolean(
+    cachedProfile?.user.user_id === accountUserId && accountUserId,
+  );
+  const [probeStatus, setProbeStatus] = useState<AomiSessionStatus>(
+    hasWarmProfile ? "ready" : "establishing",
+  );
   const [probeAttempt, setProbeAttempt] = useState(0);
   // A provider whose account exchange never settles (accountStatus stuck on
   // "loading") must not hold the gate on "Connecting…" forever — after this
@@ -71,7 +84,7 @@ export function useAomiSession(): {
     }
 
     let cancelled = false;
-    setProbeStatus("establishing");
+    setProbeStatus(hasWarmProfile ? "ready" : "establishing");
 
     const run = async () => {
       let nextDelay = SESSION_RETRY_BASE_DELAY_MS;
@@ -87,6 +100,40 @@ export function useAomiSession(): {
 
       for (;;) {
         try {
+          if (
+            cache &&
+            accountStatus === "ready" &&
+            accountUserId &&
+            cache.scope.account?.id === accountUserId
+          ) {
+            await cache.client.fetchQuery({
+              queryKey: cache.key("profile"),
+              staleTime: 5 * 60_000,
+              retry: false,
+              queryFn: async ({ signal }) => {
+                const response = await transport.fetch("/api/account", {
+                  signal,
+                  cache: "no-store",
+                  headers: { "X-Thread-Id": "settings-session-probe" },
+                });
+                if (!response.ok)
+                  throw Object.assign(
+                    new Error("Account display unavailable"),
+                    {
+                      status: response.status,
+                    },
+                  );
+                const profile = (await response.json()) as AccountOverview;
+                if (profile.user.user_id !== accountUserId)
+                  throw new Error(
+                    "Account changed while its profile was loading",
+                  );
+                return profile;
+              },
+            });
+            if (!cancelled) setProbeStatus("ready");
+            return;
+          }
           const response = await transport.fetch("/api/account", {
             cache: "no-store",
             headers: { "X-Thread-Id": "settings-session-probe" },
@@ -113,10 +160,22 @@ export function useAomiSession(): {
             setProbeStatus("error");
             return;
           }
-        } catch {
+        } catch (error) {
           if (cancelled) return;
-          setProbeStatus("error");
-          return;
+          const status =
+            error && typeof error === "object" && "status" in error
+              ? error.status
+              : undefined;
+          if (status === 401 && waitedMs < retryBudgetMs) {
+            setProbeStatus("establishing");
+          } else if (status === 401) {
+            seedAccountOverview(null);
+            setProbeStatus("anonymous");
+            return;
+          } else {
+            setProbeStatus("error");
+            return;
+          }
         }
 
         await new Promise((resolve) =>
@@ -137,6 +196,8 @@ export function useAomiSession(): {
       cancelled = true;
     };
   }, [
+    cache,
+    hasWarmProfile,
     adapterSettling,
     accountGuest,
     adapterStatus,

@@ -1,5 +1,5 @@
-import { asRecord, asString, statusFact } from "../../normalize";
-import type { ToolFact } from "../../types";
+import { asRecord, asString, statusFact } from "@/thread/tool-interpreter/normalize";
+import type { ToolFact } from "@/thread/tool-interpreter/types";
 
 export const commitViews = (
   result: Record<string, unknown> | null,

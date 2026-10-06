@@ -4,8 +4,8 @@ import {
   toViemSignMessageArgs,
   toViemSignTypedDataArgs,
 } from "@aomi-labs/react";
-import type { EvmExecutionRuntime } from "../composer/types";
-import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
+import type { EvmExecutionRuntime } from "@/wallet/composer/types";
+import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import type { WalletClient } from "viem";
 import { normalizeEvmWalletTarget } from "@aomi-labs/client";
 import type { EvmWallet } from "@aomi-labs/client";

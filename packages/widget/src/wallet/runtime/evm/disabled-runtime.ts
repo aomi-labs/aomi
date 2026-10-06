@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { selectAccounts, selectEvmIdentity } from "../../registry/selectors";
-import { useWalletRegistry } from "../../registry/use-wallet-registry";
-import type { CommandExecutors } from "../../registry/store";
+import { selectAccounts, selectEvmIdentity } from "@/wallet/registry/selectors";
+import { useWalletRegistry } from "@/wallet/registry/use-wallet-registry";
+import type { CommandExecutors } from "@/wallet/registry/store";
 import type { EvmWalletRuntime } from "./wallet-runtime";
 
 const disabledExecutors: CommandExecutors = {

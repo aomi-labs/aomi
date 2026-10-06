@@ -1,18 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import {
-  useSafeConnectors,
-  useSafeRawWagmiConnections,
-  useSafeWagmiConfig,
-} from "./safe-hooks";
-import type { WalletRegistryStore } from "../../registry/store";
+import { useConfig, useConnectors } from "wagmi";
+import { useRawWagmiConnections } from "./wagmi-hooks";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
 import { useEvmProviderBrands } from "./brands";
 
 export function useWagmiRegistrySource(store: WalletRegistryStore): void {
-  const connections = useSafeRawWagmiConnections();
-  const connectors = useSafeConnectors();
-  const wagmiConfig = useSafeWagmiConfig();
+  const connections = useRawWagmiConnections();
+  const connectors = useConnectors();
+  const wagmiConfig = useConfig();
   const brandInputs = useMemo(
     () =>
       connections.flatMap((connection) =>

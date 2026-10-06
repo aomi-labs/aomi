@@ -259,7 +259,7 @@ every example. `corepack pnpm --filter @aomi-labs/example-headless-client test`
 checks OAuth grant storage and local EVM personal-message, EIP-712, and
 prepared-transaction signatures with ephemeral test keys and no RPC server.
 
-The browser wallet example in `apps/widget-consumer` covers injected EVM/SVM
+The browser wallet example in `examples/embed-vite` covers injected EVM/SVM
 wallet integration. This headless terminal adapter currently implements only
 EVM; Solana transaction and message signing through the CLI use its separate
 `--solana` / `--solana-private-key` path.

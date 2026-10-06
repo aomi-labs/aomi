@@ -8,10 +8,10 @@
  * month/app view while amounts are still integer micro-USD.
  */
 
-import type { ShellRequest } from "../../transport";
+import type { ShellRequest } from "@/account/transport";
 import { MICROUSD_PER_CREDIT } from "@aomi-labs/client";
-import { accountScopedFetch } from "../../lib/settings-api";
-import type { CreditAllowance } from "../../lib/account-overview";
+import { accountScopedFetch } from "@/account/settings-api";
+import type { CreditAllowance } from "@/account/account-overview";
 import type { AppUsageEntry, MonthlyStatement } from "./types";
 
 type AccountStatementResponse = {

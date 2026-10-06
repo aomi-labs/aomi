@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { WalletRegistryStore } from "../../registry/store";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
 import type { SafeSvmWalletState } from "./wallet-runtime";
 
 export function useSvmRegistrySource(

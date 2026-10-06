@@ -1,6 +1,6 @@
-import type { LinkedAuthAccount } from "../../../../../lib/wallet-kit/account/types";
-import type { StatusTone } from "../../../../ui/aomi/status-pill";
-import type { ManagedWallet } from "../wallet-management-model";
+import type { LinkedAuthAccount } from "@/wallet/account/types";
+import type { StatusTone } from "@/ui/aomi/status-pill";
+import type { ManagedWallet } from "@/wallet/wallet-management-model";
 
 export type LoginProvider = "para" | "privy";
 

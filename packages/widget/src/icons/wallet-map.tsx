@@ -2,7 +2,7 @@ import type { FC, SVGProps } from "react";
 import {
   canonicalWalletKey,
   normalizeWalletOptionId,
-} from "../../lib/wallet-kit/catalog/wallet-branding";
+} from "@/wallet/catalog/wallet-branding";
 import {
   BaseWalletIcon,
   CoinbaseWalletIcon,
@@ -13,7 +13,7 @@ import {
   RabbyIcon,
   RainbowIcon,
   WalletConnectIcon,
-} from "./wallets";
+} from "./wallet-icons";
 
 // Keyed by `canonicalWalletKey` output so brand matching lives in one place.
 const WALLET_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {

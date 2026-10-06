@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   authorizationChallenge,
   authorizationCommit,
@@ -9,16 +9,24 @@ import {
   type AomiAuthorizationChallenge,
   type WalletEip712Payload,
 } from "@aomi-labs/client";
-import { useOptionalAomiRuntime } from "@aomi-labs/react";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
-import { usePrivyDelegation } from "../../../../lib/wallet-kit/providers/privy/privy-delegation-context";
-import { useShellTransport } from "../../transport";
+import {
+  fetchDisplayQuery,
+  useOptionalAomiRuntime,
+  useAomiDisplayCache,
+  useDisplayQuery,
+  type DisplayCache,
+  type DisplayQuery,
+} from "@aomi-labs/react";
+import { useAomiWalletKit } from "../wallet/context";
+import { usePrivyDelegation } from "../wallet/providers/privy/privy-delegation-context";
+import { bindWalletVia } from "../wallet/wallet-bind";
+import { useShellTransport, type ShellRequest } from "./transport";
+import { accountProfileQuery } from "./account-overview";
 import {
   explainAccountError,
   fetchAccountAcl,
   revokeProviderDelegation,
 } from "./account-api";
-import { bindWalletVia } from "./wallet-bind";
 import type { DelegatedAccountView, SignerMode, WalletPolicy } from "./types";
 
 /** Run `action`, restating any failure in words the user can act on. */
@@ -49,6 +57,29 @@ export function isLoosening(from: SignerMode, to: SignerMode): boolean {
 }
 
 export type AclStatus = "loading" | "ready" | "error";
+
+/** Wallet policies, derived from the same /api/account read as the profile. */
+export function accountAclQuery(
+  request: ShellRequest,
+  cache: DisplayCache | null,
+): DisplayQuery<Awaited<ReturnType<typeof fetchAccountAcl>>> {
+  const account = cache?.scope.account;
+  const profile = accountProfileQuery(
+    request,
+    account?.kind === "user" ? account.id : undefined,
+  );
+  return {
+    resource: "account-acl",
+    fetcher: (signal) =>
+      fetchAccountAcl(
+        <T>(path: string, options?: RequestInit) =>
+          (path === "/api/account" && cache
+            ? fetchDisplayQuery(cache, profile)
+            : request(path, { ...options, signal })) as Promise<T>,
+        signal,
+      ),
+  };
+}
 
 export type UnboundWallet = {
   id: string;
@@ -100,20 +131,16 @@ export function useAccountAcl(): AccountAcl {
   const adapter = useAomiWalletKit();
   const runtime = useOptionalAomiRuntime();
   const privyDelegation = usePrivyDelegation();
-  const [wallets, setWallets] = useState<WalletPolicy[]>([]);
-  const [delegatedAccounts, setDelegatedAccounts] = useState<
-    DelegatedAccountView[]
-  >([]);
-  const [status, setStatus] = useState<AclStatus>("loading");
-  const [error, setError] = useState<string | undefined>();
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
+  const cache = useAomiDisplayCache();
+  const query = useDisplayQuery(accountAclQuery(request, cache));
+  const wallets = query.data?.wallets ?? [];
+  const delegatedAccounts = query.data?.delegatedAccounts ?? [];
+  const status: AclStatus = query.isPending
+    ? "loading"
+    : query.error
+      ? "error"
+      : "ready";
+  const error = query.error ? explainAccountError(query.error) : undefined;
   const evmAddress = adapter.identity.address;
   const svmAddress = adapter.identity.svmAddress;
   const svmCluster = adapter.identity.svmCluster;
@@ -130,23 +157,14 @@ export function useAccountAcl(): AccountAcl {
   );
 
   const refresh = useCallback(async () => {
-    try {
-      const account = await fetchAccountAcl(request);
-      if (!mounted.current) return;
-      setWallets(account.wallets);
-      setDelegatedAccounts(account.delegatedAccounts);
-      setStatus("ready");
-      setError(undefined);
-    } catch (cause) {
-      if (!mounted.current) return;
-      setStatus("error");
-      setError(explainAccountError(cause));
-    }
-  }, [request]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (cache)
+      await cache.client.invalidateQueries({
+        queryKey: cache.key("profile"),
+        exact: true,
+        refetchType: "none",
+      });
+    await query.refetch();
+  }, [cache, query.refetch]);
 
   const selectWallet = useCallback(
     (wallet: WalletPolicy) => {

@@ -1,4 +1,4 @@
-import type { WalletFamily, WalletSource } from "../types";
+import type { WalletFamily, WalletSource } from "@/wallet/types";
 
 /** Runtime id vs stable id: wagmi connector `uid` is regenerated every page load;
  * `connector.id` (e.g. hosted SDK ids, "io.metamask", "metaMaskSDK", "walletConnect") is stable

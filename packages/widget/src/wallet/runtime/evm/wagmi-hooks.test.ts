@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldProbeWalletCapabilities } from "./safe-hooks";
+import { shouldProbeWalletCapabilities } from "./wagmi-hooks";
 
 const account = "0xda65d415cc9d5ddc2a08bdffc996750755fc3cf0";
 

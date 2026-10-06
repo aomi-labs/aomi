@@ -10,7 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { erc20Abi } from "viem";
 
-import { Chat } from "./Chat";
+import { Chat } from "./chat";
 import { InjectedWallet, type InjectedProvider } from "./injected-wallet";
 
 const env = import.meta.env;

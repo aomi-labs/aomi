@@ -1,5 +1,5 @@
-import type { WalletFamily } from "../types";
-import { walletKey } from "../wallet-utils";
+import type { WalletFamily } from "@/wallet/types";
+import { walletKey } from "@/wallet/wallet-utils";
 
 const STORAGE_PREFIX = "aomi.wallet.operating.v1";
 

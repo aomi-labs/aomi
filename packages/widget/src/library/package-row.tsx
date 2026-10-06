@@ -1,6 +1,6 @@
 "use client";
 
-import { AppIdentityIcon } from "../../../icons/app-identity-icon";
+import { AppIdentityIcon } from "@/icons/app-identity-icon";
 import type { CatalogPackage } from "./packages-catalog";
 
 interface PackageIconProps {

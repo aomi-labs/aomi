@@ -1,13 +1,13 @@
-import { asNumber, asRecord, asString, statusFact } from "../../normalize";
-import { toolIdentity } from "../../identity";
-import type { ToolFact, ToolMatcher } from "../../types";
+import { asNumber, asRecord, asString, statusFact } from "@/thread/tool-interpreter/normalize";
+import { toolIdentity } from "@/thread/tool-interpreter/identity";
+import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import { svmClusterFact } from "./context";
 import {
   commitCountFact,
   commitStateFact,
   commitViews,
-} from "../general/commit-view";
-import { failedFact, operation } from "../operation";
+} from "@/thread/tool-interpreter/families/general/commit-view";
+import { failedFact, operation } from "@/thread/tool-interpreter/families/operation";
 
 const clusterFact = (value: unknown): ToolFact | null =>
   asString(value) ? svmClusterFact(value) : null;

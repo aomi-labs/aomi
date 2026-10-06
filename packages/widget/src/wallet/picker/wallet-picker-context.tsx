@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AomiWalletOption } from "../../lib/wallet-kit/types";
+import type { AomiWalletOption } from "@/wallet/types";
 
 /** Host-owned provider choices; selecting one does not grant wallet authority. */
 export const WalletSignInOptionsContext = createContext<

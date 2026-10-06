@@ -1,30 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { HeaderControls } from "../../../../shadcn-registry/src/components/account-shell/components/shell/header-controls";
+import { HeaderControls } from "@/frame/header-controls";
 
 const setActivityOpen = vi.fn();
 let activityAvailable = false;
 let activityOpen = false;
 let activityReviewing = false;
 
-vi.mock("@aomi-labs/widget-lib", () => ({
-  NetworkSelect: () => <button type="button">Network</button>,
-  useActivityPanel: () => ({
-    worthShowing: activityAvailable,
-    reviewing: activityReviewing,
-    open: activityOpen,
-    setOpen: setActivityOpen,
-  }),
-}));
-
 vi.mock(
-  "../../../../shadcn-registry/src/components/control-bar/network-select",
+  "@/controls/network-select",
   () => ({ NetworkSelect: () => <button type="button">Network</button> }),
 );
 
 vi.mock(
-  "../../../../shadcn-registry/src/components/activity-sidebar/activity-panel-context",
+  "@/sidebar/activity/activity-panel-context",
   () => ({
     useActivityPanel: () => ({
       worthShowing: activityAvailable,
@@ -36,7 +26,7 @@ vi.mock(
 );
 
 vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/lib/use-settings",
+  "@/account/use-settings",
   () => ({
     useSettings: () => ({
       settings: { colorMode: "dark" },

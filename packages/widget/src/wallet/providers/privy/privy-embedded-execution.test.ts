@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { mainnet, base } from "viem/chains";
-import { buildEvmExecutionRuntime } from "../../execution/execution-runtime";
-import type { EvmWalletRuntime } from "../../runtime/evm/wallet-runtime";
+import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
+import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import {
   parseCaip2EvmChainId,
   sendPrivyEmbeddedTransaction,

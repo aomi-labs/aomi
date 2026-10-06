@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { cn } from "@aomi-labs/react";
 
-import { AomiMark } from "@/components/aomi-mark";
+import { AomiMark } from "./aomi-mark";
 
 export type AomiLogoProps = React.ComponentProps<"span"> & {
   markClassName?: string;

@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { WalletRegistryStore } from "../../../registry/store";
-import { useEmbeddedSessionSource } from "../../sources/embedded-session-source";
-import { PARA_BRAND_KEY, PARA_SESSION_UID } from "../para-brand";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
+import { useEmbeddedSessionSource } from "@/wallet/providers/sources/embedded-session-source";
+import {
+  PARA_BRAND_KEY,
+  PARA_SESSION_UID,
+} from "@/wallet/providers/para/para-brand";
+import { parseChainId } from "@aomi-labs/client";
 
 type ParaAccountSnapshot = {
   isConnected: boolean;
@@ -31,15 +35,6 @@ type ParaEmbeddedWallet = {
   walletType?: string;
   isExternal?: boolean;
 };
-
-function normalizeChainId(value: number | string | undefined): number | null {
-  if (value === undefined) return null;
-  const chainId =
-    typeof value === "string" && /^0x/i.test(value)
-      ? Number.parseInt(value, 16)
-      : Number(value);
-  return Number.isInteger(chainId) && chainId > 0 ? chainId : null;
-}
 
 function walletType(wallet: ParaEmbeddedWallet): string {
   return (wallet.type ?? wallet.walletType ?? "").toUpperCase();
@@ -104,8 +99,9 @@ export function useParaSessionSource(
     toSolanaAddress(opts.paraAccount.external.solana?.publicKey) ??
     toSolanaAddress(opts.paraAccount.external.solana?.address);
   const chainId =
-    normalizeChainId(opts.paraAccount.external.evm?.chainId) ??
-    normalizeChainId(embeddedEvmWallet?.chainId);
+    parseChainId(opts.paraAccount.external.evm?.chainId) ??
+    parseChainId(embeddedEvmWallet?.chainId) ??
+    null;
   const snapshotKey = useMemo(
     () =>
       `${opts.paraAccount.isConnected ? "up" : "down"}:${

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AomiAccount } from "../../types";
+import type { AomiAccount } from "@/wallet/types";
 import { isParaEmbeddedAccount } from "./para-embedded-wallet";
 
 function account(overrides: Partial<AomiAccount>): AomiAccount {

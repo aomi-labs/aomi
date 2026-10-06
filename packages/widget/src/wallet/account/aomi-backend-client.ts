@@ -1,3 +1,9 @@
+import {
+  AomiClient,
+  type AomiHttpMethod,
+  type GetAccountBearer,
+  apiErrorFields,
+} from "@aomi-labs/client";
 import type { AomiAccountCredential } from "../types";
 import type { SvmCluster } from "../types";
 import type {
@@ -30,7 +36,7 @@ export type AomiBackendAccountAuth =
   | { credentials?: "include" }
   | {
       credentials: "omit";
-      getAuthorization: import("@aomi-labs/client").GetAccountBearer;
+      getAuthorization: GetAccountBearer;
     };
 
 export type AomiBackendProviderExchangeResponse = {
@@ -102,115 +108,122 @@ export function createAomiBackendAccountClient(input: {
   fetch?: typeof fetch;
   auth?: AomiBackendAccountAuth;
 }) {
-  const baseUrl = normalizeBaseUrl(input.baseUrl);
   const fetchImpl = input.fetch ?? fetch;
   const endpoints = { ...DEFAULT_ENDPOINTS, ...(input.endpoints ?? {}) };
   const auth = input.auth ?? { credentials: "include" as const };
-
-  const urlFor = (path: string) => `${baseUrl}${path}`;
-  // `request` is for endpoints that always return a JSON body; `requestVoid` is
-  // for no-content mutations. Keeping them separate lets each return an honest
-  // type instead of casting an empty response to `T`.
-  const request = <T>(path: string, init: RequestInit) =>
-    fetchJson<T>(fetchImpl, urlFor(path), init, auth);
-  const requestVoid = (path: string, init: RequestInit) =>
-    fetchVoid(fetchImpl, urlFor(path), init, auth);
+  // The client's auth layer attaches the widget token and retries a 401 once
+  // with a refreshed one.
+  const client = new AomiClient({
+    baseUrl: input.baseUrl?.replace(/\/+$/, "") ?? "",
+    guest: false,
+    fetch: (url, init) =>
+      fetchImpl(url, { ...init, credentials: auth.credentials ?? "include" }),
+    getAccountBearer:
+      auth.credentials === "omit"
+        ? Object.assign(
+            (options?: Parameters<GetAccountBearer>[0]) =>
+              auth.getAuthorization(options),
+            { required: true as const },
+          )
+        : undefined,
+  });
+  const send = async (method: AomiHttpMethod, path: string, body?: unknown) => {
+    const response = await client.requestResponse(method, path, {
+      body,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      const { code, message } = apiErrorFields(error);
+      throw new AomiAccountRequestError(
+        response.status,
+        code ?? message ?? null,
+        extractConflictSignal(error),
+      );
+    }
+    return response;
+  };
+  // Endpoints that always answer with JSON; an empty success is a broken contract.
+  const request = async <T>(
+    method: AomiHttpMethod,
+    path: string,
+    body?: unknown,
+  ) => {
+    const response = await send(method, path, body);
+    const text =
+      response.status === 204 || response.status === 205
+        ? ""
+        : await response.text();
+    if (!text.trim()) throw new Error("Account request returned no content");
+    return JSON.parse(text) as T;
+  };
+  const requestVoid = async (
+    method: AomiHttpMethod,
+    path: string,
+    body?: unknown,
+  ) => {
+    await send(method, path, body);
+  };
 
   return {
     getAccount: () =>
-      request<AomiBackendAccountResponse>(endpoints.accountPath, {
-        method: "GET",
-      }),
+      request<AomiBackendAccountResponse>("GET", endpoints.accountPath),
     updateAccount: (body: {
       displayName?: string | null;
       avatarUrl?: string | null;
     }) =>
-      request<AomiBackendAccountResponse>(endpoints.accountPath, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      request<AomiBackendAccountResponse>("PATCH", endpoints.accountPath, body),
     deleteAccount: () =>
-      request<AomiBackendDeleteAccountResponse>(endpoints.accountPath, {
-        method: "DELETE",
-      }),
-    signOut: () =>
-      requestVoid(endpoints.signOutPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      }),
+      request<AomiBackendDeleteAccountResponse>(
+        "DELETE",
+        endpoints.accountPath,
+      ),
+    signOut: () => requestVoid("POST", endpoints.signOutPath, {}),
     exchangeProviderCredential: (
       credential: AomiAccountCredential,
       options: { hasAccount: boolean },
     ) =>
       request<AomiBackendProviderExchangeResponse>(
+        "POST",
         options.hasAccount
           ? endpoints.existingSessionProviderExchangePath
           : endpoints.newSessionProviderExchangePath,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(credential),
-        },
+        credential,
       ),
-    getWalletLinkNonce: (input: { address: string; chainId: number }) => {
-      const params = new URLSearchParams({
-        address: input.address,
-        chainId: String(input.chainId),
-      });
-      return request<AomiBackendNonceResponse>(
-        `${endpoints.walletLinkPath}?${params.toString()}`,
-        { method: "GET" },
-      );
-    },
+    getWalletLinkNonce: (input: { address: string; chainId: number }) =>
+      request<AomiBackendNonceResponse>(
+        "GET",
+        `${endpoints.walletLinkPath}?${new URLSearchParams({
+          address: input.address,
+          chainId: String(input.chainId),
+        })}`,
+      ),
     linkWallet: (body: unknown) =>
-      request<AomiBackendLinkWalletResponse>(endpoints.walletLinkPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      request<AomiBackendLinkWalletResponse>(
+        "POST",
+        endpoints.walletLinkPath,
+        body,
+      ),
     updateWallet: (walletId: string, body: { label?: string | null }) =>
-      requestVoid(endpoints.walletPath(walletId), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      requestVoid("PATCH", endpoints.walletPath(walletId), body),
     updateAuthIdentity: (
       identityId: string,
       body: { displayLabel?: string | null },
-    ) =>
-      requestVoid(endpoints.identityPath(identityId), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+    ) => requestVoid("PATCH", endpoints.identityPath(identityId), body),
     unlinkWallet: (walletId: string) =>
-      requestVoid(endpoints.walletPath(walletId), { method: "DELETE" }),
+      requestVoid("DELETE", endpoints.walletPath(walletId)),
     unlinkAuthIdentity: (identityId: string) =>
-      requestVoid(endpoints.identityPath(identityId), { method: "DELETE" }),
+      requestVoid("DELETE", endpoints.identityPath(identityId)),
     createSiweNonce: () =>
-      request<AomiBackendNonceResponse>(endpoints.siweNoncePath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      }),
+      request<AomiBackendNonceResponse>("POST", endpoints.siweNoncePath, {}),
     verifySiwe: (body: { message: string; signature: string }) =>
-      requestVoid(endpoints.siweVerifyPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      requestVoid("POST", endpoints.siweVerifyPath, body),
     createSiwsNonce: (body: {
       walletAddress: string;
       chainId: SvmCluster;
       intent: "sign-in" | "link";
     }) =>
-      request<AomiBackendNonceResponse>(endpoints.siwsNoncePath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+      request<AomiBackendNonceResponse>("POST", endpoints.siwsNoncePath, body),
     verifySiws: (body: {
       message: string;
       signature: string;
@@ -218,85 +231,8 @@ export function createAomiBackendAccountClient(input: {
       chainId: SvmCluster;
       intent: "sign-in" | "link";
       label?: string;
-    }) =>
-      requestVoid(endpoints.siwsVerifyPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }),
+    }) => requestVoid("POST", endpoints.siwsVerifyPath, body),
   };
-}
-
-async function sendAccountRequest(
-  fetchImpl: typeof fetch,
-  url: string,
-  init: RequestInit,
-  auth: AomiBackendAccountAuth,
-): Promise<Response> {
-  const execute = async (forceRefresh: boolean) => {
-    const headers = new Headers(init.headers);
-    headers.set("Accept", "application/json");
-    if (auth.credentials === "omit") {
-      const authorization = await auth.getAuthorization({ forceRefresh });
-      if (!authorization)
-        throw new Error("Widget authorization is unavailable");
-      headers.set("Authorization", `Bearer ${authorization}`);
-    }
-    return fetchImpl(url, {
-      ...init,
-      credentials: auth.credentials ?? "include",
-      headers,
-    });
-  };
-  let response = await execute(false);
-  if (response.status === 401 && auth.credentials === "omit") {
-    response = await execute(true);
-  }
-  if (!response.ok) {
-    const error = await response.json().catch(() => null);
-    const code = extractErrorCode(error);
-    throw new AomiAccountRequestError(
-      response.status,
-      code,
-      extractConflictSignal(error),
-    );
-  }
-  return response;
-}
-
-async function fetchJson<T>(
-  fetchImpl: typeof fetch,
-  url: string,
-  init: RequestInit,
-  auth: AomiBackendAccountAuth,
-): Promise<T> {
-  const response = await sendAccountRequest(fetchImpl, url, init, auth);
-  // These endpoints always return a JSON body on success; an empty response is
-  // a contract violation, so surface it instead of casting `undefined` to `T`.
-  if (response.status === 204 || response.status === 205) {
-    throw new Error("Account request returned no content");
-  }
-  const body = await response.text();
-  if (!body.trim()) {
-    throw new Error("Account request returned an empty body");
-  }
-  return JSON.parse(body) as T;
-}
-
-async function fetchVoid(
-  fetchImpl: typeof fetch,
-  url: string,
-  init: RequestInit,
-  auth: AomiBackendAccountAuth,
-): Promise<void> {
-  await sendAccountRequest(fetchImpl, url, init, auth);
-}
-
-function extractErrorCode(error: unknown): string | null {
-  if (!error || typeof error !== "object") return null;
-  if ("error" in error && error.error) return String(error.error);
-  if ("message" in error && error.message) return String(error.message);
-  return null;
 }
 
 function extractConflictSignal(error: unknown): AccountConflictSignal | null {
@@ -330,8 +266,4 @@ function formatAccountRequestError(
     );
   }
   return code ?? `Request failed: ${status}`;
-}
-
-function normalizeBaseUrl(baseUrl?: string): string {
-  return baseUrl?.replace(/\/+$/, "") ?? "";
 }

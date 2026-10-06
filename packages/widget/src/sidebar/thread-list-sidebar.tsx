@@ -9,17 +9,18 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
-} from "@/components/ui/sidebar";
+} from "@/ui/sidebar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { ThreadList } from "@/components/assistant-ui/thread-list";
-import { ConnectButton } from "@/components/control-bar/connect-button";
-import { AomiLogo } from "@/components/aomi-logo";
-import { AomiMark } from "@/components/aomi-mark";
-import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
+} from "@/ui/popover";
+import { ThreadList } from "./thread-list";
+import { ConnectButton } from "@/wallet/connect-button";
+import { AomiLogo } from "@/ui/aomi-logo";
+import { AomiMark } from "@/ui/aomi-mark";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
+import { testIds } from "@/test-ids";
 
 /** One entry in the wordmark dropdown (an Aomi surface the user can switch to). */
 export type SidebarProduct = {
@@ -147,7 +148,7 @@ export function ThreadListSidebar({
   walletFamilies,
   walletConnectLabel,
   walletAccountMenu,
-  products = DEFAULT_SIDEBAR_PRODUCTS,
+  products = null,
   currentProductId = "chat",
   ...props
 }: ThreadListSidebarProps) {
@@ -156,6 +157,7 @@ export function ThreadListSidebar({
       collapsible="offcanvas"
       variant="inset"
       className="bg-aomi-surface border-aomi-border relative border-r"
+      data-testid={testIds.sidebar}
       {...props}
     >
       <SidebarHeader className="aomi-sidebar-header">

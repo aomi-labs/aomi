@@ -1,11 +1,11 @@
-import { humanize } from "../normalize";
-import { toolIdentity } from "../identity";
+import { humanize } from "@/thread/tool-interpreter/normalize";
+import { toolIdentity } from "@/thread/tool-interpreter/identity";
 import type {
   InterpretedToolStep,
   ToolFact,
   ToolOperation,
   ToolOutcome,
-} from "../types";
+} from "@/thread/tool-interpreter/types";
 import { chipForFact, uniqueChips } from "./chips";
 import { descriptorFor, iconForDescriptor } from "./descriptors";
 

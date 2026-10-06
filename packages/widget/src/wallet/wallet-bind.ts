@@ -6,7 +6,7 @@ import {
   type AuthorizationPoster,
   type WalletEip712Payload,
 } from "@aomi-labs/client";
-import { explainAccountError } from "./account-api";
+import { explainAccountError } from "@/account/account-api";
 
 export type BindWalletSigner = {
   chain: "evm" | "svm";

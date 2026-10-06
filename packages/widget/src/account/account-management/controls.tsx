@@ -9,24 +9,20 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
-import { aomiButton } from "../../../../ui/aomi/button";
-import { LoadingLine } from "../../../../ui/aomi/loading-pane";
-import { StatusPill } from "../../../../ui/aomi/status-pill";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../../../ui/popover";
-import type { LinkedAuthAccount } from "../../../../../lib/wallet-kit/account/types";
-import { shortenAddress } from "../account-api";
-import { WalletProviderAvatar } from "../wallet-brands";
-import type { ManagedWallet } from "../wallet-management-model";
+import { aomiButton } from "@/ui/aomi/button";
+import { LoadingLine } from "@/ui/aomi/loading-pane";
+import { StatusPill } from "@/ui/aomi/status-pill";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
+import type { LinkedAuthAccount } from "@/wallet/account/types";
+import { WalletProviderAvatar } from "@/wallet/wallet-brands";
+import type { ManagedWallet } from "@/wallet/wallet-management-model";
 import {
   addressLineStatus,
   familyName,
   providerName,
   type LoginProvider,
 } from "./wallet-groups";
+import { shortAddress } from "@aomi-labs/client";
 
 type WalletHandler = (wallet: ManagedWallet) => Promise<void>;
 
@@ -168,7 +164,7 @@ function AddressLine({
   onUnlink,
 }: WalletLineHandlers & { wallet: ManagedWallet; nested?: boolean }) {
   const family = familyName(wallet);
-  const short = shortenAddress(wallet.address);
+  const short = shortAddress(wallet.address);
   const title =
     wallet.walletName ??
     wallet.label ??

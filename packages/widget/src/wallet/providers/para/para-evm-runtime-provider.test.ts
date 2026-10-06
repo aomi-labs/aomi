@@ -21,11 +21,17 @@ vi.mock("./para-auth", () => ({
   useSafeParaClient: vi.fn(() => null),
 }));
 
-vi.mock("../../catalog/evm-connector-catalog", () => ({
+vi.mock("@/wallet/catalog/evm-connector-catalog", () => ({
   createAomiEvmConfig: mocks.createAomiEvmConfig,
 }));
 
 import { createAomiParaEvmConfig } from "./para-evm-runtime-provider";
+import { setParaSdk } from "./para-sdk";
+
+setParaSdk({
+  react: {} as never,
+  wagmi: await import("@getpara/wagmi-v2-connector"),
+});
 
 describe("Para EVM runtime", () => {
   beforeEach(() => {

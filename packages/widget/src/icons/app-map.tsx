@@ -1,8 +1,8 @@
-import { HooditIcon } from "./apps/hoodit";
+import { HooditIcon } from "@/icons/apps/hoodit";
 import type { FC, SVGProps } from "react";
 import { Globe2Icon } from "lucide-react";
 
-import { canonicalAppId } from "../../lib/apps/app-identity";
+import { canonicalAppId } from "@/lib/apps/app-identity";
 
 import { AutoModeIcon } from "./auto-mode";
 import {
@@ -38,8 +38,8 @@ import {
   VaultsFyiIcon,
   XIcon,
   ZeroxIcon,
-} from "./apps";
-import { SolanaIcon } from "./chains";
+} from "@/icons/apps/app-icons";
+import { SolanaIcon } from "./chain-icons";
 import {
   AaveSkillIcon,
   AcrossSkillIcon,
@@ -53,7 +53,7 @@ import {
   UniswapSkillIcon,
   YearnSkillIcon,
   ZoraSkillIcon,
-} from "./skills";
+} from "@/icons/skills/skill-icons";
 
 type AppIcon = FC<SVGProps<SVGSVGElement>>;
 

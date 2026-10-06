@@ -1,11 +1,11 @@
 "use client";
 
 import { LibraryBig, ListTree, Moon, Settings, Sun } from "lucide-react";
-import { NetworkSelect } from "../../../control-bar/network-select";
-import { useActivityPanel } from "../../../activity-sidebar/activity-panel-context";
-import { Button } from "../../../ui/button";
-import { useShellTransport } from "../../transport";
-import { useSettings } from "../../lib/use-settings";
+import { NetworkSelect } from "@/controls/network-select";
+import { useActivityPanel } from "@/sidebar/activity/activity-panel-context";
+import { Button } from "@/ui/button";
+import { useShellTransport } from "@/account/transport";
+import { useSettings } from "@/account/use-settings";
 
 /** Every header control stands 32px square so the row reads as one cluster. */
 const headerButtonClass =

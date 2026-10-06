@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, type FC } from "react";
-import { cn, formatAddress, getChainInfo } from "@aomi-labs/react";
-import { useAomiWalletKit } from "../../lib/wallet-kit";
+import { cn, getChainInfo } from "@aomi-labs/react";
+import { useAomiWalletKit } from "./context";
 import { DualWalletBar } from "./dual-wallet-bar";
-import { formatWalletProvider } from "../../lib/wallet-kit";
-import type { WalletAccountMenuOptions } from "./account-menu-types";
+import { formatWalletProvider } from "./identity";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
+import { shortAddress } from "@aomi-labs/client";
 
 export type ConnectButtonProps = {
   className?: string;
@@ -75,10 +76,9 @@ const SingleConnectButton: FC<Omit<ConnectButtonProps, "families">> = ({
     identity.sessionProvider ?? identity.embeddedProvider,
   );
   const visibleAddress = identity.address ?? identity.svmAddress;
-  const connectedPrimary =
-    formatAddress(visibleAddress) ??
-    walletProviderLabel ??
-    (identity.isConnected ? "Connected" : connectLabel);
+  const connectedPrimary = visibleAddress
+    ? shortAddress(visibleAddress)
+    : "Connect Wallet";
   const primaryLabel =
     identity.status === "disconnected" ? connectLabel : connectedPrimary;
   const secondaryLabel = identity.isConnected

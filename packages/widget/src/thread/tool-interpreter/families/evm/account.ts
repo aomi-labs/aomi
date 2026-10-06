@@ -8,10 +8,10 @@ import {
   normalizeAddress,
   statusFact,
   tokenFact,
-} from "../../normalize";
-import type { ToolMatcher } from "../../types";
-import { knownToken } from "../../token-registry";
-import { isErrorResult, operation } from "../operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { knownToken } from "@/thread/tool-interpreter/token-registry";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 export const matchNativeBalance: ToolMatcher = ({
   rawLabel,

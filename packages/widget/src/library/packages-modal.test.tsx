@@ -8,16 +8,14 @@ import {
   within,
 } from "@testing-library/react";
 
+import { inferLibraryCategory, PackagesModal } from "@/library/packages-modal";
+import { PackageIcon } from "@/library/package-row";
+import { toCatalogPackage } from "@/library/packages-catalog";
+import { useAccountOverview } from "@/account/account-overview";
 import {
-  inferLibraryCategory,
-  PackagesModal,
-} from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-modal";
-import { PackageIcon } from "../../../../shadcn-registry/src/components/account-shell/components/shell/package-row";
-import { toCatalogPackage } from "../../../../shadcn-registry/src/components/account-shell/components/shell/packages-catalog";
-import {
+  AccountOverviewFixture,
   seedAccountOverview,
-  useAccountOverview,
-} from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
+} from "@/test/account-overview-fixture";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -199,7 +197,7 @@ function installFetchRecorder(
                 .filter(
                   (candidate) =>
                     "application_id" in candidate &&
-                    installed.has(candidate.application_id),
+                    installed.has(candidate.application_id!),
                 )
                 .map((candidate) => candidate.name),
             ),
@@ -258,11 +256,15 @@ const paths = (calls: FetchCall[]) =>
   );
 
 async function renderModal() {
-  let view: ReturnType<typeof render> | undefined;
-  await act(async () => {
-    view = render(<PackagesModal onClose={() => undefined} />);
+  const view = render(<PackagesModal onClose={() => undefined} />, {
+    wrapper: AccountOverviewFixture,
   });
-  if (!view) throw new Error("Packages modal did not render");
+  await act(async () => {});
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("status", { name: "Loading library" }),
+    ).toBeNull(),
+  );
   return view;
 }
 
@@ -316,7 +318,6 @@ describe("packages modal wiring", () => {
     expect(
       screen.getByRole("button", {
         name: "Add Uniswap from catalog",
-        exact: true,
       }),
     ).toBeDisabled();
     fireEvent.click(screen.getByLabelText("Open Venue details"));
@@ -510,9 +511,9 @@ describe("packages modal wiring", () => {
 
     fireEvent.click(screen.getByText("Retry"));
     await waitFor(() => {
-      const appRequests = fetchMock.mock.calls.filter(([input]) =>
-        input.toString().startsWith("/api/account/apps"),
-      );
+      const appRequests = (
+        fetchMock.mock.calls as unknown as [RequestInfo | URL][]
+      ).filter(([input]) => input.toString().startsWith("/api/account/apps"));
       expect(appRequests).toHaveLength(2);
     });
   });
@@ -530,7 +531,9 @@ describe("packages modal wiring", () => {
 
     expect(paths(calls)).toContain("DELETE /api/account/apps/7");
     // The row flips from the server response, not optimistically.
-    expect(screen.queryByLabelText("Remove Uniswap")).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Remove Uniswap")).toBeNull(),
+    );
 
     view.unmount();
     await renderModal();
@@ -580,7 +583,7 @@ describe("packages modal wiring", () => {
       secrets: { VENUE_API_KEY: "secret-value" },
     });
     expect(screen.queryByDisplayValue("secret-value")).toBeNull();
-    expect(screen.getByLabelText("Remove Venue")).toBeTruthy();
+    expect(await screen.findByLabelText("Remove Venue")).toBeTruthy();
   });
 
   it("discards unsaved credentials when setup is cancelled", async () => {
@@ -724,7 +727,7 @@ describe("packages modal wiring", () => {
     function AccountIdentity() {
       return <span>{useAccountOverview()?.user.user_id ?? "signed-out"}</span>;
     }
-    render(<AccountIdentity />);
+    render(<AccountIdentity />, { wrapper: AccountOverviewFixture });
     expect(screen.getByText("signed-out")).toBeTruthy();
     expect(screen.queryByText("acct-1")).toBeNull();
   });
@@ -797,7 +800,10 @@ describe("packages modal wiring", () => {
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         calls.push({ input, init });
         const url = new URL(input.toString(), "https://portal.test");
-        if (url.pathname === "/api/account/apps" && !init?.method) {
+        if (
+          url.pathname === "/api/account/apps" &&
+          (init?.method ?? "GET") === "GET"
+        ) {
           return Response.json(
             CATALOG.map((app) => ({
               ...app,

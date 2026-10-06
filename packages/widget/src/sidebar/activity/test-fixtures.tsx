@@ -24,7 +24,7 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useAomiRuntime: () => runtime,
 }));
 
-vi.mock("@/components/assistant-ui/markdown-text", async () => {
+vi.mock("@/thread/markdown-text", async () => {
   const { useMessagePartText } = await vi.importActual<
     typeof import("@assistant-ui/react")
   >("@assistant-ui/react");
@@ -43,7 +43,7 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
   };
 });
 
-vi.mock("../../lib/wallet-kit", () => ({
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
     supportedChains: [
       {

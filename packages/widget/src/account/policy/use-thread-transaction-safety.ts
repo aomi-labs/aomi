@@ -5,7 +5,8 @@ import type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
-import { useShellTransport } from "../../transport";
+import { useAomiDisplayCache, useDisplayQuery } from "@aomi-labs/react";
+import { useShellTransport } from "@/account/transport";
 import {
   fetchTransactionSafety,
   onTransactionSafetyDefaultChange,
@@ -60,14 +61,38 @@ export function useThreadTransactionSafety({
   canHold?: boolean;
 }): ThreadTransactionSafety {
   const { json: request } = useShellTransport();
-  const [account, setAccount] = useState<TransactionSafetyPolicy>();
-  const [accountRequest, setAccountRequest] = useState(0);
-  const [thread, setThread] = useState<{
-    id: string;
-    policy: TransactionSafetyPolicy;
-  }>();
-  const [threadRequest, setThreadRequest] = useState(0);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const cache = useAomiDisplayCache();
+  // Levels live in the display cache, so a chat switch reads them without a
+  // request; changes are written straight into it.
+  const accountQuery = useDisplayQuery({
+    resource: "transaction-safety",
+    parameters: ["account"],
+    enabled,
+    staleTime: Infinity,
+    fetcher: () => fetchTransactionSafety(request),
+  });
+  const threadLoads = enabled && Boolean(threadId) && threadReady;
+  const threadQuery = useDisplayQuery({
+    resource: "transaction-safety",
+    parameters: ["thread", threadId],
+    enabled: threadLoads,
+    fetcher: () => fetchTransactionSafety(request, threadId),
+  });
+  const account = enabled ? accountQuery.data : undefined;
+  const storePolicy = useCallback(
+    (id: string | undefined, policy: TransactionSafetyPolicy) => {
+      // Without a runtime there is no shared cache to write; read it again.
+      if (!cache) {
+        void (id ? threadQuery : accountQuery).refetch();
+        return;
+      }
+      cache.client.setQueryData(
+        cache.key("transaction-safety", id ? ["thread", id] : ["account"]),
+        policy,
+      );
+    },
+    [cache, accountQuery, threadQuery],
+  );
   const [pending, setPending] = useState<{
     threadId: string;
     mode: TransactionSafetyMode;
@@ -80,52 +105,30 @@ export function useThreadTransactionSafety({
   const committing = useRef<Promise<boolean> | undefined>(undefined);
 
   useEffect(() => {
-    if (!enabled) {
-      setAccount(undefined);
-      return;
-    }
-    let cancelled = false;
-    void fetchTransactionSafety(request)
-      .then((policy) => {
-        if (!cancelled) setAccount(policy);
-      })
-      .catch(() => {
-        if (!cancelled) setAccount(undefined);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accountRequest, enabled, request]);
-
-  useEffect(() => {
     if (!enabled) return;
-    return onTransactionSafetyDefaultChange(setAccount);
-  }, [enabled]);
+    return onTransactionSafetyDefaultChange((policy) =>
+      storePolicy(undefined, policy),
+    );
+  }, [enabled, storePolicy]);
 
   useEffect(() => {
-    const current = ++generation.current;
+    ++generation.current;
     setBusy(false);
     setError(undefined);
-    setLoadFailed(false);
-    // Keep a level just saved for this chat (its held choice, committed before
-    // turn one) while the reload runs.
-    setThread((known) =>
-      enabled && known?.id === threadId ? known : undefined,
-    );
     setPending((held) => (held?.threadId === threadId ? held : undefined));
-    if (!enabled || !threadId || !threadReady) return;
-    void fetchTransactionSafety(request, threadId)
-      .then((policy) => {
-        if (current === generation.current) setThread({ id: threadId, policy });
-      })
-      .catch((cause: unknown) => {
-        if (current !== generation.current) return;
-        setLoadFailed(true);
-        setError(
-          safetyErrorMessage(cause, "Could not load this chat's safety level."),
-        );
-      });
-  }, [enabled, request, threadId, threadReady, threadRequest]);
+  }, [threadId]);
+
+  const thread =
+    threadId && threadQuery.data
+      ? { id: threadId, policy: threadQuery.data }
+      : undefined;
+  const loadFailed = Boolean(threadQuery.error);
+  const loadError = threadQuery.error
+    ? safetyErrorMessage(
+        threadQuery.error,
+        "Could not load this chat's safety level.",
+      )
+    : undefined;
 
   const write = useCallback(
     async (
@@ -145,7 +148,7 @@ export function useThreadTransactionSafety({
       if (current !== generation.current) return false;
       setBusy(false);
       if (saved.ok) {
-        setThread({ id, policy: saved.policy });
+        storePolicy(id, saved.policy);
         return true;
       }
       setError(
@@ -154,10 +157,10 @@ export function useThreadTransactionSafety({
           "Could not change this chat's safety level.",
         ),
       );
-      if (saved.latest) setThread({ id, policy: saved.latest });
+      if (saved.latest) storePolicy(id, saved.latest);
       return false;
     },
-    [request],
+    [request, storePolicy],
   );
 
   const select = useCallback(
@@ -240,14 +243,13 @@ export function useThreadTransactionSafety({
     return committing.current;
   }, [commitOnce]);
 
-  const refreshAccount = useCallback(
-    () => setAccountRequest((value) => value + 1),
-    [],
-  );
+  const refreshAccount = useCallback(() => {
+    void accountQuery.refetch();
+  }, [accountQuery.refetch]);
   const retry = useCallback(() => {
-    setAccountRequest((value) => value + 1);
-    setThreadRequest((value) => value + 1);
-  }, []);
+    void accountQuery.refetch();
+    if (threadLoads) void threadQuery.refetch();
+  }, [accountQuery.refetch, threadQuery.refetch, threadLoads]);
 
   const held = pending?.threadId === threadId ? pending : undefined;
   const own = thread && thread.id === threadId ? thread.policy.mode : undefined;
@@ -259,7 +261,7 @@ export function useThreadTransactionSafety({
     pending: Boolean(held),
     started: threadReady,
     busy,
-    error,
+    error: error ?? loadError,
     select,
     hasHeld,
     commitHeld,

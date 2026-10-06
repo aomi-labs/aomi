@@ -3,10 +3,11 @@
 import { createElement } from "react";
 import { AppWindow } from "lucide-react";
 import { useAuthEndpoints } from "@aomi-labs/react";
-import type { DirectRoutingApp } from "@/components/assistant-ui/routing";
-import type { AppTagRequest } from "@/components/assistant-ui/capability-composer/model";
+import type { DirectRoutingApp } from "./routing";
+import type { AppTagRequest } from "@/composer/capability-composer/model";
 import { resolveAppIdentity } from "./app-metadata";
-import { getAppIcon } from "@/components/icons/app-map";
+import { getAppIcon } from "@/icons/app-map";
+import { testIds } from "@/test-ids";
 
 /** Informational app context beside the composer's model and safety controls. */
 export function AppIndicator({
@@ -29,7 +30,7 @@ export function AppIndicator({
 
   return (
     <span
-      data-testid="composer-selected-app"
+      data-testid={testIds.composerSelectedApp}
       aria-label={`Selected app: ${identity.displayName}`}
       title={identity.displayName}
       className="text-aomi-muted inline-flex h-8 shrink-0 items-center gap-px rounded-full px-2.5 text-xs md:gap-1.5"

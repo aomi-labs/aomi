@@ -1,3 +1,4 @@
+import { shortAddress } from "@aomi-labs/client";
 import {
   amountFact,
   asRecord,
@@ -6,15 +7,15 @@ import {
   chainFactFromRecord,
   statusFact,
   tokenFact,
-} from "../normalize";
-import {
-  EVM_SELECTOR_REGISTRY,
-  SHAPE_ICONS,
-} from "@/components/assistant-ui/tool-registry";
-import type { ToolFact, ToolMatcher } from "../types";
+} from "@/thread/tool-interpreter/normalize";
+import { EVM_SELECTOR_REGISTRY, SHAPE_ICONS } from "@/thread/tool-registry";
+import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import { routeFact, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
-import { failedFact, operation } from "../families/operation";
+import {
+  failedFact,
+  operation,
+} from "@/thread/tool-interpreter/families/operation";
 
 // Keep full precision in tool data; round only the visible trace chips.
 const roundedAmount = (value: string | undefined): string | undefined => {
@@ -38,9 +39,7 @@ const roundedAmount = (value: string | undefined): string | undefined => {
 
 const requestedTokenLabel = (value: unknown): string | undefined => {
   const token = asString(value);
-  return token?.startsWith("0x")
-    ? `${token.slice(0, 6)}…${token.slice(-4)}`
-    : token;
+  return token?.startsWith("0x") ? shortAddress(token) : token;
 };
 
 const displayAmount = (value: unknown): string | undefined =>

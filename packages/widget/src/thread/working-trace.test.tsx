@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolCallMessagePart } from "@assistant-ui/react";
 import {
   AppWindowIcon,
@@ -14,8 +14,10 @@ import {
 
 import type { Event } from "@aomi-labs/client";
 import type { TaskRunState } from "@aomi-labs/react";
+import { ChatViewContext } from "../../../react/src/state/use-chat-view";
+import { createChatViewStore } from "../../../react/src/state/chat-view-store";
 
-vi.mock("@/components/assistant-ui/markdown-text", async () => {
+vi.mock("./markdown-text", async () => {
   const { useMessagePartText } = await vi.importActual<
     typeof import("@assistant-ui/react")
   >("@assistant-ui/react");
@@ -36,6 +38,29 @@ import {
 } from "./working-trace";
 import { TraceAttributionContext } from "./trace-attribution";
 import { ToolStepRow } from "./working-trace-rows";
+
+const resizeCallbacks = new Map<Element, ResizeObserverCallback>();
+beforeEach(() => {
+  resizeCallbacks.clear();
+  vi.stubGlobal("ResizeObserver", class {
+    private targets = new Set<Element>();
+    constructor(private callback: ResizeObserverCallback) {}
+    observe(target: Element) {
+      this.targets.add(target);
+      resizeCallbacks.set(target, this.callback);
+    }
+    disconnect() {
+      for (const target of this.targets) resizeCallbacks.delete(target);
+    }
+  });
+});
+afterEach(() => vi.unstubAllGlobals());
+
+function publishBodyLayout(body: HTMLElement, height: number) {
+  act(() => resizeCallbacks.get(body)?.([
+    { target: body, borderBoxSize: [{ blockSize: height, inlineSize: 320 }] } as unknown as ResizeObserverEntry,
+  ], {} as ResizeObserver));
+}
 
 const run = (steps: TaskRunState["steps"]): TaskRunState => ({
   agentId: "task-agent:9f2c1a2b3c4d",
@@ -504,6 +529,34 @@ describe("WorkingTrace", () => {
     }
   });
 
+  it("keeps the reader's reopened completed trace expanded after a chat revisit", () => {
+    vi.useFakeTimers();
+    try {
+      const store = createChatViewStore();
+      const context = { threadId: "chat-a", store };
+      const completedTrace = (
+        <ChatViewContext.Provider value={context}>
+          <WorkingTrace running={false} items={[]} revealed={0} collapseReady />
+        </ChatViewContext.Provider>
+      );
+      const first = render(completedTrace);
+      fireEvent.click(first.getByRole("button", { name: /Worked/ }));
+      expect(first.getByRole("button", { name: /Worked/ })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      first.unmount();
+      const revisited = render(completedTrace);
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(revisited.getByRole("button", { name: /Worked/ })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("follows nested subagent steps while the trace is pinned to latest", () => {
     const item = (state: TaskRunState) => ({
       kind: "agent" as const,
@@ -542,6 +595,7 @@ describe("WorkingTrace", () => {
       },
     ]);
     rerender(<WorkingTrace running items={[item(updatedRun)]} revealed={1} />);
+    publishBodyLayout(body, 640);
 
     expect(setScrollTop).toHaveBeenCalledWith(640);
     expect(viewport).toHaveAttribute("tabindex", "0");
@@ -561,6 +615,9 @@ describe("WorkingTrace", () => {
     );
     const viewport = container.querySelector<HTMLElement>(
       ".aui-working-trace-viewport",
+    )!;
+    const body = container.querySelector<HTMLElement>(
+      ".aui-working-trace-body",
     )!;
     const setScrollTop = vi.fn();
     let scrollTop = 80;
@@ -596,6 +653,7 @@ describe("WorkingTrace", () => {
         revealed={1}
       />,
     );
+    publishBodyLayout(body, 640);
     expect(setScrollTop).toHaveBeenCalledWith(640);
     expect(viewport.scrollTop).toBe(640);
     expect(container).toHaveTextContent("2 steps");
@@ -620,8 +678,62 @@ describe("WorkingTrace", () => {
         revealed={1}
       />,
     );
+    publishBodyLayout(body, 640);
     expect(setScrollTop).toHaveBeenCalledWith(640);
     expect(viewport.scrollTop).toBe(640);
+  });
+
+  it("uses natural observed layout for overflow and following without forcing a height read on each update", () => {
+    const note = (text: string) => [
+      { kind: "note" as const, key: "note", text },
+      { kind: "note" as const, key: "next", text: "Next detail" },
+    ];
+    const view = render(<WorkingTrace running items={note("Working")} revealed={1} />);
+    const viewport = view.container.querySelector<HTMLElement>(".aui-working-trace-viewport")!;
+    const body = view.container.querySelector<HTMLElement>(".aui-working-trace-body")!;
+    const heightRead = vi.fn(() => 640);
+    const scrollHeightRead = vi.fn(() => 640);
+    const writes = vi.fn();
+    let top = 0;
+    Object.defineProperties(body, { offsetHeight: { configurable: true, get: heightRead } });
+    Object.defineProperties(viewport, {
+      scrollHeight: { configurable: true, get: scrollHeightRead },
+      clientHeight: { configurable: true, get: () => 260 },
+      scrollTop: { configurable: true, get: () => top, set: (value: number) => { top = value; writes(value); } },
+    });
+    view.rerender(<WorkingTrace running items={note("More live detail")} revealed={2} />);
+    expect(heightRead).not.toHaveBeenCalled();
+    expect(scrollHeightRead).not.toHaveBeenCalled();
+    publishBodyLayout(body, 640);
+    expect(heightRead).not.toHaveBeenCalled();
+    expect(writes).toHaveBeenLastCalledWith(640);
+    expect(viewport).toHaveAttribute("tabindex", "0");
+    expect(view.container).toHaveTextContent("Show all 2 steps");
+
+    view.rerender(<WorkingTrace running={false} items={note("Finished")} revealed={2} />);
+    top = 100;
+    fireEvent.scroll(viewport);
+    writes.mockClear();
+    publishBodyLayout(body, 700);
+    expect(writes).not.toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(100);
+    fireEvent.click(view.getByRole("button", { name: /Worked/ }));
+    fireEvent.click(view.getByRole("button", { name: /Worked/ }));
+    publishBodyLayout(body, 700);
+    expect(writes).toHaveBeenLastCalledWith(640);
+    expect(heightRead).not.toHaveBeenCalled();
+
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    fireEvent.click(view.getByRole("button", { name: "Show all 2 steps" }));
+    expect(viewport.style.maxHeight).toBe("");
+    writes.mockClear();
+    publishBodyLayout(body, 800);
+    expect(writes).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Collapse to recent steps" }));
+    publishBodyLayout(body, 800);
+    expect(viewport.style.maxHeight).toBe("260px");
+    expect(writes).toHaveBeenLastCalledWith(640);
+    expect(heightRead).not.toHaveBeenCalled();
   });
 
   it("keeps a failed delegation at its transcript position after recovery", () => {

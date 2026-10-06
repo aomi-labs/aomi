@@ -1,5 +1,7 @@
 "use client";
 
+import { useWidgetStorage } from "@/lib/widget-storage";
+
 import {
   useCallback,
   useEffect,
@@ -10,21 +12,20 @@ import {
 import type { Chain, Hex } from "viem";
 import type { WalletEip712Payload } from "@aomi-labs/react";
 import { toViemSignTypedDataArgs } from "@aomi-labs/react";
-import { AomiWalletKitComposer } from "../../composer/AomiWalletKitComposer";
-import type { AuthRuntime, ExecutionRuntime } from "../../composer/types";
-import { useResolvedAccountRuntime } from "../../account/use-resolved-account-runtime";
-import { buildEvmExecutionRuntime } from "../../execution/execution-runtime";
-import { useAomiWalletNetworkPreferences } from "../../network-preferences";
-import { useEvmWalletRuntime } from "../../runtime/evm/wallet-runtime";
+import { AomiWalletKitComposer } from "@/wallet/composer/aomi-wallet-kit-composer";
+import type { AuthRuntime, ExecutionRuntime } from "@/wallet/composer/types";
+import { useResolvedAccountRuntime } from "@/wallet/account/use-resolved-account-runtime";
+import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
+import { useAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
+import { useEvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import {
   useMergedSvmWallet,
   useSafeSvmWallet,
   useSvmWalletRuntime,
   type SafeSvmWalletState,
-} from "../../runtime/svm/wallet-runtime";
-import { REGISTRY_STORAGE_KEY } from "../../registry/types";
-import type { AomiAccount, AomiAccountCredential } from "../../types";
-import type { AccountConfig, ExecutionConfig } from "../../config/types";
+} from "@/wallet/runtime/svm/wallet-runtime";
+import type { AomiAccount, AomiAccountCredential } from "@/wallet/types";
+import type { AccountConfig, ExecutionConfig } from "@/wallet/config/types";
 import {
   inferPrivyAuthMethod,
   inferPrivyPrimaryLabel,
@@ -47,7 +48,7 @@ import {
   switchPrivyEmbeddedChain,
   type PrivyEmbeddedEvmWallet,
 } from "./privy-embedded-execution";
-import { useEmbeddedSessionSource } from "../sources/embedded-session-source";
+import { useEmbeddedSessionSource } from "@/wallet/providers/sources/embedded-session-source";
 
 export type AomiPrivyPluginProviderProps = {
   children: ReactNode;
@@ -68,6 +69,7 @@ export function AomiPrivyPluginProvider({
   preferDirectSend = true,
   externalSvmWallet,
 }: AomiPrivyPluginProviderProps) {
+  const storage = useWidgetStorage();
   const privy = useSafePrivy();
   const identityToken = useSafePrivyIdentityToken();
   const { client: smartWalletClient, getClientForChain } =
@@ -92,7 +94,7 @@ export function AomiPrivyPluginProvider({
     configuredChains: supportedChains,
     selectedEvmChainId,
     setSelectedEvmChainId,
-    storageKey: REGISTRY_STORAGE_KEY,
+    storageKey: storage.key("walletRegistry"),
     providerHooks: { providerLogout: privy.logout },
   });
   const startPrivyAuthFlow = useCallback(
@@ -189,7 +191,7 @@ export function AomiPrivyPluginProvider({
       },
       logout: privy.logout,
       getCredential:
-        (identityToken || privy.getAccessToken)
+        identityToken || privy.getAccessToken
           ? async (): Promise<AomiAccountCredential | null> => {
               const signedIdentityToken = identityToken?.trim();
               if (signedIdentityToken) {

@@ -1,4 +1,4 @@
-import { walletDebug } from "../wallet-debug";
+import { walletDebug } from "@/wallet/wallet-debug";
 import { planCommands } from "./commands";
 import { loadPersisted, savePersisted } from "./persistence";
 import { createInitialState, reduce } from "./reducer";

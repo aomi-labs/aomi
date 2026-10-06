@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-} from "react";
 
-import { GeneralSettings } from "../../../shadcn-registry/src/components/account-shell/features/general/general-settings";
+import { GeneralSettings } from "@/account/general-settings";
 
 type FetchCall = {
   input: string | URL | Request;
@@ -23,7 +18,8 @@ const runtimeMock = vi.hoisted(() => ({
   creditsGet: vi.fn(),
 }));
 
-vi.mock("@aomi-labs/react", () => ({
+vi.mock("@aomi-labs/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   cn: (...classes: unknown[]) => classes.filter(Boolean).join(" "),
   getChainInfo: () => ({ ticker: "ETH" }),
   useAomiRuntime: () => ({
@@ -35,15 +31,7 @@ vi.mock("@aomi-labs/react", () => ({
   }),
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
-  Button: ({
-    children,
-    ...props
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { children?: ReactNode }) => (
-    <button {...props}>{children}</button>
-  ),
-  Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
-  formatAuthMethod: () => "Wallet",
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
     accountUser: { id: widgetMock.accountId, displayName: "Aron" },
     accountWallets: [
@@ -118,97 +106,19 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
-  useAomiWalletKit: () => ({
-    accountUser: { id: widgetMock.accountId, displayName: "Aron" },
-    accountWallets: [
-      {
-        id: "wallet-rabby",
-        family: "evm",
-        address: "0xabc",
-        label: "Rabby",
-        kind: "external",
-      },
-      {
-        id: "wallet-metamask",
-        family: "evm",
-        address: "0xdef",
-        label: "MetaMask",
-        kind: "external",
-      },
-    ],
-    accounts: [
-      {
-        id: "rabby",
-        family: "evm",
-        address: "0xabc",
-        walletName: "Rabby",
-        active: true,
-        linked: true,
-      },
-    ],
-    wallets: [
-      {
-        key: "evm:0xabc",
-        family: "evm",
-        address: "0xabc",
-        kind: "external",
-        walletName: "Rabby",
-        label: "Rabby",
-        connectionId: "rabby",
-        linkedWalletId: "wallet-rabby",
-        state: "ready",
-        connected: true,
-        linked: true,
-        operating: true,
-        actions: [],
-      },
-      {
-        key: "evm:0xdef",
-        family: "evm",
-        address: "0xdef",
-        kind: "external",
-        label: "MetaMask",
-        linkedWalletId: "wallet-metamask",
-        state: "offline",
-        reason: "disconnected",
-        connected: false,
-        linked: true,
-        operating: false,
-        actions: [],
-      },
-    ],
-    canConnect: true,
-    canOpenAccountUI: true,
-    connect: widgetMock.connect,
-    getAccountCredential: widgetMock.getAccountCredential,
-    identity: {
-      address: "0xabc",
-      authMethod: "wallet",
-      chainId: 1,
-      isConnected: true,
-      status: "connected",
-    },
-    openAccountUI: widgetMock.openAccountUI,
+vi.mock("@/account/use-account-acl", () => ({
+  useAccountAcl: () => ({
+    status: "ready",
+    wallets: [],
+    delegatedAccounts: [],
+    refresh: vi.fn(),
+    commitMode: vi.fn(),
+    revokeDelegation: vi.fn(),
+    stopAllAuto: vi.fn(),
+    renewDelegation: vi.fn(),
+    blockedReason: () => null,
   }),
 }));
-
-vi.mock(
-  "../../../shadcn-registry/src/components/account-shell/features/account/use-account-acl",
-  () => ({
-    useAccountAcl: () => ({
-      status: "ready",
-      wallets: [],
-      delegatedAccounts: [],
-      refresh: vi.fn(),
-      commitMode: vi.fn(),
-      revokeDelegation: vi.fn(),
-      stopAllAuto: vi.fn(),
-      renewDelegation: vi.fn(),
-      blockedReason: () => null,
-    }),
-  }),
-);
 
 function requestUrl(input: FetchCall["input"]): URL {
   if (input instanceof Request) return new URL(input.url);
@@ -247,6 +157,11 @@ function installFetchRecorder() {
           period_utc_month: position.period_utc_month,
           included_limit: position.included?.limit_microusd,
           included_used: position.included?.used_microusd,
+          included_remaining: position.included?.remaining_microusd,
+          balance: position.bank.balance_microusd,
+          outstanding_debt: position.bank.outstanding_debt_microusd,
+          records: position.entries,
+          next_before_id: position.next_before_id,
         });
       }
       if (url.pathname === "/api/account" && method === "GET") {

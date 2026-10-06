@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { explainAccountError } from "../account/account-api";
-import { useShellTransport } from "../../transport";
+import { useAccountCredits } from "@/account/use-account-credits";
+import { creditAllowanceFromPosition } from "@/account/account-overview";
+import { explainAccountError } from "@/account/account-api";
+import { useShellTransport } from "@/account/transport";
 import type { MonthlyStatement } from "./types";
 import {
   currentMonthKey,
-  fetchCreditAllowance,
   fetchMonthlyStatement,
   recentMonthKeys,
 } from "./statement-api";
@@ -37,7 +38,7 @@ export function useUsageStatement(monthCount = 6) {
     used: 0,
   });
   const inflight = useRef<Set<string>>(new Set());
-  const allowanceInflight = useRef(false);
+  const credits = useAccountCredits(true);
 
   const month = useMemo(() => {
     const statement = statements[selectedKey];
@@ -52,28 +53,31 @@ export function useUsageStatement(monthCount = 6) {
       : null;
   }, [creditAllowance, selectedKey, statements]);
 
-  const loadAllowance = useCallback(async () => {
-    if (allowanceInflight.current) return;
-    allowanceInflight.current = true;
-    setAllowanceStatus("loading");
-    try {
-      setCreditAllowance(await fetchCreditAllowance(request));
-      setAllowanceStatus("ready");
-      setAllowanceError(undefined);
-    } catch (cause) {
-      setAllowanceStatus("error");
-      setAllowanceError(explainAccountError(cause));
-    } finally {
-      allowanceInflight.current = false;
+  useEffect(() => {
+    if (credits.isPending) {
+      setAllowanceStatus("loading");
+      return;
     }
-  }, [request]);
+    if (credits.error) {
+      setAllowanceStatus("error");
+      setAllowanceError(explainAccountError(credits.error));
+      return;
+    }
+    setCreditAllowance(
+      creditAllowanceFromPosition(credits.data) ?? { included: 0, used: 0 },
+    );
+    setAllowanceStatus("ready");
+    setAllowanceError(undefined);
+  }, [credits.data, credits.error, credits.isPending]);
+  const loadAllowance = useCallback(async () => {
+    await credits.refetch();
+  }, [credits.refetch]);
 
   const loadStatement = useCallback(
     async (monthKey: string) => {
       if (inflight.current.has(monthKey)) return;
       inflight.current.add(monthKey);
       setStatus("loading");
-      if (monthKey === currentMonthKey()) void loadAllowance();
       try {
         const statement = await fetchMonthlyStatement(monthKey, request);
         setStatements((cache) => ({
@@ -89,7 +93,7 @@ export function useUsageStatement(monthCount = 6) {
         inflight.current.delete(monthKey);
       }
     },
-    [loadAllowance, request],
+    [request],
   );
 
   useEffect(() => {

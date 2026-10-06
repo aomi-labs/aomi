@@ -10,7 +10,8 @@ import type {
   UsagePeriod,
 } from "./types";
 import { ExternalLink, LoaderCircle } from "lucide-react";
-import { SectionHeader } from "../../../ui/aomi/section-header";
+import { SectionHeader } from "@/ui/aomi/section-header";
+import { shortAddress } from "@aomi-labs/client";
 
 /* ---------------------------------------------------------------------- */
 /* Formatting                                                              */
@@ -37,10 +38,6 @@ const MODEL_NAMES: Record<string, string> = {
 
 export function modelName(id: string): string {
   return MODEL_NAMES[id] ?? id;
-}
-
-export function truncateHex(value: string): string {
-  return value.length > 12 ? `${value.slice(0, 6)}…${value.slice(-4)}` : value;
 }
 
 const MONTHS = [
@@ -467,7 +464,7 @@ export function OutcomeTable({
               {item.chain}
             </span>
             <span className="text-aomi-accent flex items-center justify-end gap-1 font-mono text-[11px]">
-              {truncateHex(item.tx)}
+              {shortAddress(item.tx)}
               <ExternalLink size={11} />
             </span>
           </div>

@@ -11,15 +11,15 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { useControl, useThreadContext } from "@aomi-labs/react";
+import { useControl, useThreadContext, useChatView } from "@aomi-labs/react";
 import {
   normalizeAomiRouting,
   sameDirectRoutingApp,
   toAgentTarget,
   type AomiRoutingConfig,
   type DirectRoutingApp,
-} from "../routing";
-import { buildCapabilityHintPayload } from "../capability-hint-payload";
+} from "@/controls/routing";
+import { buildCapabilityHintPayload } from "@/thread/capability-hint-payload";
 import type {
   AppTagRequest,
   CapabilityMention,
@@ -72,6 +72,7 @@ export function CapabilityComposerProvider({
 }) {
   const { onAgentModeSelect, onAgentTargetSelect } = useControl();
   const threadContext = useThreadContext();
+  const view = useChatView();
   const composerRuntime = useComposerRuntime();
   const normalizedRouting = useMemo(
     () => normalizeAomiRouting(routing),
@@ -111,7 +112,10 @@ export function CapabilityComposerProvider({
     null;
   const selectedApp =
     initialAppTag ?? (policy === "direct" ? selectedDirectApp : null);
-  const [mentions, setMentions] = useState<CapabilityMention[]>([]);
+  const [mentions, setMentions] = useState<CapabilityMention[]>(
+    () =>
+      (view?.store.get(view.threadId)?.mentions ?? []) as CapabilityMention[],
+  );
 
   useEffect(
     () =>
@@ -123,9 +127,20 @@ export function CapabilityComposerProvider({
   );
   const [capabilityPickerRequest, setCapabilityPickerRequest] = useState(0);
 
+  const previousPolicy = useRef(policy);
+  const previousThread = useRef(threadContext.currentThreadId);
   useEffect(() => {
-    setMentions([]);
-  }, [policy, threadContext.currentThreadId]);
+    if (
+      previousPolicy.current !== policy ||
+      (!view && previousThread.current !== threadContext.currentThreadId)
+    )
+      setMentions([]);
+    previousThread.current = threadContext.currentThreadId;
+    previousPolicy.current = policy;
+  }, [policy, view, threadContext.currentThreadId]);
+  useEffect(() => {
+    view?.store.patch(view.threadId, { mentions });
+  }, [view, mentions]);
 
   // Offer the host's app tag once, after the mount-time mention reset above.
   const [appTagRequest, setAppTagRequest] = useState<AppTagRequest | null>(

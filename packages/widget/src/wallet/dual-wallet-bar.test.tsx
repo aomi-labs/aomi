@@ -7,13 +7,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { AomiWalletKit } from "@/lib/wallet-kit";
+import type { AomiWalletKit } from "./types";
 import { ConnectButton } from "./connect-button";
 import { DualWalletBar } from "./dual-wallet-bar";
 
 const openPicker = vi.fn();
 
-vi.mock("./wallet-picker-context", () => ({
+vi.mock("@/wallet/picker/wallet-picker-context", () => ({
   WalletPickerProvider: ({ children }: { children: React.ReactNode }) =>
     children,
   useWalletPicker: () => ({
@@ -23,12 +23,12 @@ vi.mock("./wallet-picker-context", () => ({
   }),
 }));
 
-vi.mock("./wallet-picker", () => ({
+vi.mock("@/wallet/picker/wallet-picker", () => ({
   WalletPicker: () => null,
 }));
 
-vi.mock("../../lib/wallet-kit", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../lib/wallet-kit")>();
+vi.mock("@/wallet/context", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/wallet/context")>();
   return {
     ...actual,
     useAomiWalletKit: () => adapterState.current,

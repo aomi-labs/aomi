@@ -1,3 +1,4 @@
+import { createScopedStorage } from "@aomi-labs/client";
 import {
   act,
   cleanup,
@@ -8,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransactionSafetyPolicy } from "@aomi-labs/client";
+import { WidgetStorageProvider } from "@/lib/widget-storage";
 
 const state = vi.hoisted(() => ({
   request: vi.fn(),
@@ -20,15 +22,16 @@ vi.mock("@aomi-labs/react", async (original) => ({
   ...(await original<typeof import("@aomi-labs/react")>()),
   useOptionalAomiRuntime: () => state.runtime,
 }));
-vi.mock("@/lib/wallet-kit", () => ({
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => state.walletKit,
 }));
-vi.mock("@/components/account-shell/transport", () => ({
+vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: state.request }),
 }));
 
-import { useState } from "react";
-import { saveTransactionSafety } from "@/components/account-shell/features/policy/transaction-safety-api";
+import { useState, type ReactNode } from "react";
+import { DisplayCacheProvider } from "../../../react/src/query/display-cache";
+import { saveTransactionSafety } from "@/account/policy/transaction-safety-api";
 import {
   SafetySelect,
   ThreadSafetyProvider,
@@ -75,6 +78,19 @@ function puts() {
   );
 }
 
+/** Safety levels live in the frame's display cache. */
+function Cache({ children }: { children: ReactNode }) {
+  return (
+    <DisplayCacheProvider
+      backendUrl=""
+      account={{ kind: "user", id: "acct" }}
+      persistence="none"
+    >
+      {children}
+    </DisplayCacheProvider>
+  );
+}
+
 const trigger = () => screen.findByRole("combobox", { name: /Guard policy/ });
 
 beforeEach(() => {
@@ -105,7 +121,7 @@ afterEach(cleanup);
 describe("SafetySelect", () => {
   it("shows the default, disabled, without a signed-in account", async () => {
     state.walletKit = { accountUser: undefined };
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     await act(async () => {});
     const shown = screen.getByRole("button", {
       name: "Guard policy: Balanced",
@@ -140,16 +156,16 @@ describe("SafetySelect", () => {
           ),
         ),
     );
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     expect(
       screen.getByRole("button", { name: "Guard policy: Strict" }),
     ).toHaveAttribute("aria-disabled", "true");
 
     await act(async () => pending.forEach((answer) => answer()));
     await waitFor(() =>
-      expect(
-        window.localStorage.getItem("aomi:transaction-safety-default"),
-      ).toBe("balanced"),
+      expect(createScopedStorage({ backendUrl: "" }).get("safetyDefault")).toBe(
+        "balanced",
+      ),
     );
     window.localStorage.removeItem("aomi:transaction-safety-default");
   });
@@ -166,7 +182,7 @@ describe("SafetySelect", () => {
           })
         : request(path, init),
     );
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     await act(async () => {});
 
     const loading = screen.getByRole("button", {
@@ -181,6 +197,38 @@ describe("SafetySelect", () => {
     expect(yolo.className).toContain("text-aomi-danger");
   });
 
+  it("keeps each widget instance's remembered chat level to itself", async () => {
+    state.runtime = { currentThreadId: "chat-shared", events: [{}] };
+    state.thread = policy("unrestricted", 4, "thread");
+    const first = render(
+      <WidgetStorageProvider
+        scope={{ backendUrl: "https://a.test", appId: "1" }}
+      >
+        <SafetySelect />
+      </WidgetStorageProvider>,
+    );
+    expect((await trigger()).textContent).toBe("Yolo");
+    first.unmount();
+
+    const request = state.request.getMockImplementation()!;
+    state.request.mockImplementation((path: string, init?: RequestInit) =>
+      path === "/api/thread/transaction-safety"
+        ? new Promise(() => {})
+        : request(path, init),
+    );
+    render(
+      <WidgetStorageProvider
+        scope={{ backendUrl: "https://b.test", appId: "2" }}
+      >
+        <SafetySelect />
+      </WidgetStorageProvider>,
+    );
+    await act(async () => {});
+    expect(
+      screen.getByRole("button", { name: "Guard policy: Balanced" }),
+    ).toHaveAttribute("aria-busy", "true");
+  });
+
   it("names a failed load on the trigger and retries it from the menu", async () => {
     state.thread = policy("unrestricted", 4, "thread");
     const request = state.request.getMockImplementation()!;
@@ -189,7 +237,7 @@ describe("SafetySelect", () => {
         ? Promise.reject(new Error("backend down"))
         : request(path, init),
     );
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
 
     const failed = await screen.findByRole("combobox", {
       name: "Guard policy: Unavailable",
@@ -209,7 +257,7 @@ describe("SafetySelect", () => {
   });
 
   it("lists the three levels and the account default", async () => {
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     fireEvent.click(await trigger());
 
     expect(screen.getByText("Guard policy")).toBeInTheDocument();
@@ -226,7 +274,7 @@ describe("SafetySelect", () => {
   });
 
   it("names the chat's level on the trigger, including the default", async () => {
-    const view = render(<SafetySelect />);
+    const view = render(<SafetySelect />, { wrapper: Cache });
     await waitFor(async () =>
       expect((await trigger()).textContent).toBe("Balanced"),
     );
@@ -241,7 +289,7 @@ describe("SafetySelect", () => {
 
   it("follows a new default saved from Settings", async () => {
     state.thread = policy("guarded_only", 4, "thread");
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     await waitFor(async () =>
       expect((await trigger()).textContent).toBe("Strict"),
     );
@@ -260,7 +308,7 @@ describe("SafetySelect", () => {
   });
 
   it("saves a level for the open chat with its revision", async () => {
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     fireEvent.click(await trigger());
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Strict/ }));
@@ -281,7 +329,7 @@ describe("SafetySelect", () => {
   });
 
   it("asks once, inline, before turning on Yolo", async () => {
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     fireEvent.click(await trigger());
     fireEvent.click(screen.getByRole("button", { name: /Yolo/ }));
 
@@ -307,13 +355,33 @@ describe("SafetySelect", () => {
 
   it("locks the level until the chat starts when no send path can wait", async () => {
     state.runtime = { currentThreadId: "draft", events: [] };
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     fireEvent.click(await trigger());
 
     expect(
       screen.getByText("Set after your first message"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Strict/ })).toBeDisabled();
+  });
+
+  it("reads a chat's level once, not again when switching back to it", async () => {
+    const reads = (chat: string) =>
+      state.request.mock.calls.filter(
+        ([path, init]) =>
+          path === "/api/thread/transaction-safety" &&
+          new Headers((init as RequestInit | undefined)?.headers).get(
+            "X-Thread-Id",
+          ) === chat,
+      ).length;
+    const view = render(<SafetySelect />, { wrapper: Cache });
+    await waitFor(() => expect(reads("chat-a")).toBe(1));
+    state.runtime = { currentThreadId: "chat-b", events: [{}] };
+    view.rerender(<SafetySelect />);
+    await waitFor(() => expect(reads("chat-b")).toBe(1));
+    state.runtime = { currentThreadId: "chat-a", events: [{}] };
+    view.rerender(<SafetySelect />);
+    expect((await trigger()).textContent).toBe("Balanced");
+    expect(reads("chat-a")).toBe(1);
   });
 
   it("saves a new chat's held level before its first send", async () => {
@@ -325,6 +393,7 @@ describe("SafetySelect", () => {
         <SafetySelect />
         <SendProbe />
       </ThreadSafetyProvider>,
+      { wrapper: Cache },
     );
     fireEvent.click(await trigger());
     await act(async () => {
@@ -366,6 +435,7 @@ describe("SafetySelect", () => {
         <SafetySelect />
         <SendProbe />
       </ThreadSafetyProvider>,
+      { wrapper: Cache },
     );
     fireEvent.click(await trigger());
     await act(async () => {
@@ -405,6 +475,7 @@ describe("SafetySelect", () => {
         <SafetySelect />
         <SendProbe />
       </ThreadSafetyProvider>,
+      { wrapper: Cache },
     );
     fireEvent.click(await trigger());
     await act(async () => {
@@ -425,7 +496,7 @@ describe("SafetySelect", () => {
     const listener = (event: Event) =>
       opened((event as CustomEvent<string>).detail);
     window.addEventListener("aomi:open-settings", listener);
-    render(<SafetySelect />);
+    render(<SafetySelect />, { wrapper: Cache });
     fireEvent.click(await trigger());
     fireEvent.click(screen.getByRole("button", { name: "Change" }));
     window.removeEventListener("aomi:open-settings", listener);

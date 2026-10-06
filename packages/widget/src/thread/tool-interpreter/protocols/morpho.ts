@@ -1,11 +1,11 @@
-import { declaredToolIdentity } from "../identity";
+import { declaredToolIdentity } from "@/thread/tool-interpreter/identity";
 import {
   asRecord,
   asString,
   chainFactFromRecord,
   statusFact,
-} from "../normalize";
-import type { ToolMatcher } from "../types";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { protocolOperation, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
 

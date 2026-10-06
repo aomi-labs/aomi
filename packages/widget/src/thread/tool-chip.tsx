@@ -2,7 +2,7 @@
 
 import type { FC } from "react";
 import { cn } from "@aomi-labs/react";
-import type { ToolChip } from "./tool-interpreter/types";
+import type { ToolChip } from "@/thread/tool-interpreter/types";
 
 /** Base + per-chip stagger for the left-to-right chip cascade (ms). */
 const CHIP_BASE_DELAY_MS = 15;

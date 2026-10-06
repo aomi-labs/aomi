@@ -1,34 +1,34 @@
 "use client";
 
-import { useShellTransport } from "../../transport";
+import { useShellTransport } from "@/account/transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Library } from "lucide-react";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
-import { AomiButton } from "../../../ui/aomi/button";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { useAomiWalletKit } from "@/wallet/context";
+import { AomiButton } from "@/ui/aomi/button";
 import {
   ModalNav,
   ModalNavItem,
   ModalShell,
   ModalSidebar,
-} from "../../../ui/aomi/modal-shell";
-import { SectionHeader } from "../../../ui/aomi/section-header";
-import { requestCapabilityMention } from "../../../assistant-ui/capability-composer";
+} from "@/ui/aomi/modal-shell";
+import { SectionHeader } from "@/ui/aomi/section-header";
+import { requestCapabilityMention } from "@/composer/capability-composer/model";
 import {
   useSkillCatalog,
   type SkillSummary,
-} from "../../../../lib/capabilities/skill-catalog";
+} from "@/composer/capabilities/skill-catalog";
 import {
   useAccountOverviewStore,
   useAccountOverview,
-} from "../../lib/account-overview";
+} from "@/account/account-overview";
 import { LibraryDetailPanel } from "./library-detail-panel";
 import {
   packageIdentityKey,
   PINNED_APPS,
   type CatalogPackage,
 } from "./packages-catalog";
-import { installApp, uninstallApp } from "./packages-api";
+import { installApp, uninstallApp } from "@/account/shell/packages-api";
 import { usePackageCatalog } from "./use-package-catalog";
 import {
   NAV_ITEMS,
@@ -37,11 +37,11 @@ import {
   selectionIsOfficial,
   useLibraryEntries,
   type LibraryView,
-} from "./library/model";
-import { CatalogRow } from "./library/catalog-row";
-import { SearchField, EmptyList } from "./library/navigation";
+} from "./model";
+import { CatalogRow } from "./catalog-row";
+import { SearchField, EmptyList } from "./navigation";
 
-export { inferLibraryCategory } from "./library/model";
+export { inferLibraryCategory } from "./model";
 
 interface PackagesModalProps {
   onClose: () => void;

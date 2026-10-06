@@ -5,18 +5,16 @@ import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
 import { useMemo, type FC } from "react";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
 
-import { resolveAppIdentity } from "../../lib/apps/app-identity";
-import {
-  getAppIcon,
-  getChainIcon,
-  getSkillIcon,
-  SolanaIcon,
-} from "@/components/icons";
+import { resolveAppIdentity } from "@/lib/apps/app-identity";
+import { getAppIcon } from "@/icons/app-map";
+import { getChainIcon } from "@/icons/chain-map";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
+import { SolanaIcon } from "@/icons/chain-icons";
 import {
   skillLabel,
   useSkillCatalog,
-} from "../../lib/capabilities/skill-catalog";
-import { useOptionalAomiWalletNetworkPreferences } from "../../lib/wallet-kit/network-preferences";
+} from "@/composer/capabilities/skill-catalog";
+import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 
 type CapabilityHint = {
   kind: "app" | "skill" | "chain";

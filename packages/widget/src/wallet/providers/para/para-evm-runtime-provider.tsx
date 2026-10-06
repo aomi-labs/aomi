@@ -1,15 +1,16 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { paraConnector } from "@getpara/wagmi-v2-connector";
+import type { paraConnector } from "@getpara/wagmi-v2-connector";
 import type ParaWeb from "@getpara/react-sdk";
 import type { Config } from "wagmi";
 import {
   createAomiEvmConfig,
   type ResolvedEvmWalletsConfig,
-} from "../../catalog/evm-connector-catalog";
-import { AomiEvmRuntimeProvider } from "../../runtime/evm/provider";
+} from "@/wallet/catalog/evm-connector-catalog";
+import { AomiEvmRuntimeProvider } from "@/wallet/runtime/evm/provider";
 import { useSafeParaClient } from "./para-auth";
+import { paraSdk } from "./para-sdk";
 
 type AomiConnector = NonNullable<
   ResolvedEvmWalletsConfig["connectors"]
@@ -30,7 +31,7 @@ export function createAomiParaEvmConfig(
             // Para's private fields make those otherwise-compatible SDK
             // instances nominal, so normalize both Para and Wagmi types at
             // this package boundary.
-            paraConnector({
+            paraSdk().wagmi.paraConnector({
               para: para as unknown as ConnectorPara,
               chains: [...config.chains],
               disableModal: true,

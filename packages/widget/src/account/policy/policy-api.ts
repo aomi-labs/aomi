@@ -6,7 +6,7 @@ import type {
   AomiOnchainPolicyProviderCtx,
   AomiPreparedOnchainPolicy,
 } from "@aomi-labs/client";
-import type { ShellRequest } from "../../transport";
+import type { ShellRequest } from "@/account/transport";
 
 export function fetchPolicy(
   chainRef: string,

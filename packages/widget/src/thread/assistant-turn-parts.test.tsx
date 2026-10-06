@@ -90,7 +90,7 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useThreadTaskRuns: () => ({}),
 }));
 
-vi.mock("@/components/assistant-ui/markdown-text", async () => {
+vi.mock("./markdown-text", async () => {
   const { useMessagePartText } = await vi.importActual<
     typeof import("@assistant-ui/react")
   >("@assistant-ui/react");
@@ -98,10 +98,10 @@ vi.mock("@/components/assistant-ui/markdown-text", async () => {
 });
 
 vi.mock(
-  "@/components/assistant-ui/working-trace-rows",
+  "./working-trace-rows",
   async (importOriginal) => ({
     ...(await importOriginal<
-      typeof import("@/components/assistant-ui/working-trace-rows")
+      typeof import("./working-trace-rows")
     >()),
     prefersReducedMotion: () => true,
   }),

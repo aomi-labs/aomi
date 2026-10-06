@@ -21,11 +21,14 @@ import {
   type WalletTxPayload,
 } from "@aomi-labs/client";
 
+import { useWidgetStorage } from "@/lib/widget-storage";
+import type { ScopedStorage } from "@aomi-labs/client";
 import { useAomiWalletKit } from "./context";
 import { createPublicClient, http } from "viem";
 
 export function useCommitCapabilities(): CommitCapabilities {
   const wallet = useAomiWalletKit();
+  const storage = useWidgetStorage();
   return useMemo(
     () =>
       commitCapabilities(
@@ -33,20 +36,25 @@ export function useCommitCapabilities(): CommitCapabilities {
           ...(wallet.identity.address ? { evm: evmWallet(wallet) } : {}),
           ...(wallet.identity.svmAddress ? { svm: svmWallet(wallet) } : {}),
         },
-        browserCommitRecoveryStore(),
+        browserCommitRecoveryStore(storage),
       ),
-    [wallet],
+    [wallet, storage],
   );
 }
 
-function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
+function browserCommitRecoveryStore(
+  storage: ScopedStorage,
+): CommitRecoveryStore | undefined {
   if (typeof window === "undefined") return undefined;
   const key = (threadId: string, commitId: string) =>
     `aomi:commit-recovery:${encodeURIComponent(threadId)}:${encodeURIComponent(commitId)}`;
   return {
     load(threadId, commitId) {
       try {
-        const value = window.localStorage.getItem(key(threadId, commitId));
+        const value = storage.migrate(
+          key(threadId, commitId),
+          key(threadId, commitId),
+        );
         if (!value) return undefined;
         const record = JSON.parse(value) as Partial<CommitRecoveryRecord>;
         const rejection = record.rejection;
@@ -82,13 +90,10 @@ function browserCommitRecoveryStore(): CommitRecoveryStore | undefined {
       }
     },
     save(threadId, commitId, record) {
-      window.localStorage.setItem(
-        key(threadId, commitId),
-        JSON.stringify(record),
-      );
+      storage.set(key(threadId, commitId), JSON.stringify(record));
     },
     remove(threadId, commitId) {
-      window.localStorage.removeItem(key(threadId, commitId));
+      storage.remove(key(threadId, commitId));
     },
   };
 }

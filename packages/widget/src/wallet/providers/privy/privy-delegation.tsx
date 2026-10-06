@@ -1,17 +1,16 @@
 "use client";
 
 import {
+  useContext,
+  useLayoutEffect,
   useCallback,
   useEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import {
-  useModalStatus,
-  usePrivy,
-  useSessionSigners,
-} from "@privy-io/react-auth";
+import { privySdk } from "./privy-sdk";
+import { WalletDelegationPublisherContext } from "@/wallet/providers/auth-store";
 import { PrivyDelegationContext } from "./privy-delegation-context";
 
 type EmbeddedEvmWallet = {
@@ -67,9 +66,10 @@ export function PrivyDelegationProvider({
   callbackPath?: string;
   children: ReactNode;
 }) {
-  const { authenticated, getAccessToken, login, ready, user } = usePrivy();
-  const { addSessionSigners } = useSessionSigners();
-  const { isOpen: modalOpen } = useModalStatus();
+  const { auth } = privySdk();
+  const { authenticated, getAccessToken, login, ready, user } = auth.usePrivy();
+  const { addSessionSigners } = auth.useSessionSigners();
+  const { isOpen: modalOpen } = auth.useModalStatus();
   const [pending, setPending] = useState<PendingDelegation | null>(null);
   const pendingRef = useRef<PendingDelegation | null>(null);
   const sequence = useRef(0);
@@ -235,6 +235,12 @@ export function PrivyDelegationProvider({
     );
     return () => globalThis.clearTimeout(timer);
   }, [pending, ready, settle]);
+
+  const publish = useContext(WalletDelegationPublisherContext);
+  useLayoutEffect(() => {
+    publish?.({ start });
+    return () => publish?.(null);
+  }, [publish, start]);
 
   return (
     <PrivyDelegationContext.Provider value={{ start }}>

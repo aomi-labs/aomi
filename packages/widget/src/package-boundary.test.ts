@@ -43,15 +43,14 @@ describe("published widget package boundaries", () => {
     expect(css).not.toMatch(/@(apply|source|theme)\b/);
   });
 
-  it("keeps the providerless widget graph free of provider SDKs", () => {
-    const imports = externalImports("aomi-widget.js");
-    expect([...imports].some((name) => name.startsWith("@getpara/"))).toBe(
-      false,
-    );
-    expect([...imports].some((name) => name.startsWith("@privy-io/"))).toBe(
-      false,
-    );
-  });
+  it.each(["index.js", "frame.js", "host-composition.js"])(
+    "keeps %s free of static provider SDK imports",
+    (entry) => {
+      const imports = [...externalImports(entry)];
+      expect(imports.some((name) => name.startsWith("@getpara/"))).toBe(false);
+      expect(imports.some((name) => name.startsWith("@privy-io/"))).toBe(false);
+    },
+  );
 
   it("keeps provider entrypoints isolated from each other", () => {
     const para = externalImports("providers/para.js");

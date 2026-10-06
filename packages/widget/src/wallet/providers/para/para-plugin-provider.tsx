@@ -1,30 +1,30 @@
 "use client";
 
+import { useWidgetStorage } from "@/lib/widget-storage";
+
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { type Chain } from "viem";
 import type { TOAuthMethod } from "@getpara/react-sdk";
-import { AomiWalletKitComposer } from "../../composer/AomiWalletKitComposer";
-import { useResolvedAccountRuntime } from "../../account/use-resolved-account-runtime";
+import { AomiWalletKitComposer } from "@/wallet/composer/aomi-wallet-kit-composer";
+import { useResolvedAccountRuntime } from "@/wallet/account/use-resolved-account-runtime";
 import type {
   AuthRuntime,
   ExecutionRuntime,
   SvmWalletRuntime,
-} from "../../composer/types";
-import type { AccountConfig, ExecutionConfig } from "../../config/types";
-import { useAomiWalletNetworkPreferences } from "../../network-preferences";
-import { safeEnv } from "../../env";
-import { inferAuthMethod } from "../../identity";
+} from "@/wallet/composer/types";
+import type { AccountConfig, ExecutionConfig } from "@/wallet/config/types";
+import { useAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
+import { inferAuthMethod } from "@/wallet/identity";
 import {
   useEvmWalletRuntime,
   type EvmWalletRuntimeProviderHooks,
-} from "../../runtime/evm/wallet-runtime";
-import { toSocialLoginOption } from "../../runtime/evm/brands";
-import { canonicalWalletKey } from "../../catalog/wallet-branding";
-import { DEFAULT_SVM_CLUSTER } from "../../catalog/svm-networks";
-import { REGISTRY_STORAGE_KEY } from "../../registry/types";
-import { walletDebug } from "../../wallet-debug";
-import { buildEvmExecutionRuntime } from "../../execution/execution-runtime";
-import type { AomiAccount, SvmNetworkOption } from "../../types";
+} from "@/wallet/runtime/evm/wallet-runtime";
+import { toSocialLoginOption } from "@/wallet/runtime/evm/brands";
+import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
+import { DEFAULT_SVM_CLUSTER } from "@/wallet/catalog/svm-networks";
+import { walletDebug } from "@/wallet/wallet-debug";
+import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
+import type { AomiAccount, SvmNetworkOption } from "@/wallet/types";
 import { PARA_BRAND_KEY, PARA_SESSION_UID } from "./para-brand";
 import { shouldConnectParaEvmSession } from "./para-evm-session";
 import {
@@ -32,8 +32,8 @@ import {
   useSafeSvmWallet,
   useSvmWalletRuntime,
   type SafeSvmWalletState,
-} from "../../runtime/svm/wallet-runtime";
-import { useParaSessionSource } from "./sources/para-session-source";
+} from "@/wallet/runtime/svm/wallet-runtime";
+import { useParaSessionSource } from "@/wallet/providers/para/sources/para-session-source";
 import { isParaEmbeddedAccount } from "./para-embedded-wallet";
 import {
   findParaSigningWallet,
@@ -89,6 +89,7 @@ export function AomiParaPluginProvider({
   account,
   externalSvmWallet,
 }: AomiParaPluginProviderProps) {
+  const storage = useWidgetStorage();
   const paraAccount = useSafeParaAccount();
   const paraSession = useSafeParaClient();
   const issueJwt = useMemo(
@@ -148,14 +149,8 @@ export function AomiParaPluginProvider({
   const resolvedAdapterSvmConfig = useMemo<PluginSvmRuntimeConfig>(
     () => ({
       cluster: svmConfig?.cluster ?? DEFAULT_SVM_CLUSTER,
-      rpcHttpUrl:
-        svmConfig?.rpcHttpUrl ??
-        safeEnv(() => process.env.NEXT_PUBLIC_SOLANA_RPC_URL) ??
-        DEFAULT_SVM_ENDPOINT,
-      rpcWsUrl:
-        svmConfig?.rpcWsUrl ??
-        safeEnv(() => process.env.NEXT_PUBLIC_SOLANA_RPC_WS_URL) ??
-        undefined,
+      rpcHttpUrl: svmConfig?.rpcHttpUrl ?? DEFAULT_SVM_ENDPOINT,
+      rpcWsUrl: svmConfig?.rpcWsUrl ?? undefined,
       preferDirectSend: svmConfig?.preferDirectSend ?? true,
     }),
     [svmConfig],
@@ -208,7 +203,7 @@ export function AomiParaPluginProvider({
     configuredChains,
     selectedEvmChainId,
     setSelectedEvmChainId,
-    storageKey: REGISTRY_STORAGE_KEY,
+    storageKey: storage.key("walletRegistry"),
     providerHooks,
   });
   const { connect: connectEvm, registryStore, registryState } = evmRuntime;
@@ -296,14 +291,16 @@ export function AomiParaPluginProvider({
         : [],
       canOpenModal: Boolean(paraModal),
       startFlow: startParaAuthFlow,
-      login: async (reason: string, step = "AUTH_MAIN") => {
-        registryStore.dispatch({
-          type: "user/provider-reconnect-requested",
-          now: Date.now(),
-        });
-        startParaAuthFlow(reason);
-        paraModal?.openModal({ step });
-      },
+      login: paraModal
+        ? async (reason: string, step = "AUTH_MAIN") => {
+            registryStore.dispatch({
+              type: "user/provider-reconnect-requested",
+              now: Date.now(),
+            });
+            startParaAuthFlow(reason);
+            paraModal.openModal({ step });
+          }
+        : undefined,
       openAccountUI: async (reason: string, step = "ACCOUNT_MAIN") => {
         startParaAuthFlow(reason);
         paraModal?.openModal({ step });

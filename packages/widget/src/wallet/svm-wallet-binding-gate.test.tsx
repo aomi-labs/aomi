@@ -10,22 +10,22 @@ let events: Array<{
   result: unknown;
 }> = [];
 
-vi.mock("@aomi-labs/react", () => ({
+vi.mock("@aomi-labs/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@aomi-labs/react")>()),
   useAomiRuntime: () => ({ events, sendMessage }),
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
-  Button: (props: React.ComponentProps<"button">) => <button {...props} />,
-}));
-
-vi.mock("./use-svm-wallet-binding", () => ({
-  useSvmWalletBinding: () => ({
-    bind,
-    binding: false,
-    canBind: requiresBinding,
-    requiresBinding,
+vi.mock(
+  "@/wallet/use-svm-wallet-binding",
+  () => ({
+    useSvmWalletBinding: () => ({
+      bind,
+      binding: false,
+      canBind: requiresBinding,
+      requiresBinding,
+    }),
   }),
-}));
+);
 
 import { SvmWalletBindingGate } from "./svm-wallet-binding-gate";
 

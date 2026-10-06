@@ -1,5 +1,5 @@
-import { asRecord, asInteger, asString, statusFact } from "../../normalize";
-import type { ToolFact, ToolMatcher, ToolOperation } from "../../types";
+import { asRecord, asInteger, asString, statusFact } from "@/thread/tool-interpreter/normalize";
+import type { ToolFact, ToolMatcher, ToolOperation } from "@/thread/tool-interpreter/types";
 
 /**
  * The orchestrator's `task` tool — one delegation to a child agent.

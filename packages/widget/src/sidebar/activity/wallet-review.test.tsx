@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testIds } from "@/test-ids";
 import {
   CommitController,
   type CommitView,
@@ -179,7 +180,7 @@ describe("WalletReview", () => {
     expect(screen.getAllByTestId("asset-effect")[1]).toHaveTextContent(
       "+100.000118",
     );
-    expect(screen.getAllByTestId("transaction-review")).toHaveLength(1);
+    expect(screen.getAllByTestId(testIds.txReview)).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Submit 1 of 2" }));
     await waitFor(() => expect(execute).toHaveBeenCalledWith("commit-1"));
     expect(runtime.executeAction).not.toHaveBeenCalled();
@@ -430,7 +431,7 @@ describe("WalletReview", () => {
     );
     expect(screen.getByRole("alert")).not.toHaveTextContent("0xtransaction");
     for (const button of within(
-      screen.getByTestId("transaction-review"),
+      screen.getByTestId(testIds.txReview),
     ).getAllByRole("button"))
       expect(button).toBeDisabled();
     await mismatchController.execute(mismatched.commit_id);
@@ -549,8 +550,8 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+    expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
       "devnet",
     );
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
@@ -613,7 +614,7 @@ describe("WalletReview", () => {
 
     render(<ActivitySidebar />);
 
-    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
+    expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
       expect(walletBroadcast).toHaveBeenCalledWith(
@@ -649,7 +650,7 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(runtime.executeAction).not.toHaveBeenCalled();
-    expect(screen.getByTestId("transaction-review")).toBeInTheDocument();
+    expect(screen.getByTestId(testIds.txReview)).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() =>
@@ -790,10 +791,10 @@ describe("WalletReview", () => {
     render(<ActivitySidebar />);
 
     expect(screen.queryByTestId("action-simulation")).not.toBeInTheDocument();
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
       "Estimated gas · 21,000 units",
     );
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
       "−0.000000000000000001 ETH",
     );
     expect(
@@ -1455,7 +1456,7 @@ describe("ordered batch submission", () => {
     runtime.commits = [];
     rerender(<WalletReview />);
     await waitFor(() =>
-      expect(screen.queryByTestId("transaction-review")).toBeNull(),
+      expect(screen.queryByTestId(testIds.txReview)).toBeNull(),
     );
 
     runtime.commits = [commit(0, "confirmed"), remaining];

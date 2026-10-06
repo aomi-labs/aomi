@@ -1,6 +1,6 @@
-import { formatWalletProvider } from "../../lib/wallet-kit";
-import type { WalletFamily } from "../../lib/wallet-kit/types";
-import type { WalletRow } from "../../lib/wallet-kit/composer/wallet-state";
+import { formatWalletProvider } from "@/wallet/identity";
+import type { WalletFamily } from "@/wallet/types";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 export type WalletModalRow = WalletRow;
 

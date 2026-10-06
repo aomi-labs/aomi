@@ -1,5 +1,8 @@
 "use client";
 
+import { useWidgetStorage } from "@/lib/widget-storage";
+import type { ScopedStorage } from "@aomi-labs/client";
+
 import {
   createContext,
   useContext,
@@ -11,25 +14,25 @@ import {
 import { TriangleAlert } from "lucide-react";
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { TransactionSafetyMode } from "@aomi-labs/client";
-import { Button } from "@/components/ui/button";
-import { AomiButton } from "@/components/ui/aomi/button";
+import { Button } from "@/ui/button";
+import { AomiButton } from "@/ui/aomi/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { useAomiWalletKit } from "../../lib/wallet-kit";
+} from "@/ui/popover";
+import { useAomiWalletKit } from "@/wallet/context";
 import {
   TRANSACTION_SAFETY_LEVELS,
   YOLO_CONFIRM_BODY,
   YOLO_CONFIRM_TITLE,
   transactionSafetyLevel,
-} from "@/components/account-shell/features/policy/transaction-safety-levels";
+} from "@/account/policy/transaction-safety-levels";
 import {
   useThreadTransactionSafety,
   type ThreadTransactionSafety,
-} from "@/components/account-shell/features/policy/use-thread-transaction-safety";
-import { requestSettingsOpen } from "@/components/account-shell/lib/settings-events";
+} from "@/account/policy/use-thread-transaction-safety";
+import { requestSettingsOpen } from "@/account/settings-events";
 import {
   ControlMenuCheck,
   ControlMenuTitle,
@@ -86,9 +89,9 @@ const DEFAULT_KEY = "aomi:transaction-safety-default";
 
 /** The last account default this browser saw, so the trigger can render with
  * the model selector instead of popping in once the account request lands. */
-function rememberedDefault(): TransactionSafetyMode {
+function rememberedDefault(storage: ScopedStorage): TransactionSafetyMode {
   try {
-    const stored = window.localStorage.getItem(DEFAULT_KEY);
+    const stored = storage.migrate("safetyDefault", DEFAULT_KEY);
     if (TRANSACTION_SAFETY_LEVELS.some((level) => level.id === stored))
       return stored as TransactionSafetyMode;
   } catch {
@@ -97,12 +100,23 @@ function rememberedDefault(): TransactionSafetyMode {
   return "balanced";
 }
 
-/** Each chat's last loaded level this session, shown while it reloads. */
-const lastThreadMode = new Map<string, TransactionSafetyMode>();
+/**
+ * Each chat's last loaded level, shown while it reloads. Keyed by the widget
+ * instance's storage so two widgets on one page never share it.
+ */
+const lastThreadModes = new WeakMap<
+  ScopedStorage,
+  Map<string, TransactionSafetyMode>
+>();
+function lastThreadModesFor(storage: ScopedStorage) {
+  let modes = lastThreadModes.get(storage);
+  if (!modes) lastThreadModes.set(storage, (modes = new Map()));
+  return modes;
+}
 
-function rememberDefault(mode: TransactionSafetyMode) {
+function rememberDefault(storage: ScopedStorage, mode: TransactionSafetyMode) {
   try {
-    window.localStorage.setItem(DEFAULT_KEY, mode);
+    storage.set("safetyDefault", mode);
   } catch {
     /* Only a first-paint hint; nothing to recover. */
   }
@@ -118,6 +132,7 @@ function rememberDefault(mode: TransactionSafetyMode) {
  * locks until the chat has started.
  */
 export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
+  const storage = useWidgetStorage();
   const shared = useThreadSafety();
   const local = useChatSafety(!shared, false);
   const safety = shared ?? local;
@@ -127,10 +142,11 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
   const threadId = useOptionalAomiRuntime()?.currentThreadId;
   const accountMode = safety.account?.mode;
   useEffect(() => {
-    if (accountMode) rememberDefault(accountMode);
+    if (accountMode) rememberDefault(storage, accountMode);
   }, [accountMode]);
 
   const signedIn = Boolean(walletKit.accountUser) && !walletKit.accountGuest;
+  const lastThreadMode = lastThreadModesFor(storage);
   if (threadId && safety.started && safety.mode)
     lastThreadMode.set(threadId, safety.mode);
 
@@ -138,7 +154,7 @@ export const SafetySelect: FC<SafetySelectProps> = ({ className }) => {
     const level = transactionSafetyLevel(
       (threadId && lastThreadMode.get(threadId)) ||
         safety.account?.mode ||
-        rememberedDefault(),
+        rememberedDefault(storage),
     );
     return (
       <Button

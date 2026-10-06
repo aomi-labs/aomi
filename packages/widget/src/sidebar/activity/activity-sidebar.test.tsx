@@ -6,12 +6,13 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testIds } from "@/test-ids";
 import type { CommitView, Event } from "@aomi-labs/client";
 import { action, runtime, simulation } from "./test-fixtures";
 import { ActivitySidebar } from "./activity-sidebar";
-import { TraceAttributionContext } from "../assistant-ui/trace-attribution";
-import { ToolStepRow } from "../assistant-ui/working-trace-rows";
-import { interpretToolStep } from "../assistant-ui/tool-interpreter";
+import { TraceAttributionContext } from "@/thread/trace-attribution";
+import { ToolStepRow } from "@/thread/working-trace-rows";
+import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 
 describe("activity signing strip", () => {
   it("keeps Signed neutral until signing and puts rejection in the strip", () => {
@@ -51,7 +52,7 @@ describe("activity signing strip", () => {
     expect(screen.getByTestId("activity-transaction")).not.toHaveTextContent(
       "rejected",
     );
-    expect(screen.queryByTestId("transaction-review")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(testIds.txReview)).not.toBeInTheDocument();
   });
   it("colors Signed blue when the wallet returns a submitted leg", () => {
     const current = action({
@@ -683,7 +684,7 @@ describe("unified live transaction review", () => {
       second,
     ];
     rerender(<ActivitySidebar />);
-    expect(screen.getByTestId("transaction-review")).toHaveAttribute(
+    expect(screen.getByTestId(testIds.txReview)).toHaveAttribute(
       "data-action-id",
       "second",
     );
@@ -733,7 +734,7 @@ describe("unified live transaction review", () => {
       screen.getByRole("heading", { name: "Transactions" }).nextElementSibling,
     ).toHaveTextContent("1");
     expect(screen.getByText("Send past")).toBeInTheDocument();
-    expect(screen.queryByTestId("transaction-review")).not.toBeInTheDocument();
+    expect(screen.queryByTestId(testIds.txReview)).not.toBeInTheDocument();
   });
   it("orders mixed transaction history newest first without duplicates", () => {
     const older = {
@@ -992,7 +993,7 @@ describe("phone-width activity sheet", () => {
     render(<ActivitySidebar />);
     const sheet = screen.getByRole("dialog", { name: "Review transaction" });
     expect(sheet).toContainElement(screen.getByTestId("activity-transaction"));
-    expect(sheet).toContainElement(screen.getByTestId("transaction-review"));
+    expect(sheet).toContainElement(screen.getByTestId(testIds.txReview));
     expect(screen.getByTitle("Not yet signed")).toBeInTheDocument();
     expect(screen.getByText("Simulation passed")).toBeInTheDocument();
     expect(

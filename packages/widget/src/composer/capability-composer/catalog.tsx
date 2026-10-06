@@ -2,20 +2,18 @@
 import { useMemo } from "react";
 import { AppWindowIcon, Globe2Icon, WandSparklesIcon } from "lucide-react";
 import { SUPPORTED_CHAINS, getChainInfo, useControl } from "@aomi-labs/react";
-import { resolveAppIdentity } from "../../../lib/apps/app-identity";
-import { evmNetworkDescription } from "@/components/control-bar/network-metadata";
-import {
-  getAppIcon,
-  getChainIcon,
-  getSkillIcon,
-  SolanaIcon,
-} from "@/components/icons";
-import { useOptionalAomiWalletNetworkPreferences } from "../../../lib/wallet-kit/network-preferences";
+import { resolveAppIdentity } from "@/lib/apps/app-identity";
+import { evmNetworkDescription } from "@/controls/network-metadata";
+import { getAppIcon } from "@/icons/app-map";
+import { getChainIcon } from "@/icons/chain-map";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
+import { SolanaIcon } from "@/icons/chain-icons";
+import { useOptionalAomiWalletNetworkPreferences } from "@/wallet/network-preferences";
 import {
   conciseSkillDescription,
   skillLabel,
   useSkillCatalog,
-} from "../../../lib/capabilities/skill-catalog";
+} from "@/composer/capabilities/skill-catalog";
 import { useCapabilityComposer } from "./provider";
 import type { PickerItem } from "./model";
 

@@ -1,8 +1,8 @@
 import { coreToolTitle, declaredToolIdentity } from "./identity";
-import { coreMatchersFor } from "./families";
-import { matchError } from "./families/general/errors";
-import { presentOperation } from "./present";
-import { protocolMatcherFor } from "./protocols";
+import { coreMatchersFor } from "@/thread/tool-interpreter/families/core-matchers";
+import { matchError } from "@/thread/tool-interpreter/families/general/errors";
+import { presentOperation } from "@/thread/tool-interpreter/present/present-operation";
+import { protocolMatcherFor } from "@/thread/tool-interpreter/protocols/protocol-matchers";
 import type {
   InterpretedToolStep,
   ToolConfidence,

@@ -6,7 +6,7 @@ import {
   resolveAppIdentity,
   type AppCategoryInfo,
   type AppInfo,
-} from "../../lib/apps/app-identity";
+} from "@/lib/apps/app-identity";
 
 export {
   APP_CATEGORIES,
@@ -15,7 +15,7 @@ export {
   resolveAppIdentity,
   type AppCategoryInfo,
   type AppInfo,
-} from "../../lib/apps/app-identity";
+} from "@/lib/apps/app-identity";
 
 export type AppGroup = {
   category: AppCategoryInfo;

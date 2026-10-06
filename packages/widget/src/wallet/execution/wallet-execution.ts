@@ -12,7 +12,7 @@ import {
   executeWalletCalls,
   toAAWalletCalls,
 } from "@aomi-labs/react";
-import type { AomiTxResult } from "../types";
+import type { AomiTxResult } from "@/wallet/types";
 
 export type RequestedAAMode = "none" | "4337" | "7702";
 export type WalletExecutionCallList = Parameters<

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  modeHintFor,
-  signingChoicesFor,
-} from "../../../../shadcn-registry/src/components/account-shell/features/account/account-reconcile";
-import { normalizeSignerMode } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-api";
-import type { WalletPolicy } from "../../../../shadcn-registry/src/components/account-shell/features/account/types";
+import { modeHintFor, signingChoicesFor } from "@/account/account-reconcile";
+import { normalizeSignerMode } from "@/account/account-api";
+import type { WalletPolicy } from "@/account/types";
 
 function wallet(overrides: Partial<WalletPolicy>): WalletPolicy {
   return {

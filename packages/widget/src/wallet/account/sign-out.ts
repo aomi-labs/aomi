@@ -1,7 +1,7 @@
 import type { AomiWalletKit } from "../types";
 
 /**
- * Canonical sign-out for wallet chrome (WalletPicker, DualWalletBar).
+ * The one sign-out for wallet chrome (WalletPicker, DualWalletBar).
  *
  * The account runtime owns account-vs-widget teardown ordering (it revokes the
  * backend account before the widget session). Here we only ensure the wallet

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AomiCreditApiError } from "@aomi-labs/client";
+import { AomiCreditApiError, createScopedStorage } from "@aomi-labs/client";
 
 const mocks = vi.hoisted(() => ({
   connected: true,
@@ -9,13 +9,24 @@ const mocks = vi.hoisted(() => ({
     topUp: vi.fn(),
   },
 }));
+const runtime = vi.hoisted(() => ({
+  account: { credits: mocks.accountCredits },
+}));
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
-  useAomiRuntime: () => ({ account: { credits: mocks.accountCredits } }),
+  useAomiRuntime: () => runtime,
+  useOptionalAomiRuntime: () => runtime,
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+// Credits are read through the shell transport's client.
+vi.mock("@/account/transport", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/account/transport")>();
+  const transport = actual.createShellTransport();
+  return { ...actual, useShellTransport: () => ({ ...transport, client: runtime }) };
+});
+
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
     identity: {
       isConnected: mocks.connected,
@@ -28,20 +39,7 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   }),
 }));
 
-vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
-  useAomiWalletKit: () => ({
-    identity: {
-      isConnected: mocks.connected,
-      address: "0x0000000000000000000000000000000000000001",
-      chainId: 84532,
-    },
-    accountUser: { id: "user-1" },
-    signTypedData: vi.fn(),
-    switchChain: vi.fn(),
-  }),
-}));
-
-import { CreditBank } from "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank";
+import { CreditBank } from "@/account/usage/credit-bank/credit-bank";
 
 function position(
   entries: Array<{
@@ -80,6 +78,7 @@ describe("Credit Bank", () => {
     mocks.accountCredits.topUp.mockReset();
     mocks.accountCredits.get.mockImplementation(async () => {
       const response = await fetch(`/v1/account/credits?limit=25`);
+      if (!response.ok) throw new Error(await response.text());
       return response.json();
     });
   });
@@ -150,7 +149,7 @@ describe("Credit Bank", () => {
     view.unmount();
     render(<CreditBank />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(screen.getByText("Unavailable")).toBeTruthy();
+    expect(await screen.findByText("Unavailable")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Credit bank/ }));
     expect(await screen.findByText(/account unavailable/)).toBeTruthy();
   });
@@ -248,9 +247,9 @@ describe("Credit Bank", () => {
       await screen.findByText("Failed to top up account credits: HTTP 502"),
     ).toBeTruthy();
     expect(screen.getByText("Confirming previous payment")).toBeTruthy();
-    expect(window.localStorage.getItem("aomi_credit_topup:user-1")).toContain(
-      "idempotencyKey",
-    );
+    expect(
+      createScopedStorage({ backendUrl: "" }).get("aomi_credit_topup:user-1"),
+    ).toContain("idempotencyKey");
     expect(screen.queryByText(/Confirm the top-up again/)).toBeNull();
   });
 });

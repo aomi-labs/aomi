@@ -1,6 +1,6 @@
-import { asRecord, asString, statusFact } from "../../normalize";
-import type { ToolMatcher } from "../../types";
-import { isErrorResult, operation } from "../operation";
+import { asRecord, asString, statusFact } from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 export const matchError: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { registerWalletBrand } from "../../catalog/wallet-branding";
+import { registerWalletBrand } from "@/wallet/catalog/wallet-branding";
 
 /**
  * Canonical brand key for Para-backed wallets. Registering it here keeps the

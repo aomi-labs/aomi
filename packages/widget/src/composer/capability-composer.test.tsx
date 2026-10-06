@@ -1,12 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  clearEmptyEditorStructure,
-  SupportedChainStack,
-  matchCapabilityMentionTrigger,
-  removeCapabilityMentionBeforeCaret,
-  textFromEditor,
-} from "./capability-composer";
+import { clearEmptyEditorStructure, matchCapabilityMentionTrigger, removeCapabilityMentionBeforeCaret, textFromEditor } from "@/composer/capability-composer/editor-dom";
+import { SupportedChainStack } from "@/composer/capability-composer/picker";
 
 afterEach(cleanup);
 

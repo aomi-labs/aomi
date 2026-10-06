@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { testIds } from "@/test-ids";
 import type { AomiAppDescriptor } from "@aomi-labs/client";
 import { AppIndicator } from "./app-indicator";
 
@@ -14,7 +15,7 @@ afterEach(() => {
 describe("composer app indicator", () => {
   it("leaves Auto without app context unchanged", () => {
     render(<AppIndicator />);
-    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
   });
   it("shows only a known logo and name before the catalog loads", () => {
     render(<AppIndicator app={{ app: "hoodit", applicationId: 2937810 }} />);
@@ -57,7 +58,7 @@ describe("composer app indicator", () => {
 
 it("waits for a configured name when only an application id is known", () => {
   const view = render(<AppIndicator app={{ applicationId: 42 }} />);
-  expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
   fixture.apps = [
     { name: "research", applicationId: 42, label: "Research App" },
   ];
@@ -65,5 +66,5 @@ it("waits for a configured name when only an application id is known", () => {
   expect(screen.getByLabelText("Selected app: Research App")).toBeVisible();
   fixture.apps = [];
   view.rerender(<AppIndicator app={{ applicationId: 42 }} />);
-  expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+  expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
 });

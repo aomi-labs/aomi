@@ -1,6 +1,6 @@
 import type { PersistedRegistryV1, WalletRegistryState } from "./types";
 import { REGISTRY_STORAGE_KEY } from "./types";
-import { toRegistryFamily } from "../wallet-utils";
+import { toRegistryFamily } from "@/wallet/wallet-utils";
 
 // Frozen legacy localStorage identifiers from pre-registry builds. The key
 // string and the `paraDetached` field (read below) name Para only for
@@ -58,8 +58,7 @@ function normalizePersisted(value: PersistedRegistryV1): PersistedRegistryV1 {
             };
           })
       : [],
-    providerSessionDetached:
-      value.providerSessionDetached ?? false,
+    providerSessionDetached: value.providerSessionDetached ?? false,
   };
 }
 
@@ -120,7 +119,14 @@ export function loadPersisted(
   options: LoadPersistedOptions = {},
 ): PersistedRegistryV1 | null {
   try {
-    const raw = readStorage(storageKey);
+    let raw = readStorage(storageKey);
+    if (!raw && storageKey.startsWith("aomi:v2:")) {
+      raw = readStorage(REGISTRY_STORAGE_KEY);
+      if (raw) {
+        writeStorage(storageKey, raw);
+        removeStorage(REGISTRY_STORAGE_KEY);
+      }
+    }
     if (!raw) return migrateLegacyKeys(storageKey, options);
     const parsed: unknown = JSON.parse(raw);
     return isPersistedRegistryV1(parsed) ? normalizePersisted(parsed) : null;
@@ -153,7 +159,8 @@ export function toPersisted(state: WalletRegistryState): PersistedRegistryV1 {
     order: state.connectionOrder.map((item) => ({
       family: item.family,
       stableId: item.stableId,
-      address: item.family === "evm" ? item.address.toLowerCase() : item.address,
+      address:
+        item.family === "evm" ? item.address.toLowerCase() : item.address,
     })),
     droppedAddresses: state.intents.droppedAddresses.map((item) =>
       item.toLowerCase(),

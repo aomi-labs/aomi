@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AomiWalletKitProviderInput } from "../config/types";
+import type { AomiWalletKitProviderInput } from "@/wallet/config/types";
 import {
   detectProviderSugar,
   getWalletProvider,

@@ -2,16 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Connector } from "wagmi";
-import type { AomiWalletOption } from "../../types";
+import type { AomiWalletOption } from "@/wallet/types";
 import {
   canonicalWalletKey,
   normalizeWalletOptionId,
-} from "../../catalog/wallet-branding";
+} from "@/wallet/catalog/wallet-branding";
 
 export {
   canonicalWalletKey,
   normalizeWalletOptionId,
-} from "../../catalog/wallet-branding";
+} from "@/wallet/catalog/wallet-branding";
 
 /**
  * Wallet branding and detection shared by wallet kit providers and the picker UI.

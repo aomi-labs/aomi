@@ -1,6 +1,6 @@
 "use client";
 
-import { type FC, useEffect, useRef, useState } from "react";
+import { type FC, memo, useEffect, useRef } from "react";
 import { TextMessagePartProvider } from "@assistant-ui/react";
 import {
   BanIcon,
@@ -10,10 +10,11 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { cn } from "@aomi-labs/react";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
-import type { InterpretedToolStep } from "@/components/assistant-ui/tool-interpreter";
+import { cn, useChatViewFlag } from "@aomi-labs/react";
+import { MarkdownText } from "./markdown-text";
+import type { InterpretedToolStep } from "@/thread/tool-interpreter/interpret";
 import { ToolChipView } from "./tool-chip";
+import { testIds } from "@/test-ids";
 
 export { ToolChipView } from "./tool-chip";
 
@@ -54,6 +55,7 @@ const MAX_VISIBLE_CHIPS = 4;
  * `active` is the single live signal — the title shimmers while it is set.
  */
 export const ToolStepRow: FC<{
+  viewKey?: string;
   interpretation: InterpretedToolStep;
   argsText?: string;
   detailText?: string;
@@ -63,6 +65,7 @@ export const ToolStepRow: FC<{
   animateUpdates?: boolean;
   className?: string;
 }> = ({
+  viewKey,
   interpretation,
   argsText,
   detailText,
@@ -72,7 +75,10 @@ export const ToolStepRow: FC<{
   animateUpdates = false,
   className,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useChatViewFlag(
+    `step:${viewKey ?? interpretation.title + (argsText ?? "")}`,
+    false,
+  );
   const hasDetail = detailText !== undefined || argsText !== undefined;
   const Icon = interpretation.icon;
   const outcome =
@@ -115,6 +121,7 @@ export const ToolStepRow: FC<{
         type="button"
         disabled={!hasDetail}
         onClick={() => setOpen((o) => !o)}
+        data-testid={testIds.traceStep}
         className="aui-working-step-header group/step flex w-full items-center gap-2.5 py-1 text-left disabled:cursor-default"
       >
         <span className="relative flex size-4 shrink-0 items-center justify-center">
@@ -193,29 +200,39 @@ export const WorkingNote: FC<{
   text: string;
   animate: boolean;
   active?: boolean;
-}> = ({ text, animate, active = false }) => (
-  <div
-    className={cn(
-      "aui-working-note flex items-start gap-2 py-1",
-      animate &&
-        "animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none",
-    )}
-  >
-    <span
-      className="relative flex h-[19px] w-4 shrink-0 items-center justify-center"
-      aria-hidden="true"
-    >
-      <span className="bg-aomi-muted/60 size-1 rounded-full" />
-    </span>
+}> = memo(function WorkingNote({
+  text,
+  animate,
+  active = false,
+}: {
+  text: string;
+  animate: boolean;
+  active?: boolean;
+}) {
+  return (
     <div
       className={cn(
-        "min-w-0 flex-1 text-[12px] leading-5 [&_p+p]:mt-2 [&_p]:my-0",
-        active ? "aui-working-shimmer font-medium" : "text-aomi-muted",
+        "aui-working-note flex items-start gap-2 py-1",
+        animate &&
+          "animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none",
       )}
     >
-      <TextMessagePartProvider text={text}>
-        <MarkdownText />
-      </TextMessagePartProvider>
+      <span
+        className="relative flex h-[19px] w-4 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <span className="bg-aomi-muted/60 size-1 rounded-full" />
+      </span>
+      <div
+        className={cn(
+          "min-w-0 flex-1 text-[12px] leading-5 [&_p+p]:mt-2 [&_p]:my-0",
+          active ? "aui-working-shimmer font-medium" : "text-aomi-muted",
+        )}
+      >
+        <TextMessagePartProvider text={text}>
+          <MarkdownText />
+        </TextMessagePartProvider>
+      </div>
     </div>
-  </div>
-);
+  );
+});

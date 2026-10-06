@@ -1,10 +1,10 @@
 import { AppWindowIcon, PuzzleIcon } from "lucide-react";
 import type { AomiAppDescriptor } from "@aomi-labs/client";
-import { getAppIcon } from "@/components/icons/app-map";
-import { getSkillIcon } from "@/components/icons/skills";
-import { resolveAppIdentity } from "../../../lib/apps/app-identity";
-import { skillLabel } from "../../../lib/capabilities/skill-label";
-import type { SkillSummary } from "../../../lib/capabilities/skill-catalog";
+import { getAppIcon } from "@/icons/app-map";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
+import { resolveAppIdentity } from "@/lib/apps/app-identity";
+import { skillLabel } from "@/composer/capabilities/skill-label";
+import type { SkillSummary } from "@/composer/capabilities/skill-catalog";
 import type { InterpretedToolStep, ToolChip, ToolContext } from "./types";
 
 export type TraceAttribution = {

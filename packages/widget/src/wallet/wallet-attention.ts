@@ -1,4 +1,4 @@
-import type { WalletPolicy } from "./types";
+import type { WalletPolicy } from "@/account/types";
 
 /** Wallets set to auto-signing whose delegated account is missing or expired. */
 export function countDriftedWallets(wallets: WalletPolicy[]): number {

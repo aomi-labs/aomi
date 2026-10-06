@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAddress } from "viem";
 import { arbitrum } from "viem/chains";
-import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
+import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
 import { buildEvmExecutionRuntime } from "./execution-runtime";
 
 describe("buildEvmExecutionRuntime", () => {

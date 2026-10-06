@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useRef } from "react";
 import type { Action, ActionRequest } from "@aomi-labs/client";
-import { reviewEligibility } from "@aomi-labs/client";
+import { reviewEligibility, shortAddress } from "@aomi-labs/client";
 import { Wallet, Fuel, ShieldCheck, ShieldQuestion } from "lucide-react";
 import { cn } from "@aomi-labs/react";
-import { AomiButton, aomiButton } from "../ui/aomi/button";
+import { AomiButton, aomiButton } from "@/ui/aomi/button";
+import { testIds } from "@/test-ids";
 import { ImpactPanel } from "./wallet-impact";
 import {
   type SupportedChain,
   visibleSimulationWarnings,
-  compact,
   simulationCostSummary,
   focusRing,
 } from "./presentation";
@@ -92,7 +92,7 @@ export function TransactionReview({
   return (
     <section
       ref={reviewRef}
-      data-testid="transaction-review"
+      data-testid={testIds.txReview}
       data-action-id={review.id}
       aria-label="Wallet impact"
       className="text-aomi-fg animate-in fade-in-0 slide-in-from-top-2 mt-3 min-w-0 duration-300 motion-reduce:animate-none"
@@ -125,7 +125,7 @@ export function TransactionReview({
               <Wallet className="text-aomi-muted size-3.5 shrink-0" />
               <dt className="sr-only">Signing wallet</dt>
               <dd title={signer} className="type-address truncate">
-                {compact(signer)}
+                {shortAddress(signer, { head: 8, tail: 6 })}
               </dd>
             </div>
           ))}
@@ -301,9 +301,9 @@ function SigningRequestMetadata({
             {fee.amount}{" "}
             {fee.asset.kind === "native"
               ? "native"
-              : compact(fee.asset.address)}
+              : shortAddress(fee.asset.address, { head: 8, tail: 6 })}
             {" → "}
-            {compact(fee.recipient)}
+            {shortAddress(fee.recipient, { head: 8, tail: 6 })}
           </dd>
         </div>
       ))}

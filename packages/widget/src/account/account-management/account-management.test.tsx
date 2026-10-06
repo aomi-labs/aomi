@@ -6,12 +6,12 @@ import {
   within,
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { shortenAddress } from "../account-api";
 import {
   visibleSignInMethods,
   type ManagedWallet,
-} from "../wallet-management-model";
+} from "@/wallet/wallet-management-model";
 import { AccountManagement } from "./account-management";
+import { shortAddress } from "@aomi-labs/client";
 
 const wallet = (
   address: string,
@@ -63,12 +63,12 @@ const props = (wallets: ManagedWallet[]) => ({
 
 const selectRow = (item: ManagedWallet) =>
   screen.getByRole("button", {
-    name: `Make ${shortenAddress(item.address)} active`,
+    name: `Make ${shortAddress(item.address)} active`,
   });
 
 const actionsFor = (item: ManagedWallet) =>
   screen.getByRole("button", {
-    name: `Actions for ${item.walletName ?? item.label ?? (item.family === "evm" ? "EVM wallet" : "SVM wallet")} ${shortenAddress(item.address)}`,
+    name: `Actions for ${item.walletName ?? item.label ?? (item.family === "evm" ? "EVM wallet" : "SVM wallet")} ${shortAddress(item.address)}`,
   });
 
 const chooseAction = (trigger: HTMLElement, name: string) => {
@@ -82,7 +82,7 @@ const walletsPanel = () =>
 const lineFor = (item: ManagedWallet) =>
   within(walletsPanel())
     .getByText(
-      `${shortenAddress(item.address)} · ${item.family === "svm" ? "SVM" : "EVM"}`,
+      `${shortAddress(item.address)} · ${item.family === "svm" ? "SVM" : "EVM"}`,
     )
     .closest("[data-wallet-state]") as HTMLElement;
 
@@ -231,8 +231,8 @@ describe("unified account wallets", () => {
     expect(card.queryByText("Para Solana")).not.toBeInTheDocument();
     const lines = cards[0].querySelectorAll("[data-wallet-state]");
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toHaveTextContent(`${shortenAddress(evm.address)} · EVM`);
-    expect(lines[1]).toHaveTextContent(`${shortenAddress(svm.address)} · SVM`);
+    expect(lines[0]).toHaveTextContent(`${shortAddress(evm.address)} · EVM`);
+    expect(lines[1]).toHaveTextContent(`${shortAddress(svm.address)} · SVM`);
     expect(lines[1]).toHaveAttribute("data-wallet-state", "active");
     expect(within(lines[1] as HTMLElement).getByText("Active")).toHaveAttribute(
       "data-status-tone",
@@ -306,7 +306,7 @@ describe("unified account wallets", () => {
     expect(selectRow(paraEvm)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: `Make ${shortenAddress(rabby.address)} active`,
+        name: `Make ${shortAddress(rabby.address)} active`,
       }),
     ).not.toBeInTheDocument();
   });
@@ -345,10 +345,8 @@ describe("unified account wallets", () => {
       '[data-wallet-state="active"]',
     );
     expect(activeRows).toHaveLength(2);
-    expect(activeRows[0]).toHaveTextContent(shortenAddress(evm.address));
-    expect(activeRows[1]).toHaveTextContent(
-      shortenAddress(svmOperating.address),
-    );
+    expect(activeRows[0]).toHaveTextContent(shortAddress(evm.address));
+    expect(activeRows[1]).toHaveTextContent(shortAddress(svmOperating.address));
 
     fireEvent.click(selectRow(svm));
     expect(callbacks.onSelectWallet).toHaveBeenCalledTimes(2);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useWidgetOverlay } from "@/ui/widget-scope";
+
 import {
   useCallback,
   useEffect,
@@ -57,6 +59,7 @@ export function ConfirmDialog({
   closeOnConfirm = true,
   container,
 }: ConfirmDialogProps) {
+  const widgetContainer = useWidgetOverlay();
   return (
     <Dialog.Root
       open={open}
@@ -65,7 +68,7 @@ export function ConfirmDialog({
         onOpenChange(next);
       }}
     >
-      <Dialog.Portal container={container}>
+      <Dialog.Portal container={widgetContainer ?? container}>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-[3px]" />
         <Dialog.Content
           role="alertdialog"

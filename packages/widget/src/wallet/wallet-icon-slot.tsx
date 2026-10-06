@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { WalletIcon } from "lucide-react";
 import { cn } from "@aomi-labs/react";
-import { getWalletIcon, getWalletIconBrand } from "../icons";
+import { getWalletIcon, getWalletIconBrand } from "@/icons/wallet-map";
 
 /**
  * Single source of truth for how a wallet brand mark is drawn — used by both the
@@ -49,7 +49,7 @@ export function WalletIconSlot({
   className?: string;
 }) {
   const key = `${provider ?? ""} ${id ?? ""} ${label}`;
-  const brandKey = provider ?? key;
+  const brandKey = provider ?? id ?? label;
   const BrandIcon = getWalletIcon(brandKey) ?? getWalletIcon(key);
   const brand = getWalletIconBrand(brandKey) ?? getWalletIconBrand(key);
   const lowerKey = key.toLowerCase();

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { AppWindowIcon } from "lucide-react";
-import { getAppIcon } from "@/components/icons/app-map";
-import { getSkillIcon } from "@/components/icons/skills";
-import { interpretToolStep } from "./index";
+import { getAppIcon } from "@/icons/app-map";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
+import { interpretToolStep } from "./interpret";
 import type { TraceAttribution } from "./attribution";
 
 const attribution: TraceAttribution = {

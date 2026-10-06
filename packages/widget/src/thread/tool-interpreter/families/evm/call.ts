@@ -1,4 +1,4 @@
-import { EVM_SELECTOR_REGISTRY } from "@/components/assistant-ui/tool-registry";
+import { EVM_SELECTOR_REGISTRY } from "@/thread/tool-registry";
 
 import {
   addressFact,
@@ -12,10 +12,10 @@ import {
   decodedValue,
   selectorFact,
   tokenFact,
-} from "../../normalize";
-import type { ToolMatcher } from "../../types";
-import { formatTokenUnits, knownToken } from "../../token-registry";
-import { isErrorResult, operation } from "../operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { formatTokenUnits, knownToken } from "@/thread/tool-interpreter/token-registry";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 const calledFunction = (signature: unknown): string | undefined => {
   const raw = asString(signature)?.trim();

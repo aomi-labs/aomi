@@ -1,5 +1,5 @@
 "use client";
-import { useShellTransport } from "../../transport";
+import { useShellTransport } from "@/account/transport";
 
 import {
   createElement,
@@ -19,21 +19,22 @@ import {
   WandSparkles,
   Wrench,
 } from "lucide-react";
-import { LoadingLine, LoadingPane } from "../../../ui/aomi/loading-pane";
+import { LoadingLine, LoadingPane } from "@/ui/aomi/loading-pane";
 import { cn } from "@aomi-labs/react";
-import { getChainIcon, getSkillIcon } from "../../../icons";
-import { AomiButton } from "../../../ui/aomi/button";
-import { StatusPill } from "../../../ui/aomi/status-pill";
+import { getChainIcon } from "@/icons/chain-map";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
+import { AomiButton } from "@/ui/aomi/button";
+import { StatusPill } from "@/ui/aomi/status-pill";
 import {
   appSecretsReady,
   useAppSecretsState,
-} from "../../../app-secrets/use-app-secrets-state";
+} from "@/account/app-secrets/use-app-secrets-state";
 import {
   fetchSkillDetail,
   skillLabel,
   type SkillDetail,
   type SkillSummary,
-} from "../../../../lib/capabilities/skill-catalog";
+} from "@/composer/capabilities/skill-catalog";
 import { PackageIcon } from "./package-row";
 import {
   isPackageAvailableOnHost,
@@ -43,7 +44,7 @@ import {
   fetchAppSecrets,
   removeAppSecret,
   saveAppSecrets,
-} from "./packages-api";
+} from "@/account/shell/packages-api";
 
 export type LibrarySelection =
   | { kind: "app"; item: CatalogPackage }

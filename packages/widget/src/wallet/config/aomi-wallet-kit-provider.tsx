@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { WidgetStorageProvider, useWidgetStorage } from "@/lib/widget-storage";
+import {
+  Component,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -27,41 +35,50 @@ import {
   sepolia,
 } from "wagmi/chains";
 import type { Chain } from "viem";
-import { AomiWalletKitComposer } from "../composer/AomiWalletKitComposer";
+import { AomiWalletKitComposer } from "@/wallet/composer/aomi-wallet-kit-composer";
 import {
   AOMI_BOOTING_WALLET_KIT,
   AomiWalletKitContextProvider,
-} from "../context";
-import type { AuthRuntime, ExecutionRuntime } from "../composer/types";
-import { useResolvedAccountRuntime } from "../account/use-resolved-account-runtime";
-import { buildEvmExecutionRuntime } from "../execution/execution-runtime";
+} from "@/wallet/context";
+import {
+  createWalletAuthStore,
+  useWalletAuthStore,
+  WalletAuthPublisherContext,
+  WalletDelegationPublisherContext,
+  type WalletAuthStore,
+} from "@/wallet/providers/auth-store";
+import { PrivyDelegationContext } from "@/wallet/providers/privy/privy-delegation-context";
+import type { AuthRuntime, ExecutionRuntime } from "@/wallet/composer/types";
+import { useResolvedAccountRuntime } from "@/wallet/account/use-resolved-account-runtime";
+import { buildEvmExecutionRuntime } from "@/wallet/execution/execution-runtime";
 import {
   AomiWalletNetworkPreferencesProvider,
   useAomiWalletNetworkPreferences,
-} from "../network-preferences";
+} from "@/wallet/network-preferences";
 import {
-  FullTestnetWalletRouter,
+  WalletChainRouter,
   useFullTestnet,
-} from "../full-testnet-wallet-routing";
-import { AomiEvmRuntimeProvider } from "../runtime/evm/provider";
-import { useEvmWalletRuntime } from "../runtime/evm/wallet-runtime";
-import { useDisabledEvmWalletRuntime } from "../runtime/evm/disabled-runtime";
+} from "@/wallet/full-testnet-wallet-routing";
+import { AomiEvmRuntimeProvider } from "@/wallet/runtime/evm/provider";
+import { useEvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
+import { useDisabledEvmWalletRuntime } from "@/wallet/runtime/evm/disabled-runtime";
 import {
   useSafeSvmWallet,
   useSvmWalletRuntime,
-} from "../runtime/svm/wallet-runtime";
-import { REGISTRY_STORAGE_KEY } from "../registry/types";
+} from "@/wallet/runtime/svm/wallet-runtime";
+import { FullTestnetConfigContext } from "@/wallet/full-testnet-config";
 import {
   createAomiEvmConfig,
   type ResolvedEvmWalletsConfig,
-} from "../catalog/evm-connector-catalog";
-import { resolveAomiSvmConfig } from "../catalog/svm-wallet-catalog";
-import { canonicalWalletKey } from "../catalog/wallet-branding";
+} from "@/wallet/catalog/evm-connector-catalog";
+import { resolveAomiSvmConfig } from "@/wallet/catalog/svm-wallet-catalog";
+import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
 import {
   detectProviderSugar,
-  requireWalletProvider,
+  getWalletProvider,
   type WalletProviderPlugin,
-} from "../providers/plugin-registry";
+} from "@/wallet/providers/plugin-registry";
+import { MissingWalletSdkError } from "@/wallet/providers/sdk-loaders";
 import type {
   AccountConfig,
   AomiWalletKitProviderInput,
@@ -213,11 +230,12 @@ function EvmExternalWalletComposerProvider({
     setSelectedSolanaNetworkId,
     supportedSolanaNetworks,
   } = useAomiWalletNetworkPreferences();
+  const storage = useWidgetStorage();
   const evmRuntime = useEvmWalletRuntime({
     configuredChains: supportedChains,
     selectedEvmChainId,
     setSelectedEvmChainId,
-    storageKey: REGISTRY_STORAGE_KEY,
+    storageKey: storage.key("walletRegistry"),
   });
 
   if (resolvedSvm.enabled && resolvedSvm.activeNetwork) {
@@ -263,8 +281,9 @@ function SvmExternalWalletComposerProvider({
     setSelectedSolanaNetworkId,
     supportedSolanaNetworks,
   } = useAomiWalletNetworkPreferences();
+  const storage = useWidgetStorage();
   const evmRuntime = useDisabledEvmWalletRuntime({
-    storageKey: REGISTRY_STORAGE_KEY,
+    storageKey: storage.key("walletRegistry"),
   });
 
   if (resolvedSvm.enabled && resolvedSvm.activeNetwork) {
@@ -449,7 +468,7 @@ function AomiEvmExternalWalletProvider({
   useEffect(() => {
     if (!authPlugin || authPluginAvailable) return;
     console.warn(
-      `[aomi-wallet-kit] Auth provider "${authPlugin.id}" is requested by \`auth\` but unavailable: its public credential is missing (providers.${authPlugin.id} apiKey/appId, or the matching NEXT_PUBLIC_* env inlined by the host bundler). The wallet picker will show browser wallets only.`,
+      `[aomi-wallet-kit] Auth provider "${authPlugin.id}" is requested by \`auth\` but unavailable: its public credential is missing (providers.${authPlugin.id} apiKey/appId). The wallet picker will show browser wallets only.`,
     );
   }, [authPlugin, authPluginAvailable]);
   const shouldUseAuthPlugin = Boolean(
@@ -460,7 +479,7 @@ function AomiEvmExternalWalletProvider({
     ((props: { children: ReactNode }) => <>{props.children}</>);
   const runtimeChildren = (
     <MaybeSvmWalletProvider resolvedSvm={resolvedSvm}>
-      <FullTestnetWalletRouter
+      <WalletChainRouter
         enabled={routing.enabled}
         chains={routing.routedChains}
         routedChainIds={routing.routedChainIds}
@@ -477,7 +496,7 @@ function AomiEvmExternalWalletProvider({
         >
           {children}
         </WalletKitComposerOutlet>
-      </FullTestnetWalletRouter>
+      </WalletChainRouter>
     </MaybeSvmWalletProvider>
   );
   const evmRuntime =
@@ -501,11 +520,6 @@ function AomiEvmExternalWalletProvider({
         auth,
         providers,
         children: evmRuntime,
-        placeholder: (
-          <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
-            {children}
-          </AomiWalletKitContextProvider>
-        ),
       })}
     </QueryClientProvider>
   );
@@ -590,7 +604,133 @@ function AomiExternalWalletProvider({
   );
 }
 
+function WalletAuthBridge({
+  store,
+  children,
+}: {
+  store: WalletAuthStore;
+  children: ReactNode;
+}) {
+  const snapshot = useWalletAuthStore(store);
+  const { supportedEvmChains, supportedSolanaNetworks } =
+    useAomiWalletNetworkPreferences();
+  // Supported networks are host configuration, available before a wallet SDK.
+  // Publishing them on the initial shell paint keeps the header pill in place
+  // without presenting a booting provider as ready or connected.
+  // An island failure surfaces as the account error, which the account chip
+  // and wallet picker render inside the widget root.
+  const kit = useMemo(() => {
+    const base =
+      snapshot.kit === AOMI_BOOTING_WALLET_KIT
+        ? {
+            ...snapshot.kit,
+            supportedChains: supportedEvmChains,
+            supportedNetworks: {
+              evm: supportedEvmChains,
+              solana: supportedSolanaNetworks,
+            },
+          }
+        : snapshot.kit;
+    return snapshot.failure
+      ? { ...base, accountError: snapshot.failure }
+      : base;
+  }, [
+    snapshot.failure,
+    snapshot.kit,
+    supportedEvmChains,
+    supportedSolanaNetworks,
+  ]);
+  return (
+    <PrivyDelegationContext.Provider value={snapshot.delegation}>
+      <AomiWalletKitContextProvider value={kit}>
+        {children}
+      </AomiWalletKitContextProvider>
+    </PrivyDelegationContext.Provider>
+  );
+}
+
+function WalletRuntimeIsland({
+  store,
+  authPlugin,
+  unknownProvider,
+  ...props
+}: Parameters<typeof AomiExternalWalletProvider>[0] & {
+  store: WalletAuthStore;
+  unknownProvider?: string;
+}) {
+  const [loaded, setLoaded] = useState<WalletProviderPlugin | undefined>(() =>
+    authPlugin?.load ? undefined : authPlugin,
+  );
+  const [failed, setFailed] = useState(false);
+  useLayoutEffect(() => {
+    return () => {
+      store.publish(AOMI_BOOTING_WALLET_KIT);
+      store.publishDelegation(null);
+      store.publishFailure(null);
+    };
+  }, [store]);
+  useEffect(() => {
+    if (unknownProvider)
+      store.publishFailure(
+        `Unknown wallet provider "${unknownProvider}". Use auth type "privy", "para" or "browser_wallet".`,
+      );
+  }, [store, unknownProvider]);
+  useEffect(() => {
+    let active = true;
+    if (authPlugin?.load) {
+      void authPlugin
+        .load()
+        .then((plugin) => {
+          if (active) setLoaded(plugin);
+        })
+        .catch((error: unknown) => {
+          if (!active) return;
+          setFailed(true);
+          store.publishFailure(
+            error instanceof MissingWalletSdkError
+              ? error.message
+              : `Couldn’t load ${authPlugin.id}. Choose the provider again to retry.`,
+          );
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [authPlugin, store]);
+  if (authPlugin?.load && !loaded && !failed) return null;
+  return (
+    <WalletAuthPublisherContext.Provider value={store.publish}>
+      <WalletDelegationPublisherContext.Provider
+        value={store.publishDelegation}
+      >
+        <AomiExternalWalletProvider {...props} authPlugin={loaded}>
+          {null}
+        </AomiExternalWalletProvider>
+      </WalletDelegationPublisherContext.Provider>
+    </WalletAuthPublisherContext.Provider>
+  );
+}
+
+class WalletIslandErrorBoundary extends Component<
+  { children: ReactNode; store: WalletAuthStore },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.store.publishFailure(
+      "Couldn’t start the wallet provider. Choose it again to retry.",
+    );
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
+  const [store] = useState(createWalletAuthStore);
   const props =
     detectProviderSugar(input) ?? (input as AomiWalletKitProviderProps);
   const presetProvider =
@@ -601,56 +741,61 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
       : props.auth;
   const authProvider =
     auth !== false && auth?.provider ? auth.provider : undefined;
-  const authPlugin =
-    !props.initializing && authProvider
-      ? requireWalletProvider(authProvider)
-      : undefined;
-  const provider =
-    presetProvider ??
-    (authProvider && authPlugin?.authMode !== "additive"
-      ? authProvider
-      : "none");
+  const authPlugin = authProvider ? getWalletProvider(authProvider) : undefined;
   const networkPreferencesStorageKey =
     props.account && props.account.mode === "aomi-backend"
       ? null
       : "wallets-only";
-  if (!props.initializing && provider !== "none") {
-    requireWalletProvider(provider);
-  }
 
   return (
-    <ExtUserProvider>
-      <AomiWalletNetworkPreferencesProvider
-        key={authProvider ?? "no-auth-provider"}
-        evmChains={
-          props.wallets?.evm === false
-            ? []
-            : (props.wallets?.evm?.chains ?? defaultNetworks)
-        }
-        solanaNetworks={
-          resolveAomiSvmConfig(
-            props.wallets?.solana === false ? false : props.wallets?.solana,
-          ).networks
-        }
-        storageKey={networkPreferencesStorageKey}
-      >
-        {props.initializing ? (
-          <AomiWalletKitContextProvider value={AOMI_BOOTING_WALLET_KIT}>
-            {props.children}
-          </AomiWalletKitContextProvider>
-        ) : (
-          <AomiExternalWalletProvider
-            account={props.account}
-            auth={auth}
-            authPlugin={authPlugin}
-            execution={props.execution}
-            providers={props.providers}
-            wallets={props.wallets}
+    <WidgetStorageProvider
+      scope={{
+        backendUrl:
+          props.account && props.account.mode === "aomi-backend"
+            ? (props.account.baseUrl ?? "")
+            : "",
+        appId: props.applicationId,
+      }}
+    >
+      <FullTestnetConfigContext.Provider value={props.fullTestnet}>
+        <ExtUserProvider>
+          <AomiWalletNetworkPreferencesProvider
+            evmChains={
+              props.wallets?.evm === false
+                ? []
+                : (props.wallets?.evm?.chains ?? defaultNetworks)
+            }
+            solanaNetworks={
+              resolveAomiSvmConfig(
+                props.wallets?.solana === false ? false : props.wallets?.solana,
+              ).networks
+            }
+            storageKey={networkPreferencesStorageKey}
           >
-            {props.children}
-          </AomiExternalWalletProvider>
-        )}
-      </AomiWalletNetworkPreferencesProvider>
-    </ExtUserProvider>
+            <WalletAuthBridge store={store}>{props.children}</WalletAuthBridge>
+            {!props.initializing && (
+              <WalletIslandErrorBoundary
+                store={store}
+                key={`${authProvider ?? "browser-wallet"}:${props.providerAttempt ?? 0}`}
+              >
+                <WalletRuntimeIsland
+                  key={`${authProvider ?? "browser-wallet"}:${props.providerAttempt ?? 0}`}
+                  store={store}
+                  account={props.account}
+                  auth={auth}
+                  authPlugin={authPlugin}
+                  unknownProvider={authPlugin ? undefined : authProvider}
+                  execution={props.execution}
+                  providers={props.providers}
+                  wallets={props.wallets}
+                >
+                  {null}
+                </WalletRuntimeIsland>
+              </WalletIslandErrorBoundary>
+            )}
+          </AomiWalletNetworkPreferencesProvider>
+        </ExtUserProvider>
+      </FullTestnetConfigContext.Provider>
+    </WidgetStorageProvider>
   );
 }

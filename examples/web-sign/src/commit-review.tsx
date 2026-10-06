@@ -2,7 +2,7 @@ import type { CommitView, Session } from "@aomi-labs/client";
 import { useState } from "react";
 import type { Abi } from "viem";
 
-import { EvmReview } from "./ActionReview";
+import { EvmReview } from "./action-review";
 import type { InjectedWallet } from "./injected-wallet";
 
 export interface CommitReviewProps {

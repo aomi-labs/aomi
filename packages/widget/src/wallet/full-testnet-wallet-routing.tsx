@@ -1,26 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { Chain } from "viem";
-import { useAccount } from "wagmi";
-import { useSafeSwitchChain } from "./runtime/evm/safe-hooks";
+import { WagmiContext, useAccount, useSwitchChain } from "wagmi";
 
 export {
   isFullTestnet,
   parseRpcOverrides,
   useFullTestnet,
 } from "./full-testnet-config";
-
-/** No wallet to route while the host renders over a booting wallet kit. */
-function useSafeAccount(): Partial<
-  Pick<ReturnType<typeof useAccount>, "isConnected" | "chainId" | "connector">
-> {
-  try {
-    return useAccount();
-  } catch {
-    return {};
-  }
-}
 
 type FullTestnetWalletRouterProps = {
   enabled: boolean;
@@ -30,15 +18,27 @@ type FullTestnetWalletRouterProps = {
   children?: ReactNode;
 };
 
-export function FullTestnetWalletRouter({
+/**
+ * Moves the connected wallet onto a routed testnet chain.
+ *
+ * @deprecated Removed in @aomi-labs/widget 4.0. `AomiWalletKitProvider`
+ * routes wallets itself when `fullTestnet` is set.
+ */
+export function FullTestnetWalletRouter(props: FullTestnetWalletRouterProps) {
+  // Hosts mounted this beside the wallet kit, where no wagmi config exists.
+  if (!useContext(WagmiContext)) return <>{props.children}</>;
+  return <WalletChainRouter {...props} />;
+}
+
+export function WalletChainRouter({
   enabled,
   chains,
   routedChainIds,
   logLabel = "FullTestnetWalletRouter",
   children,
 }: FullTestnetWalletRouterProps) {
-  const { isConnected, chainId, connector } = useSafeAccount();
-  const { switchChainAsync } = useSafeSwitchChain();
+  const { isConnected, chainId, connector } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
   const attemptedChainIdsRef = useRef(new Set<number>());
   const chainsById = useMemo(
     () => Object.fromEntries(chains.map((chain) => [chain.id, chain])),
@@ -89,9 +89,7 @@ export function FullTestnetWalletRouter({
           }
         }
 
-        if (switchChainAsync) {
-          await switchChainAsync({ chainId });
-        }
+        await switchChainAsync({ chainId });
       } catch (error) {
         console.error(
           `[${logLabel}] Failed to route wallet for chain ${chainId}`,

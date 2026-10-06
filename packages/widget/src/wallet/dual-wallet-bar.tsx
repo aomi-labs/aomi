@@ -1,20 +1,22 @@
 "use client";
 
 import { Fragment, useEffect, useState, type FC } from "react";
-import { LoadingLine } from "@/components/ui/aomi/loading-pane";
+import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
-import {
-  useAomiWalletKit,
-  formatWalletAddress,
-  signOutAndDisconnect,
-} from "../../lib/wallet-kit";
+import { useAomiWalletKit } from "./context";
+import { formatWalletAddress } from "./identity";
+import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { WalletIconSlot } from "./wallet-icon-slot";
-import { WalletPicker } from "./wallet-picker";
-import { WalletPickerProvider, useWalletPicker } from "./wallet-picker-context";
-import { AccountMenu } from "./account-menu";
+import { WalletPicker } from "@/wallet/picker/wallet-picker";
+import {
+  WalletPickerProvider,
+  useWalletPicker,
+} from "@/wallet/picker/wallet-picker-context";
+import { AccountMenu } from "@/account/account-menu";
 import { DisconnectConfirmDialog } from "./disconnect-confirm-dialog";
-import type { WalletAccountMenuOptions } from "./account-menu-types";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
+import { shortAddress } from "@aomi-labs/client";
 
 export type DualWalletBarProps = {
   families: Array<"evm" | "solana">;
@@ -33,12 +35,6 @@ type ConnectedWallet = {
 };
 
 const AVATAR_SIZE = 28;
-
-/** Longer middle-truncated address, revealed when the bar has room to grow. */
-function longAddress(address: string): string {
-  if (address.length <= 20) return address;
-  return `${address.slice(0, 12)}..${address.slice(-8)}`;
-}
 
 function solanaClusterLabel(cluster?: string): string | undefined {
   if (!cluster) return undefined;
@@ -223,7 +219,10 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
                 <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
                   {accountMenu?.primaryLine ??
                     (primaryWallet
-                      ? longAddress(primaryWallet.address)
+                      ? shortAddress(primaryWallet.address, {
+                          head: 12,
+                          tail: 8,
+                        })
                       : "Account")}
                 </span>
                 {secondaryLine ? (
@@ -264,7 +263,10 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
                             {formatWalletAddress(wallet.address)}
                           </span>
                           <span className="@[15rem]:inline hidden">
-                            {longAddress(wallet.address)}
+                            {shortAddress(wallet.address, {
+                              head: 12,
+                              tail: 8,
+                            })}
                           </span>
                         </>
                       ) : (

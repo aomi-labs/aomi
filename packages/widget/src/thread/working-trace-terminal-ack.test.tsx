@@ -8,13 +8,13 @@ import {
   useMessage,
 } from "@assistant-ui/react";
 import type { Event, SessionSnapshot, TurnState } from "@aomi-labs/client";
-import { projectRuntimeMessages } from "../../../../../packages/react/src/runtime/utils";
+import { projectRuntimeMessages } from "../../../react/src/runtime/message-projection";
 import {
   callbackEvents,
   callbackFinalText,
   callbackRoot,
   callbackTurn,
-} from "../../../../../tests/fixtures/commit-callback-events";
+} from "../../../../tests/fixtures/commit-callback-events";
 
 const transport = vi.hoisted(() => ({
   events: [] as Event[],
@@ -26,7 +26,7 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useOptionalAomiRuntime: () => transport,
   useThreadTaskRuns: () => ({}),
 }));
-vi.mock("@/components/assistant-ui/markdown-text", async () => {
+vi.mock("./markdown-text", async () => {
   const { useMessagePartText } = await vi.importActual<
     typeof import("@assistant-ui/react")
   >("@assistant-ui/react");

@@ -6,7 +6,7 @@ import {
 import {
   canonicalWalletKey,
   registerWalletBrand,
-} from "../../catalog/wallet-branding";
+} from "@/wallet/catalog/wallet-branding";
 
 describe("canonicalWalletKey", () => {
   it("collapses ids, labels and rdns onto one brand key", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ExecutionConfig } from "./types";
-import type { NativeWalletExecutionPolicy } from "../execution/wallet-execution";
+import type { NativeWalletExecutionPolicy } from "@/wallet/execution/wallet-execution";
 
 type EnabledSponsorship = Extract<
   NonNullable<ExecutionConfig["sponsorship"]>,

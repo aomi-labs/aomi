@@ -1,15 +1,20 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { withBrowserSessionTransition } from "@aomi-labs/client";
 import {
   buildSiweMessage,
   buildWalletLinkMessage,
+  withBrowserSessionTransition,
+} from "@aomi-labs/client";
+import { useAomiBackendAccountRuntime } from "./aomi-backend-runtime";
+import {
+  messageConfigFromNonce,
+  resolveAuthMessageConfig,
+} from "./auth-message";
+import {
   buildDefaultWalletLabel,
   normalizeAccountWalletProvider,
-  resolveAuthMessageConfig,
   resolveLinkedWalletName,
-  useAomiBackendAccountRuntime,
-} from "./aomi-backend-runtime";
+} from "./wallet-labels";
 import type { AomiAccountCredential } from "../types";
 import { AomiAccountRequestError } from "./aomi-backend-client";
 
@@ -153,13 +158,41 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(result.current.getAccountBearer).toBeUndefined();
   });
 
+  it("shares only confirmed guest session metadata and drops it when refresh fails", async () => {
+    mockState.accountClient!.getAccount.mockResolvedValue({
+      guest: true,
+      user: { id: "temporary-guest" },
+      linkedAccounts: [],
+      wallets: [],
+      session: { carrier: "better_auth", betterAuthUserId: "cookie-guest" },
+    });
+    const { result } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        auth: { status: "unauthenticated", provider: "wallet" } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.guestUserId).toBe("cookie-guest");
+    expect(result.current.user).toBeUndefined();
+    expect(result.current.wallets).toEqual([]);
+    expect(mockState.accountClient!.getAccount).toHaveBeenCalledTimes(1);
+    mockState.accountClient!.getAccount.mockRejectedValue(
+      new Error("Session revoked"),
+    );
+    await act(async () => result.current.refresh());
+    expect(result.current.status).toBe("error");
+    expect(result.current.guestUserId).toBeUndefined();
+  });
+
   it("replaces a guest session before signing in with an existing EVM wallet", async () => {
     const address = "0x1111111111111111111111111111111111111111" as const;
     mockState
       .accountClient!.getAccount.mockResolvedValueOnce({
         guest: true,
         // Defense in depth: even a stale server response that includes the
-        // canonical guest user must never make it an account principal.
+        // guest user must never make it an account owner.
         user: { id: "temporary-guest" },
         linkedAccounts: [],
         wallets: [],
@@ -1017,27 +1050,23 @@ describe("auth message config", () => {
   });
 
   it("falls back to the browser origin instead of building blank-domain messages", () => {
-    const linkMessage = buildWalletLinkMessage({
+    const config = messageConfigFromNonce(
+      { nonce: "nonce", domain: " ", uri: " " },
+      { domain: " ", uri: " " },
+    );
+    const proof = {
       address: "0x1111111111111111111111111111111111111111",
       chainId: 1,
       nonce: "nonce",
-      domain: " ",
-      uri: " ",
-    });
-    const siweMessage = buildSiweMessage({
-      address: "0x1111111111111111111111111111111111111111",
-      chainId: 1,
-      nonce: "nonce",
-      domain: " ",
-      uri: " ",
-    });
+      ...config,
+    };
 
-    expect(linkMessage).not.toMatch(/^ wants /);
-    expect(siweMessage).not.toMatch(/^ wants /);
-    expect(linkMessage).toMatch(
+    expect(buildWalletLinkMessage(proof)).toMatch(
       /^localhost(?::\d+)? wants to link this wallet/,
     );
-    expect(siweMessage).toMatch(/^localhost(?::\d+)? wants you to sign in/);
+    expect(buildSiweMessage(proof)).toMatch(
+      /^localhost(?::\d+)? wants you to sign in/,
+    );
   });
 
   it("ignores blank auth domains when building messages", () => {

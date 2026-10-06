@@ -5,8 +5,8 @@ import {
   ensureSvmWalletBoundVia,
   type AuthorizationPoster,
 } from "@aomi-labs/client";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { accountScopedFetch } from "@aomi-labs/widget-lib/host-composition";
+import { useAomiWalletKit } from "./context";
+import { useShellTransport } from "@/account/transport";
 
 type SigningPolicy = {
   address: { chain: "evm" | "svm"; address: string };
@@ -23,14 +23,10 @@ export type SvmBindingState =
 const DESCRIPTION =
   "Bind this Solana wallet to your Aomi account so it can sign transactions.";
 
-const post: AuthorizationPoster = (path, body) =>
-  accountScopedFetch(path, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-
 export function useSvmWalletBinding() {
   const adapter = useAomiWalletKit();
+  const { json: request } = useShellTransport();
+  const post: AuthorizationPoster = useCallback((path, body) => request(path, { method: "POST", body: JSON.stringify(body) }), [request]);
   const svmAddress = adapter.identity.svmAddress;
   const cluster = adapter.identity.svmCluster;
   const capabilities = adapter.identity.svmCapabilities;
@@ -46,7 +42,7 @@ export function useSvmWalletBinding() {
     }
     setState({ status: "loading" });
     try {
-      const data = await accountScopedFetch<{
+      const data = await request<{
         signing_policies: SigningPolicy[];
       }>("/api/account");
       const row = data.signing_policies.find(
@@ -65,7 +61,7 @@ export function useSvmWalletBinding() {
         message: error instanceof Error ? error.message : "Failed to load",
       });
     }
-  }, [svmAddress]);
+  }, [svmAddress, request]);
 
   useEffect(() => {
     void refresh();
@@ -94,7 +90,7 @@ export function useSvmWalletBinding() {
     } finally {
       setBinding(false);
     }
-  }, [cluster, refresh, signSolanaMessage, svmAddress, requiresBinding]);
+  }, [cluster, refresh, signSolanaMessage, svmAddress, requiresBinding, post]);
 
   return {
     state,

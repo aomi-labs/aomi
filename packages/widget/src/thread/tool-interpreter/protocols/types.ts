@@ -1,5 +1,5 @@
-import type { ToolMatcher } from "../types";
-import type { Descriptor } from "../present/descriptors";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import type { Descriptor } from "@/thread/tool-interpreter/present/descriptors";
 
 /** Each protocol owns its declared tool names and result interpretation. */
 export type ProtocolAdapter = {

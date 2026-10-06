@@ -3,9 +3,9 @@ import {
   asString,
   hostnameFromUrl,
   normalizeHost,
-} from "../../normalize";
-import type { FactSource, ToolFact, ToolMatcher } from "../../types";
-import { isErrorResult, operation } from "../operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { FactSource, ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 const MAX_SOURCE_HOSTS = 3;
 

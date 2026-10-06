@@ -12,15 +12,15 @@ import {
   modeHintFor,
   walletMarkKey,
 } from "./account-reconcile";
-import { WalletPolicyRow, walletAddressLine } from "./wallet-policy-row";
-import { WalletProviderAvatar } from "./wallet-brands";
-import { isProviderSigningWallet } from "./wallet-management-model";
+import { WalletPolicyRow, walletAddressLine } from "@/wallet/wallet-policy-row";
+import { WalletProviderAvatar } from "@/wallet/wallet-brands";
+import { isProviderSigningWallet } from "@/wallet/wallet-management-model";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@aomi-labs/react";
-import { AomiButton } from "../../../ui/aomi/button";
-import { ConfirmDialog } from "../../../ui/aomi/confirm-dialog";
-import { ListGroup, ListRow } from "../../../ui/aomi/list-group";
-import { SectionHeader } from "../../../ui/aomi/section-header";
+import { AomiButton } from "@/ui/aomi/button";
+import { ConfirmDialog } from "@/ui/aomi/confirm-dialog";
+import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { SectionHeader } from "@/ui/aomi/section-header";
 
 interface AccountSigningViewProps {
   wallets: WalletPolicy[];

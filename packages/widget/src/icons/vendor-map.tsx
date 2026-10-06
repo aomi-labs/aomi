@@ -10,7 +10,7 @@ import {
   MistralIcon,
   OpenAIIcon,
   XAIIcon,
-} from "./vendors";
+} from "./vendor-icons";
 
 const VENDOR_ICONS: Record<string, FC<SVGProps<SVGSVGElement>>> = {
   anthropic: AnthropicIcon,

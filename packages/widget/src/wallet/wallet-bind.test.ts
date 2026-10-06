@@ -1,16 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
-import { bindWalletVia } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-bind";
+import { bindWalletVia } from "@/wallet/wallet-bind";
 
 describe("bindWalletVia", () => {
   it("runs challenge → sign → commit for EVM bind", async () => {
-    const post = vi.fn(async (path: string, body: unknown) => {
+    const post = vi.fn(async (path: string, _body: unknown): Promise<never> => {
       if (path.endsWith("/challenge")) {
         return {
           permit: { wallet: "0xabc", mode: "bind" },
           typed_data: { primaryType: "AuthorizationPermit" },
-        };
+        } as never;
       }
-      return { address: "0xabc", chain_type: "evm", signing_mode: "manual" };
+      return {
+        address: "0xabc",
+        chain_type: "evm",
+        signing_mode: "manual",
+      } as never;
     });
     const signTypedData = vi.fn(async () => ({ signature: "0xsig" }));
 

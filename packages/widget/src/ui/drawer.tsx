@@ -1,12 +1,13 @@
 "use client";
 
+import { useWidgetOverlay } from "./widget-scope";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@aomi-labs/react";
 
 const Drawer = ({
-  shouldScaleBackground = true,
+  shouldScaleBackground = false,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
   <DrawerPrimitive.Root
@@ -18,7 +19,12 @@ Drawer.displayName = "Drawer";
 
 const DrawerTrigger = DrawerPrimitive.Trigger;
 
-const DrawerPortal = DrawerPrimitive.Portal;
+function DrawerPortal(
+  props: React.ComponentProps<typeof DrawerPrimitive.Portal>,
+) {
+  const container = useWidgetOverlay();
+  return <DrawerPrimitive.Portal container={container} {...props} />;
+}
 
 const DrawerClose = DrawerPrimitive.Close;
 

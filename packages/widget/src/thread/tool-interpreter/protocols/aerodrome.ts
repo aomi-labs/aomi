@@ -1,5 +1,5 @@
-import { asRecord, chainFactFromRecord, statusFact } from "../normalize";
-import type { ToolMatcher } from "../types";
+import { asRecord, chainFactFromRecord, statusFact } from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { displayedAmount, protocolOperation, validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
 

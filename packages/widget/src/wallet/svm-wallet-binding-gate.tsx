@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { isUnboundWalletError } from "@aomi-labs/client";
 import { useAomiRuntime } from "@aomi-labs/react";
-import { Button } from "@aomi-labs/widget-lib";
+import { Button } from "@/ui/button";
 import { useSvmWalletBinding } from "./use-svm-wallet-binding";
 
 function eventText(payload: unknown): string {

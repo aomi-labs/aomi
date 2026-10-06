@@ -10,15 +10,17 @@ import {
   type AomiDeleteSecretResponse,
   type AomiUserAppSecrets,
 } from "@aomi-labs/client";
-import type { ShellRequest } from "../../transport";
-import { accountScopedFetch } from "../../lib/settings-api";
+import type { ShellRequest } from "@/account/transport";
+import { accountScopedFetch } from "@/account/settings-api";
 
 export async function fetchAppCatalog(
   accountUserId?: string,
   request: ShellRequest = accountScopedFetch,
+  signal?: AbortSignal,
 ): Promise<AomiAppDescriptor[]> {
   const rows = await request<unknown[]>(
     accountUserId ? "/api/account/apps" : "/api/thread/apps",
+    { signal },
   );
   return rows
     .map(normalizeAppDescriptor)

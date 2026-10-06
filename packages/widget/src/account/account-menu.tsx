@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LoadingLine } from "@/components/ui/aomi/loading-pane";
+import { LoadingLine } from "@/ui/aomi/loading-pane";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -12,8 +12,8 @@ import {
   UnplugIcon,
   WalletCardsIcon,
 } from "lucide-react";
-import { formatWalletAddress } from "../../lib/wallet-kit";
-import { WalletIconSlot } from "./wallet-icon-slot";
+import { formatWalletAddress } from "@/wallet/identity";
+import { WalletIconSlot } from "@/wallet/wallet-icon-slot";
 
 export type AccountMenuProps = {
   open: boolean;

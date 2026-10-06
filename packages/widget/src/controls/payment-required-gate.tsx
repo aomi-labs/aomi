@@ -2,8 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useControl, useNotification } from "@aomi-labs/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { testIds } from "@/test-ids";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
 
 const PROVIDERS = [
   { id: "openai", label: "OpenAI" },
@@ -81,6 +82,7 @@ export function PaymentRequiredGate() {
   return (
     <div
       className="bg-background/85 absolute inset-0 z-40 flex items-center justify-center px-4 backdrop-blur-sm"
+      data-testid={testIds.paygate}
       role="dialog"
       aria-modal="true"
       aria-labelledby="payment-required-title"

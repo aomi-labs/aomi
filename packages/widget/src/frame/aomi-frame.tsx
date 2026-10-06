@@ -9,31 +9,35 @@ import {
 } from "react";
 import {
   AomiRuntimeProvider,
+  AomiChatBoundary,
   cn,
   useAomiRuntime,
   type AomiClientOptions,
   type AgentTarget,
   type AomiInferenceFundingSource,
+  type DisplayPersistence,
+  type RuntimeAccount,
 } from "@aomi-labs/react";
-import { Thread } from "@/components/assistant-ui/thread";
+import { DisplayPrefetch } from "../account/display-prefetch";
+import { WidgetStorageProvider } from "../lib/widget-storage";
+import { WidgetScope } from "../ui/widget-scope";
+import { Thread } from "@/thread/thread";
 import {
   ThreadListSidebar,
   type SidebarProduct,
-} from "@/components/assistant-ui/threadlist-sidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { NotificationToaster } from "@/components/ui/notification";
-import { ControlBar, type ControlBarProps } from "@/components/control-bar";
-import type { WalletAccountMenuOptions } from "@/components/control-bar/account-menu-types";
-import { ActivityPanelProvider } from "@/components/activity-sidebar/activity-panel-context";
-import { safeEnv } from "../lib/wallet-kit/env";
+} from "@/sidebar/thread-list-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/ui/sidebar";
+import { NotificationToaster } from "./notification";
+import { ControlBar, type ControlBarProps } from "@/controls";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
+import { ActivityPanelProvider } from "@/sidebar/activity/activity-panel-context";
+
 import {
   useActionCapabilities,
   useCommitCapabilities,
-} from "../lib/wallet-kit";
+} from "@/wallet/use-action-capabilities";
+import { testIds } from "../test-ids";
+import { useRuntimeAccount } from "./runtime-account";
 
 // =============================================================================
 // Composer Control Context - signals Thread to show inline controls
@@ -56,6 +60,8 @@ export const useComposerControl = () => useContext(ComposerControlContext);
 // =============================================================================
 
 type RootProps = {
+  /** What the runtime saves across reloads. Defaults to the public catalogs. */
+  displayPersistence?: DisplayPersistence;
   children?: ReactNode;
   width?: CSSProperties["width"];
   height?: CSSProperties["height"];
@@ -79,6 +85,7 @@ type RootProps = {
   defaultSidebarOpen?: boolean;
   /** Backend URL for the Aomi runtime */
   backendUrl?: string;
+  apiKeyPersistence?: "memory" | "session";
   /** Concrete hosted application used to isolate runtime and persisted threads. */
   applicationId?: number | string | null;
   /** Optional host-fixed execution target. */
@@ -97,6 +104,10 @@ type RootProps = {
   threadPersistenceScope?: string | null;
   /** Thread to open before history discovery completes. */
   initialThreadId?: string;
+  /** Controlled thread selection; undefined keeps selection internal. */
+  threadId?: string;
+  /** Fired once for each user-initiated materialized thread change. */
+  onThreadChange?: (threadId: string) => void;
 };
 
 type HeaderProps = {
@@ -130,6 +141,12 @@ type FrameControlBarProps = ControlBarProps;
 // Compound Components
 // =============================================================================
 
+/** Storage key segment for this account; the same strings earlier releases wrote. */
+function storagePartition(account: RuntimeAccount | null | undefined) {
+  if (!account) return null;
+  return account.kind === "guest" ? `guest:${account.id}` : account.id;
+}
+
 /**
  * Root component - provides all context and layout container
  */
@@ -148,6 +165,7 @@ const Root: FC<RootProps> = ({
   showSidebar = true,
   defaultSidebarOpen = true,
   backendUrl,
+  apiKeyPersistence,
   applicationId,
   agentTarget,
   clientOptions,
@@ -157,60 +175,81 @@ const Root: FC<RootProps> = ({
   threadPersistenceKey,
   threadPersistenceScope,
   initialThreadId,
+  displayPersistence,
+  threadId,
+  onThreadChange,
 }) => {
-  const resolvedBackendUrl =
-    backendUrl ??
-    safeEnv(() => process.env.NEXT_PUBLIC_BACKEND_URL) ??
-    "http://127.0.0.1:8080";
+  if (backendUrl === undefined)
+    throw new Error(
+      "[aomi] backendUrl is required; pass your API URL explicitly.",
+    );
   const frameStyle: CSSProperties = { width, height, ...style };
+  const account = useRuntimeAccount();
+  const partition = threadPersistenceScope ?? storagePartition(account);
   const actions = useActionCapabilities();
   const commits = useCommitCapabilities();
 
   return (
-    <AomiRuntimeProvider
-      backendUrl={resolvedBackendUrl}
-      actions={actions}
-      commits={commits}
-      applicationId={applicationId}
-      agentTarget={agentTarget}
-      clientOptions={clientOptions}
-      inferenceFunding={inferenceFunding}
-      accountSessionAvailable={accountSessionAvailable}
-      persistThread={persistThread}
-      threadPersistenceKey={threadPersistenceKey}
-      threadPersistenceScope={threadPersistenceScope}
-      initialThreadId={initialThreadId}
+    <WidgetStorageProvider
+      scope={{
+        backendUrl,
+        appId: applicationId,
+        principal: partition,
+      }}
     >
-      <ActivityPanelProvider>
-        <SidebarProvider
-          defaultOpen={defaultSidebarOpen}
-          className="min-h-0! h-full"
-        >
-          <div
-            className={cn(
-              "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
-              className,
-            )}
-            style={frameStyle}
-          >
-            {showSidebar && (
-              <ThreadListSidebar
-                walletPosition={walletPosition}
-                walletFamilies={walletFamilies}
-                walletConnectLabel={walletConnectLabel}
-                walletAccountMenu={walletAccountMenu}
-                products={products}
-                currentProductId={currentProductId}
-              />
-            )}
-            <SidebarInset className="@container relative flex min-h-0 flex-col">
-              {children}
-            </SidebarInset>
-          </div>
-        </SidebarProvider>
-        <NotificationToaster />
-      </ActivityPanelProvider>
-    </AomiRuntimeProvider>
+      <AomiRuntimeProvider
+        account={account}
+        displayPersistence={displayPersistence}
+        backendUrl={backendUrl}
+        apiKeyPersistence={apiKeyPersistence}
+        actions={actions}
+        commits={commits}
+        applicationId={applicationId}
+        agentTarget={agentTarget}
+        clientOptions={clientOptions}
+        inferenceFunding={inferenceFunding}
+        accountSessionAvailable={accountSessionAvailable}
+        persistThread={persistThread}
+        threadPersistenceKey={threadPersistenceKey}
+        threadPersistenceScope={partition}
+        initialThreadId={initialThreadId}
+        {...{ threadId, onThreadChange }}
+      >
+        <WidgetScope className={className}>
+          <DisplayPrefetch />
+          <ActivityPanelProvider>
+            <SidebarProvider
+              defaultOpen={defaultSidebarOpen}
+              className="min-h-0! h-full"
+            >
+              <div
+                data-testid={testIds.frame}
+                className={cn(
+                  "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
+                  className,
+                )}
+                style={frameStyle}
+              >
+                {showSidebar && (
+                  <ThreadListSidebar
+                    walletPosition={walletPosition}
+                    walletFamilies={walletFamilies}
+                    walletConnectLabel={walletConnectLabel}
+                    walletAccountMenu={walletAccountMenu}
+                    products={products}
+                    currentProductId={currentProductId}
+                  />
+                )}
+                <SidebarInset className="@container relative flex min-h-0 flex-col">
+                  {children}
+                </SidebarInset>
+              </div>
+            </SidebarProvider>
+            <NotificationToaster />
+          </ActivityPanelProvider>
+        </WidgetScope>
+      </AomiRuntimeProvider>
+    </WidgetStorageProvider>
   );
 };
 
@@ -236,7 +275,9 @@ const Header: FC<HeaderProps> = ({
         className,
       )}
     >
-      {showSidebarTrigger && <SidebarTrigger />}
+      {showSidebarTrigger && (
+        <SidebarTrigger data-testid={testIds.sidebarToggle} />
+      )}
       {currentTitle && (
         <span className="hidden truncate text-sm font-medium md:block">
           {currentTitle}
@@ -262,8 +303,6 @@ const Composer: FC<ComposerProps> = ({
   sendDisabled = false,
   className,
 }) => {
-  const { currentThreadId } = useAomiRuntime();
-
   return (
     <ComposerControlContext.Provider
       value={{
@@ -274,7 +313,9 @@ const Composer: FC<ComposerProps> = ({
       }}
     >
       <div className={cn("flex flex-1 flex-col overflow-hidden", className)}>
-        <Thread key={currentThreadId} />
+        <AomiChatBoundary>
+          <Thread />
+        </AomiChatBoundary>
         {children}
       </div>
     </ComposerControlContext.Provider>

@@ -82,6 +82,8 @@ export type AccountRuntime = {
   conflict?: AccountConflict;
   /** True when the browser only has Portal's temporary guest session. */
   guest?: boolean;
+  /** Confirmed temporary cookie-session identity; never an account owner. */
+  guestUserId?: string;
   user?: AomiUserRef;
   linkedAccounts: LinkedAuthAccount[];
   wallets: AccountWallet[];

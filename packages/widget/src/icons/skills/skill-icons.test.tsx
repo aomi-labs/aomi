@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { getSkillIcon, JupiterSkillIcon, normalizeSkillId } from "./index";
+import { getSkillIcon, JupiterSkillIcon, normalizeSkillId } from "./skill-icons";
 import {
   skillIconFallbacks,
   skillIconGenericAliases,

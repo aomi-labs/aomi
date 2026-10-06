@@ -6,7 +6,7 @@
  */
 
 import { Wallet as WalletIcon } from "lucide-react";
-import { PrivyWalletIcon } from "../../../icons/wallets";
+import { PrivyWalletIcon } from "@/icons/wallet-icons";
 import { markup, type BrandProps } from "./brand-mark";
 
 export const MetaMaskMark = markup(

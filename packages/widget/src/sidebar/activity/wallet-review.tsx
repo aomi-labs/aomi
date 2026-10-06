@@ -15,7 +15,7 @@ import {
   requiresSignatureAdmission,
   MANUAL_SIGNATURE_ADMISSION_UNAVAILABLE,
 } from "@aomi-labs/client";
-import { useAomiWalletKit } from "../../lib/wallet-kit";
+import { useAomiWalletKit } from "@/wallet/context";
 import { selectLegacyReviewAction, selectReviewCommit } from "./model";
 import { TransactionReview } from "./transaction-review";
 

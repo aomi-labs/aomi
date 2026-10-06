@@ -7,9 +7,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getSettingsSessionId } from "./lib/settings-api";
-import { SkillCatalogTransportContext } from "../../lib/capabilities/skill-catalog";
-import type { GetAccountBearer } from "@aomi-labs/client";
+import { getSettingsSessionId } from "./settings-api";
+import { SkillCatalogTransportContext } from "../composer/capabilities/skill-catalog";
+import {
+  AomiClient,
+  createScopedStorage,
+  type GetAccountBearer,
+  type AomiHttpMethod,
+  type ScopedStorage,
+} from "@aomi-labs/client";
+import { useWidgetStorage } from "../lib/widget-storage";
 
 export type ShellRequest = <T>(
   path: string,
@@ -19,39 +26,53 @@ export type ShellRequest = <T>(
 export function createShellTransport(
   baseUrl = "",
   getBearer?: GetAccountBearer,
+  storage: ScopedStorage = createScopedStorage({ backendUrl: baseUrl }),
 ) {
   const origin = baseUrl.replace(/\/+$/, "");
+  const fetchWithPolicy: typeof fetch = (input, init) =>
+    globalThis.fetch(input, {
+      ...init,
+      credentials: origin ? "omit" : "same-origin",
+      cache: "no-store",
+    });
+  const publicClient = new AomiClient({
+    baseUrl: origin,
+    fetch: fetchWithPolicy,
+  });
+  const requiredBearer: GetAccountBearer | undefined = getBearer
+    ? Object.assign(
+        (options?: Parameters<GetAccountBearer>[0]) => getBearer(options),
+        { required: true },
+      )
+    : undefined;
+  const client = new AomiClient({
+    baseUrl: origin,
+    fetch: fetchWithPolicy,
+    getAccountBearer: requiredBearer,
+  });
   const request = async (path: string, options: RequestInit = {}) => {
-    if (!path.startsWith("/api/") && !path.startsWith("/v1/")) {
+    if (!path.startsWith("/api/") && !path.startsWith("/v1/"))
       throw new Error("Unsupported account API path");
-    }
     const publicRead =
       (!options.method || options.method === "GET") &&
       (path === "/api/thread/apps" || path.startsWith("/api/resource/skills"));
-    const send = async (forceRefresh: boolean) => {
-      const headers = new Headers(options.headers);
-      if (path.startsWith("/api/thread/")) {
-        const sessionId = getSettingsSessionId();
-        if (!headers.has("X-Thread-Id")) headers.set("X-Thread-Id", sessionId);
-        if (!headers.has("X-Session-Id"))
-          headers.set("X-Session-Id", sessionId);
-      }
-      if (options.body && !headers.has("Content-Type"))
-        headers.set("Content-Type", "application/json");
-      if (getBearer && !publicRead) {
-        const bearer = await getBearer({ forceRefresh });
-        if (!bearer) throw new Error("Sign in to access your account");
-        headers.set("Authorization", `Bearer ${bearer}`);
-      }
-      return fetch(`${origin}${path}`, {
-        ...options,
+    const headers = new Headers(options.headers);
+    if (path.startsWith("/api/thread/")) {
+      const sessionId = getSettingsSessionId(storage);
+      if (!headers.has("X-Thread-Id")) headers.set("X-Thread-Id", sessionId);
+      if (!headers.has("X-Session-Id")) headers.set("X-Session-Id", sessionId);
+    }
+    if (options.body && typeof options.body !== "string")
+      throw new TypeError("Account requests require a JSON body");
+    return (publicRead ? publicClient : client).requestResponse(
+      (options.method ?? "GET") as AomiHttpMethod,
+      path,
+      {
         headers,
-        credentials: origin ? "omit" : "same-origin",
-        cache: "no-store",
-      });
-    };
-    const response = await send(false);
-    return response.status === 401 && getBearer ? send(true) : response;
+        signal: options.signal ?? undefined,
+        body: options.body ? JSON.parse(options.body) : undefined,
+      },
+    );
   };
   const json: ShellRequest = async <T,>(
     path: string,
@@ -69,6 +90,8 @@ export function createShellTransport(
     json,
     embedded: Boolean(origin),
     themeRoot: null as HTMLElement | null,
+    storage,
+    client,
   };
 }
 const defaultTransport = createShellTransport();
@@ -84,10 +107,11 @@ export function ShellTransportProvider({
   getBearer?: GetAccountBearer;
   children: ReactNode;
 }) {
+  const storage = useWidgetStorage();
   const [themeRoot, setThemeRoot] = useState<HTMLDivElement | null>(null);
   const api = useMemo(
-    () => createShellTransport(baseUrl, getBearer),
-    [baseUrl, getBearer],
+    () => createShellTransport(baseUrl, getBearer, storage),
+    [baseUrl, getBearer, storage],
   );
   const transport = useMemo(() => ({ ...api, themeRoot }), [api, themeRoot]);
   return (

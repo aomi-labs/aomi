@@ -1,6 +1,6 @@
 "use client";
 
-import { SigningSettings } from "../account/provider-policy-settings";
+import { SigningSettings } from "@/account/provider-policy-settings";
 
 /** Per-wallet signing. */
 export function PolicySettings({ onLoad }: { onLoad?: () => void }) {

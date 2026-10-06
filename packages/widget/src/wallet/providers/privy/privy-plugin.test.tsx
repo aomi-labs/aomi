@@ -6,7 +6,11 @@ const mounted = vi.hoisted(() => ({ config: undefined as unknown }));
 
 // Stub the heavy composer provider so importing the plugin does not pull in
 // the full wallet-kit runtime tree.
-vi.mock("./PrivyPluginProvider", () => ({
+vi.mock("./privy-delegation", () => ({
+  PrivyDelegationProvider: ({ children }: { children: ReactNode }) => children,
+}));
+
+vi.mock("./privy-plugin-provider", () => ({
   AomiPrivyPluginProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
@@ -27,13 +31,15 @@ vi.mock("@privy-io/react-auth/smart-wallets", () => ({
   SmartWalletsProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
-// Imported after the mocks are registered. The import itself is the fixture
-// contract under test: a host that pulls the providers/privy entrypoint must
-// end up with a resolvable "privy" plugin (the widget-consumer ?provider=privy
-// route went blank when this side effect was missing).
+// Imported after the mocks are registered.
+const { getWalletProvider } = await import("@/wallet/providers/plugin-registry");
 const { privyPlugin } = await import("./privy-plugin");
-const { getWalletProvider, requireWalletProvider } =
-  await import("../plugin-registry");
+const { setPrivySdk } = await import("./privy-sdk");
+setPrivySdk({
+  auth: await import("@privy-io/react-auth"),
+  smartWallets: await import("@privy-io/react-auth/smart-wallets"),
+  solana: {} as never,
+});
 
 describe("Privy plugin registration (route-level mount contract)", () => {
   const envKey = "NEXT_PUBLIC_PRIVY_APP_ID";
@@ -50,9 +56,10 @@ describe("Privy plugin registration (route-level mount contract)", () => {
     else process.env[envKey] = savedEnv;
   });
 
-  it("registers itself on import so auth={provider:'privy'} can resolve the plugin", () => {
-    expect(getWalletProvider("privy")).toBe(privyPlugin);
-    expect(() => requireWalletProvider("privy")).not.toThrow();
+  it("resolves auth={provider:'privy'} without a provider import, loading the SDK on demand", async () => {
+    const lazy = getWalletProvider("privy");
+    expect(lazy?.load).toBeTypeOf("function");
+    await expect(lazy!.load!()).resolves.toBe(privyPlugin);
   });
 
   it("mounts as a pass-through without an appId instead of rendering blank", () => {

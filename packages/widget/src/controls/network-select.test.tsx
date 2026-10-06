@@ -9,15 +9,15 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Chain } from "viem";
 import { ExtUserProvider } from "@aomi-labs/react";
-import type { AomiWalletKit } from "@/lib/wallet-kit";
-import { AomiWalletKitContextProvider } from "@/lib/wallet-kit";
-import type { SvmNetworkOption } from "@/lib/wallet-kit/types";
+import type { AomiWalletKit } from "@/wallet/types";
+import { AomiWalletKitContextProvider } from "@/wallet/context";
+import type { SvmNetworkOption } from "@/wallet/types";
 import {
   AomiWalletNetworkPreferencesProvider,
   useAomiWalletNetworkPreferences,
-} from "@/lib/wallet-kit/network-preferences";
+} from "@/wallet/network-preferences";
 import { NetworkSelect } from "./network-select";
-import { ConnectButton } from "./connect-button";
+import { ConnectButton } from "@/wallet/connect-button";
 
 const evmChains = [
   {

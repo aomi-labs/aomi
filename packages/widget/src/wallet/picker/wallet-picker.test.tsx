@@ -13,11 +13,11 @@ import {
   within,
 } from "@testing-library/react";
 import { AomiRuntimeApiProvider, ExtUserProvider } from "@aomi-labs/react";
-import type { AomiWalletKit } from "@/lib/wallet-kit";
-import type { WalletRow } from "@/lib/wallet-kit/composer/wallet-state";
-import { AomiWalletKitContextProvider } from "@/lib/wallet-kit";
-import { AomiWalletNetworkPreferencesProvider } from "@/lib/wallet-kit/network-preferences";
-import { registerWalletProvider } from "@/lib/wallet-kit/providers/plugin-registry";
+import type { AomiWalletKit } from "@/wallet/types";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
+import { AomiWalletKitContextProvider } from "@/wallet/context";
+import { AomiWalletNetworkPreferencesProvider } from "@/wallet/network-preferences";
+import { registerWalletProvider } from "@/wallet/providers/plugin-registry";
 import {
   requestWalletPickerOpen,
   WalletPickerProvider,
@@ -25,8 +25,8 @@ import {
   useWalletPicker,
 } from "./wallet-picker-context";
 import { WalletPicker } from "./wallet-picker";
-import { AccountSettings } from "../account-shell/features/account/account-settings";
-import { Sheet, SheetContent, SheetTitle } from "../ui/sheet";
+import { AccountSettings } from "@/account/account-settings";
+import { Sheet, SheetContent, SheetTitle } from "@/ui/sheet";
 
 afterEach(cleanup);
 
@@ -1383,6 +1383,37 @@ describe("WalletPicker", () => {
     expect(privy).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])(
+    "keeps both provider logos available before boot with SIWE connected=%s",
+    (connected) => {
+      renderPicker(
+        makeAdapter({
+          identity: {
+            status: connected ? "connected" : "disconnected",
+            isConnected: connected,
+            sessionProvider: connected ? "siwe" : undefined,
+          },
+          accounts: [],
+        }),
+        false,
+        true,
+        ["privy", "para"].map((provider) => ({
+          id: provider,
+          label: provider === "privy" ? "Privy" : "Para",
+          status: "available" as const,
+          family: "multichain" as const,
+          kind: "social" as const,
+          connect: vi.fn(async () => undefined),
+        })),
+      );
+      for (const [label, provider] of [["Privy", "privy"], ["Para", "para"]]) {
+        expect(
+          within(screen.getByRole("button", { name: label })).getByTitle(label),
+        ).toHaveAttribute("data-wallet-brand", provider);
+      }
+    },
+  );
+
   it("shows both host providers as ways to sign in when no provider account is connected", () => {
     renderPicker(makeAdapter({}), false, true, [
       {
@@ -1691,7 +1722,7 @@ describe("WalletPicker", () => {
       false,
       true,
     );
-    const trigger = screen.getByRole("button", { name: "Add a wallet" });
+    const trigger = await screen.findByRole("button", { name: "Add a wallet" });
     trigger.focus();
     fireEvent.click(trigger);
     expect(

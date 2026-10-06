@@ -16,16 +16,16 @@ import type {
   SvmNetworkOption,
   WalletFamily,
   WalletSource,
-} from "../types";
-import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
-import type { SafeSvmWalletState } from "../runtime/svm/wallet-runtime";
-import type { buildSvmTransactionMethods } from "../runtime/svm/transactions";
-import type { AccountRuntime } from "../account/types";
-import type { EvmIdentity } from "../registry/selectors";
+} from "@/wallet/types";
+import type { EvmWalletRuntime } from "@/wallet/runtime/evm/wallet-runtime";
+import type { SafeSvmWalletState } from "@/wallet/runtime/svm/wallet-runtime";
+import type { buildSvmTransactionMethods } from "@/wallet/runtime/svm/transactions";
+import type { AccountRuntime } from "@/wallet/account/types";
+import type { EvmIdentity } from "@/wallet/registry/selectors";
 import type {
   NativeWalletExecutionPolicy,
   WalletExecutionKitState,
-} from "../execution/wallet-execution";
+} from "@/wallet/execution/wallet-execution";
 
 export type AuthRuntimeStatus = "booting" | "authenticated" | "unauthenticated";
 
@@ -65,7 +65,7 @@ export type WalletRuntimeIdentity<F extends WalletFamily> = F extends "evm"
 
 export type WalletRuntime<F extends WalletFamily> = {
   status: "ready" | "unavailable";
-  registryStore: import("../registry/store").WalletRegistryStore;
+  registryStore: import("@/wallet/registry/store").WalletRegistryStore;
   identity: (now: number) => WalletRuntimeIdentity<F>;
   accounts: (now: number) => AomiAccount[];
   activeAccount?: AomiAccount;

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { createContext, useContext } from "react";
 
 export type SkillSummary = {
   id: string;
@@ -25,9 +19,14 @@ export type SkillDetail = SkillSummary & {
   activation?: string;
 };
 
+import {
+  useDisplayQuery,
+  useAomiDisplayCache,
+  type DisplayQuery,
+} from "@aomi-labs/react";
+import type { AomiClient } from "@aomi-labs/client";
+
 const CATALOG_PATH = "/api/resource/skills?limit=100";
-let cachedCatalog: SkillSummary[] | null = null;
-let catalogRequest: Promise<SkillSummary[]> | null = null;
 
 function strings(value: unknown): string[] {
   return Array.isArray(value)
@@ -62,7 +61,7 @@ function parseSkill(value: unknown): SkillSummary | null {
   };
 }
 
-function parseCatalog(value: unknown): SkillSummary[] {
+export function parseSkillCatalog(value: unknown): SkillSummary[] {
   if (!value || typeof value !== "object") return [];
   const rows = (value as Record<string, unknown>).skills;
   if (!Array.isArray(rows)) return [];
@@ -71,9 +70,13 @@ function parseCatalog(value: unknown): SkillSummary[] {
     .filter((skill): skill is SkillSummary => skill !== null);
 }
 
-async function requestJson(path: string): Promise<unknown> {
+async function requestJson(
+  path: string,
+  options?: RequestInit,
+): Promise<unknown> {
   const response = await fetch(path, {
     credentials: "include",
+    ...options,
     cache: "no-store",
   });
   if (!response.ok) {
@@ -86,24 +89,10 @@ async function requestJson(path: string): Promise<unknown> {
 export const SkillCatalogTransportContext = createContext(requestJson);
 
 export async function fetchSkillCatalog(
-  force = false,
+  _force = false,
   request: (path: string) => Promise<unknown> = requestJson,
 ): Promise<SkillSummary[]> {
-  if (request !== requestJson) return request(CATALOG_PATH).then(parseCatalog);
-  if (!force && cachedCatalog) return cachedCatalog;
-  if (!force && catalogRequest) return catalogRequest;
-
-  const pending = requestJson(CATALOG_PATH)
-    .then(parseCatalog)
-    .then((skills) => {
-      cachedCatalog = skills;
-      return skills;
-    })
-    .finally(() => {
-      if (catalogRequest === pending) catalogRequest = null;
-    });
-  catalogRequest = pending;
-  return pending;
+  return parseSkillCatalog(await request(CATALOG_PATH));
 }
 
 export async function fetchSkillDetail(
@@ -157,39 +146,35 @@ export function conciseSkillDescription(description: string): string {
   return `${summary.slice(0, boundary >= 42 ? boundary : 61).trimEnd()}…`;
 }
 
-export function useSkillCatalog(fetcher?: (path: string) => Promise<unknown>) {
+/** Skills from the runtime's public catalog, or from the host's route without a runtime. */
+export function skillCatalogQuery(
+  api: AomiClient | undefined,
+  request: (path: string, options?: RequestInit) => Promise<unknown>,
+): DisplayQuery<SkillSummary[]> {
+  return {
+    resource: "skills",
+    fetcher: (signal) =>
+      (api
+        ? api.getPublicCatalog("skills", { signal })
+        : request(CATALOG_PATH, { signal })
+      ).then(parseSkillCatalog),
+  };
+}
+
+export function useSkillCatalog(
+  fetcher?: (path: string, options?: RequestInit) => Promise<unknown>,
+) {
+  const api = useAomiDisplayCache()?.apiClient;
   const contextRequest = useContext(SkillCatalogTransportContext);
-  const request = fetcher ?? contextRequest;
-  const [skills, setSkills] = useState<SkillSummary[] | null>(
-    request === requestJson ? cachedCatalog : null,
+  const query = useDisplayQuery(
+    skillCatalogQuery(api, fetcher ?? contextRequest),
   );
-  const [error, setError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    setError(null);
-    fetchSkillCatalog(revision > 0, request)
-      .then((rows) => {
-        if (active) setSkills(rows);
-      })
-      .catch(() => {
-        if (active) {
-          setSkills([]);
-          setError("Couldn’t load skills.");
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [revision, request]);
-
-  const retry = useCallback(() => {
-    cachedCatalog = null;
-    catalogRequest = null;
-    setSkills(null);
-    setRevision((value) => value + 1);
-  }, []);
-
-  return { skills, error, retry, loading: skills === null };
+  return {
+    skills: query.data ?? (query.error ? [] : null),
+    error: query.error ? "Couldn’t load skills." : null,
+    retry: () => {
+      void query.refetch();
+    },
+    loading: query.isPending,
+  };
 }

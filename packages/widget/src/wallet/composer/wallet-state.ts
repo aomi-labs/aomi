@@ -1,5 +1,5 @@
-import type { AomiAccountAction, WalletFamily } from "../types";
-import { walletKey } from "../wallet-utils";
+import type { AomiAccountAction, WalletFamily } from "@/wallet/types";
+import { walletKey } from "@/wallet/wallet-utils";
 
 type WalletKind = "external" | "embedded";
 

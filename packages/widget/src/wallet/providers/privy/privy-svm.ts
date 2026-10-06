@@ -1,7 +1,7 @@
 "use client";
 
-import type { SafeSvmWalletState } from "../../runtime/svm/wallet-runtime";
-import { formatWalletAddress } from "../../identity";
+import type { SafeSvmWalletState } from "@/wallet/runtime/svm/wallet-runtime";
+import { formatWalletAddress } from "@/wallet/identity";
 import type { PrivySolanaWallet } from "./privy-auth";
 
 export function buildPrivySvmWalletState({

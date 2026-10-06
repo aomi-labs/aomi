@@ -2,7 +2,7 @@ import { cn } from "@aomi-labs/react";
 import { ExternalLink } from "lucide-react";
 import type { ComponentPropsWithoutRef } from "react";
 
-import { EtherscanIcon, SolscanIcon } from "@/components/icons/apps";
+import { EtherscanIcon, SolscanIcon } from "@/icons/apps/app-icons";
 import {
   CONFIGURED_EVM_EXPLORERS,
   EVM_EXPLORERS,

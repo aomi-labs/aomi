@@ -1,6 +1,6 @@
 "use client";
 
-import { formatWalletAddress } from "../../lib/wallet-kit";
+import { formatWalletAddress } from "./identity";
 
 export function DisconnectConfirmDialog({
   open,

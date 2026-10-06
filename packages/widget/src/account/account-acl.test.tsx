@@ -8,11 +8,14 @@ import {
   within,
 } from "@testing-library/react";
 
-import { AccountSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-settings";
-import { SigningSettings } from "../../../../shadcn-registry/src/components/account-shell/features/account/provider-policy-settings";
-import { seedAccountOverview } from "../../../../shadcn-registry/src/components/account-shell/lib/account-overview";
-import { WalletSignInOptionsContext } from "../../../../shadcn-registry/src/components/control-bar/wallet-picker-context";
-import type { WalletRow } from "../../../../shadcn-registry/src/lib/wallet-kit/composer/wallet-state";
+import { AccountSettings } from "@/account/account-settings";
+import { SigningSettings } from "@/account/provider-policy-settings";
+import {
+  AccountOverviewFixture,
+  seedAccountOverview,
+} from "@/test/account-overview-fixture";
+import { WalletSignInOptionsContext } from "@/wallet/picker/wallet-picker-context";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 type FetchCall = { input: string | URL | Request; init?: RequestInit };
 
@@ -81,21 +84,13 @@ function readyWallets(): WalletRow[] {
 
 const privyDelegation = vi.hoisted(() => ({ start: vi.fn() }));
 
-vi.mock("@aomi-labs/widget-lib", async () => ({
-  requestWalletPickerOpen: vi.fn(),
-  WalletSignInOptionsContext: (await import("react")).createContext([]),
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => walletKit,
+}));
+
+vi.mock("@/wallet/providers/privy/privy-delegation-context", () => ({
   usePrivyDelegation: () => privyDelegation,
 }));
-
-vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
-  useAomiWalletKit: () => walletKit,
-}));
-
-vi.mock(
-  "../../../../shadcn-registry/src/lib/wallet-kit/providers/privy/privy-delegation-context",
-  () => ({ usePrivyDelegation: () => privyDelegation }),
-);
 
 vi.mock("@aomi-labs/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@aomi-labs/react")>()),
@@ -219,6 +214,7 @@ async function renderAcl(
                   label: provider,
                   family: "multichain",
                   kind: "social",
+                  status: "available",
                   connect: connectProvider,
                 },
               ]
@@ -229,6 +225,10 @@ async function renderAcl(
       </WalletSignInOptionsContext.Provider>,
     );
   });
+  // Query observers publish the settled account after the render's act batch.
+  await waitFor(() =>
+    expect(screen.getAllByRole("button").length).toBeGreaterThan(0),
+  );
 }
 
 /** Click and flush the async handler it kicks off. */
@@ -281,8 +281,7 @@ describe("account ACL wiring", () => {
     runtime.setUser.mockClear();
     privyDelegation.start.mockReset();
     privyDelegation.start.mockResolvedValue(undefined);
-    // The overview store is module-level; seed it so the tab doesn't also
-    // depend on /api/account here.
+    // Seed the profile so the account tab doesn't also depend on /api/account.
     seedAccountOverview({
       user: { user_id: "acct-1", verified_email: "alice@example.com" },
     });
@@ -296,9 +295,11 @@ describe("account ACL wiring", () => {
   it("closes account settings after signing out", async () => {
     installFetchRecorder();
     const onClose = vi.fn();
-    await act(async () => render(<AccountSettings onClose={onClose} />));
+    await act(async () => render(<AccountSettings onClose={onClose} />, {
+          wrapper: AccountOverviewFixture,
+        }));
 
-    await click(screen.getByRole("button", { name: "Sign out" }));
+    await click(await screen.findByRole("button", { name: "Sign out" }));
 
     expect(walletKit.signOutAccount).toHaveBeenCalledOnce();
     expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
@@ -309,9 +310,11 @@ describe("account ACL wiring", () => {
     installFetchRecorder();
     const onClose = vi.fn();
     walletKit.deleteAccount.mockRejectedValueOnce(new Error("Delete failed"));
-    await act(async () => render(<AccountSettings onClose={onClose} />));
+    await act(async () => render(<AccountSettings onClose={onClose} />, {
+          wrapper: AccountOverviewFixture,
+        }));
 
-    await click(screen.getByRole("button", { name: "Delete" }));
+    await click(await screen.findByRole("button", { name: "Delete" }));
     await click(screen.getByRole("button", { name: "Cancel" }));
     expect(walletKit.deleteAccount).not.toHaveBeenCalled();
 
@@ -761,7 +764,7 @@ describe("account ACL wiring", () => {
     walletKit.identity = {
       address: undefined,
       svmAddress: undefined,
-    };
+    } as unknown as typeof walletKit.identity;
     walletKit.wallets[0] = { ...walletKit.wallets[0]!, operating: false };
     const { calls } = installFetchRecorder();
 

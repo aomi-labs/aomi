@@ -8,26 +8,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  Environment,
-  ParaProvider,
-  useParaStatus,
-  type TOAuthMethod,
-} from "@getpara/react-sdk";
-import "@getpara/react-sdk/styles.css";
+import type { TOAuthMethod } from "@getpara/react-sdk";
 import type {
   AuthConfig,
   AuthMethodId,
   ProvidersConfig,
-} from "../../config/types";
+} from "@/wallet/config/types";
 import {
   registerWalletProvider,
   type WalletProviderPlugin,
-} from "../plugin-registry";
-import { AomiParaPluginProvider } from "./ParaPluginProvider";
+} from "@/wallet/providers/plugin-registry";
+import { AomiParaPluginProvider } from "./para-plugin-provider";
 import { AomiParaEvmRuntimeProvider } from "./para-evm-runtime-provider";
 import { defaultOAuthMethods } from "./para-auth";
-import { safeEnv } from "../../env";
+import { paraSdk } from "./para-sdk";
 
 // Once its connectors load, Para has this long to report ready.
 const PARA_STARTUP_TIMEOUT_MS = 4_000;
@@ -54,19 +48,6 @@ function ParaConnectorsLoaded({ onLoaded }: { onLoaded: () => void }) {
 }
 
 /**
- * Defensive read of the Para SDK readiness signal, mirroring the other
- * `useSafe*` Para hooks: `useParaStatus()` throws if no Para context is mounted,
- * which we treat as "not ready".
- */
-function useSafeParaReady(): boolean {
-  try {
-    return Boolean(useParaStatus().isReady);
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Reports startup success from `useParaStatus().isReady`, which turns true only
  * once the Para client's setup succeeds, because a loaded ParaProvider renders
  * its children while initializing and on error too.
@@ -78,7 +59,7 @@ function ParaStartupWatcher({
   children: ReactNode;
   onReady: () => void;
 }) {
-  const isReady = useSafeParaReady();
+  const isReady = Boolean(paraSdk().react.useParaStatus().isReady);
   useEffect(() => {
     if (isReady) onReady();
   }, [isReady, onReady]);
@@ -86,6 +67,7 @@ function ParaStartupWatcher({
 }
 
 function toParaEnvironment(value?: "PROD" | "BETA") {
+  const { Environment } = paraSdk().react;
   if (!value) return Environment.BETA;
   return value === "PROD" ? Environment.PROD : Environment.BETA;
 }
@@ -115,12 +97,10 @@ function isParaAuth(auth: AuthConfig | undefined): boolean {
 function ParaAuthLayer({
   auth,
   children,
-  placeholder,
   providers,
 }: {
   auth?: AuthConfig;
   children: ReactNode;
-  placeholder?: ReactNode;
   providers?: ProvidersConfig;
 }) {
   const enabled = isParaAuth(auth);
@@ -132,8 +112,7 @@ function ParaAuthLayer({
   );
   const markConnectorsLoaded = useCallback(() => setConnectorsLoaded(true), []);
   const para = providers?.para === false ? undefined : providers?.para;
-  const apiKey =
-    para?.apiKey ?? safeEnv(() => process.env.NEXT_PUBLIC_PARA_API_KEY);
+  const apiKey = para?.apiKey;
   const paraClientConfig = useMemo(
     () =>
       apiKey
@@ -239,18 +218,14 @@ function ParaAuthLayer({
     );
   }
 
-  // Until the connector libraries load, ParaProvider renders nothing, and it
-  // wraps the whole host app. Keep the app on screen beside it as the booting
-  // placeholder, and mount the wallet runtimes (`children`) only under
-  // ParaProvider once they arrive: mounting them beside it first would run
-  // wagmi's reconnect in a config that is then thrown away, and wagmi skips the
-  // real config's reconnect while that one is in flight. The fixed slots keep
-  // the ParaProvider instance stable across the switch.
+  // Mount the wallet runtimes (`children`) only under ParaProvider once its
+  // connector libraries arrive: mounting them first would run wagmi's
+  // reconnect in a config that is then thrown away, and wagmi skips the real
+  // config's reconnect while that one is in flight.
+  const { ParaProvider } = paraSdk().react;
   return (
     <>
-      {/* Once mounted, keep the host under ParaProvider even if startup fails.
-          Moving it out would reset open dialogs and external wallet runtimes. */}
-      {startupBanner ?? (connectorsLoaded ? null : placeholder)}
+      {startupBanner}
       <ParaProvider
         key={startupAttempt}
         paraClientConfig={paraClientConfig}
@@ -276,10 +251,7 @@ export const paraPlugin: WalletProviderPlugin = {
   isAvailable: ({ auth, providers }) => {
     const enabled = isParaAuth(auth);
     const para = providers?.para === false ? undefined : providers?.para;
-    return Boolean(
-      enabled &&
-      (para?.apiKey ?? safeEnv(() => process.env.NEXT_PUBLIC_PARA_API_KEY)),
-    );
+    return Boolean(enabled && para?.apiKey);
   },
   wrap: (props) => <ParaAuthLayer {...props} />,
   renderEvmRuntimeProvider: (props) => (
@@ -340,5 +312,3 @@ export const paraPlugin: WalletProviderPlugin = {
 export function registerAomiParaWalletProvider(): void {
   registerWalletProvider(paraPlugin);
 }
-
-registerAomiParaWalletProvider();

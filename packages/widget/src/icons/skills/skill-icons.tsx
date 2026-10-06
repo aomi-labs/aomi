@@ -7,10 +7,10 @@ import {
   MorphoIcon,
   OneInchIcon,
   YearnIcon,
-} from "../apps";
-import { ArbitrumIcon, BaseIcon, OptimismIcon, RobinhoodIcon } from "../chains";
+} from "@/icons/apps/app-icons";
+import { ArbitrumIcon, BaseIcon, OptimismIcon, RobinhoodIcon } from "@/icons/chain-icons";
 
-import { skillBrandLabel } from "../../../lib/capabilities/skill-label";
+import { skillBrandLabel } from "@/composer/capabilities/skill-label";
 import { sourcedSkillMarks } from "./sourced-marks";
 
 type SkillIconProps = SVGProps<SVGSVGElement>;

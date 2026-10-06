@@ -1,18 +1,19 @@
 "use client";
 
-import {
+import type {
+  ConnectedWallet,
+  PrivyClientConfig,
   useIdentityToken,
   usePrivy,
   useSignTransaction,
   useWallets,
-  type ConnectedWallet,
-  type PrivyClientConfig,
 } from "@privy-io/react-auth";
-import { useSolanaWallets } from "@privy-io/react-auth/solana";
-import { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
+import type { useSolanaWallets } from "@privy-io/react-auth/solana";
+import type { useSmartWallets } from "@privy-io/react-auth/smart-wallets";
+import { privySdk } from "./privy-sdk";
 import type { Chain } from "viem";
-import type { AomiLoginMethod, AomiWalletOption } from "../../types";
-import type { AuthMethodId } from "../../config/types";
+import type { AomiLoginMethod, AomiWalletOption } from "@/wallet/types";
+import type { AuthMethodId } from "@/wallet/config/types";
 
 export type PrivyHook = ReturnType<typeof usePrivy>;
 export type PrivyAccessTokenHook = PrivyHook & {
@@ -82,7 +83,7 @@ const AOMI_LOGIN_METHODS = new Set<AomiLoginMethod>([
 
 export function useSafePrivy(): PrivyAccessTokenHook {
   try {
-    return usePrivy() as PrivyAccessTokenHook;
+    return privySdk().auth.usePrivy() as PrivyAccessTokenHook;
   } catch {
     return DISCONNECTED_PRIVY;
   }
@@ -90,7 +91,7 @@ export function useSafePrivy(): PrivyAccessTokenHook {
 
 export function useSafePrivyIdentityToken(): string | null {
   try {
-    return useIdentityToken().identityToken;
+    return privySdk().auth.useIdentityToken().identityToken;
   } catch {
     return null;
   }
@@ -98,7 +99,7 @@ export function useSafePrivyIdentityToken(): string | null {
 
 export function useSafeSmartWallets(): SmartWalletsHook {
   try {
-    return useSmartWallets();
+    return privySdk().smartWallets.useSmartWallets();
   } catch {
     return DISCONNECTED_SMART_WALLETS;
   }
@@ -106,7 +107,7 @@ export function useSafeSmartWallets(): SmartWalletsHook {
 
 export function useSafeSvmWallets(): SolanaWalletsHook {
   try {
-    return useSolanaWallets();
+    return privySdk().solana.useSolanaWallets();
   } catch {
     return DISCONNECTED_SOLANA_WALLETS;
   }
@@ -114,7 +115,7 @@ export function useSafeSvmWallets(): SolanaWalletsHook {
 
 export function useSafeWallets(): WalletsHook {
   try {
-    return useWallets();
+    return privySdk().auth.useWallets();
   } catch {
     return DISCONNECTED_WALLETS;
   }
@@ -122,7 +123,7 @@ export function useSafeWallets(): WalletsHook {
 
 export function useSafeSignTransaction(): SignTransactionHook {
   try {
-    return useSignTransaction();
+    return privySdk().auth.useSignTransaction();
   } catch {
     return DISCONNECTED_SIGN_TRANSACTION;
   }

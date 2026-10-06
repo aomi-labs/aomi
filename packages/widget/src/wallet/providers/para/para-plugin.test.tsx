@@ -44,7 +44,7 @@ const paraLibs = vi.hoisted(() => {
 
 // Stub the heavy composer provider so importing the plugin does not pull in the
 // full wallet-kit runtime tree.
-vi.mock("./ParaPluginProvider", () => ({
+vi.mock("./para-plugin-provider", () => ({
   AomiParaPluginProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
@@ -87,8 +87,14 @@ vi.mock("@getpara/react-sdk", async () => {
   };
 });
 
-// Imported after the mocks are registered.
-const { paraPlugin } = await import("./para-plugin");
+// Imported after the mocks are registered; a fresh module graph needs the SDK
+// handed in again.
+async function importParaPlugin() {
+  const { setParaSdk } = await import("./para-sdk");
+  setParaSdk({ react: await import("@getpara/react-sdk"), wagmi: {} as never });
+  return (await import("./para-plugin")).paraPlugin;
+}
+const paraPlugin = await importParaPlugin();
 
 function renderLayer(
   plugin = paraPlugin,
@@ -100,7 +106,6 @@ function renderLayer(
         auth: { provider: "para", methods: ["google"] },
         providers: { para: { apiKey: "test-api-key" } },
         children,
-        placeholder: <div>booting-host</div>,
       })}
     </>,
   );
@@ -220,10 +225,10 @@ describe("Para connector loading", () => {
     vi.useRealTimers();
   });
 
-  it("shows the booting host while Para loads its connectors, then mounts the wallet runtimes once under ParaProvider", async () => {
+  it("renders nothing while Para loads its connectors, then mounts the wallet runtimes once under ParaProvider", async () => {
     // A fresh module, so no earlier mount has recorded the connectors as loaded.
     vi.resetModules();
-    const { paraPlugin: coldParaPlugin } = await import("./para-plugin");
+    const coldParaPlugin = await importParaPlugin();
     paraLibs.setLoaded(false);
     // Stands in for WagmiProvider: every mount runs a reconnect, and wagmi
     // skips it while an earlier mount's reconnect is still in flight.
@@ -236,7 +241,7 @@ describe("Para connector loading", () => {
     }
     renderLayer(coldParaPlugin, <WalletRuntime />);
 
-    expect(screen.getByText("booting-host")).toBeTruthy();
+    expect(screen.queryByText("widget-body")).toBeNull();
     expect(screen.queryByTestId("para-provider")).toBeNull();
     expect(runtimeMounts).toBe(0);
     // Download time is not a startup failure.
@@ -248,7 +253,6 @@ describe("Para connector loading", () => {
     act(() => {
       paraLibs.setLoaded(true);
     });
-    expect(screen.queryByText("booting-host")).toBeNull();
     expect(screen.getByTestId("para-provider").textContent).toContain(
       "widget-body",
     );
@@ -257,7 +261,7 @@ describe("Para connector loading", () => {
 
   it("falls back to the host app when ParaProvider never renders its children", async () => {
     vi.resetModules();
-    const { paraPlugin: coldParaPlugin } = await import("./para-plugin");
+    const coldParaPlugin = await importParaPlugin();
     paraLibs.setLoaded(false);
     let runtimeMounts = 0;
     function WalletRuntime() {
@@ -274,7 +278,6 @@ describe("Para connector loading", () => {
     expect(screen.getByRole("alert").textContent).toContain(
       "Para authentication could not start",
     );
-    expect(screen.queryByText("booting-host")).toBeNull();
     expect(screen.getByText("widget-body")).toBeTruthy();
     expect(runtimeMounts).toBe(1);
   });

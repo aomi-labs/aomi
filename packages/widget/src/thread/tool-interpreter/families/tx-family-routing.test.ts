@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { ToolContext } from "../types";
+import type { ToolContext } from "@/thread/tool-interpreter/types";
 import {
   matchEvmPendingApproval,
   matchEvmSimulation,
-} from "./evm/transactions";
+} from "@/thread/tool-interpreter/families/evm/transactions";
 import {
   matchSvmPendingApproval,
   matchSvmSimulation,
-} from "./svm/transactions";
+} from "@/thread/tool-interpreter/families/svm/transactions";
 
 const contextFor = (result: Record<string, unknown>): ToolContext => ({
   rawLabel: "Transaction step",

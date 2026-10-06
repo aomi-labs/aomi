@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { privateKeyToAccount } from "viem/accounts";
-import type { AomiWalletKitComposerProps } from "../../composer/types";
-import { AomiParaPluginProvider } from "./ParaPluginProvider";
+import type { AomiWalletKitComposerProps } from "@/wallet/composer/types";
+import { AomiParaPluginProvider } from "./para-plugin-provider";
 
 const state = vi.hoisted(() => ({
   props: null as AomiWalletKitComposerProps | null,
@@ -12,19 +12,19 @@ const state = vi.hoisted(() => ({
   signMessage: vi.fn(),
   registryStore: { dispatch: vi.fn() },
 }));
-vi.mock("../../composer/AomiWalletKitComposer", () => ({
+vi.mock("@/wallet/composer/aomi-wallet-kit-composer", () => ({
   AomiWalletKitComposer: (props: AomiWalletKitComposerProps) => {
     state.props = props;
     return props.children;
   },
 }));
-vi.mock("../../account/use-resolved-account-runtime", () => ({
+vi.mock("@/wallet/account/use-resolved-account-runtime", () => ({
   useResolvedAccountRuntime: () => undefined,
 }));
-vi.mock("../../network-preferences", () => ({
+vi.mock("@/wallet/network-preferences", () => ({
   useAomiWalletNetworkPreferences: () => ({ supportedSolanaNetworks: [] }),
 }));
-vi.mock("./sources/para-session-source", () => ({
+vi.mock("@/wallet/providers/para/sources/para-session-source", () => ({
   useParaSessionSource: () => undefined,
 }));
 vi.mock("./para-auth", () => ({
@@ -44,7 +44,7 @@ vi.mock("./para-auth", () => ({
   resolveParaAuthValue: () => undefined,
   defaultOAuthMethods: [],
 }));
-vi.mock("../../runtime/evm/wallet-runtime", () => ({
+vi.mock("@/wallet/runtime/evm/wallet-runtime", () => ({
   useEvmWalletRuntime: () => ({
     registryStore: state.registryStore,
     registryState: {
@@ -60,7 +60,7 @@ vi.mock("../../runtime/evm/wallet-runtime", () => ({
     identity: () => ({}),
   }),
 }));
-vi.mock("../../runtime/svm/wallet-runtime", () => ({
+vi.mock("@/wallet/runtime/svm/wallet-runtime", () => ({
   DEFAULT_SVM_ENDPOINT: "http://localhost:8899",
   useSafeSvmWallet: () => ({ connected: false }),
   useSvmWalletRuntime: () => ({
@@ -92,6 +92,12 @@ describe("Para authorization wiring", () => {
               }),
       }),
     );
+  });
+
+  it("does not advertise a login callback when the Para modal is unavailable", () => {
+    render(<AomiParaPluginProvider>settings</AomiParaPluginProvider>);
+    expect(state.props!.auth.canOpenModal).toBe(false);
+    expect(state.props!.auth.login).toBeUndefined();
   });
 
   it("exposes and targets both EVM wallets and Solana without an extension", async () => {

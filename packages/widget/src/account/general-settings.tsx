@@ -1,26 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { getChainInfo, useAomiRuntime } from "@aomi-labs/react";
+import { getChainInfo } from "@aomi-labs/react";
 import type { AomiCreditPosition } from "@aomi-labs/client";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
+import { useAccountCredits } from "./use-account-credits";
+import { useAomiWalletKit } from "@/wallet/context";
 import { ChevronRight, Shield, UserRound } from "lucide-react";
-import { countDriftedWallets } from "../account/wallet-attention";
-import { useAccountAcl } from "../account/use-account-acl";
-import { walletConnectionSummary } from "../account/wallet-management-model";
+import { countDriftedWallets } from "@/wallet/wallet-attention";
+import { useAccountAcl } from "./use-account-acl";
+import { walletConnectionSummary } from "@/wallet/wallet-management-model";
 import {
   creditAllowanceFromPosition,
   useAccountOverview,
   useAccountOverviewStore,
-} from "../../lib/account-overview";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
-import { useSettings, type ColorMode } from "../../lib/use-settings";
+} from "./account-overview";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { useSettings, type ColorMode } from "./use-settings";
 import {
   Divider,
   SettingRow,
   SettingsSectionHeading,
   settingsPanelClass,
-} from "../account/settings-rows";
+} from "./settings-rows";
 
 /**
  * Settings › General — design-sync summary card (plan, allowance, identity)
@@ -41,10 +42,13 @@ export function GeneralSettings({
   const account = useAccountOverview();
   const overviewStore = useAccountOverviewStore();
   const [overviewSettled, setOverviewSettled] = useState(false);
-  const { account: runtimeAccount } = useAomiRuntime();
+  const position = useAccountCredits();
+  const credits =
+    position.isPending && position.fetchStatus !== "idle"
+      ? undefined
+      : (position.data ?? null);
   const acl = useAccountAcl();
   // undefined while loading; null when unavailable.
-  const [credits, setCredits] = useState<AomiCreditPosition | null>();
 
   useEffect(() => {
     let mounted = true;
@@ -55,25 +59,6 @@ export function GeneralSettings({
       mounted = false;
     };
   }, [overviewStore]);
-
-  useEffect(() => {
-    if (!adapter.accountUser || adapter.accountGuest) {
-      setCredits(null);
-      return;
-    }
-    let mounted = true;
-    void runtimeAccount.credits
-      .get({ limit: 1 })
-      .then((position) => {
-        if (mounted) setCredits(position);
-      })
-      .catch(() => {
-        if (mounted) setCredits(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [adapter.accountGuest, adapter.accountUser, runtimeAccount]);
 
   const networkTicker = identity.chainId
     ? getChainInfo(identity.chainId)?.ticker

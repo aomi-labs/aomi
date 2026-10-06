@@ -1,19 +1,19 @@
 "use client";
 
-import type { SignerMode, WalletPolicy } from "./types";
+import type { SignerMode, WalletPolicy } from "@/account/types";
 import {
   modeLabel,
   reconcile,
   signingChoicesFor,
   walletDisplayName,
   walletMarkKey,
-} from "./account-reconcile";
+} from "@/account/account-reconcile";
 import { WalletProviderAvatar } from "./wallet-brands";
-import { shortenAddress } from "./account-api";
 import { Loader2 } from "lucide-react";
 import { cn } from "@aomi-labs/react";
-import { ListRow } from "../../../ui/aomi/list-group";
-import { Segmented } from "../../../ui/aomi/segmented";
+import { ListRow } from "@/ui/aomi/list-group";
+import { Segmented } from "@/ui/aomi/segmented";
+import { shortAddress } from "@aomi-labs/client";
 
 interface WalletPolicyRowProps {
   wallet: WalletPolicy;
@@ -28,7 +28,7 @@ interface WalletPolicyRowProps {
 export function walletAddressLine(
   wallet: Pick<WalletPolicy, "address" | "chain">,
 ) {
-  return `${shortenAddress(wallet.address)} · ${wallet.chain === "evm" ? "EVM" : "SVM"}`;
+  return `${shortAddress(wallet.address)} · ${wallet.chain === "evm" ? "EVM" : "SVM"}`;
 }
 
 /**

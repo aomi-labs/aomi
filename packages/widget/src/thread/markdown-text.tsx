@@ -1,7 +1,5 @@
 "use client";
 
-import "@assistant-ui/react-markdown/styles/dot.css";
-
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
@@ -19,23 +17,48 @@ import {
 import { useMessage } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import { OnchainLink } from "@/components/assistant-ui/onchain-link";
+import { TooltipIconButton } from "./tooltip-icon-button";
+import { OnchainLink } from "./onchain-link";
 import {
   remarkExplorerLinks,
   toolExplorerLinks,
-} from "@/components/assistant-ui/explorer-links";
+} from "./explorer-links";
 import { cn } from "@aomi-labs/react";
 
+// Each renderer owns its selector cache. Text/tool updates with unchanged
+// explorer meaning must not recreate the Markdown parser's plugin inputs.
+const createExplorerLinkSelector = () => {
+  let previous = new Map<string, string | null>();
+  return ({ content }: { content: readonly unknown[] }) => {
+    const next = toolExplorerLinks(content);
+    if (
+      next.size !== previous.size ||
+      [...next].some(([identifier, url]) => previous.get(identifier) !== url)
+    )
+      previous = next;
+    return previous;
+  };
+};
+const EMPTY_EXPLORER_LINKS = new Map<string, string | null>();
+
 const MarkdownTextImpl = () => {
-  // WorkingTrace renders detached text parts outside a message runtime.
-  const content = useMessage({ optional: true })?.content;
+  // Detached trace parts can still inherit their message's explorer context.
+  const selector = useMemo(createExplorerLinkSelector, []);
+  const links =
+    useMessage({ optional: true, selector }) ?? EMPTY_EXPLORER_LINKS;
   const remarkPlugins = useMemo<
     ComponentPropsWithoutRef<typeof MarkdownTextPrimitive>["remarkPlugins"]
-  >(
-    () => [remarkGfm, [remarkExplorerLinks, toolExplorerLinks(content ?? [])]],
-    [content],
-  );
+  >(() => [remarkGfm, [remarkExplorerLinks, links]], [links]);
+  return <MarkdownDisplay remarkPlugins={remarkPlugins} />;
+};
+
+const MarkdownDisplay = memo(function MarkdownDisplay({
+  remarkPlugins,
+}: {
+  remarkPlugins: ComponentPropsWithoutRef<
+    typeof MarkdownTextPrimitive
+  >["remarkPlugins"];
+}) {
   return (
     <MarkdownTextPrimitive
       remarkPlugins={remarkPlugins}
@@ -43,7 +66,7 @@ const MarkdownTextImpl = () => {
       components={defaultComponents}
     />
   );
-};
+});
 
 export const MarkdownText = memo(MarkdownTextImpl);
 

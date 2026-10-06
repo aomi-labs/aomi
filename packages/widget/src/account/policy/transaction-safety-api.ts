@@ -3,7 +3,7 @@ import type {
   TransactionSafetyMode,
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
-import type { ShellRequest } from "../../transport";
+import type { ShellRequest } from "@/account/transport";
 
 export async function fetchTransactionSafety(
   request: ShellRequest,

@@ -3,9 +3,9 @@ import {
   asString,
   chainFactFromRecord,
   normalizeAddress,
-} from "../../normalize";
-import type { ToolMatcher } from "../../types";
-import { isErrorResult, operation } from "../operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 const meaningful = (value: unknown): string | undefined =>
   asString(value)?.trim() || undefined;

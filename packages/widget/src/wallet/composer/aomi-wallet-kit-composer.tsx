@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useUser } from "@aomi-labs/react";
-import { AomiWalletKitContextProvider } from "../context";
-import type { AomiAccount, AomiWalletKit } from "../types";
-import { EVM_IDENTITY_GRACE_MS, REGISTRY_STORAGE_KEY } from "../registry/types";
-import { walletDebug } from "../wallet-debug";
-import { DISABLED_ACCOUNT_RUNTIME } from "../account/disabled-runtime";
-import { buildWalletKitAccounts } from "../accounts";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { AomiWalletKitContextProvider } from "@/wallet/context";
+import type { AomiAccount, AomiWalletKit } from "@/wallet/types";
+import { EVM_IDENTITY_GRACE_MS } from "@/wallet/registry/types";
+import { walletDebug } from "@/wallet/wallet-debug";
+import { DISABLED_ACCOUNT_RUNTIME } from "@/wallet/account/disabled-runtime";
+import { buildWalletKitAccounts } from "@/wallet/accounts";
 import { buildWalletKitIdentity } from "./build-identity";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 import type { AomiWalletKitComposerProps } from "./types";
 import { resolveWalletState } from "./wallet-state";
 import {
-  browserWalletSelectionStorage,
   readWalletSelection,
   selectedWalletKeys,
   writeWalletSelection,
 } from "./wallet-selection";
-import { walletKey } from "../wallet-utils";
+import { preferenceStorage, useWidgetStorage } from "@/lib/widget-storage";
+import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
+import { walletKey } from "@/wallet/wallet-utils";
 
 export function AomiWalletKitComposer({
   children,
@@ -33,12 +33,12 @@ export function AomiWalletKitComposer({
   canManageAccount,
   supportedChains,
 }: AomiWalletKitComposerProps) {
-  const { user } = useUser();
   const [evmIdentityGraceVersion, bumpEvmIdentityGrace] = useState(0);
   const { registryStore, registryState } = evm;
   const accountId = account.guest ? undefined : account.user?.id;
   const [selectionVersion, setSelectionVersion] = useState(0);
-  const selectionStorage = browserWalletSelectionStorage();
+  const storage = useWidgetStorage();
+  const selectionStorage = useMemo(() => preferenceStorage(storage), [storage]);
   const storedSelection = useMemo(
     () => readWalletSelection(selectionStorage, accountId),
     [accountId, selectionStorage, selectionVersion],
@@ -174,6 +174,7 @@ export function AomiWalletKitComposer({
       }),
     [
       account.guest,
+      account.guestUserId,
       account.status,
       account.user,
       account.wallets,
@@ -307,6 +308,7 @@ export function AomiWalletKitComposer({
       accountError: account.error,
       accountConflict: account.conflict,
       accountGuest: account.guest,
+      accountGuestUserId: account.guest ? account.guestUserId : undefined,
       // Temporary Better Auth guests are a transport principal, never an
       // account-management principal. Keep that boundary at the adapter too,
       // so stale or non-canonical account responses cannot expose guest chrome.
@@ -348,7 +350,12 @@ export function AomiWalletKitComposer({
       evmWallets: evmWalletOptions,
       connectEvmWallet: actions.connectEvmWallet,
       socialLoginOptions: auth.methods,
-      connectSocial: actions.connectSocial,
+      // An external signer can stay ready while the selected auth SDK boots.
+      // Publish its login capability only when that SDK can consume the intent.
+      connectSocial:
+        auth.status !== "booting" && auth.login
+          ? actions.connectSocial
+          : undefined,
       solanaWallets: solanaWalletDescriptors,
       connectSolanaWallet: actions.connectSolanaWallet,
       supportedChains,
@@ -409,6 +416,11 @@ export function AomiWalletKitComposer({
     svm,
     supportedChains,
   ]);
+
+  const publish = useWalletAuthPublisher();
+  useLayoutEffect(() => {
+    publish?.(adapter);
+  }, [publish, adapter]);
 
   return (
     <AomiWalletKitContextProvider value={adapter}>

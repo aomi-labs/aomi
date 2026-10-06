@@ -1,3 +1,4 @@
+import { shortAddress } from "@aomi-labs/client";
 import {
   CircleDollarSignIcon,
   LandmarkIcon,
@@ -12,11 +13,18 @@ import {
   chainFact,
   chainFactFromRecord,
   tokenFact,
-} from "../normalize";
-import type { FactSource, ToolContext, ToolFact } from "../types";
+} from "@/thread/tool-interpreter/normalize";
+import type {
+  FactSource,
+  ToolContext,
+  ToolFact,
+} from "@/thread/tool-interpreter/types";
 import { validResult } from "./shared";
 import type { ProtocolAdapter } from "./types";
-import { failedFact, operation } from "../families/operation";
+import {
+  failedFact,
+  operation,
+} from "@/thread/tool-interpreter/families/operation";
 
 const MAX_PRICES = 3;
 const MAX_PROTOCOLS = 2;
@@ -52,9 +60,7 @@ const argsChainFact = (value: unknown): ToolFact | null => {
 /** "base:0x8335…" and "coingecko:ethereum" read as their token part. */
 const requestedTokenLabel = (value: unknown): string | undefined => {
   const token = asString(value)?.split(":").at(-1);
-  return token?.startsWith("0x")
-    ? `${token.slice(0, 6)}…${token.slice(-4)}`
-    : token;
+  return token?.startsWith("0x") ? shortAddress(token) : token;
 };
 
 const formatUsd = (value: number): string =>

@@ -11,7 +11,7 @@ import type { Event, TurnState } from "@aomi-labs/client";
 import {
   logicalTurnRunning,
   projectRuntimeMessages,
-} from "../../../../../packages/react/src/runtime/utils";
+} from "../../../react/src/runtime/message-projection";
 
 const transport = vi.hoisted(() => ({
   events: [] as Event[],
@@ -23,7 +23,7 @@ vi.mock("@aomi-labs/react", async (importOriginal) => ({
   useOptionalAomiRuntime: () => transport,
   useThreadTaskRuns: () => ({}),
 }));
-vi.mock("@/components/assistant-ui/markdown-text", async () => {
+vi.mock("./markdown-text", async () => {
   const { useMessagePartText } = await vi.importActual<
     typeof import("@assistant-ui/react")
   >("@assistant-ui/react");

@@ -1,6 +1,6 @@
 "use client";
 import { useTokenMetadata } from "./token-metadata";
-import { LoadingLine } from "@/components/ui/aomi/loading-pane";
+import { LoadingLine } from "@/ui/aomi/loading-pane";
 import { useState } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
 import { cn, getChainInfo } from "@aomi-labs/react";
@@ -30,9 +30,9 @@ import {
   formatAssetAmount,
   approvalTitle,
   approvalScope,
-  compact,
   focusRing,
 } from "./presentation";
+import { shortAddress } from "@aomi-labs/client";
 const REVIEW_PAGE_SIZE = 2;
 
 function ReviewPager({
@@ -455,7 +455,7 @@ function ApprovalEffect({
           {title}
         </p>
         <p className="type-meta text-aomi-muted truncate">
-          {scope} · To {compact(approval.spender)}
+          {scope} · To {shortAddress(approval.spender, { head: 8, tail: 6 })}
         </p>
       </div>
     </div>

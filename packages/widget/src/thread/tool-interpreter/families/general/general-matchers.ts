@@ -1,4 +1,4 @@
-import type { ToolMatcher } from "../../types";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { matchSkillActivation } from "./skills";
 import { matchSleep } from "./sleep";
 import { matchWebFetch, matchWebSearch } from "./search";

@@ -5,8 +5,8 @@
  * snapshots.
  */
 
-import type { ShellRequest } from "../../transport";
-import { accountScopedFetch } from "../../lib/settings-api";
+import type { ShellRequest } from "./transport";
+import { accountScopedFetch } from "./settings-api";
 import type {
   AomiAccountProfile,
   AomiChainKind,
@@ -21,6 +21,7 @@ import type {
   SignerMode,
   WalletPolicy,
 } from "./types";
+import { shortAddress } from "@aomi-labs/client";
 
 export type AccountProfile = AomiAccountProfile;
 export type DelegatedAccount = AomiDelegatedAccount;
@@ -31,11 +32,12 @@ type ChainKind = AomiChainKind;
 
 export async function fetchAccountAcl(
   request: ShellRequest = accountScopedFetch,
+  signal?: AbortSignal,
 ): Promise<{
   wallets: WalletPolicy[];
   delegatedAccounts: DelegatedAccountView[];
 }> {
-  const data = await request<AccountProfile>("/api/account");
+  const data = await request<AccountProfile>("/api/account", { signal });
   const owned = new Set(
     data.user_accounts.map((account) => addressKey(account.address)),
   );
@@ -189,7 +191,7 @@ function toDelegatedAccountView(row: DelegatedAccount): DelegatedAccountView {
 
 function delegationScope(row: DelegatedAccount): string {
   const chain = row.address.chain === "svm" ? "Solana" : "Ethereum";
-  return `${chain} · ${shortenAddress(row.address.address)}`;
+  return `${chain} · ${shortAddress(row.address.address)}`;
 }
 
 /**
@@ -207,7 +209,7 @@ function formatPermit(
   if (!by) return when;
   return ownedAddresses.has(addressKey(by))
     ? `you · ${when}`
-    : `${shortenAddress(by.address)} · ${when}`;
+    : `${shortAddress(by.address)} · ${when}`;
 }
 
 function formatDate(unixSeconds?: number | null): string | undefined {
@@ -282,12 +284,6 @@ export function explainAccountError(cause: unknown): string {
       }
       return raw || "Something went wrong.";
   }
-}
-
-export function shortenAddress(address: string): string {
-  // Fixtures already ship elided; only shorten what's actually a full address.
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
 function titleCase(value: string): string {

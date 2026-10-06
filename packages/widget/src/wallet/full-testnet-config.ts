@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import type { Chain } from "viem";
-import { safeEnv } from "./env";
 
-const FULL_TESTNET_ENABLED =
-  safeEnv(() => process.env.NEXT_PUBLIC_USE_FULL_TESTNET) === "true";
-const FULL_TESTNET_RPC_MAP_RAW =
-  safeEnv(() => process.env.NEXT_PUBLIC_FULL_TESTNET_RPC_MAP)?.trim() ?? "";
+export type FullTestnetConfig = { rpcMap: Record<number, string> };
+export const FullTestnetConfigContext = createContext<
+  FullTestnetConfig | undefined
+>(undefined);
+const EMPTY_OVERRIDES: Record<number, string> = {};
 
 export function parseRpcOverrides(raw: string): Record<number, string> {
   const trimmed = raw.trim();
@@ -49,22 +49,22 @@ export function parseRpcOverrides(raw: string): Record<number, string> {
   return overrides;
 }
 
-const FULL_TESTNET_RPC_OVERRIDES = parseRpcOverrides(FULL_TESTNET_RPC_MAP_RAW);
-
-export function isFullTestnet(): boolean {
-  return (
-    FULL_TESTNET_ENABLED && Object.keys(FULL_TESTNET_RPC_OVERRIDES).length > 0
-  );
+/** Hosts explicitly opt into their disposable RPC map. */
+export function isFullTestnet(config?: FullTestnetConfig): boolean {
+  return Boolean(config && Object.keys(config.rpcMap).length);
 }
 
 export function useFullTestnet<T extends readonly [Chain, ...Chain[]]>(
   chains: T,
+  config?: FullTestnetConfig,
 ) {
+  const inherited = useContext(FullTestnetConfigContext);
+  const overrides = (config ?? inherited)?.rpcMap ?? EMPTY_OVERRIDES;
   return useMemo(() => {
-    const enabled = isFullTestnet();
+    const enabled = Object.keys(overrides).length > 0;
     const routedChains = (enabled
       ? chains.map((chain) => {
-          const rpcUrl = FULL_TESTNET_RPC_OVERRIDES[chain.id];
+          const rpcUrl = overrides[chain.id];
           if (!rpcUrl) return chain;
 
           return {
@@ -92,8 +92,8 @@ export function useFullTestnet<T extends readonly [Chain, ...Chain[]]>(
       enabled,
       routedChains,
       routedChainIds: new Set(
-        Object.keys(FULL_TESTNET_RPC_OVERRIDES).map(Number),
+        Object.keys(overrides).map(Number),
       ) as ReadonlySet<number>,
     };
-  }, [chains]);
+  }, [chains, overrides]);
 }

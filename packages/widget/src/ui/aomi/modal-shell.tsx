@@ -4,7 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
-import { ModalBackdrop } from "../modal-backdrop";
+import { ModalBackdrop } from "@/ui/modal-backdrop";
 import { LoadingLine } from "./loading-pane";
 
 type IconComponent = ComponentType<{ className?: string }>;

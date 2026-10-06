@@ -13,15 +13,15 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/tooltip";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+} from "@/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/ui/avatar";
+import { TooltipIconButton } from "@/thread/tooltip-icon-button";
 import { cn } from "@aomi-labs/react";
 
 const useFileSrc = (file: File | undefined) => {

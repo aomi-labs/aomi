@@ -1,4 +1,4 @@
-import { EVM_SELECTOR_REGISTRY } from "@/components/assistant-ui/tool-registry";
+import { EVM_SELECTOR_REGISTRY } from "@/thread/tool-registry";
 import { summarizeSimulation } from "@aomi-labs/client";
 
 import {
@@ -11,15 +11,15 @@ import {
   selectorFact,
   statusFact,
   uniqueFacts,
-} from "../../normalize";
-import { toolIdentity } from "../../identity";
-import type { ToolFact, ToolMatcher } from "../../types";
+} from "@/thread/tool-interpreter/normalize";
+import { toolIdentity } from "@/thread/tool-interpreter/identity";
+import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 import {
   commitCountFact,
   commitStateFact,
   commitViews,
-} from "../general/commit-view";
-import { failedFact, operation } from "../operation";
+} from "@/thread/tool-interpreter/families/general/commit-view";
+import { failedFact, operation } from "@/thread/tool-interpreter/families/operation";
 
 const stagedActionId = (action: string): string =>
   action

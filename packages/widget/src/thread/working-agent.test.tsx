@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskRunState } from "@aomi-labs/react";
 
-vi.mock("@/components/assistant-ui/markdown-text", () => ({
+vi.mock("./markdown-text", () => ({
   MarkdownText: () => null,
 }));
 

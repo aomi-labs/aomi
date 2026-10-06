@@ -2,8 +2,8 @@ import type { Session } from "@aomi-labs/client";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import type { Abi } from "viem";
 
-import { ActionReview } from "./ActionReview";
-import { CommitReview } from "./CommitReview";
+import { ActionReview } from "./action-review";
+import { CommitReview } from "./commit-review";
 import type { InjectedWallet } from "./injected-wallet";
 
 export interface ChatProps {

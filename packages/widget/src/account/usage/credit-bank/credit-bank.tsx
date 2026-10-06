@@ -1,14 +1,13 @@
 "use client";
 
+import { useWidgetStorage } from "@/lib/widget-storage";
+import type { ScopedStorage } from "@aomi-labs/client";
 import { useCallback, useEffect, useState } from "react";
-import { LoadingLine, LoadingPane } from "../../../../ui/aomi/loading-pane";
-import {
-  AomiCreditApiError,
-  type AomiCreditActivity,
-  type AomiCreditPosition,
-} from "@aomi-labs/client";
-import { useAomiRuntime } from "@aomi-labs/react";
-import { useAomiWalletKit } from "../../../../../lib/wallet-kit/context";
+import { LoadingLine, LoadingPane } from "@/ui/aomi/loading-pane";
+import { AomiCreditApiError, type AomiCreditActivity } from "@aomi-labs/client";
+import { useAomiRuntime, useAomiDisplayCache } from "@aomi-labs/react";
+import { useAccountCredits } from "@/account/use-account-credits";
+import { useAomiWalletKit } from "@/wallet/context";
 import { CreditTopUpDialog } from "./top-up-dialog";
 import {
   formatCreditAmount,
@@ -27,14 +26,16 @@ import {
   ReceiptText,
 } from "lucide-react";
 
-const ACTIVITY_PAGE_SIZE = 25;
 type PendingTopUp = { idempotencyKey: string; amountMicrousd: number };
 
-function readPendingTopUp(key: string | null): PendingTopUp | null {
+function readPendingTopUp(
+  storage: ScopedStorage,
+  key: string | null,
+): PendingTopUp | null {
   if (typeof window === "undefined" || !key) return null;
   try {
     const value = JSON.parse(
-      window.localStorage.getItem(key) ?? "null",
+      storage.migrate(key, key) ?? "null",
     ) as Partial<PendingTopUp> | null;
     const amountMicrousd = value?.amountMicrousd;
     if (
@@ -52,12 +53,16 @@ function readPendingTopUp(key: string | null): PendingTopUp | null {
   }
 }
 
-function writePendingTopUp(key: string, value: PendingTopUp): void {
-  window.localStorage.setItem(key, JSON.stringify(value));
+function writePendingTopUp(
+  storage: ScopedStorage,
+  key: string,
+  value: PendingTopUp,
+): void {
+  storage.setJson(key, value);
 }
 
-function clearPendingTopUp(key: string): void {
-  window.localStorage.removeItem(key);
+function clearPendingTopUp(storage: ScopedStorage, key: string): void {
+  storage.remove(key);
 }
 
 function creditsFromMicrousd(amountMicrousd: number): string {
@@ -65,22 +70,25 @@ function creditsFromMicrousd(amountMicrousd: number): string {
 }
 
 export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
+  const storage = useWidgetStorage();
   const wallet = useAomiWalletKit();
   const { account } = useAomiRuntime();
+  const cache = useAomiDisplayCache();
+  const creditQuery = useAccountCredits();
   const accountScope = wallet.accountUser?.id ?? null;
   const pendingStorageKey = accountScope
     ? `aomi_credit_topup:${accountScope}`
     : null;
-  const initialPendingTopUp = readPendingTopUp(pendingStorageKey);
+  const initialPendingTopUp = readPendingTopUp(storage, pendingStorageKey);
   const [open, setOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [position, setPosition] = useState<AomiCreditPosition | null>(null);
+  const position = creditQuery.data ?? null;
   const [amount, setAmount] = useState(() =>
     initialPendingTopUp
       ? creditsFromMicrousd(initialPendingTopUp.amountMicrousd)
       : "1000",
   );
-  const [loading, setLoading] = useState(true);
+  const loading = creditQuery.isPending;
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -89,7 +97,7 @@ export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
   );
 
   useEffect(() => {
-    const next = readPendingTopUp(pendingStorageKey);
+    const next = readPendingTopUp(storage, pendingStorageKey);
     setPendingTopUp(next);
     setAmount(next ? creditsFromMicrousd(next.amountMicrousd) : "1000");
   }, [pendingStorageKey]);
@@ -99,23 +107,11 @@ export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
   }, [loading, onLoad]);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setPosition(await account.credits.get({ limit: ACTIVITY_PAGE_SIZE }));
-      setError(null);
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Could not load Credit Bank",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [account.credits]);
-
+    await creditQuery.refetch();
+  }, [creditQuery.refetch]);
   useEffect(() => {
-    void load();
-  }, [load]);
-
+    if (creditQuery.error) setError(creditQuery.error.message);
+  }, [creditQuery.error]);
   const parsedCredits = Number(amount);
   const amountMicrousd = Math.round(parsedCredits * 10_000);
   const validAmount =
@@ -149,7 +145,7 @@ export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
     const idempotencyKey = pendingTopUp?.idempotencyKey ?? crypto.randomUUID();
     if (!pendingTopUp) {
       const pending = { idempotencyKey, amountMicrousd };
-      writePendingTopUp(pendingStorageKey, pending);
+      writePendingTopUp(storage, pendingStorageKey, pending);
       setPendingTopUp(pending);
     }
     setPaying(true);
@@ -161,8 +157,9 @@ export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
         idempotencyKey,
         recover: recovering,
       });
-      setPosition(next);
-      clearPendingTopUp(pendingStorageKey);
+      if (cache) cache.client.setQueryData(cache.key("credits"), next);
+      else await load();
+      clearPendingTopUp(storage, pendingStorageKey);
       setPendingTopUp(null);
       setReviewOpen(false);
       setSuccess(
@@ -176,7 +173,7 @@ export function CreditBank({ onLoad }: { onLoad?: () => void } = {}) {
         cause instanceof AomiCreditApiError &&
         cause.status === 402;
       if (recoveryWasNotStarted) {
-        clearPendingTopUp(pendingStorageKey);
+        clearPendingTopUp(storage, pendingStorageKey);
         setPendingTopUp(null);
       }
       setError(

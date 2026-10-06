@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "../../link";
+import Link from "@/ui/link";
 import { ChevronDown } from "lucide-react";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { useUsageStatement } from "./use-usage-statement";
 import {
   AllowanceSettlementSection,
@@ -13,7 +13,7 @@ import {
   SpendBreakdownSection,
   USAGE_MATRIX_HINT,
 } from "./usage-shared";
-import { CreditBank } from "./credit-bank";
+import { CreditBank } from "@/account/usage/credit-bank/credit-bank";
 
 /**
  * Settings › Usage — design-sync hierarchy (hero, spend breakdown, allowance,

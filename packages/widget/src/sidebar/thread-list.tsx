@@ -1,8 +1,18 @@
 "use client";
 
-import { type FC, type RefObject, useEffect, useRef, useState } from "react";
+import {
+  type FC,
+  type RefObject,
+  type PointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ThreadListItemPrimitive,
+  ThreadListItemRuntimeProvider,
+  useAssistantRuntime,
   ThreadListPrimitive,
   useThreadList,
   useThreadListItem,
@@ -17,17 +27,21 @@ import {
 } from "lucide-react";
 
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/ui/button";
+import { Skeleton } from "@/ui/skeleton";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/ui/popover";
+import { testIds } from "@/test-ids";
 
 export const ThreadList: FC = () => {
   return (
-    <ThreadListPrimitive.Root className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-0.5 px-2">
+    <ThreadListPrimitive.Root
+      data-testid={testIds.threadList}
+      className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-0.5 px-2"
+    >
       <ThreadListNew />
       {/* Design mock: a "Recent" section label instead of a hairline */}
       <span className="aui-thread-list-separator text-aomi-muted px-4 pb-2 pt-5 text-left text-xs font-medium">
@@ -42,6 +56,7 @@ const ThreadListNew: FC = () => {
   return (
     <ThreadListPrimitive.New asChild>
       <Button
+        data-testid={testIds.newChat}
         className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/40 hover:bg-aomi-surface-2 flex items-center justify-start gap-2 rounded-lg border px-3 py-[9px] text-start text-sm font-medium"
         variant="ghost"
       >
@@ -54,13 +69,29 @@ const ThreadListNew: FC = () => {
 
 const ThreadListItems: FC = () => {
   const isLoading = useThreadList((t) => t.isLoading);
-  const hasThreads = useThreadList((t) => t.threadIds.length > 0);
+  const threadIds = useThreadList((t) => t.threadIds);
+  const hasThreads = threadIds.length > 0;
 
   if (isLoading && !hasThreads) {
     return <ThreadListSkeleton />;
   }
 
-  return <ThreadListPrimitive.Items components={{ ThreadListItem }} />;
+  // Bind subscribers to ids: archiving removes a regular-list index before
+  // its old row can unmount, so an index-bound subscriber can look up undefined.
+  return threadIds.map((id) => <ThreadListRow key={id} id={id} />);
+};
+
+const ThreadListRow: FC<{ id: string }> = ({ id }) => {
+  const assistant = useAssistantRuntime();
+  const runtime = useMemo(
+    () => assistant.threads.getItemById(id),
+    [assistant, id],
+  );
+  return (
+    <ThreadListItemRuntimeProvider runtime={runtime}>
+      <ThreadListItem />
+    </ThreadListItemRuntimeProvider>
+  );
 };
 
 const SKELETON_WIDTHS = [
@@ -92,6 +123,7 @@ const ThreadListSkeleton: FC = () => {
       role="status"
       aria-label="Loading threads"
       aria-live="polite"
+      data-testid={testIds.skeleton}
       className="aui-thread-list-skeleton-root flex flex-1 flex-col gap-1 overflow-hidden"
     >
       {SKELETON_WIDTHS.map((width, i) => (
@@ -140,11 +172,13 @@ const ThreadListItem: FC = () => {
     const normalized = title.trim();
     if (saving || !runtime || !normalized) return;
     setSaving(true);
+    setEditing(false);
     setError(null);
     try {
       await runtime.renameThread(thread.id, normalized);
       setEditing(false);
     } catch {
+      setEditing(true);
       setError("Couldn't rename this chat. Try again.");
     } finally {
       setSaving(false);
@@ -160,8 +194,17 @@ const ThreadListItem: FC = () => {
   };
   // Grace delay so the pointer can travel the small gap from the button to the
   // portaled menu without the row's mouseleave closing it first.
-  const scheduleClose = () => {
+  const scheduleClose = (event: PointerEvent<HTMLElement>) => {
     cancelClose();
+    // Touch produces compatibility mouse events while a portaled menu opens.
+    // Only a real hover-capable mouse should start the hover-close grace timer.
+    if (
+      event.pointerType !== "mouse" ||
+      !event.currentTarget.ownerDocument.defaultView?.matchMedia(
+        "(any-hover: hover)",
+      ).matches
+    )
+      return;
     closeTimer.current = setTimeout(() => setMenuOpen(false), 120);
   };
   useEffect(() => cancelClose, []);
@@ -169,9 +212,10 @@ const ThreadListItem: FC = () => {
   return (
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
+      data-testid={testIds.threadItem}
       className="aui-thread-list-item group/thread hover:bg-aomi-hover focus-visible:bg-aomi-hover data-active:bg-aomi-accent-subtle flex w-full min-w-0 flex-wrap items-center rounded-lg pr-2 transition-all focus-visible:outline-none"
-      onMouseEnter={cancelClose}
-      onMouseLeave={scheduleClose}
+      onPointerEnter={cancelClose}
+      onPointerLeave={scheduleClose}
     >
       {editing ? (
         <form
@@ -231,8 +275,8 @@ const ThreadListItem: FC = () => {
           <ThreadListItemMenu
             open={menuOpen}
             onOpenChange={setMenuOpen}
-            onContentMouseEnter={cancelClose}
-            onContentMouseLeave={scheduleClose}
+            onContentPointerEnter={cancelClose}
+            onContentPointerLeave={scheduleClose}
             onRename={runtime && saved ? startRename : undefined}
             saved={saved}
             triggerRef={optionsRef}
@@ -250,7 +294,10 @@ const ThreadListItem: FC = () => {
 
 const ThreadListItemTitle: FC = () => {
   return (
-    <span className="aui-thread-list-item-title text-aomi-muted group-data-active/thread:text-aomi-fg block truncate text-sm">
+    <span
+      data-testid={testIds.threadItemTitle}
+      className="aui-thread-list-item-title text-aomi-muted group-data-active/thread:text-aomi-fg block truncate text-sm"
+    >
       <ThreadListItemPrimitive.Title fallback="New Chat" />
     </span>
   );
@@ -259,16 +306,16 @@ const ThreadListItemTitle: FC = () => {
 const ThreadListItemMenu: FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onContentMouseEnter: () => void;
-  onContentMouseLeave: () => void;
+  onContentPointerEnter: () => void;
+  onContentPointerLeave: (event: PointerEvent<HTMLDivElement>) => void;
   onRename?: () => void;
   triggerRef?: RefObject<HTMLButtonElement | null>;
   saved?: boolean;
 }> = ({
   open,
   onOpenChange,
-  onContentMouseEnter,
-  onContentMouseLeave,
+  onContentPointerEnter,
+  onContentPointerLeave,
   onRename,
   triggerRef,
   saved = true,
@@ -278,10 +325,10 @@ const ThreadListItemMenu: FC<{
   // expands and the title reflows to a truncated "…". Named group so an
   // ancestor `.group` in a host app can't reveal every row at once. Pinned
   // open while the menu is showing, since the cursor leaves the row for the
-  // portaled popover.
+  // portaled popover. Touch devices reveal the control without a hover gesture.
   const revealClass = open
     ? "w-7 opacity-100"
-    : "w-0 opacity-0 group-hover/thread:w-7 group-hover/thread:opacity-100 group-focus-within/thread:w-7 group-focus-within/thread:opacity-100";
+    : "w-0 opacity-0 group-hover/thread:w-7 group-hover/thread:opacity-100 group-focus-within/thread:w-7 group-focus-within/thread:opacity-100 [@media(hover:none)]:w-7 [@media(hover:none)]:opacity-100";
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -295,6 +342,7 @@ const ThreadListItemMenu: FC<{
           variant="ghost"
           size="icon"
           aria-label="Chat options"
+          data-testid={testIds.threadItemMenu}
           onClick={(event) => {
             // Only stop the row's click — do NOT preventDefault, or Radix's
             // PopoverTrigger will skip its own open/close toggle.
@@ -311,14 +359,15 @@ const ThreadListItemMenu: FC<{
         alignOffset={0}
         className="aui-thread-list-item-menu-content border-aomi-overlay-border bg-aomi-raised w-44 rounded-xl border p-1.5"
         onClick={(event) => event.stopPropagation()}
-        onMouseEnter={onContentMouseEnter}
-        onMouseLeave={onContentMouseLeave}
+        onPointerEnter={onContentPointerEnter}
+        onPointerLeave={onContentPointerLeave}
       >
         {onRename && (
           <button
             type="button"
             disabled={!saved}
             className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
+            data-testid={testIds.rename}
             onClick={onRename}
           >
             <PencilIcon className="text-aomi-muted size-4" />
@@ -329,6 +378,7 @@ const ThreadListItemMenu: FC<{
           <button
             type="button"
             disabled={!saved}
+            data-testid={testIds.archive}
             className="aui-thread-list-item-menu-item text-aomi-fg hover:bg-aomi-hover focus-visible:bg-aomi-hover flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-sm font-medium outline-none transition-colors"
             onClick={(event) => {
               event.stopPropagation();

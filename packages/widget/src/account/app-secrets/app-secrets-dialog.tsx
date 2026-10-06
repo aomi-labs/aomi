@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import { useControl, cn } from "@aomi-labs/react";
 import type { AomiAppDescriptor, ApplicationId } from "@aomi-labs/client";
-import { useAppSecretsState } from "../app-secrets/use-app-secrets-state";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useAppSecretsState } from "./use-app-secrets-state";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/ui/dialog";
 
 export type AppSecretsDialogProps = {
   className?: string;

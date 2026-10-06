@@ -4,8 +4,8 @@ import {
   asRecord,
   asString,
   uniqueFacts,
-} from "../../normalize";
-import type { ToolFact, ToolMatcher } from "../../types";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolFact, ToolMatcher } from "@/thread/tool-interpreter/types";
 
 const KNOWN_MAINNET_TOKEN_SYMBOLS: Record<string, string> = {
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: "USDC",

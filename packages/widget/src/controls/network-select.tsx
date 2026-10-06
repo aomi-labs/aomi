@@ -12,14 +12,15 @@ import {
 import { cn } from "@aomi-labs/react";
 import type { Chain } from "viem";
 import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { getChainIcon, SolanaIcon } from "@/components/icons";
-import { useAomiWalletKit } from "../../lib/wallet-kit";
+} from "@/ui/popover";
+import { getChainIcon } from "@/icons/chain-map";
+import { SolanaIcon } from "@/icons/chain-icons";
+import { useAomiWalletKit } from "@/wallet/context";
 import { controlSelectTriggerClass } from "./control-menu";
 import { evmNetworkDescription } from "./network-metadata";
 
@@ -135,12 +136,12 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
               <span
                 key={network.key}
                 data-network={network.key}
-                style={{ zIndex: STACK_SIZE - index }}
-                className={cn(
-                  "bg-aomi-raised ring-aomi-bg relative flex size-4 items-center justify-center rounded-full text-[7px] font-semibold uppercase ring-2 transition-[margin] duration-300 ease-out motion-reduce:transition-none",
-                  index > 0 &&
-                    "-ml-1.5 group-hover/networks:-ml-0.5 group-data-[state=open]/networks:-ml-0.5",
-                )}
+                style={{
+                  zIndex: STACK_SIZE - index,
+                  // Keep closed geometry stable before hydration/CSS settles.
+                  marginLeft: index > 0 ? (open ? -2 : -6) : undefined,
+                }}
+                className="bg-aomi-raised ring-aomi-bg relative flex size-4 items-center justify-center rounded-full text-[7px] font-semibold uppercase ring-2 transition-[margin] duration-300 ease-out motion-reduce:transition-none"
               >
                 {network.Icon ? (
                   <network.Icon className="size-4" />

@@ -1,5 +1,5 @@
-import { buildAccounts } from "../accounts";
-import type { AomiAccount, WalletFamily, WalletSource } from "../types";
+import { buildAccounts } from "@/wallet/accounts";
+import type { AomiAccount, WalletFamily, WalletSource } from "@/wallet/types";
 import { resolveGracefulEvmIdentity } from "./identity-grace";
 import { EVM_IDENTITY_GRACE_MS } from "./types";
 import type {

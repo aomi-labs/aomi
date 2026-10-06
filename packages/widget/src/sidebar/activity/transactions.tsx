@@ -11,8 +11,8 @@ import {
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Circle, FileSignature, Layers3 } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
-import { getChainIcon } from "../icons/chain-map";
-import { StatusPill } from "../ui/aomi/status-pill";
+import { getChainIcon } from "@/icons/chain-map";
+import { StatusPill } from "@/ui/aomi/status-pill";
 import type { ActivityTransaction } from "./model";
 import {
   focusRing,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { AomiMark } from "@/components/aomi-mark";
+import { AomiMark } from "@/ui/aomi-mark";
 
 /** Reserve the avatar gutter only while a mobile reader pulls a turn right. */
 export function AssistantMessageRow({

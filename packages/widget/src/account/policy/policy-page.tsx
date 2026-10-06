@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import { PolicySettings } from "./policy-settings";
 import { TransactionSafetySettings } from "./transaction-safety-settings";
 

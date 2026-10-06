@@ -2,12 +2,12 @@
 
 import { useState, type FC } from "react";
 import { useAomiRuntime, useControl, cn } from "@aomi-labs/react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "@/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -15,7 +15,7 @@ import {
   CommandItem,
   CommandList,
   CommandInput,
-} from "@/components/ui/command";
+} from "@/ui/command";
 import {
   groupModelsByVendor,
   getVendorForModel,
@@ -23,7 +23,8 @@ import {
   AUTO_MODEL_LABEL,
   resolveAutoModel,
 } from "./model-metadata";
-import { AutoModeIcon, getVendorIcon } from "@/components/icons";
+import { AutoModeIcon } from "@/icons/auto-mode";
+import { getVendorIcon } from "@/icons/vendor-map";
 import {
   ControlMenuCheck,
   ControlSelectChevron,

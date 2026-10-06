@@ -9,10 +9,10 @@ const request = vi.hoisted(() =>
     source: "default",
   })),
 );
-vi.mock("../../transport", () => ({
+vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: request }),
 }));
-vi.mock("../account/provider-policy-settings", async () => {
+vi.mock("@/account/provider-policy-settings", async () => {
   const { useEffect } = await import("react");
   return {
     SigningSettings: ({ onLoad }: { onLoad?: () => void }) => {
@@ -21,7 +21,7 @@ vi.mock("../account/provider-policy-settings", async () => {
     },
   };
 });
-vi.mock("../../../../lib/wallet-kit/context", () => ({
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => {
     throw new Error("Swig settings must not mount");
   },

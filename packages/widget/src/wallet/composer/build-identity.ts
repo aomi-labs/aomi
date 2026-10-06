@@ -6,8 +6,8 @@ import {
   formatAuthMethod,
   formatWalletAddress,
   formatWalletProvider,
-} from "../identity";
-import type { AomiSessionIdentity } from "../types";
+} from "@/wallet/identity";
+import type { AomiSessionIdentity } from "@/wallet/types";
 import type { AuthRuntime, SvmWalletRuntime } from "./types";
 import type { WalletRow } from "./wallet-state";
 

@@ -1,18 +1,16 @@
 import { createRoot } from "react-dom/client";
 import {
   AomiWidget,
+  paraAuth,
+  privyAuth,
   type AomiRoutingConfig,
-  type CrossOriginWidgetAuth,
-} from "@aomi-labs/widget-lib";
-import "@aomi-labs/widget-lib/providers/para";
-import "@aomi-labs/widget-lib/providers/privy";
-import "@aomi-labs/widget-lib/styles.css";
+  type AomiWidgetAuth,
+} from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
 import "./styles.css";
 
-const apiUrl =
-  import.meta.env.VITE_AOMI_API_URL?.trim() ||
-  import.meta.env.VITE_AOMI_WITNESS_PORTAL_URL?.trim() ||
-  "http://localhost:3000";
+const baseUrl =
+  import.meta.env.VITE_AOMI_API_URL?.trim() || "http://localhost:3000";
 const params = new URLSearchParams(window.location.search);
 const configuredApplicationId =
   import.meta.env.VITE_AOMI_APPLICATION_ID?.trim();
@@ -40,24 +38,21 @@ const initialThreadId =
   applicationId === configuredApplicationId
     ? import.meta.env.VITE_AOMI_THREAD_ID?.trim()
     : undefined;
-const environment =
-  import.meta.env.VITE_PARA_ENVIRONMENT === "PROD" ? "PROD" : "BETA";
-const paraApiKey =
-  import.meta.env.VITE_PARA_API_KEY?.trim() ||
-  process.env.NEXT_PUBLIC_PARA_API_KEY ||
-  undefined;
-const privyAppId = import.meta.env.VITE_PRIVY_APP_ID?.trim() || undefined;
-const auth: CrossOriginWidgetAuth =
-  provider === "para"
-    ? {
-        kind: "embedded_wallet",
-        provider: "para",
-        environment,
+const paraApiKey = import.meta.env.VITE_PARA_API_KEY?.trim();
+const privyAppId = import.meta.env.VITE_PRIVY_APP_ID?.trim();
+// A provider fixture without its public key shows setup help instead.
+const auth: AomiWidgetAuth | undefined =
+  provider === "para" && paraApiKey
+    ? paraAuth({
         apiKey: paraApiKey,
-      }
-    : provider === "privy"
-      ? { kind: "embedded_wallet", provider: "privy", appId: privyAppId }
-      : { kind: "browser_wallet" };
+        environment:
+          import.meta.env.VITE_PARA_ENVIRONMENT === "BETA" ? "BETA" : "PROD",
+      })
+    : provider === "privy" && privyAppId
+      ? privyAuth({ appId: privyAppId })
+      : provider === "browser"
+        ? { type: "browser_wallet" }
+        : undefined;
 
 function providerHref(nextProvider: "browser" | "para" | "privy") {
   const next = new URLSearchParams(params);
@@ -66,11 +61,15 @@ function providerHref(nextProvider: "browser" | "para" | "privy") {
 }
 
 function App() {
-  if (!applicationId) {
+  if (!applicationId || !auth) {
     return (
       <main className="setup">
         <h1>Aomi widget consumer</h1>
-        <p>Copy .env.example to .env.local and set VITE_AOMI_APPLICATION_ID.</p>
+        <p>
+          Copy .env.example to .env.local and set VITE_AOMI_APPLICATION_ID
+          {provider === "para" ? " and VITE_PARA_API_KEY" : ""}
+          {provider === "privy" ? " and VITE_PRIVY_APP_ID" : ""}.
+        </p>
       </main>
     );
   }
@@ -113,7 +112,7 @@ function App() {
       <AomiWidget
         applicationId={applicationId}
         initialThreadId={initialThreadId}
-        apiUrl={apiUrl}
+        baseUrl={baseUrl}
         auth={auth}
         routing={routing}
         wallets={{

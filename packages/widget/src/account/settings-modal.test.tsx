@@ -1,77 +1,55 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SettingsModal } from "../../../../shadcn-registry/src/components/account-shell/components/settings/settings-modal";
+import { SettingsModal } from "@/account/settings-modal";
 
 const session = vi.hoisted(() => ({
   status: "ready" as "ready" | "anonymous" | "establishing" | "error",
   retry: vi.fn(),
 }));
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/components/providers/aomi-session-bridge",
-  () => ({
-    useAomiSession: () => session,
-  }),
-);
+vi.mock("@/account/aomi-session-bridge", () => ({
+  useAomiSession: () => session,
+}));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({
     identity: { isConnected: true },
     connect: vi.fn(),
   }),
 }));
 
-vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
-  useAomiWalletKit: () => ({
-    identity: { isConnected: true },
-    connect: vi.fn(),
-  }),
+vi.mock("./general-settings", () => ({
+  GeneralSettings: ({
+    onManageAccount,
+    onViewUsage,
+  }: {
+    onManageAccount: () => void;
+    onViewUsage: () => void;
+  }) => (
+    <div>
+      General content
+      <button type="button" onClick={onManageAccount}>
+        Manage account
+      </button>
+      <button type="button" onClick={onViewUsage}>
+        View usage
+      </button>
+    </div>
+  ),
 }));
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/general",
-  () => ({
-    GeneralSettings: ({
-      onManageAccount,
-      onViewUsage,
-    }: {
-      onManageAccount: () => void;
-      onViewUsage: () => void;
-    }) => (
-      <div>
-        General content
-        <button type="button" onClick={onManageAccount}>
-          Manage account
-        </button>
-        <button type="button" onClick={onViewUsage}>
-          View usage
-        </button>
-      </div>
-    ),
-  }),
-);
+vi.mock("./account-settings", () => ({
+  AccountSettings: () => <div>Account content</div>,
+}));
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/account",
-  () => ({
-    AccountSettings: () => <div>Account content</div>,
-  }),
-);
+vi.mock("@/account/usage/usage-settings", () => ({
+  UsageSettings: () => <div>Usage content</div>,
+}));
 
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/usage",
-  () => ({
-    UsageSettings: () => <div>Usage content</div>,
-  }),
-);
-
-vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/policy",
-  () => ({
-    PolicyPage: () => <div>Policy content</div>,
-  }),
-);
+vi.mock("@/account/policy/policy-page", () => ({
+  PolicyPage: () => <div>Policy content</div>,
+}));
 
 describe("SettingsModal directory shell", () => {
   afterEach(() => {

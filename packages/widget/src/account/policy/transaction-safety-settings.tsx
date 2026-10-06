@@ -7,9 +7,9 @@ import type {
   TransactionSafetyPolicy,
 } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
-import { listGroupClass } from "../../../ui/aomi/list-group";
-import { SectionHeader } from "../../../ui/aomi/section-header";
-import { useShellTransport } from "../../transport";
+import { listGroupClass } from "@/ui/aomi/list-group";
+import { SectionHeader } from "@/ui/aomi/section-header";
+import { useShellTransport } from "@/account/transport";
 import {
   fetchTransactionSafety,
   safetyErrorMessage,

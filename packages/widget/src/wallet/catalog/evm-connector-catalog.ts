@@ -16,12 +16,9 @@ import {
 } from "wagmi/connectors";
 import type { EvmWalletId, EvmWalletPreset } from "./wallet-ids";
 import { EVM_PRESETS } from "./wallet-ids";
-import { safeEnv } from "../env";
 
-export const AOMI_DEFAULT_WC_PROJECT_ID =
-  safeEnv(() => process.env.NEXT_PUBLIC_AOMI_WC_PROJECT_ID) ??
-  safeEnv(() => process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) ??
-  safeEnv(() => process.env.NEXT_PUBLIC_PROJECT_ID);
+/** @deprecated Pass wallets.evm.walletConnectProjectId explicitly. */
+export const AOMI_DEFAULT_WC_PROJECT_ID: string | undefined = undefined;
 
 const evmConfigCache = new Map<string, Config>();
 
@@ -61,7 +58,6 @@ function connectorLooksLikeWalletConnect(
 }
 
 function warnDuplicateWalletConnect(): void {
-  if (safeEnv(() => process.env.NODE_ENV) === "production") return;
   console.warn(
     "[aomi-wallet-kit] wallets.evm.connectors included a WalletConnect-like connector. Aomi owns the WalletConnect connector; pass walletConnectProjectId instead.",
   );

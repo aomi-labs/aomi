@@ -3,7 +3,7 @@
 import { formatWalletAddress } from "./identity";
 import type { AomiAccount } from "./types";
 import { walletKey } from "./wallet-utils";
-import type { AccountWallet } from "./account/types";
+import type { AccountWallet } from "@/wallet/account/types";
 
 export type EvmConnectionInput = {
   id: string;

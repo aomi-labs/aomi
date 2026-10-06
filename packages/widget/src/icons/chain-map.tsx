@@ -12,7 +12,7 @@ import {
   PolygonIcon,
   RobinhoodIcon,
   SepoliaIcon,
-} from "./chains";
+} from "./chain-icons";
 
 const CHAIN_ICONS: Record<number, FC<SVGProps<SVGSVGElement>>> = {
   1: EthereumIcon,

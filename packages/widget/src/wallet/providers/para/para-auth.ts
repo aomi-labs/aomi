@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  useAccount as useParaAccount,
-  useClient as useParaClient,
-  useLogout,
-  useModal,
-  type TOAuthMethod,
-} from "@getpara/react-sdk";
+import type { TOAuthMethod } from "@getpara/react-sdk";
+import { paraSdk } from "./para-sdk";
 import type ParaWeb from "@getpara/react-sdk";
 import type {
   AomiAccountCredential,
   AomiAccountCredentialOptions,
   AomiLoginMethod,
-} from "../../types";
+} from "@/wallet/types";
 
 export type ParaAccountShape = {
   isLoading: boolean;
@@ -90,7 +85,7 @@ export function resolveParaSubject(
 
 export function useSafeParaAccount(): ParaAccountShape {
   try {
-    return useParaAccount() as ParaAccountShape;
+    return paraSdk().react.useAccount() as ParaAccountShape;
   } catch {
     return DISCONNECTED_PARA_ACCOUNT;
   }
@@ -100,7 +95,9 @@ export function useSafeParaModal(): {
   openModal: (args?: { step?: string }) => void;
 } | null {
   try {
-    return useModal() as { openModal: (args?: { step?: string }) => void };
+    return paraSdk().react.useModal() as {
+      openModal: (args?: { step?: string }) => void;
+    };
   } catch {
     return null;
   }
@@ -108,7 +105,7 @@ export function useSafeParaModal(): {
 
 export function useSafeParaClient(): ParaWeb | null {
   try {
-    return useParaClient() ?? null;
+    return paraSdk().react.useClient() ?? null;
   } catch {
     return null;
   }
@@ -200,7 +197,7 @@ function isParaJwtUnavailableError(error: unknown): boolean {
 
 export function useSafeLogout(): (() => Promise<void>) | null {
   try {
-    const { logoutAsync } = useLogout();
+    const { logoutAsync } = paraSdk().react.useLogout();
     return async () => {
       await logoutAsync();
     };

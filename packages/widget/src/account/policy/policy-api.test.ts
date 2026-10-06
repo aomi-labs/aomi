@@ -6,7 +6,7 @@ import {
   explainPolicyError,
   policyFromForm,
   solToAtomic,
-} from "../../../../shadcn-registry/src/components/account-shell/features/policy/policy-api";
+} from "@/account/policy/policy-api";
 
 describe("headless on-chain policy wire model", () => {
   it("converts SOL without floating-point rounding", () => {

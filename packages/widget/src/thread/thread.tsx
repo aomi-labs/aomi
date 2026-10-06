@@ -31,16 +31,16 @@ import {
 } from "@assistant-ui/react";
 
 import type { FC, FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { LazyMotion, MotionConfig, domMax } from "motion/react";
 import * as m from "motion/react-m";
 
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
-import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
-import { AssistantTurnParts } from "@/components/assistant-ui/working-trace";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { Button } from "@/ui/button";
+import { Skeleton } from "@/ui/skeleton";
+import { MarkdownText } from "./markdown-text";
+import { ToolFallback } from "./tool-fallback";
+import { AssistantTurnParts } from "./working-trace";
+import { TooltipIconButton } from "./tooltip-icon-button";
 
 import {
   cn,
@@ -48,51 +48,55 @@ import {
   useThreadContext,
   useThreadTaskRuns,
 } from "@aomi-labs/react";
-import { AppIndicator } from "@/components/control-bar/app-indicator";
-import { useComposerControl } from "@/components/aomi-frame";
-import { AomiMark } from "@/components/aomi-mark";
+import { AppIndicator } from "@/controls/app-indicator";
+import { useComposerControl } from "@/frame/aomi-frame";
+import { AomiMark } from "@/ui/aomi-mark";
 import { AssistantMessageRow } from "./assistant-message-row";
-import { ActivitySidebar } from "@/components/activity-sidebar/activity-sidebar";
-import { ModelSelect } from "@/components/control-bar/model-select";
-import { AppSecretsDialog } from "@/components/control-bar/app-secrets-dialog";
+import { ActivitySidebar } from "@/sidebar/activity/activity-sidebar";
+import { ModelSelect } from "@/controls/model-select";
+import { AppSecretsDialog } from "@/account/app-secrets/app-secrets-dialog";
 import {
   SafetySelect,
   ThreadSafetyProvider,
   useThreadSafety,
-} from "@/components/control-bar/safety-select";
-import { ApiKeyInput } from "@/components/control-bar/api-key-input";
-import { NetworkSelect } from "@/components/control-bar/network-select";
-import { ConnectButton } from "@/components/control-bar/connect-button";
-import { PaymentRequiredGate } from "@/components/control-bar/payment-required-gate";
-import { shouldShowThreadLoadingSkeleton } from "@/components/assistant-ui/thread-loading";
-import { CapabilityMessageText } from "@/components/assistant-ui/capability-message-text";
+} from "@/controls/safety-select";
+import { ApiKeyInput } from "@/controls/api-key-input";
+import { NetworkSelect } from "@/controls/network-select";
+import { ConnectButton } from "@/wallet/connect-button";
+import { PaymentRequiredGate } from "@/controls/payment-required-gate";
+import { shouldShowThreadLoadingSkeleton } from "./thread-loading";
+import { CapabilityMessageText } from "./capability-message-text";
 import { useThread, useComposerRuntime, useMessage } from "@assistant-ui/react";
-import {
-  CapabilityComposerProvider,
-  CapabilityMentionInput,
-  useCapabilityComposer,
-} from "@/components/assistant-ui/capability-composer";
+import { CapabilityComposerProvider, useCapabilityComposer } from "@/composer/capability-composer/provider";
+import { CapabilityMentionInput } from "@/composer/capability-composer/input";
 
 import { TraceAttributionProvider } from "./trace-attribution";
+import { testIds } from "@/test-ids";
+import { useChatScroll } from "./use-chat-scroll";
 
 export const Thread: FC = () => {
-  const composerRuntime = useComposerRuntime();
-  const { currentThreadId } = useThreadContext();
-  const previousThread = useRef(currentThreadId);
-  const composerControl = useComposerControl();
-  const aomiRuntime = useOptionalAomiRuntime();
-  const controlBarProps = composerControl.controlBarProps ?? {};
-  const isReviewingAction = Boolean(aomiRuntime?.pendingActions.length);
+  const runtime = useOptionalAomiRuntime();
+  return (
+    <ThreadBody
+      hasRuntime={Boolean(runtime)}
+      isReviewingAction={Boolean(runtime?.pendingActions.length)}
+    />
+  );
+};
 
-  useEffect(() => {
-    if (previousThread.current === currentThreadId) return;
-    previousThread.current = currentThreadId;
-    try {
-      composerRuntime.setText("");
-    } catch (error) {
-      console.error("Failed to reset composer input:", error);
-    }
-  }, [composerRuntime, currentThreadId]);
+// Runtime events still reach native messages and activity directly. The static
+// transcript providers need only these two runtime conditions from the parent.
+const ThreadBody = memo(function ThreadBody({
+  hasRuntime,
+  isReviewingAction,
+}: {
+  hasRuntime: boolean;
+  isReviewingAction: boolean;
+}) {
+  const loading = useThread((thread) => thread.isLoading);
+  const { restoring, autoScroll, viewportProps } = useChatScroll(loading);
+  const composerControl = useComposerControl();
+  const controlBarProps = composerControl.controlBarProps ?? {};
 
   return (
     <CapabilityComposerProvider
@@ -107,7 +111,8 @@ export const Thread: FC = () => {
           <LazyMotion features={domMax}>
             <MotionConfig reducedMotion="user">
               <ThreadPrimitive.Root
-                className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col"
+                data-restoring={restoring || undefined}
+                className="aui-root aui-thread-root @container bg-aomi-bg text-aomi-fg relative flex h-full flex-col data-[restoring]:[&_.animate-in]:animate-none"
                 style={{
                   ["--thread-max-width" as string]: "45rem",
                 }}
@@ -116,7 +121,9 @@ export const Thread: FC = () => {
                 <div className="@[900px]:flex-row relative flex min-h-0 flex-1 flex-col overflow-hidden">
                   <div className="aui-chat-column @[900px]:ml-auto @[900px]:max-w-[var(--activity-chat-max-width,100%)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col">
                     <ThreadPrimitive.Viewport
-                      autoScroll={!isReviewingAction}
+                      {...viewportProps}
+                      autoScroll={!isReviewingAction && autoScroll}
+                      data-testid={testIds.messageList}
                       className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 pt-2 md:px-6"
                     >
                       <ThreadPrimitive.If empty>
@@ -144,7 +151,7 @@ export const Thread: FC = () => {
                       <Composer />
                     </ThreadPrimitive.If>
                   </div>
-                  {aomiRuntime && <ActivitySidebar />}
+                  {hasRuntime && <ActivitySidebar />}
                 </div>
               </ThreadPrimitive.Root>
             </MotionConfig>
@@ -153,7 +160,7 @@ export const Thread: FC = () => {
       </ThreadSafetyProvider>
     </CapabilityComposerProvider>
   );
-};
+});
 
 const ThreadScrollToBottom: FC = () => {
   return (
@@ -367,6 +374,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
   return (
     <ComposerPrimitive.Root
       onSubmit={submit}
+      data-testid={testIds.composer}
       className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3"
     >
       <CapabilityMentionInput
@@ -470,6 +478,7 @@ const ComposerAction: FC = () => {
               type="submit"
               variant="default"
               size="icon"
+              data-testid={testIds.send}
               className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label="Send message"
               disabled={
@@ -490,6 +499,7 @@ const ComposerAction: FC = () => {
               type="button"
               variant="default"
               size="icon"
+              data-testid={testIds.stop}
               className="aui-composer-cancel bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full transition-opacity hover:opacity-90 md:mr-2.5"
               aria-label={
                 aomiRuntime?.isStopping
@@ -545,6 +555,7 @@ const ThreadLoadingSkeleton: FC = () => {
       role="status"
       aria-label="Loading conversation"
       aria-live="polite"
+      data-testid={testIds.skeleton}
       className="aui-thread-loading-skeleton mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-3 px-4 py-6"
     >
       <AssistantMessageSkeleton widths={["42%", "68%", "56%"]} />
@@ -585,10 +596,21 @@ const AssistantLoadingDot: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
+  const taskRuns = useThreadTaskRuns();
+  const hasLiveTaskRun = Object.values(taskRuns).some(
+    (run) => run.status === "running",
+  );
+  return <AssistantMessageBody hasLiveTaskRun={hasLiveTaskRun} />;
+};
+
+const AssistantMessageBody = memo(function AssistantMessageBody({
+  hasLiveTaskRun,
+}: {
+  hasLiveTaskRun: boolean;
+}) {
   const isEmpty = useMessage((state) => state.content.length === 0);
   const isRunning = useMessage((state) => state.status?.type === "running");
   const isLast = useMessage((state) => state.isLast);
-  const runtime = useOptionalAomiRuntime();
   const notice = useMessage((state) => state.metadata?.custom) as
     | { aomiNoticeKind?: string; aomiNoticeTitle?: string }
     | undefined;
@@ -598,10 +620,6 @@ const AssistantMessage: FC = () => {
   const noticeKind = notice?.aomiNoticeKind;
   const isNotice = noticeKind === "payment_required" || noticeKind === "error";
   const isErrorNotice = noticeKind === "error";
-  const taskRuns = useThreadTaskRuns();
-  const hasLiveTaskRun = Object.values(taskRuns).some(
-    (run) => run.status === "running",
-  );
   const showLoadingDot = isEmpty && isRunning && isLast && !hasLiveTaskRun;
   const showFinishedEmptyMessage = isEmpty && !isRunning;
 
@@ -613,11 +631,13 @@ const AssistantMessage: FC = () => {
           showFinishedEmptyMessage ? "-mt-3 py-0" : "py-4",
         )}
         data-role="assistant"
+        data-testid={testIds.assistantMessage}
       >
         <AssistantMessageRow showMark={!showFinishedEmptyMessage}>
           <div className="aui-assistant-message-col min-w-0 flex-1">
             {!showFinishedEmptyMessage && isNotice && (
               <div
+                data-testid={testIds.notice}
                 className={cn(
                   "aui-assistant-notice bg-aomi-surface text-aomi-fg rounded-2xl border px-4 py-3 text-sm",
                   isErrorNotice
@@ -666,7 +686,7 @@ const AssistantMessage: FC = () => {
       </div>
     </MessagePrimitive.Root>
   );
-};
+});
 
 function useTouchActions() {
   const [touchActions, setTouchActions] = useState(false);
@@ -710,6 +730,7 @@ const AssistantActionBar: FC = () => {
           size="icon"
           className="aui-button-icon hover:text-aomi-fg size-5 p-0 transition-colors hover:bg-transparent"
           aria-label="Rerun"
+          data-testid={testIds.rerun}
         >
           <RefreshCwIcon className="size-[15px]" />
         </Button>
@@ -734,6 +755,7 @@ const UserMessage: FC = () => {
       <div
         className="aui-user-message-root animate-in fade-in slide-in-from-bottom-1 mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(28px,1fr)_minmax(0,auto)] gap-y-2 px-2 py-4 duration-150 ease-out first:mt-3 last:mb-5 md:grid-cols-[minmax(72px,1fr)_minmax(0,auto)] [&:where(>*)]:col-start-2"
         data-role="user"
+        data-testid={testIds.userMessage}
       >
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0 max-w-[32rem] justify-self-end">
           <div className="aui-user-message-content bg-aomi-surface-2 text-aomi-fg rounded-2xl rounded-br-md px-[15px] py-[11px] text-[15px] leading-[22px] [overflow-wrap:anywhere]">
@@ -779,6 +801,7 @@ const UserActionBar: FC = () => {
           size="icon"
           className="aui-button-icon aui-user-action-edit text-aomi-muted hover:text-aomi-fg size-7 rounded-lg p-0 transition-colors hover:bg-transparent"
           aria-label="Edit"
+          data-testid={testIds.editMessage}
         >
           <PencilIcon className="size-3.5" />
         </Button>
@@ -792,6 +815,7 @@ const EditComposer: FC = () => {
     <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 px-2 first:mt-4">
       <ComposerPrimitive.Root className="aui-edit-composer-root max-w-7/8 bg-aomi-surface-2 ml-auto flex w-full flex-col rounded-2xl">
         <ComposerPrimitive.Input
+          aria-label="Edit message"
           className="aui-edit-composer-input text-foreground flex min-h-[60px] w-full resize-none bg-transparent p-4 outline-none dark:text-white"
           autoFocus
         />

@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/features/usage/credit-bank",
+  "@/account/usage/credit-bank/credit-bank",
   async () => {
     const { useEffect } = await import("react");
     return {
@@ -15,12 +15,12 @@ vi.mock(
 );
 
 const account = vi.hoisted(() => ({ id: "" }));
-vi.mock("../../../../shadcn-registry/src/lib/wallet-kit/context", () => ({
+vi.mock("@/wallet/context", () => ({
   useAomiWalletKit: () => ({ accountUser: { id: account.id } }),
 }));
 let accountSequence = 0;
 
-import { UsageSettings } from "../../../../shadcn-registry/src/components/account-shell/features/usage/usage-settings";
+import { UsageSettings } from "@/account/usage/usage-settings";
 
 const STATEMENT = {
   entries: [
@@ -91,7 +91,10 @@ describe("usage settings wiring", () => {
     expect(statementQuery.searchParams.get("limit")).toBe("100");
     expect(statementQuery.searchParams.get("from")).toBeTruthy();
     expect(statementQuery.searchParams.get("to")).toBeTruthy();
-    expect(calls).toContain("/v1/account/credits?limit=1");
+    expect(calls).toContain("/v1/account/credits?limit=25");
+    expect(
+      calls.filter((call) => call.startsWith("/v1/account/credits?")),
+    ).toHaveLength(1);
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
@@ -143,6 +146,9 @@ describe("usage settings wiring", () => {
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input.toString(), "https://portal.test");
+        if (url.pathname === "/api/auth/sign-in/anonymous") {
+          return Response.json({ code: "session_exists" }, { status: 409 });
+        }
         if (url.pathname === "/v1/account/statement") {
           return Response.json(
             { error: "widget_auth_failed" },

@@ -1,27 +1,27 @@
 "use client";
 
 import { useContext, useMemo, useRef, useState } from "react";
-import { signOutAndDisconnect } from "../../../../lib/wallet-kit/account/sign-out";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
+import { signOutAndDisconnect } from "@/wallet/account/sign-out";
+import { useAomiWalletKit } from "@/wallet/context";
 import {
   WalletPickerProvider,
   useWalletPicker,
   WalletSignInOptionsContext,
-} from "../../../control-bar/wallet-picker-context";
-import { WalletPicker } from "../../../control-bar/wallet-picker";
-import { useConfirmDialog } from "../../../ui/aomi/confirm-dialog";
-import { AccountManagement } from "./account-management";
-import { shortenAddress } from "./account-api";
+} from "@/wallet/picker/wallet-picker-context";
+import { WalletPicker } from "@/wallet/picker/wallet-picker";
+import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
+import { AccountManagement } from "@/account/account-management/account-management";
 import { useAccountAcl } from "./use-account-acl";
 import {
   providerEmailDisplayHint,
   visibleSignInMethods,
   type ManagedWallet,
-} from "./wallet-management-model";
-import { walletKey } from "../../../../lib/wallet-kit/wallet-utils";
-import { resolveWalletBrandKey } from "./wallet-brands";
-import { titleCase } from "./account-management/controls";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+} from "@/wallet/wallet-management-model";
+import { walletKey } from "@/wallet/wallet-utils";
+import { resolveWalletBrandKey } from "@/wallet/wallet-brands";
+import { titleCase } from "@/account/account-management/controls";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
+import { shortAddress } from "@aomi-labs/client";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
@@ -115,7 +115,7 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
     if (!adapter.unlinkLinkedWallet || !wallet.linkedWalletId) return;
     const confirmed = await confirm({
       title: "Unlink this wallet?",
-      description: `${shortenAddress(wallet.address)} will no longer be saved to this account. The wallet and its funds are not affected.`,
+      description: `${shortAddress(wallet.address)} will no longer be saved to this account. The wallet and its funds are not affected.`,
       confirmLabel: "Unlink",
       tone: "danger",
     });

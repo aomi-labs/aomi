@@ -3,9 +3,9 @@
 import { useState, type FC } from "react";
 import { KeyIcon, CheckIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useApiKey, cn } from "@aomi-labs/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/ui/dialog";
 
 export type ApiKeyInputProps = {
   className?: string;

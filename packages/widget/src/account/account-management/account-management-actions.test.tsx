@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccountManagement } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management";
-import { ExternalWalletCard } from "../../../../shadcn-registry/src/components/account-shell/features/account/account-management/controls";
-import type { ManagedWallet } from "../../../../shadcn-registry/src/components/account-shell/features/account/wallet-management-model";
+import { AccountManagement } from "./account-management";
+import { ExternalWalletCard } from "@/account/account-management/controls";
+import type { ManagedWallet } from "@/wallet/wallet-management-model";
 
 const connectedWallet: ManagedWallet = {
   key: "evm:0xda65",

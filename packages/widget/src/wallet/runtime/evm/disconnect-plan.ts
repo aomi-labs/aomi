@@ -1,7 +1,7 @@
 "use client";
 
-import type { AomiAccount } from "../../types";
-import type { WagmiConnectionShape } from "./safe-hooks";
+import type { AomiAccount } from "@/wallet/types";
+import type { WagmiConnectionShape } from "./wagmi-hooks";
 
 export type EvmAccountDisconnectPlan = {
   connectorIds: Set<string>;

@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAomiRuntime } from "@aomi-labs/react";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
-import type { WalletAccountMenuOptions } from "../../../control-bar/account-menu-types";
+import { useMemo } from "react";
+import { useAccountCredits } from "./use-account-credits";
+import { useAomiWalletKit } from "@/wallet/context";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import {
   creditAllowanceFromPosition,
   formatAllowanceSummary,
-  type CreditAllowance,
-} from "../../lib/account-overview";
-import { useShellTransport } from "../../transport";
-import { useSettings } from "../../lib/use-settings";
+} from "./account-overview";
+import { useShellTransport } from "./transport";
+import { useSettings } from "./use-settings";
 import {
   accountDisplayName,
   providerEmailDisplayHint,
-} from "../../features/account/wallet-management-model";
+} from "@/wallet/wallet-management-model";
 
 /**
  * Shared Portal and widget account menu config for the sidebar wallet chip.
@@ -30,9 +29,20 @@ export function usePortalWalletAccountMenu(
     embedded?: boolean;
   } = {},
 ): WalletAccountMenuOptions | undefined {
-  const { account: runtimeAccount } = useAomiRuntime();
-  // undefined while loading; null when unavailable.
-  const [credits, setCredits] = useState<CreditAllowance | null>();
+  const position = useAccountCredits();
+  const credits =
+    position.isPending && position.fetchStatus !== "idle"
+      ? undefined
+      : creditAllowanceFromPosition(position.data);
+  // Hosts publish this menu into shell state. Keep its memo dependencies on
+  // displayed values; the allowance projection is a new object every render.
+  const secondaryLine =
+    credits && credits.included > 0
+      ? formatAllowanceSummary(credits.used, credits.included)
+      : credits
+        ? `${Math.max(0, credits.included - credits.used).toLocaleString()} credits left`
+        : undefined;
+  const secondaryLoading = credits === undefined;
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();
   const adapter = useAomiWalletKit();
@@ -43,40 +53,11 @@ export function usePortalWalletAccountMenu(
     ? providerEmailDisplayHint(identity, adapter.accountLinkedAccounts ?? [])
     : undefined;
 
-  useEffect(() => {
-    if (!accountUser || accountGuest) {
-      setCredits(null);
-      return;
-    }
-    let mounted = true;
-    setCredits(undefined);
-    void runtimeAccount.credits
-      .get({ limit: 1 })
-      .then((position) => {
-        if (mounted) setCredits(creditAllowanceFromPosition(position));
-      })
-      .catch(() => {
-        if (mounted) setCredits(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [accountGuest, accountUser, runtimeAccount]);
-
   return useMemo(() => {
     // A Better Auth guest is only transport for guest chat. Do not present it
     // as an account or offer account-management actions; linking a wallet
     // replaces this temporary session with a verified wallet sign-in.
     if (!accountUser || accountGuest) return undefined;
-
-    // A wallet can be connected while the Aomi account session is missing:
-    // the provider credential exchange either has not run yet or it failed.
-    const secondaryLine =
-      credits && credits.included > 0
-        ? formatAllowanceSummary(credits.used, credits.included)
-        : credits
-          ? `${Math.max(0, credits.included - credits.used).toLocaleString()} credits left`
-          : undefined;
 
     const isDark =
       settings.colorMode === "dark" ||
@@ -88,7 +69,7 @@ export function usePortalWalletAccountMenu(
       enabled: true,
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
-      secondaryLoading: credits === undefined,
+      secondaryLoading,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
       themeLabel: isDark ? "Dark" : "Light",
@@ -115,7 +96,8 @@ export function usePortalWalletAccountMenu(
     activeAccount?.walletName,
     onManageAccount,
     onOpenSettings,
-    credits,
+    secondaryLine,
+    secondaryLoading,
     settings.colorMode,
     updateSetting,
     themeRoot,

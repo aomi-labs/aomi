@@ -2,7 +2,7 @@
 import type { RefObject } from "react";
 import { Globe2Icon } from "lucide-react";
 import { getChainInfo } from "@aomi-labs/react";
-import { getChainIcon } from "@/components/icons";
+import { getChainIcon } from "@/icons/chain-map";
 import type { CapabilityKind, PickerItem } from "./model";
 import { usePickerPlacement } from "./use-picker-placement";
 

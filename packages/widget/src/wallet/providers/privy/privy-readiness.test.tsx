@@ -1,8 +1,8 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AomiWalletKitComposerProps } from "../../composer/types";
-import { AomiPrivyPluginProvider } from "./PrivyPluginProvider";
-import { resolveWalletState } from "../../composer/wallet-state";
+import type { AomiWalletKitComposerProps } from "@/wallet/composer/types";
+import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
+import { resolveWalletState } from "@/wallet/composer/wallet-state";
 
 const EOA = "0x1111111111111111111111111111111111111111";
 const SMART = "0x2222222222222222222222222222222222222222";
@@ -20,19 +20,19 @@ const fixture = vi.hoisted(() => ({
   accessToken: vi.fn(async () => "signed-access-token"),
   providerRequest: vi.fn().mockResolvedValue("0xsignature"),
 }));
-vi.mock("../../composer/AomiWalletKitComposer", () => ({
+vi.mock("@/wallet/composer/aomi-wallet-kit-composer", () => ({
   AomiWalletKitComposer: (props: AomiWalletKitComposerProps) => {
     fixture.props = props;
     return props.children;
   },
 }));
-vi.mock("../../account/use-resolved-account-runtime", () => ({
+vi.mock("@/wallet/account/use-resolved-account-runtime", () => ({
   useResolvedAccountRuntime: () => undefined,
 }));
-vi.mock("../../network-preferences", () => ({
+vi.mock("@/wallet/network-preferences", () => ({
   useAomiWalletNetworkPreferences: () => ({ supportedSolanaNetworks: [] }),
 }));
-vi.mock("../sources/embedded-session-source", () => ({
+vi.mock("@/wallet/providers/sources/embedded-session-source", () => ({
   useEmbeddedSessionSource: () => undefined,
 }));
 vi.mock("./privy-auth", () => ({
@@ -78,7 +78,7 @@ vi.mock("./privy-auth", () => ({
   inferPrivyPrimaryLabel: () => "test@example.com",
   privyLoginMethodsToOptions: () => [],
 }));
-vi.mock("../../runtime/evm/wallet-runtime", () => ({
+vi.mock("@/wallet/runtime/evm/wallet-runtime", () => ({
   useEvmWalletRuntime: () => ({
     registryStore: { dispatch: vi.fn() },
     registryState: {
@@ -93,7 +93,7 @@ vi.mock("../../runtime/evm/wallet-runtime", () => ({
     chainsById: {},
   }),
 }));
-vi.mock("../../runtime/svm/wallet-runtime", () => ({
+vi.mock("@/wallet/runtime/svm/wallet-runtime", () => ({
   useSafeSvmWallet: () => ({}),
   useMergedSvmWallet: (_external: unknown, embedded: unknown) => embedded,
   useSvmWalletRuntime: () => ({ execution: {}, identity: () => ({}) }),

@@ -1,4 +1,4 @@
-import type { ToolMatcher } from "../../types";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
 import { matchSvmContext, matchSvmTokenHoldings } from "./context";
 import {
   matchSvmPendingApproval,

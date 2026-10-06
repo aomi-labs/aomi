@@ -10,9 +10,9 @@ import {
   XIcon,
 } from "lucide-react";
 import { useControl, cn } from "@aomi-labs/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/ui/button";
+import { Input } from "@/ui/input";
+import { Label } from "@/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/ui/dialog";
 
 export type SecretInputProps = {
   className?: string;

@@ -1,3 +1,4 @@
+import { shortAddress } from "@aomi-labs/client";
 import {
   ArrowDownLeftIcon,
   ArrowRightLeftIcon,
@@ -25,16 +26,16 @@ import {
   UserIcon,
 } from "lucide-react";
 
-import { getChainIcon } from "@/components/icons/chain-map";
-import { SolanaIcon } from "@/components/icons/chains";
-import { skillChip } from "../attribution";
+import { getChainIcon } from "@/icons/chain-map";
+import { SolanaIcon } from "@/icons/chain-icons";
+import { skillChip } from "@/thread/tool-interpreter/attribution";
 import {
   SHAPE_ICONS,
   STAGED_ACTION_ICON_REGISTRY,
-} from "@/components/assistant-ui/tool-registry";
+} from "@/thread/tool-registry";
 
-import { humanize } from "../normalize";
-import type { ToolChip, ToolFact } from "../types";
+import { humanize } from "@/thread/tool-interpreter/normalize";
+import type { ToolChip, ToolFact } from "@/thread/tool-interpreter/types";
 
 const formatInteger = (value: string): string => {
   const parsed = Number(value);
@@ -42,9 +43,7 @@ const formatInteger = (value: string): string => {
 };
 
 const shortenAddress = (address: string): string =>
-  /^0x[a-fA-F0-9]{40}$/.test(address)
-    ? `${address.slice(0, 6)}...${address.slice(-4)}`
-    : address;
+  /^0x[a-fA-F0-9]{40}$/.test(address) ? shortAddress(address) : address;
 
 const formatNativeAmount = (value: string): string => {
   const numeric = Number(value);
@@ -244,10 +243,7 @@ export const chipForFact = (fact: ToolFact): ToolChip | null => {
       };
     case "txId":
       return {
-        label:
-          fact.value.length > 14
-            ? `${fact.value.slice(0, 7)}...${fact.value.slice(-5)}`
-            : fact.value,
+        label: shortAddress(fact.value, { head: 7, tail: 5 }),
         icon: ReceiptTextIcon,
       };
     case "warning":

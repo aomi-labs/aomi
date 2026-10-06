@@ -1,8 +1,8 @@
-import { getSkillDisplayName } from "@/components/icons/skills";
-import { asRecord } from "../../normalize";
+import { getSkillDisplayName } from "@/icons/skills/skill-icons";
+import { asRecord } from "@/thread/tool-interpreter/normalize";
 
-import type { ToolMatcher } from "../../types";
-import { operation } from "../operation";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { operation } from "@/thread/tool-interpreter/families/operation";
 
 export const matchSkillActivation: ToolMatcher = ({
   rawLabel,

@@ -1,34 +1,36 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RegistryEvent, WalletRegistryState } from "../../registry/types";
-import { createInitialState, reduce } from "../../registry/reducer";
-import { useEmbeddedSessionSource } from "../../providers/sources/embedded-session-source";
+import type { RegistryEvent, WalletRegistryState } from "@/wallet/registry/types";
+import { createInitialState, reduce } from "@/wallet/registry/reducer";
+import { useEmbeddedSessionSource } from "@/wallet/providers/sources/embedded-session-source";
 import { useEvmWalletRuntime } from "./wallet-runtime";
 
 const fixture = vi.hoisted(() => ({
   externalChain: undefined as number | undefined,
 }));
-vi.mock("./safe-hooks", () => {
+vi.mock("wagmi", () => {
   const config = { chains: [{ id: 1 }, { id: 42161 }], connectors: [] };
   return {
-    useSafeWalletClient: () => ({}),
-    useSafeSwitchChain: () => ({}),
-    useSafeDisconnect: () => ({}),
-    useSafeReconnect: () => ({}),
-    useSafeConnections: () => [],
-    useSafeConnectors: () => [],
-    useSafeConnect: () => ({}),
-    useSafeSwitchAccount: () => ({}),
-    useSafeSendTransaction: () => ({}),
-    useSafeSendCallsSync: () => ({}),
-    useSafeSignTypedData: () => ({}),
-    useSafeSignMessage: () => ({}),
-    useSafeGetWalletClientFor: () => undefined,
-    useSafeWagmiConfig: () => config,
-    useSafeCapabilities: () => ({}),
+    useWalletClient: () => ({}),
+    useSwitchChain: () => ({}),
+    useDisconnect: () => ({}),
+    useReconnect: () => ({}),
+    useConnectors: () => [],
+    useConnect: () => ({}),
+    useSwitchAccount: () => ({}),
+    useSendTransaction: () => ({}),
+    useSignTypedData: () => ({}),
+    useSignMessage: () => ({}),
+    useConfig: () => config,
   };
 });
+vi.mock("./wagmi-hooks", () => ({
+  useWagmiConnections: () => [],
+  useSendCallsSyncExecutor: () => undefined,
+  useGetWalletClientFor: () => undefined,
+  useWalletCapabilities: () => undefined,
+}));
 vi.mock("./brands", () => ({
   useInstalledWalletFlags: () => ({}),
   dedupeWalletOptions: (options: unknown[]) => options,
@@ -36,7 +38,7 @@ vi.mock("./brands", () => ({
 vi.mock("./registry-source", () => ({
   useWagmiRegistrySource: () => undefined,
 }));
-vi.mock("../../registry/use-wallet-registry", () => ({
+vi.mock("@/wallet/registry/use-wallet-registry", () => ({
   useWalletRegistry: () => {
     const store = useMemo(() => {
       let state = createInitialState();

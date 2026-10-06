@@ -8,27 +8,27 @@ import {
   SlidersHorizontal,
   UserRound,
 } from "lucide-react";
-import { useAomiWalletKit } from "../../../../lib/wallet-kit/context";
-import { AomiButton } from "../../../ui/aomi/button";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+import { useAomiWalletKit } from "@/wallet/context";
+import { AomiButton } from "@/ui/aomi/button";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   ModalHeader,
   ModalNav,
   ModalNavItem,
   ModalShell,
   ModalSidebar,
-} from "../../../ui/aomi/modal-shell";
-import { GeneralSettings } from "../../features/general";
-import { AccountSettings } from "../../features/account";
-import { UsageSettings } from "../../features/usage";
-import { PolicyPage } from "../../features/policy";
+} from "@/ui/aomi/modal-shell";
+import { GeneralSettings } from "./general-settings";
+import { AccountSettings } from "./account-settings";
+import { UsageSettings } from "@/account/usage/usage-settings";
+import { PolicyPage } from "@/account/policy/policy-page";
 import {
   useAomiSession,
   type AomiSessionStatus,
-} from "../providers/aomi-session-bridge";
+} from "./aomi-session-bridge";
 
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
-import type { SettingsTab } from "../../lib/settings-events";
+import type { SettingsTab } from "./settings-events";
 
 export type { SettingsTab };
 

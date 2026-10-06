@@ -4,7 +4,7 @@ import {
   type AomiFeatureCategory,
   type AomiSecretSlot,
 } from "@aomi-labs/client";
-import { resolveAppIdentity } from "../../../../lib/apps/app-identity";
+import { resolveAppIdentity } from "@/lib/apps/app-identity";
 
 export type PackageVisibility = "public" | "personal";
 export type PackageCategory =

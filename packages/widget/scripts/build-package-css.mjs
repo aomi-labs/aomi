@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/postcss";
 import postcss from "postcss";
+import { scopePackageCss } from "./scope-package-css.mjs";
 
 const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,5 +24,6 @@ if (warnings.length > 0) {
   throw new Error(warnings.map((warning) => warning.toString()).join("\n"));
 }
 
+scopePackageCss(result.root);
 await mkdir(path.dirname(outputPath), { recursive: true });
-await writeFile(outputPath, result.css);
+await writeFile(outputPath, result.root.toString());

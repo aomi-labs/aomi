@@ -5,10 +5,10 @@ import {
   EVM_SELECTOR_REGISTRY,
   SHAPE_ICONS,
   STAGED_ACTION_ICON_REGISTRY,
-} from "@/components/assistant-ui/tool-registry";
+} from "@/thread/tool-registry";
 
-import type { FactKind, FactRole, ToolOperation } from "../types";
-import { protocolDescriptorFor } from "../protocols";
+import type { FactKind, FactRole, ToolOperation } from "@/thread/tool-interpreter/types";
+import { protocolDescriptorFor } from "@/thread/tool-interpreter/protocols/protocol-matchers";
 
 export type ChipSlot = {
   kind: FactKind;

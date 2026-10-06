@@ -11,16 +11,16 @@ import type {
   AomiWalletOption,
   SvmNetworkOption,
   SvmWalletDescriptor,
-} from "../../types";
-import { SVM_WALLET_ALLOWLIST } from "../../catalog/svm-wallet-catalog";
-import { canonicalWalletKey } from "../../catalog/wallet-branding";
-import { selectAccounts, selectSvmIdentity } from "../../registry/selectors";
-import type { WalletRegistryStore } from "../../registry/store";
-import type { SvmWalletRuntime } from "../../composer/types";
+} from "@/wallet/types";
+import { SVM_WALLET_ALLOWLIST } from "@/wallet/catalog/svm-wallet-catalog";
+import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
+import { selectAccounts, selectSvmIdentity } from "@/wallet/registry/selectors";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
+import type { SvmWalletRuntime } from "@/wallet/composer/types";
 import {
   DEFAULT_SVM_CLUSTER,
   DEFAULT_SVM_RPC_HTTP_URLS,
-} from "../../catalog/svm-networks";
+} from "@/wallet/catalog/svm-networks";
 import { useSvmRegistrySource } from "./registry-source";
 import { buildSvmTransactionMethods } from "./transactions";
 
@@ -111,26 +111,21 @@ export function useSafeSvmWallet(): SafeSvmWalletState {
   if (isMissingSvmProviderContext(context)) {
     return DISCONNECTED_SVM_WALLET;
   }
-  try {
-    const wallet = context;
-    return {
-      publicKey: wallet.publicKey?.toBase58(),
-      connected: wallet.connected,
-      connecting: wallet.connecting,
-      disconnecting: wallet.disconnecting,
-      walletName: wallet.wallet?.adapter?.name,
-      wallets: wallet.wallets,
-      select: wallet.select,
-      connect: wallet.connect,
-      disconnect: wallet.disconnect,
-      signTransaction: wallet.signTransaction,
-      signAllTransactions: wallet.signAllTransactions,
-      signMessage: wallet.signMessage,
-      sendTransaction: wallet.sendTransaction,
-    };
-  } catch {
-    return DISCONNECTED_SVM_WALLET;
-  }
+  return {
+    publicKey: context.publicKey?.toBase58(),
+    connected: context.connected,
+    connecting: context.connecting,
+    disconnecting: context.disconnecting,
+    walletName: context.wallet?.adapter?.name,
+    wallets: context.wallets,
+    select: context.select,
+    connect: context.connect,
+    disconnect: context.disconnect,
+    signTransaction: context.signTransaction,
+    signAllTransactions: context.signAllTransactions,
+    signMessage: context.signMessage,
+    sendTransaction: context.sendTransaction,
+  };
 }
 
 function hasSelectedSvmWallet(wallet: SafeSvmWalletState): boolean {

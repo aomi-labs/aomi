@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "../../link";
+import Link from "@/ui/link";
 import type { MonthlyStatement } from "./types";
-import { useAccountOverview } from "../../lib/account-overview";
+import { useAccountOverview } from "@/account/account-overview";
 import { useUsageStatement } from "./use-usage-statement";
 import { ArrowLeft, Check, ChevronDown } from "lucide-react";
-import { LoadingPane } from "../../../ui/aomi/loading-pane";
+import { LoadingPane } from "@/ui/aomi/loading-pane";
 import {
   AllowanceSettlementSection,
   AppGroup,
@@ -19,6 +19,7 @@ import {
   USAGE_MATRIX_HINT,
   usd,
 } from "./usage-shared";
+import { shortAddress } from "@aomi-labs/client";
 
 type View = "byApp" | "itemized";
 type Subject = "all" | "model" | "tool" | "onchain";
@@ -131,7 +132,7 @@ export function StatementView() {
                   <>
                     {" · "}
                     <span className="font-mono">
-                      {identityKey.slice(0, 6)}…{identityKey.slice(-4)}
+                      {shortAddress(identityKey)}
                     </span>
                   </>
                 )}

@@ -2,6 +2,20 @@ import { describe, expect, it, vi } from "vitest";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 
 describe("buildWalletKitActions", () => {
+  it("rejects provider sign-in when the current runtime has no login capability", async () => {
+    const actions = buildWalletKitActions({
+      accounts: [],
+      auth: { provider: "wagmi", status: "unauthenticated" } as never,
+      evm: {} as never,
+      execution: { evm: {}, sponsorship: {} } as never,
+      registryStore: {} as never,
+      registryEvmConnected: false,
+    });
+    await expect(actions.connectSocial("privy")).rejects.toThrow(
+      "Wallet provider sign-in is not ready.",
+    );
+  });
+
   it("uses an embedded runtime switcher before persisting an EVM selection", async () => {
     const switchChainAsync = vi.fn(async () => undefined);
     const selectNetwork = vi.fn(async () => undefined);

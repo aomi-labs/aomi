@@ -3,9 +3,9 @@
 export {
   CapabilityComposerProvider,
   useCapabilityComposer,
-} from "./capability-composer/provider";
-export { CapabilityMentionInput } from "./capability-composer/input";
-export { SupportedChainStack } from "./capability-composer/picker";
+} from "@/composer/capability-composer/provider";
+export { CapabilityMentionInput } from "@/composer/capability-composer/input";
+export { SupportedChainStack } from "@/composer/capability-composer/picker";
 export {
   requestCapabilityMention,
   type AppTagRequest,
@@ -13,10 +13,10 @@ export {
   type CapabilityKind,
   type CapabilityMention,
   type CapabilityMentionRequest,
-} from "./capability-composer/model";
+} from "@/composer/capability-composer/model";
 export {
   matchCapabilityMentionTrigger,
   textFromEditor,
   clearEmptyEditorStructure,
   removeCapabilityMentionBeforeCaret,
-} from "./capability-composer/editor-dom";
+} from "@/composer/capability-composer/editor-dom";

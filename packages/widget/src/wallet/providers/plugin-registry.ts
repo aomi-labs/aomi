@@ -8,11 +8,12 @@ import type {
   AomiWalletKitProviderProps,
   ExecutionConfig,
   ProvidersConfig,
-} from "../config/types";
-import type { SvmNetworkOption } from "../types";
+} from "@/wallet/config/types";
+import type { SvmNetworkOption } from "@/wallet/types";
 import type { Chain } from "viem";
-import type { ResolvedEvmWalletsConfig } from "../catalog/evm-connector-catalog";
-import type { SafeSvmWalletState } from "../runtime/svm/wallet-runtime";
+import type { ResolvedEvmWalletsConfig } from "@/wallet/catalog/evm-connector-catalog";
+import { loadParaPlugin, loadPrivyPlugin } from "./sdk-loaders";
+import type { SafeSvmWalletState } from "@/wallet/runtime/svm/wallet-runtime";
 
 /**
  * A wallet provider plugin. Knows how to render itself from the normalized
@@ -25,16 +26,11 @@ import type { SafeSvmWalletState } from "../runtime/svm/wallet-runtime";
 export type WalletProviderPlugin = {
   id: string;
   authMode?: "additive" | "full";
+  /** Loads the SDK-backed plugin; absent once the plugin itself is registered. */
+  load?: () => Promise<WalletProviderPlugin>;
   wrap?: (props: {
     auth?: AuthConfig;
     children: ReactNode;
-    /**
-     * The host app over a booting wallet kit, shown while the provider cannot
-     * host `children` yet. `children` hold the wallet runtimes, which must
-     * mount once, in place: wagmi skips `reconnectOnMount` while an earlier
-     * mount's reconnect is in flight, so a second mount stays disconnected.
-     */
-    placeholder?: ReactNode;
     providers?: ProvidersConfig;
   }) => ReactNode;
   isAvailable?: (props: {
@@ -68,7 +64,30 @@ export type WalletProviderPlugin = {
   ) => AomiWalletKitProviderProps | null;
 };
 
-const registry = new Map<string, WalletProviderPlugin>();
+/** Retry after a failed load instead of caching the rejection. */
+function loadOnce(
+  load: () => Promise<WalletProviderPlugin>,
+): () => Promise<WalletProviderPlugin> {
+  let loading: Promise<WalletProviderPlugin> | undefined;
+  return () =>
+    (loading ??= load().catch((error) => {
+      loading = undefined;
+      throw error;
+    }));
+}
+
+// Privy and Para load on demand when `auth` selects them; their eager entry
+// points replace these with plugins that need no load.
+const registry = new Map<string, WalletProviderPlugin>([
+  [
+    "privy",
+    { id: "privy", authMode: "additive", load: loadOnce(loadPrivyPlugin) },
+  ],
+  [
+    "para",
+    { id: "para", authMode: "additive", load: loadOnce(loadParaPlugin) },
+  ],
+]);
 
 export function registerWalletProvider(plugin: WalletProviderPlugin): void {
   registry.set(plugin.id, plugin);
@@ -78,16 +97,6 @@ export function getWalletProvider(
   id: string,
 ): WalletProviderPlugin | undefined {
   return registry.get(id);
-}
-
-export function requireWalletProvider(id: string): WalletProviderPlugin {
-  const plugin = registry.get(id);
-  if (!plugin) {
-    throw new Error(
-      `[aomi-wallet-kit] Unknown wallet provider "${id}". Import "@aomi-labs/widget-lib/providers/${id}" before mounting AomiWalletKitProvider, or use preset="wallets-only".`,
-    );
-  }
-  return plugin;
 }
 
 /**
@@ -103,4 +112,9 @@ export function detectProviderSugar(
     if (normalized) return normalized;
   }
   return null;
+}
+
+/** Hover or focus can warm a provider SDK without changing account state. */
+export async function preloadWalletProvider(id: string): Promise<void> {
+  await getWalletProvider(id)?.load?.();
 }

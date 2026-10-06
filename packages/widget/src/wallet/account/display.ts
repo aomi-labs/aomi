@@ -25,7 +25,7 @@ export function providerEmailDisplayHint(
     : undefined;
 }
 
-/** Prefer a chosen account name, then canonical email, then a verified session display hint. */
+/** Prefer a chosen account name, then account email, then a verified session display hint. */
 export function accountDisplayName(
   user: AomiUserRef | undefined,
   displayEmailHint?: string,

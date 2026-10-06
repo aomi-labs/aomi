@@ -8,9 +8,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useWidgetStorage } from "@/lib/widget-storage";
+import type { ScopedStorage } from "@aomi-labs/client";
 import type { Chain } from "viem";
 import type { AomiNetworkTarget, SvmNetworkOption } from "./types";
-import { resolveSelectedSvmNetwork } from "./catalog/svm-networks";
+import { resolveSelectedSvmNetwork } from "@/wallet/catalog/svm-networks";
 
 type WalletNetworkPreferences = {
   selectedEvmChainId?: number;
@@ -23,9 +25,12 @@ function storageKey(key: string): string {
   return `${STORAGE_PREFIX}.${key}`;
 }
 
-function loadWalletNetworkPreferences(key: string): WalletNetworkPreferences {
+function loadWalletNetworkPreferences(
+  storage: ScopedStorage,
+  key: string,
+): WalletNetworkPreferences {
   try {
-    const raw = globalThis.localStorage?.getItem(storageKey(key));
+    const raw = storage.migrate(`walletPrefs:${key}`, storageKey(key));
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null) return {};
@@ -46,11 +51,12 @@ function loadWalletNetworkPreferences(key: string): WalletNetworkPreferences {
 }
 
 function saveWalletNetworkPreferences(
+  storage: ScopedStorage,
   key: string,
   prefs: WalletNetworkPreferences,
 ): void {
   try {
-    globalThis.localStorage?.setItem(storageKey(key), JSON.stringify(prefs));
+    storage.setJson(`walletPrefs:${key}`, prefs);
   } catch {
     // localStorage unavailable or over quota — preferences are best-effort.
   }
@@ -81,8 +87,9 @@ export function AomiWalletNetworkPreferencesProvider({
   solanaNetworks: readonly SvmNetworkOption[];
   storageKey?: string | null;
 }) {
+  const storage = useWidgetStorage();
   const [persisted] = useState(() =>
-    storageKey ? loadWalletNetworkPreferences(storageKey) : {},
+    storageKey ? loadWalletNetworkPreferences(storage, storageKey) : {},
   );
 
   const [selectedEvmChainId, setSelectedEvmChainId] = useState<
@@ -128,7 +135,7 @@ export function AomiWalletNetworkPreferencesProvider({
 
   useEffect(() => {
     if (!storageKey) return;
-    saveWalletNetworkPreferences(storageKey, {
+    saveWalletNetworkPreferences(storage, storageKey, {
       selectedEvmChainId,
       selectedSolanaNetworkId,
     });

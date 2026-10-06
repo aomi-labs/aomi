@@ -22,10 +22,10 @@ import {
 import { ChevronDown, X } from "lucide-react";
 import { cn, useAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle, reviewEligibility } from "@aomi-labs/client";
-import { useTraceAttribution } from "../assistant-ui/trace-attribution";
-import { skillChip } from "../assistant-ui/tool-interpreter/attribution";
-import { ToolChipView } from "../assistant-ui/tool-chip";
-import { SectionHeader } from "../ui/aomi/section-header";
+import { useTraceAttribution } from "@/thread/trace-attribution";
+import { skillChip } from "@/thread/tool-interpreter/attribution";
+import { ToolChipView } from "@/thread/tool-chip";
+import { SectionHeader } from "@/ui/aomi/section-header";
 import {
   selectActivity,
   selectReviewCommit,
@@ -38,8 +38,7 @@ import { WalletReview } from "./wallet-review";
 import { PHONE_QUERY, useActivityPanel } from "./activity-panel-context";
 
 export function ActivitySidebar() {
-  const { threadViewKey } = useAomiRuntime();
-  return <ActivitySidebarContent key={threadViewKey} />;
+  return <ActivitySidebarContent />;
 }
 
 function ActivitySidebarContent() {
@@ -47,7 +46,6 @@ function ActivitySidebarContent() {
     events,
     pendingActions,
     actionAttempts,
-    threadViewKey,
     commits = [],
     commitController,
   } = useAomiRuntime();
@@ -258,14 +256,25 @@ function ActivitySidebarContent() {
       )}
     </>
   );
+  useLayoutEffect(() => {
+    const parent = anchorRef.current?.parentElement;
+    if (!parent) return;
+    layoutParent.current = parent;
+    if (showRail && !compact && !sheet)
+      parent.style.setProperty(
+        "--activity-chat-max-width",
+        "calc(100% - (100cqw - 960px))",
+      );
+    else parent.style.removeProperty("--activity-chat-max-width");
+  }, [showRail, compact, sheet]);
   if (sheet) {
     return (
       <>
         <span ref={anchorRef} className="hidden" aria-hidden="true" />
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {showRail && (
             <ActivitySheet
-              key={threadViewKey ?? "activity"}
+              key="activity"
               title={signing ? "Review transaction" : "Activity"}
               onClose={() => setPanelOpen(false)}
             >
@@ -285,7 +294,7 @@ function ActivitySidebarContent() {
   return (
     <>
       <span ref={anchorRef} className="hidden" aria-hidden="true" />
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {showRail && (
           <m.aside
             ref={railRef}
@@ -299,7 +308,7 @@ function ActivitySidebarContent() {
                 `calc(100% - (100cqw - 960px) * ${progress})`,
               );
             }}
-            key={threadViewKey ?? "activity"}
+            key="activity"
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 352, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}

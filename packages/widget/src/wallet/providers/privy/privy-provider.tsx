@@ -21,16 +21,15 @@ import {
 } from "wagmi/chains";
 import { ExtUserProvider } from "@aomi-labs/react";
 import { arc, arcTestnet, megaeth, robinhood } from "@aomi-labs/client";
-import { createAomiEvmConfig } from "../../catalog/evm-connector-catalog";
+import { createAomiEvmConfig } from "@/wallet/catalog/evm-connector-catalog";
 import {
   AomiWalletNetworkPreferencesProvider,
   useAomiWalletNetworkPreferences,
-} from "../../network-preferences";
-import { normalizeSvmNetworkOptions } from "../../catalog/svm-networks";
-import type { SvmCluster, SvmNetworkOption } from "../../types";
-import { safeEnv } from "../../env";
-import type { EvmWalletsConfig, ExecutionConfig } from "../../config/types";
-import { AomiPrivyPluginProvider } from "./PrivyPluginProvider";
+} from "@/wallet/network-preferences";
+import { normalizeSvmNetworkOptions } from "@/wallet/catalog/svm-networks";
+import type { SvmCluster, SvmNetworkOption } from "@/wallet/types";
+import type { EvmWalletsConfig, ExecutionConfig } from "@/wallet/config/types";
+import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { buildPrivyClientConfig } from "./privy-auth";
 
 const defaultNetworks = [
@@ -69,7 +68,7 @@ export type AomiPrivyProviderProps = {
 
 function AomiPrivyProviderInner({
   children,
-  appId = safeEnv(() => process.env.NEXT_PUBLIC_PRIVY_APP_ID),
+  appId,
   appName = "Aomi",
   appLogoUrl,
   networks = defaultNetworks,
@@ -77,9 +76,7 @@ function AomiPrivyProviderInner({
   loginMethods,
   execution,
   solana,
-  walletConnectProjectId = safeEnv(
-    () => process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
-  ),
+  walletConnectProjectId,
 }: AomiPrivyProviderProps) {
   const [queryClient] = useState(() => new QueryClient());
   const { selectedEvmChainId } = useAomiWalletNetworkPreferences();

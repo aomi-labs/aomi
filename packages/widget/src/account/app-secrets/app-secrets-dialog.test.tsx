@@ -62,7 +62,7 @@ vi.mock("@aomi-labs/react", () => ({
   useControl: () => control,
 }));
 
-vi.mock("@/components/ui/button", () => ({
+vi.mock("@/ui/button", () => ({
   Button: ({
     children,
     variant: _variant,
@@ -74,11 +74,11 @@ vi.mock("@/components/ui/button", () => ({
   }) => <button {...props}>{children}</button>,
 }));
 
-vi.mock("@/components/ui/input", () => ({
+vi.mock("@/ui/input", () => ({
   Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
 }));
 
-vi.mock("@/components/ui/label", () => ({
+vi.mock("@/ui/label", () => ({
   Label: ({
     children,
     ...props
@@ -88,7 +88,7 @@ vi.mock("@/components/ui/label", () => ({
   }) => <label {...props}>{children}</label>,
 }));
 
-vi.mock("@/components/ui/dialog", () => ({
+vi.mock("@/ui/dialog", () => ({
   Dialog: ({ children }: { children: ReactNode }) => <>{children}</>,
   DialogTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
   DialogContent: ({ children }: { children: ReactNode }) => (

@@ -1,5 +1,6 @@
 "use client";
 import { unstable_useComposerInput } from "@assistant-ui/react";
+import { useAomiDisplayCache } from "@aomi-labs/react";
 import {
   useCallback,
   useEffect,
@@ -14,6 +15,7 @@ import { createPortal } from "react-dom";
 import { useCapabilityComposer } from "./provider";
 import { useCapabilityCatalog } from "./catalog";
 import { CapabilityPicker } from "./picker";
+import { testIds } from "@/test-ids";
 import {
   CAPABILITY_MENTION_REQUEST_EVENT,
   type CapabilityMentionRequest,
@@ -34,6 +36,14 @@ export const CapabilityMentionInput: FC<{
   placeholder: string;
   className: string;
 }> = ({ placeholder, className }) => {
+  const insertingHostTag = useRef(false);
+  const apiClient = useAomiDisplayCache()?.apiClient;
+  const prepareGuestSession = useCallback(() => {
+    if (insertingHostTag.current) return;
+    void apiClient?.prepareGuestSession?.().catch(() => {
+      // Send joins the same operation and owns the actionable error surface.
+    });
+  }, [apiClient]);
   const editorRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const pickerId = useId();
@@ -364,7 +374,13 @@ export const CapabilityMentionInput: FC<{
     const range = document.createRange();
     range.selectNodeContents(editor);
     range.collapse(false);
-    insertItemAtRange(item, range);
+    // A prefilled host link can focus the editor on mount without user input.
+    insertingHostTag.current = true;
+    try {
+      insertItemAtRange(item, range);
+    } finally {
+      insertingHostTag.current = false;
+    }
   }, [
     appTagRequest,
     consumeAppTagRequest,
@@ -490,6 +506,7 @@ export const CapabilityMentionInput: FC<{
               ref={editorRef}
               role="textbox"
               aria-label="Message input"
+              data-testid={testIds.composerInput}
               aria-multiline="true"
               aria-autocomplete="list"
               aria-expanded={query !== null}
@@ -501,7 +518,12 @@ export const CapabilityMentionInput: FC<{
               }
               contentEditable={!isDisabled}
               suppressContentEditableWarning
-              onInput={syncEditor}
+              onFocus={prepareGuestSession}
+              onPointerDown={prepareGuestSession}
+              onInput={() => {
+                prepareGuestSession();
+                syncEditor();
+              }}
               onKeyDown={handleKeyDown}
               className="col-start-1 row-start-1 min-h-[30px] w-full min-w-0 outline-none [overflow-wrap:anywhere]"
             />

@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPortalX402Client } from "./payment-fetch";
+import { createWidgetX402Client } from "./payment-client";
 
 const CHAT_URL = "https://chat-staging.aomi.dev/v1/agent/chat";
 
-describe("createPortalX402Client", () => {
+describe("createWidgetX402Client", () => {
   it("uses the shared wallet adapter to switch chains and sign", async () => {
     const signTypedData = vi.fn(async () => ({
       signature: `0x${"1".repeat(130)}`,
     }));
     const switchChain = vi.fn(async () => undefined);
-    const client = createPortalX402Client({
+    const client = createWidgetX402Client({
       identity: {
         status: "connected",
         isConnected: true,
@@ -48,7 +48,7 @@ describe("createPortalX402Client", () => {
 
   it("does not create a client without an EVM signer", () => {
     expect(
-      createPortalX402Client({
+      createWidgetX402Client({
         identity: { status: "disconnected", isConnected: false },
         signTypedData: undefined,
         switchChain: undefined,

@@ -1,7 +1,7 @@
 "use client";
 
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/ui/card";
 
 /**
  * Example ToolUI Component

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { testIds } from "@/test-ids";
 import type { Action } from "@aomi-labs/client";
 import { TransactionReview } from "./transaction-review";
 import type { ApprovalChange, Simulation } from "./presentation";
@@ -178,10 +179,10 @@ describe("sidebar wallet disclosures", () => {
       payloads: [{ kind: "evm_personal", message: "0x1234" }],
       calls: [{ to: spender, data: "0x5678", value: "9" }],
     });
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
       "0x1234",
     );
-    expect(screen.getByTestId("transaction-review")).toHaveTextContent(
+    expect(screen.getByTestId(testIds.txReview)).toHaveTextContent(
       "0x5678",
     );
     view.unmount();

@@ -1,7 +1,7 @@
 import type { Action, CommitView, Event } from "@aomi-labs/client";
 import { summarizeSimulation } from "@aomi-labs/client";
 import { selectTaskRuns } from "@aomi-labs/react";
-import { unwrapToolStep } from "../assistant-ui/tool-interpreter/unwrap";
+import { unwrapToolStep } from "@/thread/tool-interpreter/unwrap";
 
 type RecordValue = Record<string, unknown>;
 export type ActivityTransaction = {

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TransactionSafetyPolicy } from "@aomi-labs/client";
 
 const state = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("../../transport", () => ({
+vi.mock("@/account/transport", () => ({
   useShellTransport: () => ({ json: state.request }),
 }));
 import { TransactionSafetySettings } from "./transaction-safety-settings";

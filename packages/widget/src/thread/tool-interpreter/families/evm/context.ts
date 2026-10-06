@@ -3,9 +3,9 @@ import {
   asRecord,
   chainFact,
   chainFactFromRecord,
-} from "../../normalize";
-import type { ToolMatcher } from "../../types";
-import { isErrorResult, operation } from "../operation";
+} from "@/thread/tool-interpreter/normalize";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import { isErrorResult, operation } from "@/thread/tool-interpreter/families/operation";
 
 export const matchChainContext: ToolMatcher = ({ rawLabel, resultRecord }) => {
   if (!resultRecord) return null;

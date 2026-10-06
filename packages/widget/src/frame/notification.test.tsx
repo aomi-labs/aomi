@@ -16,29 +16,20 @@ vi.mock("@aomi-labs/react", () => ({
   useNotification: () => notificationState,
 }));
 
-vi.mock("sonner", () => ({
-  toast: {
-    custom: vi.fn(),
-    dismiss: vi.fn(),
-  },
-}));
-
-vi.mock("./sonner", () => ({
-  Toaster: () => null,
-}));
-
-import { toast } from "sonner";
-
 import { NotificationToaster } from "./notification";
+import { WidgetScope } from "@/ui/widget-scope";
 
 describe("NotificationToaster", () => {
   beforeEach(() => {
     notificationState.notifications = [];
     notificationState.dismissNotification.mockReset();
-    vi.mocked(toast.custom).mockReset();
+    vi.useFakeTimers();
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("dismisses notification state after the default six-second banner", () => {
     notificationState.notifications = [
@@ -50,12 +41,15 @@ describe("NotificationToaster", () => {
       },
     ];
 
-    render(<NotificationToaster />);
+    render(
+      <WidgetScope>
+        <NotificationToaster />
+      </WidgetScope>,
+    );
 
-    const options = vi.mocked(toast.custom).mock.calls[0]?.[1];
-    expect(options).toMatchObject({ id: "notice-1", duration: 6000 });
-
-    act(() => options?.onAutoClose?.({} as never));
+    act(() => vi.advanceTimersByTime(5999));
+    expect(notificationState.dismissNotification).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
 
     expect(notificationState.dismissNotification).toHaveBeenCalledWith(
       "notice-1",
@@ -73,11 +67,17 @@ describe("NotificationToaster", () => {
       },
     ];
 
-    render(<NotificationToaster />);
+    render(
+      <WidgetScope>
+        <NotificationToaster />
+      </WidgetScope>,
+    );
 
-    expect(vi.mocked(toast.custom).mock.calls[0]?.[1]).toMatchObject({
-      id: "notice-2",
-      duration: 9000,
-    });
+    act(() => vi.advanceTimersByTime(6000));
+    expect(notificationState.dismissNotification).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(3000));
+    expect(notificationState.dismissNotification).toHaveBeenCalledWith(
+      "notice-2",
+    );
   });
 });

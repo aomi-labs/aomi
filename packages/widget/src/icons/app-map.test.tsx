@@ -9,7 +9,7 @@ import {
   appIconBrandAliases,
   appIconSemanticSources,
   appIconSources,
-} from "./apps/source-manifest";
+} from "@/icons/apps/source-manifest";
 
 describe("getAppIcon", () => {
   it("covers every curated public app identity", () => {

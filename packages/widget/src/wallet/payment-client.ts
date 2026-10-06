@@ -1,11 +1,10 @@
 import type { EvmWallet, WalletEip712Payload } from "@aomi-labs/client";
-import type { AomiWalletKit } from "@aomi-labs/widget-lib";
+import type { AomiWalletKit } from "./types";
 import { createEvmPaymentClient } from "@aomi-labs/client";
-import type { x402Client } from "@x402/core/client";
 
-export function createPortalX402Client(
+export function createWidgetX402Client(
   wallet: Pick<AomiWalletKit, "identity" | "signTypedData" | "switchChain">,
-): x402Client | undefined {
+): ReturnType<typeof createEvmPaymentClient> | undefined {
   const address = wallet.identity.address;
   const signTypedData = wallet.signTypedData;
   if (!address || !signTypedData) return undefined;

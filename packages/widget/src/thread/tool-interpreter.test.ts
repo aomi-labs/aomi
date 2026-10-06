@@ -13,10 +13,10 @@ import {
   TagIcon,
 } from "lucide-react";
 
-import { interpretToolStep } from "@/components/assistant-ui/tool-interpreter";
-import { formatTokenUnits } from "@/components/assistant-ui/tool-interpreter/token-registry";
-import { statusFact } from "@/components/assistant-ui/tool-interpreter/normalize";
-import { getSkillIcon } from "@/components/icons/skills";
+import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
+import { formatTokenUnits } from "@/thread/tool-interpreter/token-registry";
+import { statusFact } from "@/thread/tool-interpreter/normalize";
+import { getSkillIcon } from "@/icons/skills/skill-icons";
 
 const labelsFor = (chips: { label: string }[]) =>
   chips.map((chip) => chip.label);
@@ -1062,7 +1062,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Get account details");
-    expect(labelsFor(step.chips)).toEqual(["0xda65...3cf0", "0.00087 ETH"]);
+    expect(labelsFor(step.chips)).toEqual(["0xda65…3cf0", "0.00087 ETH"]);
     expect(step.chips[1].icon).toBe(CoinsIcon);
   });
 
@@ -1079,7 +1079,7 @@ describe("tool interpreter", () => {
 
     expect(labelsFor(step.chips)).toEqual([
       "Base",
-      "0xda65...3cf0",
+      "0xda65…3cf0",
       "0.00087 ETH",
     ]);
   });
@@ -1101,7 +1101,7 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Get account details");
     expect(labelsFor(step.chips)).toEqual([
       "Arc",
-      "0xda65...3cf0",
+      "0xda65…3cf0",
       "126.88181 USDC",
     ]);
     expect(step.chips[2].icon).toBe(CoinsIcon);
@@ -1124,7 +1124,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Arc",
       "USDC",
-      "0xda65...3cf0",
+      "0xda65…3cf0",
       "126.881805 USDC",
     ]);
   });
@@ -1143,8 +1143,8 @@ describe("tool interpreter", () => {
 
     expect(labelsFor(step.chips)).toEqual([
       "Base",
-      "0x1111...1111",
-      "0xda65...3cf0",
+      "0x1111…1111",
+      "0xda65…3cf0",
       "0",
     ]);
   });
@@ -1297,7 +1297,7 @@ describe("tool interpreter", () => {
     });
 
     expect(step.title).toBe("Get balance");
-    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0xda65...3cf0"]);
+    expect(labelsFor(step.chips)).toEqual(["Base", "USDC", "0xda65…3cf0"]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
     expect(step.chips[2].icon).toBeTypeOf("object");
@@ -1318,7 +1318,7 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Approve token spend");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
-      "0xcf77...4e43",
+      "0xcf77…4e43",
       "50000 raw units",
     ]);
     expect(step.chips[2].icon).toBe(CoinsIcon);
@@ -1470,7 +1470,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Arc",
       "USDC",
-      "0xa407...d40b",
+      "0xa407…d40b",
       "10 USDC",
     ]);
   });
@@ -1511,7 +1511,7 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "USDC",
-      "0xcf77...4e43",
+      "0xcf77…4e43",
       "0.05 USDC",
     ]);
     expect(step.chips[3].icon).toBe(CoinsIcon);
@@ -1578,8 +1578,8 @@ describe("tool interpreter", () => {
     expect(labelsFor(step.chips)).toEqual([
       "Base",
       "USDC",
-      "0xda65...3cf0",
-      "0xcf77...4e43",
+      "0xda65…3cf0",
+      "0xcf77…4e43",
     ]);
     expect(step.chips[2].icon).toBeTypeOf("object");
   });
@@ -1607,8 +1607,8 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Call contract");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
-      "0xda65...3cf0",
-      "0x420d...40da",
+      "0xda65…3cf0",
+      "0x420d…40da",
     ]);
     expect(step.chips[0].icon).toBeTypeOf("function");
     expect(step.chips[1].icon).toBeTypeOf("object");
@@ -1637,8 +1637,8 @@ describe("tool interpreter", () => {
 
     expect(labelsFor(step.chips)).toEqual([
       "Arbitrum",
-      "0xda65...3cf0",
-      "0x794a...14ad",
+      "0xda65…3cf0",
+      "0x794a…14ad",
       "Withdraw",
     ]);
     expect(step.chips[3].icon).toBe(BracesIcon);
@@ -1725,8 +1725,8 @@ describe("tool interpreter", () => {
     expect(step.title).toBe("Call contract");
     expect(labelsFor(step.chips)).toEqual([
       "Base",
-      "0xda65...3cf0",
-      "0xcf77...4e43",
+      "0xda65…3cf0",
+      "0xcf77…4e43",
     ]);
   });
 

@@ -1,5 +1,5 @@
-import type { ToolMatcher } from "../types";
-import type { Descriptor } from "../present/descriptors";
+import type { ToolMatcher } from "@/thread/tool-interpreter/types";
+import type { Descriptor } from "@/thread/tool-interpreter/present/descriptors";
 import { aave } from "./aave";
 import { aerodrome } from "./aerodrome";
 import { circle } from "./circle";

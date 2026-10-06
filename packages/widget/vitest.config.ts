@@ -12,16 +12,17 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(appDir, "src"),
+      "@aomi-labs/client/browser-auth": resolve(workspaceDir, "packages/client/src/browser-auth.ts"),
       "@aomi-labs/client": resolve(workspaceDir, "packages/client/src"),
       "@aomi-labs/react": resolve(workspaceDir, "packages/react/src"),
-      "@getpara/react-sdk/styles.css": resolve(appDir, "test/empty-style.ts"),
+      "@getpara/react-sdk/styles.css": resolve(appDir, "src/test/empty-style.ts"),
     },
   },
   test: {
     css: false,
     environment: "jsdom",
     setupFiles: [resolve(workspaceDir, "vitest.setup.ts")],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "scripts/**/*.test.mjs"],
     restoreMocks: true,
   },
 });

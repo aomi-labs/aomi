@@ -1,6 +1,6 @@
 "use client";
 
-import type { SvmNetworkOption } from "../types";
+import type { SvmNetworkOption } from "@/wallet/types";
 import {
   normalizeSvmNetworkOptions,
   resolveSelectedSvmNetwork,

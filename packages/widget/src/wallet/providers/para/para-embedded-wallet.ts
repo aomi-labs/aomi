@@ -1,8 +1,8 @@
 "use client";
 
-import { canonicalWalletKey } from "../../catalog/wallet-branding";
+import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
 import { PARA_BRAND_KEY } from "./para-brand";
-import type { AomiAccount } from "../../types";
+import type { AomiAccount } from "@/wallet/types";
 
 export function isParaEmbeddedAccount(account: AomiAccount): boolean {
   return (

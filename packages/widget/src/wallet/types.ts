@@ -17,8 +17,8 @@ import type {
   UpdateAccountInput,
   UpdateLinkedAccountInput,
   UpdateWalletInput,
-} from "./account/types";
-import type { WalletRow } from "./composer/wallet-state";
+} from "@/wallet/account/types";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 export type AomiSessionStatus = "booting" | "disconnected" | "connected";
 export type WalletFamily = "evm" | "svm";
@@ -150,6 +150,8 @@ export type AomiWalletOptionKind =
  * to route the click through Para, Privy, wagmi, wallet-adapter, etc.
  */
 export type AomiWalletOption = {
+  /** Warm a lazily installed provider on hover/focus. */
+  preload?: () => void;
   id: string;
   connectorId?: string;
   label: string;
@@ -280,6 +282,8 @@ export type AomiWalletKit = {
   accountConflict?: AccountConflict;
   /** The current Portal session is temporary and must not own linked wallets. */
   accountGuest?: boolean;
+  /** Confirmed guest cookie identity for restoring that browser's chats. */
+  accountGuestUserId?: string;
   accountUser?: AomiUserRef;
   accountLinkedAccounts?: readonly LinkedAuthAccount[];
   accountWallets?: readonly AccountWallet[];

@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { toCatalogPackage } from "../packages-catalog";
+import { toCatalogPackage } from "./packages-catalog";
 import { CatalogRow } from "./catalog-row";
 
 const ARC_TESTNET = 5_042_002;

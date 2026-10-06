@@ -1,7 +1,7 @@
 import { hashMessage, hashTypedData, recoverTypedDataAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it, vi } from "vitest";
-import { hexToBase64 } from "../../account/encoding";
+import { hexToBase64 } from "@/wallet/account/encoding";
 import {
   findParaSigningWallet,
   signParaMessage,

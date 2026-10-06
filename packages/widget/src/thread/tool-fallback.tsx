@@ -2,15 +2,19 @@
 
 import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useChatViewFlag } from "@aomi-labs/react";
+import { Button } from "@/ui/button";
 
 export const ToolFallback: ToolCallMessagePartComponent = ({
+  toolCallId,
   toolName,
   argsText,
   result,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useChatViewFlag(
+    `tool:${toolCallId}`,
+    true,
+  );
   return (
     <div className="aui-tool-fallback-root mb-4 flex w-full flex-col gap-3 overflow-hidden rounded-2xl border py-3">
       <div className="aui-tool-fallback-header flex items-center gap-2 px-4">

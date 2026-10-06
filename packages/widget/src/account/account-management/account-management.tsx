@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import type {
   AomiUserRef,
   LinkedAuthAccount,
-} from "../../../../../lib/wallet-kit/account/types";
+} from "@/wallet/account/types";
 import {
   Check,
   LogOut,
@@ -14,14 +14,14 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { aomiButton } from "../../../../ui/aomi/button";
-import { ListGroup, ListRow } from "../../../../ui/aomi/list-group";
-import { SectionHeader } from "../../../../ui/aomi/section-header";
+import { aomiButton } from "@/ui/aomi/button";
+import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { SectionHeader } from "@/ui/aomi/section-header";
 import {
   accountDisplayName,
   walletConnectionSummary,
   type ManagedWallet,
-} from "../wallet-management-model";
+} from "@/wallet/wallet-management-model";
 
 import {
   ExternalWalletCard,

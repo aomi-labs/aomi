@@ -1,6 +1,10 @@
-/* @aomi-labs/widget-lib - Default Theme (shadcn compatible) */
-/* Import via: @import "@aomi-labs/widget-lib/styles.css" (alias) */
-/* Or directly: @import "@aomi-labs/widget-lib/themes/default.css" */
+@import "@assistant-ui/react-markdown/styles/dot.css";
+
+/* @aomi-labs/widget default theme: Tailwind source for the widget build.
+   Importing "@aomi-labs/widget/themes/default.css" is deprecated and removed in
+   @aomi-labs/widget 4.0: it sets tokens on :root and body. Import
+   "@aomi-labs/widget/styles.css", which carries the same tokens scoped to the
+   widget root. */
 
 /* ============================================
    Theme Configuration (Tailwind v4 compatible)

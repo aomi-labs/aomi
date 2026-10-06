@@ -1,6 +1,6 @@
 "use client";
 
-import { useShellTransport } from "../transport";
+import { useShellTransport } from "./transport";
 import { useState, useEffect, useCallback } from "react";
 
 const SETTINGS_STORAGE_KEY = "aomi_settings";
@@ -30,7 +30,8 @@ const defaultSettings: Settings = {
 };
 
 export function useSettings() {
-  const { themeRoot, embedded } = useShellTransport();
+  const { themeRoot, embedded, storage } = useShellTransport();
+  const eventName = storage.key("settingsChanged");
   const [settings, setSettingsState] = useState<Settings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,7 +39,7 @@ export function useSettings() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        const stored = storage.migrate("settings", SETTINGS_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
           setSettingsState({ ...defaultSettings, ...parsed });
@@ -48,12 +49,12 @@ export function useSettings() {
       }
       setIsLoading(false);
     }
-  }, []);
+  }, [storage, eventName]);
 
   useEffect(() => {
     const sync = () => {
       try {
-        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        const raw = storage.migrate("settings", SETTINGS_STORAGE_KEY);
         setSettingsState({
           ...defaultSettings,
           ...(raw ? JSON.parse(raw) : {}),
@@ -62,13 +63,13 @@ export function useSettings() {
         /* Storage may be unavailable. */
       }
     };
-    window.addEventListener("aomi-settings-changed", sync);
+    window.addEventListener(eventName, sync);
     window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("aomi-settings-changed", sync);
+      window.removeEventListener(eventName, sync);
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [storage, eventName]);
 
   // Apply theme based on colorMode
   useEffect(() => {
@@ -98,17 +99,20 @@ export function useSettings() {
   }, [settings.colorMode, isLoading, themeRoot, embedded]);
 
   // Persist settings to localStorage
-  const persistSettings = useCallback((newSettings: Settings) => {
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
-        setSettingsState(newSettings);
-        window.dispatchEvent(new Event("aomi-settings-changed"));
-      } catch (error) {
-        console.error("Failed to save settings to localStorage", error);
+  const persistSettings = useCallback(
+    (newSettings: Settings) => {
+      if (typeof window !== "undefined") {
+        try {
+          storage.setJson("settings", newSettings);
+          setSettingsState(newSettings);
+          window.dispatchEvent(new Event(eventName));
+        } catch (error) {
+          console.error("Failed to save settings to localStorage", error);
+        }
       }
-    }
-  }, []);
+    },
+    [storage, eventName],
+  );
 
   // Update a specific setting
   const updateSetting = useCallback(

@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo } from "react";
 import type { Chain } from "viem";
 import type { Connector } from "wagmi";
-import type { AomiAccount, AomiWalletOption } from "../../types";
-import { selectAccounts, selectEvmIdentity } from "../../registry/selectors";
-import type { WalletRegistryStore } from "../../registry/store";
-import { useWalletRegistry } from "../../registry/use-wallet-registry";
-import type { WalletRegistryState } from "../../registry/types";
-import type { WalletRuntime } from "../../composer/types";
+import type { AomiAccount, AomiWalletOption } from "@/wallet/types";
+import { selectAccounts, selectEvmIdentity } from "@/wallet/registry/selectors";
+import type { WalletRegistryStore } from "@/wallet/registry/store";
+import { useWalletRegistry } from "@/wallet/registry/use-wallet-registry";
+import type { WalletRegistryState } from "@/wallet/registry/types";
+import type { WalletRuntime } from "@/wallet/composer/types";
 import {
   dedupeWalletOptions,
   detectEvmProviderBrand,
@@ -16,27 +16,32 @@ import {
   useInstalledWalletFlags,
   walletOptionIsDetected,
 } from "./brands";
-import { canonicalWalletKey } from "../../catalog/wallet-branding";
+import { canonicalWalletKey } from "@/wallet/catalog/wallet-branding";
 import { planEvmAccountDisconnect } from "./disconnect-plan";
 import { useWagmiRegistrySource } from "./registry-source";
 import {
-  useSafeCapabilities,
-  useSafeConnect,
-  useSafeConnections,
-  useSafeConnectors,
-  useSafeDisconnect,
-  useSafeGetWalletClientFor,
-  useSafeReconnect,
-  useSafeSendCallsSync,
-  useSafeSendTransaction,
-  useSafeSignMessage,
-  useSafeSignTypedData,
-  useSafeSwitchAccount,
-  useSafeSwitchChain,
-  useSafeWagmiConfig,
-  useSafeWalletClient,
-} from "./safe-hooks";
-import { walletDebug } from "../../wallet-debug";
+  useConfig,
+  useConnect,
+  useConnectors,
+  useDisconnect,
+  useReconnect,
+  useSendTransaction,
+  useSignMessage,
+  useSignTypedData,
+  useSwitchAccount,
+  useSwitchChain,
+  useWalletClient,
+} from "wagmi";
+import {
+  useGetWalletClientFor,
+  useSendCallsSyncExecutor,
+  useWagmiConnections,
+  useWalletCapabilities,
+  type SendCallsSync,
+  type WalletCapabilities,
+  type WalletClient,
+} from "./wagmi-hooks";
+import { walletDebug } from "@/wallet/wallet-debug";
 
 export type EvmWalletRuntimeProviderHooks = {
   /**
@@ -80,27 +85,32 @@ export type EvmWalletRuntime = WalletRuntime<"evm"> & {
   registryState: WalletRegistryState;
   activeEvmConnection?: WalletRegistryState["connections"][number];
   activeConnector?: Connector;
-  capabilities?: ReturnType<typeof useSafeCapabilities>["capabilities"];
+  capabilities?: WalletCapabilities;
   chainsById: Record<number, Chain>;
   supportedChains: readonly Chain[];
-  walletClient: ReturnType<typeof useSafeWalletClient>["walletClient"];
-  getWalletClientFor: ReturnType<typeof useSafeGetWalletClientFor>;
-  sendTransactionAsync: ReturnType<
-    typeof useSafeSendTransaction
-  >["sendTransactionAsync"];
-  sendCallsSyncAsync: ReturnType<
-    typeof useSafeSendCallsSync
-  >["sendCallsSyncAsync"];
-  signTypedDataAsync: ReturnType<
-    typeof useSafeSignTypedData
-  >["signTypedDataAsync"];
-  signMessageAsync: ReturnType<typeof useSafeSignMessage>["signMessageAsync"];
+  walletClient: WalletClient;
+  getWalletClientFor: ReturnType<typeof useGetWalletClientFor>;
+  sendTransactionAsync?: (args: {
+    account?: `0x${string}`;
+    chainId?: number;
+    connector?: Connector;
+    data?: `0x${string}`;
+    nonce?: number;
+    to: `0x${string}`;
+    value?: bigint;
+  }) => Promise<string>;
+  sendCallsSyncAsync?: SendCallsSync;
+  signTypedDataAsync?: (args: unknown) => Promise<string>;
+  signMessageAsync?: (args: unknown) => Promise<string>;
   signMessageForAccount?: (args: {
     accountId: string;
     message: string;
     chainId?: number;
   }) => Promise<`0x${string}`>;
-  switchChainAsync: ReturnType<typeof useSafeSwitchChain>["switchChainAsync"];
+  switchChainAsync?: (args: {
+    chainId: number;
+    connector?: Connector;
+  }) => Promise<unknown>;
   isSwitchingChain: boolean;
   shouldUseExternalSigner: boolean;
 };
@@ -153,21 +163,21 @@ export function useEvmWalletRuntime({
   storageKey: string;
   providerHooks?: EvmWalletRuntimeProviderHooks;
 }): EvmWalletRuntime {
-  const { walletClient } = useSafeWalletClient();
-  const { switchChainAsync, isPending } = useSafeSwitchChain();
-  const { disconnectAsync: wagmiDisconnectAsync } = useSafeDisconnect();
-  const { reconnectAsync: wagmiReconnectAsync } = useSafeReconnect();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync, isPending } = useSwitchChain();
+  const { disconnectAsync: wagmiDisconnectAsync } = useDisconnect();
+  const { reconnectAsync: wagmiReconnectAsync } = useReconnect();
   const installedWalletFlags = useInstalledWalletFlags();
-  const evmConnections = useSafeConnections();
-  const evmConnectors = useSafeConnectors();
-  const { connectAsync: wagmiConnectAsync } = useSafeConnect();
-  const { switchAccountAsync } = useSafeSwitchAccount();
-  const { sendTransactionAsync } = useSafeSendTransaction();
-  const { sendCallsSyncAsync } = useSafeSendCallsSync();
-  const { signTypedDataAsync } = useSafeSignTypedData();
-  const { signMessageAsync } = useSafeSignMessage();
-  const getWalletClientFor = useSafeGetWalletClientFor();
-  const wagmiConfig = useSafeWagmiConfig();
+  const evmConnections = useWagmiConnections();
+  const evmConnectors = useConnectors();
+  const { connectAsync: wagmiConnectAsync } = useConnect();
+  const { switchAccountAsync } = useSwitchAccount();
+  const { sendTransactionAsync } = useSendTransaction();
+  const sendCallsSyncAsync = useSendCallsSyncExecutor();
+  const { signTypedDataAsync } = useSignTypedData();
+  const { signMessageAsync } = useSignMessage();
+  const getWalletClientFor = useGetWalletClientFor();
+  const wagmiConfig = useConfig();
 
   const registryExecutors = useMemo(
     () => ({
@@ -265,7 +275,7 @@ export function useEvmWalletRuntime({
       (candidate) => candidate.uid === active.uid,
     );
   }, [registryState.activeByFamily.evm, wagmiConfig.connectors]);
-  const { capabilities } = useSafeCapabilities({
+  const capabilities = useWalletCapabilities({
     account: activeEvmConnection?.address as `0x${string}` | undefined,
     connector: activeConnector,
     stableId: activeEvmConnection?.stableId,
@@ -608,10 +618,10 @@ export function useEvmWalletRuntime({
     supportedChains,
     walletClient,
     getWalletClientFor,
-    sendTransactionAsync,
+    sendTransactionAsync: sendTransactionAsync as EvmWalletRuntime["sendTransactionAsync"],
     sendCallsSyncAsync,
-    signTypedDataAsync,
-    signMessageAsync,
+    signTypedDataAsync: signTypedDataAsync as EvmWalletRuntime["signTypedDataAsync"],
+    signMessageAsync: signMessageAsync as EvmWalletRuntime["signMessageAsync"],
     signMessageForAccount,
     switchChainAsync,
     isSwitchingChain: isPending,

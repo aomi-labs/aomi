@@ -1,0 +1,43 @@
+/**
+ * Stable `data-testid` values rendered by the widget, shared with e2e
+ * journeys so selectors never depend on classNames or copy.
+ */
+export const testIds = {
+  frame: "aomi-frame",
+  composer: "aomi-composer",
+  composerInput: "aomi-composer-input",
+  composerSelectedApp: "composer-selected-app",
+  send: "aomi-send",
+  stop: "aomi-stop",
+  messageList: "aomi-message-list",
+  userMessage: "aomi-user-message",
+  assistantMessage: "aomi-assistant-message",
+  editMessage: "aomi-edit-message",
+  rerun: "aomi-rerun",
+  trace: "aomi-trace",
+  traceStep: "aomi-trace-step",
+  skeleton: "aomi-skeleton",
+  sidebar: "aomi-sidebar",
+  sidebarToggle: "aomi-sidebar-toggle",
+  threadList: "aomi-thread-list",
+  threadItem: "aomi-thread-item",
+  threadItemTitle: "aomi-thread-item-title",
+  threadItemMenu: "aomi-thread-item-menu",
+  newChat: "aomi-new-chat",
+  rename: "aomi-thread-rename",
+  renameInput: "aomi-thread-rename-input",
+  archive: "aomi-thread-archive",
+  libraryOpen: "aomi-library-open",
+  library: "aomi-library",
+  settingsOpen: "aomi-settings-open",
+  settings: "aomi-settings",
+  signInOpen: "aomi-sign-in-open",
+  signInChoice: "aomi-sign-in-choice",
+  mobileSheet: "aomi-mobile-sheet",
+  txReview: "aomi-tx-review",
+  txApprove: "aomi-tx-approve",
+  txReject: "aomi-tx-reject",
+  notice: "aomi-notice",
+  paygate: "aomi-paygate",
+} as const;
+export type TestId = (typeof testIds)[keyof typeof testIds];

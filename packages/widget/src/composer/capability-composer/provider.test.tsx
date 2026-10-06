@@ -6,15 +6,17 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testIds } from "@/test-ids";
 import { CapabilityMentionInput } from "./input";
 import { CapabilityComposerProvider, useCapabilityComposer } from "./provider";
 import type { PickerItem } from "./model";
-import type { DirectRoutingApp } from "../routing";
-import { AppIndicator } from "../../control-bar/app-indicator";
+import type { DirectRoutingApp } from "@/controls/routing";
+import { AppIndicator } from "@/controls/app-indicator";
 
 const fixture = vi.hoisted(() => ({
   text: "",
   setText: vi.fn(),
+  prepareGuestSession: vi.fn(async () => {}),
   items: [] as PickerItem[],
   runConfig: { custom: { preserved: "host setting" } } as {
     custom: Record<string, unknown>;
@@ -40,6 +42,10 @@ vi.mock("@assistant-ui/react", () => ({
   }),
 }));
 vi.mock("@aomi-labs/react", () => ({
+  useChatView: () => null,
+  useAomiDisplayCache: () => ({
+    apiClient: { prepareGuestSession: fixture.prepareGuestSession },
+  }),
   useControl: () => fixture,
   useAuthEndpoints: () => ({
     state: {
@@ -163,6 +169,7 @@ function Harness() {
 }
 
 beforeEach(() => {
+  fixture.prepareGuestSession.mockReset().mockResolvedValue(undefined);
   fixture.runConfig = { custom: { preserved: "host setting" } };
   fixture.text = "";
   fixture.items = [];
@@ -178,6 +185,20 @@ beforeEach(() => {
   fixture.onAgentTargetSelect.mockClear();
 });
 afterEach(cleanup);
+
+describe("composer session preparation", () => {
+  it("prepares only after the first focus or typed interaction", () => {
+    render(<Harness />);
+    expect(fixture.prepareGuestSession).not.toHaveBeenCalled();
+    const editor = screen.getByRole("textbox", { name: "Message input" });
+    fireEvent.focus(editor);
+    expect(fixture.prepareGuestSession).toHaveBeenCalledOnce();
+    editor.textContent = "immediate message";
+    fireEvent.input(editor);
+    expect(fixture.prepareGuestSession).toHaveBeenCalledTimes(2);
+    expect(fixture.setText).toHaveBeenCalledWith("immediate message");
+  });
+});
 
 describe("capability configuration before send", () => {
   it.each(["button", "form"])(
@@ -414,6 +435,7 @@ it("pre-tags a host-requested app once, like a + picker choice", async () => {
   const editor = screen.getByRole("textbox", { name: "Message input" });
   expect(editor.querySelectorAll("[data-capability-key]")).toHaveLength(1);
   expect(screen.getByTestId("selections")).toHaveTextContent("Cambrian");
+  expect(fixture.prepareGuestSession).not.toHaveBeenCalled();
   expect(fixture.runConfig.custom.aomiCapabilityHints).toMatchObject({
     capabilities: [{ kind: "app", id: "application:2937773" }],
   });
@@ -430,7 +452,7 @@ describe("selected app context", () => {
     fixture.currentApp = { applicationId: 42 };
     fixture.directApps = [{ app: "default" }, { applicationId: 42 }];
     render(<Harness />);
-    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
   });
 
   it("shows the active Direct app rather than the first allowed app", () => {
@@ -456,7 +478,7 @@ describe("selected app context", () => {
     expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
     fixture.defaultMode = "auto";
     view.rerender(<Harness />);
-    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
   });
 
   it("preserves an explicit Portal tag in Auto and follows host tag changes", () => {
@@ -469,7 +491,7 @@ describe("selected app context", () => {
     expect(screen.queryByLabelText("Selected app: Aave")).toBeNull();
     fixture.appTag = undefined;
     view.rerender(<Harness />);
-    expect(screen.queryByTestId("composer-selected-app")).toBeNull();
+    expect(screen.queryByTestId(testIds.composerSelectedApp)).toBeNull();
   });
 
   it("gives the explicit host tag precedence over a Direct target", () => {

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { accountScopedFetch } from "../../../../shadcn-registry/src/components/account-shell/lib/settings-api";
+import { accountScopedFetch } from "@/account/settings-api";
 
 import {
   fetchMonthlyStatement,
   monthRange,
   recentMonthKeys,
-} from "../../../../shadcn-registry/src/components/account-shell/features/usage/statement-api";
+} from "@/account/usage/statement-api";
 
 vi.mock(
-  "../../../../shadcn-registry/src/components/account-shell/lib/settings-api",
+  "@/account/settings-api",
   () => ({ accountScopedFetch: vi.fn() }),
 );
 

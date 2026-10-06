@@ -1,4 +1,4 @@
-import type { WalletFamily } from "../types";
+import type { WalletFamily } from "@/wallet/types";
 import type {
   ActiveRef,
   RegistryCommand,

@@ -1,9 +1,9 @@
 import type { FC, SVGProps } from "react";
 import type { ActionRequest } from "@aomi-labs/client";
-import { normalizeSolanaCluster } from "@aomi-labs/client";
+import { normalizeSolanaCluster, shortAddress } from "@aomi-labs/client";
 import { getChainInfo } from "@aomi-labs/react";
 import { FileSignature, Layers3 } from "lucide-react";
-import { STAGED_ACTION_ICON_REGISTRY } from "../assistant-ui/tool-registry";
+import { STAGED_ACTION_ICON_REGISTRY } from "@/thread/tool-registry";
 
 export type Simulation = Extract<
   ActionRequest,
@@ -188,7 +188,7 @@ export function assetChangePresentation(
           ? "New to your wallet"
           : "Removed from circulation"
         : change.counterparty
-          ? `${incoming ? "From" : "To"} ${compact(change.counterparty)}`
+          ? `${incoming ? "From" : "To"} ${shortAddress(change.counterparty, { head: 8, tail: 6 })}`
           : "ERC-721",
     };
   }
@@ -212,7 +212,7 @@ export function assetChangePresentation(
           ? "New to your wallet"
           : "Removed from circulation"
         : change.counterparty
-          ? `${incoming ? "From" : "To"} ${compact(change.counterparty)}`
+          ? `${incoming ? "From" : "To"} ${shortAddress(change.counterparty, { head: 8, tail: 6 })}`
           : "ERC-1155",
     };
   }
@@ -338,14 +338,12 @@ export function formatInteger(value: string): string {
 
 export function assetFallback(asset: string): string {
   if (!asset || asset === "native") return "Asset";
-  return asset.startsWith("0x") ? compact(asset) : asset;
+  return asset.startsWith("0x")
+    ? shortAddress(asset, { head: 8, tail: 6 })
+    : asset;
 }
 
 export function firstEvmChainId(request: ActionRequest): number | undefined {
   if (request.type === "execute_evm") return request.transactions[0]?.chain_id;
   return request.type === "sign" ? request.chainId : undefined;
-}
-
-export function compact(value: string): string {
-  return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-6)}` : value;
 }

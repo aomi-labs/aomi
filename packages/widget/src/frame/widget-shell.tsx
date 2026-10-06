@@ -1,19 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AomiFrame } from "../aomi-frame";
-import { useAomiWalletKit } from "../../lib/wallet-kit";
-import type { WalletAccountMenuOptions } from "../control-bar/account-menu-types";
-import { HeaderControls } from "./components/shell/header-controls";
-import { usePortalWalletAccountMenu } from "./components/shell/use-portal-wallet-account-menu";
-import { ShellNavigationContext } from "./link";
-import { StatementView } from "./features/usage/statement-view";
-import { PackagesModal } from "./components/shell/packages-modal";
+import { AomiFrame } from "./aomi-frame";
+import { useAomiWalletKit } from "@/wallet/context";
+import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
+import { HeaderControls } from "./header-controls";
+import { usePortalWalletAccountMenu } from "@/account/use-portal-wallet-account-menu";
+import { ShellNavigationContext } from "@/ui/link";
+import { StatementView } from "@/account/usage/statement-view";
+import { PackagesModal } from "@/library/packages-modal";
 import {
   SettingsModal,
   type SettingsTab,
-} from "./components/settings/settings-modal";
-import { useSettingsOpenRequest } from "./lib/settings-events";
+} from "@/account/settings-modal";
+import { useSettingsOpenRequest } from "@/account/settings-events";
 
 /** Optional controls on the Portal-equivalent embedded shell. */
 export type AomiWidgetFeatures = {

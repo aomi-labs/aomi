@@ -6,6 +6,7 @@ import type {
   AuthProviderId,
   SessionProvider,
 } from "./types";
+import { shortAddress } from "@aomi-labs/client";
 
 export const AOMI_SESSION_DISCONNECTED_IDENTITY: AomiSessionIdentity = {
   status: "disconnected",
@@ -35,7 +36,7 @@ export const AOMI_SESSION_BOOTING_IDENTITY: AomiSessionIdentity = {
 
 export function formatWalletAddress(address?: string): string | undefined {
   if (!address) return undefined;
-  return `${address.slice(0, 5)}..${address.slice(-2)}`;
+  return shortAddress(address, { head: 5, tail: 2 });
 }
 
 export function formatWalletProvider(

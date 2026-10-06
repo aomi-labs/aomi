@@ -1,17 +1,16 @@
 "use client";
 
 import { type ReactNode, useMemo } from "react";
-import { PrivyProvider } from "@privy-io/react-auth";
-import { SmartWalletsProvider } from "@privy-io/react-auth/smart-wallets";
-import { registerWalletBrand } from "../../catalog/wallet-branding";
+import { registerWalletBrand } from "@/wallet/catalog/wallet-branding";
 import {
   registerWalletProvider,
   type WalletProviderPlugin,
-} from "../plugin-registry";
-import { AomiPrivyPluginProvider } from "./PrivyPluginProvider";
+} from "@/wallet/providers/plugin-registry";
+import { PrivyDelegationProvider } from "./privy-delegation";
+import { AomiPrivyPluginProvider } from "./privy-plugin-provider";
 import { buildPrivyClientConfig, toPrivyLoginMethods } from "./privy-auth";
-import type { AuthConfig, ProvidersConfig } from "../../config/types";
-import { safeEnv } from "../../env";
+import { privySdk } from "./privy-sdk";
+import type { AuthConfig, ProvidersConfig } from "@/wallet/config/types";
 
 const PRIVY_BRAND_KEY = "privy";
 
@@ -34,8 +33,7 @@ function PrivyAuthLayer({
 }) {
   const enabled = isPrivyAuth(auth);
   const privy = providers?.privy === false ? undefined : providers?.privy;
-  const appId =
-    privy?.appId ?? safeEnv(() => process.env.NEXT_PUBLIC_PRIVY_APP_ID);
+  const appId = privy?.appId;
   const config = useMemo(
     () =>
       buildPrivyClientConfig({
@@ -53,9 +51,13 @@ function PrivyAuthLayer({
     return <>{children}</>;
   }
 
+  const { PrivyProvider } = privySdk().auth;
+  const { SmartWalletsProvider } = privySdk().smartWallets;
   return (
     <PrivyProvider appId={appId} config={config}>
-      <SmartWalletsProvider>{children}</SmartWalletsProvider>
+      <SmartWalletsProvider>
+        <PrivyDelegationProvider>{children}</PrivyDelegationProvider>
+      </SmartWalletsProvider>
     </PrivyProvider>
   );
 }
@@ -66,10 +68,7 @@ export const privyPlugin: WalletProviderPlugin = {
   isAvailable: ({ auth, providers }) => {
     const enabled = isPrivyAuth(auth);
     const privy = providers?.privy === false ? undefined : providers?.privy;
-    return Boolean(
-      enabled &&
-      (privy?.appId ?? safeEnv(() => process.env.NEXT_PUBLIC_PRIVY_APP_ID)),
-    );
+    return Boolean(enabled && privy?.appId);
   },
   wrap: (props) => <PrivyAuthLayer {...props} />,
   renderComposer: ({
@@ -118,5 +117,3 @@ export const privyPlugin: WalletProviderPlugin = {
 export function registerAomiPrivyWalletProvider(): void {
   registerWalletProvider(privyPlugin);
 }
-
-registerAomiPrivyWalletProvider();

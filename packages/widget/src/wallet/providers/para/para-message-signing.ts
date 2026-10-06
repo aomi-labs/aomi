@@ -10,7 +10,7 @@ import {
   toViemSignTypedDataArgs,
   type WalletEip712Payload,
 } from "@aomi-labs/client";
-import { hexToBase64 } from "../../account/encoding";
+import { hexToBase64 } from "@/wallet/account/encoding";
 
 type ParaSigningWallet = {
   id?: string;

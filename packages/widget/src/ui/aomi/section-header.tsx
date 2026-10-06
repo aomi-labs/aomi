@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 
 import { cn } from "@aomi-labs/react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 
 /**
  * The heading above a `ListGroup` or card: title 13/600, then an optional

@@ -6,11 +6,11 @@ import { NetworkSelect } from "./network-select";
 import { ModelSelect } from "./model-select";
 import { SafetySelect } from "./safety-select";
 import { ApiKeyInput } from "./api-key-input";
-import { ConnectButton } from "./connect-button";
-import { SecretInput } from "./secret-input";
-import type { AomiRoutingConfig } from "@/components/assistant-ui/routing";
-import type { AppTagRequest } from "@/components/assistant-ui/capability-composer/model";
-import { AppSecretsDialog } from "./app-secrets-dialog";
+import { ConnectButton } from "@/wallet/connect-button";
+import { SecretInput } from "@/account/app-secrets/secret-input";
+import type { AomiRoutingConfig } from "./routing";
+import type { AppTagRequest } from "@/composer/capability-composer/model";
+import { AppSecretsDialog } from "@/account/app-secrets/app-secrets-dialog";
 
 // =============================================================================
 // Types
@@ -85,12 +85,12 @@ export { SafetySelect, type SafetySelectProps } from "./safety-select";
 export type {
   AomiRoutingConfig,
   DirectRoutingApp,
-} from "@/components/assistant-ui/routing";
+} from "./routing";
 export { ApiKeyInput, type ApiKeyInputProps } from "./api-key-input";
-export { ConnectButton, type ConnectButtonProps } from "./connect-button";
+export { ConnectButton, type ConnectButtonProps } from "@/wallet/connect-button";
 export { NetworkSelect, type NetworkSelectProps } from "./network-select";
-export { SecretInput, type SecretInputProps } from "./secret-input";
+export { SecretInput, type SecretInputProps } from "@/account/app-secrets/secret-input";
 export {
   AppSecretsDialog,
   type AppSecretsDialogProps,
-} from "./app-secrets-dialog";
+} from "@/account/app-secrets/app-secrets-dialog";

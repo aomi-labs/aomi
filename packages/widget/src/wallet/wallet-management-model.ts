@@ -1,10 +1,10 @@
-import type { LinkedAuthAccount } from "../../../../lib/wallet-kit/account/types";
-import type { WalletRow } from "../../../../lib/wallet-kit/composer/wallet-state";
+import type { LinkedAuthAccount } from "@/wallet/account/types";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 export {
   accountDisplayName,
   providerEmailDisplayHint,
-} from "../../../../lib/wallet-kit/account/display";
-import type { WalletPolicy } from "./types";
+} from "@/wallet/account/display";
+import type { WalletPolicy } from "@/account/types";
 
 export type ManagedWallet = WalletRow & {
   policy?: WalletPolicy;

@@ -8,13 +8,13 @@ import type {
   AuthProviderId,
   AomiAccountCredential,
   SvmNetworkOption,
-} from "../types";
+} from "@/wallet/types";
 import type {
   EvmWalletId,
   EvmWalletPreset,
   SvmWalletId,
   SvmWalletPreset,
-} from "../catalog/wallet-ids";
+} from "@/wallet/catalog/wallet-ids";
 
 export type AuthMethodId =
   | "google"
@@ -62,15 +62,6 @@ export type AuthConfig =
       methods?: readonly AuthMethodId[];
     }
   | false;
-
-export type AomiWidgetAuthConfig =
-  | false
-  | {
-      provider: AuthProviderId;
-      environment: string;
-      methods?: readonly AuthMethodId[];
-      providers?: ProvidersConfig;
-    };
 
 export type EvmWalletsConfig = {
   chains?: readonly [Chain, ...Chain[]];
@@ -155,6 +146,11 @@ export type AccountConfig =
     };
 
 export type AomiWalletKitProviderProps = {
+  /** Hosted app identifier used only for preference isolation. */
+  applicationId?: string | number | null;
+  fullTestnet?: { rpcMap: Record<number, string> };
+  /** Explicitly retry a failed SDK island without remounting chat. */
+  providerAttempt?: number;
   /** Render the loading wallet state without starting SDKs while host config is restored. */
   initializing?: boolean;
   preset?: "para" | "privy" | "wallets-only" | (string & {});
