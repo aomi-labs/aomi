@@ -61,15 +61,40 @@ export type AomiBackendNonceResponse = {
   uri?: string;
 };
 
+/** A link proved a sign-in method of another account; confirming merges it in. */
+export type MergeOffer = {
+  ticket: string;
+  other: {
+    name: string;
+    createdAt: string;
+    chats: number;
+    wallets: number;
+    credits: string;
+    /** What the other account loses because this one already has it. */
+    dropped: string[];
+  };
+};
+
+export type AomiBackendMergeResponse = {
+  moved: { chats: number; wallets: number };
+  account: AomiBackendAccountResponse;
+};
+
 export class AomiAccountRequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: string | null,
     readonly signalType: AccountConflictSignal | null = null,
+    readonly mergeOffer: MergeOffer | null = null,
   ) {
     super(formatAccountRequestError(status, code, signalType));
     this.name = "AomiAccountRequestError";
   }
+}
+
+/** The merge offer carried by a failed link or provider exchange, if any. */
+export function mergeOfferFrom(error: unknown): MergeOffer | null {
+  return error instanceof AomiAccountRequestError ? error.mergeOffer : null;
 }
 
 export type AomiBackendAccountEndpointConfig = Partial<{
@@ -78,6 +103,8 @@ export type AomiBackendAccountEndpointConfig = Partial<{
   existingSessionProviderExchangePath: string;
   newSessionProviderExchangePath: string;
   walletLinkPath: string;
+  mergePath: string;
+  mergeSwitchPath: string;
   walletPath: (walletId: string) => string;
   identityPath: (identityId: string) => string;
   siweNoncePath: string;
@@ -92,6 +119,8 @@ const DEFAULT_ENDPOINTS = {
   existingSessionProviderExchangePath: "/v1/account/provider/exchange",
   newSessionProviderExchangePath: "/api/auth/aomi/provider/exchange",
   walletLinkPath: "/v1/account/wallets/link",
+  mergePath: "/v1/account/merge",
+  mergeSwitchPath: "/v1/account/merge/switch",
   walletPath: (walletId: string) =>
     `/v1/account/wallets/${encodeURIComponent(walletId)}`,
   identityPath: (identityId: string) =>
@@ -139,6 +168,7 @@ export function createAomiBackendAccountClient(input: {
         response.status,
         code ?? message ?? null,
         extractConflictSignal(error),
+        extractMergeOffer(error),
       );
     }
     return response;
@@ -190,7 +220,11 @@ export function createAomiBackendAccountClient(input: {
           : endpoints.newSessionProviderExchangePath,
         credential,
       ),
-    getWalletLinkNonce: (input: { address: string; chainId: number }) =>
+    /** EVM passes a numeric chain id, SVM its cluster. */
+    getWalletLinkNonce: (input: {
+      address: string;
+      chainId: number | SvmCluster;
+    }) =>
       request<AomiBackendNonceResponse>(
         "GET",
         `${endpoints.walletLinkPath}?${new URLSearchParams({
@@ -198,14 +232,26 @@ export function createAomiBackendAccountClient(input: {
           chainId: String(input.chainId),
         })}`,
       ),
-    linkWallet: (body: unknown) =>
+    /** A 409 here may carry a merge offer; read it with mergeOfferFrom. */
+    linkWallet: (
+      body:
+        | WalletLinkProof<"evm", number, `0x${string}` | string>
+        | WalletLinkProof<"svm", SvmCluster, string>,
+    ) =>
       request<AomiBackendLinkWalletResponse>(
         "POST",
         endpoints.walletLinkPath,
         body,
       ),
-    updateWallet: (walletId: string, body: { label?: string | null }) =>
-      requestVoid("PATCH", endpoints.walletPath(walletId), body),
+    renameWallet: (walletId: string, label: string | null) =>
+      requestVoid("PATCH", endpoints.walletPath(walletId), { label }),
+    mergeAccount: (ticket: string) =>
+      request<AomiBackendMergeResponse>("POST", endpoints.mergePath, {
+        ticket,
+      }),
+    /** Signs this browser in to the other account instead of merging. */
+    switchToMergeSource: (ticket: string) =>
+      requestVoid("POST", endpoints.mergeSwitchPath, { ticket }),
     updateAuthIdentity: (
       identityId: string,
       body: { displayLabel?: string | null },
@@ -218,20 +264,48 @@ export function createAomiBackendAccountClient(input: {
       request<AomiBackendNonceResponse>("POST", endpoints.siweNoncePath, {}),
     verifySiwe: (body: { message: string; signature: string }) =>
       requestVoid("POST", endpoints.siweVerifyPath, body),
-    createSiwsNonce: (body: {
-      walletAddress: string;
-      chainId: SvmCluster;
-      intent: "sign-in" | "link";
-    }) =>
+    createSiwsNonce: (body: { walletAddress: string; chainId: SvmCluster }) =>
       request<AomiBackendNonceResponse>("POST", endpoints.siwsNoncePath, body),
     verifySiws: (body: {
       message: string;
       signature: string;
       walletAddress: string;
       chainId: SvmCluster;
-      intent: "sign-in" | "link";
       label?: string;
     }) => requestVoid("POST", endpoints.siwsVerifyPath, body),
+  };
+}
+
+type WalletLinkProof<Family, ChainId, Address> = {
+  family: Family;
+  address: Address;
+  chainId: ChainId;
+  nonce: string;
+  message: string;
+  signature: string;
+  label?: string | null;
+};
+
+function extractMergeOffer(error: unknown): MergeOffer | null {
+  if (!error || typeof error !== "object") return null;
+  const body = error as {
+    error?: unknown;
+    ticket?: unknown;
+    other?: Record<string, unknown>;
+  };
+  if (body.error !== "account_merge_available") return null;
+  if (typeof body.ticket !== "string" || !body.other) return null;
+  const other = body.other;
+  return {
+    ticket: body.ticket,
+    other: {
+      name: String(other.name ?? ""),
+      createdAt: String(other.created_at ?? ""),
+      chats: Number(other.chats ?? 0),
+      wallets: Number(other.wallets ?? 0),
+      credits: String(other.credits ?? "0"),
+      dropped: Array.isArray(other.dropped) ? other.dropped.map(String) : [],
+    },
   };
 }
 
@@ -245,13 +319,12 @@ function extractConflictSignal(error: unknown): AccountConflictSignal | null {
     : null;
 }
 
+// Links that hit another account return a merge offer instead; these remain
+// for sign-ins that match two accounts at once.
 const CONFLICT_MESSAGES: Record<AccountConflictSignal, string> = {
-  wallet:
-    "This wallet belongs to another Aomi account. Sign in another way to open that account, then unlink the wallet there.",
-  identity:
-    "This sign-in method belongs to another Aomi account. Sign in another way to open that account.",
-  email:
-    "This email belongs to another Aomi account. Sign in another way to open that account.",
+  wallet: "This wallet already signs in to another Aomi account.",
+  identity: "This sign-in method already opens another Aomi account.",
+  email: "This email already belongs to another Aomi account.",
 };
 
 function formatAccountRequestError(
@@ -259,10 +332,13 @@ function formatAccountRequestError(
   code: string | null,
   signalType: AccountConflictSignal | null,
 ): string {
+  if (status === 409 && code === "account_merge_available") {
+    return "This wallet or sign-in method already opens another Aomi account.";
+  }
   if (status === 409 && code === "already_linked_to_another_account") {
     return (
       (signalType ? CONFLICT_MESSAGES[signalType] : undefined) ??
-      "This wallet or sign-in method belongs to another Aomi account. Sign in another way to open that account."
+      "This wallet or sign-in method already opens another Aomi account."
     );
   }
   return code ?? `Request failed: ${status}`;

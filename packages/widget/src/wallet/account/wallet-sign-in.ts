@@ -77,22 +77,46 @@ export async function linkAccountWallet(
         "Wallet linking requires the active external Solana signer",
       );
     }
-    await authenticateSvmWallet({
-      accountClient,
+    const label = buildDefaultWalletLabel({
+      walletName: svm.walletName,
+      existingWallets: account?.wallets ?? [],
+      family: "svm",
+    });
+    const sign = (message: string) =>
+      signMessageWithActiveSvm(signMessage, message, svm.cluster);
+    if (!signedIn) {
+      await signInWithSvmWallet({
+        accountClient,
+        address: wallet.address,
+        chainId: svm.cluster,
+        label,
+        replaceGuestSession,
+        messageConfig,
+        signMessage: sign,
+      });
+      return;
+    }
+    const nonceResult = await accountClient.getWalletLinkNonce({
       address: wallet.address,
       chainId: svm.cluster,
-      intent: signedIn ? "link" : "sign-in",
-      replaceGuestSession,
-      label: buildDefaultWalletLabel({
-        walletName: svm.walletName,
-        existingWallets: account?.wallets ?? [],
-        family: "svm",
-      }),
-      messageConfig,
-      signMessage: (message) =>
-        signMessageWithActiveSvm(signMessage, message, svm.cluster),
     });
-    return;
+    const message = buildSiwsMessage({
+      address: wallet.address,
+      chainId: svm.cluster,
+      nonce: nonceResult.nonce,
+      intent: "link",
+      ...messageConfigFromNonce(nonceResult, messageConfig),
+    });
+    const result = await accountClient.linkWallet({
+      family: "svm",
+      address: wallet.address,
+      chainId: svm.cluster,
+      label,
+      message,
+      signature: await sign(message),
+      nonce: nonceResult.nonce,
+    });
+    return result.account;
   }
   if (!evm.signMessageForAccount && !evm.signMessageAsync) {
     throw new Error("Wallet linking requires an active EVM signer");
@@ -140,7 +164,8 @@ export async function linkAccountWallet(
     family: wallet.family,
   });
   const result = await accountClient.linkWallet({
-    ...wallet,
+    family: "evm",
+    address: wallet.address,
     chainId,
     label,
     message,
@@ -202,11 +227,10 @@ async function signMessageWithActiveSvm(
   return result.signature;
 }
 
-async function authenticateSvmWallet(input: {
+async function signInWithSvmWallet(input: {
   accountClient: AccountClient;
   address: string;
   chainId: SvmCluster;
-  intent: "sign-in" | "link";
   label?: string;
   signMessage: (message: string) => Promise<string>;
   messageConfig: AuthMessageConfig;
@@ -217,13 +241,12 @@ async function authenticateSvmWallet(input: {
     const nonceResult = await input.accountClient.createSiwsNonce({
       walletAddress: input.address,
       chainId: input.chainId,
-      intent: input.intent,
     });
     const message = buildSiwsMessage({
       address: input.address,
       chainId: input.chainId,
       nonce: nonceResult.nonce,
-      intent: input.intent,
+      intent: "sign-in",
       ...messageConfigFromNonce(nonceResult, input.messageConfig),
     });
     const signature = await input.signMessage(message);
@@ -232,7 +255,6 @@ async function authenticateSvmWallet(input: {
       signature,
       walletAddress: input.address,
       chainId: input.chainId,
-      intent: input.intent,
       label: input.label,
     });
   });

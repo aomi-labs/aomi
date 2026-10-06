@@ -247,7 +247,7 @@ export function useAomiBackendAccountRuntime(input: {
     if (walletLabelSyncInFlight.current === key) return;
     walletLabelSyncInFlight.current = key;
     accountClient
-      .updateWallet(wallet.id, { label })
+      .renameWallet(wallet.id, label)
       .then(refresh)
       .catch(() => setErrorVersion((version) => version + 1))
       .finally(() => {
@@ -387,7 +387,7 @@ export function useAomiBackendAccountRuntime(input: {
       await refresh();
     },
     updateWallet: async ({ walletId, label }) => {
-      await accountClient.updateWallet(walletId, { label });
+      await accountClient.renameWallet(walletId, label ?? null);
       await refresh();
     },
     updateAuthIdentity: async ({ identityId, displayLabel }) => {

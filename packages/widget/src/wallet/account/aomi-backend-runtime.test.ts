@@ -31,7 +31,7 @@ const mockState = vi.hoisted(() => ({
     signOut: ReturnType<typeof vi.fn>;
     deleteAccount: ReturnType<typeof vi.fn>;
     updateAccount: ReturnType<typeof vi.fn>;
-    updateWallet: ReturnType<typeof vi.fn>;
+    renameWallet: ReturnType<typeof vi.fn>;
     updateAuthIdentity: ReturnType<typeof vi.fn>;
     unlinkWallet: ReturnType<typeof vi.fn>;
     unlinkAuthIdentity: ReturnType<typeof vi.fn>;
@@ -72,7 +72,7 @@ beforeEach(() => {
     signOut: vi.fn(),
     deleteAccount: vi.fn(),
     updateAccount: vi.fn(),
-    updateWallet: vi.fn(),
+    renameWallet: vi.fn(),
     updateAuthIdentity: vi.fn(),
     unlinkWallet: vi.fn(),
     unlinkAuthIdentity: vi.fn(),
@@ -750,7 +750,6 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(mockState.accountClient?.createSiwsNonce).toHaveBeenCalledWith({
       walletAddress: address,
       chainId: "solana:devnet",
-      intent: "sign-in",
     });
     const signedMessage = Buffer.from(
       signed.mock.calls[0]![0].message,
@@ -764,14 +763,13 @@ describe("useAomiBackendAccountRuntime", () => {
       expect.objectContaining({
         walletAddress: address,
         chainId: "solana:devnet",
-        intent: "sign-in",
         label: "Phantom 1",
         signature: "c2lnbmF0dXJl",
       }),
     );
   });
 
-  it("links an external Solana wallet to the current account through SIWS", async () => {
+  it("links an external Solana wallet through the wallet link endpoint", async () => {
     const address = "2qbUnCMuAC8egMU2jzsVHUXA2MoJn1v52JNPT3gKqTTB";
     const signed = vi.fn().mockResolvedValue({ signature: "bGlua3NpZw==" });
     mockState.accountClient!.getAccount.mockResolvedValue({
@@ -787,12 +785,12 @@ describe("useAomiBackendAccountRuntime", () => {
       ],
       session: { betterAuthUserId: "ba-user" },
     });
-    mockState.accountClient!.createSiwsNonce.mockResolvedValue({
+    mockState.accountClient!.getWalletLinkNonce.mockResolvedValue({
       nonce: "link-nonce",
       domain: "localhost:3000",
       uri: "http://localhost:3000",
     });
-    mockState.accountClient!.verifySiws.mockResolvedValue({ status: "linked" });
+    mockState.accountClient!.linkWallet.mockResolvedValue({ status: "linked" });
 
     const { result } = renderHook(() =>
       useAomiBackendAccountRuntime({
@@ -836,20 +834,21 @@ describe("useAomiBackendAccountRuntime", () => {
       });
     });
 
-    expect(mockState.accountClient?.createSiwsNonce).toHaveBeenCalledWith({
-      walletAddress: address,
+    expect(mockState.accountClient?.getWalletLinkNonce).toHaveBeenCalledWith({
+      address,
       chainId: "solana:mainnet",
-      intent: "link",
     });
-    expect(mockState.accountClient?.verifySiws).toHaveBeenCalledWith(
+    expect(mockState.accountClient?.linkWallet).toHaveBeenCalledWith(
       expect.objectContaining({
-        walletAddress: address,
+        family: "svm",
+        address,
         chainId: "solana:mainnet",
-        intent: "link",
+        nonce: "link-nonce",
         label: "Phantom 1",
         signature: "bGlua3NpZw==",
       }),
     );
+    expect(mockState.accountClient?.verifySiws).not.toHaveBeenCalled();
   });
 
   it("leaves embedded Solana wallets on their provider credential path", async () => {
@@ -919,7 +918,7 @@ describe("useAomiBackendAccountRuntime", () => {
         ],
         session: { betterAuthUserId: "ba-user" },
       });
-    mockState.accountClient!.updateWallet.mockResolvedValue({ success: true });
+    mockState.accountClient!.renameWallet.mockResolvedValue(undefined);
 
     renderHook(() =>
       useAomiBackendAccountRuntime({
@@ -952,9 +951,9 @@ describe("useAomiBackendAccountRuntime", () => {
     );
 
     await waitFor(() => {
-      expect(mockState.accountClient?.updateWallet).toHaveBeenCalledWith(
+      expect(mockState.accountClient?.renameWallet).toHaveBeenCalledWith(
         "evm-wallet",
-        { label: "Rabby 1" },
+        "Rabby 1",
       );
     });
   });

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAomiBackendAccountClient } from "./aomi-backend-client";
+import {
+  createAomiBackendAccountClient,
+  mergeOfferFrom,
+} from "./aomi-backend-client";
 
 describe("createAomiBackendAccountClient", () => {
   it("accepts an empty successful sign-out response", async () => {
@@ -49,14 +52,60 @@ describe("createAomiBackendAccountClient", () => {
         { hasAccount: true },
       ),
     ).rejects.toThrow(
-      "This wallet or sign-in method belongs to another Aomi account.",
+      "This wallet or sign-in method already opens another Aomi account.",
     );
   });
 
+  it("reads the merge offer from a link conflict", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: "account_merge_available",
+        ticket: "ticket-1",
+        other: {
+          name: "0xdA65…3CF0",
+          created_at: "2026-09-12T00:00:00.000Z",
+          chats: 12,
+          wallets: 2,
+          credits: "420",
+          dropped: ["OpenAI model key"],
+        },
+      }),
+    }));
+    const client = createAomiBackendAccountClient({
+      fetch: fetchImpl as unknown as typeof fetch,
+    });
+
+    const error = await client
+      .linkWallet({
+        family: "evm",
+        address: "0x1111111111111111111111111111111111111111",
+        chainId: 1,
+        nonce: "nonce",
+        message: "message",
+        signature: "0xsig",
+      })
+      .catch((cause: unknown) => cause);
+
+    expect(mergeOfferFrom(error)).toEqual({
+      ticket: "ticket-1",
+      other: {
+        name: "0xdA65…3CF0",
+        createdAt: "2026-09-12T00:00:00.000Z",
+        chats: 12,
+        wallets: 2,
+        credits: "420",
+        dropped: ["OpenAI model key"],
+      },
+    });
+    expect(mergeOfferFrom(new Error("other"))).toBeNull();
+  });
+
   it.each([
-    ["wallet", "This wallet belongs to another Aomi account"],
-    ["identity", "This sign-in method belongs to another Aomi account"],
-    ["email", "This email belongs to another Aomi account"],
+    ["wallet", "This wallet already signs in to another Aomi account"],
+    ["identity", "This sign-in method already opens another Aomi account"],
+    ["email", "This email already belongs to another Aomi account"],
   ])("names the %s that actually collided", async (signalType, expected) => {
     const fetchImpl = vi.fn(async () => ({
       ok: false,
@@ -119,7 +168,7 @@ describe("createAomiBackendAccountClient", () => {
     );
   });
 
-  it("uses BetterAuth SIWS endpoints for browser sign-in and linking", async () => {
+  it("uses BetterAuth SIWS endpoints for browser sign-in", async () => {
     const fetchImpl = vi.fn(
       async () =>
         new Response(JSON.stringify({ nonce: "nonce" }), {
@@ -134,14 +183,12 @@ describe("createAomiBackendAccountClient", () => {
     await client.createSiwsNonce({
       walletAddress: "SolanaAddress",
       chainId: "solana:devnet",
-      intent: "link",
     });
     await client.verifySiws({
       message: "message",
       signature: "signature",
       walletAddress: "SolanaAddress",
       chainId: "solana:devnet",
-      intent: "link",
       label: "Phantom 1",
     });
 
@@ -154,7 +201,6 @@ describe("createAomiBackendAccountClient", () => {
         body: JSON.stringify({
           walletAddress: "SolanaAddress",
           chainId: "solana:devnet",
-          intent: "link",
         }),
       }),
     );
@@ -169,7 +215,6 @@ describe("createAomiBackendAccountClient", () => {
           signature: "signature",
           walletAddress: "SolanaAddress",
           chainId: "solana:devnet",
-          intent: "link",
           label: "Phantom 1",
         }),
       }),

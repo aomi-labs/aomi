@@ -48,7 +48,8 @@ export type AccountWallet = {
     | "observed"
     | "migration"
     | (string & {});
-  label?: string;
+  /** The user's name for this address; null when unnamed. */
+  label?: string | null;
   verifiedAt?: number;
   lastSeenAt?: number;
   capability?: "read" | "write";

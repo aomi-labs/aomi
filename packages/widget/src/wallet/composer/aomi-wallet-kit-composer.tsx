@@ -139,7 +139,7 @@ export function AomiWalletKitComposer({
             kind: wallet.kind === "embedded" ? "embedded" : "external",
             provider: wallet.provider,
             chainId: wallet.chainId,
-            label: wallet.label,
+            label: wallet.label ?? undefined,
             capability: wallet.capability,
           })),
         connections: accounts
