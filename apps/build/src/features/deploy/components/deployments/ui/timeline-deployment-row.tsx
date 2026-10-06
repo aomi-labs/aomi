@@ -4,7 +4,7 @@ import {
   GitCommitHorizontal,
   RotateCcw,
 } from "lucide-react";
-import { HelpBadge } from "@build/components/help-badge";
+import { HelpBadge } from "@/components/help-badge";
 import {
   deploymentIsBuilding,
   type TimelineDeployment,

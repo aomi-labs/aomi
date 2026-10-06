@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 const replace = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
-vi.mock("@build/features/launch/hooks/use-projects", () => ({
+vi.mock("@/features/deploy/hooks/use-projects", () => ({
   useProjects: vi.fn(() => ({
     state: {
       status: "ready",
@@ -34,7 +34,7 @@ vi.mock("./repository-connector", () => ({
   ),
 }));
 
-import { useProjects } from "@build/features/launch/hooks/use-projects";
+import { useProjects } from "@/features/deploy/hooks/use-projects";
 import { ProjectIndex } from "./project-index";
 
 describe("ProjectIndex", () => {

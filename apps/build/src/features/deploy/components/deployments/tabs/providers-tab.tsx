@@ -7,8 +7,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { API_PATHS } from "@build/lib/api-paths";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
+import { API_PATHS } from "@/lib/api-paths";
 import {
   keyDisplayName,
   PROVIDER_LABELS,
@@ -17,7 +17,8 @@ import {
   type ModelKey,
   type Provider,
   type ProvidersPayload,
-} from "@build/features/operate/providers-view";
+} from "@/features/operate/providers-view";
+import { readJsonResponse } from "@/lib/request-retry";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 
@@ -47,10 +48,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
 
   const reload = useCallback(async () => {
     const res = await fetch(API_PATHS.bff.operate.modelKeys);
-    const json = (await res.json().catch(() => ({}))) as ProvidersPayload & {
-      error?: string;
-    };
-    if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+    const json = await readJsonResponse<ProvidersPayload>(res, "Failed");
     setKeys((json.keys ?? []).map(withUsage));
   }, []);
 
@@ -88,10 +86,7 @@ export function ProvidersTab({ detail }: { detail: Detail }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyId: key.id, applicationIds }),
         });
-        const json = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+        await readJsonResponse(res, "Failed");
         await reload();
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));

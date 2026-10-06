@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiConsole, type EndpointDef } from "./ApiConsole";
+import { ApiConsole, type EndpointDef } from "./api-console";
 
 const METAMASK_ENDPOINTS: EndpointDef[] = [
   {

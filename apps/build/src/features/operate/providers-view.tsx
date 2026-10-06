@@ -16,19 +16,20 @@
 import { Check, ChevronDown, KeyRound } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
   githubAccountKey,
-} from "@build/features/launch/query-keys";
-import { modelKeysFetch } from "@build/features/operate/client";
-import { API_PATHS } from "@build/lib/api-paths";
-import { cn } from "@build/lib/utils";
+} from "@/features/deploy/query-keys";
+import { modelKeysFetch } from "@/features/operate/client";
+import { API_PATHS } from "@/lib/api-paths";
+import { cn } from "@/lib/class-names";
+import { readJsonResponse } from "@/lib/request-retry";
 
 export const PROVIDERS = ["openai", "anthropic", "openrouter"] as const;
 export type Provider = (typeof PROVIDERS)[number];
@@ -787,10 +788,7 @@ export function ProvidersView() {
       setFormError(null);
       try {
         const res = await op();
-        const json = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+        await readJsonResponse(res, "Failed");
         await reload();
       } catch (err) {
         setFormError(err instanceof Error ? err.message : String(err));

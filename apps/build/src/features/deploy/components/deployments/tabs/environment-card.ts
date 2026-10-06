@@ -8,8 +8,8 @@
 // find them.
 // =============================================================================
 
-import type { RequiredSecretsByApp } from "@build/features/launch/required-secrets";
-import { BUILD_GLOSSARY } from "@build/lib/glossary";
+import type { RequiredSecretsByApp } from "@/features/deploy/required-secrets";
+import { BUILD_GLOSSARY } from "@/lib/glossary";
 
 export type EnvironmentCard = {
   value: string;

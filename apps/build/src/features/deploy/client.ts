@@ -17,8 +17,8 @@ import {
   type GitHubSessionInfo,
   type UserProjectsResult,
 } from "@aomi-labs/deploy/launch";
-import { buildFetch } from "@build/lib/session-expiry";
-import { sessionScopedFetch } from "@build/lib/settings-api";
+import { buildFetch } from "@/lib/session-expiry";
+import { sessionScopedFetch } from "@/lib/settings-api";
 import {
   type LaunchActivateResult,
   type LaunchAppStatusesResult,

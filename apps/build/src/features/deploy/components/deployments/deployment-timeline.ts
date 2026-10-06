@@ -1,5 +1,5 @@
 import type { UserProjectLatestDeployment } from "@aomi-labs/deploy";
-import type { DeploymentRecord } from "@build/features/launch/contracts";
+import type { DeploymentRecord } from "@/features/deploy/contracts";
 
 /** One deployment for the project timeline. `commit` is decoded from the
  * deployment id (`dep_<install>_<repokey>_<shortcommit>`) when history does

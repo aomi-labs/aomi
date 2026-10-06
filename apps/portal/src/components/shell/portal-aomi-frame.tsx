@@ -7,33 +7,34 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type {
+  AomiRoutingConfig,
+  DirectRoutingApp,
+} from "@aomi-labs/widget";
+import { AomiFrame } from "@aomi-labs/widget/frame";
 import {
-  AomiFrame,
-  useAomiWalletKit,
-  type AomiRoutingConfig,
-  type DirectRoutingApp,
-  type WalletAccountMenuOptions,
-} from "@aomi-labs/widget-lib";
-import {
+  DEFAULT_SIDEBAR_PRODUCTS,
   getBackendUrl,
   HeaderControls,
   PackagesModal,
   SettingsModal,
   useAccountOverview,
+  useAomiWalletKit,
   usePortalWalletAccountMenu,
+  useRuntimeAccount,
   useSettingsOpenRequest,
   type SettingsTab,
-} from "@aomi-labs/widget-lib/host-composition";
+  type WalletAccountMenuOptions,
+} from "@aomi-labs/widget/host-composition";
 import { useAomiRuntime } from "@aomi-labs/react";
-import { OverlayPortal } from "@portal/components/shell/overlay-portal";
+import { OverlayPortal } from "@/components/shell/overlay-portal";
 import {
   usePortalClientOptions,
   useRequestedAppConfig,
-} from "@portal/lib/portal-client-options";
-import { SvmWalletBindingGate } from "@portal/features/general/svm-wallet-binding-gate";
+} from "@/lib/portal-client-options";
+import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
-const GUEST_SESSION_TIMEOUT_MS = 8_000;
 
 function directTarget(
   app: string,
@@ -53,16 +54,15 @@ const AUTO_ROUTING: AomiRoutingConfig = { targets: [{ mode: "auto" }] };
  * project link pins its app, silently, as a Direct target.
  */
 function PortalComposer({
-  enabledApps,
   lockedTarget,
   appTag,
   sendDisabled,
 }: {
-  enabledApps: readonly string[];
   lockedTarget?: DirectRoutingApp;
   appTag?: { app: string; applicationId?: number };
   sendDisabled: boolean;
 }) {
+  const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
   const routing = useMemo<AomiRoutingConfig>(
     () =>
       lockedTarget
@@ -88,7 +88,7 @@ function PortalComposer({
   );
 }
 
-/** Open an account-owned thread linked by MCP wallet-approval handoff. */
+/** Open the account's thread linked by MCP wallet-approval handoff. */
 type ThreadUrlSnapshot = {
   navigating: boolean;
   requestedThread: string | null | undefined;
@@ -133,6 +133,7 @@ export function ThreadUrlBootstrap({
     selectThread,
     createThread,
     threadMetadata,
+    getThreadMetadata,
     threadListLoading,
     threadListError,
     showNotification,
@@ -173,7 +174,9 @@ export function ThreadUrlBootstrap({
     )
       return;
     if (requestedThread) {
-      const metadata = threadMetadata.get(requestedThread);
+      // A list can publish its store before this effect's rendered map catches
+      // up. Validate the current owned store, including real archive/removal.
+      const metadata = getThreadMetadata(requestedThread);
       if (metadata && metadata.status !== "archived") {
         if (requestedThread !== currentThreadId) {
           selectThread(requestedThread);
@@ -205,6 +208,7 @@ export function ThreadUrlBootstrap({
     createThread,
     selectThread,
     threadMetadata,
+    getThreadMetadata,
     threadListLoading,
     threadListError,
     showNotification,
@@ -233,7 +237,7 @@ export function ThreadUrlBootstrap({
       locationState.navigate(locationThread);
       return;
     }
-    const metadata = threadMetadata.get(currentThreadId);
+    const metadata = getThreadMetadata(currentThreadId);
     const threadId =
       metadata &&
       (isRemoteThread?.(currentThreadId) ?? metadata.title !== "New Chat") &&
@@ -249,6 +253,7 @@ export function ThreadUrlBootstrap({
     ready,
     currentThreadId,
     threadMetadata,
+    getThreadMetadata,
     requestedThread,
     isRemoteThread,
     threadListLoading,
@@ -289,66 +294,10 @@ function PortalFrameContents({
 }
 
 export function PortalAomiFrame() {
-  const { accountStatus, accountUser } = useAomiWalletKit();
-  const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
-  const accountUserId = accountUser?.id;
-  const [guestSession, setGuestSession] = useState<{
-    checked: boolean;
-    userId: string | null;
-  }>({ checked: false, userId: null });
-  useEffect(() => {
-    if (accountStatus === "loading") return;
-    if (accountUserId) {
-      setGuestSession({ checked: true, userId: null });
-      return;
-    }
-    // The widget kit deliberately hides temporary guests from account chrome.
-    // Ask Better Auth whether this browser still owns a guest cookie before
-    // enabling the remote thread list. No bearer or thread id is persisted.
-    const backend = new URL(getBackendUrl(), window.location.href);
-    if (backend.origin !== window.location.origin) {
-      setGuestSession({ checked: true, userId: null });
-      return;
-    }
-    let cancelled = false;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      controller.abort();
-      if (!cancelled) setGuestSession({ checked: true, userId: null });
-    }, GUEST_SESSION_TIMEOUT_MS);
-    void fetch("/api/auth/get-session", {
-      credentials: "same-origin",
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const session = (await response.json()) as {
-          user?: { id?: unknown; isAnonymous?: unknown };
-        } | null;
-        return session?.user?.isAnonymous === true &&
-          typeof session.user.id === "string"
-          ? session.user.id
-          : null;
-      })
-      .catch(() => null)
-      .then((userId) => {
-        if (!cancelled) {
-          window.clearTimeout(timeout);
-          setGuestSession({ checked: true, userId });
-        }
-      });
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [accountStatus, accountUserId]);
-  const principalId =
-    accountUserId ??
-    (guestSession.userId ? `guest:${guestSession.userId}` : null);
+  const { accountStatus, accountUser, isReady } = useAomiWalletKit();
+  const account = useRuntimeAccount();
   const [accountFrameScope, setAccountFrameScope] = useState(() => ({
-    accountUserId: principalId,
+    account,
     initialized: false,
     revision: 0,
   }));
@@ -387,23 +336,24 @@ export function PortalAomiFrame() {
   // In-chat controls (the composer's safety menu) deep-link into Settings.
   useSettingsOpenRequest(openSettings);
   if (
-    accountStatus !== "loading" &&
-    guestSession.checked &&
+    account !== undefined &&
     (!accountFrameScope.initialized ||
-      accountFrameScope.accountUserId !== principalId)
+      accountFrameScope.account?.kind !== account?.kind ||
+      accountFrameScope.account?.id !== account?.id)
   ) {
     setAccountFrameScope({
-      accountUserId: principalId,
+      account,
       initialized: true,
-      // A backend thread is owned by the principal that created it. Always
-      // remount across an identity transition so an anonymous or previous
-      // account's in-flight session cannot be submitted by the new principal.
+      // The runtime closes the old account's chats without remounting the
+      // shell. URL navigation still starts over for a new account.
       revision:
         accountFrameScope.revision + (accountFrameScope.initialized ? 1 : 0),
     });
   }
 
-  const restoringSession = accountStatus === "loading" || !guestSession.checked;
+  // The lazy wallet host reports booting before its account adapter exists.
+  // Its missing accountStatus must not validate a saved URL as disconnected.
+  const restoringSession = isReady === false || accountStatus === "loading";
   const [threadUrlState, setThreadUrlState] = useState(() => ({
     revision: accountFrameScope.revision,
     navigation: createThreadUrlNavigation(),
@@ -414,6 +364,11 @@ export function PortalAomiFrame() {
       navigation: createThreadUrlNavigation(),
     });
   }
+  const urlNavigation = useSyncExternalStore(
+    threadUrlState.navigation.subscribe,
+    threadUrlState.navigation.getSnapshot,
+    threadUrlState.navigation.getSnapshot,
+  );
 
   return (
     <main
@@ -423,15 +378,17 @@ export function PortalAomiFrame() {
     >
       <div data-testid="portal-frame-content" className="h-full w-full">
         <AomiFrame.Root
-          key={`principal-v3:${accountFrameScope.revision}`}
+          products={DEFAULT_SIDEBAR_PRODUCTS}
+          apiKeyPersistence="session"
           width="100%"
           height="100%"
           backendUrl={backendUrl}
           applicationId={lockedApplicationId}
+          displayPersistence="account"
           agentTarget={
             lockedTarget ? { mode: "direct", ...lockedTarget } : undefined
           }
-          accountSessionAvailable={Boolean(accountUser || guestSession.userId)}
+          accountSessionAvailable={Boolean(account)}
           // The host restores saved chats from the URL through ThreadUrlBootstrap.
           // Without a thread URL, open the new-chat starting screen.
           persistThread={false}
@@ -440,7 +397,7 @@ export function PortalAomiFrame() {
           walletFamilies={["evm", "solana"]}
           walletConnectLabel="Sign in"
           walletAccountMenu={walletAccountMenu}
-          className="portal-aomi-frame rounded-none border-0 shadow-none"
+          className="portal-aomi-frame aui-suggestions-marquee rounded-none border-0 shadow-none"
           clientOptions={clientOptions}
           inferenceFunding={requestedApp.inferenceFunding}
         >
@@ -458,12 +415,13 @@ export function PortalAomiFrame() {
             />
           </AomiFrame.Header>
           <PortalComposer
-            enabledApps={enabledApps}
             lockedTarget={lockedTarget}
             appTag={appTag}
-            // Until the account session resolves, only sending waits: the
-            // turn must run as the restored principal.
-            sendDisabled={restoringSession}
+            // First Send joins the shared cookie preparation. A linked chat
+            // waits for its target so admission cannot create a different chat.
+            sendDisabled={
+              urlNavigation.navigating && Boolean(urlNavigation.requestedThread)
+            }
           />
           <SvmWalletBindingGate />
           {/* Inside the frame so they see the Aomi runtime (the settings

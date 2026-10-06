@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PowerOff } from "lucide-react";
-import { EmptyState } from "@build/components/control-plane/empty-state";
-import { useToast } from "@build/components/control-plane/toast";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { useSdkUpgrade } from "@build/features/launch/hooks/use-sdk-upgrade";
+import { EmptyState } from "@/components/control-plane/empty-state";
+import { useToast } from "@/components/control-plane/toast";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
+import { useSdkUpgrade } from "@/features/deploy/hooks/use-sdk-upgrade";
 import { projectDeploymentStatus } from "../project-deployment-status";
 import { TimelineDeploymentRow } from "../ui/timeline-deployment-row";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { DeploymentDetail } from "../ui/deployment-detail";
-import { RequiredSecretsPanel } from "@build/features/launch/components/required-secrets-panel";
+import { RequiredSecretsPanel } from "@/features/deploy/components/required-secrets-panel";
 import { UpgradeConfirmDialog, UpgradeRail } from "../ui/upgrade-rail";
 import { LoadingPanel, EmptyPanel } from "../ui/state-panels";
 import { AttemptControls, DeploymentAttempts } from "../ui/deployment-attempts";

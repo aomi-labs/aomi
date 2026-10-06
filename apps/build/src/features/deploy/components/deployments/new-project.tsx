@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Github, Sparkles } from "lucide-react";
-import { Onboarding } from "@build/features/launch/components/onboarding";
+import { Onboarding } from "@/features/deploy/components/onboarding";
 import {
   fetchGitHubSession,
   type GitHubSessionInfo,
-} from "@build/features/launch/dashboard";
-import { loadLaunch } from "@build/features/launch";
-import type { NewProjectMode } from "@build/features/launch/new-project-mode";
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+} from "@/features/deploy/dashboard";
+import { loadLaunch } from "@/features/deploy";
+import type { NewProjectMode } from "@/features/deploy/new-project-mode";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { RepositoryConnector } from "./repository-connector";
 import { GitHubSignInPanel, LoadingPanel } from "./ui/state-panels";
 

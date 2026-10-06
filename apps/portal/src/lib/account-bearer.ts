@@ -5,8 +5,10 @@ import {
   createAccountBearerProvider,
   type AccountBearerProvider,
 } from "@aomi-labs/client";
-import type { AomiWalletKit } from "@aomi-labs/widget-lib";
-import { getBackendUrl } from "@aomi-labs/widget-lib/host-composition";
+import {
+  getBackendUrl,
+  type AomiWalletKit,
+} from "@aomi-labs/widget/host-composition";
 
 type GetAccountCredential = AomiWalletKit["getAccountCredential"];
 

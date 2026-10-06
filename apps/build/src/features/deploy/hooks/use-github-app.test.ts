@@ -8,10 +8,10 @@ const report = {
   repositories: [],
 };
 
-vi.mock("@build/features/launch/client", () => ({
+vi.mock("@/features/deploy/client", () => ({
   deploymentGitHubAppInstallations: vi.fn(async () => report),
 }));
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "alice",
@@ -19,10 +19,10 @@ vi.mock("@build/features/launch/dashboard", () => ({
   })),
 }));
 
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import { useGitHubAppInstallations } from "./use-github-app";
-import { deploymentGitHubAppInstallations } from "@build/features/launch/client";
-import { fetchGitHubSession } from "@build/features/launch/dashboard";
+import { deploymentGitHubAppInstallations } from "@/features/deploy/client";
+import { fetchGitHubSession } from "@/features/deploy/dashboard";
 
 const list = vi.mocked(deploymentGitHubAppInstallations);
 const session = vi.mocked(fetchGitHubSession);

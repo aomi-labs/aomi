@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { ExternalLink, MessageSquare } from "lucide-react";
 import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { chatAppUrl } from "@build/lib/chat-url";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
+import { chatAppUrl } from "@/lib/chat-url";
 import { EmptyPanel } from "../ui/state-panels";
 import { projectSdk } from "../sdk-compatibility";
 

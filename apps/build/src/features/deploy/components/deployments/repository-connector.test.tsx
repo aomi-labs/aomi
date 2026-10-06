@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const githubAppInstallUrl = vi.hoisted(() => vi.fn());
 
-vi.mock("@build/features/launch/client", () => ({ githubAppInstallUrl }));
+vi.mock("@/features/deploy/client", () => ({ githubAppInstallUrl }));
 
 import {
   ConnectionResultBanner,

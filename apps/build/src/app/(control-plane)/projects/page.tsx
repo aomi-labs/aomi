@@ -1,7 +1,7 @@
-import { ErrorBoundary } from "@build/components/shell/error-boundary";
+import { ErrorBoundary } from "@/components/shell/error-boundary";
 import { connectionResult } from "@aomi-labs/deploy/launch";
-import { ProjectIndex } from "@build/features/launch/components/deployments/project-index";
-import { platformParam } from "@build/features/launch/platform";
+import { ProjectIndex } from "@/features/deploy/components/deployments/project-index";
+import { platformParam } from "@/features/deploy/platform";
 
 export default async function ProjectsPage({
   searchParams,

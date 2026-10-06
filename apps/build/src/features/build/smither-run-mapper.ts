@@ -9,12 +9,12 @@ import type {
   BuildStreamStage,
   SmithersNode,
   PlanNodeStatus,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 import type {
   BuildRunSnapshot,
   BuildRunStage,
   BuildRunStageStatus,
-} from "@build/features/build/run-contracts";
+} from "@/features/build/run-contracts";
 
 function nodeStatus(status: BuildRunStageStatus): PlanNodeStatus {
   switch (status) {

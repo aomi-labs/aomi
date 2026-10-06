@@ -5,7 +5,7 @@ import type {
   UserProject,
   UserProjectLatestDeployment,
 } from "@aomi-labs/deploy";
-import { HelpBadge } from "@build/components/help-badge";
+import { HelpBadge } from "@/components/help-badge";
 import type { TimelineDeployment } from "../deployment-timeline";
 import { sdkCompatibility } from "../sdk-compatibility";
 

@@ -3,7 +3,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 /**
  * UI-only Create composer model list.

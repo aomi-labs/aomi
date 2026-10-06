@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { ExternalLink, Loader2, Plus, RotateCcw } from "lucide-react";
-import { Button } from "@aomi-labs/widget-lib";
+import { Button } from "@aomi-labs/widget/host-composition";
 import {
   installationStatusLabel,
   launchCreateRepo,
   oneshotStep,
   TEMPLATE_REPO,
   type LaunchProgress,
-} from "@build/features/launch";
-import { chatAppUrl } from "@build/lib/chat-url";
+} from "@/features/deploy";
+import { chatAppUrl } from "@/lib/chat-url";
 import { Stepper } from "./stepper";
 import Link from "next/link";
 import { LivePanel } from "./live-panel";

@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiConsole } from "./ApiConsole";
-import type { EndpointDef } from "./ApiConsole";
+import { ApiConsole } from "./api-console";
+import type { EndpointDef } from "./api-console";
 
 const SESSION_HEADER = {
   key: "X-Session-Id",

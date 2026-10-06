@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { HelpBadge } from "@build/components/help-badge";
-import type { DeployFlowState } from "@build/features/launch/hooks/use-project-detail";
-import type { SdkUpgradeState } from "@build/features/launch/hooks/use-sdk-upgrade";
+import { HelpBadge } from "@/components/help-badge";
+import type { DeployFlowState } from "@/features/deploy/hooks/use-project-detail";
+import type { SdkUpgradeState } from "@/features/deploy/hooks/use-sdk-upgrade";
 
 /**
  * The SDK-upgrade lifecycle rail. Lives in the banner slot of the

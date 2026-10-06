@@ -1,6 +1,6 @@
 "use client";
 
-import { AomiFrame } from "@aomi-labs/widget-lib";
+import { AomiFrame } from "@aomi-labs/widget/frame";
 
 type WalletPosition = "header" | "footer";
 
@@ -46,10 +46,7 @@ export function AomiFramePreview({
         <AomiFrame.Header showSidebarTrigger={showSidebar} />
       )}
       {hasAnyControl && controlPlacement === "composer" ? (
-        <AomiFrame.Composer
-          withControl
-          controlBarProps={controlBarProps}
-        />
+        <AomiFrame.Composer withControl controlBarProps={controlBarProps} />
       ) : (
         <AomiFrame.Composer />
       )}

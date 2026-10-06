@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ChatTab } from "./chat-tab";
-import type { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
+import type { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 
 describe("ChatTab", () => {
   it("blocks chat when the live deployment SDK is outdated", () => {

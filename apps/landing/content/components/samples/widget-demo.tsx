@@ -1,9 +1,9 @@
 "use client";
 
-import { AomiFrame } from "@aomi-labs/widget-lib";
-import { Preview } from "@/content/components/playground/Preview";
+import { AomiFrame } from "@aomi-labs/widget/frame";
+import { Preview } from "@/content/components/playground/preview";
 
-const widgetCode = `import { AomiFrame } from "@aomi-labs/widget-lib";
+const widgetCode = `import { AomiFrame } from "@aomi-labs/widget/frame";
 
 export function WidgetDemo() {
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { ToastProvider } from "@build/components/control-plane/toast";
+import { ToastProvider } from "@/components/control-plane/toast";
 import { EnvironmentTab } from "./environment-tab";
 
 const setEnvVars = vi.fn(async () => ({ ok: true, keys: ["API_KEY"] }));
@@ -24,7 +24,7 @@ const detail = {
   requiredSecrets: null,
   requiredSecretsError: null,
 } as unknown as ReturnType<
-  typeof import("@build/features/launch/hooks/use-project-detail").useProjectDetail
+  typeof import("@/features/deploy/hooks/use-project-detail").useProjectDetail
 >;
 
 function renderTab(props: { detail?: typeof detail } = {}) {

@@ -15,9 +15,9 @@ import {
   type LaunchState,
   type LaunchProgress,
   type UserProject,
-} from "@build/features/launch";
-import { readPlatform } from "@build/features/launch/platform";
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+} from "@/features/deploy";
+import { readPlatform } from "@/features/deploy/platform";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { OneshotWizard } from "./oneshot-wizard";
 
 const PATH = "oneshot" as const;

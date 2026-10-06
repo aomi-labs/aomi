@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import { cn } from "@aomi-labs/react";
-import { Button, Card, CardContent } from "@aomi-labs/widget-lib";
-import { CopyButton } from "./CopyButton";
+import { Button, Card, CardContent } from "@aomi-labs/widget/host-composition";
+import { CopyButton } from "./copy-button";
 
 type PreviewProps = {
   title: string;
@@ -79,12 +79,12 @@ export function Preview({
           </div>
         ) : highlighted ? (
           <div
-            className="not-fumadocs-codeblock overflow-auto rounded-b-2xl text-sm [&_pre]:!m-0 [&_pre]:!rounded-none [&_pre]:!rounded-b-2xl [&_pre]:!border-0 [&_pre]:px-5 [&_pre]:py-4 [&_code]:!bg-transparent [&_code]:!border-0 [&_code]:!p-0"
+            className="not-fumadocs-codeblock overflow-auto rounded-b-2xl text-sm [&_code]:!border-0 [&_code]:!bg-transparent [&_code]:!p-0 [&_pre]:!m-0 [&_pre]:!rounded-none [&_pre]:!rounded-b-2xl [&_pre]:!border-0 [&_pre]:px-5 [&_pre]:py-4"
             dangerouslySetInnerHTML={{ __html: highlighted }}
           />
         ) : (
           <pre className="rounded-b-2xl bg-[#18181b] px-5 py-4 font-mono text-sm leading-relaxed text-[#d4d4d8]">
-            <code className="whitespace-pre-wrap bg-transparent text-inherit p-0">
+            <code className="bg-transparent p-0 whitespace-pre-wrap text-inherit">
               {code}
             </code>
           </pre>

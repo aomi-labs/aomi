@@ -10,21 +10,21 @@ import {
   MessageSquare,
   Rocket,
 } from "lucide-react";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
-} from "@build/features/launch/query-keys";
-import { operateFetch } from "@build/features/operate/client";
+} from "@/features/deploy/query-keys";
+import { operateFetch } from "@/features/operate/client";
 import {
   caipChainLabel,
   creditsToUsd,
   plural,
   truncateAddress,
   usdLabel,
-} from "@build/features/operate/format";
-import { chatAppUrl } from "@build/lib/chat-url";
-import { BUILD_GLOSSARY } from "@build/lib/glossary";
+} from "@/features/operate/format";
+import { chatAppUrl } from "@/lib/chat-url";
+import { BUILD_GLOSSARY } from "@/lib/glossary";
 import { environmentCard } from "./environment-card";
 import { projectDeploymentStatus } from "../project-deployment-status";
 import { projectSdk } from "../sdk-compatibility";

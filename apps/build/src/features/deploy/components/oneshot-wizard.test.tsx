@@ -5,12 +5,12 @@ import {
   deploymentRequiredSecrets,
   deploymentSetSecrets,
   launchCreateRepo,
-} from "@build/features/launch";
-import type { LaunchProgress } from "@build/features/launch";
+} from "@/features/deploy";
+import type { LaunchProgress } from "@/features/deploy";
 
 const noop = () => {};
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("@aomi-labs/widget/host-composition", () => ({
   Button: ({
     children,
     onClick,
@@ -33,10 +33,10 @@ vi.mock("@aomi-labs/widget-lib", () => ({
   ),
 }));
 
-// `@build/lib/chat-url` is intentionally NOT mocked: it is a pure helper and
+// `@/lib/chat-url` is intentionally NOT mocked: it is a pure helper and
 // a stale fake here previously dropped `application_id` from asserted URLs.
 
-vi.mock("@build/features/launch", () => ({
+vi.mock("@/features/deploy", () => ({
   oneshotStep: (p: LaunchProgress) => {
     if (p.live) return "live";
     if (p.deploymentId || p.deployment) return "build";

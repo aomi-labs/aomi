@@ -12,9 +12,9 @@ import {
 import {
   fetchGitHubSession,
   type GitHubSessionInfo,
-} from "@build/features/launch/dashboard";
+} from "@/features/deploy/dashboard";
 
-import { BUILD_SESSION_EXPIRED } from "@build/lib/session-expiry";
+import { BUILD_SESSION_EXPIRED } from "@/lib/session-expiry";
 
 export type GitHubAccountState = GitHubSessionInfo & {
   loading: boolean;

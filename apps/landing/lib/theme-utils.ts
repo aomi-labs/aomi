@@ -59,7 +59,7 @@ function formatOklch(hex: string): string {
 
 /**
  * Generate a complete CSS string for a theme, matching the structure of
- * `@aomi-labs/widget-lib/themes/default.css`.
+ * `@aomi-labs/widget/themes/default.css`.
  */
 export function generateThemeCSS(
   preset: ThemePreset,
@@ -80,7 +80,7 @@ export function generateThemeCSS(
       .join("\n");
 
   return `/* Custom Theme: ${preset.label} */
-/* Drop this into your globals.css (after importing @aomi-labs/widget-lib/styles.css) */
+/* Drop this into your globals.css (after importing @aomi-labs/widget/styles.css) */
 
 :root {
   --radius: ${radius};

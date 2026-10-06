@@ -7,11 +7,11 @@ const loadSecrets = vi.fn();
 const loadRequiredSecrets = vi.fn();
 const operateFetch = vi.fn();
 
-vi.mock("@build/features/operate/client", () => ({
+vi.mock("@/features/operate/client", () => ({
   operateFetch: (...args: unknown[]) => operateFetch(...args),
 }));
 
-vi.mock("@build/features/launch/hooks/use-project-detail", () => ({
+vi.mock("@/features/deploy/hooks/use-project-detail", () => ({
   useProjectDetail: () => detail,
 }));
 
@@ -32,7 +32,7 @@ const detail = {
   loadSecrets,
   loadRequiredSecrets,
 } as unknown as ReturnType<
-  typeof import("@build/features/launch/hooks/use-project-detail").useProjectDetail
+  typeof import("@/features/deploy/hooks/use-project-detail").useProjectDetail
 >;
 
 import { HomeTab } from "./home-tab";

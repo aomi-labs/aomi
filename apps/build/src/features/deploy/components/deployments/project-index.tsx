@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FolderKanban } from "lucide-react";
-import { EmptyState } from "@build/components/control-plane/empty-state";
-import { useProjects } from "@build/features/launch/hooks/use-projects";
-import { platformHref } from "@build/features/launch/platform";
-import { BUILD_GLOSSARY } from "@build/lib/glossary";
+import { EmptyState } from "@/components/control-plane/empty-state";
+import { useProjects } from "@/features/deploy/hooks/use-projects";
+import { platformHref } from "@/features/deploy/platform";
+import { BUILD_GLOSSARY } from "@/lib/glossary";
 import { ProjectRow } from "./project-row";
 import {
   ConnectionResultBanner,

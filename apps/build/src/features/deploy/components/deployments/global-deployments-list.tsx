@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Filter, RefreshCw, Rocket } from "lucide-react";
-import { EmptyState } from "@build/components/control-plane/empty-state";
-import { platformHref } from "@build/features/launch/platform";
+import { EmptyState } from "@/components/control-plane/empty-state";
+import { platformHref } from "@/features/deploy/platform";
 import { useGlobalDeploymentRecords } from "./use-global-deployment-records";
 import { ErrorPanel, GitHubSignInPanel, LoadingPanel } from "./ui/state-panels";
 

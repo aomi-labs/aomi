@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -19,27 +23,17 @@
       }
     ],
     "paths": {
-      "@portal/*": ["./src/*"],
-      "@aomi-labs/widget-lib": ["../shadcn-registry/src/index.ts"],
-      "@aomi-labs/widget-lib/providers/para": [
-        "../shadcn-registry/src/lib/wallet-kit/providers/para/index.ts"
+      "@aomi-labs/account": [
+        "../../packages/account/src/index.ts"
       ],
-      "@aomi-labs/widget-lib/providers/privy": [
-        "../shadcn-registry/src/lib/wallet-kit/providers/privy/index.ts"
+      "@aomi-labs/account/account": [
+        "../../packages/account/src/account.ts"
       ],
-      "@aomi-labs/widget-lib/host-composition": [
-        "../shadcn-registry/src/host-composition.ts"
-      ],
-      "@/components/*": ["../shadcn-registry/src/components/*"],
-      "@/hooks/*": ["../shadcn-registry/src/hooks/*"],
-      "@/lib/*": ["../shadcn-registry/src/lib/*"],
-      "@aomi-labs/account": ["../../packages/account/src/index.ts"],
-      "@aomi-labs/account/account": ["../../packages/account/src/account.ts"],
       "@aomi-labs/account/better-auth": [
         "../../packages/account/src/better-auth/index.ts"
       ],
       "@aomi-labs/account/better-auth/client": [
-        "../../packages/account/src/better-auth/auth-client.ts"
+        "../../packages/client/src/browser-auth.ts"
       ],
       "@aomi-labs/account/better-auth/env": [
         "../../packages/account/src/better-auth/env.ts"
@@ -50,25 +44,60 @@
       "@aomi-labs/account/providers": [
         "../../packages/account/src/providers/index.ts"
       ],
-      "@aomi-labs/account/*": ["../../packages/account/src/*"],
-      "@aomi-labs/service": ["../../packages/service/src/index.ts"],
-      "@aomi-labs/service/*": ["../../packages/service/src/*"],
-      "@aomi-labs/client": ["../../packages/client/src/index.ts"],
-      "@aomi-labs/client/*": ["../../packages/client/src/*"],
-      "@aomi-labs/deploy": ["../../packages/deploy/src/index.ts"],
-      "@aomi-labs/deploy/*": ["../../packages/deploy/src/*"],
-      "@aomi-labs/react": ["../../packages/react/src/index.ts"],
-      "@aomi-labs/react/*": ["../../packages/react/src/*"],
-      "@getpara/react-sdk": ["./node_modules/@getpara/react-sdk"],
-      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
-      "react": ["./node_modules/@types/react/index.d.ts"],
-      "react/*": ["./node_modules/@types/react/*"],
-      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
-      "react-dom/*": ["./node_modules/@types/react-dom/*"],
-      "viem": ["./node_modules/viem"],
-      "viem/*": ["./node_modules/viem/*"],
-      "wagmi": ["./node_modules/wagmi"],
-      "wagmi/*": ["./node_modules/wagmi/*"]
+      "@aomi-labs/account/*": [
+        "../../packages/account/src/*"
+      ],
+      "@aomi-labs/client": [
+        "../../packages/client/src/index.ts"
+      ],
+      "@aomi-labs/client/*": [
+        "../../packages/client/src/*"
+      ],
+      "@aomi-labs/deploy": [
+        "../../packages/deploy/src/index.ts"
+      ],
+      "@aomi-labs/deploy/*": [
+        "../../packages/deploy/src/*"
+      ],
+      "@aomi-labs/react": [
+        "../../packages/react/src/index.ts"
+      ],
+      "@aomi-labs/react/*": [
+        "../../packages/react/src/*"
+      ],
+      "@getpara/react-sdk": [
+        "./node_modules/@getpara/react-sdk"
+      ],
+      "@tanstack/react-query": [
+        "./node_modules/@tanstack/react-query"
+      ],
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom/index.d.ts"
+      ],
+      "react-dom/*": [
+        "./node_modules/@types/react-dom/*"
+      ],
+      "viem": [
+        "./node_modules/viem"
+      ],
+      "viem/*": [
+        "./node_modules/viem/*"
+      ],
+      "wagmi": [
+        "./node_modules/wagmi"
+      ],
+      "wagmi/*": [
+        "./node_modules/wagmi/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "include": [
@@ -78,5 +107,9 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx"]
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
 }

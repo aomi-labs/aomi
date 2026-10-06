@@ -12,7 +12,7 @@ import {
   withPendingInstall,
   withProgress,
   type LaunchState,
-} from ".";
+} from "./";
 
 const launchState = (over: Partial<LaunchState> = {}): LaunchState => ({
   platform: null,

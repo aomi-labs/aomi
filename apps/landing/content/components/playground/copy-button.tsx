@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { Button } from "@aomi-labs/widget-lib";
+import { Button } from "@aomi-labs/widget/host-composition";
 
 type CopyButtonProps = {
   value: string;

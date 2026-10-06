@@ -3,8 +3,8 @@
 import { useCallback, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { UserDeployment, UserDeploymentsCursor } from "@aomi-labs/deploy";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
-import { deploymentFeed } from "@build/features/launch/client";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
+import { deploymentFeed } from "@/features/deploy/client";
 import {
   commitFromDeploymentId,
   type TimelineDeployment,

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Github } from "lucide-react";
-import { GITHUB_SIGNIN_URL } from "@build/features/launch/dashboard";
+import { GITHUB_SIGNIN_URL } from "@/features/deploy/dashboard";
 
 export function LoadingPanel({ label }: { label: string }) {
   return (

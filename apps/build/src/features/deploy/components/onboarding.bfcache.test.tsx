@@ -19,7 +19,7 @@ import {
 } from "@testing-library/react";
 import { Onboarding } from "./onboarding";
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("@aomi-labs/widget/host-composition", () => ({
   useAomiWalletKit: () => ({ identity: {}, isConnected: false }),
   Button: ({
     children,
@@ -38,7 +38,7 @@ vi.mock("@aomi-labs/widget-lib", () => ({
 
 // Keep the real helpers (state transitions, labels, step math) and stub only
 // the two things a test must not do: talk to GitHub, and persist to storage.
-vi.mock("@build/features/launch", async (importOriginal) => {
+vi.mock("@/features/deploy", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -47,10 +47,10 @@ vi.mock("@build/features/launch", async (importOriginal) => {
   };
 });
 
-vi.mock("@build/features/launch/platform", () => ({
+vi.mock("@/features/deploy/platform", () => ({
   readPlatform: () => "community",
 }));
-vi.mock("@build/lib/deploy-platform", () => ({
+vi.mock("@/lib/deploy-platform", () => ({
   DEFAULT_DEPLOY_PLATFORM: "community",
 }));
 

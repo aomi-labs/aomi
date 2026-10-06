@@ -1,37 +1,16 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import {
-  useAccountOverviewStore,
-  useSettings,
-} from "@aomi-labs/widget-lib/host-composition";
+import { useSettings } from "@aomi-labs/widget/host-composition";
 
 // Client boundary that runs `useSettings()` at the app root so persisted user
-// settings (theme/colorMode) load and apply. It also owns the lifetime of the
-// shared account overview: changing or signing out the adapter account clears
-// account-backed UI before another user can observe the previous snapshot.
+// settings (theme/colorMode) load and apply. Account display data belongs to
+// the frame's runtime cache, whose principal boundary owns its lifetime.
 export function SettingsInitializer({
   children,
 }: {
   children: React.ReactNode;
 }) {
   useSettings();
-  const { scopeAccountOverviewToUser, seedAccountOverview } =
-    useAccountOverviewStore();
-  const adapter = useAomiWalletKit();
-  const accountUserId = adapter.accountUser?.id;
-  const previousAccountUserId = useRef(accountUserId);
-
-  useLayoutEffect(() => {
-    const previous = previousAccountUserId.current;
-    if (previous && previous !== accountUserId) {
-      seedAccountOverview(null);
-    } else if (accountUserId) {
-      scopeAccountOverviewToUser(accountUserId);
-    }
-    previousAccountUserId.current = accountUserId;
-  }, [accountUserId, scopeAccountOverviewToUser, seedAccountOverview]);
 
   return <>{children}</>;
 }

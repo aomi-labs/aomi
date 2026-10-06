@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { prefetchProjectDetail } from "@build/components/control-plane/prefetch-control-plane-route";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { platformHref } from "@build/features/launch/platform";
-import { setLastProjectId } from "@build/lib/last-project";
+import { prefetchProjectDetail } from "@/components/control-plane/prefetch-control-plane-route";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
+import { platformHref } from "@/features/deploy/platform";
+import { setLastProjectId } from "@/lib/last-project";
 import { ProjectHeader } from "./project-header";
 import { ChatTab } from "./tabs/chat-tab";
 import { DeploymentsTab } from "./tabs/deployments-tab";

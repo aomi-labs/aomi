@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useOptionalSidebar } from "@aomi-labs/widget-lib";
+import { useOptionalSidebar } from "@aomi-labs/widget/host-composition";
 
 /**
  * Renders full-page overlays (settings, packages) at `<body>` while keeping

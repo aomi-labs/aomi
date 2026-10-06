@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { ArrowRight, Gauge, KeyRound, MessageSquare } from "lucide-react";
 
-import { resolveChatUrl } from "@build/lib/chat-url";
-import { lastEnvironmentHref, lastUsageHref } from "@build/lib/deep-links";
+import { resolveChatUrl } from "@/lib/chat-url";
+import { lastEnvironmentHref, lastUsageHref } from "@/lib/deep-links";
 
 /**
  * Billing guidance: payment setup lives on Chat; spend meter is Usage.

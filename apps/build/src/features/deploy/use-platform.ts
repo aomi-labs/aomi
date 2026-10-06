@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { readPlatform, writePlatform } from "./platform";
 
 /**

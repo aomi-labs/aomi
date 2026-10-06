@@ -1,8 +1,8 @@
 "use client";
 
-import { buildFetch } from "@build/lib/session-expiry";
-import { API_PATHS } from "@build/lib/api-paths";
-import { HttpRequestError, parseRetryAfter } from "@build/lib/request-retry";
+import { buildFetch } from "@/lib/session-expiry";
+import { API_PATHS } from "@/lib/api-paths";
+import { HttpRequestError, readJsonResponse } from "@/lib/request-retry";
 
 export type OperateKind =
   | "bots"
@@ -37,18 +37,7 @@ async function operateJson<T>(url: string, label: string): Promise<T> {
     }
     throw err;
   }
-  const json = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) {
-    throw new HttpRequestError(
-      json.error || `${label} failed (${res.status})`,
-      {
-        status: res.status,
-        body: json,
-        retryAfterMs: parseRetryAfter(res.headers.get("retry-after")),
-      },
-    );
-  }
-  return json;
+  return readJsonResponse<T>(res, `${label} failed`);
 }
 
 export async function operateFetch<T>(

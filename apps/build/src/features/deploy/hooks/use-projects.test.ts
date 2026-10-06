@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 
-vi.mock("@build/features/launch/client", () => ({
+vi.mock("@/features/deploy/client", () => ({
   deploymentProjects: vi.fn(async () => ({
     projects: [
       {
@@ -29,7 +29,7 @@ vi.mock("@build/features/launch/client", () => ({
   })),
   deploymentFeed: vi.fn(),
 }));
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "alice",
@@ -37,13 +37,13 @@ vi.mock("@build/features/launch/dashboard", () => ({
   })),
 }));
 
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import { useProjects } from "./use-projects";
 import {
   deploymentFeed,
   deploymentProjects,
-} from "@build/features/launch/client";
-import { fetchGitHubSession } from "@build/features/launch/dashboard";
+} from "@/features/deploy/client";
+import { fetchGitHubSession } from "@/features/deploy/dashboard";
 
 function wrapper() {
   const client = new QueryClient({

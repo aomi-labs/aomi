@@ -51,13 +51,13 @@ export function useThemeCustomizer() {
   const [state, setState] = useState<ThemeState>(DEFAULT_THEME_STATE);
 
   const preset = useMemo(
-    () => THEME_PRESETS.find((p) => p.id === state.presetId) ?? THEME_PRESETS[0],
+    () =>
+      THEME_PRESETS.find((p) => p.id === state.presetId) ?? THEME_PRESETS[0],
     [state.presetId],
   );
 
   const update = useCallback(
-    (patch: Partial<ThemeState>) =>
-      setState((prev) => ({ ...prev, ...patch })),
+    (patch: Partial<ThemeState>) => setState((prev) => ({ ...prev, ...patch })),
     [],
   );
 
@@ -97,8 +97,7 @@ export function useThemeCustomizer() {
   );
 
   const output = useMemo<ThemeOutput>(() => {
-    const colors =
-      state.mode === "dark" ? preset.dark : preset.light;
+    const colors = state.mode === "dark" ? preset.dark : preset.light;
     const overrides = state.overrides[state.mode];
     return {
       styleObject: themeToStyleObject(colors, overrides, state.radius),
@@ -132,13 +131,17 @@ type PresetSwatchProps = {
   onSelect: () => void;
 };
 
-const PresetSwatch: FC<PresetSwatchProps> = ({ preset, selected, onSelect }) => (
+const PresetSwatch: FC<PresetSwatchProps> = ({
+  preset,
+  selected,
+  onSelect,
+}) => (
   <button
     type="button"
     onClick={onSelect}
     className={`group flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-all ${
       selected
-        ? "border-fd-primary bg-fd-primary/5 ring-1 ring-fd-primary"
+        ? "border-fd-primary bg-fd-primary/5 ring-fd-primary ring-1"
         : "border-fd-border hover:border-fd-primary/40"
     }`}
   >
@@ -156,7 +159,7 @@ const PresetSwatch: FC<PresetSwatchProps> = ({ preset, selected, onSelect }) => 
         style={{ backgroundColor: preset.preview.bg }}
       />
     </div>
-    <span className="text-[10px] font-medium leading-none text-fd-muted-foreground group-hover:text-fd-foreground">
+    <span className="text-fd-muted-foreground group-hover:text-fd-foreground text-[10px] leading-none font-medium">
       {preset.label}
     </span>
   </button>
@@ -194,16 +197,16 @@ const ColorRow: FC<ColorRowProps> = ({
           className="absolute inset-0 size-full cursor-pointer opacity-0"
         />
         <div
-          className="size-6 rounded border border-fd-border"
+          className="border-fd-border size-6 rounded border"
           style={{ backgroundColor: displayHex }}
         />
       </label>
-      <span className="flex-1 text-xs text-fd-foreground">{label}</span>
+      <span className="text-fd-foreground flex-1 text-xs">{label}</span>
       {override && (
         <button
           type="button"
           onClick={onClear}
-          className="text-[10px] text-fd-muted-foreground hover:text-fd-foreground"
+          className="text-fd-muted-foreground hover:text-fd-foreground text-[10px]"
           title="Reset to preset"
         >
           Reset
@@ -222,7 +225,11 @@ type ThemeCustomizerProps = {
   preset: ThemePreset;
   selectPreset: (id: string) => void;
   update: (patch: Partial<ThemeState>) => void;
-  setColorOverride: (mode: ThemeMode, key: keyof ThemeColors, value: string) => void;
+  setColorOverride: (
+    mode: ThemeMode,
+    key: keyof ThemeColors,
+    value: string,
+  ) => void;
   clearColorOverride: (mode: ThemeMode, key: keyof ThemeColors) => void;
 };
 
@@ -236,7 +243,8 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
   const [colorsExpanded, setColorsExpanded] = useState(false);
 
   const preset = useMemo(
-    () => THEME_PRESETS.find((p) => p.id === state.presetId) ?? THEME_PRESETS[0],
+    () =>
+      THEME_PRESETS.find((p) => p.id === state.presetId) ?? THEME_PRESETS[0],
     [state.presetId],
   );
 
@@ -250,7 +258,7 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
     <div className="space-y-5">
       {/* ── Presets grid ── */}
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
+        <legend className="text-fd-muted-foreground text-xs font-semibold tracking-wider uppercase">
           Presets
         </legend>
         <div className="grid grid-cols-2 gap-1.5">
@@ -267,7 +275,7 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
 
       {/* ── Mode toggle ── */}
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
+        <legend className="text-fd-muted-foreground text-xs font-semibold tracking-wider uppercase">
           Preview Mode
         </legend>
         <Segmented
@@ -282,7 +290,7 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
 
       {/* ── Radius slider ── */}
       <fieldset className="space-y-2">
-        <legend className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
+        <legend className="text-fd-muted-foreground text-xs font-semibold tracking-wider uppercase">
           Radius
         </legend>
         <div className="flex items-center gap-2">
@@ -293,9 +301,9 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
             step={0.05}
             value={radiusNum}
             onChange={(e) => update({ radius: `${e.target.value}rem` })}
-            className="flex-1 accent-fd-primary"
+            className="accent-fd-primary flex-1"
           />
-          <span className="w-14 text-right text-xs tabular-nums text-fd-muted-foreground">
+          <span className="text-fd-muted-foreground w-14 text-right text-xs tabular-nums">
             {state.radius}
           </span>
         </div>
@@ -306,7 +314,7 @@ export const ThemeCustomizer: FC<ThemeCustomizerProps> = ({
         <button
           type="button"
           onClick={() => setColorsExpanded((v) => !v)}
-          className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground"
+          className="text-fd-muted-foreground flex w-full items-center justify-between text-xs font-semibold tracking-wider uppercase"
         >
           <span>Color Overrides</span>
           <span className="text-[10px]">{colorsExpanded ? "▼" : "▶"}</span>

@@ -6,8 +6,8 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { ToastProvider } from "@build/components/control-plane/toast";
-import type { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
+import { ToastProvider } from "@/components/control-plane/toast";
+import type { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { DeploymentsTab } from "./deployments-tab";
 
 type Detail = ReturnType<typeof useProjectDetail>;
@@ -122,7 +122,7 @@ function makeDetail(
     deactivate,
     reload: vi.fn(),
   } as unknown as ReturnType<
-    typeof import("@build/features/launch/hooks/use-project-detail").useProjectDetail
+    typeof import("@/features/deploy/hooks/use-project-detail").useProjectDetail
   >;
 }
 

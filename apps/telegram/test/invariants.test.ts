@@ -55,15 +55,14 @@ describe("app invariants", () => {
     expect(sources.length).toBeGreaterThan(8);
   });
 
-  it("imports only the Privy-free surface of widget-lib", () => {
-    // widget-lib pins Privy v2 while this app runs v3. Its UI primitives and
-    // design tokens are safe; anything under `providers/` or `lib/wallet-kit`
-    // would pull a second, incompatible Privy runtime into the bundle.
-    const imports = importsMatching(/^@aomi-labs\/widget-lib/);
+  it("imports only the SDK-free UI surface of the canonical widget", () => {
+    // This app owns its Privy v3 provider. Widget UI primitives are safe;
+    // provider islands or the deprecated bridge could add another wallet SDK.
+    const imports = importsMatching(/^@aomi-labs\/widget(?:-lib)?(?:\/|$)/);
     expect(imports.length).toBeGreaterThan(0);
     for (const { path, spec } of imports) {
       expect(
-        spec.startsWith("@aomi-labs/widget-lib/components/ui/"),
+        spec.startsWith("@aomi-labs/widget/components/ui/"),
         `${path} imports ${spec}`,
       ).toBe(true);
     }

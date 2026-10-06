@@ -1,5 +1,5 @@
 import type { ProjectDeploymentAttempt } from "@aomi-labs/deploy";
-import { buildFetch } from "@build/lib/session-expiry";
+import { buildFetch } from "@/lib/session-expiry";
 import { LaunchRequestError } from "@aomi-labs/deploy/launch";
 export type { ProjectDeploymentAttempt };
 

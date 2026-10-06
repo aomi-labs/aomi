@@ -3,7 +3,7 @@ import type {
   BuildSession,
   BuildStreamEvent,
   SmithersNode,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 
 /**
  * Rewrite eng/mock jargon that may still live in localStorage from older

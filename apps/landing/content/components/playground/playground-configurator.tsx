@@ -2,16 +2,13 @@
 
 import { useState, useMemo, useCallback, useEffect, type FC } from "react";
 import dynamic from "next/dynamic";
-import { CopyButton } from "./CopyButton";
+import { CopyButton } from "./copy-button";
 import { Segmented, ToggleChip } from "./controls";
-import {
-  ThemeCustomizer,
-  useThemeCustomizer,
-} from "./ThemeCustomizer";
+import { ThemeCustomizer, useThemeCustomizer } from "./theme-customizer";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const AomiFramePreview = dynamic(
-  () => import("./AomiFramePreview").then((mod) => mod.AomiFramePreview),
+  () => import("./aomi-frame-preview").then((mod) => mod.AomiFramePreview),
   { ssr: false },
 );
 
@@ -55,7 +52,11 @@ function generateCode(s: PlaygroundState): string {
     s.walletPosition === "hidden" ? "null" : `"${s.walletPosition}"`;
 
   const hasAnyControl =
-    s.showModel || s.showSafety || s.showApiKey || s.showWallet || s.showNetwork;
+    s.showModel ||
+    s.showSafety ||
+    s.showApiKey ||
+    s.showWallet ||
+    s.showNetwork;
 
   const controlBarEntries: string[] = [];
   if (!s.showNetwork) controlBarEntries.push("hideNetwork: true");
@@ -77,12 +78,13 @@ function generateCode(s: PlaygroundState): string {
     rootProps.push(`walletPosition={${walletProp}}`);
   }
 
-  const headerWithControl =
-    hasAnyControl && s.controlPlacement === "header";
+  const headerWithControl = hasAnyControl && s.controlPlacement === "header";
   const composerWithControl =
     hasAnyControl && s.controlPlacement === "composer";
 
-  const sidebarTriggerStr = !s.sidebarShown ? " showSidebarTrigger={false}" : "";
+  const sidebarTriggerStr = !s.sidebarShown
+    ? " showSidebarTrigger={false}"
+    : "";
 
   let headerLine: string;
   if (headerWithControl) {
@@ -140,7 +142,7 @@ const LayoutPanel: FC<{
   <div className="space-y-5">
     {/* ── Sidebar ── */}
     <fieldset className="space-y-3">
-      <legend className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
+      <legend className="text-fd-muted-foreground text-xs font-semibold tracking-wider uppercase">
         Sidebar
       </legend>
       <Checkbox
@@ -150,7 +152,7 @@ const LayoutPanel: FC<{
       />
       {state.sidebarShown && (
         <div className="space-y-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-fd-muted-foreground/70">
+          <span className="text-fd-muted-foreground/70 text-[10px] font-medium tracking-wider uppercase">
             Wallet Position
           </span>
           <Segmented
@@ -168,7 +170,7 @@ const LayoutPanel: FC<{
 
     {/* ── Control Panel ── */}
     <fieldset className="space-y-3">
-      <legend className="text-xs font-semibold uppercase tracking-wider text-fd-muted-foreground">
+      <legend className="text-fd-muted-foreground text-xs font-semibold tracking-wider uppercase">
         Control Panel
       </legend>
       <Segmented
@@ -214,7 +216,11 @@ const LayoutPanel: FC<{
 // Main Playground
 // =============================================================================
 
-export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean }) {
+export function PlaygroundConfigurator({
+  forceEmbed,
+}: {
+  forceEmbed?: boolean;
+}) {
   const [state, setState] = useState<PlaygroundState>(DEFAULT_STATE);
   const [configTab, setConfigTab] = useState<ConfigTab>("layout");
   const [codeTab, setCodeTab] = useState<CodeTab>("jsx");
@@ -228,19 +234,17 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
       setCodeExpanded(false);
       return;
     }
-    const detected = typeof window !== "undefined" && window.top !== window.self;
+    const detected =
+      typeof window !== "undefined" && window.top !== window.self;
     if (detected) {
       setIsEmbedded(true);
       setCodeExpanded(false);
     }
   }, [forceEmbed]);
 
-  const update = useCallback(
-    (patch: Partial<PlaygroundState>) => {
-      setState((prev) => ({ ...prev, ...patch }));
-    },
-    [],
-  );
+  const update = useCallback((patch: Partial<PlaygroundState>) => {
+    setState((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   const jsxCode = useMemo(() => generateCode(state), [state]);
 
@@ -277,11 +281,13 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
   return (
     <div className={isEmbedded ? "space-y-2" : "space-y-4"}>
       {/* Main split panel */}
-      <div className={`flex flex-col ${isEmbedded ? "gap-2" : "gap-4"} md:flex-row`}>
+      <div
+        className={`flex flex-col ${isEmbedded ? "gap-2" : "gap-4"} md:flex-row`}
+      >
         {/* Left: Live preview */}
         <div className="min-w-0 flex-1">
           <div
-            className={`overflow-hidden rounded-xl border border-fd-border ${
+            className={`border-fd-border overflow-hidden rounded-xl border ${
               theme.output.isDark ? "dark" : ""
             }`}
             style={theme.output.styleObject}
@@ -299,10 +305,13 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
         </div>
 
         {/* Right: Config sidebar with tabs */}
-        <div className="w-full shrink-0 md:w-72" style={{ maxHeight: embedHeight }}>
-          <div className="flex h-full max-h-[inherit] flex-col rounded-xl border border-fd-border bg-fd-card">
+        <div
+          className="w-full shrink-0 md:w-72"
+          style={{ maxHeight: embedHeight }}
+        >
+          <div className="border-fd-border bg-fd-card flex h-full max-h-[inherit] flex-col rounded-xl border">
             {/* Tab header */}
-            <div className="border-b border-fd-border px-4 py-3">
+            <div className="border-fd-border border-b px-4 py-3">
               <TabBar
                 tabs={[
                   { value: "layout", label: "Layout" },
@@ -332,8 +341,8 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
       </div>
 
       {/* Generated code panel with tabs (collapsible when embedded) */}
-      <div className="rounded-xl border border-fd-border">
-        <div className="flex items-center justify-between border-b border-fd-border px-4 py-2">
+      <div className="border-fd-border rounded-xl border">
+        <div className="border-fd-border flex items-center justify-between border-b px-4 py-2">
           <TabBar
             tabs={[
               { value: "jsx", label: "JSX" },
@@ -351,13 +360,17 @@ export function PlaygroundConfigurator({ forceEmbed }: { forceEmbed?: boolean })
                 className="text-fd-muted-foreground hover:text-fd-foreground transition-colors"
                 aria-label={codeExpanded ? "Collapse code" : "Expand code"}
               >
-                {codeExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                {codeExpanded ? (
+                  <ChevronUp className="size-4" />
+                ) : (
+                  <ChevronDown className="size-4" />
+                )}
               </button>
             )}
           </div>
         </div>
         {codeExpanded && (
-          <pre className="overflow-x-auto bg-fd-secondary/30 px-4 py-3 text-xs leading-relaxed text-fd-foreground">
+          <pre className="bg-fd-secondary/30 text-fd-foreground overflow-x-auto px-4 py-3 text-xs leading-relaxed">
             <code>{activeCode}</code>
           </pre>
         )}

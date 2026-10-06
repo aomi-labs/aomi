@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
-import { useToast } from "@build/components/control-plane/toast";
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
-import { BUILD_GLOSSARY } from "@build/lib/glossary";
-import { humanizeUserError } from "@build/lib/humanize-error";
+import { useToast } from "@/components/control-plane/toast";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
+import { BUILD_GLOSSARY } from "@/lib/glossary";
+import { humanizeUserError } from "@/lib/humanize-error";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 type Row = { key: string; value: string };

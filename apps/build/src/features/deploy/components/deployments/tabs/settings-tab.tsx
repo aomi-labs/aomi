@@ -1,6 +1,6 @@
 "use client";
 
-import { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
+import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 import { projectSdk } from "../sdk-compatibility";
 import { SdkBadge } from "../ui/sdk-badge";
 import { EmptyPanel } from "../ui/state-panels";

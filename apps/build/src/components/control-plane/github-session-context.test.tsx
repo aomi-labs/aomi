@@ -5,10 +5,10 @@ import {
   GitHubSessionProvider,
   useGitHubSession,
 } from "./github-session-context";
-import { BUILD_SESSION_EXPIRED } from "@build/lib/session-expiry";
+import { BUILD_SESSION_EXPIRED } from "@/lib/session-expiry";
 
 const session = vi.hoisted(() => vi.fn());
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession: session,
 }));
 function Work() {

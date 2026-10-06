@@ -23,19 +23,19 @@ import {
   deploymentDeactivate,
   deploymentUpgradeSdk,
   deploymentSdkUpgradeStatus,
-} from "@build/features/launch/client";
+} from "@/features/deploy/client";
 import {
   MissingRequiredSecretsError,
   missingRequiredSecrets,
   type RequiredSecretsByApp,
-} from "@build/features/launch/required-secrets";
+} from "@/features/deploy/required-secrets";
 import type {
   DeploymentPromoteResult,
   DeploymentRecord,
   DeploymentProjectsResult,
-} from "@build/features/launch/contracts";
+} from "@/features/deploy/contracts";
 import { isRetryableLaunchError } from "@aomi-labs/deploy/launch";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   buildQueryKeys,
   buildQueryStaleTime,

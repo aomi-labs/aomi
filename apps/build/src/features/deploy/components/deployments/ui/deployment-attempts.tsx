@@ -14,8 +14,8 @@ import {
   attemptJobLabel,
   attemptStages,
   type ProjectDeploymentAttempt,
-} from "@build/features/launch/attempts";
-import type { useProjectDetail } from "@build/features/launch/hooks/use-project-detail";
+} from "@/features/deploy/attempts";
+import type { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
 
 type Detail = ReturnType<typeof useProjectDetail>;
 const button =

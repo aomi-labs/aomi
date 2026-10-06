@@ -3,8 +3,8 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { GitHubAppInstallationsResult } from "@aomi-labs/deploy";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
-import { deploymentGitHubAppInstallations } from "@build/features/launch/client";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
+import { deploymentGitHubAppInstallations } from "@/features/deploy/client";
 import {
   buildQueryKeys,
   buildQueryStaleTime,

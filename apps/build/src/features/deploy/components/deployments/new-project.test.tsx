@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchGitHubSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession,
   GITHUB_SIGNIN_URL: "/api/github/signin",
 }));
 
-vi.mock("@build/features/launch/components/onboarding", () => ({
+vi.mock("@/features/deploy/components/onboarding", () => ({
   Onboarding: ({ platform }: { platform?: string }) => (
     <div>Template wizard for {platform}</div>
   ),
@@ -20,8 +20,8 @@ vi.mock("./repository-connector", () => ({
   ),
 }));
 
-import { newProjectMode } from "@build/features/launch/new-project-mode";
-import { saveLaunch } from "@build/features/launch";
+import { newProjectMode } from "@/features/deploy/new-project-mode";
+import { saveLaunch } from "@/features/deploy";
 import { NewProject } from "./new-project";
 
 const TEMPLATE_CARD = { name: /Start from the template/ };

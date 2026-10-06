@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const sessionScopedFetch = vi.hoisted(() => vi.fn());
 
-vi.mock("@build/lib/settings-api", () => ({ sessionScopedFetch }));
+vi.mock("@/lib/settings-api", () => ({ sessionScopedFetch }));
 
 import { githubAppInstallUrl } from "./client";
 

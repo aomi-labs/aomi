@@ -17,7 +17,7 @@ vi.mock("./use-deployment-attempts", () => ({
     start: attemptMocks.start,
   }),
 }));
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "alice",
@@ -25,7 +25,7 @@ vi.mock("@build/features/launch/dashboard", () => ({
   })),
 }));
 
-vi.mock("@build/features/launch/client", () => ({
+vi.mock("@/features/deploy/client", () => ({
   deploymentProjects: vi.fn(async () => ({
     projects: [
       {
@@ -89,7 +89,7 @@ vi.mock("@build/features/launch/client", () => ({
 }));
 
 import { LaunchRequestError } from "@aomi-labs/deploy/launch";
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import { useProjectDetail } from "./use-project-detail";
 import { projectDeploymentStatus } from "../components/deployments/project-deployment-status";
 import {
@@ -104,7 +104,7 @@ import {
   launchPreflight,
   launchActivate,
   launchStatus,
-} from "@build/features/launch/client";
+} from "@/features/deploy/client";
 
 // Fresh QueryClient per test so react-query cache never leaks across tests.
 function wrapper(

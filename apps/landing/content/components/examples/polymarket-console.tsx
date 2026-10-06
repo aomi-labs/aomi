@@ -1,7 +1,7 @@
 "use client";
 
-import { ApiDrawer, type EndpointDef } from "./ApiDrawer";
-import { PreambleDisplay } from "./PreambleDisplay";
+import { ApiDrawer, type EndpointDef } from "./api-drawer";
+import { PreambleDisplay } from "./preamble-display";
 
 const POLYMARKET_ENDPOINTS: EndpointDef[] = [
   // ── Gamma API (market data) ───────────────────────────────────────────

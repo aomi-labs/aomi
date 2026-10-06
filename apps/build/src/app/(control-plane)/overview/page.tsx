@@ -1,5 +1,5 @@
-import { OverviewDashboard } from "@build/features/overview/overview-dashboard";
-import { platformParam } from "@build/features/launch/platform";
+import { OverviewDashboard } from "@/features/overview/overview-dashboard";
+import { platformParam } from "@/features/deploy/platform";
 
 export default async function OverviewPage({
   searchParams,

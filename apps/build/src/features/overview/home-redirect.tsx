@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { LoadingPanel } from "@build/features/launch/components/deployments/ui/state-panels";
-import { platformHref, readPlatform } from "@build/features/launch/platform";
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
-import { getLastProjectId } from "@build/lib/last-project";
+import { LoadingPanel } from "@/features/deploy/components/deployments/ui/state-panels";
+import { platformHref, readPlatform } from "@/features/deploy/platform";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
+import { getLastProjectId } from "@/lib/last-project";
 
 /**
  * Default landing: last project if known, otherwise Projects.

@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { UserPill } from "@privy-io/react-auth/ui";
 import { AlertCircle, Check, ChevronDown, Loader2 } from "lucide-react";
-import { Button } from "@aomi-labs/widget-lib/components/ui/button";
+import { Button } from "@aomi-labs/widget/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@aomi-labs/widget-lib/components/ui/card";
+} from "@aomi-labs/widget/components/ui/card";
 
 import { useCanonicalAccount } from "@/hooks/use-canonical-account";
 import { useAuthorizationState } from "@/hooks/use-authorization-state";
@@ -36,6 +36,7 @@ import {
   useTelegramChrome,
   useTelegramMainButton,
 } from "@/lib/telegram-ui";
+import { shortAddress } from "@aomi-labs/client";
 
 type Stage = {
   key: string;
@@ -43,12 +44,6 @@ type Stage = {
   detail: string | null;
   state: StageState;
 };
-
-function shortAddress(address: string): string {
-  return address.length > 12
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : address;
-}
 
 function StageRow({ stage }: { stage: Stage }) {
   return (

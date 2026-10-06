@@ -34,7 +34,7 @@ export function writePlatform(platform: string | null) {
 }
 
 import { platformParam as rawPlatformParam } from "@aomi-labs/deploy/launch";
-import { DEFAULT_DEPLOY_PLATFORM } from "@build/lib/deploy-platform";
+import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 
 /**
  * The platform a page renders against. Build has no unscoped view — every

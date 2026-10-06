@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-vi.mock("@build/features/launch/client", () => ({
+vi.mock("@/features/deploy/client", () => ({
   deploymentProjects: vi.fn(async () => ({
     projects: [
       {
@@ -42,18 +42,18 @@ vi.mock("@build/features/launch/client", () => ({
   })),
 }));
 
-vi.mock("@build/features/launch/dashboard", () => ({
+vi.mock("@/features/deploy/dashboard", () => ({
   fetchGitHubSession: vi.fn(async () => ({
     signedIn: true,
     githubLogin: "ceciliaz030",
   })),
 }));
 
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import {
   deploymentFeed,
   deploymentProjects,
-} from "@build/features/launch/client";
+} from "@/features/deploy/client";
 import { useGlobalDeploymentRecords } from "./use-global-deployment-records";
 
 function wrapper(client = new QueryClient()) {

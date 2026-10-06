@@ -26,11 +26,17 @@ const walletKitState = vi.hoisted(() => ({
     accountStatus: "loading",
     accountUser: undefined,
   } as {
-    accountStatus: "loading" | "ready" | "error";
+    accountStatus?: "loading" | "ready" | "error";
+    isReady?: boolean;
     accountUser?: { id: string };
+    accountGuest?: boolean;
+    accountGuestUserId?: string;
   },
 }));
 const frameInstances = vi.hoisted(() => ({ next: 0 }));
+const frameScope = vi.hoisted(() => ({
+  context: undefined as import("react").Context<boolean> | undefined,
+}));
 const backendUrlState = vi.hoisted(() => ({
   current: "https://api.example.test",
 }));
@@ -49,6 +55,7 @@ const runtimeState = vi.hoisted(() => ({
   current: {
     currentThreadId: "initial",
     threadMetadata: new Map<string, unknown>(),
+    getThreadMetadata: undefined as undefined | ((threadId: string) => unknown),
     selectThread: vi.fn(),
     createThread: vi.fn(async () => "thread-new"),
     showNotification: vi.fn(),
@@ -66,11 +73,18 @@ const accountOverviewState = vi.hoisted(() => ({
 }));
 
 vi.mock("@aomi-labs/react", () => ({
-  useAomiRuntime: () => runtimeState.current,
+  useAomiRuntime: () => ({
+    ...runtimeState.current,
+    getThreadMetadata:
+      runtimeState.current.getThreadMetadata ??
+      ((id: string) => runtimeState.current.threadMetadata.get(id)),
+  }),
 }));
 
-vi.mock("@aomi-labs/widget-lib", async () => {
+vi.mock("@aomi-labs/widget/frame", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
+  const Scope = React.createContext(false);
+  frameScope.context = Scope;
   return {
     AomiFrame: {
       Root: ({
@@ -80,7 +94,7 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         children,
         showSidebar,
         persistThread,
-        threadPersistenceScope,
+        displayPersistence,
       }: {
         accountSessionAvailable: boolean;
         applicationId?: string | null;
@@ -88,24 +102,26 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         children?: React.ReactNode;
         showSidebar?: boolean;
         persistThread?: boolean;
-        threadPersistenceScope?: string | null;
+        displayPersistence?: string;
       }) => {
         const [instance] = React.useState(() => ++frameInstances.next);
         // Renders children: the real Root mounts the Aomi runtime around
         // them, so anything the portal shell nests here must stay nested.
         return (
-          <div
-            data-account-session-available={String(accountSessionAvailable)}
-            data-application-id={applicationId ?? ""}
-            data-agent-target={agentTarget ? JSON.stringify(agentTarget) : ""}
-            data-instance={instance}
-            data-show-sidebar={String(showSidebar)}
-            data-persist-thread={String(persistThread)}
-            data-thread-persistence-scope={threadPersistenceScope ?? ""}
-            data-testid="aomi-frame"
-          >
-            {children}
-          </div>
+          <Scope.Provider value={true}>
+            <div
+              data-account-session-available={String(accountSessionAvailable)}
+              data-application-id={applicationId ?? ""}
+              data-agent-target={agentTarget ? JSON.stringify(agentTarget) : ""}
+              data-instance={instance}
+              data-display-persistence={displayPersistence ?? ""}
+              data-show-sidebar={String(showSidebar)}
+              data-persist-thread={String(persistThread)}
+              data-testid="aomi-frame"
+            >
+              {children}
+            </div>
+          </Scope.Provider>
         );
       },
       Header: ({ children }: { children?: React.ReactNode }) => (
@@ -115,51 +131,82 @@ vi.mock("@aomi-labs/widget-lib", async () => {
         controlBarProps,
         sendDisabled,
       }: {
-        controlBarProps?: { routing?: unknown; initialAppTag?: unknown };
+        controlBarProps?: {
+          routing?: unknown;
+          initialAppTag?: unknown;
+          enabledAppIds?: readonly string[];
+        };
         sendDisabled?: boolean;
       }) => (
         <div
           data-send-disabled={String(Boolean(sendDisabled))}
           data-routing={JSON.stringify(controlBarProps?.routing)}
           data-app-tag={JSON.stringify(controlBarProps?.initialAppTag ?? null)}
+          data-enabled-apps={JSON.stringify(controlBarProps?.enabledAppIds)}
           data-testid="composer"
         />
       ),
     },
-    useAomiWalletKit: () => walletKitState.current,
   };
 });
 
-vi.mock("@portal/lib/portal-client-options", () => ({
+vi.mock("@/lib/portal-client-options", () => ({
   usePortalClientOptions: () => ({}),
   useRequestedAppConfig: () => requestedAppState.current,
 }));
 
-vi.mock("@aomi-labs/widget-lib/host-composition", () => ({
-  getBackendUrl: () => backendUrlState.current,
-  HeaderControls: ({ onOpenSettings }: { onOpenSettings: () => void }) => (
-    <button type="button" onClick={onOpenSettings}>
-      Open settings
-    </button>
-  ),
-  PackagesModal: () => <div data-testid="packages-modal" />,
-  SettingsModal: ({ initialTab }: { initialTab?: string }) => (
-    <div data-testid="settings-modal" data-tab={initialTab} />
-  ),
-  useAccountOverview: () => accountOverviewState.current,
-  usePortalWalletAccountMenu: () => undefined,
-  useSettingsOpenRequest: (open: (tab: string) => void) => {
-    settingsOpenRequest.current = open;
-  },
-}));
+vi.mock("@aomi-labs/widget/host-composition", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  return {
+    DEFAULT_SIDEBAR_PRODUCTS: [],
+    useAomiWalletKit: () => walletKitState.current,
+    getBackendUrl: () => backendUrlState.current,
+    SvmWalletBindingGate: () => null,
+    HeaderControls: ({ onOpenSettings }: { onOpenSettings: () => void }) => (
+      <button type="button" onClick={onOpenSettings}>
+        Open settings
+      </button>
+    ),
+    PackagesModal: () => <div data-testid="packages-modal" />,
+    SettingsModal: ({ initialTab }: { initialTab?: string }) => (
+      <div data-testid="settings-modal" data-tab={initialTab} />
+    ),
+    useAccountOverview: () => {
+      if (!React.useContext(frameScope.context!))
+        throw new Error(
+          "Portal account display reads require the frame runtime",
+        );
+      return accountOverviewState.current;
+    },
+    usePortalWalletAccountMenu: () => undefined,
+    // Mirrors the widget: a user, a confirmed guest, nobody, or not known yet.
+    useRuntimeAccount: () => {
+      const wallet = walletKitState.current;
+      if (wallet.isReady === false || wallet.accountStatus === "loading")
+        return undefined;
+      if (wallet.accountUser)
+        return { kind: "user", id: wallet.accountUser.id };
+      if (
+        wallet.accountStatus === "ready" &&
+        wallet.accountGuest &&
+        wallet.accountGuestUserId
+      )
+        return { kind: "guest", id: wallet.accountGuestUserId };
+      return null;
+    },
+    useSettingsOpenRequest: (open: (tab: string) => void) => {
+      settingsOpenRequest.current = open;
+    },
+  };
+});
 
 // Renders in place so the assertion below can check where the overlay is
 // mounted in the React tree; the real component portals it to <body>.
-vi.mock("@portal/components/shell/overlay-portal", () => ({
+vi.mock("@/components/shell/overlay-portal", () => ({
   OverlayPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("@portal/features/general/svm-wallet-binding-gate", () => ({
+vi.mock("@/features/general/svm-wallet-binding-gate", () => ({
   SvmWalletBindingGate: () => null,
 }));
 
@@ -180,15 +227,71 @@ describe("PortalAomiFrame account bootstrap", () => {
     };
     accountOverviewState.current = null;
     settingsOpenRequest.current = undefined;
+    window.history.replaceState({}, "", "/");
+    runtimeState.current.currentThreadId = "initial";
+    runtimeState.current.threadMetadata = new Map();
+    runtimeState.current.getThreadMetadata = undefined;
+    runtimeState.current.threadListLoading = false;
   });
 
-  it("keeps the same frame mounted, holding send, through initial account restoration", async () => {
+  it("reads installed apps from the frame's account display cache", () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    accountOverviewState.current = {
+      user: { user_id: "acct-a", apps: ["default", "uniswap"] },
+    };
+    render(<PortalAomiFrame />);
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-enabled-apps",
+      '["default","uniswap"]',
+    );
+  });
+
+  it("waits for a booting wallet kit with no account status before validating a saved URL", async () => {
+    window.history.replaceState({}, "", "/?thread=saved");
+    walletKitState.current = { isReady: false };
+    runtimeState.current.currentThreadId = "ephemeral";
+    runtimeState.current.threadMetadata = new Map();
+    runtimeState.current.threadListLoading = false;
+    const view = render(<PortalAomiFrame />);
+    const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=saved");
+    expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
+
+    walletKitState.current = {
+      isReady: true,
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    runtimeState.current.threadListLoading = true;
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=saved");
+
+    runtimeState.current.threadMetadata = new Map([
+      ["saved", { title: "Saved", status: "regular" }],
+    ]);
+    runtimeState.current.threadListLoading = false;
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(runtimeState.current.selectThread).toHaveBeenCalledWith("saved");
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=saved");
+    expect(screen.getByTestId("aomi-frame").dataset.instance).toBe(
+      initialInstance,
+    );
+  });
+
+  it("keeps the same frame and Send available through initial account restoration", async () => {
     const view = render(<PortalAomiFrame />);
 
     const initialInstance = screen.getByTestId("aomi-frame").dataset.instance;
     expect(screen.getByTestId("composer")).toHaveAttribute(
       "data-send-disabled",
-      "true",
+      "false",
     );
     expect(document.querySelector('main[aria-busy="true"]')).not.toBeNull();
 
@@ -207,6 +310,35 @@ describe("PortalAomiFrame account bootstrap", () => {
     expect(document.querySelector('main[aria-busy="true"]')).toBeNull();
     expect(screen.getByTestId("aomi-frame").dataset.instance).toBe(
       initialInstance,
+    );
+  });
+
+  it("holds Send for a linked target until account and thread restoration settle", async () => {
+    window.history.replaceState({}, "", "/?thread=saved");
+    runtimeState.current.threadListLoading = true;
+    const view = render(<PortalAomiFrame />);
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "true",
+    );
+    runtimeState.current.currentThreadId = "saved";
+    runtimeState.current.threadMetadata = new Map([
+      ["saved", { title: "Saved", status: "regular" }],
+    ]);
+    runtimeState.current.threadListLoading = false;
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "false",
     );
   });
 
@@ -250,147 +382,69 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
-  it("shows the real Chat frame while guest identity is still resolving", async () => {
+  it("keeps the Chat shell mounted while the shared account read restores a guest", async () => {
     backendUrlState.current = "/";
-    walletKitState.current = {
-      accountStatus: "ready",
-      accountUser: undefined,
-    };
-    let resolveSession!: (response: Response) => void;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveSession = resolve;
-          }),
-      ),
-    );
-
-    render(<PortalAomiFrame />);
-
-    expect(screen.getByTestId("portal-shell")).toBeVisible();
+    walletKitState.current = { accountStatus: "loading" };
+    const fetchSession = vi.fn();
+    vi.stubGlobal("fetch", fetchSession);
+    const view = render(<PortalAomiFrame />);
+    const frame = screen.getByTestId("aomi-frame");
     expect(screen.getByTestId("composer")).toHaveAttribute(
       "data-send-disabled",
-      "true",
+      "false",
     );
     expect(screen.getByTestId("portal-shell")).toHaveAttribute(
       "aria-busy",
       "true",
+    );
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountGuest: true,
+      accountGuestUserId: "guest-1",
+    };
+    await act(async () => view.rerender(<PortalAomiFrame />));
+    expect(screen.getByTestId("aomi-frame")).toBe(frame);
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "false",
+    );
+    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    expect(frame).toHaveAttribute("data-account-session-available", "true");
+    expect(frame).toHaveAttribute("data-persist-thread", "false");
+    expect(frame).toHaveAttribute("data-display-persistence", "account");
+    expect(fetchSession).not.toHaveBeenCalled();
+  });
+
+  it("unblocks the Chat frame after a failed account read without trusting guest metadata", () => {
+    walletKitState.current = {
+      accountStatus: "error",
+      accountGuest: true,
+      accountGuestUserId: "old-guest",
+    };
+    render(<PortalAomiFrame />);
+    expect(screen.getByTestId("composer")).toHaveAttribute(
+      "data-send-disabled",
+      "false",
     );
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-account-session-available",
       "false",
     );
+  });
 
-    resolveSession(
-      Response.json({ user: { id: "guest-1", isAnonymous: true } }),
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("composer")).toHaveAttribute(
-        "data-send-disabled",
-        "false",
-      ),
-    );
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
-      "aria-busy",
-      "false",
-    );
+  it("does not unlock guest history for metadata without a confirmed guest session", () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountGuest: false,
+      accountGuestUserId: "other-user",
+    };
+    render(<PortalAomiFrame />);
     expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-account-session-available",
-      "true",
-    );
-  });
-
-  it("unblocks the real Chat frame when guest lookup times out", async () => {
-    vi.useFakeTimers();
-    backendUrlState.current = "/";
-    walletKitState.current = {
-      accountStatus: "ready",
-      accountUser: undefined,
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise<Response>(() => {})),
-    );
-
-    render(<PortalAomiFrame />);
-    expect(screen.getByTestId("composer")).toHaveAttribute(
-      "data-send-disabled",
-      "true",
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(8_000);
-    });
-
-    expect(screen.getByTestId("composer")).toHaveAttribute(
-      "data-send-disabled",
       "false",
-    );
-    expect(screen.getByTestId("portal-shell")).toHaveAttribute(
-      "aria-busy",
-      "false",
-    );
-  });
-
-  it("loads guest-owned threads only after Better Auth confirms this browser's anonymous session", async () => {
-    backendUrlState.current = "/";
-    walletKitState.current = {
-      accountStatus: "ready",
-      accountUser: undefined,
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          user: { id: "guest-1", isAnonymous: true },
-        }),
-      ),
-    );
-    render(<PortalAomiFrame />);
-
-    await waitFor(() =>
-      expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
-        "data-account-session-available",
-        "true",
-      ),
-    );
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/auth/get-session",
-      expect.objectContaining({
-        credentials: "same-origin",
-        cache: "no-store",
-        signal: expect.any(AbortSignal),
-      }),
-    );
-    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
-      "data-persist-thread",
-      "false",
-    );
-  });
-
-  it("does not unlock a guest thread list for a non-anonymous session", async () => {
-    backendUrlState.current = "/";
-    walletKitState.current = {
-      accountStatus: "ready",
-      accountUser: undefined,
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          user: { id: "other-user", isAnonymous: false },
-        }),
-      ),
-    );
-    render(<PortalAomiFrame />);
-
-    await waitFor(() =>
-      expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
-        "data-account-session-available",
-        "false",
-      ),
     );
   });
 
@@ -454,7 +508,7 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
-  it("starts fresh when sign-in establishes an account", async () => {
+  it("preserves the shell while sign-in establishes an account scope", async () => {
     walletKitState.current = {
       accountStatus: "error",
       accountUser: undefined,
@@ -472,7 +526,7 @@ describe("PortalAomiFrame account bootstrap", () => {
       view.rerender(<PortalAomiFrame />);
     });
 
-    expect(screen.getByTestId("aomi-frame")).not.toHaveAttribute(
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-instance",
       initialInstance,
     );
@@ -484,13 +538,9 @@ describe("PortalAomiFrame account bootstrap", () => {
       "data-persist-thread",
       "false",
     );
-    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
-      "data-thread-persistence-scope",
-      "",
-    );
   });
 
-  it("remounts when an authenticated account changes or signs out", async () => {
+  it("preserves the shell while authenticated account scopes change or sign out", async () => {
     walletKitState.current = {
       accountStatus: "ready",
       accountUser: { id: "acct-a" },
@@ -510,7 +560,11 @@ describe("PortalAomiFrame account bootstrap", () => {
     const accountBInstance = screen
       .getByTestId("aomi-frame")
       .getAttribute("data-instance");
-    expect(accountBInstance).not.toBe(accountAInstance);
+    expect(accountBInstance).toBe(accountAInstance);
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-persist-thread",
+      "false",
+    );
 
     walletKitState.current = {
       accountStatus: "ready",
@@ -519,9 +573,13 @@ describe("PortalAomiFrame account bootstrap", () => {
     await act(async () => {
       view.rerender(<PortalAomiFrame />);
     });
-    expect(screen.getByTestId("aomi-frame")).not.toHaveAttribute(
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
       "data-instance",
       accountBInstance,
+    );
+    expect(screen.getByTestId("aomi-frame")).toHaveAttribute(
+      "data-persist-thread",
+      "false",
     );
   });
 
@@ -638,6 +696,7 @@ describe("ThreadUrlBootstrap", () => {
     runtimeState.current = {
       currentThreadId: "initial",
       threadMetadata: new Map<string, unknown>(),
+      getThreadMetadata: undefined,
       selectThread: vi.fn(),
       createThread: vi.fn(async () => "thread-new"),
       showNotification: vi.fn(),
@@ -667,6 +726,36 @@ describe("ThreadUrlBootstrap", () => {
     expect(runtimeState.current.selectThread).toHaveBeenCalledWith(
       "mcp-linked",
     );
+  });
+
+  it("validates a linked thread against published metadata before the rendered map catches up", () => {
+    window.history.replaceState({}, "", "/?thread=published");
+    runtimeState.current.threadMetadata = new Map();
+    runtimeState.current.getThreadMetadata = () => ({
+      title: "Published",
+      status: "regular",
+    });
+    render(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.selectThread).toHaveBeenCalledWith("published");
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=published");
+  });
+
+  it("rejects an actually archived linked thread even when a rendered map still lists it", () => {
+    window.history.replaceState({}, "", "/?thread=archived");
+    runtimeState.current.threadMetadata = new Map([
+      ["archived", { title: "Old", status: "regular" }],
+    ]);
+    runtimeState.current.getThreadMetadata = () => ({
+      title: "Old",
+      status: "archived",
+    });
+    render(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.showNotification).toHaveBeenCalledOnce();
+    expect(runtimeState.current.createThread).toHaveBeenCalledOnce();
+    expect(window.location.search).toBe("");
   });
 
   it("clears the saved URL on real New chat and restores messages through browser back and forward", async () => {

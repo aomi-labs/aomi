@@ -5,8 +5,8 @@ import { Check, Circle, Loader2 } from "lucide-react";
 import {
   STREAM_STAGE_LABELS,
   type BuildStreamEvent,
-} from "@build/features/build/contracts";
-import { cn } from "@build/lib/utils";
+} from "@/features/build/contracts";
+import { cn } from "@/lib/class-names";
 
 type BuildStreamTimelineProps = {
   events: BuildStreamEvent[];

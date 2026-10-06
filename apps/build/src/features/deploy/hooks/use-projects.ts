@@ -3,13 +3,13 @@
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { UserProject } from "@aomi-labs/deploy";
-import { useGitHubSession } from "@build/components/control-plane/github-session-context";
+import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
   deploymentProjects,
   deploymentSdkStatus,
-} from "@build/features/launch/client";
-import type { LaunchSdkStatus } from "@build/features/launch/contracts";
-import type { GitHubSessionInfo } from "@build/features/launch/dashboard";
+} from "@/features/deploy/client";
+import type { LaunchSdkStatus } from "@/features/deploy/contracts";
+import type { GitHubSessionInfo } from "@/features/deploy/dashboard";
 import {
   buildQueryKeys,
   buildQueryStaleTime,

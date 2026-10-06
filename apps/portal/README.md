@@ -61,12 +61,9 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
 
 ## Local E2E
 
-The repository includes both protocol and rendered browser coverage:
+Browser journeys live in `tests/e2e/` and run through Playwright against the
+local stack.
 
-- `scripts/agent-cutover-e2e.mts` exercises the ordered Agent Event/Action
-  protocol against a local backend.
-- `tests/e2e/local-agent-cutover.spec.ts` exercises Portal → BFF → Agent API →
-  wallet capability → Action response → terminal lifecycle with Playwright.
 - Use `scripts/dev.sh` from the paired backend checkout to launch the exact
   frontend/backend worktrees together.
 

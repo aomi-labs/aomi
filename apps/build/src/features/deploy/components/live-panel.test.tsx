@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { LivePanel } from "./live-panel";
 
-vi.mock("@aomi-labs/widget-lib", () => ({}));
+vi.mock("@aomi-labs/widget/host-composition", () => ({}));
 
 const TEMPLATE_URL = "https://github.com/aomi-labs/playground-example";
 
