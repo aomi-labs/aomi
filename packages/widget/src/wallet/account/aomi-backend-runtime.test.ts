@@ -186,7 +186,7 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(result.current.guestUserId).toBeUndefined();
   });
 
-  it("replaces a guest session before signing in with an existing EVM wallet", async () => {
+  it("keeps the guest session when signing in with an existing EVM wallet", async () => {
     const address = "0x1111111111111111111111111111111111111111" as const;
     mockState
       .accountClient!.getAccount.mockResolvedValueOnce({
@@ -257,14 +257,11 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(result.current.user?.id).toBe("existing-wallet-owner"),
     );
-    expect(mockState.accountClient?.signOut).toHaveBeenCalledTimes(1);
+    // The server merges the guest's chats in, so the guest cookie must reach
+    // the sign-in.
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
     expect(mockState.accountClient?.createSiweNonce).toHaveBeenCalledTimes(1);
     expect(mockState.accountClient?.getWalletLinkNonce).not.toHaveBeenCalled();
-    expect(
-      mockState.accountClient!.signOut.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      mockState.accountClient!.createSiweNonce.mock.invocationCallOrder[0]!,
-    );
   });
   it("ignores an old account response after the provider subject changes", async () => {
     let resolveOld!: (value: {
@@ -409,7 +406,7 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(signMessageAsync).not.toHaveBeenCalled();
   });
 
-  it("revokes a guest before provider sign-in and creates a new session", async () => {
+  it("keeps the guest session through provider sign-in", async () => {
     const credential: AomiAccountCredential = {
       provider: "privy",
       tokenKind: "access_token",
@@ -476,13 +473,7 @@ describe("useAomiBackendAccountRuntime", () => {
         mockState.accountClient?.exchangeProviderCredential,
       ).toHaveBeenCalledWith(credential, { hasAccount: false }),
     );
-    expect(mockState.accountClient?.signOut).toHaveBeenCalledTimes(1);
-    expect(
-      mockState.accountClient!.signOut.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      mockState.accountClient!.exchangeProviderCredential.mock
-        .invocationCallOrder[0]!,
-    );
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
     await waitFor(() => expect(result.current.user?.id).toBe("real-user"));
   });
 

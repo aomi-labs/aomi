@@ -32,7 +32,8 @@ export type ActiveSvmSigner = {
 
 /**
  * Sign in with, or link, the wallet the user picked. A signed-out user (or a
- * guest) signs in with it; a signed-in user links it to the account.
+ * guest) signs in with it; a signed-in user links it to the account. A guest
+ * keeps its session for the sign-in so the server merges the guest's chats in.
  * Returns the account when the backend sends it back with the link.
  */
 export async function linkAccountWallet(
@@ -51,9 +52,6 @@ export async function linkAccountWallet(
 ): Promise<AomiBackendAccountResponse | undefined> {
   const { accountClient, account, evm, svm, messageConfig } = input;
   const signedIn = Boolean(account?.user) && !account?.guest;
-  const replaceGuestSession = account?.guest
-    ? () => accountClient.signOut()
-    : undefined;
   if (input.walletSessionSignIn && !signedIn) {
     const activeAddress =
       wallet.family === "svm" ? svm.address : input.activeEvmAddress;
@@ -90,7 +88,6 @@ export async function linkAccountWallet(
         address: wallet.address,
         chainId: svm.cluster,
         label,
-        replaceGuestSession,
         messageConfig,
         signMessage: sign,
       });
@@ -134,7 +131,6 @@ export async function linkAccountWallet(
       accountClient,
       address: wallet.address as `0x${string}`,
       chainId,
-      replaceGuestSession,
       signMessage,
       messageConfig,
     });
@@ -193,12 +189,8 @@ async function signInWithEvmWallet(input: {
   chainId: number;
   signMessage: (message: string) => Promise<`0x${string}`>;
   messageConfig: AuthMessageConfig;
-  replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
   await withBrowserSessionTransition(async () => {
-    // A wallet may already own a durable account, so replace the disposable
-    // guest before issuing a sign-in challenge instead of linking the two.
-    await input.replaceGuestSession?.();
     const nonceResult = await input.accountClient.createSiweNonce();
     const message = buildSiweMessage({
       address: input.address,
@@ -234,10 +226,8 @@ async function signInWithSvmWallet(input: {
   label?: string;
   signMessage: (message: string) => Promise<string>;
   messageConfig: AuthMessageConfig;
-  replaceGuestSession?: () => Promise<void>;
 }): Promise<void> {
   await withBrowserSessionTransition(async () => {
-    await input.replaceGuestSession?.();
     const nonceResult = await input.accountClient.createSiwsNonce({
       walletAddress: input.address,
       chainId: input.chainId,

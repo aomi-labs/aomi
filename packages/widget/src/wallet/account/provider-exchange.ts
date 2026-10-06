@@ -101,10 +101,10 @@ export function useProviderCredentialExchange(input: {
       try {
         setError(undefined);
         setConflict(undefined);
-        // Signing in replaces a guest or another provider user's session; it
-        // is not a link onto it. The live Para/Privy session stays.
-        if (account?.guest || replacesStaleBrowserSession)
-          await accountClient.signOut();
+        // Signing in replaces another provider user's session; it is not a
+        // link onto it. A guest session stays so the server merges the guest's
+        // chats into the account. The live Para/Privy session stays.
+        if (replacesStaleBrowserSession) await accountClient.signOut();
         const result = await accountClient.exchangeProviderCredential(
           credential,
           { hasAccount },
