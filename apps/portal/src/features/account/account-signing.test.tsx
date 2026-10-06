@@ -82,6 +82,53 @@ describe("policy confirmation", () => {
       expect(commit).toHaveBeenCalledExactlyOnceWith(current, to, challenge);
     },
   );
+  it("offers to create a Para agent wallet for a chain that has only the login wallet", async () => {
+    const paraLogin: WalletPolicy = {
+      id: "para-svm-login",
+      address: "BdMAnLogin1111111111111111111111111111111111",
+      chain: "svm",
+      linkedVia: "para",
+      provider: "para",
+      desiredMode: "manual",
+      authVersion: 1,
+    };
+    const onCreateAgentWallet = vi.fn(async () => {});
+    const first = render(view(paraLogin, undefined, { onCreateAgentWallet }));
+    const button = screen.getByRole("button", { name: "Create agent wallet" });
+    expect(screen.getByText("Enable automatic signing on Solana")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    expect(onCreateAgentWallet).toHaveBeenCalledWith("svm");
+    first.unmount();
+
+    // Once the agent wallet exists the offer disappears.
+    const agent: WalletPolicy = {
+      ...paraLogin,
+      id: "para-svm-agent",
+      address: "3TWBeAgent111111111111111111111111111111111",
+      providerManaged: true,
+      desiredMode: "denied",
+    };
+    render(
+      <AccountSigningView
+        wallets={[paraLogin, agent]}
+        delegatedAccounts={[]}
+        onCommit={vi.fn()}
+        onPrepare={vi.fn(async () => challenge)}
+        onRevokeDelegation={vi.fn()}
+        onStopAllAuto={vi.fn()}
+        canConnectPrivy={false}
+        onConnectPrivy={vi.fn()}
+        onRenewDelegation={vi.fn()}
+        onCreateAgentWallet={onCreateAgentWallet}
+      />,
+    );
+    expect(
+      screen.queryAllByRole("button", { name: "Create agent wallet" }),
+    ).toHaveLength(0);
+  });
+
   it("moves automatic signing out of the normal policy choices", async () => {
     const commit = vi.fn(async () => {});
     render(view(wallet, commit));
