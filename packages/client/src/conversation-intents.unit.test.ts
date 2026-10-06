@@ -6,7 +6,7 @@ import {
   type Event,
   type EventPage,
   type SendOptions,
-} from "../src";
+} from "./";
 
 const sessionId = "conversation-intent-session";
 const originalText = "Explain the first request";

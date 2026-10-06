@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { AomiClient } from "../src/client";
-import { AomiPipeline } from "../src/sdk/pipeline";
-import { Aomi } from "../src/sdk/aomi";
-import type { Action, ActionRequest } from "../src/agent/types";
-import type { CommitView } from "../src/commits";
-import type { EvmCommitResult } from "../src/pipeline/types";
+import { AomiClient } from "../client";
+import { AomiPipeline } from "./pipeline";
+import { Aomi } from "./aomi";
+import type { Action, ActionRequest } from "../agent/types";
+import type { CommitView } from "../commits";
+import type { EvmCommitResult } from "../pipeline/types";
 
 const request: ActionRequest = {
   type: "execute_evm",

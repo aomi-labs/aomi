@@ -1,4 +1,4 @@
-import { AomiClient } from "../../client";
+import { AomiClient } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
 import {
@@ -16,7 +16,7 @@ import {
 import { createCliAuthTokenProvider } from "../auth";
 import { estimateTokenCount, printKeyValueTable } from "../tables";
 import type { CliConfig } from "../types";
-import { isTerminalCommit } from "../../commits";
+import { isTerminalCommit } from "@aomi-labs/client";
 
 type RemoteSessionStats = {
   topic: string;

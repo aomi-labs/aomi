@@ -1,5 +1,5 @@
 import { DeployCliError } from "../errors";
-import { readDeploymentState, writeDeploymentState } from "../../lib/deployment-state";
+import { readDeploymentState, writeDeploymentState } from "../deployment-state";
 
 type ActivateArgs = Record<string, unknown>;
 

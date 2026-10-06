@@ -1,10 +1,10 @@
-import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "../../chains";
+import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { createControlClient } from "../context";
 import { printDataFileLocation, printJson } from "../output";
 import type { CliConfig } from "../types";
 import { fatal } from "../errors";
-import { isTerminalCommit } from "../../commits";
+import { isTerminalCommit } from "@aomi-labs/client";
 
 export async function statusCommand(config: CliConfig): Promise<void> {
   const cli = CliSession.load();

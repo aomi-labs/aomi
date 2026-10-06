@@ -1,4 +1,6 @@
 import { defineCommand } from "citty";
+import { guardDef } from "./commands/defs/guard";
+import { byokDef } from "./commands/defs/byok";
 import { chatDef } from "./commands/defs/chat";
 import { txDef } from "./commands/defs/tx";
 import { sessionDef } from "./commands/defs/session";
@@ -12,7 +14,7 @@ import { secretDef } from "./commands/defs/secret";
 import { deployDef } from "./commands/defs/deploy";
 import { pipelineDef } from "./commands/defs/pipeline";
 import { buildCliConfig, globalArgs } from "./commands/defs/shared";
-import packageJson from "../../package.json";
+import packageJson from "../package.json";
 
 /**
  * Every token that resolves to a root subcommand. Kept in one place because
@@ -33,6 +35,8 @@ export const SUBCOMMAND_NAMES = new Set([
   "secret",
   "deploy",
   "pipeline",
+  "guard",
+  "byok",
 ]);
 
 export function hasRootSubcommand(rawArgs: string[]): boolean {
@@ -99,5 +103,7 @@ export const root = defineCommand({
     secret: secretDef,
     deploy: deployDef,
     pipeline: pipelineDef,
+    guard: guardDef,
+    byok: byokDef,
   },
 });

@@ -302,6 +302,22 @@ const accountCreditsDef = defineCommand({
   },
 });
 
+const accountStatementDef = defineCommand({
+  meta: { name: "statement", description: "Show the account usage statement" },
+  args: {
+    ...globalArgs,
+    limit: { type: "string", description: "Page size" },
+    cursor: { type: "string", description: "Page cursor" },
+  },
+  async run({ args }) {
+    const { accountStatementCommand } = await import("../account");
+    await accountStatementCommand(buildCliConfig(args), {
+      limit: args.limit,
+      cursor: args.cursor,
+    });
+  },
+});
+
 export const accountDef = defineCommand({
   meta: { name: "account", description: "Account authentication" },
   subCommands: {
@@ -317,5 +333,6 @@ export const accountDef = defineCommand({
     sessions: accountSessionsDef,
     switch: accountSwitchDef,
     credits: accountCreditsDef,
+    statement: accountStatementDef,
   },
 });

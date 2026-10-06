@@ -1,4 +1,5 @@
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
+import { AomiApiError, apiErrorFields, isRetryableStatus } from "../api-error";
 import { validatePipelineArguments } from "./schema";
 import type {
   EvmCommitResult,
@@ -7,7 +8,6 @@ import type {
   EvmStagedBuild,
   PipelineCommitOptions,
   PipelineDirectory,
-  PipelineErrorBody,
   PipelineExecutionScope,
   PipelineFilesystemResource,
   PipelineInvokeOptions,
@@ -26,18 +26,8 @@ type RequestResponse = (
   options?: AomiRequestOptions,
 ) => Promise<Response>;
 
-export class PipelineApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    readonly retryable: boolean,
-    readonly requestId?: string,
-    readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "PipelineApiError";
-  }
+export class PipelineApiError extends AomiApiError {
+  override name = "PipelineApiError";
 }
 
 export class EvmPipelineTransport {
@@ -317,22 +307,14 @@ async function parsePipelineResponse<T>(response: Response): Promise<T> {
 }
 
 async function pipelineError(response: Response): Promise<PipelineApiError> {
-  const body = (await response
-    .json()
-    .catch(() => null)) as PipelineErrorBody | null;
-  const error = asRecord(body?.error);
+  const error = apiErrorFields(await response.json().catch(() => null));
   return new PipelineApiError(
     response.status,
-    stringValue(error?.code) ?? "pipeline_request_failed",
-    stringValue(error?.message) ??
-      `Pipeline request failed with HTTP ${response.status}`,
-    response.status === 408 ||
-      response.status === 429 ||
-      response.status >= 500,
-    stringValue(error?.requestId) ??
-      response.headers.get("x-request-id") ??
-      undefined,
-    error?.details,
+    error.code ?? "pipeline_request_failed",
+    error.message ?? `Pipeline request failed with HTTP ${response.status}`,
+    isRetryableStatus(response.status),
+    error.requestId ?? response.headers.get("x-request-id") ?? undefined,
+    error.details,
   );
 }
 
@@ -403,14 +385,4 @@ function mutationHeaders(options: {
 
 function randomIdempotencyKey(): string {
   return `idem_${globalThis.crypto.randomUUID().replaceAll("-", "")}`;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }

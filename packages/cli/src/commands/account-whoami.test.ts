@@ -29,8 +29,8 @@ describe("aomi account whoami", () => {
   });
 
   it("prints the bound account identity when authenticated", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { whoamiCommand } = await import("../../src/cli/commands/account");
+    const { CliSession } = await import("../cli-session");
+    const { whoamiCommand } = await import("./account");
 
     CliSession.loadOrCreate({ ...baseConfig, accountBearer: "bearer-1" });
 
@@ -96,8 +96,8 @@ describe("aomi account whoami", () => {
   });
 
   it("reports an anonymous session and hints at the credential flags", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { whoamiCommand } = await import("../../src/cli/commands/account");
+    const { CliSession } = await import("../cli-session");
+    const { whoamiCommand } = await import("./account");
 
     CliSession.loadOrCreate(baseConfig);
 

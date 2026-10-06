@@ -1,3 +1,6 @@
+import { AomiApiError } from "./api-error";
+import type { SimulationError } from "./types";
+
 /** Read current execution evidence. Old thread history can use its own legacy
  * renderer; no legacy fields are added to the public simulation contract. */
 export function summarizeSimulation(value: unknown):
@@ -36,14 +39,21 @@ export function summarizeSimulation(value: unknown):
     chainIds,
   };
 }
-import type { SimulationError } from "./types";
 
-export class SimulationApiError extends Error {
+export class SimulationApiError extends AomiApiError {
+  override name = "SimulationApiError";
+
   constructor(
-    readonly status: number,
+    status: number,
     readonly detail?: SimulationError,
   ) {
-    super(detail?.message ?? `Simulation request failed (HTTP ${status})`);
-    this.name = "SimulationApiError";
+    super(
+      status,
+      detail?.code ?? "simulation_request_failed",
+      detail?.message ?? `Simulation request failed (HTTP ${status})`,
+      undefined,
+      undefined,
+      detail,
+    );
   }
 }

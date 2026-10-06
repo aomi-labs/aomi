@@ -10,6 +10,11 @@ export const chatDef = defineCommand({
       alias: "v",
       description: "Stream agent responses, tool calls, and events live",
     },
+    edit: { type: "string", description: "Edit a durable user message key" },
+    rerun: {
+      type: "string",
+      description: "Rerun from a durable assistant message key",
+    },
     message: {
       type: "positional",
       description: "Message to send",
@@ -18,6 +23,11 @@ export const chatDef = defineCommand({
   },
   async run({ args }) {
     const { chatCommand } = await import("../chat");
-    await chatCommand(buildCliConfig(args), args.message ?? "", args.verbose === true);
+    await chatCommand(
+      buildCliConfig(args),
+      args.message ?? "",
+      args.verbose === true,
+      { edit: args.edit, regenerate: args.rerun },
+    );
   },
 });

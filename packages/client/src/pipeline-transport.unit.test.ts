@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AomiClient, PipelineApiError, type EvmStagedBuild } from "../src";
+import { AomiClient, PipelineApiError, type EvmStagedBuild } from "./";
 
 describe("PipelineTransport", () => {
   it("uses the canonical filesystem discovery routes", async () => {

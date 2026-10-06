@@ -281,7 +281,7 @@ For a signed-in EVM process, the public `createSiweAccountAuthAdapter` and
 `createAccountSessionProvider` provide a required account session to `Aomi`.
 The adapter signs the Portal's textual SIWE challenge; the wallet separately
 signs reviewed Commit or Action payloads. The runnable
-[`wallet-terminal`](../../apps/examples/headless-client/src/wallet-terminal.ts)
+[`wallet-terminal`](../../examples/headless/src/wallet-terminal.ts)
 shows both paths with `AOMI_WALLET_AUTH=siwe` and keeps its session token in
 memory.
 
@@ -487,7 +487,7 @@ against an expectation for that one call after verifying the review. A
 simulation of `"unavailable"` is rejected unless you pass
 `new ExpectedCalls(calls, { allowUnavailableSimulation: true })`; `"failed"`
 is always rejected. The runnable
-[`custom-contract/anchor-root`](../../apps/examples/headless-client/src/custom-contract/anchor-root.ts)
+[`custom-contract/anchor-root`](../../examples/headless/src/custom-contract/anchor-root.ts)
 example shows this loop end to end.
 
 ### Session (high-level)
@@ -864,8 +864,8 @@ See the official [network reference](https://docs.arc.io/arc/references/connect-
 and [contract addresses](https://docs.arc.io/arc/references/contract-addresses).
 These commands describe this candidate CLI. Version 0.7.6 does not acquire the
 fix by changing signing mode; install a release containing these changes or
-build this checkout and use `node packages/client/dist/cli.js` in place of
-`aomi`.
+build this checkout's `packages/cli` and use `node packages/cli/dist/bin.js` in
+place of `aomi`.
 
 #### Historical Action export
 

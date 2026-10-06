@@ -1,8 +1,9 @@
 import type { CliConfig } from "../types";
 import { CliSession } from "../cli-session";
-import { createCliClient } from "../client-factory";
+import { AomiClient } from "@aomi-labs/client";
+import { createCliAuthTokenProvider } from "../auth";
 import { fatal } from "../errors";
-import { printDataFileLocation } from "../output";
+import { printDataFileLocation, printJson } from "../output";
 
 const SUPPORTED_PROVIDERS = new Set(["openai", "anthropic", "openrouter"]);
 
@@ -26,11 +27,12 @@ function parseByokKeyArg(input: string): { provider: string; byokKey: string } {
 
 async function createByokKeyClient(
   config: CliConfig,
-): Promise<{ cli: CliSession; client: ReturnType<typeof createCliClient> }> {
+): Promise<{ cli: CliSession; client: AomiClient }> {
   const cli = CliSession.loadOrCreate(config);
-  const client = createCliClient(config, {
+  const client = new AomiClient({
     baseUrl: cli.baseUrl,
     apiKey: cli.apiKey,
+    getAccountBearer: createCliAuthTokenProvider(() => cli.toState()),
   });
 
   return { cli, client };
@@ -45,6 +47,11 @@ export async function saveByokKeyCommand(
   const { cli, client } = await createByokKeyClient(config);
   const saved = await client.saveByokKey(cli.sessionId, provider, byokKey);
 
+  if (config.json) {
+    printJson(saved);
+    return;
+  }
+
   console.log(`BYOK key set for ${saved.provider}: ${saved.key_prefix}...`);
   if (options?.printLocation !== false) {
     printDataFileLocation();
@@ -57,6 +64,11 @@ export async function showByokKeysCommand(
 ): Promise<void> {
   const { cli, client } = await createByokKeyClient(config);
   const byokKeys = await client.listByokKeys(cli.sessionId);
+
+  if (config.json) {
+    printJson(byokKeys);
+    return;
+  }
 
   if (byokKeys.length === 0) {
     console.log("No BYOK keys set. Using system keys.");
@@ -77,6 +89,14 @@ export async function clearByokKeysCommand(
 ): Promise<void> {
   const { cli, client } = await createByokKeyClient(config);
   const byokKeys = await client.listByokKeys(cli.sessionId);
+
+  if (config.json) {
+    for (const key of byokKeys) {
+      await client.deleteByokKey(cli.sessionId, key.provider);
+    }
+    printJson({ deleted: byokKeys.map((key) => key.provider) });
+    return;
+  }
 
   if (byokKeys.length === 0) {
     console.log("No BYOK keys set. Using system keys.");

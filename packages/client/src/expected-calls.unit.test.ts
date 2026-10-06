@@ -7,7 +7,7 @@ import {
   type Action,
   type ActionRequest,
   type SignableCommit,
-} from "../src";
+} from "./";
 
 const anchorAbi = parseAbi([
   "function registerRoot(bytes32 root)",

@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   TransactionSafetyTransport,
   transactionSafetyPolicy,
-} from "../src/transaction-safety";
-import { reviewEligibility } from "../src/commit-lifecycle";
-import type { ActionRequest } from "../src/agent/types";
-import type { TransactionSafetyProjection } from "../src/transaction-safety";
+} from "./transaction-safety";
+import { reviewEligibility } from "./commit-lifecycle";
+import type { ActionRequest } from "./agent/types";
+import type { TransactionSafetyProjection } from "./transaction-safety";
 const safety: TransactionSafetyProjection = {
   assessment: {
     version: 1,

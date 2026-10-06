@@ -43,7 +43,7 @@ describe("aomi account credits", () => {
     process.env = { ...ORIGINAL_ENV };
     stateDir = mkdtempSync(join(tmpdir(), "aomi-cli-account-credits-"));
     process.env.AOMI_STATE_DIR = stateDir;
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const cli = CliSession.loadOrCreate({
       ...baseConfig,
       privateKey: PRIVATE_KEY,
@@ -65,7 +65,7 @@ describe("aomi account credits", () => {
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsShowCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
 
     await accountCreditsShowCommand(baseConfig, { limit: "10" });
 
@@ -94,7 +94,7 @@ describe("aomi account credits", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsShowCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
 
     await accountCreditsShowCommand(
       { ...baseConfig, accountBearer: "account-bearer" },
@@ -121,7 +121,7 @@ describe("aomi account credits", () => {
     vi.stubGlobal("fetch", fetchMock);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsTopUpCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
 
     await accountCreditsTopUpCommand(
       { ...baseConfig, privateKey: PRIVATE_KEY },
@@ -137,7 +137,7 @@ describe("aomi account credits", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { accountCreditsTopUpCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(
       accountCreditsTopUpCommand(baseConfig, "100"),
@@ -162,7 +162,7 @@ describe("aomi account credits", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "log").mockImplementation(() => {});
     const { accountCreditsTopUpCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     const config = { ...baseConfig, privateKey: PRIVATE_KEY };
     await expect(
       accountCreditsTopUpCommand(config, "100", {

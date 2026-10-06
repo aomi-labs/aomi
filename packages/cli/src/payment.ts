@@ -1,8 +1,6 @@
-import { x402Client } from "@x402/core/client";
-import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
 
-import { wrapFetchWithPaymentChallenges } from "../payment";
+import { createEvmPaymentClient, wrapFetchWithPaymentChallenges } from "@aomi-labs/client";
 import type { CliConfig } from "./types";
 import { fatal } from "./errors";
 
@@ -178,8 +176,15 @@ export function createCliPaymentFetch(
   }
 
   const account = privateKeyToAccount(config.privateKey as `0x${string}`);
-  const paymentClient = new x402Client();
-  paymentClient.register("eip155:*", new ExactEvmScheme(account as never));
+  const paymentClient = createEvmPaymentClient({
+    address: account.address,
+    chainId: config.chain,
+    // A local key has no provider network to switch; the challenge supplies it.
+    switchChain: async () => {},
+    signTypedData: async ({ typedData }) =>
+      account.signTypedData(typedData as Parameters<typeof account.signTypedData>[0]),
+  });
+  if (!paymentClient) fatal("Cannot configure the EVM payment signer.");
 
   return wrapFetchWithPaymentChallenges(
     createTracedFetch(fetchImpl, onPayment),

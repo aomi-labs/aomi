@@ -3,7 +3,7 @@ import {
   appIdentityKey,
   isOfficialAppDescriptor,
   normalizeAppDescriptor,
-} from "../src/app-descriptor";
+} from "./app-descriptor";
 
 describe("Library app descriptor contract", () => {
   it("normalizes explicit features and trusted registration metadata", () => {

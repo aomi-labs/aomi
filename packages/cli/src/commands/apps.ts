@@ -1,5 +1,5 @@
-import type { AomiAppDescriptor, AomiUserAppSecrets } from "../../types";
-import type { AomiClient } from "../../client";
+import type { AomiAppDescriptor, AomiUserAppSecrets } from "@aomi-labs/client";
+import type { AomiClient } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { createControlClient } from "../context";
 import { fatal } from "../errors";

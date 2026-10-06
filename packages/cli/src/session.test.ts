@@ -29,9 +29,8 @@ describe("CLI session lifecycle", () => {
   });
 
   it("creates a fresh active session instead of reusing the current one", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { listStoredSessions, readState } =
-      await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { listStoredSessions, readState } = await import("./state");
 
     const config = {
       baseUrl: "https://api.aomi.dev",
@@ -64,7 +63,7 @@ describe("CLI session lifecycle", () => {
   });
 
   it("defaults fresh sessions to Auto and persists explicit Direct routing", async () => {
-    const { AgentTransport } = await import("../../src/agent/transport");
+    const { AgentTransport } = await import("@aomi-labs/client");
     const start = vi
       .spyOn(AgentTransport.prototype, "start")
       .mockImplementation(async (intent) => ({
@@ -73,8 +72,8 @@ describe("CLI session lifecycle", () => {
         events: [],
         has_more: false,
       }));
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { readState } = await import("./state");
 
     const auto = CliSession.create({
       baseUrl: "https://api.aomi.dev",
@@ -131,10 +130,9 @@ describe("CLI session lifecycle", () => {
 
   it("supports newSessionCommand as an explicit fresh-session command", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { newSessionCommand } =
-      await import("../../src/cli/commands/sessions");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { newSessionCommand } = await import("./commands/sessions");
+    const { readState } = await import("./state");
 
     const config = {
       baseUrl: "https://api.aomi.dev",
@@ -175,20 +173,20 @@ describe("CLI session lifecycle", () => {
 
   it("imports an account-owned remote session when resume has no local match", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { AgentSessionsTransport } =
-      await import("../../src/agent/transport");
-    const getSession = vi
-      .spyOn(AgentSessionsTransport.prototype, "get")
-      .mockResolvedValue({
-        id: "mcp-remote-thread",
-        title: null,
-        updatedAt: 1,
-        archived: false,
-      });
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { resumeSessionCommand } =
-      await import("../../src/cli/commands/sessions");
-    const { readState } = await import("../../src/cli/state");
+    const { AgentTransport } = await import("@aomi-labs/client");
+    // The sessions transport is internal; reach its prototype through a probe.
+    const sessionsPrototype = Object.getPrototypeOf(
+      new AgentTransport(async () => new Response()).sessions,
+    );
+    const getSession = vi.spyOn(sessionsPrototype, "get").mockResolvedValue({
+      id: "mcp-remote-thread",
+      title: null,
+      updatedAt: 1,
+      archived: false,
+    });
+    const { CliSession } = await import("./cli-session");
+    const { resumeSessionCommand } = await import("./commands/sessions");
+    const { readState } = await import("./state");
 
     const current = CliSession.create({
       baseUrl: "https://chat.aomi.dev",
@@ -212,7 +210,7 @@ describe("CLI session lifecycle", () => {
 
   it("interrupts the active session through the shared Agent transport", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const { AgentTransport } = await import("../../src/agent/transport");
+    const { AgentTransport } = await import("@aomi-labs/client");
     vi.spyOn(AgentTransport.prototype, "poll").mockResolvedValue({
       session_id: "cli-interrupt-session",
       cursor: "cursor-1",
@@ -245,8 +243,8 @@ describe("CLI session lifecycle", () => {
         ],
         has_more: false,
       });
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { interruptCommand } = await import("../../src/cli/commands/control");
+    const { CliSession } = await import("./cli-session");
+    const { interruptCommand } = await import("./commands/control");
 
     CliSession.create(
       {
@@ -267,7 +265,7 @@ describe("CLI session lifecycle", () => {
   });
 
   it("uses an explicit scoped bearer for Agent public API requests", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const cli = CliSession.create({
       baseUrl: "https://api.aomi.dev",
       accountBearer: "scoped-agent-bearer",
@@ -313,7 +311,7 @@ describe("CLI session lifecycle", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -348,8 +346,8 @@ describe("CLI session lifecycle", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { readState } = await import("./state");
     const first = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -393,7 +391,7 @@ describe("CLI session lifecycle", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -414,7 +412,7 @@ describe("CLI session lifecycle", () => {
       }),
     ).resolves.toEqual({ ok: true });
     session.close();
-    const { createControlClient } = await import("../../src/cli/context");
+    const { createControlClient } = await import("./context");
     await expect(
       createControlClient({
         baseUrl: "https://chat-staging.aomi.dev",
@@ -435,7 +433,7 @@ describe("CLI session lifecycle", () => {
     vi.stubGlobal("location", undefined);
     const fetchMock = vi.fn(async () => Response.json({ sessions: [] }));
     vi.stubGlobal("fetch", fetchMock);
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       accountBearer: "unrelated-oauth-token",
@@ -464,8 +462,8 @@ describe("CLI session lifecycle", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { createControlClient } = await import("../../src/cli/context");
+    const { CliSession } = await import("./cli-session");
+    const { createControlClient } = await import("./context");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -500,9 +498,8 @@ describe("CLI session lifecycle", () => {
         return new Response(null, { status: 404 });
       }),
     );
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { listStoredSessions, readState } =
-      await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { listStoredSessions, readState } = await import("./state");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -541,9 +538,9 @@ describe("CLI session lifecycle", () => {
   });
 
   it("upgrades a legacy mixed guest/account state without transferring the guest thread", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const { listStoredSessions, readState, writeState } =
-      await import("../../src/cli/state");
+      await import("./state");
     const cli = CliSession.create({
       baseUrl: "https://chat-staging.aomi.dev",
       secrets: {},
@@ -578,8 +575,8 @@ describe("CLI session lifecycle", () => {
 
   it("persists explicit wallet, chain, and backend settings on the active session", async () => {
     const { setWalletCommand, setChainCommand, setBackendCommand } =
-      await import("../../src/cli/commands/preferences");
-    const { readState } = await import("../../src/cli/state");
+      await import("./commands/preferences");
+    const { readState } = await import("./state");
 
     setWalletCommand(
       "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -599,9 +596,9 @@ describe("CLI session lifecycle", () => {
   });
 
   it("writes state directories and session files with private permissions", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
     const { STATE_ROOT_DIR, SESSIONS_DIR, getActiveStateFilePath } =
-      await import("../../src/cli/state");
+      await import("./state");
 
     CliSession.loadOrCreate({
       baseUrl: "https://api.aomi.dev",
@@ -623,7 +620,7 @@ describe("CLI session lifecycle", () => {
   });
 
   it("preserves saved wallet, chain, and backend settings across fresh sessions", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("./cli-session");
 
     const initial = CliSession.loadOrCreate({
       baseUrl: "http://127.0.0.1:18765",
@@ -656,8 +653,8 @@ describe("CLI session lifecycle", () => {
   });
 
   it("does not persist private keys supplied as one-shot config", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { readState } = await import("./state");
 
     CliSession.loadOrCreate({
       baseUrl: "https://api.aomi.dev",
@@ -678,8 +675,8 @@ describe("CLI session lifecycle", () => {
   });
 
   it("persists a cluster when one-shot config adds an SVM address to an existing session", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { readState } = await import("./state");
     const keypair = Keypair.fromSeed(Uint8Array.from(Array(32).fill(1)));
     const config = {
       baseUrl: "https://api.aomi.dev",
@@ -704,8 +701,8 @@ describe("CLI session lifecycle", () => {
   });
 
   it("stamps solana:mainnet onto legacy state files with an SVM wallet but no cluster", async () => {
-    const { SESSIONS_DIR, readState } = await import("../../src/cli/state");
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { SESSIONS_DIR, readState } = await import("./state");
+    const { CliSession } = await import("./cli-session");
 
     mkdirSync(SESSIONS_DIR, { recursive: true });
     writeFileSync(
@@ -726,8 +723,8 @@ describe("CLI session lifecycle", () => {
   });
 
   it("persists the account bearer on the active session", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { readState } = await import("./state");
 
     CliSession.loadOrCreate({
       baseUrl: "https://api.aomi.dev",

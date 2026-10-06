@@ -5,7 +5,7 @@ import {
   oauth,
   type AomiOAuthGrant,
   type AomiOAuthGrantStore,
-} from "../src";
+} from "./";
 
 const baseUrl = "https://chat.aomi.dev";
 const issuer = `${baseUrl}/api/auth`;

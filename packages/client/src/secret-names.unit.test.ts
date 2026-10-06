@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { secretNamesFrom } from "../src/client";
+import { secretNamesFrom } from "./client";
 
 /**
  * This client ships ahead of the backend, and a browser tab can be cached

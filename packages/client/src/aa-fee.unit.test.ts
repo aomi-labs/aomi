@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { WalletTxPayload } from "../../src/wallet-utils";
-import type { AomiSimulateFee } from "../../src/types";
+import type { WalletTxPayload } from "./wallet-utils";
+import type { AomiSimulateFee } from "./types";
 import {
   appendFeeCallToPayload,
   buildFeeAAWalletCall,
   normalizeSimulatedFee,
-} from "../../src/aa";
+} from "./aa";
 
 function makeFee(amountWei: string): AomiSimulateFee {
   return {

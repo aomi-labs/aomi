@@ -1,7 +1,4 @@
-import { describe, expect, it } from "vitest";
-
-import backendOpenApiFixture from "./fixtures/backend-openapi.json";
-import managerOpenApiFixture from "./fixtures/manager-openapi.json";
+import { expect } from "vitest";
 import { AOMI_BACKEND_ENDPOINTS } from "./routes";
 import type { AomiAuthClass, AomiHttpMethod } from "./routes";
 
@@ -9,7 +6,7 @@ type OpenApiOperation = {
   "x-aomi-auth"?: unknown;
 };
 
-type OpenApiDocument = {
+export type OpenApiDocument = {
   paths?: Record<
     string,
     Partial<Record<Lowercase<AomiHttpMethod>, OpenApiOperation>>
@@ -18,41 +15,7 @@ type OpenApiDocument = {
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
-describe("backend OpenAPI route contract", () => {
-  it("keeps the client route manifest aligned with the checked-in backend OpenAPI fixture", () => {
-    expectRouteContract(backendOpenApiFixture as OpenApiDocument);
-  });
-
-  it("retains every separately generated manager operation in the merged contract", () => {
-    const managerRoutes = routeContractFromOpenApi(
-      managerOpenApiFixture as OpenApiDocument,
-    );
-    const mergedRoutes = new Set(
-      routeContractFromOpenApi(backendOpenApiFixture as OpenApiDocument),
-    );
-
-    // This is deliberately an explicit review point: silently dropping the
-    // manager exporter from the generator must not shrink rollback safety.
-    expect(managerRoutes).toHaveLength(74);
-    expect(managerRoutes.every((route) => mergedRoutes.has(route))).toBe(true);
-  });
-
-  it.runIf(process.env.AOMI_BACKEND_OPENAPI_URL)(
-    "keeps the client route manifest aligned with a live backend OpenAPI document",
-    async () => {
-      const response = await fetch(process.env.AOMI_BACKEND_OPENAPI_URL!);
-
-      expect(response.ok).toBe(true);
-      expect(response.headers.get("content-type") ?? "").toContain(
-        "application/json",
-      );
-      const openApi = (await response.json()) as OpenApiDocument;
-      expectLiveRouteContract(openApi);
-    },
-  );
-});
-
-function expectRouteContract(openApi: OpenApiDocument) {
+export function expectRouteContract(openApi: OpenApiDocument) {
   const backendRoutes = routeContractFromOpenApi(openApi);
   const clientRoutes = routeContractFromClientManifest();
 
@@ -70,7 +33,7 @@ function expectRouteContract(openApi: OpenApiDocument) {
   );
 }
 
-function expectLiveRouteContract(openApi: OpenApiDocument) {
+export function expectLiveRouteContract(openApi: OpenApiDocument) {
   const backendRoutes = routeContractFromOpenApi(openApi);
   const clientRoutes = routeContractFromClientManifest();
   const clientRouteSet = new Set(clientRoutes);
@@ -99,7 +62,7 @@ function routeContractFromClientManifest() {
   ).sort();
 }
 
-function routeContractFromOpenApi(openApi: OpenApiDocument) {
+export function routeContractFromOpenApi(openApi: OpenApiDocument) {
   const routes: string[] = [];
 
   for (const [path, pathItem] of Object.entries(openApi.paths ?? {})) {

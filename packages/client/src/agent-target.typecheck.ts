@@ -1,4 +1,4 @@
-import type { AgentRunOptions, AgentTarget, SessionOptions } from "../src";
+import type { AgentRunOptions, AgentTarget, SessionOptions } from "./";
 
 const auto: AgentTarget = { mode: "auto" };
 const implicitAuto: AgentTarget = {};

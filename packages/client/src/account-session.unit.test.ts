@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AccountCredentialUnavailableError,
   createAccountBearerProvider,
-} from "../src/index";
-import type { AccountSessionExchangeResponse } from "../src/index";
+} from "./index";
+import type { AccountSessionExchangeResponse } from "./index";
 
 // =============================================================================
 // Helpers

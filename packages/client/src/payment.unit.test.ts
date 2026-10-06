@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createEvmPaymentClient,
   wrapFetchWithPaymentChallenges,
-} from "../src/payment";
-import { wrapFetchWithPublicApiAuthorization } from "../src/client";
-import type { AomiOAuthTokenRequest } from "../src/authorization";
+} from "./payment";
+import { wrapFetchWithPublicApiAuthorization } from "./client";
+import type { AomiOAuthTokenRequest } from "./authorization";
 
 const PAID_URL = "https://unit.test/paid";
 

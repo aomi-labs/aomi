@@ -22,9 +22,10 @@ import {
 import { fatal } from "../errors";
 import type { CliConfig } from "../types";
 import { parseSolanaKeypairSecret } from "../solana-signer";
-import type { ClientSession } from "../../session";
-import type { Event, MessageEvent } from "../../agent/types";
-import { isTerminalCommit } from "../../commits";
+import type { SendOptions } from "@aomi-labs/client";
+import type { Session as ClientSession } from "@aomi-labs/client";
+import type { Event, MessageEvent } from "@aomi-labs/client";
+import { isTerminalCommit } from "@aomi-labs/client";
 
 const STOPPED_TURN_STATES = new Set([
   "awaiting_action",
@@ -86,8 +87,9 @@ export async function chatCommand(
   config: CliConfig,
   message: string,
   verbose: boolean,
+  branch: SendOptions = {},
 ): Promise<void> {
-  if (!message) {
+  if (!message && !branch.regenerate) {
     fatal("Usage: aomi chat <message>");
   }
 
@@ -173,7 +175,8 @@ export async function chatCommand(
       thinkingPrinted = true;
       console.log(`${DIM}⏳ Thinking…${RESET}`);
     }
-    await session.sendAsync(message);
+    if (branch.edit && branch.regenerate) fatal("Choose --edit or --rerun.");
+    await session.sendAsync(message, branch);
     const boundary = printBoundaryForTurn(
       session.getSnapshot().events,
       session.getSnapshot().messages,

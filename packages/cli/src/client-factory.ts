@@ -1,5 +1,5 @@
-import { AomiClient } from "../client";
-import type { GetAccountBearer } from "../types";
+import { AomiClient } from "@aomi-labs/client";
+import type { GetAccountBearer } from "@aomi-labs/client";
 import type { CliConfig } from "./types";
 
 export const DEFAULT_CLI_BASE_URL = "https://chat.aomi.dev";

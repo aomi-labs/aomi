@@ -6,7 +6,7 @@ import {
   CHAINS_BY_ID,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_IDS,
-} from "../src/index";
+} from "./index";
 
 describe("supported chain metadata", () => {
   it("keeps CLI chain IDs, names, and viem chain configs in sync", () => {

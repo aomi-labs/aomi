@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toEip5792SendCallsParams } from "../../src/cli/eip5792";
+import { toEip5792SendCallsParams } from "./eip5792";
 
 const FROM = "0x1111111111111111111111111111111111111111";
 const FIRST_TO = "0x2222222222222222222222222222222222222222";

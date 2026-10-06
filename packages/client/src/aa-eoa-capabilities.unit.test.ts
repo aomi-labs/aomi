@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { mainnet } from "viem/chains";
 
-import { executeWalletCalls } from "../../src/aa";
+import { executeWalletCalls } from "./aa";
 
 const CALL_LIST = [
   {

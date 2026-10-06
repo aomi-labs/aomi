@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { AomiClient, Session, UserState } from "../src";
+import { AomiClient, Session, UserState } from "..";
 import type {
   AomiAccountProfile,
   AomiChainKind,
   AomiSigningPolicy,
-} from "../src";
-import { buildCliUserState } from "../src/cli/user-state";
-import { buildCliConfig } from "../src/cli/commands/defs/shared";
+} from "..";
+import { buildCliUserState } from "../../../cli/src/user-state";
+import { buildCliConfig } from "../../../cli/src/commands/defs/shared";
 
 function profile(
   chain: AomiChainKind,

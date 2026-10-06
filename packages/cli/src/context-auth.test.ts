@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/cli/cli-session", () => ({
+vi.mock("./cli-session", () => ({
   CliSession: { load: () => null },
 }));
 
-import { createControlClient } from "../../src/cli/context";
+import { createControlClient } from "./context";
 
 describe("CLI explicit API bearer", () => {
   afterEach(() => vi.unstubAllGlobals());

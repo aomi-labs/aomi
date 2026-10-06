@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCliUserState,
   walletSnapshotFromUserState,
-} from "../../src/cli/user-state";
+} from "./user-state";
 
 describe("buildCliUserState", () => {
   it("builds an EVM-only block from an explicit address", () => {

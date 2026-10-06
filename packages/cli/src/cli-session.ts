@@ -8,8 +8,8 @@
 // Multi-session management (list, activate, delete) stays as free functions
 // in state.ts because they operate across all sessions, not on one instance.
 
-import { ClientSession } from "../session";
-import type { AgentTarget } from "../agent/types";
+import { Session as ClientSession } from "@aomi-labs/client";
+import type { AgentTarget } from "@aomi-labs/client";
 import type { CliAgentMode, CliConfig } from "./types";
 import {
   readState,
@@ -23,16 +23,16 @@ import { parseSolanaKeypairSecret } from "./solana-signer";
 import { createCliAuthTokenProvider } from "./auth";
 import { DEFAULT_CLI_BASE_URL } from "./client-factory";
 import { createCliPaymentFetch, type CliPaymentListener } from "./payment";
-import type { AomiOAuthTokenProvider } from "../authorization";
+import type { AomiOAuthTokenProvider } from "@aomi-labs/client";
 import { signInWithOAuthDevice } from "./oauth-device-auth";
-import { wrapFetchWithPublicApiAuthorization } from "../client";
+import { wrapFetchWithPublicApiAuthorization } from "@aomi-labs/client";
 import {
   createGuestSessionProvider,
   type GuestSessionProvider,
-} from "../guest-auth";
+} from "@aomi-labs/client";
 import { cliWallets } from "./action-capabilities";
-import { walletCapabilities } from "../wallet/capabilities";
-import { commitCapabilities } from "../commits";
+import { walletCapabilities } from "@aomi-labs/client";
+import { commitCapabilities } from "@aomi-labs/client";
 
 export class CliSession {
   private state: CliSessionState;

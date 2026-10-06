@@ -1,5 +1,5 @@
 import { DeployCliError } from "../errors";
-import { readDeploymentState } from "../../lib/deployment-state";
+import { readDeploymentState } from "../deployment-state";
 
 type StatusArgs = Record<string, unknown>;
 

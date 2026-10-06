@@ -13,7 +13,7 @@ import {
   type Hex,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import type { CommitView } from "../../src/commits";
+import type { CommitView } from "@aomi-labs/client";
 
 const chainId = 5042002;
 const recipient = "0x1111111111111111111111111111111111111111";
@@ -114,9 +114,20 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
               { headers: { "set-auth-token": "fresh-siwe-session" } },
             );
           }
-          // Agent, account and Commit requests must use the same SIWE identity.
+          if (url.pathname === "/v1/account/session/cli") {
+            expect(new Headers(init?.headers).get("authorization")).toBe(
+              "Bearer fresh-siwe-session",
+            );
+            return Response.json({
+              sessionToken: "fresh-cli-session",
+              expiresAt: "2099-01-01T00:00:00.000Z",
+            });
+          }
+          // Agent, account and Commit requests must use the same verified CLI identity.
           expect(new Headers(init?.headers).get("authorization")).toBe(
-            "Bearer fresh-siwe-session",
+            url.pathname === "/v1/account"
+              ? "Bearer fresh-siwe-session"
+              : "Bearer fresh-cli-session",
           );
           if (url.pathname === "/v1/account") {
             return Response.json({
@@ -257,12 +268,10 @@ describe("Victor's fresh SIWE Arc Commit flow", () => {
       }
       vi.stubGlobal("fetch", fetchMock);
       const log = vi.spyOn(console, "log").mockImplementation(() => {});
-      const { accountLoginCommand } =
-        await import("../../src/cli/commands/account");
-      const { chatCommand } = await import("../../src/cli/commands/chat");
-      const { txCommand, signCommand } =
-        await import("../../src/cli/commands/wallet");
-      const { CliSession } = await import("../../src/cli/cli-session");
+      const { accountLoginCommand } = await import("./account");
+      const { chatCommand } = await import("./chat");
+      const { txCommand, signCommand } = await import("./wallet");
+      const { CliSession } = await import("../cli-session");
 
       await accountLoginCommand({ ...config, privateKey }, { wallet: true });
       await chatCommand(

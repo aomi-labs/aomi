@@ -10,11 +10,11 @@ import type {
   SvmSimulatedBuild,
   SvmStageInput,
   SvmStagedBuild,
-} from "../../pipeline/types";
+} from "@aomi-labs/client";
 import {
   AomiPipeline,
   type AomiPipelineOperationScope,
-} from "../../sdk/pipeline";
+} from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { createControlClient } from "../context";
 import { printJson, printPaymentEvent } from "../output";

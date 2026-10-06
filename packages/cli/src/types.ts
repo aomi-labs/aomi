@@ -1,4 +1,4 @@
-import type { AomiInferenceFundingSource } from "../agent/types";
+import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 
 export type CliExecutionMode = "aa" | "eoa";
 export type CliAgentMode = "auto" | "direct";

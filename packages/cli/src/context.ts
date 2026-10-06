@@ -1,7 +1,7 @@
-import { AomiClient, wrapFetchWithPublicApiAuthorization } from "../client";
-import type { AomiOAuthTokenProvider } from "../authorization";
-import type { AomiIngestSecretsResponse } from "../types";
-import type { ClientSession } from "../session";
+import { AomiClient, wrapFetchWithPublicApiAuthorization } from "@aomi-labs/client";
+import type { AomiOAuthTokenProvider } from "@aomi-labs/client";
+import type { AomiIngestSecretsResponse } from "@aomi-labs/client";
+import type { Session as ClientSession } from "@aomi-labs/client";
 import type { CliConfig } from "./types";
 import { CliSession } from "./cli-session";
 import { createCliAuthTokenProvider } from "./auth";

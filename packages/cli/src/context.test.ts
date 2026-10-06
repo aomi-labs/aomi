@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createControlClient } from "../../src/cli/context";
+import { createControlClient } from "./context";
 
 describe("CLI control client", () => {
   afterEach(() => {

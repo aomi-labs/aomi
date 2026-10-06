@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Eip5792SendCallsParams } from "../../src/cli/eip5792";
+import type { Eip5792SendCallsParams } from "./eip5792";
 import {
   formatWalletExport,
   parseWalletExportFormat,
-} from "../../src/cli/wallet-export";
+} from "./wallet-export";
 
 const params: Eip5792SendCallsParams = {
   version: "2.0.0",

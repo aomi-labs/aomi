@@ -3,8 +3,8 @@ import {
   AomiOAuthError,
   createAomiOAuthGrantManager,
   type AomiOAuthGrant,
-} from "../src/authorization";
-import { createAomiDeviceGrantManager } from "../src/oauth";
+} from "./authorization";
+import { createAomiDeviceGrantManager } from "./oauth";
 
 const issuer = "https://portal.example/api/auth";
 const clientId = "managed-client";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Aomi, AgentRun } from "../src";
-import type { Action, CommitView, EventPage } from "../src";
+import { Aomi, AgentRun } from "./";
+import type { Action, CommitView, EventPage } from "./";
 
 const occurredAt = Date.parse("2026-08-25T00:00:00Z");
 

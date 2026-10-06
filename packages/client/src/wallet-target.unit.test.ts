@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeEvmWalletTarget } from "../src";
+import { normalizeEvmWalletTarget } from "./";
 
 describe("wallet target boundary", () => {
   it("preserves valid target spelling and normalizes the same mixed-case bytes", () => {

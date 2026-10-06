@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AomiClient, Session } from "../src";
+import { AomiClient, Session } from "./";
 
 const processing = {
   type: "turn_state_changed",

@@ -1,8 +1,8 @@
 import { runCommand, runMain } from "citty";
 import { root, SUBCOMMAND_NAMES } from "./root";
-import { AgentApiError } from "../agent/transport";
+import { AgentApiError } from "@aomi-labs/client";
 import { APP_ACCESS_CLI_HINTS, CliExit, DeployCliError } from "./errors";
-import packageJson from "../../package.json";
+import packageJson from "../package.json";
 
 const ROOT_SUBCOMMANDS = SUBCOMMAND_NAMES;
 
@@ -96,7 +96,13 @@ function printRootHelp(): void {
   console.log("");
   console.log("  chat                         Explicit one-shot chat command");
   console.log("  tx                           Transaction management");
-  console.log("  session                      Session management");
+  console.log(
+    "  session                      Remote threads and local session management",
+  );
+  console.log(
+    "  guard                        Read or set transaction guard policy",
+  );
+  console.log("  byok                         Manage provider API keys");
   console.log("  model                        Model management");
   console.log("  app                          App management");
   console.log("  chain                        Chain information");

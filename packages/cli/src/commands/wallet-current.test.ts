@@ -36,7 +36,7 @@ describe("wallet current / wallet set contracts", () => {
   async function writeSessionState(
     state: Record<string, unknown>,
   ): Promise<void> {
-    const { SESSIONS_DIR } = await import("../../src/cli/state");
+    const { SESSIONS_DIR } = await import("../state");
     mkdirSync(SESSIONS_DIR, { recursive: true });
     writeFileSync(
       join(SESSIONS_DIR, "session-1.json"),
@@ -53,7 +53,7 @@ describe("wallet current / wallet set contracts", () => {
 
   it("emits {active:false, wallets:[]} with no session", async () => {
     const { currentWalletCommand } = await import(
-      "../../src/cli/commands/control"
+      "./control"
     );
     currentWalletCommand({ json: true, secrets: {} });
     expect(lastJson()).toEqual({ active: false, wallets: [] });
@@ -62,7 +62,7 @@ describe("wallet current / wallet set contracts", () => {
   it("emits an empty wallet list for a session with no wallets", async () => {
     await writeSessionState({ baseUrl: "https://api.aomi.dev" });
     const { currentWalletCommand } = await import(
-      "../../src/cli/commands/control"
+      "./control"
     );
     currentWalletCommand({ json: true, secrets: {} });
     expect(lastJson()).toEqual({ active: true, wallets: [] });
@@ -76,7 +76,7 @@ describe("wallet current / wallet set contracts", () => {
       chainId: 1,
     });
     const { currentWalletCommand } = await import(
-      "../../src/cli/commands/control"
+      "./control"
     );
     currentWalletCommand({ json: true, secrets: {} });
     expect(lastJson()).toEqual({
@@ -100,7 +100,7 @@ describe("wallet current / wallet set contracts", () => {
       svmCluster: "solana:devnet",
     });
     const { currentWalletCommand } = await import(
-      "../../src/cli/commands/control"
+      "./control"
     );
     currentWalletCommand({ json: true, secrets: {} });
     expect(lastJson()).toEqual({
@@ -125,7 +125,7 @@ describe("wallet current / wallet set contracts", () => {
       svmCluster: "solana:mainnet",
     });
     const { currentWalletCommand } = await import(
-      "../../src/cli/commands/control"
+      "./control"
     );
     currentWalletCommand({ json: true, secrets: {} });
     expect(lastJson()).toEqual({
@@ -149,9 +149,9 @@ describe("wallet current / wallet set contracts", () => {
 
   it("wallet set --solana persists mainnet by default and prints the cluster", async () => {
     const { setSvmWalletCommand } = await import(
-      "../../src/cli/commands/preferences"
+      "./preferences"
     );
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
 
     setSvmWalletCommand(SVM_SECRET);
 
@@ -165,9 +165,9 @@ describe("wallet current / wallet set contracts", () => {
 
   it("wallet set --solana --cluster devnet persists devnet and a re-set preserves it", async () => {
     const { setSvmWalletCommand } = await import(
-      "../../src/cli/commands/preferences"
+      "./preferences"
     );
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
 
     setSvmWalletCommand(SVM_SECRET, "solana:devnet");
     expect(CliSession.load()?.svmCluster).toBe("solana:devnet");

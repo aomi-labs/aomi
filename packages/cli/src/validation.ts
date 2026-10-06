@@ -1,6 +1,6 @@
-import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "../chains";
+import { SUPPORTED_CHAIN_IDS, CHAIN_NAMES } from "@aomi-labs/client";
 import type { CliPaymentMethod } from "./types";
-import type { AomiInferenceFundingSource } from "../agent/types";
+import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import { fatal } from "./errors";
 import { parseSolanaKeypairSecret } from "./solana-signer";
 

@@ -1,5 +1,5 @@
-import type { Action } from "../../agent/types";
-import { isTerminalCommit, type CommitView } from "../../commits";
+import type { Action } from "@aomi-labs/client";
+import { isTerminalCommit, type CommitView } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { CliExit, fatal } from "../errors";
 import { printDataFileLocation, printJson } from "../output";

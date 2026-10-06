@@ -1,7 +1,7 @@
 import { getAddress, type Address } from "viem";
 
-import type { Action } from "../../agent/types";
-import { isTerminalCommit, type CommitView } from "../../commits";
+import type { Action } from "@aomi-labs/client";
+import { isTerminalCommit, type CommitView } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { toEip5792SendCallsParams, type Eip5792CallInput } from "../eip5792";
 import { fatal } from "../errors";

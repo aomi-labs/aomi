@@ -5,7 +5,7 @@ import {
   toAAWalletCalls,
   toViemSignMessageArgs,
   toViemSignTypedDataArgs,
-} from "../src/wallet-utils";
+} from "./wallet-utils";
 
 describe("wallet adapter utilities", () => {
   it("normalizes supported Solana cluster names", () => {

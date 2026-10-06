@@ -1,6 +1,6 @@
 import { execFileSync, execSync } from "child_process";
 import { DeployCliError } from "../errors";
-import { writeDeploymentState } from "../../lib/deployment-state";
+import { writeDeploymentState } from "../deployment-state";
 
 type DeployArgs = Record<string, unknown>;
 

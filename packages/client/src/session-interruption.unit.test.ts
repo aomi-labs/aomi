@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AomiClient, Session, type Event, type EventPage } from "../src";
+import { AomiClient, Session, type Event, type EventPage } from "./";
 
 function page(events: Event[] = []): EventPage {
   return {

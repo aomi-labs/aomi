@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { wrapFetchWithPublicApiAuthorization } from "../src/client";
+import { wrapFetchWithPublicApiAuthorization } from "./client";
 import {
   createGuestSessionProvider,
   withBrowserSessionTransition,
-} from "../src/guest-auth";
-import type { AomiOAuthTokenRequest } from "../src/authorization";
+} from "./guest-auth";
+import type { AomiOAuthTokenRequest } from "./authorization";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -369,7 +369,14 @@ describe("Better Auth guest bootstrap", () => {
     "keeps the guest identity when an App rejects access (%s)",
     async (code) => {
       vi.stubGlobal("location", { origin: "https://chat.aomi.dev" });
-      const authFetch = vi.fn().mockResolvedValue(Response.json({}));
+      const authFetch = vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({
+            session: { id: "guest-session" },
+            user: { id: "guest-user", isAnonymous: true },
+          }),
+        );
       const upstream = vi
         .fn()
         .mockResolvedValue(
@@ -395,7 +402,10 @@ describe("Better Auth guest bootstrap", () => {
         ).status,
       ).toBe(401);
       expect(upstream).toHaveBeenCalledTimes(1);
-      expect(authFetch).not.toHaveBeenCalled();
+      expect(authFetch).toHaveBeenCalledOnce();
+      expect(String(authFetch.mock.calls[0][0])).toContain(
+        "/api/auth/get-session",
+      );
     },
   );
 

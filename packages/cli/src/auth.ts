@@ -1,6 +1,6 @@
 import { privateKeyToAccount } from "viem/accounts";
-import { buildSiwsMessage } from "../siws";
-import type { GetAccountBearer } from "../types";
+import { buildSiwsMessage, buildSiweMessage } from "@aomi-labs/client";
+import type { GetAccountBearer } from "@aomi-labs/client";
 import { parseSolanaKeypairSecret, signSolanaMessage } from "./solana-signer";
 import type { CliAuthSession, CliSessionState } from "./state";
 
@@ -424,25 +424,6 @@ export async function signOutCliSession(input: {
   }
 }
 
-export function buildSiweMessage(input: {
-  address: string;
-  chainId: number;
-  nonce: string;
-  domain: string;
-  uri: string;
-}): string {
-  return `${input.domain} wants you to sign in with your Ethereum account:
-${input.address}
-
-Sign in to Aomi.
-
-URI: ${input.uri}
-Version: 1
-Chain ID: ${input.chainId}
-Nonce: ${input.nonce}
-Issued At: ${new Date().toISOString()}`;
-}
-
 export function normalizeBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   if (!trimmed) throw new Error("Portal URL is required");
@@ -556,4 +537,32 @@ export function parseExpiresAt(value: unknown): number | null {
 export async function safeResponseText(response: Response): Promise<string> {
   const text = await response.text().catch(() => "");
   return text ? `- ${text}` : "";
+}
+
+/** Build CLI sessions expire independently of browser sessions. Failure is never downgraded to the longer browser token. */
+export async function exchangeCliSession(
+  baseUrl: string,
+  auth: CliAuthSession,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CliAuthSession> {
+  const value = await requestJson<{
+    sessionToken: string;
+    expiresAt: string | number;
+  }>(
+    fetchImpl,
+    joinUrl(normalizeBaseUrl(baseUrl), "/v1/account/session/cli"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${auth.sessionToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    },
+    "CLI session exchange",
+  );
+  const expiresAt = parseExpiresAt(value.expiresAt);
+  if (!value.sessionToken || expiresAt === null)
+    throw new Error("CLI session exchange returned an invalid session");
+  return { ...auth, sessionToken: value.sessionToken, expiresAt };
 }

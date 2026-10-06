@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createSiweAccountAuthAdapter,
   AccountChallengeBindingError,
-} from "../src/widget-session";
+} from "./widget-session";
 
 const PAGE_ORIGIN = "https://agentic.somm.finance";
 

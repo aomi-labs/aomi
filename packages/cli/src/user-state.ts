@@ -1,8 +1,7 @@
 import {
   CLIENT_TYPE_TS_CLI,
   UserState,
-  type UserStateEvm,
-} from "../user-state";
+} from "@aomi-labs/client";
 
 export function buildCliUserState(
   evmAddress?: string,
@@ -22,7 +21,7 @@ export function buildCliUserState(
   const userState: UserState = {};
 
   if (evmAddress !== undefined) {
-    const evm: UserStateEvm = { address: evmAddress };
+    const evm: NonNullable<UserState["evm"]> = { address: evmAddress };
     if (chainId !== undefined) {
       evm.chain_id = chainId;
     }

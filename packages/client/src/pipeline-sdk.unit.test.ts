@@ -8,14 +8,14 @@ import {
   PipelineSchemaError,
   SvmBuild,
   walletCapabilities,
-} from "../src";
+} from "./";
 import type {
   Action,
   EvmSimulatedBuild,
   EvmStagedBuild,
   SvmSimulatedBuild,
   SvmStagedBuild,
-} from "../src";
+} from "./";
 
 function pendingAction(request: Action["request"]): Action {
   return {

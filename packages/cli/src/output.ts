@@ -6,7 +6,7 @@ import type {
   TaskStartedEvent,
   ToolCompleteEvent,
   ToolUpdateEvent,
-} from "../agent/types";
+} from "@aomi-labs/client";
 import type { CliPaymentEvent } from "./payment";
 import { STATE_ROOT_DIR, getActiveStateFilePath } from "./state";
 

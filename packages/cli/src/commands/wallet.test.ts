@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Action } from "../../src/agent/types";
+import type { Action } from "@aomi-labs/client";
 
 const PRIVATE_KEY =
   "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -53,7 +53,7 @@ describe("CLI Action capabilities", () => {
   });
 
   it("installs an EVM capability on the session ActionHandler", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const cli = CliSession.create({
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -68,7 +68,7 @@ describe("CLI Action capabilities", () => {
   });
 
   it("leaves execution unavailable when no signing key exists", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const cli = CliSession.create({
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -82,9 +82,8 @@ describe("CLI Action capabilities", () => {
   });
 
   it("signs the prepared AA personal message bytes once, without broadcasting", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { cliActionCapabilities } =
-      await import("../../src/cli/action-capabilities");
+    const { CliSession } = await import("../cli-session");
+    const { cliActionCapabilities } = await import("../action-capabilities");
     const { recoverMessageAddress, isHex } = await import("viem");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
@@ -119,8 +118,8 @@ describe("CLI Action capabilities", () => {
   });
 
   it("--eoa executes ordinary, permit, and Solana Actions and rejects only a prepared AA Action", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const { CliSession } = await import("../cli-session");
+    const { signCommand } = await import("./wallet");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -194,9 +193,7 @@ describe("CLI Action capabilities", () => {
   });
 
   it("rejects obsolete --aa-provider/--aa-mode in both --flag=value and --flag value forms", async () => {
-    const { buildCliConfig } = await import(
-      "../../src/cli/commands/defs/shared"
-    );
+    const { buildCliConfig } = await import("./defs/shared");
     expect(() => buildCliConfig({ "aa-provider": "alchemy" })).toThrow();
     expect(() => buildCliConfig({ "aa-provider": true })).toThrow();
     expect(() => buildCliConfig({ "aa-mode": "7702" })).toThrow();
@@ -204,8 +201,8 @@ describe("CLI Action capabilities", () => {
   });
 
   it("--aa authorizes the existing Hosted AA Action and rejects an ordinary Action", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const { CliSession } = await import("../cli-session");
+    const { signCommand } = await import("./wallet");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},

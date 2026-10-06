@@ -20,4 +20,4 @@ export interface AomiEndpointSpec {
   auth: readonly AomiAuthClass[];
 }
 
-export { AOMI_BACKEND_ENDPOINTS } from "./generated/backend-routes";
+export { AOMI_BACKEND_ENDPOINTS } from "./backend-routes";

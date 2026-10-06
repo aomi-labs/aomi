@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 
-import {
-  printBoundaryForTurn,
-  resolveSvmAddressForChat,
-} from "../../src/cli/commands/chat";
-import type { Event, MessageEvent } from "../../src/agent/types";
+import { printBoundaryForTurn, resolveSvmAddressForChat } from "./chat";
+import type { Event, MessageEvent } from "@aomi-labs/client";
 
 const keypair = Keypair.generate();
 const secret = bs58.encode(keypair.secretKey);

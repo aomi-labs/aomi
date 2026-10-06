@@ -7,7 +7,7 @@ import type {
   SvmCommitResult,
   SvmStageInput,
   SvmStagedBuild,
-} from "../src";
+} from "./";
 
 declare const client: AomiClient;
 declare const evmStaged: EvmStagedBuild;

@@ -14,7 +14,7 @@
 // packages/react/.../user-context tests) and out of scope here.
 
 import { describe, expect, it } from "vitest";
-import { buildCliUserState } from "../../src/cli/user-state";
+import { buildCliUserState } from "./user-state";
 
 const EOA = "0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE";
 const CHAIN_ID = 1;

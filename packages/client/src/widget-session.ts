@@ -1,5 +1,5 @@
 import { getAddress } from "viem";
-import { createSiweMessage } from "viem/siwe";
+import { buildSiweMessage } from "./siwe";
 import type { GetAccountBearer } from "./types";
 import { joinUrl } from "./internal/url";
 import { decodeJwtSubject } from "./internal/encoding";
@@ -172,21 +172,21 @@ export function createSiweAccountAuthAdapter(input: {
     normalizeSigner: normalizeSiweSigner,
     getFingerprint: (signer) =>
       `${signer.chainId}:${signer.address.toLowerCase()}`,
-    buildMessage: ({ signer, challenge }) =>
-      createSiweMessage({
+    buildMessage: ({ signer, challenge }) => {
+      // Keep the SIWE challenge constraint previously enforced by viem.
+      if (!/^[a-zA-Z0-9]{8,}$/.test(challenge.nonce))
+        throw new AccountChallengeBindingError("challenge has an invalid SIWE nonce");
+      return buildSiweMessage({
         address: signer.address,
         chainId: signer.chainId,
         domain: challenge.domain,
         uri: challenge.uri,
-        version: "1",
         nonce: challenge.nonce,
         issuedAt: new Date(challenge.issuedAt),
         expirationTime: new Date(challenge.expirationTime),
-        // Kept identical to the SIWS statement (buildSiwsMessage). The SIWS
-        // server verifier requires exactly "Sign in to Aomi."; the SIWE
-        // verifier does not check statement text, so aligning is safe.
-        statement: "Sign in to Aomi.",
-      }),
+
+      });
+    },
   });
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { AomiClient, wrapFetchWithAccountBearer } from "../src/client";
-import type { GetAccountBearer } from "../src/types";
+import { AomiClient, wrapFetchWithAccountBearer } from "./client";
+import type { GetAccountBearer } from "./types";
 
 function bearerSource(token: string | null | undefined) {
   return vi.fn(async (options?: { forceRefresh?: boolean }) => {

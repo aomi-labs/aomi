@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AomiClient } from "../src/client";
-import type { AomiOAuthTokenRequest } from "../src/authorization";
+import { AomiClient } from "./client";
+import type { AomiOAuthTokenRequest } from "./authorization";
 
 describe("AomiClient per-user app credentials", () => {
   const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();

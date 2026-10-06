@@ -1,4 +1,4 @@
-import type { MessageEvent } from "../agent/types";
+import type { MessageEvent } from "@aomi-labs/client";
 import { CYAN, RESET, formatLogContent } from "./output";
 
 export const MAX_TABLE_VALUE_WIDTH = 72;

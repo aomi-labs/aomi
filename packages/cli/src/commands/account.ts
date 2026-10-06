@@ -2,12 +2,13 @@ import { CliSession } from "../cli-session";
 import { fatal } from "../errors";
 import { printDataFileLocation, printJson, printPaymentEvent } from "../output";
 import { createCliPaymentFetch } from "../payment";
-import type { AomiCreditPosition } from "../../account/credits";
+import type { AomiCreditPosition } from "@aomi-labs/client";
 import {
   linkCliSiwsWallet,
   signInWithCliSiwe,
   signInWithCliSiws,
   signOutCliSession,
+  exchangeCliSession,
 } from "../auth";
 import type { CliConfig } from "../types";
 import {
@@ -175,6 +176,7 @@ async function accountLoginWithSiws(
   });
 
   cli.setSvmWallet(privateKey!, result.address, chainId);
+  result.auth = await exchangeCliSession(cli.baseUrl, result.auth);
   cli.setAuthSession(result.auth);
 
   if (config.json) {
@@ -218,6 +220,7 @@ async function accountLoginWithSiwe(
   if (cli.chainId !== chainId) {
     cli.setChainId(chainId);
   }
+  result.auth = await exchangeCliSession(cli.baseUrl, result.auth);
   cli.setAuthSession(result.auth);
 
   if (config.json) {
@@ -857,4 +860,27 @@ function formatCredits(value: number): string {
 
 function formatMicrousd(value: number): string {
   return formatCredits(value / 10_000);
+}
+
+export async function accountStatementCommand(
+  config: CliConfig,
+  options: { limit?: string; cursor?: string } = {},
+): Promise<void> {
+  const cli = CliSession.loadOrCreate(config);
+  const session = cli.createClientSession(config);
+  try {
+    const statement = await session.client.request(
+      "GET",
+      "/v1/account/statement",
+      {
+        query: {
+          limit: parsePositiveInteger(options.limit, "--limit"),
+          cursor: options.cursor,
+        },
+      },
+    );
+    printJson(statement);
+  } finally {
+    session.close();
+  }
 }

@@ -1,4 +1,4 @@
-import type { AomiOAuthResource, AomiOAuthTokenSet } from "../authorization";
+import type { AomiOAuthResource, AomiOAuthTokenSet } from "@aomi-labs/client";
 import { joinUrl, normalizeBaseUrl, requestJson } from "./auth";
 
 const DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";

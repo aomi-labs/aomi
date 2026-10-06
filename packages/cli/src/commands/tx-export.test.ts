@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Action } from "../../src/agent/types";
+import type { Action } from "@aomi-labs/client";
 
 const SENDER = "0x1111111111111111111111111111111111111111";
 const OTHER_SENDER = "0x9999999999999999999999999999999999999999";
@@ -15,11 +15,11 @@ const mocks = vi.hoisted(() => ({
   pending: vi.fn(),
 }));
 
-vi.mock("../../src/cli/cli-session", () => ({
+vi.mock("../cli-session", () => ({
   CliSession: { load: mocks.load },
 }));
 
-import { exportCommand } from "../../src/cli/commands/export";
+import { exportCommand } from "./export";
 
 function action(
   id: string,

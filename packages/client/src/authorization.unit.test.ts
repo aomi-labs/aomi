@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { AomiClient } from "../src/client";
+import { AomiClient } from "./client";
 import {
   ensureSvmWalletBound,
   ensureSvmWalletBoundVia,
   isUnboundWalletError,
-} from "../src/authorization";
+} from "./authorization";
 
 const WALLET = "BindTestWallet1111111111111111111111111111";
 const MESSAGE = "Aomi Authorization v1\nbind test payload";

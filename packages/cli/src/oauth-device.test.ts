@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { signInWithOAuthDevice } from "../../src/cli/oauth-device-auth";
+import { signInWithOAuthDevice } from "./oauth-device-auth";
 
 const AGENT_RESOURCE = "https://chat.aomi.dev/v1/agent" as const;
 

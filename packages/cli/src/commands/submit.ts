@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { isTerminalCommit, type CommitView } from "../../commits";
+import { isTerminalCommit, type CommitView } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { CliExit, fatal } from "../errors";
 import { printJson } from "../output";

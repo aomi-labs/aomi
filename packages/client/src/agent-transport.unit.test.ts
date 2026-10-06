@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AgentApiError, AomiClient } from "../src";
+import { AgentApiError, AomiClient } from "./";
 
 describe("AgentTransport", () => {
   it("uses canonical routes, cursor long poll, and mutation keys", async () => {

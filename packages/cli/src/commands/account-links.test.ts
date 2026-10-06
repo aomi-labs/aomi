@@ -80,9 +80,9 @@ describe("aomi account link management", () => {
   });
 
   it("prints account graph links and child wallets", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountLinksCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -113,9 +113,9 @@ describe("aomi account link management", () => {
   });
 
   it("prints account links as JSON", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountLinksCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -136,9 +136,9 @@ describe("aomi account link management", () => {
   });
 
   it("links an EVM wallet with a SIWE account-link message", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountLinkCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -190,9 +190,9 @@ describe("aomi account link management", () => {
   it("links a Solana wallet through BetterAuth SIWS", async () => {
     const keypair = Keypair.generate();
     const secret = bs58.encode(keypair.secretKey);
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountLinkCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -255,15 +255,15 @@ describe("aomi account link management", () => {
       status: "linked" as const,
       account: accountGraph,
     }));
-    vi.doMock("../../src/cli/device-auth", async () => {
+    vi.doMock("../device-auth", async () => {
       const actual = await vi.importActual<
-        typeof import("../../src/cli/device-auth")
-      >("../../src/cli/device-auth");
+        typeof import("../device-auth")
+      >("../device-auth");
       return { ...actual, getDeviceProviderCredential };
     });
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountLinkCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -284,9 +284,9 @@ describe("aomi account link management", () => {
   });
 
   it("renames and unlinks links by graph id", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountRenameCommand, accountUnlinkCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
     const calls: string[] = [];
     vi.stubGlobal(
@@ -321,10 +321,10 @@ describe("aomi account link management", () => {
   });
 
   it("deletes the account and clears local auth", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("../cli-session");
+    const { readState } = await import("../state");
     const { accountDeleteCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -350,9 +350,9 @@ describe("aomi account link management", () => {
   });
 
   it("requires confirmation before unlinking or deleting", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const { accountDeleteCommand, accountUnlinkCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "error").mockImplementation(() => {});
     const cli = CliSession.loadOrCreate(baseConfig);
     cli.setAuthSession({

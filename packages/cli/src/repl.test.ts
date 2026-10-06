@@ -20,24 +20,24 @@ const {
   clearByokKeysCommandMock: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../src/cli/commands/chat", () => ({
+vi.mock("./commands/chat", () => ({
   chatCommand: chatCommandMock,
 }));
 
-vi.mock("../../src/cli/commands/control", () => ({
+vi.mock("./commands/control", () => ({
   modelsCommand: modelsCommandMock,
   setAppCommand: setAppCommandMock,
   setAgentModeCommand: setAgentModeCommandMock,
   setModelCommand: setModelCommandMock,
 }));
 
-vi.mock("../../src/cli/commands/byok", () => ({
+vi.mock("./commands/byok", () => ({
   saveByokKeyCommand: saveByokKeyCommandMock,
   showByokKeysCommand: showByokKeysCommandMock,
   clearByokKeysCommand: clearByokKeysCommandMock,
 }));
 
-vi.mock("../../src/cli/cli-session", () => ({
+vi.mock("./cli-session", () => ({
   CliSession: {
     loadOrCreate: vi.fn(() => ({ model: "gpt-5-mini" })),
   },
@@ -49,7 +49,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("routes plain text to chatCommand", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
     const config = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -63,7 +63,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("updates the current app when /app is used", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
     const config = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -82,7 +82,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("updates routing with /mode and clears Direct state for Auto", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
     const config = {
       baseUrl: "https://api.aomi.dev",
       agentMode: "direct" as const,
@@ -119,7 +119,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("routes /model list and /model <rig>", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
     const config = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -137,7 +137,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("routes /key commands to BYOK-key handlers", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
     const config = {
       baseUrl: "https://api.aomi.dev",
       app: "default",
@@ -163,7 +163,7 @@ describe("CLI REPL command routing", () => {
   });
 
   it("exits on :exit", async () => {
-    const { handleReplLine } = await import("../../src/cli/repl");
+    const { handleReplLine } = await import("./repl");
 
     await expect(
       handleReplLine(

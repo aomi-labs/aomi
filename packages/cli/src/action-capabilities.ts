@@ -13,13 +13,13 @@ import { privateKeyToAccount } from "viem/accounts";
 import * as viemChains from "viem/chains";
 import { clusterApiUrl, Connection } from "@solana/web3.js";
 
-import type { ActionCapabilities } from "../actions";
-import { walletCapabilities } from "../wallet/capabilities";
-import type { EvmWallet, SvmWallet, Wallets } from "../wallet/types";
+import type { ActionCapabilities } from "@aomi-labs/client";
+import { walletCapabilities } from "@aomi-labs/client";
+import type { EvmWallet, SvmWallet, Wallets } from "@aomi-labs/client";
 import {
   toViemSignMessageArgs,
   toViemSignTypedDataArgs,
-} from "../wallet-utils";
+} from "@aomi-labs/client";
 import type { CliSession } from "./cli-session";
 import {
   parseSolanaKeypairSecret,

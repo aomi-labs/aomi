@@ -4,7 +4,7 @@ import {
   buildDeviceAuthUrl,
   getDeviceProviderCredential,
   signInWithDeviceProvider,
-} from "../../src/cli/device-auth";
+} from "./device-auth";
 
 describe("CLI device provider auth", () => {
   it("builds the provider auth URL with PKCE and loopback redirect", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasRootSubcommand, root, SUBCOMMAND_NAMES } from "../../src/cli/root";
+import { hasRootSubcommand, root, SUBCOMMAND_NAMES } from "./root";
 
 describe("CLI root subcommand registration", () => {
   // Regression: `deploy` was listed in the hand-written root help and in

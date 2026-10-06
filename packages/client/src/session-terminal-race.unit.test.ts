@@ -5,7 +5,7 @@ import {
   Session,
   type Event,
   type EventPage,
-} from "../src";
+} from "./";
 
 const sessionId = "terminal-race-session";
 function page(events: Event[] = [], extra: Partial<EventPage> = {}): EventPage {

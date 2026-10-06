@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { CommitView } from "../src/commits";
+import type { CommitView } from "./commits";
 import {
   projectCommitLifecycle,
   reviewEligibility,
-} from "../src/commit-lifecycle";
+} from "./commit-lifecycle";
 
 const ready: CommitView = {
   version: 1,

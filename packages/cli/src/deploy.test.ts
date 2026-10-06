@@ -5,11 +5,11 @@ const mocks = vi.hoisted(() => ({
   writeDeploymentState: vi.fn(),
 }));
 
-vi.mock("../../src/lib/deployment-state", () => ({
+vi.mock("./deployment-state", () => ({
   writeDeploymentState: mocks.writeDeploymentState,
 }));
 
-import { deployCommand } from "../../src/cli/commands/deploy";
+import { deployCommand } from "./commands/deploy";
 
 const SOURCE_REF = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",

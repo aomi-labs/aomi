@@ -28,7 +28,7 @@ describe("CLI BetterAuth SIWE auth", () => {
   });
 
   it("signs the BetterAuth SIWE nonce and persists the session token with expiry", async () => {
-    const { signInWithCliSiwe } = await import("../../src/cli/auth");
+    const { signInWithCliSiwe } = await import("./auth");
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -100,7 +100,7 @@ describe("CLI BetterAuth SIWE auth", () => {
   });
 
   it("provides only unexpired BetterAuth session tokens to AomiClient", async () => {
-    const { createCliAuthTokenProvider } = await import("../../src/cli/auth");
+    const { createCliAuthTokenProvider } = await import("./auth");
 
     const validProvider = createCliAuthTokenProvider(
       () => ({
@@ -134,7 +134,7 @@ describe("CLI BetterAuth SIWE auth", () => {
   });
 
   it("signs in through BetterAuth SIWS and persists the canonical account session", async () => {
-    const { signInWithCliSiws } = await import("../../src/cli/auth");
+    const { signInWithCliSiws } = await import("./auth");
     const keypair = Keypair.generate();
     const secret = bs58.encode(keypair.secretKey);
     const fetchMock = vi.fn(
@@ -202,7 +202,7 @@ describe("CLI BetterAuth SIWE auth", () => {
   });
 
   it("signs localhost as the SIWE domain when the portal URL uses 127.0.0.1", async () => {
-    const { signInWithCliSiwe } = await import("../../src/cli/auth");
+    const { signInWithCliSiwe } = await import("./auth");
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
@@ -249,9 +249,9 @@ describe("CLI BetterAuth SIWE auth", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { logoutCommand } = await import("../../src/cli/commands/account");
-    const { readState } = await import("../../src/cli/state");
+    const { CliSession } = await import("./cli-session");
+    const { logoutCommand } = await import("./commands/account");
+    const { readState } = await import("./state");
 
     const cli = CliSession.loadOrCreate({
       baseUrl: "https://portal.test",

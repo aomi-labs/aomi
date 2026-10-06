@@ -1,7 +1,7 @@
 import {
   AgentApiError,
   type AgentAppAccessErrorCode,
-} from "../agent/transport";
+} from "@aomi-labs/client";
 
 /** CLI fix for each App access failure the public API reports. */
 export const APP_ACCESS_CLI_HINTS: Record<AgentAppAccessErrorCode, string> = {

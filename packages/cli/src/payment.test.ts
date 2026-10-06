@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { printPaymentEvent } from "../../src/cli/output";
+import { printPaymentEvent } from "./output";
 
 describe("CLI payment output", () => {
   it("prints the requested x402 amount, network, and recipient", () => {

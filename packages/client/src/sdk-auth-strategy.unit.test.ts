@@ -4,14 +4,14 @@ import type {
   AomiOAuthGrant,
   AomiOAuthGrantManager,
   AomiOAuthTokenRequest,
-} from "../src/authorization";
+} from "./authorization";
 import {
   createAomiBrowserGrantManager,
   createAomiDeviceGrantManager,
-} from "../src/oauth";
-import { createOAuthAuthRuntime, oauth } from "../src/sdk/auth";
+} from "./oauth";
+import { createOAuthAuthRuntime, oauth } from "./sdk/auth";
 
-vi.mock("../src/oauth", () => ({
+vi.mock("./oauth", () => ({
   createAomiBrowserGrantManager: vi.fn(),
   createAomiDeviceGrantManager: vi.fn(),
 }));

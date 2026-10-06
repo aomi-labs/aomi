@@ -2,11 +2,11 @@ import { defineCommand } from "citty";
 import { globalArgs, buildCliConfig } from "./shared";
 
 const sessionListDef = defineCommand({
-  meta: { name: "list", description: "List local sessions with metadata" },
+  meta: { name: "list", description: "List account-owned remote threads" },
   args: { ...globalArgs },
   async run({ args }) {
-    const { sessionsCommand } = await import("../sessions");
-    await sessionsCommand(buildCliConfig(args));
+    const { threadsCommand } = await import("../threads");
+    await threadsCommand(buildCliConfig(args));
   },
 });
 
@@ -97,10 +97,57 @@ const sessionCloseDef = defineCommand({
   },
 });
 
+const sessionLocalListDef = defineCommand({
+  meta: { name: "local-list", description: "List locally stored sessions" },
+  args: { ...globalArgs },
+  async run({ args }) {
+    const { sessionsCommand } = await import("../sessions");
+    await sessionsCommand(buildCliConfig(args));
+  },
+});
+const sessionRenameDef = defineCommand({
+  meta: { name: "rename", description: "Rename an account-owned thread" },
+  args: {
+    ...globalArgs,
+    id: {
+      type: "positional",
+      required: true,
+      description: "Thread ID or session-N",
+    },
+    title: { type: "positional", required: true, description: "New title" },
+  },
+  async run({ args }) {
+    const { updateThreadCommand } = await import("../threads");
+    await updateThreadCommand(buildCliConfig(args), args.id, {
+      title: args.title,
+    });
+  },
+});
+const sessionArchiveDef = defineCommand({
+  meta: { name: "archive", description: "Archive an account-owned thread" },
+  args: {
+    ...globalArgs,
+    id: {
+      type: "positional",
+      required: true,
+      description: "Thread ID or session-N",
+    },
+  },
+  async run({ args }) {
+    const { updateThreadCommand } = await import("../threads");
+    await updateThreadCommand(buildCliConfig(args), args.id, {
+      archived: true,
+    });
+  },
+});
+
 export const sessionDef = defineCommand({
   meta: { name: "session", description: "Session management" },
   subCommands: {
     list: sessionListDef,
+    "local-list": sessionLocalListDef,
+    rename: sessionRenameDef,
+    archive: sessionArchiveDef,
     new: sessionNewDef,
     resume: sessionResumeDef,
     delete: sessionDeleteDef,

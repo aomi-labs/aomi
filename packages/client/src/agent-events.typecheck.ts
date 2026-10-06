@@ -1,4 +1,4 @@
-import type { ActionRequest, Event, EventPage, MessageEvent } from "../src";
+import type { ActionRequest, Event, EventPage, MessageEvent } from "./";
 
 const toolResult: NonNullable<MessageEvent["tool_result"]> = ["task", "result"];
 // @ts-expect-error Canonical inline tool results have exactly two strings.

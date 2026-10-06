@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AgentApiError, AomiClient, Session } from "../src";
-import type { Action, Event, EventPage } from "../src";
+import { AgentApiError, AomiClient, Session } from "./";
+import type { Action, Event, EventPage } from "./";
 
 const occurredAt = Date.parse("2026-08-20T00:00:00Z");
 
@@ -80,6 +80,23 @@ function client() {
 }
 
 describe("ClientSession Agent transport", () => {
+  it("refuses to continue a chat under a different guest than the one that started it", async () => {
+    const api = client();
+    let guest = "guest-1";
+    vi.spyOn(api, "guestIdentity").mockImplementation(() => guest);
+    const start = vi
+      .spyOn(api.agent, "start")
+      .mockResolvedValue(page([turn(1, "complete")]));
+    const session = new Session(api, { sessionId: "session-agent" });
+    await session.sendAsync("first");
+    guest = "guest-2";
+    await expect(session.sendAsync("second")).rejects.toMatchObject({
+      code: "guest_identity_changed",
+      isGuestIdentityChanged: true,
+    });
+    expect(start).toHaveBeenCalledOnce();
+  });
+
   it("settles a send when a durable handoff closes the session on the start page", async () => {
     const api = client();
     vi.spyOn(api.agent, "start").mockResolvedValue(
@@ -394,7 +411,7 @@ describe("ClientSession Agent transport", () => {
     const session = new Session(api, {
       sessionId: "session-agent",
     });
-    await session.send("first");
+    await session.sendAsync("first");
 
     // Turn 2's ledger trails: complete arrives alone, then the final message.
     // The thread title does not change, so no title event follows this turn.

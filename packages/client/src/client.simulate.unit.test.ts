@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AomiClient } from "../src/client";
-import { SimulationApiError } from "../src/simulation";
+import { AomiClient } from "./client";
+import { SimulationApiError } from "./simulation";
 
 describe("AomiClient.simulateBatch", () => {
   const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();

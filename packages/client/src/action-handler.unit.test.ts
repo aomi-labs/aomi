@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ActionHandler } from "../src";
-import type { CommitController, CommitView } from "../src/commits";
-import type { Action, ActionResult } from "../src";
+import { ActionHandler } from "./";
+import type { CommitController, CommitView } from "./commits";
+import type { Action, ActionResult } from "./";
 
 function action(overrides: Partial<Action> = {}): Action {
   return {

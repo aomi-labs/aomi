@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Event, MessageEvent } from "../src/agent/types";
+import type { Event, MessageEvent } from "./types";
 import {
   conversationMessages,
   projectConversationEvents,
-} from "../src/session/conversation";
+} from "../session/conversation";
 
 function message(
   sequence: number,

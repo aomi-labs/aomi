@@ -3,7 +3,7 @@ import {
   createProviderCredentialAdapter,
   createAccountSessionProvider,
   type AccountAuthAdapter,
-} from "../src/widget-session";
+} from "./widget-session";
 
 describe("createAccountSessionProvider", () => {
   it("reuses a wallet session after reload, then clears it on account switch and sign-out", async () => {

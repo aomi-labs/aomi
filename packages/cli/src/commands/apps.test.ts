@@ -10,11 +10,11 @@ const mocks = vi.hoisted(() => ({
   removeAppCredential: vi.fn(),
 }));
 
-vi.mock("../../src/cli/context", () => ({
+vi.mock("../context", () => ({
   createControlClient: vi.fn(() => mocks),
 }));
 
-vi.mock("../../src/cli/cli-session", () => ({
+vi.mock("../cli-session", () => ({
   CliSession: {
     loadOrCreate: vi.fn(() => ({
       baseUrl: "https://api.example",
@@ -31,7 +31,7 @@ import {
   removeAccountAppCommand,
   removeAppCredentialCommand,
   setAppCredentialCommand,
-} from "../../src/cli/commands/apps";
+} from "./apps";
 
 const catalog = [
   {

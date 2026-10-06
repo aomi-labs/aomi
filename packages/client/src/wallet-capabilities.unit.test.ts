@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAddress } from "viem";
 
-import { walletCapabilities } from "../src";
+import { walletCapabilities } from "./";
 
 const signal = new AbortController().signal;
 

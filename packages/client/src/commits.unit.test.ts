@@ -8,8 +8,8 @@ import {
   type CommitRecoveryRecord,
   type CommitRecoveryStore,
   type CommitView,
-} from "../src/commits";
-import type { AomiClient } from "../src/client";
+} from "./commits";
+import type { AomiClient } from "./client";
 
 const unsigned: CommitView = {
   version: 1,

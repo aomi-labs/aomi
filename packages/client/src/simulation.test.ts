@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeSimulation } from "../src/simulation";
+import { summarizeSimulation } from "./simulation";
 
 describe("simulation evidence", () => {
   const step = {

@@ -243,7 +243,22 @@ export function wrapFetchWithPublicApiAuthorization(input: {
           );
         }
       } else if (input.guest) {
+        if (
+          !forceRefresh &&
+          policy.method === "POST" &&
+          url.pathname === "/v1/agent/chat"
+        )
+          await input.guest.prepare?.();
         const credential = await input.guest({ forceRefresh });
+        // A renewed guest is a different person to the backend. A chat the
+        // old guest started must not continue under the new one; the caller
+        // starts a fresh chat instead.
+        if (
+          forceRefresh &&
+          input.guest.getIdentity &&
+          (baseHeaders.has("x-session-id") || baseHeaders.has("x-thread-id"))
+        )
+          throw AgentApiError.guestIdentityChanged();
         if (credential) headers.set("authorization", `Bearer ${credential}`);
       }
       return input.fetch(request ? request.clone() : requestInput, {
@@ -401,9 +416,11 @@ export class AomiClient {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly publicFetchImpl: typeof fetch;
   private readonly rawFetchImpl: typeof fetch;
   private readonly logger?: Logger;
   private readonly hasAccountAuth: boolean;
+  private readonly guestSession?: GuestSessionProvider;
   private readonly accountAppsPath: string;
 
   constructor(options: AomiClientOptions) {
@@ -418,6 +435,7 @@ export class AomiClient {
     // Keep the caller's fetch implementation for tests and browser adapters;
     // `raw` only bypasses the payment wrapper, it must not bypass auth or the
     // configured transport itself.
+    this.publicFetchImpl = fetchImpl;
     const rawFetchImpl = fetchImpl;
     const guest =
       options.oauth ||
@@ -436,6 +454,7 @@ export class AomiClient {
     const publicApiGuest = options.getAccountBearer?.required
       ? undefined
       : guest;
+    this.guestSession = publicApiGuest;
     const publicCommitAuth = Boolean(publicApiOauth || publicApiGuest);
     const authenticatedFetch = wrapFetchWithAccountBearer(
       wrapFetchWithPublicApiAuthorization({
@@ -485,6 +504,17 @@ export class AomiClient {
   // ===========================================================================
   // Transport
   // ===========================================================================
+
+  /** The anonymous user behind guest requests, once the backend has named it. */
+  guestIdentity(): string | null {
+    return this.guestSession?.getIdentity?.() ?? null;
+  }
+
+  /** Prepare guest auth on composer interaction. Existing signed-in cookies stay intact. */
+  async prepareGuestSession(): Promise<void> {
+    if (this.guestSession?.prepare) await this.guestSession.prepare();
+    else if (this.guestSession) await this.guestSession();
+  }
 
   /**
    * Low-level request escape hatch for the full backend route manifest.
@@ -659,6 +689,28 @@ export class AomiClient {
     return (await response.json()) as AomiListSecretsResponse;
   }
 
+  /** Credential-free projection suitable for shared caching and public persistence. */
+  async getPublicCatalog<T = unknown>(
+    kind: "models" | "apps" | "skills",
+    options?: { signal?: AbortSignal; platforms?: AomiPlatformFilter },
+  ): Promise<T> {
+    const url = buildApiUrl(this.baseUrl, `/api/public/catalog/${kind}`, {
+      platform:
+        kind === "apps"
+          ? normalizePlatformFilter(options?.platforms)
+          : undefined,
+    });
+    const response = await this.publicFetchImpl(url, {
+      method: "GET",
+      credentials: "omit",
+      headers: { accept: "application/json" },
+      signal: options?.signal,
+    });
+    if (!response.ok)
+      throw new Error(`Public catalog request failed: HTTP ${response.status}`);
+    return (await response.json()) as T;
+  }
+
   // ===========================================================================
   // Control API
   // ===========================================================================
@@ -671,6 +723,7 @@ export class AomiClient {
   async getApps(
     sessionId: string,
     options?: {
+      signal?: AbortSignal;
       apiKey?: string;
       platforms?: AomiPlatformFilter;
       applicationId?: ApplicationId;
@@ -688,7 +741,10 @@ export class AomiClient {
       headers.set(APP_KEY_HEADER, apiKey);
     }
 
-    const response = await this.rawFetchImpl(url, { headers });
+    const response = await this.rawFetchImpl(url, {
+      headers,
+      signal: options?.signal,
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to get apps: HTTP ${response.status}`);
@@ -876,7 +932,11 @@ export class AomiClient {
    */
   async getModels(
     sessionId: string,
-    options?: { apiKey?: string; applicationId?: ApplicationId },
+    options?: {
+      signal?: AbortSignal;
+      apiKey?: string;
+      applicationId?: ApplicationId;
+    },
   ): Promise<string[]> {
     const url = buildApiUrl(this.baseUrl, "/api/thread/models", {
       application_id: applicationIdParam(options?.applicationId),
@@ -889,6 +949,7 @@ export class AomiClient {
 
     const response = await this.rawFetchImpl(url, {
       headers,
+      signal: options?.signal,
     });
 
     if (!response.ok) {
@@ -1046,7 +1107,7 @@ export class AomiClient {
     return (await response.json()) as AomiUserAppSecrets;
   }
 
-  /** Read per-user credential status for one canonical application ID. */
+  /** Read per-user credential status for one application ID. */
   getAppCredentialsStatus(
     sessionId: string,
     applicationId: ApplicationId,
@@ -1128,7 +1189,7 @@ export class AomiClient {
     return (await response.json()) as AomiDeleteSecretResponse;
   }
 
-  /** Remove one saved per-user credential by canonical application ID. */
+  /** Remove one saved per-user credential by application ID. */
   removeAppCredential(
     sessionId: string,
     applicationId: ApplicationId,

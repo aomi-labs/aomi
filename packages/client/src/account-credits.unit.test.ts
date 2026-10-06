@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AomiClient } from "../src";
+import { AomiClient } from "./";
 
 const wirePosition = {
   period_utc_month: "2026-09-01",

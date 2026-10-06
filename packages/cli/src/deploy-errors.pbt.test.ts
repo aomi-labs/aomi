@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fc from "fast-check";
 
-import { DeployCliError, CliExit, fatal, mapDeployHttpError } from "../../src/cli/errors";
+import { DeployCliError, CliExit, fatal, mapDeployHttpError } from "./errors";
 
 describe("DeployCliError — property-based", () => {
   const validCodes = [

@@ -10,7 +10,7 @@ import {
 import { basename, join } from "node:path";
 import { homedir } from "node:os";
 import type { CliAgentMode } from "./types";
-import type { AomiOAuthResource } from "../authorization";
+import type { AomiOAuthResource } from "@aomi-labs/client";
 
 export type CliAuthSession = {
   sessionToken: string;

@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
   svmCommit: vi.fn(),
 }));
 
-vi.mock("../../src/cli/context", () => ({
+vi.mock("../context", () => ({
   createControlClient: (...args: unknown[]) => {
     mocks.createControlClient(...args);
     const scope = {
@@ -65,7 +65,7 @@ vi.mock("../../src/cli/context", () => ({
   },
 }));
 
-vi.mock("../../src/cli/cli-session", () => ({
+vi.mock("../cli-session", () => ({
   CliSession: {
     load: () => ({ sessionId: "active-session", app: "portfolio" }),
   },
@@ -77,9 +77,9 @@ import {
   pipelineInvokeCommand,
   pipelineLifecycleCommand,
   pipelineOperationsCommand,
-} from "../../src/cli/commands/pipeline";
-import { pipelineDef } from "../../src/cli/commands/defs/pipeline";
-import { runCli } from "../../src/cli/main";
+} from "./pipeline";
+import { pipelineDef } from "./defs/pipeline";
+import { runCli } from "../main";
 
 const directory = {
   kind: "directory" as const,

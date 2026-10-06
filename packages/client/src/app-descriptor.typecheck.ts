@@ -1,4 +1,4 @@
-import type { AomiAppDescriptor, AomiSecretSlot } from "../src";
+import type { AomiAppDescriptor, AomiSecretSlot } from "./";
 
 // Existing consumers can still construct Builder-owned manifest slots.
 const legacySlot: AomiSecretSlot = {

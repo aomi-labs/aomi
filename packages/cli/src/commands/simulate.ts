@@ -1,5 +1,5 @@
-import { summarizeSimulation } from "../../simulation";
-import type { Action } from "../../agent/types";
+import { summarizeSimulation } from "@aomi-labs/client";
+import type { Action } from "@aomi-labs/client";
 import { CliSession } from "../cli-session";
 import { createCliClient } from "../client-factory";
 import { fatal } from "../errors";

@@ -10,7 +10,7 @@ import {
 } from "viem";
 import { Connection, Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
-import type { CommitView } from "../../src/commits";
+import type { CommitView } from "@aomi-labs/client";
 
 const signer = "0xFCAd0B19bB29D4674531d6f115237E16AfCE377c";
 const privateKey =
@@ -92,9 +92,8 @@ describe("CLI durable commits", () => {
   });
 
   it("lists, signs, and rejects durable commits without a legacy Action", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { txCommand, signCommand, rejectCommand } =
-      await import("../../src/cli/commands/wallet");
+    const { CliSession } = await import("../cli-session");
+    const { txCommand, signCommand, rejectCommand } = await import("./wallet");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -128,8 +127,8 @@ describe("CLI durable commits", () => {
   });
 
   it("preflights every selection and executes selected batch commits in order", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const { CliSession } = await import("../cli-session");
+    const { signCommand } = await import("./wallet");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -188,8 +187,8 @@ describe("CLI durable commits", () => {
 
   it("waits for batch predecessor confirmation before signing the successor", async () => {
     process.env.AOMI_CLI_STRICT_EXIT = "1";
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { signCommand } = await import("../../src/cli/commands/wallet");
+    const { CliSession } = await import("../cli-session");
+    const { signCommand } = await import("./wallet");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -235,9 +234,9 @@ describe("CLI durable commits", () => {
   });
 
   it("exports the exact commit and submits only matching externally signed bytes", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { exportCommand } = await import("../../src/cli/commands/export");
-    const { submitCommand } = await import("../../src/cli/commands/submit");
+    const { CliSession } = await import("../cli-session");
+    const { exportCommand } = await import("./export");
+    const { submitCommand } = await import("./submit");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -288,8 +287,8 @@ describe("CLI durable commits", () => {
   });
 
   it("reports only the prepared hash for an externally broadcast commit", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { submitCommand } = await import("../../src/cli/commands/submit");
+    const { CliSession } = await import("../cli-session");
+    const { submitCommand } = await import("./submit");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -333,8 +332,8 @@ describe("CLI durable commits", () => {
   });
 
   it("accepts an already confirmed commit only for its exact reported hash", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { submitCommand } = await import("../../src/cli/commands/submit");
+    const { CliSession } = await import("../cli-session");
+    const { submitCommand } = await import("./submit");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -373,7 +372,7 @@ describe("CLI durable commits", () => {
   });
 
   it("keeps a keyless commit unavailable for local signing", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
+    const { CliSession } = await import("../cli-session");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -386,8 +385,8 @@ describe("CLI durable commits", () => {
   });
 
   it("signs the exact prepared EVM fields without submitting", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { cliWallets } = await import("../../src/cli/action-capabilities");
+    const { CliSession } = await import("../cli-session");
+    const { cliWallets } = await import("../action-capabilities");
     const cli = CliSession.create({
       baseUrl: "https://example.test",
       secrets: {},
@@ -433,7 +432,7 @@ describe("CLI durable commits", () => {
 
   it("does not rebroadcast prepared EVM bytes already known to the chain", async () => {
     const { broadcastPreparedTransaction } =
-      await import("../../src/cli/action-capabilities");
+      await import("../action-capabilities");
     const raw = "0x0102";
     const hash = keccak256(raw);
     const client = {
@@ -448,7 +447,7 @@ describe("CLI durable commits", () => {
 
   it("accepts an ambiguous raw broadcast error only after the exact hash is found", async () => {
     const { broadcastPreparedTransaction } =
-      await import("../../src/cli/action-capabilities");
+      await import("../action-capabilities");
     const raw = "0x0102";
     const hash = keccak256(raw);
     const client = {
@@ -466,7 +465,7 @@ describe("CLI durable commits", () => {
 
   it("surfaces an unknown raw broadcast error without claiming submission", async () => {
     const { broadcastPreparedTransaction } =
-      await import("../../src/cli/action-capabilities");
+      await import("../action-capabilities");
     const raw = "0x0102";
     const hash = keccak256(raw);
     const client = {
@@ -486,7 +485,7 @@ describe("CLI durable commits", () => {
 
   it("fails closed when the preflight transaction lookup is unavailable", async () => {
     const { broadcastPreparedTransaction } =
-      await import("../../src/cli/action-capabilities");
+      await import("../action-capabilities");
     const client = {
       getTransaction: vi
         .fn()
@@ -501,8 +500,8 @@ describe("CLI durable commits", () => {
   });
 
   it("passes signed Solana bytes to the raw broadcaster", async () => {
-    const { CliSession } = await import("../../src/cli/cli-session");
-    const { cliWallets } = await import("../../src/cli/action-capabilities");
+    const { CliSession } = await import("../cli-session");
+    const { cliWallets } = await import("../action-capabilities");
     const keypair = Keypair.fromSeed(new Uint8Array(32).fill(7));
     const cli = CliSession.create({
       baseUrl: "https://example.test",

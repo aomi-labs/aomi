@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Event, MessageEvent } from "../../src/agent/types";
-import {
-  countToolCalls,
-  inlineToolResultFromMessage,
-} from "../../src/cli/output";
+import type { Event, MessageEvent } from "@aomi-labs/client";
+import { countToolCalls, inlineToolResultFromMessage } from "./output";
 
 const inlineToolMessage = {
   event_id: "event-tool",

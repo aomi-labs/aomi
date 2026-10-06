@@ -21,8 +21,8 @@ describe("aomi account login", () => {
 
   beforeEach(() => {
     vi.resetModules();
-    vi.doUnmock("../../src/cli/device-auth");
-    vi.doUnmock("../../src/cli/oauth-device-auth");
+    vi.doUnmock("../device-auth");
+    vi.doUnmock("../oauth-device-auth");
     process.env = { ...ORIGINAL_ENV };
     stateDir = mkdtempSync(join(tmpdir(), "aomi-cli-login-"));
     process.env.AOMI_STATE_DIR = stateDir;
@@ -46,12 +46,12 @@ describe("aomi account login", () => {
         tokenType: "Bearer" as const,
       }),
     );
-    vi.doMock("../../src/cli/oauth-device-auth", () => ({
+    vi.doMock("../oauth-device-auth", () => ({
       signInWithOAuthDevice: oauthLogin,
     }));
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
-    const { readState } = await import("../../src/cli/state");
+      await import("./account");
+    const { readState } = await import("../state");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     await accountLoginCommand(baseConfig);
@@ -88,7 +88,7 @@ describe("aomi account login", () => {
     expect(logSpy).toHaveBeenCalledWith(
       "Signed in with OAuth device authorization",
     );
-    const { accountAppsCommand } = await import("../../src/cli/commands/apps");
+    const { accountAppsCommand } = await import("./apps");
     const fetchMock = vi.fn().mockResolvedValue(Response.json([]));
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -105,7 +105,7 @@ describe("aomi account login", () => {
   });
 
   it("keeps explicit backend AccountBearers on the legacy account app transport", async () => {
-    const { createControlClient } = await import("../../src/cli/context");
+    const { createControlClient } = await import("../context");
     const fetchMock = vi.fn().mockResolvedValue(Response.json([]));
     vi.stubGlobal("fetch", fetchMock);
     try {
@@ -135,11 +135,11 @@ describe("aomi account login", () => {
         expiresAt: Date.parse("2031-01-02T03:04:05.000Z"),
       },
     }));
-    vi.doMock("../../src/cli/device-auth", () => ({
+    vi.doMock("../device-auth", () => ({
       signInWithDeviceProvider: deviceLogin,
     }));
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "log").mockImplementation(() => {});
 
     await accountLoginCommand(baseConfig, { provider: "para" });
@@ -152,11 +152,11 @@ describe("aomi account login", () => {
 
   it("rejects an unknown device provider", async () => {
     const deviceLogin = vi.fn();
-    vi.doMock("../../src/cli/device-auth", () => ({
+    vi.doMock("../device-auth", () => ({
       signInWithDeviceProvider: deviceLogin,
     }));
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
@@ -167,7 +167,7 @@ describe("aomi account login", () => {
 
   it("establishes an account session through BetterAuth SIWE", async () => {
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
 
     const nativeFetch = vi.fn(async (url: string | URL | Request) => {
       const target = String(url);
@@ -206,6 +206,12 @@ describe("aomi account login", () => {
           })),
         } as unknown as Response;
       }
+      if (target.endsWith("/v1/account/session/cli")) {
+        return Response.json({
+          sessionToken: "cli-session",
+          expiresAt: "2030-01-01T03:04:05.000Z",
+        });
+      }
       throw new Error(`unexpected fetch: ${target}`);
     });
     const originalFetch = globalThis.fetch;
@@ -242,8 +248,13 @@ describe("aomi account login", () => {
         expect.stringContaining("Signed in with 0x"),
       );
       expect(logSpy).toHaveBeenCalledWith(
-        "Session expires at 2030-01-02T03:04:05.000Z",
+        "Session expires at 2030-01-01T03:04:05.000Z",
       );
+      const { readState } = await import("../state");
+      expect(readState()?.auth).toMatchObject({
+        sessionToken: "cli-session",
+        expiresAt: Date.parse("2030-01-01T03:04:05.000Z"),
+      });
     } finally {
       vi.stubGlobal("fetch", originalFetch);
     }
@@ -251,7 +262,7 @@ describe("aomi account login", () => {
 
   it("requires an EVM private key", async () => {
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
 
     const nativeFetch = vi.fn();
     const originalFetch = globalThis.fetch;
@@ -274,7 +285,7 @@ describe("aomi account login", () => {
     const keypair = Keypair.generate();
     const secret = bs58.encode(keypair.secretKey);
     const { accountLoginCommand } =
-      await import("../../src/cli/commands/account");
+      await import("./account");
     const nativeFetch = vi.fn(async (url: string | URL | Request) => {
       const target = String(url);
       if (target.endsWith("/api/auth/siws/nonce")) {
@@ -296,6 +307,12 @@ describe("aomi account login", () => {
             betterAuthUserId: "ba-svm-user",
             expiresAt: "2030-01-02T03:04:05.000Z",
           },
+        });
+      }
+      if (target.endsWith("/v1/account/session/cli")) {
+        return Response.json({
+          sessionToken: "cli-session",
+          expiresAt: "2030-01-01T03:04:05.000Z",
         });
       }
       throw new Error(`unexpected fetch: ${target}`);
