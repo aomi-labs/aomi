@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCapabilityHints } from "../capability-hints";
+import { appendCapabilityHints } from "./capability-hints";
 
 describe("selected app delegation", () => {
   it("keeps a branded app's registered name in the task target", () => {

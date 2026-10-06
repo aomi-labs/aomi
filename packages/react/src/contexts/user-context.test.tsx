@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { createRef, forwardRef, useImperativeHandle } from "react";
 
-import { ExtUserProvider, UserState, useUser } from "../ext-user-context";
+import { ExtUserProvider, UserState, useUser } from "./ext-user-context";
 
 type Handle = ReturnType<typeof useUser>;
 

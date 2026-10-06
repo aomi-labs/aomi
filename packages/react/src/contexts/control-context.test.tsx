@@ -1,3 +1,4 @@
+import { createScopedStorage } from "@aomi-labs/client";
 import React, { forwardRef, useImperativeHandle } from "react";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,11 +7,11 @@ import {
   ControlContextProvider,
   useControl,
   type ControlContextApi,
-} from "../control-context";
+} from "./control-context";
 import {
   initThreadControl,
   type ThreadMetadata,
-} from "../../state/thread-store";
+} from "../state/thread-store";
 
 type HarnessHandle = {
   control: ControlContextApi;
@@ -133,7 +134,7 @@ describe("ControlContextProvider", () => {
     });
 
     const firstClientId = first.getControl().state.clientId!;
-    expect(globalThis.localStorage.getItem("aomi_client_id")).toBe(
+    expect(createScopedStorage({ backendUrl: "" }).get("clientId")).toBe(
       firstClientId,
     );
 
@@ -279,7 +280,9 @@ describe("ControlContextProvider", () => {
     });
     expect(selectedControl?.agentMode).not.toBe("direct");
     expect(
-      JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
+      JSON.parse(
+        createScopedStorage({ backendUrl: "" }).get("modelSelection")!,
+      ),
     ).toMatchObject({ mode: "manual", model: "gpt-5" });
     expect(getControl().getPreferredThreadControl()).toMatchObject({
       model: "gpt-5",
@@ -390,7 +393,9 @@ describe("ControlContextProvider", () => {
       controlDirty: true,
     });
     expect(
-      JSON.parse(globalThis.localStorage.getItem("aomi_model_selection")!),
+      JSON.parse(
+        createScopedStorage({ backendUrl: "" }).get("modelSelection")!,
+      ),
     ).toMatchObject({ mode: "auto", model: null });
   });
 
@@ -478,7 +483,9 @@ describe("ControlContextProvider", () => {
         applicationId: 2936682,
       });
     });
-    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("direct");
+    expect(createScopedStorage({ backendUrl: "" }).get("agentMode")).toBe(
+      "direct",
+    );
     expect(getControl().getCurrentThreadTarget()).toEqual({
       mode: "direct",
       applicationId: 2936682,
@@ -487,7 +494,9 @@ describe("ControlContextProvider", () => {
     act(() => {
       getControl().onAgentModeSelect("auto");
     });
-    expect(globalThis.localStorage.getItem("aomi_agent_mode")).toBe("auto");
+    expect(createScopedStorage({ backendUrl: "" }).get("agentMode")).toBe(
+      "auto",
+    );
     expect(getControl().getPreferredThreadControl()).toMatchObject({
       agentMode: "auto",
     });

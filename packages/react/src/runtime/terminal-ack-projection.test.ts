@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
-import { projectRuntimeMessages } from "../utils";
+import { projectRuntimeMessages } from "./message-projection";
 import {
   callbackEvents,
   callbackRoot,
   callbackTurn,
-} from "../../../../../tests/fixtures/commit-callback-events";
+} from "../../../../tests/fixtures/commit-callback-events";
 
 function meta(sequence: number, turnId = "turn-1") {
   return {

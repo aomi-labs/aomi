@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { AomiClient } from "@aomi-labs/client";
-import { ThreadStore } from "../../state/thread-store";
-import { buildThreadListAdapter } from "../threadlist-adapter";
+import { ThreadStore } from "../state/thread-store";
+import { buildThreadListAdapter } from "./threadlist-adapter";
 
 describe("thread title persistence", () => {
   it("uses the existing PATCH contract and restores the persisted title on reload", async () => {

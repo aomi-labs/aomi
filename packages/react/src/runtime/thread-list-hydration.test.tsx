@@ -5,17 +5,11 @@ import type { AgentSession, AomiClient } from "@aomi-labs/client";
 import {
   ThreadContextProvider,
   useThreadContext,
-} from "../../contexts/thread-context";
-import { SessionManager } from "../session-manager";
-import { useThreadListSync } from "../thread-list-sync";
+} from "../contexts/thread-context";
+import { SessionManager } from "./session-manager";
+import { useThreadListSync } from "./thread-list-sync";
 
-const control = vi.hoisted(() => ({
-  getControlState: () => ({ clientId: "client" }),
-}));
-vi.mock("../../contexts/control-context", () => ({
-  useControl: () => control,
-}));
-vi.mock("../../contexts/ext-user-context", () => ({
+vi.mock("../contexts/ext-user-context", () => ({
   useUser: () => ({ user: {} }),
 }));
 
@@ -27,27 +21,23 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
+const GUEST = { owner: "guest" };
+const SIGNED = { owner: "signed" };
+
 function fixture(all: ReturnType<typeof vi.fn>) {
   const client = { agent: { sessions: { all } } } as unknown as AomiClient;
   return {
-    sessions: {
-      aomiClientRef: { current: client },
-      sessionManager: new SessionManager(() => client),
-      closeAllSessions: vi.fn(),
-      ensureInitialState: vi.fn(async () => undefined),
-      setIsThreadLoading: vi.fn(),
-    },
-    remoteThreads: {
-      remoteThreadIdsRef: { current: new Set<string>() },
-      warmPromisesRef: { current: new Map<string, Promise<void>>() },
-      warmedThreadIdsRef: { current: new Set<string>() },
-      warmThread: vi.fn(async () => undefined),
-    },
+    aomiClientRef: { current: client },
+    sessionManager: new SessionManager(() => client),
+    ensureInitialState: vi.fn(async () => undefined),
+    resetConversation: vi.fn(),
+    remoteThreadIdsRef: { current: new Set<string>() },
+    owner: GUEST,
   };
 }
 
-describe("remote list admission after guest bootstrap", () => {
-  it("never advertises a ready empty list when access becomes available before its request effect", async () => {
+describe("loading the chat list once access arrives", () => {
+  it("shows loading, never an empty list, while the first list request is pending", async () => {
     let resolve!: (rows: AgentSession[]) => void;
     const request = new Promise<AgentSession[]>((done) => {
       resolve = done;
@@ -97,6 +87,11 @@ describe("remote list admission after guest bootstrap", () => {
     expect(
       view.result.current.threads.getThreadMetadata("saved-chat")?.title,
     ).toBe("Renamed saved chat");
+    expect(
+      renders
+        .filter((state) => state.access && !state.hasSaved)
+        .every((state) => state.loading),
+    ).toBe(true);
   });
 
   it("settles a list failure truthfully instead of keeping its initial spinner", async () => {
@@ -108,5 +103,59 @@ describe("remote list admission after guest bootstrap", () => {
     );
     await waitFor(() => expect(view.result.current.threadListError).toBe(true));
     expect(view.result.current.isThreadListLoading).toBe(false);
+  });
+  it("shows loading for a new owner until its own list arrives", async () => {
+    let resolve!: (rows: AgentSession[]) => void;
+    const all = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockImplementationOnce(
+        () =>
+          new Promise<AgentSession[]>((done) => {
+            resolve = done;
+          }),
+      );
+    const options = fixture(all);
+    const renders: { scope: string; loading: boolean; hasSaved: boolean }[] =
+      [];
+    const view = renderHook(
+      ({ scope }) => {
+        const state = useThreadListSync({
+          ...options,
+          accountSessionAvailable: true,
+          owner: scope === "guest" ? GUEST : SIGNED,
+        });
+        const threads = useThreadContext();
+        renders.push({
+          scope,
+          loading: state.isThreadListLoading,
+          hasSaved: threads.allThreadsMetadata.has("saved-chat"),
+        });
+        return state;
+      },
+      { initialProps: { scope: "guest" }, wrapper },
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListLoading).toBe(false),
+    );
+    view.rerender({ scope: "signed" });
+    expect(
+      renders
+        .filter((state) => state.scope === "signed" && !state.hasSaved)
+        .every((state) => state.loading),
+    ).toBe(true);
+    await act(() =>
+      resolve([
+        { id: "saved-chat", title: "Saved", archived: false, updatedAt: 2 },
+      ]),
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListLoading).toBe(false),
+    );
+    expect(
+      renders
+        .filter((state) => state.scope === "signed" && !state.hasSaved)
+        .every((state) => state.loading),
+    ).toBe(true);
   });
 });

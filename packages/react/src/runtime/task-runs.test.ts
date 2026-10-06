@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
 
-import { selectTaskRuns } from "../task-runs";
+import { selectTaskRuns } from "./task-runs";
 
 const meta = (sequence: number, type: Event["type"]) => ({
   event_id: `event-${sequence}`,

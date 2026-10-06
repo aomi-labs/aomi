@@ -3,8 +3,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useUser, ExtUserProvider } from "@aomi-labs/react";
-import { AomiWalletKitContextProvider } from "../../../../../apps/shadcn-registry/src/lib/wallet-kit/context";
-import type { AomiWalletKit } from "../../../../../apps/shadcn-registry/src/lib/wallet-kit/types";
+import { AomiWalletKitContextProvider } from "../../../widget/src/wallet/context";
+import type { AomiWalletKit } from "../../../widget/src/wallet/types";
 
 afterEach(() => {
   cleanup();
@@ -48,7 +48,7 @@ function renderWithAdapter(adapter: AomiWalletKit) {
 }
 
 describe("AomiWalletKitContextProvider user sync", () => {
-  it("publishes wallet provider and owner/chain, never backend-authority aa/sponsorship", async () => {
+  it("publishes wallet provider and owner/chain, never the backend-decided AA or sponsorship", async () => {
     renderWithAdapter(
       connectedAdapter({
         sessionProvider: "baseAccount",
@@ -68,7 +68,7 @@ describe("AomiWalletKitContextProvider user sync", () => {
           chain_id: 8453,
         },
       });
-      // AA / sponsorship are backend authority and are never published here.
+      // The backend decides AA and sponsorship; they are never published here.
       expect(state.evm?.aa).toBeUndefined();
       expect(state.evm?.sponsorship).toBeUndefined();
     });

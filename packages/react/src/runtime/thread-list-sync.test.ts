@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { reconcileGeneratedThreadTitle } from "../utils";
+import { reconcileGeneratedThreadTitle } from "./thread-title";
 
 import {
   initThreadControl,
   type ThreadMetadata,
-} from "../../state/thread-store";
+} from "../state/thread-store";
 import {
   initRemoteThreadControl,
   mergeThreadListMetadata,
-} from "../thread-list-sync";
+} from "./thread-list-sync";
 
 function metadata(
   title: string,

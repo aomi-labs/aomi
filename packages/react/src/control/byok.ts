@@ -42,7 +42,7 @@ export type ByokActions = SecretsActions & {
 
 type UseByokOptions = {
   aomiClientRef: MutableRefObject<AomiClient>;
-  /** Null until the host has a canonical account session. */
+  /** Null until the host has an account session. */
   accountClient: AomiClient | null;
   clientIdRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */

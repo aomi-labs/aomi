@@ -22,6 +22,7 @@ describe("model reads", () => {
         apiKeyRef,
         getControlSessionId,
         apiKey: null,
+        credentialRevision: 0,
       }),
     );
     await waitFor(() =>
@@ -31,7 +32,9 @@ describe("model reads", () => {
     await act(async () => {
       await view.result.current.actions.getAvailableModels();
     });
-    expect(view.result.current.state.availableModels).toEqual(["model-a"]);
+    await waitFor(() =>
+      expect(view.result.current.state.availableModels).toEqual(["model-a"]),
+    );
     expect(view.result.current.state.modelsLoading).toBe(false);
     expect(client.getModels).toHaveBeenCalledTimes(2);
   });

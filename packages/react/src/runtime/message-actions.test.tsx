@@ -16,7 +16,7 @@ import {
   type AppendMessage,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { messageActions } from "../message-actions";
+import { messageActions } from "./message-actions";
 import { useRef } from "react";
 
 const messages: ThreadMessageLike[] = [
@@ -222,7 +222,7 @@ function NewMessageHarness({ send }: { send: ReturnType<typeof vi.fn> }) {
 }
 
 describe("new request composer", () => {
-  it("clears during admission and stays clear after success without duplicate submit", async () => {
+  it("clears while the backend accepts the edit and stays clear after success, sending once", async () => {
     let resolve!: () => void;
     const send = vi.fn(
       () =>
@@ -260,7 +260,7 @@ describe("new request composer", () => {
     fireEvent.submit(input.closest("form")!);
     await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     fireEvent.change(input, { target: { value: "My newer draft" } });
-    await act(async () => reject(new Error("not admitted")));
+    await act(async () => reject(new Error("not accepted")));
     expect(input).toHaveValue("My newer draft");
   });
 });

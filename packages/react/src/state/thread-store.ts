@@ -198,6 +198,12 @@ export class ThreadStore {
     if (!previous) return;
     const next = { ...previous, ...updates };
     next.title = ThreadStore.cleanTitle(next.title);
+    if (
+      (Object.keys(next) as (keyof ThreadMetadata)[]).every(
+        (key) => next[key] === previous[key],
+      )
+    )
+      return;
     const threadMetadata = new Map(this.state.threadMetadata);
     threadMetadata.set(threadId, next);
     logThreadMetadataChange("updateThreadMetadata", threadId, previous, next);

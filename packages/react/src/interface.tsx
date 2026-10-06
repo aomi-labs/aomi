@@ -62,7 +62,7 @@ export type AomiRuntimeApi = {
   threadMetadata: Map<string, ThreadMetadata>;
   /** True when the authenticated thread list failed to load. */
   threadListError: boolean;
-  /** True during the account-owned history read. Optional for custom runtimes. */
+  /** True while the account's chat history loads. Optional for custom runtimes. */
   threadListLoading?: boolean;
   /** Whether the server has acknowledged this conversation. */
   isRemoteThread?: (threadId: string) => boolean;
@@ -110,7 +110,7 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // ACTION API
   // -------------------------------------------------------------------------
-  /** Canonical runtime Actions awaiting a client response. */
+  /** Runtime actions waiting for a client response. */
   pendingActions: Action[];
   actionAttempts: ReadonlyMap<string, ActionAttempt>;
   /** True while an Action is visible or awaiting backend acknowledgement. */
@@ -134,9 +134,9 @@ export type AomiRuntimeApi = {
   // -------------------------------------------------------------------------
   // EVENT STATE
   // -------------------------------------------------------------------------
-  /** Canonical ordered events for the active session. */
+  /** Ordered events of the open chat, as the server sent them. */
   events: readonly Event[];
-  /** Backend-owned lifecycle for the active turn. */
+  /** State of the current turn, as the backend reports it. */
   turnState?: TurnState;
 };
 

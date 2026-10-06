@@ -1,19 +1,9 @@
-// =============================================================================
-// useAuthEndpoints — fetch authorized apps + available models from BE
-// =============================================================================
-//
-// Both endpoints share three traits:
-//   - Scoped to the auth context (apiKey + clientId), NOT per-thread
-//   - Cached in React state once fetched, refreshed only when auth changes
-//   - Used by per-thread-control to validate model/app selections
-//
-// Background: the deps on these effects USED to include `sessionId` (current
-// thread id) before the May 2026 fix. That caused refire on every thread
-// switch — a ~3 s `/api/thread/apps` call burned per click. The stable
-// `getControlSessionId` callback (provided by the caller) reads from refs
-// inside, so the effect deps stay quiet across thread switches.
+// Models and apps this runtime may use. Both are scoped to the credential
+// (app key and account), not to the open chat, so switching chats never
+// refetches them. Inside a runtime without a key they come from the public
+// catalog; a standalone control provider asks the backend directly.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { MutableRefObject } from "react";
 import type {
   AomiAppDescriptor,
@@ -21,6 +11,8 @@ import type {
   AomiPlatformFilter,
   ApplicationId,
 } from "@aomi-labs/client";
+import { useAomiDisplayCache, useDisplayQuery } from "../query/display-cache";
+import { displayQueries } from "../query/queries";
 import { resolveAutoModel } from "./model-selection";
 
 export type AuthEndpointsState = {
@@ -45,107 +37,86 @@ type UseAuthEndpointsOptions = {
   apiKeyRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
-  /** Trigger that should cause apps to refetch (e.g. apiKey changes). */
   apiKey: string | null;
+  /** Changes whenever the app key does. */
+  credentialRevision: number;
   /** Optional backend platform filter for the app catalog. */
   appPlatforms?: AomiPlatformFilter;
   /** Hosted app this runtime is scoped to; routed on by the edge. */
   applicationId?: ApplicationId;
+  accountSessionAvailable?: boolean;
 };
+
+const NO_APPS: AomiAppDescriptor[] = [];
+const DEFAULT_APPS: AomiAppDescriptor[] = [{ name: "default" }];
+const NO_MODELS: string[] = [];
 
 function getDefaultApp(apps: string[]): string | null {
   return apps.includes("default") ? "default" : (apps[0] ?? null);
 }
 
-function namesFromDescriptors(apps: ReadonlyArray<{ name: string }>): string[] {
-  return apps.map((a) => a.name);
-}
+const appNames = (apps: ReadonlyArray<{ name: string }>) =>
+  apps.map((app) => app.name);
 
-/** Provider-internal: owns the apps/models state. Consumers should use the
- *  `useAuthEndpoints` slice reader exported from contexts/control-context.tsx. */
+/** Provider-internal: consumers use `useAuthEndpoints` from control-context. */
 export function useAuthEndpointsImpl({
   aomiClientRef,
   apiKeyRef,
   getControlSessionId,
   apiKey,
+  credentialRevision,
   appPlatforms,
   applicationId,
+  accountSessionAvailable = false,
 }: UseAuthEndpointsOptions): {
   state: AuthEndpointsState;
   actions: AuthEndpointsActions;
 } {
-  const appPlatformsKey = Array.isArray(appPlatforms)
-    ? appPlatforms.join("\0")
-    : (appPlatforms ?? "");
-  // Primitive so the callbacks below stay stable across renders.
+  const api = aomiClientRef.current;
   const appId = applicationId?.toString() ?? "";
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [defaultModel, setDefaultModel] = useState<string | null>(null);
-  const [authorizedApps, setAuthorizedApps] = useState<string[]>([]);
-  const [appDescriptors, setAppDescriptors] = useState<AomiAppDescriptor[]>([]);
-  const [defaultApp, setDefaultApp] = useState<string | null>(null);
-  const [modelsLoading, setModelsLoading] = useState(true);
-
-  const getAvailableModels = useCallback(async (): Promise<string[]> => {
-    setModelsLoading(true);
-    try {
-      const models = await aomiClientRef.current.getModels(
-        getControlSessionId(),
-        { applicationId: appId },
-      );
-      setAvailableModels(models);
-      setDefaultModel(resolveAutoModel(models));
-      return models;
-    } catch (error) {
-      console.error("Failed to fetch models:", error);
-      return [];
-    } finally {
-      setModelsLoading(false);
-    }
-  }, [aomiClientRef, getControlSessionId, appId]);
-
-  const getAuthorizedApps = useCallback(async (): Promise<string[]> => {
-    try {
-      const descriptors = await aomiClientRef.current.getApps(
-        getControlSessionId(),
-        {
-          apiKey: apiKeyRef.current ?? undefined,
+  const credential = {
+    sessionId: getControlSessionId,
+    appId,
+    credential: credentialRevision,
+  };
+  const publicLane = Boolean(useAomiDisplayCache()) && !apiKey;
+  const models = useDisplayQuery(
+    publicLane
+      ? displayQueries.models(api)
+      : displayQueries.authorizedModels(api, credential),
+  );
+  const apps = useDisplayQuery(
+    !publicLane || accountSessionAvailable
+      ? displayQueries.authorizedApps(api, {
+          ...credential,
+          apiKey: () => apiKeyRef.current,
           platforms: appPlatforms,
-          applicationId: appId,
-        },
-      );
-      const names = namesFromDescriptors(descriptors);
-      setAuthorizedApps(names);
-      setAppDescriptors(descriptors);
-      setDefaultApp(getDefaultApp(names));
-      return names;
-    } catch (error) {
-      console.error("Failed to fetch apps:", error);
-      setAuthorizedApps(["default"]);
-      setAppDescriptors([{ name: "default" }]);
-      setDefaultApp("default");
-      return ["default"];
-    }
-  }, [aomiClientRef, apiKeyRef, getControlSessionId, appPlatformsKey, appId]);
-
-  // Fetch models on mount. Fetch apps whenever the auth context changes —
-  // apiKey is the trigger; scoped to apiKey/clientId state, NOT to thread
-  // switches (see header comment for history).
-  useEffect(() => {
-    void getAvailableModels();
-  }, [getAvailableModels]);
-  useEffect(() => {
-    void getAuthorizedApps();
-  }, [getAuthorizedApps, apiKey]);
+        })
+      : displayQueries.appCatalog(api, appPlatforms),
+  );
+  const availableModels = models.data ?? NO_MODELS;
+  const appDescriptors = apps.data ?? (apps.error ? DEFAULT_APPS : NO_APPS);
+  const authorizedApps = useMemo(
+    () => appNames(appDescriptors),
+    [appDescriptors],
+  );
+  const getAvailableModels = useCallback(
+    async () => (await models.refetch()).data ?? [],
+    [models.refetch],
+  );
+  const getAuthorizedApps = useCallback(
+    async () => appNames((await apps.refetch()).data ?? DEFAULT_APPS),
+    [apps.refetch],
+  );
 
   return {
     state: {
       availableModels,
-      defaultModel,
+      defaultModel: resolveAutoModel(availableModels),
       authorizedApps,
       appDescriptors,
-      defaultApp,
-      modelsLoading,
+      defaultApp: getDefaultApp(authorizedApps),
+      modelsLoading: models.isPending,
     },
     actions: { getAvailableModels, getAuthorizedApps },
   };

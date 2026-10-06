@@ -72,7 +72,7 @@ export {
 } from "./contexts/ext-user-context";
 
 // User config type (for render prop pattern)
-export type { UserConfig } from "./runtime/utils";
+export type { UserConfig } from "./contexts/ext-user-context";
 
 // =============================================================================
 // Thread Context (for UI components)
@@ -105,16 +105,18 @@ export { initThreadControl } from "./state/thread-store";
 // =============================================================================
 // Utilities
 // =============================================================================
+export { cn } from "./class-names";
+export { formatAddress } from "./format-address";
 export {
-  cn,
-  formatAddress,
   getNetworkName,
   getChainInfo,
-  projectAssistantMessages,
-  walletContinuationPending,
   SUPPORTED_CHAINS,
   type ChainInfo,
-} from "./runtime/utils";
+} from "./chains";
+export {
+  projectAssistantMessages,
+  walletContinuationPending,
+} from "./runtime/message-projection";
 export { resolveAutoModel } from "./control/model-selection";
 
 // =============================================================================
@@ -146,3 +148,20 @@ export {
   type ControlContextProviderProps,
   type StoredByokKey,
 } from "./contexts/control-context";
+
+export { AomiChatBoundary } from "./runtime/assistant-runtime-boundary";
+export { useChatView, useChatViewFlag } from "./state/use-chat-view";
+
+export {
+  fetchDisplayQuery,
+  useAomiDisplayCache,
+  useDisplayQuery,
+} from "./query/display-cache";
+export type {
+  DisplayCache,
+  DisplayQuery,
+  DisplayResource,
+  RuntimeAccount,
+} from "./query/display-cache";
+export type { DisplayPersistence } from "./query/display-persistence";
+export { displayQueries } from "./query/queries";

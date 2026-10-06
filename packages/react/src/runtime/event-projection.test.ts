@@ -6,14 +6,14 @@ import {
   projectAssistantMessages,
   projectRuntimeMessages,
   walletContinuationPending,
-} from "../utils";
+} from "./message-projection";
 import {
   callbackEvents,
   callbackCall,
   callbackRoot,
   callbackTurn,
-} from "../../../../../tests/fixtures/commit-callback-events";
-import { appendCapabilityHints } from "../capability-hints";
+} from "../../../../tests/fixtures/commit-callback-events";
+import { appendCapabilityHints } from "./capability-hints";
 
 const meta = (
   sequence: number,
@@ -314,7 +314,7 @@ describe("projectAssistantMessages", () => {
     expect(projectAssistantMessages(events)[0]?.content).toHaveLength(2);
   });
 
-  it("keeps frontend capability hints out of optimistic and canonical user messages", () => {
+  it("keeps frontend capability hints out of optimistic and server user messages", () => {
     const hinted = appendCapabilityHints("swap one eth", {
       policy: "auto",
       resolvedMode: "direct",
@@ -358,7 +358,7 @@ describe("projectAssistantMessages", () => {
     });
   });
 
-  it("reconciles the optimistic user echo with the canonical event by id", () => {
+  it("matches the optimistic user echo to the server's event by id", () => {
     const optimistic = projectRuntimeMessages([], "hello");
     const canonical = projectRuntimeMessages([
       {
@@ -960,7 +960,7 @@ describe("projectAssistantMessages", () => {
     });
   });
 
-  it("keeps explicit turn ids authoritative and deduplicates null-turn typed completions", () => {
+  it("trusts explicit turn ids and deduplicates null-turn typed completions", () => {
     const events: Event[] = [
       {
         ...meta(1, "message", "canonical-turn"),
