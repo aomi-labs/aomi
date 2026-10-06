@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { startIntakeServer, type IntakeServerHandle } from "../intake";
-import { buildPlanSchema, stagesFor } from "../plan";
+import { startIntakeServer, type IntakeServerHandle } from "./intake";
+import { buildPlanSchema, stagesFor } from "./plan";
 
 describe("intake server", () => {
   let handle: IntakeServerHandle | null = null;

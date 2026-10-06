@@ -11,8 +11,8 @@ import {
   runDir,
   savePlan,
   smitherDbPath,
-} from "../state";
-import { finalizePlan } from "../plan";
+} from "./state";
+import { finalizePlan } from "./plan";
 
 describe("run state", () => {
   it("persists a run pointer and reloads the same runId", async () => {

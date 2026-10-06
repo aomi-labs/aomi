@@ -7,9 +7,9 @@ review_after_days: 30
 sources_of_truth:
   - packages/client/src/transaction-safety.ts
   - packages/client/src/commit-lifecycle.ts
-  - apps/shadcn-registry/src/components/account-shell/features/policy/transaction-safety-levels.ts
-  - apps/shadcn-registry/src/components/account-shell/features/policy/transaction-safety-settings.tsx
-  - apps/shadcn-registry/src/components/control-bar/safety-select.tsx
+  - packages/widget/src/account/policy/transaction-safety-levels.ts
+  - packages/widget/src/account/policy/transaction-safety-settings.tsx
+  - packages/widget/src/controls/safety-select.tsx
 ---
 
 # Transaction safety controls

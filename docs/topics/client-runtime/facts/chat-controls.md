@@ -6,7 +6,7 @@ sources_of_truth:
   - packages/client/src/session/index.ts
   - packages/client/src/session/conversation.ts
   - packages/react/src/runtime/message-actions.ts
-  - scripts/test-chat-turn-controls.mjs
+  - tests/e2e/journeys/edit-rerun-stop.spec.ts
 ---
 
 # Chat controls
@@ -47,22 +47,9 @@ durable history catches up. A rejected interruption keeps streaming available
 and shows a retry message. Backend cancellation targets the requested provider
 turn before runtime lock cleanup; transaction receipts remain durable.
 
-Run `node scripts/test-chat-turn-controls.mjs` against a running local Portal,
-using `LOCAL_PORTAL_URL` when its origin differs from `http://localhost:3000`.
-When a complete Portal compilation exceeds a constrained cloud environment's
-memory budget, `--harness` starts the source widget in a small Vite host. This
-mounts the same `AomiFrame`, Thread, runtime, and SDK; its visible disclosure
-identifies fixture data and the unverified Portal host integration.
-The runner exercises desktop and mobile controls, partial HTTP SSE output,
-repeated clicks, cancellation failure/retry, early Stop, reload persistence, and
-Stop racing with completed or failed answers behind bounded history.
-It writes screenshots and a JSON timing report to `/tmp/chat-controls-artifacts` (or
-`CHAT_CONTROLS_ARTIFACTS`). Identity, REST responses, and model output are
-synthetic fixtures; these results do not establish hosted authentication,
-real model-provider latency, or on-chain execution.
+Run `pnpm run test:journeys tests/e2e/journeys/edit-rerun-stop.spec.ts` (see `tests/e2e/README.md`). The same spec exercises edit, rerun, interruption and reload on the production Portal and embedded widget. The shared typed fake backend supplies agent events over real HTTP SSE; auth stays with the configured Portal. Traces, videos and sanitized agent request logs are retained under `output/playwright/journeys/`.
 
-Edit and Rerun scenarios also check that the replaced answer disappears within
-400 ms of the click, before the fixture answers.
+The client state-machine tests cover cancellation failure/retry, early Stop, completion races, bounded history and uncertain admission. Real BFF identity and signing checks remain in the browser-contract suite.
 
 ### Uncertain start admission
 

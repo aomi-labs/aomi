@@ -1,169 +1,80 @@
 # Domain Rules
 
-## Architecture
+The frontend has four responsibilities. `@aomi-labs/client` owns HTTP, SSE,
+credentials, `ClientSession`, ordered events, actions, commits and account
+transports. `@aomi-labs/react` adapts those contracts to React and assistant-ui.
+The widget owns rendering and wallet adapters. Portal, Build, Telegram, embeds
+and the CLI compose these layers for their own host.
 
-**Single Sources of Truth:**
+The authoritative compatibility and security rules are in
+[frontend invariants](../docs/topics/development/facts/frontend-invariants.md).
+Generated wire types and the public SDK facade remain supported.
 
-- User/wallet state -> `packages/react/src/contexts/ext-user-context.tsx` plus `UserState` from `@aomi-labs/client`
-- Thread state -> `packages/react/src/contexts/thread-context.tsx`
-- Backend transport -> `packages/client/src/client.ts` (`AomiClient`)
-- Per-thread runtime state -> `packages/client/src/session/index.ts` (`ClientSession`, exported as `Session`)
-- React session orchestration -> `packages/react/src/runtime/orchestrator.ts` and `session-manager.ts`
-- Event dispatching -> `ClientSession` events bridged into `packages/react/src/contexts/event-context.tsx`
-- Control state (model/app/api key) -> `packages/react/src/contexts/control-context.tsx`
-- Message conversion -> `packages/react/src/runtime/utils.ts`
+## Ownership
 
-**Provider Hierarchy:**
-
-```
-AomiRuntimeProvider
-└── ThreadContextProvider
-    └── NotificationContextProvider
-        └── ExtUserProvider
-            └── ControlContextProvider
-                └── EventContextProvider
-                    └── AomiRuntimeCore
-                        └── RuntimeUserStateProvider
-                            └── AomiRuntimeApiProvider
-                                └── AssistantRuntimeProvider
-                                    └── {children}
-```
-
-**Component Hierarchy:**
-
-```
-AomiFrame (apps/registry)
-├── ThreadListSidebar (navigation)
-├── Thread (message view)
-├── ControlBar (model/app/API-key selection)
-└── Wallet kit providers (Para, Privy, Base Account, or host-provided)
-```
-
-## Do / Don't
-
-| Do | Don't |
+| Concern | Owner |
 | --- | --- |
-| Use `AomiClient` from `@aomi-labs/client` for backend calls | Recreate HTTP helpers inside `@aomi-labs/react` |
-| Use `ClientSession`/`Session` for per-thread polling, SSE, and wallet requests | Reintroduce React-side polling/message controllers |
-| Use `useUser()`/`UserState` for wallet state | Keep local wallet state in frame components |
-| Let the wallet kit sync identity into `UserState` | Manually post wallet state from UI controls |
-| Let the same-origin BFF proxy mint backend bearers from Better Auth | Send browser cookies or user-provided `Authorization` upstream |
+| Backend requests and auth renewal | `packages/client/src/client.ts` |
+| Ordered conversation, Stop, branching, actions and commits | `packages/client/src/session/` |
+| Canonical account graph response and account operations | `packages/client/src/account/` |
+| React orchestration and assistant-ui adaptation | `packages/react/src/runtime/` |
+| Chat display and wallet adapters | Widget package |
+| First-party cookies, widget origin binding, OAuth and upstream authority | `packages/account` and app BFFs |
+| Deployment console | `apps/build` |
+| Backend orchestration and on-chain execution | Rust backend; never a display cache |
 
-## File Conventions
+A conversation's thread ID is distinct from an authentication session ID. An
+Aomi account ID is distinct from a provider user ID, a token subject, an owner
+ID and a signer address. A hosted application ID is distinct from a routing app
+name and a package ID. Map these explicitly at each boundary; preserve wire
+field names and supported public aliases.
 
-| Location | Purpose |
-| --- | --- |
-| `packages/client/src/client.ts` | `AomiClient` HTTP/SSE transport |
-| `packages/client/src/session/` | `ClientSession` runtime state machine and wallet-request controller |
-| `packages/client/src/account-session.ts` | Optional client-side BFF bearer provider for cross-origin calls |
-| `packages/react/src/contexts/*.tsx` | React state providers (user, thread, event, notification, control) |
-| `packages/react/src/runtime/*.tsx` | React integration around `AomiClient`/`ClientSession` |
-| `packages/react/src/handlers/*.ts` | Wallet and notification handler hooks |
-| `apps/registry/src/lib/wallet-kit/` | Host wallet/provider adapters and runtime user sync |
-| `packages/account/src/proxy.ts` | Same-origin BFF proxy that strips browser auth and injects trusted backend bearer |
-| `packages/auth/src/` | Better Auth setup, provider exchange, account graph, wallet linking |
+## Requests and events
 
-## Key Types
+A composer send enters `ClientSession.sendAsync()`, which submits
+`POST /v1/agent/chat`. The session reduces durable event pages in order and
+subscribes to `/v1/agent/chat/:id/stream`; polling reconciles gaps and recovery.
+Edit and rerun name durable message keys. Stop waits for authoritative,
+turn-scoped acknowledgment. Provisional text never advances the durable cursor.
 
-| Type | Source |
-| --- | --- |
-| `AomiClient`, `AomiClientOptions` | `@aomi-labs/client` (`packages/client/src/client.ts`) |
-| `Session` / `ClientSession`, `SessionOptions` | `@aomi-labs/client` (`packages/client/src/session/`) |
-| `UserState`, `WalletRequest`, `WalletRequestResult` | `@aomi-labs/client` |
-| `AomiRuntimeProvider`, `AomiRuntimeApi` | `@aomi-labs/react` |
-| `ControlState`, `ControlContextApi` | `packages/react/src/contexts/control-context.tsx` |
-| `AomiWalletKit`, provider adapters | `apps/registry/src/lib/wallet-kit/` |
+Thread discovery uses `/v1/agent/sessions`. Rename and archive are patches to an
+account-owned thread. Every send reads its current transaction safety policy;
+a cached display of that policy cannot authorize an action. Wallet approval and
+commit completion remain explicit, replay-resistant operations.
 
-## Data Flows
+Display caches may hold catalogs, profile and credit metadata. They never hold
+credentials, conversation events, pending actions or mutation queues. Their
+scope includes backend, application and account identity, and a scope change
+cancels private work before the new identity can render it.
 
-**User message:**
+## Identity and wallets
 
-```
-Composer -> AomiRuntimeCore -> useRuntimeOrchestrator
-  -> ClientSession.send()/sendAsync()
-  -> AomiClient.sendMessage() -> POST /api/chat
-  -> ClientSession polls GET /api/state and listens to GET /api/updates
-  -> React thread store updates
-```
+The first-party browser presents a Better Auth cookie; an embed presents an
+origin-bound widget session; the CLI uses its own credential. The BFF resolves
+the principal, checks the route's grants and ownership, strips browser cookies
+and inbound authorization, and creates the appropriate upstream credential.
+An invalid explicit credential never falls back to an ambient cookie. Cookie
+writes require the approved origin and CSRF intent. A widget session cannot
+obtain a raw internal backend bearer.
 
-**Thread switch:**
+The backend receives the canonical Aomi account as its subject. Provider
+attestations are verified on the server before embedded wallet identities are
+accepted. Wallet adapters supply current capabilities and an explicitly chosen
+operating wallet to the session. Embedded AA provisioning is deferred.
 
-```
-Thread list click -> threadContext.setCurrentThreadId()
-  -> ensureInitialState()
-  -> ClientSession.fetchState() / AomiClient.fetchState()
-  -> messages, title, processing state applied to thread store
-```
+Each widget owns its runtime, display cache, wallet state and overlay container.
+Changing a wallet SDK must preserve the mounted chat. Public catalogs contain
+only an explicit public projection and carry no cookie or installed-app state.
 
-**Wallet state change:**
+## Hosts and compatibility
 
-```
-Wallet provider adapter -> AomiWalletKitSync
-  -> useUser().setUser(UserState)
-  -> ClientSession sends normalized user_state on chat/state requests
-```
+Portal hosts chat, auth, OAuth, MCP and its BFF. Build owns deployment UI. Portal
+preserves supported deploy APIs and redirects old deployment screens to Build.
+The dev wallet seam remains available only outside production because real
+auth, signing and account-isolation tests depend on it.
 
-**Inbound wallet request:**
-
-```
-Backend -> /api/state or /api/updates system event
-  -> ClientSession wallet controller
-  -> orchestrator event bridge
-  -> useWalletHandler callback
-  -> ClientSession.resolve()/reject()
-```
-
-**Same-origin backend auth:**
-
-```
-Browser -> /api/* same-origin request with Better Auth cookie
-  -> packages/account proxy resolves better-auth.session_token
-  -> proxy mints short-lived AccountBearer with sub = canonical Aomi user id
-  -> backend receives Authorization: Bearer <AccountBearer>
-```
-
-**Cross-origin backend auth:**
-
-```
-createAccountAccessTokenProvider()
-  -> GET /v1/account/bearer using Better Auth cookie
-  -> optional provider exchange through /api/auth/aomi/provider/exchange
-  -> AomiClient attaches Authorization when talking directly to backend
-```
-
-## Backend Endpoints
-
-| Endpoint | Purpose | Client surface |
-| --- | --- | --- |
-| `POST /api/chat` | Send message | `AomiClient.sendMessage` |
-| `GET /api/state` | Fetch session state | `AomiClient.fetchState`, `ClientSession` |
-| `POST /api/interrupt` | Cancel generation | `AomiClient.interrupt` |
-| `POST /api/system` | Send system event | `AomiClient.sendSystemMessage` |
-| `GET /api/updates` | SSE stream | `AomiClient.subscribeSSE`, `ClientSession` |
-| `POST /api/sessions` | Create thread/session | `AomiClient.createThread` |
-| `GET /api/sessions` | List threads | `AomiClient.listThreads` |
-| `GET /api/sessions/:id` | Get thread | `AomiClient.getThread` |
-| `PATCH /api/sessions/:id` | Rename thread | `AomiClient.renameThread` |
-| `DELETE /api/sessions/:id` | Delete thread | `AomiClient.deleteThread` |
-| `GET /api/session/apps` | List app descriptors | `AomiClient.getApps` |
-| `GET /api/session/models` | List models | `AomiClient.getModels` |
-| `POST /api/session/model` | Set model/app for session | `AomiClient.setModel` |
-| `GET /api/account` | Current account profile | `AomiClient.getAccount` |
-| `GET /v1/account/bearer` | Mint AccountBearer from Better Auth session | `createAccountAccessTokenProvider` |
-| `POST /api/auth/aomi/provider/exchange` | Create Better Auth session from provider token | Better Auth Aomi provider plugin |
-| `POST /v1/account/provider/exchange` | Link provider token into existing Better Auth session | Portal route + `@aomi-labs/auth` |
-
-Archive/unarchive helpers still exist on `AomiClient` for API compatibility, but the current backend does not expose `/api/sessions/:id/archive` or `/api/sessions/:id/unarchive`.
-
-## Invariants
-
-1. `AomiRuntimeProvider` constructs exactly one `AomiClient` per backend/options identity.
-2. `ClientSession` owns polling, SSE subscription, message state, processing state, and wallet requests for one thread.
-3. `@aomi-labs/react` re-exports client types but does not own the transport implementation.
-4. The real browser/device cookie is `better-auth.session_token`.
-5. The backend never receives browser cookies; the BFF proxy strips `cookie` and incoming `Authorization`.
-6. Backend `AccountBearer.sub` is the canonical Aomi user id.
-7. Provider-attested embedded wallets are synced only after server-side provider verification; the deferred schema/provenance FK work remains separate.
-8. Active wallet per family is owned by `apps/registry/src/lib/wallet-kit/registry/store.ts`.
-9. Model selection is backend-session state, not global React-only state.
-10. All browser API consumers must remain client components.
+Package and path changes preserve supported consumers during the compatibility
+window. Validate immutable baseline consumers against packed candidate packages,
+as well as fresh Vite and Next.js installs. Do not rewrite the protected
+consumer to accommodate a candidate change. Registry JSON stays frozen during
+retirement so existing shadcn clients still receive JSON.

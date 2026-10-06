@@ -108,10 +108,10 @@ waiting for this API change.
 - `apps/portal/src/components/shell/packages-api.ts`
 - `apps/portal/src/components/shell/packages-catalog.ts`
 - `apps/portal/src/components/shell/package-row.tsx`
-- `apps/shadcn-registry/src/components/control-bar/app-metadata.ts`
-- `apps/shadcn-registry/src/components/icons/app-map.tsx`
-- `apps/shadcn-registry/src/components/control-bar/app-select.tsx`
-- `apps/shadcn-registry/src/components/assistant-ui/capability-composer.tsx`
-- `apps/shadcn-registry/src/components/assistant-ui/capability-message-text.tsx`
+- `packages/widget/src/controls/app-metadata.ts`
+- `packages/widget/src/icons/app-map.tsx`
+- `packages/widget/src/components/control-bar/app-select.tsx`
+- `packages/widget/src/composer/capability-composer.tsx`
+- `packages/widget/src/thread/capability-message-text.tsx`
 - `packages/client/src/types.ts` (`AomiAppDescriptor`)
 - `packages/client/src/app-descriptor.ts` (`normalizeAppDescriptor`)

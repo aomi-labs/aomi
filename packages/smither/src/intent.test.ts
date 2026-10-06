@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { distillIntent } from "../intent";
-import { extractJsonObject } from "../prompts";
-import type { CommandRunner } from "../types";
+import { distillIntent } from "./intent";
+import { extractJsonObject } from "./prompts";
+import type { CommandRunner } from "./types";
 
 describe("extractJsonObject", () => {
   it("parses bare JSON", () => {

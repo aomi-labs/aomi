@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { planRollback, executeRollback } from "../rollback";
+import { planRollback, executeRollback } from "./rollback";
 
 const records = {
   app: "my-bot",

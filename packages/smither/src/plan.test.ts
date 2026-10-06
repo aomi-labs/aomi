@@ -8,7 +8,7 @@ import {
   mergePlanDraft,
   nodeId,
   stagesFor,
-} from "../plan";
+} from "./plan";
 
 const base = { app: "demo", sdkRoot: "/sdk" };
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { runEvalStep, evalJudge } from "../evals";
-import { buildPlanSchema, evalPhaseSchema } from "../plan";
-import type { CommandRunner } from "../types";
-import type { ResolvedBinaries } from "../types";
+import { runEvalStep, evalJudge } from "./evals";
+import { buildPlanSchema, evalPhaseSchema } from "./plan";
+import type { CommandRunner } from "./types";
+import type { ResolvedBinaries } from "./types";
 
 const binaries: ResolvedBinaries = {
   aomiBuild: "/bin/aomi-build",

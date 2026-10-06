@@ -5,18 +5,18 @@ status: authoritative
 area: apps
 review_after_days: 30
 sources_of_truth:
-  - apps/shadcn-registry/src/components/aomi-widget.tsx
-  - apps/shadcn-registry/src/components/aomi-frame.tsx
-  - apps/shadcn-registry/src/components/assistant-ui/thread.tsx
-  - apps/shadcn-registry/src/components/assistant-ui/threadlist-sidebar.tsx
-  - apps/shadcn-registry/src/components/control-bar/index.tsx
-  - apps/shadcn-registry/src/host-composition.ts
+  - packages/widget/src/frame/aomi-widget.tsx
+  - packages/widget/src/frame/aomi-frame.tsx
+  - packages/widget/src/thread/thread.tsx
+  - packages/widget/src/sidebar/thread-list-sidebar.tsx
+  - packages/widget/src/controls/index.tsx
+  - packages/widget/src/host-composition.ts
   - apps/portal/src/components/shell/portal-aomi-frame.tsx
 ---
 
 # Widget Frame
 
-`@aomi-labs/widget-lib` is the prebuilt UI surface for embedding Aomi as a
+`@aomi-labs/widget` is the prebuilt UI surface for embedding Aomi as a
 React chat widget and for first-party host composition.
 
 ## Composition
@@ -29,8 +29,8 @@ React chat widget and for first-party host composition.
 - `AomiFrame.Header` renders the current thread title plus `ControlBar`.
 - `AomiFrame.Composer` renders the active thread view and can expose inline controls.
 - Portal imports reusable account, settings, usage, and Library UI through
-  `@aomi-labs/widget-lib/host-composition`. It must not reach into private
-  `apps/shadcn-registry/src` paths.
+  `@aomi-labs/widget/host-composition`. It must not reach into private
+  `packages/widget/src` paths.
 
 ## Layout Behavior
 
@@ -41,8 +41,8 @@ React chat widget and for first-party host composition.
 
 ## Supporting UI Surfaces
 
-- Assistant UI primitives such as the thread list, message thread, and tool fallbacks live under `apps/shadcn-registry/src/components/assistant-ui/`.
-- The control surface lives under `apps/shadcn-registry/src/components/control-bar/`.
+- Assistant UI primitives such as the thread list, message thread, and tool fallbacks live under `packages/widget/src/components/assistant-ui/`.
+- The control surface lives under `packages/widget/src/components/control-bar/`.
 - The registry package also exports themed CSS and individual component entrypoints for consumers that do not want the default frame layout.
 
 ## Host-specific policy

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { crateFileTree, packageCrate } from "../artifacts";
+import { crateFileTree, packageCrate } from "./artifacts";
 
 let roots: string[] = [];
 

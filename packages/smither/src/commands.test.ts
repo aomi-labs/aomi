@@ -9,8 +9,8 @@ import {
   resolveActivationCredential,
   runAomiBuild,
   runAppCargoChecks,
-} from "../commands";
-import type { CommandRunner, ResolvedBinaries } from "../types";
+} from "./commands";
+import type { CommandRunner, ResolvedBinaries } from "./types";
 
 describe("commands", () => {
   it("constructs new-app args", () => {

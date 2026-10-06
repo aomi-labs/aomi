@@ -4,7 +4,7 @@ import {
   OPENROUTER_BASE_URL,
   openrouterAgentEnv,
   resolveAgentBilling,
-} from "../agents";
+} from "./agents";
 
 describe("resolveAgentBilling", () => {
   it("defaults to openrouter when its key is present, even alongside the anthropic key", () => {

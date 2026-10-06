@@ -11,7 +11,7 @@ import {
   type EventFrameLike,
   type SnapshotNode,
   type UiStage,
-} from "../console-model";
+} from "./console-model";
 
 const stages: UiStage[] = [
   { id: "demo:binaries", label: "Sync SDK", kind: "compute" },

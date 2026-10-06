@@ -14,7 +14,7 @@
 
 # testing
 /coverage
-/output/playwright/
+/output/
 
 # next.js
 **/.next*/
@@ -38,7 +38,6 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 tmp*.md
-specs/FINAL-REVIEW-CHECKLIST.md
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -48,10 +47,9 @@ specs/FINAL-REVIEW-CHECKLIST.md
 .vercel
 
 # generated registry build output
+/apps/shadcn-registry/dist/
 apps/landing/public/r/dist
-apps/shadcn-registry/dist
-apps/widget-consumer/dist
-apps/examples/web-sign/dist
+examples/*/dist/
 
 # generated package build output
 packages/*/dist/
@@ -73,3 +71,11 @@ next-env.d.ts
 # Recorded demo masters — regenerable build artifacts, not source
 /demo/out/
 /.surfpool/
+
+/output/package-api/
+/output/fresh-widget/
+/output/canonical-widget-docs/
+
+# Generated bridge themes and OpenAPI temporary exports
+/packages/widget-lib/themes/
+/.tmp/

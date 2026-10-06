@@ -6,8 +6,8 @@ import {
   ensureFreshSdkCheckout,
   resolveAomiBinaries,
   targetBinaryPaths,
-} from "../binaries";
-import type { CommandRunner } from "../types";
+} from "./binaries";
+import type { CommandRunner } from "./types";
 
 describe("resolveAomiBinaries", () => {
   it("builds fresh SDK binaries before using target paths", async () => {
