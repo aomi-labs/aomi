@@ -11,6 +11,30 @@ import {
 } from "./aomi-backend-client";
 
 const FAILED_EXCHANGE_RETRY_MS = 30_000;
+const LINK_INTENT_MS = 5 * 60_000;
+const LINK_INTENT_KEY = "aomi:provider-link-intent";
+
+type LinkIntent = { accountId: string; provider: string; expiresAt: number };
+
+// Session storage keeps the intent across a login that leaves the page
+// (an OAuth redirect) and returns.
+function readLinkIntent(): LinkIntent | null {
+  try {
+    const raw = sessionStorage.getItem(LINK_INTENT_KEY);
+    return raw ? (JSON.parse(raw) as LinkIntent) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLinkIntent(intent: LinkIntent | null) {
+  try {
+    if (intent) sessionStorage.setItem(LINK_INTENT_KEY, JSON.stringify(intent));
+    else sessionStorage.removeItem(LINK_INTENT_KEY);
+  } catch {
+    // Storage can be unavailable; the click still works within this page.
+  }
+}
 
 const credentialKey = (credential: unknown) =>
   (JSON.stringify(credential) ?? "").slice(0, 96);
@@ -19,8 +43,9 @@ const signedInAs = (auth: Pick<AuthRuntime, "provider" | "subject">) =>
 
 /**
  * Turn a host sign-in (Privy, Para) into an Aomi account session: link the
- * provider to the current account, or create one. Each credential is tried
- * once; a failure waits 30 seconds before the same credential is tried again,
+ * provider to the current account after an explicit login, or create one.
+ * Restored SDK sessions never add a login to an existing account. Each
+ * credential is tried once; a failure waits 30 seconds before it is tried again,
  * and a credential the user signed out of is not used again.
  */
 export function useProviderCredentialExchange(input: {
@@ -41,8 +66,46 @@ export function useProviderCredentialExchange(input: {
   const creatingAccount = useRef<string | null>(null);
   const exchanged = useRef<string | null>(null);
   const failed = useRef<{ attempt: string; at: number } | null>(null);
+  const pendingLink = useRef<LinkIntent | null | undefined>(undefined);
+  if (pendingLink.current === undefined) pendingLink.current = readLinkIntent();
+  const setPendingLink = useCallback((intent: LinkIntent | null) => {
+    pendingLink.current = intent;
+    writeLinkIntent(intent);
+  }, []);
   const latest = useRef(input);
   latest.current = input;
+
+  const loginProvider = useCallback(
+    async (reason: string, step?: string) => {
+      const current = latest.current;
+      if (!current.auth.login)
+        throw new Error("Wallet provider sign-in is not ready.");
+      // A newly selected provider may still be loading the browser account.
+      const target =
+        current.enabled && current.status === "loading"
+          ? await current.accountClient.getAccount()
+          : current.account;
+      const intent =
+        target?.user && !target.guest
+          ? {
+              accountId: target.user.id,
+              provider: current.auth.provider,
+              expiresAt: Date.now() + LINK_INTENT_MS,
+            }
+          : null;
+      setPendingLink(intent);
+      exchanged.current = null;
+      failed.current = null;
+      try {
+        if (step === undefined) await current.auth.login(reason);
+        else await current.auth.login(reason, step);
+      } catch (cause) {
+        if (pendingLink.current === intent) setPendingLink(null);
+        throw cause;
+      }
+    },
+    [setPendingLink],
+  );
 
   const reset = useCallback(() => {
     inFlight.current = null;
@@ -74,25 +137,8 @@ export function useProviderCredentialExchange(input: {
         signedOutCredential.current === `${signedInAs(auth)}:${key}`
       )
         return;
-      const hasDurableAccount =
-        Boolean(account?.user) && account?.guest !== true;
-      // A browser cookie left by another Para/Privy user (the account has
-      // this provider, but another login of it) must not turn this sign-in
-      // into a link attempt: that reports a false conflict and strands the
-      // user. Any other signed-in account links the provider.
-      const sameProvider = (account?.linkedAccounts ?? []).filter(
-        (linked) =>
-          linked.provider.toLowerCase() === auth.provider.toLowerCase(),
-      );
-      const replacesStaleBrowserSession = Boolean(
-        hasDurableAccount &&
-        auth.subject &&
-        sameProvider.length &&
-        !sameProvider.some((linked) => linked.subject === auth.subject),
-      );
-      // Link to the current account if there is one, otherwise create one.
-      const hasAccount = hasDurableAccount && !replacesStaleBrowserSession;
-      const attempt = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${key}`;
+      const hasAccount = Boolean(account?.user) && account?.guest !== true;
+      const attempt = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${signedInAs(auth)}:${key}`;
       if (!hasAccount && creatingAccount.current) return;
       if (
         inFlight.current === attempt ||
@@ -101,15 +147,37 @@ export function useProviderCredentialExchange(input: {
           Date.now() - failed.current.at < FAILED_EXCHANGE_RETRY_MS)
       )
         return;
+      const intent = pendingLink.current;
+      const explicitLink = Boolean(
+        intent &&
+        intent.accountId === account?.user?.id &&
+        intent.provider === auth.provider &&
+        intent.expiresAt > Date.now(),
+      );
+      if (!explicitLink) setPendingLink(null);
+      if (hasAccount) {
+        const matches = account?.linkedAccounts.some(
+          (linked) =>
+            linked.provider.toLowerCase() === auth.provider.toLowerCase() &&
+            linked.subject === auth.subject,
+        );
+        if (matches) {
+          exchanged.current = attempt;
+          return;
+        }
+        // SDK restore is not permission to add someone else's login.
+        if (!explicitLink) {
+          exchanged.current = attempt;
+          await auth.logout?.().catch(() => undefined);
+          return;
+        }
+      }
+      setPendingLink(null);
       inFlight.current = attempt;
       if (!hasAccount) creatingAccount.current = attempt;
       try {
         setError(undefined);
         setConflict(undefined);
-        // Signing in replaces another provider user's session; it is not a
-        // link onto it. A guest session stays so the server merges the guest's
-        // chats into the account. The live Para/Privy session stays.
-        if (replacesStaleBrowserSession) await accountClient.signOut();
         const result = await accountClient.exchangeProviderCredential(
           credential,
           { hasAccount },
@@ -131,13 +199,6 @@ export function useProviderCredentialExchange(input: {
           return;
         }
         failed.current = { attempt, at: Date.now() };
-        if (replacesStaleBrowserSession)
-          latest.current.onAccount({
-            user: null,
-            linkedAccounts: [],
-            wallets: [],
-            session: null,
-          });
         if (
           cause instanceof AomiAccountRequestError &&
           cause.status === 409 &&
@@ -176,6 +237,7 @@ export function useProviderCredentialExchange(input: {
 
   /** Forget exchange state; the current host credential is not used again. */
   const forgetCredential = useCallback(async () => {
+    setPendingLink(null);
     if (auth.status === "authenticated" && auth.getCredential) {
       const credential = await auth.getCredential().catch(() => null);
       if (credential)
@@ -184,5 +246,10 @@ export function useProviderCredentialExchange(input: {
     reset();
   }, [auth, reset]);
 
-  return { error, conflict, forgetCredential };
+  return {
+    error,
+    conflict,
+    forgetCredential,
+    loginProvider: auth.login ? loginProvider : undefined,
+  };
 }

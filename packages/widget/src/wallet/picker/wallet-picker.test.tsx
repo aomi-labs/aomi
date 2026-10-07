@@ -242,66 +242,83 @@ describe("wallet sheet", () => {
     expect(connectSocial).not.toHaveBeenCalled();
   });
 
-  it("offers a merge when the address signs in to another account", async () => {
-    const linkWallet = vi.fn().mockRejectedValue(
-      new AomiAccountRequestError(409, "account_merge_available", null, {
-        ticket: "t1",
-        other: {
-          name: "0xdA65…3CF0",
-          createdAt: "2026-09-12T00:00:00Z",
-          chats: 12,
-          wallets: 2,
-          credits: "0",
-          dropped: [
-            "OpenAI model key (you already have one here)",
-            "Search app · token (re-enter it after merging)",
-          ],
-        },
-      }),
-    );
-    const mergeAccount = vi.fn(async () => ({ chats: 12 }));
-    const connectEvmWallet = vi.fn(async () => {
-      setKit((kit) => ({ ...kit, wallets: [rabbyRow(MAIN)] }));
-    });
-    render(
-      <Harness
-        initial={baseKit({
-          accountUser: { id: "acct-1" },
-          linkWallet,
-          mergeAccount,
-          connectEvmWallet,
-        })}
-      />,
-    );
-    fireEvent.click(screen.getByText("Rabby"));
-    expect(await screen.findByText("Merge accounts")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Saved keys from the other account won’t carry over:",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole("listitem").map((item) => item.textContent),
-    ).toEqual([
-      "OpenAI model key (you already have one here)",
-      "Search app · token (re-enter it after merging)",
-    ]);
-    // All three tiles show, even with no credits.
-    expect(screen.getByText("chats")).toBeInTheDocument();
-    expect(screen.getByText("wallets")).toBeInTheDocument();
-    expect(screen.getByText("credits")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Switch to that account instead" }),
-    ).toBeInTheDocument();
+  it.each([
+    ["cookie", "merge"],
+    ["cookie", "switch"],
+    ["widget", "merge"],
+  ] as const)(
+    "offers a merge in a %s session and handles %s with supported actions",
+    async (session, action) => {
+      const linkWallet = vi.fn().mockRejectedValue(
+        new AomiAccountRequestError(409, "account_merge_available", null, {
+          ticket: "t1",
+          other: {
+            name: "0xdA65…3CF0",
+            createdAt: "2026-09-12T00:00:00Z",
+            chats: 12,
+            wallets: 2,
+            credits: "0",
+            dropped: [
+              "OpenAI model key (you already have one here)",
+              "Search app · token (re-enter it after merging)",
+            ],
+          },
+        }),
+      );
+      const mergeAccount = vi.fn(async () => ({ chats: 12 }));
+      const switchToMergeSource = session === "cookie" ? vi.fn() : undefined;
+      const connectEvmWallet = vi.fn(async () => {
+        setKit((kit) => ({ ...kit, wallets: [rabbyRow(MAIN)] }));
+      });
+      render(
+        <Harness
+          initial={baseKit({
+            accountUser: { id: "acct-1" },
+            linkWallet,
+            mergeAccount,
+            switchToMergeSource,
+            connectEvmWallet,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByText("Rabby"));
+      expect(await screen.findByText("Merge accounts")).toBeInTheDocument();
+      expect(
+        screen.getByText("Saved keys from the other account won’t carry over:"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByRole("listitem").map((item) => item.textContent),
+      ).toEqual([
+        "OpenAI model key (you already have one here)",
+        "Search app · token (re-enter it after merging)",
+      ]);
+      // All three tiles show, even with no credits.
+      expect(screen.getByText("chats")).toBeInTheDocument();
+      expect(screen.getByText("wallets")).toBeInTheDocument();
+      expect(screen.getByText("credits")).toBeInTheDocument();
+      const switchButton = screen.queryByRole("button", {
+        name: "Switch to that account instead",
+      });
+      if (session === "cookie") expect(switchButton).toBeInTheDocument();
+      else expect(switchButton).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Merge into this account" }),
-    );
-    await waitFor(() => expect(mergeAccount).toHaveBeenCalledWith("t1"));
-    await waitFor(() =>
-      expect(screen.queryByText("Merge accounts")).not.toBeInTheDocument(),
-    );
-  });
+      if (action === "switch") {
+        fireEvent.click(switchButton!);
+        await waitFor(() =>
+          expect(switchToMergeSource).toHaveBeenCalledWith("t1"),
+        );
+        expect(mergeAccount).not.toHaveBeenCalled();
+      } else {
+        fireEvent.click(
+          screen.getByRole("button", { name: "Merge into this account" }),
+        );
+        await waitFor(() => expect(mergeAccount).toHaveBeenCalledWith("t1"));
+      }
+      await waitFor(() =>
+        expect(screen.queryByText("Merge accounts")).not.toBeInTheDocument(),
+      );
+    },
+  );
 
   it("explains billing when a merge remains blocked", async () => {
     const mergeAccount = vi

@@ -479,7 +479,9 @@ export function useSheetFlow(
       pickSocial,
       sign,
       merge: () => runMerge("merge"),
-      switchInstead: () => runMerge("switch"),
+      switchInstead: kit.switchToMergeSource
+        ? () => runMerge("switch")
+        : undefined,
       handleRequest,
       handleAppSwitch,
     }),
@@ -496,6 +498,7 @@ export function useSheetFlow(
       pickSocial,
       runMerge,
       sign,
+      kit.switchToMergeSource,
     ],
   );
 }

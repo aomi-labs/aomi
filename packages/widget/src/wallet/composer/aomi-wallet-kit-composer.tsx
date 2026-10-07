@@ -300,7 +300,7 @@ export function AomiWalletKitComposer({
     };
     const actions = buildWalletKitActions({
       accounts,
-      auth,
+      auth: { ...auth, login: account.loginProvider ?? auth.login },
       evm,
       svm,
       execution,

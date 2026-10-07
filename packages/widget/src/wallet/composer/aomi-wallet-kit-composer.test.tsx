@@ -161,6 +161,50 @@ it("preserves a ready custom social login that does not use a modal", async () =
   expect(login).toHaveBeenCalledExactlyOnceWith("social-login:privy");
 });
 
+it.each(["privy", "para"] as const)(
+  "records account link intent when the sheet starts %s login",
+  async (provider) => {
+    const { props } = connectedSigner("evm");
+    const login = vi.fn();
+    const loginProvider = vi.fn();
+    let kit: AomiWalletKit | undefined;
+    render(
+      <WalletAuthPublisherContext.Provider
+        value={(next) => {
+          kit = next;
+        }}
+      >
+        <AomiWalletKitComposer
+          {...props}
+          account={{
+            status: "ready",
+            user: { id: "account-1" },
+            linkedAccounts: [],
+            wallets: [],
+            refresh: vi.fn(),
+            loginProvider,
+          }}
+          auth={{
+            provider,
+            sessionProvider: provider,
+            status: "unauthenticated",
+            canOpenModal: true,
+            methods: [],
+            login,
+          }}
+        >
+          connected chat
+        </AomiWalletKitComposer>
+      </WalletAuthPublisherContext.Provider>,
+    );
+    await kit!.connectSocial!(provider);
+    expect(loginProvider).toHaveBeenCalledExactlyOnceWith(
+      `social-login:${provider}`,
+    );
+    expect(login).not.toHaveBeenCalled();
+  },
+);
+
 it("stops offering Verify for an address the user removed", async () => {
   const { props, address } = connectedSigner("evm");
   const unlinkWallet = vi.fn(async () => undefined);

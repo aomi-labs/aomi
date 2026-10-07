@@ -94,6 +94,7 @@ export type AccountRuntime = {
   linkedAccounts: LinkedAuthAccount[];
   wallets: AccountWallet[];
   refresh: () => Promise<void>;
+  loginProvider?: (reason: string, step?: string) => Promise<void>;
   signOut?: () => Promise<void>;
   deleteAccount?: () => Promise<void>;
   updateAccount?: (input: UpdateAccountInput) => Promise<void>;

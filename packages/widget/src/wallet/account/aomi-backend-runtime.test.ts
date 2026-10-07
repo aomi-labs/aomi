@@ -58,6 +58,7 @@ vi.mock("./aomi-backend-client", () => ({
 }));
 
 beforeEach(() => {
+  sessionStorage.clear();
   mockState.accountClient = {
     getAccount: vi.fn().mockResolvedValue({
       user: null,
@@ -160,6 +161,48 @@ describe("useAomiBackendAccountRuntime", () => {
     expect(mockState.accountClient?.getAccount).toHaveBeenCalledTimes(1);
     expect(result.current.getAccountBearer).toBeUndefined();
   });
+
+  it.each(["cookie", "widget-wallet", "widget-provider"] as const)(
+    "only exposes account switching for a browser cookie session (%s)",
+    async (session) => {
+      mockState.accountClient!.getAccount.mockResolvedValue({
+        user: { id: "current-account" },
+        linkedAccounts: [],
+        wallets: [],
+        session: null,
+      });
+      const { result } = renderHook(() =>
+        useAomiBackendAccountRuntime({
+          enabled: true,
+          widgetAuth:
+            session === "widget-wallet"
+              ? { mode: "wallet" }
+              : session === "widget-provider"
+                ? { mode: "provider", provider: "para", environment: "BETA" }
+                : undefined,
+          auth: {
+            status: "authenticated",
+            provider: "para",
+            getCredential: vi.fn().mockResolvedValue(null),
+          } as never,
+          evm: {
+            accounts: () => [],
+            activeEvmConnection: {
+              address: "0x1111111111111111111111111111111111111111",
+              chainId: 1,
+            },
+            signMessageAsync: vi.fn(),
+          } as never,
+        }),
+      );
+      await waitFor(() =>
+        expect(result.current.user?.id).toBe("current-account"),
+      );
+      if (session === "cookie")
+        expect(result.current.switchToMergeSource).toBeTypeOf("function");
+      else expect(result.current.switchToMergeSource).toBeUndefined();
+    },
+  );
 
   it("shares only confirmed guest session metadata and drops it when refresh fails", async () => {
     mockState.accountClient!.getAccount.mockResolvedValue({
@@ -481,125 +524,90 @@ describe("useAomiBackendAccountRuntime", () => {
   });
 
   it.each(["para", "privy"] as const)(
-    "replaces a stale Aomi browser session when the active %s subject belongs to another account",
+    "restores a matching %s subject without exchanging or signing out",
     async (provider) => {
-      const credential: AomiAccountCredential = {
-        provider,
-        providerToken: "provider-session",
-      };
       mockState.accountClient!.getAccount.mockResolvedValue({
-        user: { id: "stale-browser-account" },
+        user: { id: "matching-account" },
         linkedAccounts: [
-          {
-            id: "old-provider",
-            provider,
-            subject: "old-provider-subject",
-          },
+          { id: "identity", provider, subject: "matching-subject" },
         ],
         wallets: [],
-        session: { betterAuthUserId: "stale-better-auth-user" },
+        session: null,
       });
-      mockState.accountClient!.exchangeProviderCredential.mockResolvedValue({
-        status: "linked",
-        account: {
-          user: { id: "active-provider-account" },
-          linkedAccounts: [
-            {
-              id: "active-provider",
-              provider,
-              subject: "active-provider-subject",
-            },
-          ],
-          wallets: [],
-          session: { betterAuthUserId: "active-better-auth-user" },
-        },
-      });
-
-      let authenticated = false;
-      const { result, rerender } = renderHook(() =>
+      const getCredential = vi
+        .fn()
+        .mockResolvedValue({ provider, providerToken: "token" });
+      const logout = vi.fn();
+      const { result } = renderHook(() =>
         useAomiBackendAccountRuntime({
           enabled: true,
-          baseUrl: "http://localhost:3000",
           auth: {
-            status: authenticated ? "authenticated" : "unauthenticated",
+            status: "authenticated",
             provider,
-            subject: authenticated ? "active-provider-subject" : undefined,
-            getCredential: vi.fn().mockResolvedValue(credential),
+            subject: "matching-subject",
+            getCredential,
+            logout,
           } as never,
           evm: { accounts: () => [] } as never,
         }),
       );
-
-      await waitFor(() =>
-        expect(result.current.user?.id).toBe("stale-browser-account"),
-      );
-      authenticated = true;
-      rerender();
-
-      await waitFor(() =>
-        expect(
-          mockState.accountClient?.exchangeProviderCredential,
-        ).toHaveBeenCalledWith(credential, { hasAccount: false }),
-      );
-      expect(mockState.accountClient?.signOut).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(getCredential).toHaveBeenCalled());
+      expect(result.current.user?.id).toBe("matching-account");
       expect(
-        mockState.accountClient!.signOut.mock.invocationCallOrder[0],
-      ).toBeLessThan(
-        mockState.accountClient!.exchangeProviderCredential.mock
-          .invocationCallOrder[0]!,
-      );
+        mockState.accountClient?.exchangeProviderCredential,
+      ).not.toHaveBeenCalled();
+      expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      expect(logout).not.toHaveBeenCalled();
     },
   );
 
-  it("keeps the browser session when it already belongs to the active provider subject", async () => {
-    const credential: AomiAccountCredential = {
-      provider: "para",
-      providerToken: "provider-session",
-    };
-    mockState.accountClient!.getAccount.mockResolvedValue({
-      user: { id: "matching-account" },
-      linkedAccounts: [
-        {
-          id: "para-identity",
-          provider: "para",
-          subject: "active-provider-subject",
-        },
-      ],
-      wallets: [],
-      session: { betterAuthUserId: "matching-better-auth-user" },
-    });
-    let authenticated = false;
-    const { result, rerender } = renderHook(() =>
-      useAomiBackendAccountRuntime({
-        enabled: true,
-        baseUrl: "http://localhost:3000",
-        auth: {
-          status: authenticated ? "authenticated" : "unauthenticated",
-          provider: "para",
-          subject: authenticated ? "active-provider-subject" : undefined,
-          getCredential: vi.fn().mockResolvedValue(credential),
-        } as never,
-        evm: { accounts: () => [] } as never,
-      }),
-    );
-
-    await waitFor(() =>
-      expect(result.current.user?.id).toBe("matching-account"),
-    );
-    authenticated = true;
-    rerender();
-
-    await waitFor(() =>
+  it.each(["para", "privy"] as const)(
+    "logs out an unsolicited foreign %s SDK subject without changing the Aomi account",
+    async (provider) => {
+      mockState.accountClient!.getAccount.mockResolvedValue({
+        user: { id: "current-account" },
+        linkedAccounts: [
+          { id: "identity", provider, subject: "linked-subject" },
+        ],
+        wallets: [],
+        session: null,
+      });
+      const logout = vi.fn().mockResolvedValue(undefined);
+      const { result, rerender } = renderHook(() =>
+        useAomiBackendAccountRuntime({
+          enabled: true,
+          auth: {
+            status: "authenticated",
+            provider,
+            subject: "foreign-subject",
+            getCredential: vi
+              .fn()
+              .mockResolvedValue({ provider, providerToken: "token" }),
+            logout,
+          } as never,
+          evm: { accounts: () => [] } as never,
+        }),
+      );
+      await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+      rerender();
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
-    );
-    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
-  });
+      ).not.toHaveBeenCalled();
+      expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      expect(result.current.user?.id).toBe("current-account");
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.conflict).toBeUndefined();
+    },
+  );
 
-  describe.each(["privy", "para"] as const)(
-    "adding %s while signed in with a wallet",
-    (provider) => {
+  describe.each([
+    ["privy", "wallet"],
+    ["para", "wallet"],
+    ["privy", "another provider login"],
+    ["para", "another provider login"],
+  ] as const)(
+    "adding %s while signed in with %s",
+    (provider, existingLogin) => {
       const credential: AomiAccountCredential = {
         provider,
         providerToken: "provider-session",
@@ -609,15 +617,23 @@ describe("useAomiBackendAccountRuntime", () => {
         linkedAccounts: [
           {
             id: "siwe-identity",
-            provider: "siwe",
-            subject: "eip155:*:0x2858",
+            provider: existingLogin === "wallet" ? "siwe" : provider,
+            subject:
+              existingLogin === "wallet" ? "eip155:*:0x2858" : "old-subject",
           },
         ],
         wallets: [],
         session: { betterAuthUserId: "wallet-better-auth-user" },
       };
       const renderSignedIn = () => {
-        let authenticated = false;
+        let authenticated = existingLogin === "another provider login";
+        let subject = "old-subject";
+        const logout = vi.fn().mockResolvedValue(undefined);
+        const login = vi.fn(async () => {
+          authenticated = true;
+          subject = "provider-subject";
+          hook.rerender();
+        });
         const hook = renderHook(() =>
           useAomiBackendAccountRuntime({
             enabled: true,
@@ -625,7 +641,9 @@ describe("useAomiBackendAccountRuntime", () => {
             auth: {
               status: authenticated ? "authenticated" : "unauthenticated",
               provider,
-              subject: authenticated ? "provider-subject" : undefined,
+              subject: authenticated ? subject : undefined,
+              login,
+              logout,
               getCredential: vi.fn().mockResolvedValue(credential),
             } as never,
             evm: { accounts: () => [] } as never,
@@ -633,27 +651,62 @@ describe("useAomiBackendAccountRuntime", () => {
         );
         return {
           ...hook,
-          signIn: () => {
-            authenticated = true;
+          logout,
+          restore: (restoredSubject: string) => {
+            subject = restoredSubject;
             hook.rerender();
           },
+          signIn: () =>
+            act(async () => {
+              await hook.result.current.loginProvider!(
+                "social-login:" + provider,
+              );
+              expect(login).toHaveBeenCalledWith("social-login:" + provider);
+            }),
         };
       };
 
       it("links the login to the account and keeps the session", async () => {
         mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
-        const { result, signIn } = renderSignedIn();
+        const linkedAccount = {
+          ...walletAccount,
+          linkedAccounts: [
+            ...walletAccount.linkedAccounts,
+            { id: "new-provider", provider, subject: "provider-subject" },
+          ],
+        };
+        mockState.accountClient!.exchangeProviderCredential.mockImplementation(
+          async () => {
+            mockState.accountClient!.getAccount.mockResolvedValue(
+              linkedAccount,
+            );
+            return { status: "linked", account: linkedAccount };
+          },
+        );
+        const { result, signIn, restore, logout } = renderSignedIn();
         await waitFor(() =>
           expect(result.current.user?.id).toBe("wallet-account"),
         );
-        signIn();
+        await signIn();
 
         await waitFor(() =>
           expect(
             mockState.accountClient?.exchangeProviderCredential,
           ).toHaveBeenCalledWith(credential, { hasAccount: true }),
         );
+        await waitFor(() =>
+          expect(result.current.linkedAccounts).toEqual(
+            linkedAccount.linkedAccounts,
+          ),
+        );
+        expect(result.current.user?.id).toBe("wallet-account");
         expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+        restore("unsolicited-third-subject");
+        await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+        expect(
+          mockState.accountClient?.exchangeProviderCredential,
+        ).toHaveBeenCalledOnce();
+        expect(result.current.user?.id).toBe("wallet-account");
       });
 
       it("offers a merge when the login belongs to another account", async () => {
@@ -671,7 +724,7 @@ describe("useAomiBackendAccountRuntime", () => {
         await waitFor(() =>
           expect(result.current.user?.id).toBe("wallet-account"),
         );
-        signIn();
+        await signIn();
 
         await waitFor(() =>
           expect(result.current.conflict?.mergeOffer).toEqual(offer),
@@ -681,6 +734,120 @@ describe("useAomiBackendAccountRuntime", () => {
         expect(result.current.error).toBeUndefined();
         expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
       });
+    },
+  );
+
+  it("keeps the add target when a newly selected provider is still loading the account", async () => {
+    const currentAccount = {
+      user: { id: "current-account" },
+      linkedAccounts: [
+        { id: "old", provider: "privy", subject: "old-subject" },
+      ],
+      wallets: [],
+      session: null,
+    };
+    let resolveInitial!: (account: typeof currentAccount) => void;
+    mockState
+      .accountClient!.getAccount.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveInitial = resolve;
+        }),
+      )
+      .mockResolvedValue(currentAccount);
+    let authenticated = false;
+    const login = vi.fn(async () => {
+      authenticated = true;
+    });
+    const credential = { provider: "privy", providerToken: "token" };
+    const { result, rerender } = renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        auth: {
+          provider: "privy",
+          status: authenticated ? "authenticated" : "unauthenticated",
+          subject: authenticated ? "new-subject" : undefined,
+          login,
+          getCredential: vi.fn().mockResolvedValue(credential),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    expect(result.current.status).toBe("loading");
+    await waitFor(() =>
+      expect(mockState.accountClient?.getAccount).toHaveBeenCalledOnce(),
+    );
+    await act(async () => {
+      await result.current.loginProvider!("social-login:privy");
+      resolveInitial(currentAccount);
+    });
+    rerender();
+    await waitFor(() =>
+      expect(
+        mockState.accountClient?.exchangeProviderCredential,
+      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+    );
+    expect(result.current.user?.id).toBe("current-account");
+    expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+  });
+
+  it.each(["expired", "cancelled", "account changed"] as const)(
+    "does not use %s add intent for a later SDK subject",
+    async (reason) => {
+      let accountId = "current-account";
+      mockState.accountClient!.getAccount.mockImplementation(async () => ({
+        user: { id: accountId },
+        linkedAccounts: [
+          { id: "identity", provider: "privy", subject: "linked-subject" },
+        ],
+        wallets: [],
+        session: null,
+      }));
+      let subject = "linked-subject";
+      const login = vi.fn(async () => {
+        if (reason === "cancelled") throw new Error("cancelled");
+      });
+      const logout = vi.fn().mockResolvedValue(undefined);
+      const { result, rerender } = renderHook(() =>
+        useAomiBackendAccountRuntime({
+          enabled: true,
+          auth: {
+            provider: "privy",
+            status: "authenticated",
+            subject,
+            login,
+            logout,
+            getCredential: vi
+              .fn()
+              .mockResolvedValue({ provider: "privy", providerToken: "token" }),
+          } as never,
+          evm: { accounts: () => [] } as never,
+        }),
+      );
+      await waitFor(() => expect(result.current.user?.id).toBe(accountId));
+      await act(async () => {
+        const attempt = result.current.loginProvider!("social-login:privy");
+        if (reason === "cancelled")
+          await expect(attempt).rejects.toThrow("cancelled");
+        else await attempt;
+      });
+      // Login can publish the old matching subject before the new proof arrives.
+      rerender();
+      if (reason === "expired")
+        vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5 * 60_000 + 1);
+      if (reason === "account changed") {
+        accountId = "other-account";
+        await act(async () => result.current.refresh());
+      }
+      subject = "foreign-subject";
+      rerender();
+      await waitFor(() => expect(logout).toHaveBeenCalledOnce());
+      expect(
+        mockState.accountClient?.exchangeProviderCredential,
+      ).not.toHaveBeenCalled();
+      expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      expect(result.current.user?.id).toBe(accountId);
+      expect(result.current.conflict).toBeUndefined();
+      expect(result.current.error).toBeUndefined();
     },
   );
 
@@ -715,7 +882,7 @@ describe("useAomiBackendAccountRuntime", () => {
 
     await act(async () =>
       resolveAccount({
-        user: { id: "wallet-account" },
+        user: null,
         linkedAccounts: [],
         wallets: [],
         session: null,
@@ -724,7 +891,7 @@ describe("useAomiBackendAccountRuntime", () => {
     await waitFor(() =>
       expect(
         mockState.accountClient?.exchangeProviderCredential,
-      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+      ).toHaveBeenCalledWith(credential, { hasAccount: false }),
     );
   });
 

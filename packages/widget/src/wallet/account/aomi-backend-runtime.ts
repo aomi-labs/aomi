@@ -295,6 +295,7 @@ export function useAomiBackendAccountRuntime(input: {
         ? undefined
         : accountSessionProvider,
     refresh,
+    loginProvider: exchange.loginProvider,
     signOut: async () => {
       if (!input.widgetAuth) await exchange.forgetCredential();
       // Cookie sessions sign out through Better Auth; widget sessions revoke
@@ -367,11 +368,13 @@ export function useAomiBackendAccountRuntime(input: {
     },
     // A new session for another account: the account change that follows
     // drops this account's chats and cached data, as a sign-in does.
-    switchToMergeSource: async (ticket) => {
-      await withBrowserSessionTransition(() =>
-        accountClient.switchToMergeSource(ticket),
-      );
-      await refresh();
-    },
+    switchToMergeSource: input.widgetAuth
+      ? undefined
+      : async (ticket) => {
+          await withBrowserSessionTransition(() =>
+            accountClient.switchToMergeSource(ticket),
+          );
+          await refresh();
+        },
   };
 }

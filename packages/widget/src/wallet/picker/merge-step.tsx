@@ -95,11 +95,13 @@ export function MergeStep({
         >
           {flow.busy ? "Merging…" : "Merge into this account"}
         </AomiButton>
-        <SheetFootnote>
-          <FootnoteLink onClick={() => void flow.switchInstead()}>
-            Switch to that account instead
-          </FootnoteLink>
-        </SheetFootnote>
+        {flow.switchInstead ? (
+          <SheetFootnote>
+            <FootnoteLink onClick={() => void flow.switchInstead?.()}>
+              Switch to that account instead
+            </FootnoteLink>
+          </SheetFootnote>
+        ) : null}
       </div>
     </>
   );
