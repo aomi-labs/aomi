@@ -170,8 +170,8 @@ export function createSiweAccountAuthAdapter(input: {
     verifyPath: "/api/auth/widget/siwe/verify",
     getSigner: input.getSigner,
     normalizeSigner: normalizeSiweSigner,
-    getFingerprint: (signer) =>
-      `${signer.chainId}:${signer.address.toLowerCase()}`,
+    // The session belongs to the address; switching chains keeps it.
+    getFingerprint: (signer) => signer.address.toLowerCase(),
     buildMessage: ({ signer, challenge }) => {
       // Keep the SIWE challenge constraint previously enforced by viem.
       if (!/^[a-zA-Z0-9]{8,}$/.test(challenge.nonce))
