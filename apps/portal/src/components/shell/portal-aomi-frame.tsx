@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -300,6 +301,7 @@ export function PortalAomiFrame() {
     account,
     initialized: false,
     revision: 0,
+    clearThreadUrl: false,
   }));
   const requestedApp = useRequestedAppConfig();
   const lockedApp = requestedApp.locked ? requestedApp.app : null;
@@ -344,6 +346,7 @@ export function PortalAomiFrame() {
     setAccountFrameScope({
       account,
       initialized: true,
+      clearThreadUrl: accountFrameScope.account?.kind === "user",
       // The runtime closes the old account's chats without remounting the
       // shell. URL navigation still starts over for a new account.
       revision:
@@ -357,13 +360,24 @@ export function PortalAomiFrame() {
   const [threadUrlState, setThreadUrlState] = useState(() => ({
     revision: accountFrameScope.revision,
     navigation: createThreadUrlNavigation(),
+    clearThreadUrl: false,
   }));
   if (threadUrlState.revision !== accountFrameScope.revision) {
     setThreadUrlState({
       revision: accountFrameScope.revision,
       navigation: createThreadUrlNavigation(),
+      clearThreadUrl: accountFrameScope.clearThreadUrl,
     });
   }
+  useLayoutEffect(() => {
+    if (!threadUrlState.clearThreadUrl) return;
+    // Account teardown already closed these chats. Do not restore their URL
+    // under the new guest or account and report an intentional reset as an error.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("thread");
+    window.history.replaceState(null, "", url);
+    threadUrlState.navigation.navigate(null);
+  }, [threadUrlState]);
   const urlNavigation = useSyncExternalStore(
     threadUrlState.navigation.subscribe,
     threadUrlState.navigation.getSnapshot,

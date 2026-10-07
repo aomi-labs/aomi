@@ -583,6 +583,32 @@ describe("PortalAomiFrame account bootstrap", () => {
     );
   });
 
+  it("silently drops the old chat URL after account sign-out", async () => {
+    walletKitState.current = {
+      accountStatus: "ready",
+      accountUser: { id: "acct-a" },
+    };
+    runtimeState.current.currentThreadId = "owned-chat";
+    runtimeState.current.threadMetadata = new Map([
+      ["owned-chat", { title: "Hello", status: "regular" }],
+    ]);
+    window.history.replaceState({}, "", "/?thread=owned-chat&app=search");
+    const view = render(<PortalAomiFrame />);
+    runtimeState.current.showNotification.mockClear();
+    runtimeState.current.selectThread.mockClear();
+    runtimeState.current.createThread.mockClear();
+
+    walletKitState.current = { accountStatus: "ready" };
+    runtimeState.current.currentThreadId = "fresh-guest-chat";
+    runtimeState.current.threadMetadata = new Map();
+    await act(async () => view.rerender(<PortalAomiFrame />));
+
+    expect(window.location.search).toBe("?app=search");
+    expect(runtimeState.current.showNotification).not.toHaveBeenCalled();
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+  });
+
   it("isolates a locked project chat to its application", () => {
     walletKitState.current = {
       accountStatus: "ready",
