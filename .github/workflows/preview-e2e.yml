@@ -49,9 +49,11 @@ jobs:
 
       - name: Resolve same-SHA immutable Vercel URLs
         id: previews
+        timeout-minutes: 9
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_TIMEOUT_SECONDS: "480"
         run: .github/scripts/resolve-preview-urls.sh
 
       - name: Enable corepack
