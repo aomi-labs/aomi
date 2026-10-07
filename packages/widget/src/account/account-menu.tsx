@@ -429,7 +429,7 @@ function SignsWithRows({
   );
 }
 
-/** A family with no address: the same row, muted, offering to add one. */
+/** A family with no address: one row that adds one. */
 function EmptyFamilyRow({
   family,
   onAddWallet,
@@ -437,37 +437,35 @@ function EmptyFamilyRow({
   family: WalletFamily;
   onAddWallet?: () => void;
 }) {
-  const body = (
-    <>
-      <span className="text-aomi-muted min-w-0 flex-1 truncate pl-1 text-[12px]">
-        No {family.toUpperCase()} wallet
-      </span>
-      <FamilyTag family={family} />
-      {onAddWallet ? (
-        <span className="text-aomi-muted flex items-center gap-1 text-[11px]">
-          <PlusIcon size={13} />
-          Add
-        </span>
-      ) : null}
-    </>
-  );
-  const className = "flex w-full items-center gap-2 px-2 py-2 text-left";
-  if (!onAddWallet) return <div className={className}>{body}</div>;
+  const label = `${family.toUpperCase()} wallet`;
+  if (!onAddWallet)
+    return (
+      <div className="text-aomi-muted flex w-full items-center px-2 py-2 pl-3 text-left text-[12px]">
+        No {label}
+      </div>
+    );
   return (
     <button
       type="button"
-      aria-label={`Add a ${family.toUpperCase()} wallet`}
       onClick={onAddWallet}
-      className={cn(className, "hover:bg-aomi-hover/60 transition-colors")}
+      className="text-aomi-muted hover:bg-aomi-hover/60 hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
     >
-      {body}
+      <span className="flex size-[26px] shrink-0 items-center justify-center">
+        <PlusIcon size={14} />
+      </span>
+      Add {label}
     </button>
   );
 }
 
 function WalletLine({ row }: { row: WalletRow }) {
   return (
-    <>
+    <span
+      className={cn(
+        "flex min-w-0 flex-1 items-center gap-2",
+        !row.active && !row.connected && "opacity-60",
+      )}
+    >
       <BrandMark
         brand={appName(row)}
         dot={row.connected ? "on" : "off"}
@@ -482,6 +480,6 @@ function WalletLine({ row }: { row: WalletRow }) {
           {shortAddress(row.address)}
         </span>
       </span>
-    </>
+    </span>
   );
 }

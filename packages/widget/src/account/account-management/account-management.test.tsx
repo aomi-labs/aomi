@@ -89,12 +89,58 @@ const openMenu = (item: WalletRow, title: string) =>
   );
 
 describe("Wallets & access", () => {
-  it("keeps the remaining address in the strip after the active one is removed", () => {
-    renderSettings([trading]);
-    expect(
-      screen.getByRole("button", { name: "EVM signs with Trading" }),
-    ).toBeInTheDocument();
+  it("keeps the remaining address in the strip, dimmed with its step", () => {
+    const onActivate = vi.fn();
+    renderSettings([trading], { onActivate });
+    const slot = screen.getByRole("button", {
+      name: "Switch in Rabby (EVM Trading)",
+    });
+    expect(within(slot).getByText("Switch in Rabby")).toBeInTheDocument();
     expect(screen.queryByText("Choose a wallet")).not.toBeInTheDocument();
+    fireEvent.click(slot);
+    expect(onActivate).toHaveBeenCalledWith(trading);
+  });
+
+  it("takes Active and the bar off a chosen address that cannot sign here", () => {
+    const signedOut = row("0x13af000000000000000000000000000000005cf7", {
+      kind: "embedded",
+      provider: "privy",
+      brand: "Privy",
+      connected: false,
+      chosen: true,
+      pendingStep: "connect",
+      actions: [],
+    });
+    renderSettings([signedOut]);
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+    expect(rowFor(signedOut).dataset.active).toBeUndefined();
+    expect(
+      within(rowFor(signedOut)).getByText("Sign in with Privy"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Sign in with Privy (EVM EVM wallet)",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the login's email, never a placeholder, on Privy", () => {
+    const withEmail = { ...privyEvm, loginEmail: "aron@megyeri.eu" };
+    const { unmount } = renderSettings([withEmail]);
+    const provider = document.querySelector("[data-wallet-provider=privy]")!;
+    expect(
+      within(provider as HTMLElement).getAllByText("aron@megyeri.eu"),
+    ).toHaveLength(2);
+    unmount();
+
+    renderSettings([privyEvm], {
+      signInMethods: [
+        { ...privy, email: undefined, displayLabel: "privy user" },
+      ],
+    });
+    expect(screen.queryByText("privy user")).not.toBeInTheDocument();
+    expect(screen.getByText("Signed in with Privy")).toBeInTheDocument();
+    expect(screen.getAllByText("EVM wallet").length).toBeGreaterThan(0);
   });
 
   it("lays out the signs-with strip, Wallets and Social sign-in", () => {
@@ -119,8 +165,8 @@ describe("Wallets & access", () => {
   it("keeps an empty SVM slot that offers to add a wallet", () => {
     const onAddWallet = vi.fn();
     renderSettings([main], { onAddWallet });
-    expect(screen.getByText("No SVM wallet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add a SVM wallet" }));
+    expect(screen.queryByText("No SVM wallet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add SVM wallet" }));
     expect(onAddWallet).toHaveBeenCalledTimes(1);
   });
 

@@ -444,7 +444,7 @@ describe("active address and the step it needs", () => {
   const TRADING = "0x12a4000000000000000000000000000000009b3f";
   const NEW = "0x77c100000000000000000000000000000000a20e";
 
-  it("keeps the saved address active while its app is on an unlinked one", () => {
+  it("keeps the saved address chosen, not active, while its app is on an unlinked one", () => {
     const state = resolveWalletState(
       input({
         linked: [
@@ -460,7 +460,8 @@ describe("active address and the step it needs", () => {
     const added = state.wallets.find((row) => row.key === key(NEW))!;
     expect(state.operating.evm).toBeUndefined();
     expect(main).toMatchObject({
-      active: true,
+      active: false,
+      chosen: true,
       operating: false,
       brand: "Rabby",
       pendingStep: "switch",
@@ -473,6 +474,29 @@ describe("active address and the step it needs", () => {
       pendingStep: "switch",
     });
     expect(added).toMatchObject({ state: "unlinked", pendingStep: null });
+  });
+
+  it("makes a usable address active when the chosen one is not", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [
+          { ...linkedEvm("w1", MAIN), walletApp: "Rabby" },
+          { ...linkedEvm("w3", METAMASK), walletApp: "MetaMask" },
+        ],
+        connections: [
+          { ...external("mm#1", METAMASK), walletName: "MetaMask" },
+        ],
+        selection: { evm: key(MAIN) },
+      }),
+    );
+    const [main, metamask] = ["w1", "w3"].map(
+      (id) => state.wallets.find((row) => row.linkedWalletId === id)!,
+    );
+    expect(state.operating.evm).toBe(key(METAMASK));
+    expect(metamask).toMatchObject({ active: true, chosen: false });
+    expect(main).toMatchObject({ active: false, chosen: true });
+    // The saved choice stays; the stand-in is not saved over it.
+    expect(state.persist.evm).toBeUndefined();
   });
 
   it("plans activation: instant, select, switch in the app, or connect", () => {

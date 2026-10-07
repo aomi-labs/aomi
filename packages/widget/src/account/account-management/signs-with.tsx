@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
@@ -81,16 +81,11 @@ function EmptySlot({
           <FamilyTag family={family} />
           signs with
         </span>
-        <span className="type-control text-aomi-muted truncate">
-          No {tag} wallet
+        <span className="type-control text-aomi-muted flex items-center gap-1.5 truncate">
+          {onAddWallet ? <Plus className="size-3.5 shrink-0" /> : null}
+          {onAddWallet ? `Add ${tag} wallet` : `No ${tag} wallet`}
         </span>
       </span>
-      {onAddWallet ? (
-        <span className="type-meta text-aomi-muted flex shrink-0 items-center gap-1">
-          <Plus className="size-3.5" />
-          Add
-        </span>
-      ) : null}
     </>
   );
   const className = "flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left";
@@ -98,7 +93,7 @@ function EmptySlot({
   return (
     <button
       type="button"
-      aria-label={`Add a ${tag} wallet`}
+      aria-label={`Add ${tag} wallet`}
       disabled={disabled}
       onClick={onAddWallet}
       className={cn(
@@ -128,6 +123,50 @@ function FamilySlot({
 }) {
   const [open, setOpen] = useState(false);
   const tag = familyTag(family);
+  const hint = current.active ? null : pendingHint(current);
+  // Nothing signs here yet: the slot shows the chosen address waiting for its
+  // step, and clicking it does that step, like its row below.
+  if (!current.active && hint && onActivate)
+    return (
+      <button
+        type="button"
+        aria-label={`${hint} (${tag} ${rowTitle(current).title})`}
+        disabled={disabled}
+        onClick={() => onActivate(current)}
+        className="hover:bg-aomi-hover focus-visible:bg-aomi-hover group flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left outline-none transition-colors"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="type-meta text-aomi-muted flex items-center gap-1.5">
+            <FamilyTag family={family} />
+            signs with
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5 opacity-60">
+            <BrandMark
+              brand={appName(current)}
+              dot={current.connected ? "on" : "off"}
+              size={13}
+              box={16}
+            />
+            <span className="type-control truncate font-medium">
+              {rowTitle(current).title}
+              <span className="text-aomi-muted font-normal">
+                {" · "}
+                <span className="font-mono">
+                  {shortAddress(current.address)}
+                </span>
+              </span>
+            </span>
+          </span>
+        </span>
+        <span
+          data-hint
+          className="type-meta text-aomi-muted pointer-fine:inline-flex pointer-events-none hidden shrink-0 items-center gap-0.5 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          {hint}
+          <ChevronRight className="size-3" />
+        </span>
+      </button>
+    );
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -142,7 +181,12 @@ function FamilySlot({
               <FamilyTag family={family} />
               signs with
             </span>
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span
+              className={cn(
+                "flex min-w-0 items-center gap-1.5",
+                !current.active && !current.connected && "opacity-60",
+              )}
+            >
               <BrandMark brand={appName(current)} size={13} box={16} />
               <span className="type-control truncate font-medium">
                 {rowTitle(current).title}

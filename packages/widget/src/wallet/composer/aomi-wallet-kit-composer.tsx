@@ -145,6 +145,12 @@ export function AomiWalletKitComposer({
             provider: wallet.provider,
             chainId: wallet.chainId,
             label: wallet.label ?? undefined,
+            loginEmail:
+              wallet.kind === "embedded"
+                ? account.linkedAccounts.find(
+                    (login) => login.provider === wallet.provider,
+                  )?.email
+                : undefined,
             walletApp: wallet.walletApp,
             capability: wallet.capability,
           })),
@@ -180,6 +186,7 @@ export function AomiWalletKitComposer({
     [
       account.guest,
       account.guestUserId,
+      account.linkedAccounts,
       account.status,
       account.user,
       account.wallets,

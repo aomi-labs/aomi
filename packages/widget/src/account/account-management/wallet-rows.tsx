@@ -17,6 +17,7 @@ import {
 import {
   appName,
   familyTag,
+  loginSubtitle,
   pendingHint,
   providerName,
   rowTitle,
@@ -230,7 +231,8 @@ export function LoginRows({
   onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
 }) {
   const name = providerName(group.provider);
-  const email = group.identity?.email ?? group.identity?.displayLabel;
+  const email = group.identity?.email;
+  const subtitle = loginSubtitle(group);
   const signedIn = group.rows.some((row) => row.connected);
   const count = group.rows.length;
   const items: MenuItem[] = [];
@@ -264,9 +266,7 @@ export function LoginRows({
         <BrandMark brand={group.provider} dot={signedIn ? "on" : "off"} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="type-row truncate">{name}</span>
-          {email ? (
-            <span className="type-meta text-aomi-muted truncate">{email}</span>
-          ) : null}
+          <span className="type-meta text-aomi-muted truncate">{subtitle}</span>
         </div>
         {items.length ? (
           <ActionsMenu

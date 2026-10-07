@@ -227,8 +227,8 @@ describe("DualWalletBar account menu", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
-    expect(screen.getByText("No SVM wallet")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add a SVM wallet" }));
+    expect(screen.queryByText("No SVM wallet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add SVM wallet" }));
     expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
   });
 

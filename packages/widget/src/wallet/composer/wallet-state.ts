@@ -14,6 +14,8 @@ export type LinkedWalletFact = {
   provider?: string;
   chainId?: number;
   label?: string;
+  /** Embedded only: the email of the login that owns the address. */
+  loginEmail?: string;
   walletApp?: string;
   capability?: "read" | "write";
 };
@@ -82,6 +84,8 @@ type WalletFacts = {
   walletName?: string;
   /** The user's own name for the address. */
   label?: string;
+  /** Embedded only: the email of the login that owns the address. */
+  loginEmail?: string;
   /** The wallet app the address was linked from. */
   walletApp?: string;
   capability?: "read" | "write";
@@ -98,8 +102,10 @@ export type WalletRow = WalletFacts &
     connected: boolean;
     linked: boolean;
     operating: boolean;
-    /** The address chosen for its family on this device, even while it needs a step. */
+    /** Will sign for its family right now on this device. */
     active?: boolean;
+    /** The address picked for its family, even while it needs a step first. */
+    chosen?: boolean;
     /** The wallet app, e.g. "Rabby", or "Privy" for an embedded wallet. */
     brand?: string;
     pendingStep?: WalletPendingStep | null;
@@ -109,7 +115,6 @@ export type WalletRow = WalletFacts &
 export type WalletState = {
   wallets: WalletRow[];
   operating: Partial<Record<WalletFamily, string>>;
-  active: Partial<Record<WalletFamily, string>>;
   /** Families whose stored selection is permanently invalid and must go. */
   clearSelection: WalletFamily[];
   /** Operating wallets that may be saved; a stand-in never replaces a save. */
@@ -143,6 +148,7 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
         ? { chainId: wallet.chainId ?? connection?.chainId }
         : {}),
       ...(wallet.label?.trim() ? { label: wallet.label.trim() } : {}),
+      ...(wallet.loginEmail ? { loginEmail: wallet.loginEmail } : {}),
       ...(wallet.walletApp ? { walletApp: wallet.walletApp } : {}),
       ...(connection?.walletName ? { walletName: connection.walletName } : {}),
       ...((wallet.capability ?? connection?.capability)
@@ -241,7 +247,7 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
   }
 
   const operating: WalletState["operating"] = {};
-  const active: WalletState["active"] = {};
+  const chosen: Partial<Record<WalletFamily, string>> = {};
   const clearSelection: WalletFamily[] = [];
   const persist: WalletState["persist"] = {};
   for (const family of ["evm", "svm"] as const) {
@@ -267,14 +273,13 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     if (stored) {
       if (eligible.some((row) => row.key === stored))
         operating[family] = persist[family] = stored;
-      else if (eligible.length === 1) operating[family] = eligible[0].key;
+      else if (eligible.length) operating[family] = eligible[0].key;
     } else if (eligible.length === 1) {
       operating[family] = persist[family] = eligible[0].key;
     }
-    // A saved address its wallet app moved away from stays the active one;
-    // it signs again once the app switches back.
-    active[family] =
-      operating[family] ?? (stored && rows.has(stored) ? stored : undefined);
+    // A saved address that is not usable here stays chosen, but only a
+    // usable one is active: it signs again once its step is done.
+    if (stored && rows.has(stored)) chosen[family] = stored;
   }
   const brands = new Map(
     [...rows.values()].map((row) => [row.key, rowBrand(row)]),
@@ -339,12 +344,13 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       connected: Boolean(row.connectionId),
       linked: Boolean(row.linkedWalletId),
       operating: isOperating,
-      active: active[row.family] === row.key,
+      active: isOperating,
+      chosen: chosen[row.family] === row.key,
       pendingStep: pendingStep(row, rows, brands),
       actions,
     };
   });
-  return { wallets, operating, active, clearSelection, persist };
+  return { wallets, operating, clearSelection, persist };
 }
 
 function rowBrand(row: WalletFacts): string | undefined {

@@ -25,17 +25,35 @@ export const familyTag = (family: WalletFamily) =>
 /** The wallet app, e.g. "Rabby" or "Privy". */
 export const appName = (row: WalletRow) => row.brand ?? "Wallet";
 
-/** The row title, and the app name shown muted beside a user's own name. */
+/**
+ * The row title: the user's own name for the address (with the app name
+ * muted beside it), else the login's email for an embedded wallet.
+ */
 export function rowTitle(row: WalletRow): { title: string; app?: string } {
-  const embedded = Boolean(loginProvider(row.provider));
   if (row.label) return { title: row.label, app: appName(row) };
-  return { title: embedded ? `${familyTag(row.family)} wallet` : appName(row) };
+  if (loginProvider(row.provider))
+    return { title: row.loginEmail ?? `${familyTag(row.family)} wallet` };
+  return { title: appName(row) };
+}
+
+/** What a login card shows under its name: an email or another real identifier. */
+export function loginSubtitle(
+  group: Pick<LoginGroup, "provider" | "identity">,
+): string {
+  const { email, displayLabel } = group.identity ?? {};
+  const label = displayLabel?.trim();
+  if (email) return email;
+  if (label && !/^(privy|para) user$/i.test(label)) return label;
+  return `Signed in with ${providerName(group.provider)}`;
 }
 
 /** What clicking a row that needs a step will do, shown on hover. */
 export function pendingHint(row: WalletRow): string | null {
   if (row.pendingStep === "switch") return `Switch in ${appName(row)}`;
-  if (row.pendingStep === "connect") return `Connect ${appName(row)}`;
+  if (row.pendingStep === "connect")
+    return loginProvider(row.provider)
+      ? `Sign in with ${appName(row)}`
+      : `Connect ${appName(row)}`;
   return null;
 }
 
@@ -43,12 +61,16 @@ export function pendingHint(row: WalletRow): string | null {
 export function familySlots(rows: readonly WalletRow[]) {
   return (["evm", "svm"] as const).map((family) => {
     const list = rows.filter((row) => row.linked && row.family === family);
-    const ordered = [
-      ...list.filter((row) => row.active),
-      ...list.filter((row) => !row.active),
-    ];
-    // The chosen address, or the one left when it was removed.
-    return { family, rows: ordered, current: ordered.at(0) };
+    // The one that signs now; else the chosen one, shown as waiting for its step.
+    const current =
+      list.find((row) => row.active) ??
+      list.find((row) => row.chosen) ??
+      list.find((row) => row.connected) ??
+      list.at(0);
+    const ordered = current
+      ? [current, ...list.filter((row) => row !== current)]
+      : [];
+    return { family, rows: ordered, current };
   });
 }
 
