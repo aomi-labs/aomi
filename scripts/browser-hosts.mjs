@@ -120,17 +120,6 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
     }),
     NODE_ENV: "production",
   };
-  await hosts.run(
-    "corepack",
-    [
-      "pnpm",
-      "exec",
-      "tsx",
-      "apps/portal/scripts/migrate-browser-contract-db.ts",
-    ],
-    env,
-  );
-
   const consumerRecord = join(
     hosts.temporaryDirectory("aomi-consumer-record-"),
     "consumer.json",
@@ -157,6 +146,17 @@ export async function startPortalHosts(hosts, upstreamOptions = {}) {
       recursive: true,
       force: true,
     }),
+  );
+  // Account auth imports the client package built by the compatibility check.
+  await hosts.run(
+    "corepack",
+    [
+      "pnpm",
+      "exec",
+      "tsx",
+      "apps/portal/scripts/migrate-browser-contract-db.ts",
+    ],
+    env,
   );
   const consumerServer = await serveStatic(
     join(consumer.consumerDirectory, "dist"),
