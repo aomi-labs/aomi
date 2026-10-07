@@ -179,16 +179,19 @@ export function AomiPrivyPluginProvider({
       authMethod,
       authValue: primaryLabel,
       methods: privyLoginMethodsToOptions(loginMethods),
-      canOpenModal: Boolean(privy.login),
+      canOpenModal: Boolean(privy.ready && privy.login),
       startFlow: startPrivyAuthFlow,
-      login: async (reason = "provider-auth-modal") => {
-        evmRuntime.registryStore.dispatch({
-          type: "user/provider-reconnect-requested",
-          now: Date.now(),
-        });
-        startPrivyAuthFlow(reason);
-        await privy.login();
-      },
+      // Privy ignores login() until it is ready; the caller gets an error instead.
+      login: privy.ready
+        ? async (reason = "provider-auth-modal") => {
+            evmRuntime.registryStore.dispatch({
+              type: "user/provider-reconnect-requested",
+              now: Date.now(),
+            });
+            startPrivyAuthFlow(reason);
+            await privy.login();
+          }
+        : undefined,
       logout: privy.logout,
       getCredential:
         identityToken || privy.getAccessToken

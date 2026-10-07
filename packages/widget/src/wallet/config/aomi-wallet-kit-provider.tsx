@@ -3,9 +3,11 @@
 import { WidgetStorageProvider, useWidgetStorage } from "@/lib/widget-storage";
 import {
   Component,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -35,6 +37,7 @@ import {
   sepolia,
 } from "wagmi/chains";
 import type { Chain } from "viem";
+import type { Config } from "wagmi";
 import { AomiWalletKitComposer } from "@/wallet/composer/aomi-wallet-kit-composer";
 import {
   AOMI_BOOTING_WALLET_KIT,
@@ -90,6 +93,16 @@ import type {
 } from "./types";
 import { resolveConfiguredNativeWalletExecutionPolicy } from "./execution";
 import { resolveEvmConnectionPersistence } from "./evm-connection-persistence";
+import {
+  createSheetChannel,
+  SheetChannelContext,
+} from "@/wallet/picker/sheet-channel";
+import {
+  SocialLoginOpener,
+  SocialSignInOptions,
+  useSocialSignIn,
+  type SocialSignIn,
+} from "./social-sign-in";
 
 export type { AomiWalletKitProviderInput, AomiWalletKitProviderProps };
 
@@ -412,7 +425,14 @@ function DefaultEvmRuntimeProvider({
   config: ResolvedEvmWalletsConfig;
   reconnectOnMount: boolean;
 }) {
-  const wagmiConfig = useMemo(() => createAomiEvmConfig(config), [config]);
+  // Creating a wagmi config announces to every injected wallet, which updates
+  // the other mounted wallet configs; doing it while rendering is a
+  // setState-during-render. The config is cached, so WalletConnect inits once.
+  const [wagmiConfig, setWagmiConfig] = useState<Config | null>(null);
+  useLayoutEffect(() => {
+    setWagmiConfig(createAomiEvmConfig(config));
+  }, [config]);
+  if (!wagmiConfig) return null;
   return (
     <AomiEvmRuntimeProvider
       config={wagmiConfig}
@@ -462,7 +482,6 @@ function AomiEvmExternalWalletProvider({
     }),
     [evmWallets, persistExternalWallet, routing.routedChains],
   );
-  const [queryClient] = useState(() => new QueryClient());
   const authPluginAvailable =
     authPlugin?.isAvailable?.({ auth, providers }) ?? true;
   useEffect(() => {
@@ -474,9 +493,6 @@ function AomiEvmExternalWalletProvider({
   const shouldUseAuthPlugin = Boolean(
     authPlugin?.renderComposer && authPluginAvailable,
   );
-  const wrapWithAuthProvider =
-    authPlugin?.wrap ??
-    ((props: { children: ReactNode }) => <>{props.children}</>);
   const runtimeChildren = (
     <MaybeSvmWalletProvider resolvedSvm={resolvedSvm}>
       <WalletChainRouter
@@ -499,29 +515,19 @@ function AomiEvmExternalWalletProvider({
       </WalletChainRouter>
     </MaybeSvmWalletProvider>
   );
-  const evmRuntime =
-    shouldUseAuthPlugin && authPlugin?.renderEvmRuntimeProvider ? (
-      authPlugin.renderEvmRuntimeProvider({
-        config: evmConfig,
-        children: runtimeChildren,
-      })
-    ) : (
-      <DefaultEvmRuntimeProvider
-        config={evmConfig}
-        reconnectOnMount={persistExternalWallet}
-      >
-        {runtimeChildren}
-      </DefaultEvmRuntimeProvider>
-    );
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      {wrapWithAuthProvider({
-        auth,
-        providers,
-        children: evmRuntime,
-      })}
-    </QueryClientProvider>
+  // The provider SDK itself (`authPlugin.wrap`) is mounted above, by the islands.
+  return shouldUseAuthPlugin && authPlugin?.renderEvmRuntimeProvider ? (
+    authPlugin.renderEvmRuntimeProvider({
+      config: evmConfig,
+      children: runtimeChildren,
+    })
+  ) : (
+    <DefaultEvmRuntimeProvider
+      config={evmConfig}
+      reconnectOnMount={persistExternalWallet}
+    >
+      {runtimeChildren}
+    </DefaultEvmRuntimeProvider>
   );
 }
 
@@ -534,19 +540,15 @@ function AomiSvmExternalWalletProvider({
   children: ReactNode;
   resolvedSvm: ResolvedSvmWalletsConfig;
 }) {
-  const [queryClient] = useState(() => new QueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <MaybeSvmWalletProvider resolvedSvm={resolvedSvm}>
-        <SvmExternalWalletComposerProvider
-          account={account}
-          resolvedSvm={resolvedSvm}
-        >
-          {children}
-        </SvmExternalWalletComposerProvider>
-      </MaybeSvmWalletProvider>
-    </QueryClientProvider>
+    <MaybeSvmWalletProvider resolvedSvm={resolvedSvm}>
+      <SvmExternalWalletComposerProvider
+        account={account}
+        resolvedSvm={resolvedSvm}
+      >
+        {children}
+      </SvmExternalWalletComposerProvider>
+    </MaybeSvmWalletProvider>
   );
 }
 
@@ -649,75 +651,201 @@ function WalletAuthBridge({
   );
 }
 
-function WalletRuntimeIsland({
+/** Clears what the previous runtime published when the active provider changes. */
+function RuntimeMount({
   store,
-  authPlugin,
+  children,
+}: {
+  store: WalletAuthStore;
+  children: ReactNode;
+}) {
+  useLayoutEffect(
+    () => () => {
+      store.publish(AOMI_BOOTING_WALLET_KIT);
+      store.publishFailure(null);
+    },
+    [store],
+  );
+  return <>{children}</>;
+}
+
+/** One provider SDK. It stays mounted once loaded; only the active one hosts the runtime. */
+function ProviderShell({
+  plugin,
+  auth,
+  active,
+  providers,
+  store,
+  signIn,
+  children,
+}: {
+  plugin: WalletProviderPlugin;
+  auth?: AuthConfig;
+  active: boolean;
+  providers?: ProvidersConfig;
+  store: WalletAuthStore;
+  signIn: SocialSignIn;
+  children: ReactNode;
+}) {
+  const { id } = plugin;
+  const { onFailure } = signIn;
+  const shellAuth = useMemo<AuthConfig>(
+    () => (active && auth && auth.provider === id ? auth : { provider: id }),
+    [active, auth, id],
+  );
+  const publishFailure = useCallback(
+    (message: string | null) => onFailure(id, message),
+    [id, onFailure],
+  );
+  return (
+    <WalletDelegationPublisherContext.Provider
+      value={active ? store.publishDelegation : null}
+    >
+      {plugin.wrap
+        ? plugin.wrap({
+            auth: shellAuth,
+            providers,
+            onFailure: publishFailure,
+            children,
+          })
+        : children}
+    </WalletDelegationPublisherContext.Provider>
+  );
+}
+
+type LoadedPlugin = WalletProviderPlugin | "failed";
+
+function useLoadedPlugins(
+  ids: readonly string[],
+  onFailed: (id: string, message: string) => void,
+): Record<string, LoadedPlugin> {
+  const [loaded, setLoaded] = useState<Record<string, LoadedPlugin>>({});
+  const loading = useRef(new Set<string>());
+  useEffect(() => {
+    for (const id of ids) {
+      const plugin = getWalletProvider(id);
+      if (!plugin || loaded[id] || loading.current.has(id)) continue;
+      if (!plugin.load) {
+        setLoaded((current) => ({ ...current, [id]: plugin }));
+        continue;
+      }
+      loading.current.add(id);
+      void plugin
+        .load()
+        .then((next) => setLoaded((current) => ({ ...current, [id]: next })))
+        .catch((error: unknown) => {
+          setLoaded((current) => ({ ...current, [id]: "failed" }));
+          onFailed(
+            id,
+            error instanceof MissingWalletSdkError
+              ? error.message
+              : `Couldn’t load ${id}. Choose the provider again to retry.`,
+          );
+        })
+        .finally(() => loading.current.delete(id));
+    }
+  }, [ids, loaded, onFailed]);
+  // Plugins registered without a loader are ready on the first render.
+  return useMemo(() => {
+    const ready: Record<string, LoadedPlugin> = { ...loaded };
+    for (const id of ids) {
+      const plugin = getWalletProvider(id);
+      if (plugin && !plugin.load && !ready[id]) ready[id] = plugin;
+    }
+    return ready;
+  }, [ids, loaded]);
+}
+
+function WalletIslands({
+  store,
+  signIn,
+  auth,
+  active,
   unknownProvider,
   ...props
-}: Parameters<typeof AomiExternalWalletProvider>[0] & {
+}: Omit<Parameters<typeof AomiExternalWalletProvider>[0], "authPlugin"> & {
   store: WalletAuthStore;
+  signIn: SocialSignIn;
+  active?: string;
   unknownProvider?: string;
 }) {
-  const [loaded, setLoaded] = useState<WalletProviderPlugin | undefined>(() =>
-    authPlugin?.load ? undefined : authPlugin,
-  );
-  const [failed, setFailed] = useState(false);
-  useLayoutEffect(() => {
-    return () => {
-      store.publish(AOMI_BOOTING_WALLET_KIT);
-      store.publishDelegation(null);
-      store.publishFailure(null);
-    };
-  }, [store]);
+  const [queryClient] = useState(() => new QueryClient());
   useEffect(() => {
     if (unknownProvider)
       store.publishFailure(
         `Unknown wallet provider "${unknownProvider}". Use auth type "privy", "para" or "browser_wallet".`,
       );
   }, [store, unknownProvider]);
-  useEffect(() => {
-    let active = true;
-    if (authPlugin?.load) {
-      void authPlugin
-        .load()
-        .then((plugin) => {
-          if (active) setLoaded(plugin);
-        })
-        .catch((error: unknown) => {
-          if (!active) return;
-          setFailed(true);
-          store.publishFailure(
-            error instanceof MissingWalletSdkError
-              ? error.message
-              : `Couldn’t load ${authPlugin.id}. Choose the provider again to retry.`,
-          );
-        });
-    }
-    return () => {
-      active = false;
-    };
-  }, [authPlugin, store]);
-  if (authPlugin?.load && !loaded && !failed) return null;
-  return (
-    <WalletAuthPublisherContext.Provider value={store.publish}>
-      <WalletDelegationPublisherContext.Provider
-        value={store.publishDelegation}
+  // Provider SDKs only host the EVM runtime; an SVM-only kit runs without them.
+  const evmEnabled = props.wallets?.evm !== false;
+  const { warmProviders, fail } = signIn;
+  const shellIds = useMemo(
+    () =>
+      evmEnabled
+        ? [...new Set([active, ...warmProviders])].filter((id): id is string =>
+            Boolean(id && getWalletProvider(id)),
+          )
+        : [],
+    [active, evmEnabled, warmProviders],
+  );
+  const plugins = useLoadedPlugins(shellIds, fail);
+  const activePlugin = active ? plugins[active] : undefined;
+  const activeLoading = Boolean(
+    active && getWalletProvider(active)?.load && !activePlugin,
+  );
+  const runtimePlugin = activePlugin === "failed" ? undefined : activePlugin;
+  const runtime = activeLoading ? null : (
+    <RuntimeMount key={active ?? "browser-wallet"} store={store}>
+      <AomiExternalWalletProvider
+        {...props}
+        auth={auth}
+        authPlugin={runtimePlugin}
       >
-        <AomiExternalWalletProvider {...props} authPlugin={loaded}>
-          {null}
-        </AomiExternalWalletProvider>
-      </WalletDelegationPublisherContext.Provider>
-    </WalletAuthPublisherContext.Provider>
+        {null}
+      </AomiExternalWalletProvider>
+    </RuntimeMount>
+  );
+  const runtimeInShell = Boolean(
+    runtimePlugin && active && shellIds.includes(active),
+  );
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WalletAuthPublisherContext.Provider value={store.publish}>
+        {shellIds.map((id) => {
+          const plugin = plugins[id];
+          if (!plugin || plugin === "failed") return null;
+          return (
+            <ProviderShell
+              key={id}
+              plugin={plugin}
+              auth={auth}
+              active={id === active}
+              providers={props.providers}
+              store={store}
+              signIn={signIn}
+            >
+              {id === active ? runtime : null}
+            </ProviderShell>
+          );
+        })}
+        {runtimeInShell ? null : runtime}
+      </WalletAuthPublisherContext.Provider>
+    </QueryClientProvider>
   );
 }
 
 class WalletIslandErrorBoundary extends Component<
-  { children: ReactNode; store: WalletAuthStore },
+  { children: ReactNode; store: WalletAuthStore; provider?: string },
   { failed: boolean }
 > {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+  // Choosing another provider retries without remounting the SDKs that work.
+  componentDidUpdate(previous: { provider?: string }) {
+    if (this.state.failed && previous.provider !== this.props.provider)
+      this.setState({ failed: false });
   }
   componentDidCatch() {
     this.props.store.publishFailure(
@@ -741,7 +869,10 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
       : props.auth;
   const authProvider =
     auth !== false && auth?.provider ? auth.provider : undefined;
-  const authPlugin = authProvider ? getWalletProvider(authProvider) : undefined;
+  const knownProvider =
+    authProvider && getWalletProvider(authProvider) ? authProvider : undefined;
+  const signIn = useSocialSignIn(store, knownProvider);
+  const [sheetChannel] = useState(createSheetChannel);
   const networkPreferencesStorageKey =
     props.account && props.account.mode === "aomi-backend"
       ? null
@@ -772,27 +903,35 @@ export function AomiWalletKitProvider(input: AomiWalletKitProviderInput) {
             }
             storageKey={networkPreferencesStorageKey}
           >
-            <WalletAuthBridge store={store}>{props.children}</WalletAuthBridge>
-            {!props.initializing && (
-              <WalletIslandErrorBoundary
-                store={store}
-                key={`${authProvider ?? "browser-wallet"}:${props.providerAttempt ?? 0}`}
-              >
-                <WalletRuntimeIsland
-                  key={`${authProvider ?? "browser-wallet"}:${props.providerAttempt ?? 0}`}
+            <SheetChannelContext.Provider value={sheetChannel}>
+              <WalletAuthBridge store={store}>
+                <SocialSignInOptions signIn={signIn}>
+                  {props.children}
+                </SocialSignInOptions>
+                <SocialLoginOpener signIn={signIn} />
+              </WalletAuthBridge>
+              {!props.initializing && (
+                <WalletIslandErrorBoundary
                   store={store}
-                  account={props.account}
-                  auth={auth}
-                  authPlugin={authPlugin}
-                  unknownProvider={authPlugin ? undefined : authProvider}
-                  execution={props.execution}
-                  providers={props.providers}
-                  wallets={props.wallets}
+                  provider={knownProvider}
+                  key={signIn.attempt}
                 >
-                  {null}
-                </WalletRuntimeIsland>
-              </WalletIslandErrorBoundary>
-            )}
+                  <WalletIslands
+                    store={store}
+                    signIn={signIn}
+                    active={knownProvider}
+                    account={props.account}
+                    auth={auth}
+                    unknownProvider={knownProvider ? undefined : authProvider}
+                    execution={props.execution}
+                    providers={props.providers}
+                    wallets={props.wallets}
+                  >
+                    {null}
+                  </WalletIslands>
+                </WalletIslandErrorBoundary>
+              )}
+            </SheetChannelContext.Provider>
           </AomiWalletNetworkPreferencesProvider>
         </ExtUserProvider>
       </FullTestnetConfigContext.Provider>

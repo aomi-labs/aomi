@@ -28,10 +28,12 @@ export type WalletProviderPlugin = {
   authMode?: "additive" | "full";
   /** Loads the SDK-backed plugin; absent once the plugin itself is registered. */
   load?: () => Promise<WalletProviderPlugin>;
+  /** Mounts the provider SDK. It stays mounted once loaded and reports a startup failure. */
   wrap?: (props: {
     auth?: AuthConfig;
     children: ReactNode;
     providers?: ProvidersConfig;
+    onFailure?: (message: string | null) => void;
   }) => ReactNode;
   isAvailable?: (props: {
     auth?: AuthConfig;

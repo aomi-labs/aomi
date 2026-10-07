@@ -2,6 +2,7 @@
 
 import type { AomiAccount } from "@/wallet/types";
 import type { WagmiConnectionShape } from "./wagmi-hooks";
+import { evmConnectorUid } from "@/wallet/wallet-utils";
 
 export type EvmAccountDisconnectPlan = {
   connectorIds: Set<string>;
@@ -21,10 +22,11 @@ export function planEvmAccountDisconnect({
 }): EvmAccountDisconnectPlan {
   const targetAddress = target.address.toLowerCase();
   const isProviderOwnedAccount = Boolean(target.manageable);
+  const targetUid = evmConnectorUid(target.id);
   const targetConnectorIds = new Set(
     isProviderOwnedAccount
-      ? [target.id]
-      : [target.id, ...(target.connectorIds ?? [])],
+      ? [targetUid]
+      : [targetUid, ...(target.connectorIds ?? [])],
   );
   const connectorIds = new Set<string>();
 
@@ -35,7 +37,7 @@ export function planEvmAccountDisconnect({
   }
 
   if (connectorIds.size === 0) {
-    connectorIds.add(target.id);
+    connectorIds.add(targetUid);
   }
 
   const remainingConnections = connections.filter(

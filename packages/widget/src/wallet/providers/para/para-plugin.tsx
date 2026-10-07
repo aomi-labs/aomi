@@ -98,15 +98,16 @@ function ParaAuthLayer({
   auth,
   children,
   providers,
+  onFailure,
 }: {
   auth?: AuthConfig;
   children: ReactNode;
   providers?: ProvidersConfig;
+  onFailure?: (message: string | null) => void;
 }) {
   const enabled = isParaAuth(auth);
-  const [startupAttempt, setStartupAttempt] = useState(0);
-  const [startupTimedOut, setStartupTimedOut] = useState(false);
   const [providerReady, setProviderReady] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const [connectorsLoaded, setConnectorsLoaded] = useState(
     () => paraConnectorsLoaded,
   );
@@ -131,16 +132,17 @@ function ParaAuthLayer({
     }),
     [para?.appName],
   );
+  // Depend on the methods, not the auth object, so a warm SDK keeps its config.
+  const methods =
+    enabled && auth !== false && auth?.provider === "para"
+      ? auth.methods
+      : undefined;
   const paraModalConfig = useMemo(
     () => ({
       disableEmailLogin: false,
-      oAuthMethods: toParaOAuthMethods(
-        enabled && auth !== false && auth?.provider === "para"
-          ? auth.methods
-          : undefined,
-      ),
+      oAuthMethods: toParaOAuthMethods(methods),
     }),
-    [auth, enabled],
+    [methods],
   );
   const externalWalletConfig = useMemo(
     () => ({
@@ -155,67 +157,33 @@ function ParaAuthLayer({
     }),
     [para?.appDescription, para?.appUrl],
   );
-  // Readiness disarms the watchdog and clears a banner already shown.
   const markProviderReady = useCallback(() => {
     setProviderReady(true);
-    setStartupTimedOut(false);
-  }, []);
-  // Retry clears ready and timeout state and remounts ParaProvider via its key.
-  const retryStartup = useCallback(() => {
-    setProviderReady(false);
-    setStartupTimedOut(false);
-    setStartupAttempt((attempt) => attempt + 1);
-  }, []);
-  // The watchdog only raises the timed-out flag, allowing the load window until
-  // the connectors arrive and the startup window after.
+    setTimedOut(false);
+    onFailure?.(null);
+  }, [onFailure]);
+  // The watchdog allows the load window until the connectors arrive and the
+  // startup window after. The kit shows the failure inside the widget and
+  // remounts this layer when the user chooses Para again.
   useEffect(() => {
     if (!enabled || !paraClientConfig || providerReady) {
       return;
     }
     const timeout = window.setTimeout(
-      () => setStartupTimedOut(true),
+      () => {
+        setTimedOut(true);
+        onFailure?.(
+          "Para could not start. Check the API key environment and allowed browser origin, then choose Para again.",
+        );
+      },
       connectorsLoaded ? PARA_STARTUP_TIMEOUT_MS : PARA_LOAD_TIMEOUT_MS,
     );
     return () => window.clearTimeout(timeout);
-  }, [
-    enabled,
-    paraClientConfig,
-    connectorsLoaded,
-    startupAttempt,
-    providerReady,
-  ]);
+  }, [enabled, paraClientConfig, connectorsLoaded, providerReady, onFailure]);
 
-  if (!enabled || !paraClientConfig) {
+  // A Para that never loads leaves browser wallets usable without it.
+  if (!enabled || !paraClientConfig || (timedOut && !connectorsLoaded)) {
     return <>{children}</>;
-  }
-
-  const startupBanner =
-    startupTimedOut && !providerReady ? (
-      <div
-        role="alert"
-        className="border-destructive/25 bg-destructive/10 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm"
-      >
-        <span>
-          Para authentication could not start. Check the API key environment and
-          allowed browser origin.
-        </span>
-        <button
-          type="button"
-          onClick={retryStartup}
-          className="cursor-pointer rounded-md border border-current px-2.5 py-1.5 text-inherit"
-        >
-          Retry
-        </button>
-      </div>
-    ) : null;
-
-  if (startupBanner && !connectorsLoaded) {
-    return (
-      <>
-        {startupBanner}
-        {children}
-      </>
-    );
   }
 
   // Mount the wallet runtimes (`children`) only under ParaProvider once its
@@ -224,24 +192,20 @@ function ParaAuthLayer({
   // config's reconnect while that one is in flight.
   const { ParaProvider } = paraSdk().react;
   return (
-    <>
-      {startupBanner}
-      <ParaProvider
-        key={startupAttempt}
-        paraClientConfig={paraClientConfig}
-        config={paraConfig}
-        paraModalConfig={paraModalConfig}
-        externalWalletConfig={externalWalletConfig}
-      >
-        {connectorsLoaded ? (
-          <ParaStartupWatcher onReady={markProviderReady}>
-            {children}
-          </ParaStartupWatcher>
-        ) : (
-          <ParaConnectorsLoaded onLoaded={markConnectorsLoaded} />
-        )}
-      </ParaProvider>
-    </>
+    <ParaProvider
+      paraClientConfig={paraClientConfig}
+      config={paraConfig}
+      paraModalConfig={paraModalConfig}
+      externalWalletConfig={externalWalletConfig}
+    >
+      {connectorsLoaded ? (
+        <ParaStartupWatcher onReady={markProviderReady}>
+          {children}
+        </ParaStartupWatcher>
+      ) : (
+        <ParaConnectorsLoaded onLoaded={markConnectorsLoaded} />
+      )}
+    </ParaProvider>
   );
 }
 

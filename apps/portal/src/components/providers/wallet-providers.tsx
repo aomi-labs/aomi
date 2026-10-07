@@ -7,7 +7,6 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { hostedPortalOrigin, hostedPortalApiOrigin } from "@/lib/hosted-portal";
@@ -21,7 +20,6 @@ import {
   robinhood,
 } from "@aomi-labs/client";
 import { ExtUserProvider } from "@aomi-labs/react";
-import { preloadWalletProvider } from "@aomi-labs/widget";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   mainnet,
@@ -169,10 +167,8 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       }),
     [applicationId],
   );
-  const [signIn, setSignIn] = useState<{
-    provider: DeviceAuthProvider;
-    attempt: number;
-  } | null>(null);
+  const [signInProvider, setSignInProvider] =
+    useState<DeviceAuthProvider | null>(null);
   const [providerRestored, setProviderRestored] = useState(false);
   useEffect(() => {
     try {
@@ -184,7 +180,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
         (provider === "para" && paraApiKey) ||
         (provider === "privy" && privyAppId)
       ) {
-        setSignIn({ provider, attempt: 0 });
+        setSignInProvider(provider);
       }
     } catch {
       // Storage can be disabled; provider selection still works for this visit.
@@ -199,10 +195,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       } catch {
         // Remembering a UI preference is optional, never an authentication grant.
       }
-      setSignIn((previous) => ({
-        provider,
-        attempt: (previous?.attempt ?? 0) + 1,
-      }));
+      setSignInProvider(provider);
     },
     [preferenceStorage],
   );
@@ -213,14 +206,13 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     return providers.map((provider) => ({
       id: provider,
       label: provider === "privy" ? "Privy" : "Para",
-      description: "Sign in or link this provider to your Aomi account",
+      description:
+        provider === "privy" ? "Email, Google, X or Apple" : "Email or passkey",
       family: "multichain" as const,
       kind: "social" as const,
       status: "available" as const,
+      // Only records the choice: the wallet kit opens the provider's login.
       connect: () => chooseProvider(provider),
-      preload: () => {
-        void preloadWalletProvider(provider).catch(() => undefined);
-      },
     }));
   }, [chooseProvider]);
   const [browserAuthOrigin, setBrowserAuthOrigin] =
@@ -270,7 +262,7 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     ? routeProviderFailure
       ? null
       : routeProvider
-    : (signIn?.provider ?? null);
+    : signInProvider;
   const auth = useMemo(
     () =>
       selectedProvider
@@ -331,7 +323,6 @@ export function WalletProviders({ children, e2eWallet }: Props) {
       }
     >
       <AomiWalletKitProvider
-        providerAttempt={signIn?.attempt}
         fullTestnet={fullTestnet}
         initializing={!providerRestored}
         auth={hostedOrigin ? false : auth}
@@ -339,12 +330,6 @@ export function WalletProviders({ children, e2eWallet }: Props) {
         providers={providers}
         wallets={wallets}
       >
-        {providerRestored &&
-          !isDeviceAuthRoute(pathname) &&
-          signIn &&
-          signIn.attempt > 0 && (
-            <ProviderSignIn key={signIn.attempt} provider={signIn.provider} />
-          )}
         <HostedPortalShell>{children}</HostedPortalShell>
       </AomiWalletKitProvider>
     </WalletSignInOptionsContext.Provider>
@@ -362,34 +347,6 @@ export function WalletProviders({ children, e2eWallet }: Props) {
     );
   // Keep account state above the route-keyed device-auth error boundary.
   return <ExtUserProvider>{mounted}</ExtUserProvider>;
-}
-
-function ProviderSignIn({ provider }: { provider: DeviceAuthProvider }) {
-  const adapter = useAomiWalletKit();
-  const started = useRef(false);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    // The stable shell can still expose the previous adapter while the selected
-    // island loads. Consuming the request there loses it before login is ready.
-    if (
-      !adapter.isReady ||
-      adapter.identity.sessionProvider !== provider ||
-      !adapter.connectSocial ||
-      started.current
-    )
-      return;
-    started.current = true;
-    void adapter.connectSocial(provider).catch(() => setFailed(true));
-  }, [adapter, provider]);
-  return failed ? (
-    <div
-      role="alert"
-      className="bg-background fixed bottom-4 right-4 z-[100] rounded-xl p-4 shadow-lg"
-    >
-      Couldn’t open {provider === "privy" ? "Privy" : "Para"}. Choose it again
-      to retry.
-    </div>
-  ) : null;
 }
 
 class DeviceAuthProviderErrorBoundary extends Component<

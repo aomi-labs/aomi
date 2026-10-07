@@ -34,6 +34,8 @@ function PrivyAuthLayer({
   const enabled = isPrivyAuth(auth);
   const privy = providers?.privy === false ? undefined : providers?.privy;
   const appId = privy?.appId;
+  // Depend on the methods, not the auth object, so a warm SDK keeps its config.
+  const methods = enabled ? auth.methods : undefined;
   const config = useMemo(
     () =>
       buildPrivyClientConfig({
@@ -42,9 +44,9 @@ function PrivyAuthLayer({
         // The additive plugin uses Aomi's external-wallet runtime. A second
         // Privy WalletConnect client duplicates its Core and session storage.
         walletConnectEnabled: false,
-        loginMethods: enabled ? toPrivyLoginMethods(auth?.methods) : undefined,
+        loginMethods: enabled ? toPrivyLoginMethods(methods) : undefined,
       }),
-    [auth, enabled, privy?.appLogoUrl, privy?.appName],
+    [enabled, methods, privy?.appLogoUrl, privy?.appName],
   );
 
   if (!enabled || !appId) {

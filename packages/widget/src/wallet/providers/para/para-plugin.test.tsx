@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { act, useEffect, useState } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { act, useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A tiny external store so the mocked `useParaStatus` can flip `isReady` at
@@ -96,6 +96,9 @@ async function importParaPlugin() {
 }
 const paraPlugin = await importParaPlugin();
 
+const onFailure = vi.fn();
+const lastFailure = () => onFailure.mock.calls.at(-1)?.[0] ?? null;
+
 function renderLayer(
   plugin = paraPlugin,
   children: ReactNode = <div>widget-body</div>,
@@ -106,15 +109,17 @@ function renderLayer(
         auth: { provider: "para", methods: ["google"] },
         providers: { para: { apiKey: "test-api-key" } },
         children,
+        onFailure,
       })}
     </>,
   );
 }
 
-describe("Para startup banner", () => {
+describe("Para startup failure", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     paraStatus.reset();
+    onFailure.mockClear();
   });
 
   afterEach(() => {
@@ -123,7 +128,7 @@ describe("Para startup banner", () => {
     vi.useRealTimers();
   });
 
-  it("never shows the banner when Para reports ready at startup, even after the timeout window (guards the effect-ordering clobber)", () => {
+  it("never reports a failure when Para is ready at startup", () => {
     paraStatus.setReady(true);
     renderLayer();
 
@@ -131,84 +136,30 @@ describe("Para startup banner", () => {
     act(() => {
       vi.advanceTimersByTime(10_000);
     });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(lastFailure()).toBeNull();
   });
 
-  it("shows the startup banner when Para never becomes ready within the timeout", () => {
-    renderLayer();
-
-    expect(screen.queryByRole("alert")).toBeNull();
-    act(() => {
-      vi.advanceTimersByTime(4_000);
-    });
-    expect(screen.getByRole("alert")).toBeTruthy();
-    // Children keep rendering alongside the banner (additive auth layer).
-    expect(screen.getByText("widget-body")).toBeTruthy();
-  });
-
-  it("keeps host state and wallet runtimes mounted when startup times out after connectors load", () => {
+  it("reports a failure when Para never becomes ready, keeping the runtimes mounted", () => {
     let runtimeMounts = 0;
     function WalletRuntime() {
-      const [open, setOpen] = useState(false);
       useEffect(() => {
         runtimeMounts += 1;
       }, []);
-      return (
-        <>
-          <button onClick={() => setOpen(true)}>Open wallet picker</button>
-          {open ? <div role="dialog">wallet-picker</div> : null}
-        </>
-      );
+      return <div>widget-body</div>;
     }
     renderLayer(paraPlugin, <WalletRuntime />);
-    fireEvent.click(screen.getByText("Open wallet picker"));
 
     act(() => {
       vi.advanceTimersByTime(4_000);
     });
-    expect(screen.getByRole("alert")).toBeTruthy();
-    expect(screen.getByRole("dialog").textContent).toBe("wallet-picker");
-    expect(runtimeMounts).toBe(1);
-
-    act(() => {
-      paraStatus.setReady(true);
-    });
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(runtimeMounts).toBe(1);
-  });
-
-  it("disarms the watchdog when readiness flips true before the timeout", () => {
-    renderLayer();
-
-    act(() => {
-      vi.advanceTimersByTime(1_000);
-    });
-    act(() => {
-      paraStatus.setReady(true);
-    });
-    act(() => {
-      vi.advanceTimersByTime(10_000);
-    });
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("recovers after Retry once Para becomes ready", () => {
-    renderLayer();
-
-    act(() => {
-      vi.advanceTimersByTime(4_000);
-    });
-    expect(screen.getByRole("alert")).toBeTruthy();
-
-    act(() => {
-      fireEvent.click(screen.getByText("Retry"));
-    });
-    act(() => {
-      paraStatus.setReady(true);
-    });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(lastFailure()).toContain("Para could not start");
     expect(screen.getByText("widget-body")).toBeTruthy();
+
+    act(() => {
+      paraStatus.setReady(true);
+    });
+    expect(lastFailure()).toBeNull();
+    expect(runtimeMounts).toBe(1);
   });
 });
 
@@ -216,6 +167,7 @@ describe("Para connector loading", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     paraStatus.reset();
+    onFailure.mockClear();
   });
 
   afterEach(() => {
@@ -248,7 +200,7 @@ describe("Para connector loading", () => {
     act(() => {
       vi.advanceTimersByTime(10_000);
     });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(lastFailure()).toBeNull();
 
     act(() => {
       paraLibs.setLoaded(true);
@@ -275,9 +227,7 @@ describe("Para connector loading", () => {
     act(() => {
       vi.advanceTimersByTime(15_000);
     });
-    expect(screen.getByRole("alert").textContent).toContain(
-      "Para authentication could not start",
-    );
+    expect(lastFailure()).toContain("Para could not start");
     expect(screen.getByText("widget-body")).toBeTruthy();
     expect(runtimeMounts).toBe(1);
   });

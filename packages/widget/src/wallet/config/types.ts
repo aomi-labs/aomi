@@ -149,8 +149,6 @@ export type AomiWalletKitProviderProps = {
   /** Hosted app identifier used only for preference isolation. */
   applicationId?: string | number | null;
   fullTestnet?: { rpcMap: Record<number, string> };
-  /** Explicitly retry a failed SDK island without remounting chat. */
-  providerAttempt?: number;
   /** Render the loading wallet state without starting SDKs while host config is restored. */
   initializing?: boolean;
   preset?: "para" | "privy" | "wallets-only" | (string & {});

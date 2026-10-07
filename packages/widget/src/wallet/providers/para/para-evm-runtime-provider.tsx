@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import type { paraConnector } from "@getpara/wagmi-v2-connector";
 import type ParaWeb from "@getpara/react-sdk";
 import type { Config } from "wagmi";
@@ -47,6 +47,35 @@ export function createAomiParaEvmConfig(
   });
 }
 
+// One wagmi config per Para client and wallet setup: each new config inits
+// WalletConnect again and announces to every injected wallet.
+const paraConfigs = new WeakMap<object, Map<string, Config>>();
+
+function paraEvmConfig(
+  config: ResolvedEvmWalletsConfig,
+  para: ParaWeb | null,
+): Config {
+  if (!para || config.connectors?.length || config.transports)
+    return createAomiParaEvmConfig(config, para);
+  const key = JSON.stringify([
+    config.chains.map((chain) => [chain.id, chain.rpcUrls.default.http[0]]),
+    config.preset ?? null,
+    config.wallets ?? null,
+    config.walletConnectProjectId ?? null,
+    config.coinbase ?? null,
+    config.appName ?? null,
+    config.appLogoUrl ?? null,
+    config.persistConnections ?? null,
+  ]);
+  const configs = paraConfigs.get(para) ?? new Map<string, Config>();
+  paraConfigs.set(para, configs);
+  const cached = configs.get(key);
+  if (cached) return cached;
+  const created = createAomiParaEvmConfig(config, para);
+  configs.set(key, created);
+  return created;
+}
+
 export function AomiParaEvmRuntimeProvider({
   children,
   config,
@@ -55,10 +84,12 @@ export function AomiParaEvmRuntimeProvider({
   config: ResolvedEvmWalletsConfig;
 }) {
   const para = useSafeParaClient();
-  const wagmiConfig = useMemo(
-    () => createAomiParaEvmConfig(config, para),
-    [config, para],
-  );
+  // Built after render: creating a config updates other mounted stores.
+  const [wagmiConfig, setWagmiConfig] = useState<Config | null>(null);
+  useLayoutEffect(() => {
+    setWagmiConfig(paraEvmConfig(config, para));
+  }, [config, para]);
+  if (!wagmiConfig) return null;
 
   return (
     <AomiEvmRuntimeProvider config={wagmiConfig}>

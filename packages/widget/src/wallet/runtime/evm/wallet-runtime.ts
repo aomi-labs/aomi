@@ -7,7 +7,11 @@ import type { AomiAccount, AomiWalletOption } from "@/wallet/types";
 import { selectAccounts, selectEvmIdentity } from "@/wallet/registry/selectors";
 import type { WalletRegistryStore } from "@/wallet/registry/store";
 import { useWalletRegistry } from "@/wallet/registry/use-wallet-registry";
-import type { WalletRegistryState } from "@/wallet/registry/types";
+import type {
+  RegistryConnection,
+  WalletRegistryState,
+} from "@/wallet/registry/types";
+import { evmAccountId, evmConnectorUid } from "@/wallet/wallet-utils";
 import type { WalletRuntime } from "@/wallet/composer/types";
 import {
   dedupeWalletOptions,
@@ -113,6 +117,8 @@ export type EvmWalletRuntime = WalletRuntime<"evm"> & {
   }) => Promise<unknown>;
   isSwitchingChain: boolean;
   shouldUseExternalSigner: boolean;
+  /** Ask the wallet app behind this account to let the user pick another account. */
+  requestAccountSwitch?: (accountId: string) => Promise<void>;
 };
 
 async function findConnectorByProviderBrand(
@@ -148,6 +154,18 @@ function findActiveEvmConnection(
     }
     return connection.address.toLowerCase() === active.address.toLowerCase();
   });
+}
+
+/** An account id, or a bare connector uid for that connector's current address. */
+function findEvmConnection(
+  connections: readonly RegistryConnection[],
+  id: string,
+): RegistryConnection | undefined {
+  return connections.find(
+    (conn) =>
+      conn.family === "evm" &&
+      (evmAccountId(conn.uid, conn.address) === id || conn.uid === id),
+  );
 }
 
 export function useEvmWalletRuntime({
@@ -337,9 +355,10 @@ export function useEvmWalletRuntime({
 
   const selectAccount = useCallback(
     async (id: string) => {
-      const connection = registryStore
-        .getSnapshot()
-        .connections.find((conn) => conn.family === "evm" && conn.uid === id);
+      const connection = findEvmConnection(
+        registryStore.getSnapshot().connections,
+        id,
+      );
       if (!connection) return;
       registryStore.dispatch({
         type: "user/select-active",
@@ -374,6 +393,24 @@ export function useEvmWalletRuntime({
     [registryStore, switchAccountAsync, wagmiConfig.connectors],
   );
 
+  const requestAccountSwitch = useCallback(
+    async (accountId: string) => {
+      const uid = evmConnectorUid(accountId);
+      const connector = wagmiConfig.connectors.find(
+        (candidate) => candidate.uid === uid,
+      );
+      const provider = (await connector?.getProvider()) as
+        | { request?: (args: unknown) => Promise<unknown> }
+        | undefined;
+      // MetaMask reopens its account chooser; other wallets may ignore it.
+      await provider?.request?.({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+    },
+    [wagmiConfig.connectors],
+  );
+
   const signMessageForAccount = useCallback(
     async ({
       accountId,
@@ -384,11 +421,10 @@ export function useEvmWalletRuntime({
       message: string;
       chainId?: number;
     }): Promise<`0x${string}`> => {
-      const connection = registryStore
-        .getSnapshot()
-        .connections.find(
-          (conn) => conn.family === "evm" && conn.uid === accountId,
-        );
+      const connection = findEvmConnection(
+        registryStore.getSnapshot().connections,
+        accountId,
+      );
       if (!connection) {
         throw new Error(`Unknown EVM account: ${accountId}`);
       }
@@ -618,11 +654,14 @@ export function useEvmWalletRuntime({
     supportedChains,
     walletClient,
     getWalletClientFor,
-    sendTransactionAsync: sendTransactionAsync as EvmWalletRuntime["sendTransactionAsync"],
+    sendTransactionAsync:
+      sendTransactionAsync as EvmWalletRuntime["sendTransactionAsync"],
     sendCallsSyncAsync,
-    signTypedDataAsync: signTypedDataAsync as EvmWalletRuntime["signTypedDataAsync"],
+    signTypedDataAsync:
+      signTypedDataAsync as EvmWalletRuntime["signTypedDataAsync"],
     signMessageAsync: signMessageAsync as EvmWalletRuntime["signMessageAsync"],
     signMessageForAccount,
+    requestAccountSwitch,
     switchChainAsync,
     isSwitchingChain: isPending,
     activeAccount: selectRuntimeAccounts(Date.now()).find(

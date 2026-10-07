@@ -1,5 +1,17 @@
-import { useEffect, useLayoutEffect, type ReactNode } from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { AomiWalletKitProvider } from "./aomi-wallet-kit-provider";
 import {
@@ -11,6 +23,7 @@ import { AOMI_BOOTING_WALLET_KIT, useAomiWalletKit } from "@/wallet/context";
 import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
 import { base, mainnet } from "wagmi/chains";
 import { NetworkSelect } from "@/controls/network-select";
+import { WalletSignInOptionsContext } from "@/wallet/picker/wallet-picker-context";
 
 // Keep these tests about instance/lifecycle behavior; provider signing adapters
 // have independent SDK-facing tests.
@@ -57,7 +70,13 @@ vi.mock("@/wallet/context", async (original) => {
   };
 });
 
-function Adapter({ provider }: { provider: string }) {
+function Adapter({
+  provider,
+  connectSocial,
+}: {
+  provider: string;
+  connectSocial?: (id: string) => Promise<void>;
+}) {
   const publish = useWalletAuthPublisher();
   useLayoutEffect(() => {
     publish?.({
@@ -67,8 +86,9 @@ function Adapter({ provider }: { provider: string }) {
         ...AOMI_BOOTING_WALLET_KIT.identity,
         sessionProvider: provider,
       },
+      connectSocial,
     });
-  }, [publish, provider]);
+  }, [connectSocial, publish, provider]);
   return null;
 }
 const wallets = { solana: false as const };
@@ -240,3 +260,119 @@ it.each(["privy", "para"])(
     expect(getWalletProvider(provider)?.load).toBeTypeOf("function");
   },
 );
+
+it("keeps a warmed provider SDK mounted and opens login through the active runtime", async () => {
+  const sdkMounts: Record<string, number> = {};
+  const login = vi.fn(async (_id: string) => undefined);
+  function Sdk({ id, children }: { id: string; children: ReactNode }) {
+    useEffect(() => {
+      sdkMounts[id] = (sdkMounts[id] ?? 0) + 1;
+    }, [id]);
+    return <>{children}</>;
+  }
+  for (const id of ["warm-a", "warm-b"]) {
+    registerWalletProvider({
+      id,
+      wrap: (props) => <Sdk id={id} {...props} />,
+      renderComposer: () => <Adapter provider={id} connectSocial={login} />,
+    });
+  }
+  const chosen: string[] = [];
+  function Host() {
+    const [provider, setProvider] = useState<string | undefined>();
+    const options = ["warm-a", "warm-b"].map((id) => ({
+      id,
+      label: id,
+      family: "multichain" as const,
+      kind: "social" as const,
+      status: "available" as const,
+      connect: async () => {
+        chosen.push(id);
+        setProvider(id);
+      },
+    }));
+    return (
+      <WalletSignInOptionsContext.Provider value={options}>
+        <AomiWalletKitProvider
+          auth={provider ? { provider } : false}
+          wallets={wallets}
+        >
+          <Sheet />
+        </AomiWalletKitProvider>
+      </WalletSignInOptionsContext.Provider>
+    );
+  }
+  function Sheet() {
+    const options = useContext(WalletSignInOptionsContext);
+    const kit = useAomiWalletKit();
+    return (
+      <>
+        <span>active:{kit.identity.sessionProvider ?? "none"}</span>
+        <button onClick={() => options.forEach((option) => option.preload?.())}>
+          open sheet
+        </button>
+        {options.map((option) => (
+          <button key={option.id} onClick={() => void option.connect()}>
+            {option.id}
+          </button>
+        ))}
+      </>
+    );
+  }
+  render(<Host />);
+  fireEvent.click(screen.getByText("open sheet"));
+  await waitFor(() => expect(sdkMounts).toEqual({ "warm-a": 1, "warm-b": 1 }));
+
+  // Opens once the host has made it active and its runtime is up.
+  fireEvent.click(screen.getByText("warm-a"));
+  await waitFor(() => expect(screen.getByText("active:warm-a")).toBeTruthy());
+  await waitFor(() => expect(login).toHaveBeenLastCalledWith("warm-a"));
+
+  // The active provider opens inside the click.
+  fireEvent.click(screen.getByText("warm-a"));
+  expect(login).toHaveBeenCalledTimes(2);
+
+  fireEvent.click(screen.getByText("warm-b"));
+  await waitFor(() => expect(screen.getByText("active:warm-b")).toBeTruthy());
+  await waitFor(() => expect(login).toHaveBeenLastCalledWith("warm-b"));
+  expect(sdkMounts).toEqual({ "warm-a": 1, "warm-b": 1 });
+  expect(chosen).toEqual(["warm-a", "warm-a", "warm-b"]);
+});
+
+it("reports a provider whose SDK never offers login inside the widget", async () => {
+  vi.useFakeTimers();
+  registerWalletProvider({
+    id: "never-ready",
+    wrap: ({ children }) => <>{children}</>,
+    renderComposer: () => <Adapter provider="never-ready" />,
+  });
+  function Sheet() {
+    const [option] = useContext(WalletSignInOptionsContext);
+    return <button onClick={() => void option!.connect()}>never-ready</button>;
+  }
+  render(
+    <WalletSignInOptionsContext.Provider
+      value={[
+        {
+          id: "never-ready",
+          label: "Never ready",
+          family: "multichain",
+          kind: "social",
+          status: "available",
+          connect: async () => undefined,
+        },
+      ]}
+    >
+      <AomiWalletKitProvider wallets={wallets}>
+        <Sheet />
+        <AccountError />
+      </AomiWalletKitProvider>
+    </WalletSignInOptionsContext.Provider>,
+  );
+  fireEvent.click(screen.getByText("never-ready"));
+  await act(async () => {
+    vi.advanceTimersByTime(15_000);
+  });
+  vi.useRealTimers();
+  expect(screen.getByText(/Couldn’t open never-ready/)).toBeTruthy();
+});
