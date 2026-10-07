@@ -39,20 +39,17 @@ export function pendingHint(row: WalletRow): string | null {
   return null;
 }
 
-/** One "signs with" slot per family the account has addresses for. */
+/** One "signs with" slot per family; `current` is unset when it has no address. */
 export function familySlots(rows: readonly WalletRow[]) {
-  return (["evm", "svm"] as const)
-    .map((family) => {
-      const list = rows.filter((row) => row.linked && row.family === family);
-      const ordered = [
-        ...list.filter((row) => row.active),
-        ...list.filter((row) => !row.active),
-      ];
-      // The chosen address, or the one left when it was removed.
-      return { family, rows: ordered, current: ordered[0] };
-    })
-    .filter((slot) => slot.current !== undefined)
-    .map((slot) => ({ ...slot, current: slot.current! }));
+  return (["evm", "svm"] as const).map((family) => {
+    const list = rows.filter((row) => row.linked && row.family === family);
+    const ordered = [
+      ...list.filter((row) => row.active),
+      ...list.filter((row) => !row.active),
+    ];
+    // The chosen address, or the one left when it was removed.
+    return { family, rows: ordered, current: ordered.at(0) };
+  });
 }
 
 /**

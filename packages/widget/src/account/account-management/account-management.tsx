@@ -180,6 +180,7 @@ export function AccountManagement({
               rows={rows}
               disabled={pending !== null}
               onActivate={rowHandlers.onActivate}
+              onAddWallet={onAddWallet}
             />
             {wallets.length ? (
               <>

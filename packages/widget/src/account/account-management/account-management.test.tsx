@@ -116,6 +116,24 @@ describe("Wallets & access", () => {
     );
   });
 
+  it("keeps an empty SVM slot that offers to add a wallet", () => {
+    const onAddWallet = vi.fn();
+    renderSettings([main], { onAddWallet });
+    expect(screen.getByText("No SVM wallet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add a SVM wallet" }));
+    expect(onAddWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends each family picker with Add a wallet", () => {
+    const onAddWallet = vi.fn();
+    renderSettings([main, trading], { onAddWallet });
+    fireEvent.click(
+      screen.getByRole("button", { name: "EVM signs with Main" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
+    expect(onAddWallet).toHaveBeenCalledTimes(1);
+  });
+
   it("titles a row with its name and puts the app beside it", () => {
     renderSettings([main, metamask]);
     expect(within(rowFor(main)).getByText("Main")).toBeInTheDocument();
@@ -186,7 +204,7 @@ describe("Wallets & access", () => {
 
     openMenu(main, "Main");
     expect(
-      screen.getByRole("menuitem", { name: "Disconnect Rabby on this device" }),
+      screen.getByRole("menuitem", { name: "Disconnect on this device" }),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("menuitem", { name: /Remove from account/ }),

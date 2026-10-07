@@ -158,6 +158,7 @@ export function AccountMenu({
             unlinked={unlinked}
             onActivateWallet={onActivateWallet}
             onVerify={onVerify}
+            onAddWallet={onAddWallet}
             onClose={onClose}
           />
           {onAddWallet ? (
@@ -285,18 +286,20 @@ function SignsWithRows({
   unlinked,
   onActivateWallet,
   onVerify,
+  onAddWallet,
   onClose,
 }: {
   rows: readonly WalletRow[];
   unlinked?: WalletRow;
   onActivateWallet?: (key: string) => Promise<ActivateResult>;
   onVerify?: () => void;
+  onAddWallet?: () => void;
   onClose: () => void;
 }) {
   const [openFamily, setOpenFamily] = useState<WalletFamily | null>(null);
   const [switching, setSwitching] = useState<string>();
   const slots = familySlots(rows);
-  if (!slots.length && !unlinked) return null;
+  if (!rows.length && !unlinked && !onAddWallet) return null;
 
   const activate = async (row: WalletRow) => {
     if (row.active || !onActivateWallet || switching) return;
@@ -342,6 +345,14 @@ function SignsWithRows({
         {slots.map((slot) => {
           const expanded = openFamily === slot.family;
           const current = slot.current;
+          if (!current)
+            return (
+              <EmptyFamilyRow
+                key={slot.family}
+                family={slot.family}
+                onAddWallet={onAddWallet}
+              />
+            );
           return expanded ? (
             <div
               key={slot.family}
@@ -384,6 +395,19 @@ function SignsWithRows({
                   ) : null}
                 </button>
               ))}
+              {onAddWallet ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={onAddWallet}
+                  className="text-aomi-muted hover:bg-aomi-hover/60 hover:text-aomi-fg flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] transition-colors"
+                >
+                  <span className="flex size-[26px] shrink-0 items-center justify-center">
+                    <PlusIcon size={14} />
+                  </span>
+                  Add a wallet
+                </button>
+              ) : null}
             </div>
           ) : (
             <button
@@ -402,6 +426,42 @@ function SignsWithRows({
         })}
       </div>
     </div>
+  );
+}
+
+/** A family with no address: the same row, muted, offering to add one. */
+function EmptyFamilyRow({
+  family,
+  onAddWallet,
+}: {
+  family: WalletFamily;
+  onAddWallet?: () => void;
+}) {
+  const body = (
+    <>
+      <span className="text-aomi-muted min-w-0 flex-1 truncate pl-1 text-[12px]">
+        No {family.toUpperCase()} wallet
+      </span>
+      <FamilyTag family={family} />
+      {onAddWallet ? (
+        <span className="text-aomi-muted flex items-center gap-1 text-[11px]">
+          <PlusIcon size={13} />
+          Add
+        </span>
+      ) : null}
+    </>
+  );
+  const className = "flex w-full items-center gap-2 px-2 py-2 text-left";
+  if (!onAddWallet) return <div className={className}>{body}</div>;
+  return (
+    <button
+      type="button"
+      aria-label={`Add a ${family.toUpperCase()} wallet`}
+      onClick={onAddWallet}
+      className={cn(className, "hover:bg-aomi-hover/60 transition-colors")}
+    >
+      {body}
+    </button>
   );
 }
 

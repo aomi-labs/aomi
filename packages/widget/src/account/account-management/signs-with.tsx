@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
@@ -30,31 +30,84 @@ export function SignsWithStrip({
   rows,
   disabled,
   onActivate,
+  onAddWallet,
 }: {
   rows: readonly WalletRow[];
   disabled: boolean;
   onActivate?: (row: WalletRow) => void;
+  onAddWallet?: () => void;
 }) {
-  const slots = familySlots(rows);
-  if (!slots.length) return null;
   return (
-    <div
+    <div className="divide-aomi-border grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      {familySlots(rows).map((slot) =>
+        slot.current ? (
+          <FamilySlot
+            key={slot.family}
+            family={slot.family}
+            rows={slot.rows}
+            current={slot.current}
+            disabled={disabled}
+            onActivate={onActivate}
+            onAddWallet={onAddWallet}
+          />
+        ) : (
+          <EmptySlot
+            key={slot.family}
+            family={slot.family}
+            disabled={disabled}
+            onAddWallet={onAddWallet}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** A family with no address: the same slot, muted, offering to add one. */
+function EmptySlot({
+  family,
+  disabled,
+  onAddWallet,
+}: {
+  family: WalletFamily;
+  disabled: boolean;
+  onAddWallet?: () => void;
+}) {
+  const tag = familyTag(family);
+  const body = (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="type-meta text-aomi-muted flex items-center gap-1.5">
+          <FamilyTag family={family} />
+          signs with
+        </span>
+        <span className="type-control text-aomi-muted truncate">
+          No {tag} wallet
+        </span>
+      </span>
+      {onAddWallet ? (
+        <span className="type-meta text-aomi-muted flex shrink-0 items-center gap-1">
+          <Plus className="size-3.5" />
+          Add
+        </span>
+      ) : null}
+    </>
+  );
+  const className = "flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left";
+  if (!onAddWallet) return <div className={className}>{body}</div>;
+  return (
+    <button
+      type="button"
+      aria-label={`Add a ${tag} wallet`}
+      disabled={disabled}
+      onClick={onAddWallet}
       className={cn(
-        "divide-aomi-border grid divide-y sm:divide-x sm:divide-y-0",
-        slots.length > 1 && "sm:grid-cols-2",
+        className,
+        "hover:bg-aomi-hover focus-visible:bg-aomi-hover outline-none transition-colors",
       )}
     >
-      {slots.map((slot) => (
-        <FamilySlot
-          key={slot.family}
-          family={slot.family}
-          rows={slot.rows}
-          current={slot.current}
-          disabled={disabled}
-          onActivate={onActivate}
-        />
-      ))}
-    </div>
+      {body}
+    </button>
   );
 }
 
@@ -64,12 +117,14 @@ function FamilySlot({
   current,
   disabled,
   onActivate,
+  onAddWallet,
 }: {
   family: WalletFamily;
   rows: WalletRow[];
   current: WalletRow;
   disabled: boolean;
   onActivate?: (row: WalletRow) => void;
+  onAddWallet?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const tag = familyTag(family);
@@ -155,6 +210,25 @@ function FamilySlot({
             </button>
           );
         })}
+        {onAddWallet ? (
+          <>
+            <div role="separator" className="bg-aomi-border my-1 h-px" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onAddWallet();
+              }}
+              className="hover:bg-aomi-hover focus:bg-aomi-hover type-control flex w-full items-center gap-2.5 rounded-[8px] px-2 py-1.5 text-left outline-none"
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center">
+                <Plus className="text-aomi-muted size-4" />
+              </span>
+              Add a wallet
+            </button>
+          </>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

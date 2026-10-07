@@ -212,6 +212,48 @@ describe("DualWalletBar account menu", () => {
     ).toBeInTheDocument();
   });
 
+  it("always lists EVM and SVM, and adds to the empty family", () => {
+    adapterState.current.wallets = [
+      walletRow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "Rabby", {
+        operating: true,
+      }),
+    ];
+
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{ enabled: true, primaryLine: "Aron" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    expect(screen.getByText("No SVM wallet")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add a SVM wallet" }));
+    expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends the expanded family with Add a wallet", () => {
+    adapterState.current.wallets = [
+      walletRow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "Rabby", {
+        operating: true,
+      }),
+    ];
+
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{ enabled: true, primaryLine: "Aron" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "EVM signs with Rabby" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Add a wallet" }));
+    expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
+  });
+
   it("offers Verify for a connected address that is not in the account", () => {
     adapterState.current.unlinkedWallet = walletRow(
       "0x77c1000000000000000000000000000000000a20e",
