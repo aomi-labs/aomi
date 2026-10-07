@@ -22,7 +22,7 @@ describe("backend OpenAPI route contract", () => {
 
     // This is deliberately an explicit review point: silently dropping the
     // manager exporter from the generator must not shrink rollback safety.
-    expect(managerRoutes).toHaveLength(77);
+    expect(managerRoutes).toHaveLength(81);
     expect(managerRoutes.every((route) => mergedRoutes.has(route))).toBe(true);
   });
 });

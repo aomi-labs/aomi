@@ -96,6 +96,7 @@ function isAomiAuthList(value: unknown): value is readonly AomiAuthClass[] {
 
 function isAomiAuthClass(value: unknown): value is AomiAuthClass {
   return (
+    value === "public" ||
     value === "thread" ||
     value === "account" ||
     value === "agent_adapter" ||

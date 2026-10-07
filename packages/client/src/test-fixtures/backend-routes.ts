@@ -410,6 +410,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/platforms/:name/telegram/handover/bot",
+    auth: ["public"],
+  },
+  {
+    method: "GET",
     path: "/api/platforms/:name/tokens",
     auth: ["activation"],
   },

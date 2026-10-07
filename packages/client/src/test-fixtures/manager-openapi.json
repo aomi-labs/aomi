@@ -707,6 +707,55 @@
         ]
       }
     },
+    "/api/account/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bots/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
     "/api/integrations/github-app/platforms/{name}/projects/create-from-template": {
       "post": {
         "responses": {
@@ -924,6 +973,19 @@
         ]
       }
     },
+    "/api/platforms/{name}/telegram/handover/bot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/nonce": {
       "post": {
         "responses": {
@@ -978,6 +1040,11 @@
     }
   },
   "components": {
-    "securitySchemes": {}
+    "securitySchemes": {
+      "accountBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
   }
 }

@@ -1,6 +1,7 @@
 export type AomiHttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export type AomiAuthClass =
+  | "public"
   | "thread"
   | "account"
   | "agent_adapter"
