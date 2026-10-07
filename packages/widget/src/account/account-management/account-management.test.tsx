@@ -1,3 +1,5 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { AccountAvatar } from "../account-avatar";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { shortAddress } from "@aomi-labs/client";
@@ -89,6 +91,19 @@ const openMenu = (item: WalletRow, title: string) =>
   );
 
 describe("Wallets & access", () => {
+  it("uses the canonical account avatar in Profile while preserving wallet brands", () => {
+    const { container } = renderSettings([main]);
+    const expected = document.createElement("div");
+    expected.innerHTML = renderToStaticMarkup(
+      <AccountAvatar seed="user-1" size={32} />,
+    );
+    expect(container.querySelector("[data-account-avatar]")?.outerHTML).toBe(
+      expected.firstElementChild?.outerHTML,
+    );
+    expect(rowFor(main).querySelector("[data-account-avatar]")).toBeNull();
+    expect(within(rowFor(main)).getByText("Rabby")).toBeInTheDocument();
+  });
+
   it("keeps the remaining address in the strip, dimmed with its step", () => {
     const onActivate = vi.fn();
     renderSettings([trading], { onActivate });

@@ -27,8 +27,6 @@ export function usePortalWalletAccountMenu(
   options: {
     settings?: boolean;
     theme?: boolean;
-    onOpenDeployments?: () => void;
-    embedded?: boolean;
   } = {},
 ): WalletAccountMenuOptions | undefined {
   const account = useAccountOverview();
@@ -81,13 +79,6 @@ export function usePortalWalletAccountMenu(
           : () => updateSetting("colorMode", isDark ? "light" : "dark"),
       onManageAccount,
       onOpenSettings: options.settings === false ? undefined : onOpenSettings,
-      onOpenDeployments:
-        options.onOpenDeployments ??
-        (options.embedded
-          ? undefined
-          : () => {
-              window.location.assign("/deployments");
-            }),
       // DualWalletBar owns the unified sign-out and wallet disconnect action.
     };
   }, [
@@ -106,7 +97,5 @@ export function usePortalWalletAccountMenu(
     themeRoot,
     options.settings,
     options.theme,
-    options.onOpenDeployments,
-    options.embedded,
   ]);
 }

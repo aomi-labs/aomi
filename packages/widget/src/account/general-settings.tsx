@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getChainInfo } from "@aomi-labs/react";
 import type { AomiCreditPosition } from "@aomi-labs/client";
+import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
-import { ChevronRight, Shield, UserRound } from "lucide-react";
+import { ChevronRight, Shield } from "lucide-react";
 import { countDriftedWallets } from "@/wallet/wallet-attention";
 import { useAccountAcl } from "./use-account-acl";
 import { walletConnectionSummary } from "@/wallet/wallet-management-model";
@@ -107,6 +108,7 @@ export function GeneralSettings({
         />
         <AccountSummaryCard
           primary={accountName}
+          accountId={adapter.accountUser?.id}
           walletDesc={linkedWalletStatus}
           tier={account?.user.tier}
           memberSince={formatMemberSince(account?.user.created_at)}
@@ -174,6 +176,7 @@ export function GeneralSettings({
 
 function AccountSummaryCard({
   primary,
+  accountId,
   walletDesc,
   tier,
   memberSince,
@@ -182,6 +185,7 @@ function AccountSummaryCard({
   onViewUsage,
 }: {
   primary: string;
+  accountId?: string;
   walletDesc: string;
   tier?: string;
   memberSince?: string;
@@ -201,11 +205,7 @@ function AccountSummaryCard({
       <SettingRow
         title={primary}
         desc={walletDesc}
-        leading={
-          <span className="bg-aomi-surface-2 text-aomi-muted flex size-8 shrink-0 items-center justify-center rounded-full">
-            <UserRound size={16} />
-          </span>
-        }
+        leading={<AccountAvatar seed={accountId} size={32} />}
         className="px-4 sm:px-5"
       >
         <button

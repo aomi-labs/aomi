@@ -2,15 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
-import {
-  Check,
-  LogOut,
-  Pencil,
-  Plus,
-  Trash2,
-  UserRound,
-  X,
-} from "lucide-react";
+import { Check, LogOut, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AccountAvatar } from "../account-avatar";
 import { aomiButton } from "@/ui/aomi/button";
 import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
@@ -126,11 +119,7 @@ export function AccountManagement({
         <SectionHeader title="Profile" detail="How your account appears" />
         <ListGroup>
           <ListRow
-            leading={
-              <RowIcon>
-                <UserRound className="size-4" />
-              </RowIcon>
-            }
+            leading={<AccountAvatar seed={user?.id} size={32} />}
             title={
               editingName ? (
                 <input

@@ -597,8 +597,6 @@ export function useOptionalSidebar(): SidebarContextProps | null;
 export function usePortalWalletAccountMenu(onOpenSettings: () => void, onManageAccount?: () => void, options?: {
     settings?: boolean;
     theme?: boolean;
-    onOpenDeployments?: () => void;
-    embedded?: boolean;
 }): WalletAccountMenuOptions | undefined;
 
 // @public (undocumented)
@@ -642,7 +640,6 @@ export type WalletAccountMenuOptions = {
     onToggleTheme?: () => void;
     onManageAccount?: () => void;
     onOpenSettings?: () => void;
-    onOpenDeployments?: () => void;
     onSignIn?: () => void;
     onSignOut?: () => void | Promise<void>;
     onDisconnect?: () => void | Promise<void>;

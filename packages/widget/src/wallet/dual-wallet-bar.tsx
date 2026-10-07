@@ -9,6 +9,7 @@ import { formatWalletAddress } from "./identity";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { WalletIconSlot } from "./wallet-icon-slot";
 import { useWalletPicker } from "@/wallet/picker/wallet-picker-context";
+import { AccountAvatar } from "@/account/account-avatar";
 import { AccountMenu } from "@/account/account-menu";
 import { AccountStatusLine } from "@/account/account-status-line";
 import { useAccountSnapshot } from "@/account/account-snapshot";
@@ -263,8 +264,8 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
               {snapshot ? (
                 <>
-                  <WalletIconSlot
-                    label={snapshot.wallets[0]?.brand ?? "Wallet"}
+                  <AccountAvatar
+                    seed={snapshot.accountId}
                     size={AVATAR_SIZE}
                     className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
                   />
@@ -287,8 +288,8 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             </span>
           ) : accountMenuEnabled ? (
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
-              <WalletIconSlot
-                label={walletLabel}
+              <AccountAvatar
+                seed={accountId}
                 size={AVATAR_SIZE}
                 className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
               />
@@ -322,20 +323,24 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
           ) : connected && connectedWallets.length ? (
             <span className="flex min-w-0 items-center gap-2.5">
               <span className="flex shrink-0 items-center">
-                {connectedWallets.map((wallet, index) => (
-                  <WalletIconSlot
-                    key={wallet.family}
-                    label={
-                      wallet.walletName ??
-                      (wallet.family === "solana" ? "Solana" : "Ethereum")
-                    }
-                    size={AVATAR_SIZE}
-                    className={cn(
-                      "ring-aomi-border bg-aomi-surface-2 rounded-full ring-1",
-                      index > 0 && "-ml-2",
-                    )}
-                  />
-                ))}
+                {accountId ? (
+                  <AccountAvatar seed={accountId} size={AVATAR_SIZE} />
+                ) : (
+                  connectedWallets.map((wallet, index) => (
+                    <WalletIconSlot
+                      key={wallet.family}
+                      label={
+                        wallet.walletName ??
+                        (wallet.family === "solana" ? "Solana" : "Ethereum")
+                      }
+                      size={AVATAR_SIZE}
+                      className={cn(
+                        "ring-aomi-border bg-aomi-surface-2 rounded-full ring-1",
+                        index > 0 && "-ml-2",
+                      )}
+                    />
+                  ))
+                )}
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="min-w-0 truncate text-[13px] font-medium">
@@ -370,7 +375,10 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
               </span>
             </span>
           ) : (
-            <span className="flex h-7 min-w-0 flex-1 items-center">
+            <span className="flex h-7 min-w-0 flex-1 items-center gap-2.5">
+              {accountId ? (
+                <AccountAvatar seed={accountId} size={AVATAR_SIZE} />
+              ) : null}
               <span className="truncate text-sm font-medium">
                 {disconnectedLabel}
               </span>
@@ -383,6 +391,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
           <AccountMenu
             open={menuOpen}
             accountLabel={accountMenu?.primaryLine}
+            accountId={accountId}
             address={visibleAddress}
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
@@ -396,7 +405,6 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             onManageAccount={wrapMenuAction(accountMenu?.onManageAccount)}
             onToggleTheme={wrapMenuAction(accountMenu?.onToggleTheme)}
             onOpenSettings={wrapMenuAction(accountMenu?.onOpenSettings)}
-            onOpenDeployments={wrapMenuAction(accountMenu?.onOpenDeployments)}
             onSignIn={wrapMenuAction(accountMenu?.onSignIn)}
             onActivateWallet={adapter.activateWallet}
             onAddWallet={() => {

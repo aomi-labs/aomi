@@ -24,7 +24,6 @@ export type WalletAccountMenuOptions = {
   /** Open the host's canonical account-and-wallet management surface. */
   onManageAccount?: () => void;
   onOpenSettings?: () => void;
-  onOpenDeployments?: () => void;
   /** Finish Aomi account sign-in (wallet connected, session missing). */
   onSignIn?: () => void;
   /** End the Aomi account session. Wallet chrome also disconnects live wallets. */

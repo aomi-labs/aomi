@@ -76,6 +76,9 @@ describe("account menu publication", () => {
   it("settles signed-account parent publication and updates only changed credit display", () => {
     render(<Shell />);
     expect(state.published).toHaveBeenCalledTimes(1);
+    expect(state.published.mock.calls[0][0]).not.toHaveProperty(
+      "onOpenDeployments",
+    );
     const initialLine = screen.getByTestId("credits").textContent;
     fireEvent.click(screen.getByRole("button"));
     expect(state.published).toHaveBeenCalledTimes(1);

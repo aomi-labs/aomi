@@ -48,6 +48,7 @@ const adapterState: {
     | "canConnect"
     | "accountStatus"
     | "accountUser"
+    | "accountGuest"
     | "unlinkedWallet"
   > & {
     activateWallet: ReturnType<typeof vi.fn>;
@@ -113,6 +114,7 @@ afterEach(() => {
   adapterState.current.wallets = [];
   adapterState.current.accountStatus = undefined;
   adapterState.current.accountUser = undefined;
+  adapterState.current.accountGuest = false;
   adapterState.current.unlinkedWallet = undefined;
   adapterState.current.activateWallet.mockClear();
   adapterState.current.openAddWallet.mockClear();
@@ -125,6 +127,41 @@ afterEach(() => {
 });
 
 describe("DualWalletBar account menu", () => {
+  it("keeps the canonical account avatar when the signing wallet changes", () => {
+    adapterState.current.accountUser = { id: "canonical-account" };
+    const props = {
+      families: ["evm" as const],
+      accountMenu: { enabled: true, primaryLine: "Alice" },
+    };
+    const { container, rerender } = render(<DualWalletBar {...props} />);
+    const avatar = () => container.querySelector("[data-account-avatar]")!;
+    const geometry = avatar().innerHTML;
+    adapterState.current.accounts[0].walletName = "Rabby";
+    adapterState.current.identity.address = "0xanother-wallet";
+    rerender(<DualWalletBar {...props} />);
+    expect(avatar().innerHTML).toBe(geometry);
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    expect(
+      screen.getByRole("menu").querySelector("[data-account-avatar]")
+        ?.innerHTML,
+    ).toBe(geometry);
+    expect(screen.queryByText("Deployments")).not.toBeInTheDocument();
+  });
+
+  it("uses an available guest id on the sign-in chip", () => {
+    adapterState.current.accountUser = { id: "guest-session" };
+    adapterState.current.accountGuest = true;
+    adapterState.current.identity = {
+      status: "disconnected",
+      isConnected: false,
+    };
+    adapterState.current.accountStatus = "ready";
+    const { container } = render(<DualWalletBar families={["evm"]} />);
+    expect(
+      container.querySelector("[data-account-avatar]"),
+    ).toBeInTheDocument();
+  });
+
   it("opens WalletPicker directly when account menu is disabled", () => {
     render(<DualWalletBar families={["evm"]} />);
     fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));

@@ -9,10 +9,7 @@ import { usePortalWalletAccountMenu } from "@/account/use-portal-wallet-account-
 import { ShellNavigationContext } from "@/ui/link";
 import { StatementView } from "@/account/usage/statement-view";
 import { PackagesModal } from "@/library/packages-modal";
-import {
-  SettingsModal,
-  type SettingsTab,
-} from "@/account/settings-modal";
+import { SettingsModal, type SettingsTab } from "@/account/settings-modal";
 import { useSettingsOpenRequest } from "@/account/settings-events";
 
 /** Optional controls on the Portal-equivalent embedded shell. */
@@ -44,7 +41,6 @@ export function WidgetShell({
   const openAccount = useCallback(() => setSettingsTab("account"), []);
   const menu = usePortalWalletAccountMenu(openSettings, openAccount, {
     ...features,
-    embedded: true,
   });
   useEffect(() => onAccountMenuChange(menu), [menu, onAccountMenuChange]);
   // In-chat controls (the composer's safety menu) deep-link into Settings.

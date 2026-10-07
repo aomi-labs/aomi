@@ -16,7 +16,7 @@ import {
 import { shortAddress } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
-import { WalletIconSlot } from "@/wallet/wallet-icon-slot";
+import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
 import { FamilyTag } from "./account-management/signs-with";
@@ -32,6 +32,7 @@ type ActivateResult = "active" | "switching" | "connecting";
 export type AccountMenuProps = {
   open: boolean;
   accountLabel?: string;
+  accountId?: string;
   address?: string;
   walletLabel?: string;
   allowanceLine?: string;
@@ -46,7 +47,6 @@ export type AccountMenuProps = {
   onManageAccount?: () => void;
   onToggleTheme?: () => void;
   onOpenSettings?: () => void;
-  onOpenDeployments?: () => void;
   onSignIn?: () => void;
   onActivateWallet?: (key: string) => Promise<ActivateResult>;
   onAddWallet?: () => void;
@@ -81,6 +81,7 @@ function MenuRow({
 export function AccountMenu({
   open,
   accountLabel,
+  accountId,
   address,
   walletLabel,
   allowanceLine,
@@ -94,7 +95,6 @@ export function AccountMenu({
   onManageAccount,
   onToggleTheme,
   onOpenSettings,
-  onOpenDeployments,
   onSignIn,
   onActivateWallet,
   onAddWallet,
@@ -133,9 +133,9 @@ export function AccountMenu({
       >
         <div className="bg-aomi-surface-2/55 mx-0.5 mb-2 rounded-lg px-2 pb-1.5 pt-3">
           <div className="flex min-w-0 items-center gap-1.5 px-1">
-            <WalletIconSlot
-              label={walletLabel ?? "Wallet"}
-              size={14}
+            <AccountAvatar
+              seed={accountId}
+              size={16}
               className="bg-aomi-surface-2 shrink-0 rounded-full"
             />
             <span className="truncate text-[13px] font-semibold">
@@ -208,13 +208,6 @@ export function AccountMenu({
         ) : null}
         {onOpenSettings ? (
           <MenuRow label="Settings" onClick={onOpenSettings} />
-        ) : null}
-        {onOpenDeployments ? (
-          <MenuRow
-            label="Deployments"
-            trailing="›"
-            onClick={onOpenDeployments}
-          />
         ) : null}
         <a
           href="https://aomi.dev/docs"
