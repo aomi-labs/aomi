@@ -32,6 +32,7 @@ import {
   type TriggerRange,
 } from "./editor-dom";
 
+const BARE_MENTION_LIMIT = 4;
 export const CapabilityMentionInput: FC<{
   placeholder: string;
   className: string;
@@ -93,10 +94,15 @@ export const CapabilityMentionInput: FC<{
         { kind: "chain", label: "Chains" },
       ] as const
     )
-      .map((group) => ({
-        ...group,
-        items: matching.filter((item) => item.kind === group.kind),
-      }))
+      .map((group) => {
+        const groupItems = matching.filter((item) => item.kind === group.kind);
+        // A bare "@" previews every section so Chains isn't buried below
+        // the apps and skills; typing searches the full lists.
+        return {
+          ...group,
+          items: needle ? groupItems : groupItems.slice(0, BARE_MENTION_LIMIT),
+        };
+      })
       .filter((group) => group.items.length > 0);
   }, [hintsEnabled, items, mentions, query]);
 
