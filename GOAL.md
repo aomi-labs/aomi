@@ -1,3 +1,14 @@
+# Provider carrier account isolation — 2026-10-07
+
+The deployed stale-session handoff exposed a separate server-side conflict:
+Para and Privy exchanges reused a Better Auth user found by the provider's
+real email, so that carrier account could contribute an unrelated canonical
+account before verified wallets were resolved. Provider exchanges now use a
+deterministic synthetic Better Auth carrier keyed by the verified provider
+identity while retaining the verified email as an account-resolution signal.
+Focused Para and Privy regressions, the account suite, typecheck, lint, and
+formatting pass. Account package version is 0.2.9; nothing has been deployed.
+
 # Stale provider/account session handoff — 2026-10-06
 
 When Safari retains an Aomi/Better Auth account cookie for a different Para or

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import type { BetterAuthPlugin } from "better-auth";
@@ -89,17 +90,17 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
             });
           }
           const seed = providerSessionUserSeed(verified);
-          const existing = seed.email
-            ? await ctx.context.internalAdapter.findUserByEmail(seed.email, {
-                includeAccounts: false,
-              })
-            : null;
+          const carrierEmail = providerCarrierEmail(verified);
+          const existing = await ctx.context.internalAdapter.findUserByEmail(
+            carrierEmail,
+            { includeAccounts: false },
+          );
           const betterAuthUser =
             existing?.user ??
             (await ctx.context.internalAdapter.createUser(
               {
-                email: seed.email,
-                emailVerified: seed.emailVerified,
+                email: carrierEmail,
+                emailVerified: false,
                 name: seed.name,
               },
               { method: "aomi-provider" },
@@ -159,6 +160,22 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
       ),
     },
   };
+}
+
+function providerCarrierEmail(
+  verified: Awaited<ReturnType<typeof verifyProviderCredential>>,
+): string {
+  const digest = createHash("sha256")
+    .update(
+      [
+        verified.provider,
+        verified.issuerEnvironment,
+        verified.tenantId,
+        verified.token.subject,
+      ].join("\0"),
+    )
+    .digest("hex");
+  return `provider-${digest}@accounts.invalid`;
 }
 
 function bounded(value: unknown): string | null {
