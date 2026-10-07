@@ -213,7 +213,7 @@ try {
       "Fresh consumer stays below the4GiB disk budget",
     );
     const upstream = await startUpstream();
-    const component = `"use client";import React from 'react';import {AomiWidget} from '${manifest.name}';import '${manifest.name}/styles.css';${providerImport}\nexport default function Fixture(){return <><div className="host" dangerouslySetInnerHTML={{__html:${JSON.stringify(hostMarkup)}}}/><div className="widget-grid">{['dark','light'].map(theme=><AomiWidget key={theme} applicationId="1" baseUrl=${JSON.stringify(upstream.origin)} theme={theme} height="760px" ${auth}/>)}</div></>}`;
+    const component = `"use client";import React from 'react';import {AomiWidget} from '${manifest.name}';import '${manifest.name}/styles.css';${providerImport}\nexport default function Fixture(){return <><div className="host" dangerouslySetInnerHTML={{__html:${JSON.stringify(hostMarkup)}}}/><div className="widget-grid">{(['dark','light'] as const).map(theme=><AomiWidget key={theme} applicationId="1" baseUrl=${JSON.stringify(upstream.origin)} theme={theme} height="760px" ${auth}/>)}</div></>}`;
     writeFileSync(join(consumer, "fixture.tsx"), component);
     writeFileSync(
       join(consumer, "host.css"),
