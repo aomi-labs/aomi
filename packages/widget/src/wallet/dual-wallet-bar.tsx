@@ -100,16 +100,13 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     .map((wallet) => wallet.detail)
     .filter(Boolean)
     .join(" · ");
-  const connectedWalletCount = adapter.wallets.filter(
-    (wallet) => wallet.connected,
-  ).length;
   const secondaryLine = accountMenuEnabled ? (
     accountMenu?.secondaryLoading ? (
       <LoadingLine className="h-[11px] w-20" />
     ) : accountMenu?.secondaryLine ? (
       <AccountStatusLine
         creditsLine={accountMenu.secondaryLine}
-        connectedWalletCount={connectedWalletCount}
+        planLabel={accountMenu.planLabel}
       />
     ) : undefined
   ) : connectedWallets.some((wallet) => wallet.detail) ? (
@@ -389,7 +386,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             address={visibleAddress}
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
-            connectedWalletCount={connectedWalletCount}
+            planLabel={accountMenu?.planLabel}
             allowanceLoading={accountMenu?.secondaryLoading}
             noticeLine={accountMenu?.noticeLine}
             themeLabel={accountMenu?.themeLabel}

@@ -35,7 +35,7 @@ export type AccountMenuProps = {
   address?: string;
   walletLabel?: string;
   allowanceLine?: string;
-  connectedWalletCount?: number;
+  planLabel?: string;
   allowanceLoading?: boolean;
   noticeLine?: string;
   themeLabel?: string;
@@ -84,7 +84,7 @@ export function AccountMenu({
   address,
   walletLabel,
   allowanceLine,
-  connectedWalletCount = 0,
+  planLabel,
   allowanceLoading = false,
   noticeLine,
   themeLabel,
@@ -149,7 +149,7 @@ export function AccountMenu({
               ) : allowanceLine ? (
                 <AccountStatusLine
                   creditsLine={allowanceLine}
-                  connectedWalletCount={connectedWalletCount}
+                  planLabel={planLabel}
                 />
               ) : null}
             </div>

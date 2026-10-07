@@ -7,6 +7,8 @@ import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import {
   creditAllowanceFromPosition,
   formatAllowanceCredits,
+  tierLabel,
+  useAccountOverview,
 } from "./account-overview";
 import { useShellTransport } from "./transport";
 import { useSettings } from "./use-settings";
@@ -29,6 +31,8 @@ export function usePortalWalletAccountMenu(
     embedded?: boolean;
   } = {},
 ): WalletAccountMenuOptions | undefined {
+  const account = useAccountOverview();
+  const planLabel = account ? tierLabel(account.user.tier) : undefined;
   const position = useAccountCredits();
   const credits =
     position.isPending && position.fetchStatus !== "idle"
@@ -66,6 +70,7 @@ export function usePortalWalletAccountMenu(
       enabled: true,
       primaryLine: accountDisplayName(accountUser, displayEmailHint),
       secondaryLine,
+      planLabel,
       secondaryLoading,
       noticeLine: accountError,
       walletLabel: activeAccount?.walletName,
@@ -94,6 +99,7 @@ export function usePortalWalletAccountMenu(
     onManageAccount,
     onOpenSettings,
     secondaryLine,
+    planLabel,
     secondaryLoading,
     settings.colorMode,
     updateSetting,

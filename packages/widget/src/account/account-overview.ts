@@ -148,3 +148,9 @@ export function formatAllowanceSummary(used: number, included: number): string {
   const remaining = Math.max(0, included - used);
   return `${formatAllowanceCredits(remaining)} left · ${formatAllowanceCredits(used)}/${formatAllowanceCredits(included)} used`;
 }
+
+/** The same account plan label in settings and the account summary. */
+export function tierLabel(tier?: string): string {
+  if (!tier || tier === "free") return "Free";
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}

@@ -1,16 +1,15 @@
-import { CoinsIcon, WalletIcon } from "lucide-react";
+import { CoinsIcon, StarIcon } from "lucide-react";
 
 /** The same compact account summary in the sidebar chip and its menu. */
 export function AccountStatusLine({
   creditsLine,
-  connectedWalletCount,
+  planLabel,
 }: {
   creditsLine: string;
-  connectedWalletCount: number;
+  planLabel?: string;
 }) {
-  const walletLabel = `${connectedWalletCount} ${connectedWalletCount === 1 ? "wallet" : "wallets"}`;
   return (
-    <span className="inline-flex max-w-full items-center gap-2 whitespace-nowrap tabular-nums">
+    <span className="inline-flex max-w-full items-center gap-1.5 whitespace-nowrap tabular-nums">
       <span
         className="inline-flex items-center gap-1"
         title="Credits remaining"
@@ -19,17 +18,20 @@ export function AccountStatusLine({
         <CoinsIcon size={12} className="shrink-0" aria-hidden="true" />
         <span>{creditsLine}</span>
       </span>
-      <span className="px-0.5 font-normal opacity-40" aria-hidden="true">
-        /
-      </span>
-      <span
-        className="inline-flex items-center gap-1"
-        title={`${walletLabel} connected`}
-        aria-label={`${walletLabel} connected`}
-      >
-        <WalletIcon size={12} className="shrink-0" aria-hidden="true" />
-        <span>{connectedWalletCount}</span>
-      </span>
+      {planLabel ? (
+        <>
+          <span className="font-normal opacity-40" aria-hidden="true">
+            /
+          </span>
+          <span
+            className="inline-flex items-center gap-1"
+            title={`${planLabel} plan`}
+          >
+            <StarIcon size={12} className="shrink-0" aria-hidden="true" />
+            <span>{planLabel}</span>
+          </span>
+        </>
+      ) : null}
     </span>
   );
 }

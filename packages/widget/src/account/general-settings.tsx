@@ -12,6 +12,7 @@ import { walletConnectionSummary } from "@/wallet/wallet-management-model";
 import {
   creditAllowanceFromPosition,
   formatAllowanceCredits,
+  tierLabel,
   useAccountOverview,
   useAccountOverviewStore,
 } from "./account-overview";
@@ -326,11 +327,6 @@ function FlatSettingRow({
       <div className="shrink-0">{children}</div>
     </div>
   );
-}
-
-function tierLabel(tier?: string): string {
-  if (!tier || tier === "free") return "Free";
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
 }
 
 function formatMemberSince(createdAt?: number): string | undefined {
