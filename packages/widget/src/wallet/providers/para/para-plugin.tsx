@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { TOAuthMethod } from "@getpara/react-sdk";
+import type { Environment, TOAuthMethod } from "@getpara/react-sdk";
 import type {
   AuthConfig,
   AuthMethodId,
@@ -67,9 +67,8 @@ function ParaStartupWatcher({
 }
 
 function toParaEnvironment(value?: "PROD" | "BETA") {
-  const { Environment } = paraSdk().react;
-  if (!value) return Environment.BETA;
-  return value === "PROD" ? Environment.PROD : Environment.BETA;
+  // Turbopack can emit Para's barrel enum getter with a missing binding.
+  return (value ?? "BETA") as Environment;
 }
 
 function toParaOAuthMethods(

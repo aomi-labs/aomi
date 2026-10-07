@@ -42,6 +42,8 @@ const paraLibs = vi.hoisted(() => {
   };
 });
 
+const paraClientConfig = vi.hoisted(() => vi.fn());
+
 // Stub the heavy composer provider so importing the plugin does not pull in the
 // full wallet-kit runtime tree.
 vi.mock("./para-plugin-provider", () => ({
@@ -57,12 +59,15 @@ vi.mock("@getpara/react-sdk", async () => {
   const React = await import("react");
   return {
     default: {},
-    Environment: { BETA: "BETA", PROD: "PROD" },
+    get Environment() {
+      throw new ReferenceError("Para barrel enum binding is missing");
+    },
     // Once its connector libraries are loaded, ParaProvider renders children
     // immediately (matches the real SDK with `waitForReady={false}`), so the
     // watcher always mounts to observe status.
-    ParaProvider: ({ children }: { children: ReactNode }) =>
-      React.useSyncExternalStore(
+    ParaProvider: ({ children, ...props }: { children: ReactNode }) => {
+      paraClientConfig(props);
+      return React.useSyncExternalStore(
         paraLibs.subscribe,
         paraLibs.getSnapshot,
         paraLibs.getSnapshot,
@@ -72,7 +77,8 @@ vi.mock("@getpara/react-sdk", async () => {
             { "data-testid": "para-provider" },
             children,
           )
-        : null,
+        : null;
+    },
     useParaStatus: () => ({
       isReady: React.useSyncExternalStore(
         paraStatus.subscribe,
@@ -127,6 +133,29 @@ describe("Para startup failure", () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
+
+  it.each([undefined, "BETA", "PROD"] as const)(
+    "passes environment %s without reading the SDK barrel enum",
+    (environment) => {
+      render(
+        <>
+          {paraPlugin.wrap?.({
+            auth: { provider: "para" },
+            providers: { para: { apiKey: "test-api-key", environment } },
+            children: <div>widget-body</div>,
+          })}
+        </>,
+      );
+      expect(paraClientConfig).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          paraClientConfig: expect.objectContaining({
+            env: environment ?? "BETA",
+          }),
+        }),
+      );
+      expect(screen.getByText("widget-body")).toBeTruthy();
+    },
+  );
 
   it("never reports a failure when Para is ready at startup", () => {
     paraStatus.setReady(true);
