@@ -93,7 +93,7 @@ export function AddressRow({
     onDisconnect
   )
     tail.push({
-      label: `Disconnect ${app} on this device`,
+      label: "Disconnect on this device",
       onSelect: () => onDisconnect(row),
     });
   if (external && row.linkedWalletId && onRemove)
