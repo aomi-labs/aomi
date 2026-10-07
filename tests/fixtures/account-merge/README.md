@@ -2,7 +2,7 @@
 
 `20261007000000_account_merge.sql` is an unmodified copy of the migration in
 `aomi-labs/product-mono` PR #1262, commit
-`adfd70252750424d9786d3f5d6850e92e79f4233`. Keep it aligned with the companion
+`51672d13f`. Keep it aligned with the companion
 migration when that changes. `schema.sql` supplies the prerequisite relations,
 including the real composite wallet ownership constraints, after the shared
 canonical account schema.

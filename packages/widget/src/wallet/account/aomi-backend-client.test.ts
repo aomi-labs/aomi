@@ -69,7 +69,10 @@ describe("createAomiBackendAccountClient", () => {
           chats: 12,
           wallets: 2,
           credits: "420",
-          dropped: ["OpenAI model key"],
+          dropped: [
+            "OpenAI model key (you already have one here)",
+            "Search app · token (re-enter it after merging)",
+          ],
         },
       }),
     }));
@@ -96,7 +99,10 @@ describe("createAomiBackendAccountClient", () => {
         chats: 12,
         wallets: 2,
         credits: "420",
-        dropped: ["OpenAI model key"],
+        dropped: [
+          "OpenAI model key (you already have one here)",
+          "Search app · token (re-enter it after merging)",
+        ],
       },
     });
     expect(mergeOfferFrom(new Error("other"))).toBeNull();

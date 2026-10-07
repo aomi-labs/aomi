@@ -55,7 +55,7 @@ describe.skipIf(!enabled)("merge_accounts", () => {
     await admin?.end();
   });
 
-  it("moves everything to the target, keeps its clashing key and closes the source", async () => {
+  it("moves account data, drops all source secrets and preserves target secrets", async () => {
     const suffix = Math.random().toString(36).slice(2, 10);
     const target = `merge-target-${suffix}`;
     const source = `merge-source-${suffix}`;
@@ -104,9 +104,29 @@ describe.skipIf(!enabled)("merge_accounts", () => {
          (user_id, provider, key_ciphertext, created_at, updated_at)
        values ($1, 'openai', 'target-key', 1, 1),
               ($2, 'openai', 'source-key', 1, 1),
-              ($2, 'anthropic', 'source-key', 1, 1)`,
+              ($2, 'anthropic', 'source-key', 1, 1),
+              ($1, 'openrouter', 'target-only-key', 1, 1)`,
       [target, source],
     );
+
+    const app = await db.query(
+      `insert into applications (name, label) values ('search', 'Search app') returning id`,
+    );
+    await db.query(
+      `insert into user_application_secrets
+         (user_id, application_id, slot_name, secret_ciphertext)
+       values ($1, $3, 'api_key', 'target-secret'),
+              ($1, $3, 'target_only', 'target-only-secret'),
+              ($2, $3, 'api_key', 'source-secret'),
+              ($2, $3, 'token', 'source-only-secret')`,
+      [target, source, app.rows[0].id],
+    );
+    const dropped = [
+      "Anthropic model key (re-enter it after merging)",
+      "OpenAI model key (you already have one here)",
+      "Search app · api_key (you already have one here)",
+      "Search app · token (re-enter it after merging)",
+    ];
 
     expect(
       await previewAccountMerge({
@@ -118,12 +138,12 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       chats: 2,
       wallets: 1,
       creditsMicrousd: 42000,
-      dropped: ["OpenAI model key"],
+      dropped,
     });
 
     await expect(
       mergeAccountRows({ sourceUserId: source, targetUserId: target, db }),
-    ).resolves.toEqual({ chats: 2, wallets: 1, dropped: ["OpenAI model key"] });
+    ).resolves.toEqual({ chats: 2, wallets: 1, dropped });
 
     const users = await db.query(
       `select id, status, merged_into from users where id in ($1, $2) order by id`,
@@ -147,8 +167,27 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       chats: 3,
       wallets: 1,
       credits: 52000,
-      keys: ["source-key", "target-key"],
+      keys: ["target-key", "target-only-key"],
     });
+
+    const secrets = await db.query(
+      `select user_id, application_id, slot_name, secret_ciphertext
+         from user_application_secrets order by slot_name`,
+    );
+    expect(secrets.rows).toEqual([
+      {
+        user_id: target,
+        application_id: app.rows[0].id,
+        slot_name: "api_key",
+        secret_ciphertext: "target-secret",
+      },
+      {
+        user_id: target,
+        application_id: app.rows[0].id,
+        slot_name: "target_only",
+        secret_ciphertext: "target-only-secret",
+      },
+    ]);
 
     // Guard: no account-keyed column outside Better Auth still names the source.
     const columns = await db.query(

@@ -252,7 +252,10 @@ describe("wallet sheet", () => {
           chats: 12,
           wallets: 2,
           credits: "0",
-          dropped: ["OpenAI model key"],
+          dropped: [
+            "OpenAI model key (you already have one here)",
+            "Search app · token (re-enter it after merging)",
+          ],
         },
       }),
     );
@@ -272,7 +275,17 @@ describe("wallet sheet", () => {
     );
     fireEvent.click(screen.getByText("Rabby"));
     expect(await screen.findByText("Merge accounts")).toBeInTheDocument();
-    expect(screen.getByText("OpenAI model key")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Saved keys from the other account won’t carry over:",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual([
+      "OpenAI model key (you already have one here)",
+      "Search app · token (re-enter it after merging)",
+    ]);
     // All three tiles show, even with no credits.
     expect(screen.getByText("chats")).toBeInTheDocument();
     expect(screen.getByText("wallets")).toBeInTheDocument();
@@ -323,6 +336,9 @@ describe("wallet sheet", () => {
     expect(
       screen.getByText("Privy already signs in to another Aomi account."),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/These saved keys won’t carry over/),
+    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Merge into this account" }),
     );

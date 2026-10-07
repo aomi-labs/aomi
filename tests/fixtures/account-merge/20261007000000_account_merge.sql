@@ -70,8 +70,8 @@ BEGIN
 END;
 $$;
 
--- What the source loses because the target already has the same thing. The
--- target's row wins; these names are shown before the user confirms.
+-- User secrets are encrypted to their owner and cannot move. These names and
+-- reasons are shown before the user confirms; the target's secrets stay intact.
 CREATE FUNCTION account_merge_dropped(source_user_id TEXT, target_user_id TEXT)
 RETURNS TEXT[]
 LANGUAGE sql
@@ -85,20 +85,26 @@ AS $$
                    WHEN 'xai' THEN 'xAI'
                    WHEN 'deepseek' THEN 'DeepSeek'
                    ELSE initcap(k.provider)
-               END || ' model key' AS name
+               END || ' model key' || CASE
+                   WHEN EXISTS (SELECT 1 FROM user_model_keys t
+                                WHERE t.user_id = target_user_id AND t.provider = k.provider)
+                   THEN ' (you already have one here)'
+                   ELSE ' (re-enter it after merging)'
+               END AS name
         FROM user_model_keys k
         WHERE k.user_id = source_user_id
-          AND EXISTS (SELECT 1 FROM user_model_keys t
-                      WHERE t.user_id = target_user_id AND t.provider = k.provider)
         UNION ALL
-        SELECT COALESCE(NULLIF(a.label, ''), a.name) || ' ' || s.slot_name
+        SELECT COALESCE(NULLIF(a.label, ''), a.name) || ' · ' || s.slot_name || CASE
+                   WHEN EXISTS (SELECT 1 FROM user_application_secrets t
+                                WHERE t.user_id = target_user_id
+                                  AND t.application_id = s.application_id
+                                  AND t.slot_name = s.slot_name)
+                   THEN ' (you already have one here)'
+                   ELSE ' (re-enter it after merging)'
+               END
         FROM user_application_secrets s
         JOIN applications a ON a.id = s.application_id
         WHERE s.user_id = source_user_id
-          AND EXISTS (SELECT 1 FROM user_application_secrets t
-                      WHERE t.user_id = target_user_id
-                        AND t.application_id = s.application_id
-                        AND t.slot_name = s.slot_name)
     ) dropped;
 $$;
 
@@ -167,16 +173,12 @@ BEGIN
                     signing_delegations_key_same_user_fk,
                     signing_delegations_provider_same_user_fk DEFERRED;
 
-    -- Tables with a per-account unique key: the target's row wins.
+    -- Drop owner-bound ciphertexts before the ownership sweep, including non-clashes.
     dropped := account_merge_dropped(source_user_id, target_user_id);
-    DELETE FROM user_model_keys k
-     WHERE k.user_id = source_user_id
-       AND EXISTS (SELECT 1 FROM user_model_keys t WHERE t.user_id = target_user_id AND t.provider = k.provider);
-    DELETE FROM user_application_secrets s
-     WHERE s.user_id = source_user_id
-       AND EXISTS (SELECT 1 FROM user_application_secrets t
-                   WHERE t.user_id = target_user_id AND t.application_id = s.application_id
-                     AND t.slot_name = s.slot_name);
+    DELETE FROM user_model_keys WHERE user_id = source_user_id;
+    DELETE FROM user_application_secrets WHERE user_id = source_user_id;
+
+    -- Tables with a per-account unique key: the target's row wins.
     DELETE FROM user_application_installs i
      WHERE i.user_id = source_user_id
        AND EXISTS (SELECT 1 FROM user_application_installs t

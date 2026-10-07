@@ -145,6 +145,7 @@ create table user_application_secrets (
   user_id text not null references users(id),
   application_id bigint not null references applications(id),
   slot_name text not null,
+  secret_ciphertext text not null,
   primary key (user_id, application_id, slot_name)
 );
 

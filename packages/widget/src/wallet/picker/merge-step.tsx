@@ -71,18 +71,20 @@ export function MergeStep({
           ))}
         </div>
         <p className="type-meta text-aomi-muted">
-          Everything moves into the account you’re signed in to. The other
-          account closes, and its wallets sign you in here.
+          Chats, wallets and credits move into the account you’re signed in to.
+          The other account closes, and its wallets sign you in here.
         </p>
         {other.dropped.length ? (
-          <p className="rounded-control bg-aomi-surface-2 type-meta text-aomi-muted px-3 py-2">
-            Won’t move:{" "}
-            <span className="text-aomi-fg font-medium">
-              {other.dropped.join(", ")}
-            </span>
-            . This account already has{" "}
-            {other.dropped.length === 1 ? "one" : "these"}.
-          </p>
+          <div className="rounded-control bg-aomi-surface-2 type-meta text-aomi-muted px-3 py-2">
+            <p>
+              Saved keys from the other account won’t carry over:
+            </p>
+            <ul className="text-aomi-fg mt-1 list-disc pl-4 font-medium">
+              {other.dropped.map((key, index) => (
+                <li key={index}>{key}</li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {flow.error ? <SheetAlert>{flow.error}</SheetAlert> : null}
         <AomiButton
