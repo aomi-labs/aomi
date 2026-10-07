@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AccountStatusLine } from "./account-status-line";
 import { LoadingLine } from "@/ui/aomi/loading-pane";
 import {
   CheckIcon,
@@ -34,6 +35,7 @@ export type AccountMenuProps = {
   address?: string;
   walletLabel?: string;
   allowanceLine?: string;
+  connectedWalletCount?: number;
   allowanceLoading?: boolean;
   noticeLine?: string;
   themeLabel?: string;
@@ -82,6 +84,7 @@ export function AccountMenu({
   address,
   walletLabel,
   allowanceLine,
+  connectedWalletCount = 0,
   allowanceLoading = false,
   noticeLine,
   themeLabel,
@@ -143,9 +146,12 @@ export function AccountMenu({
             <div className="text-aomi-muted mt-1.5 px-1 text-[12px] font-medium">
               {allowanceLoading ? (
                 <LoadingLine className="w-24" />
-              ) : (
-                allowanceLine
-              )}
+              ) : allowanceLine ? (
+                <AccountStatusLine
+                  creditsLine={allowanceLine}
+                  connectedWalletCount={connectedWalletCount}
+                />
+              ) : null}
             </div>
           ) : null}
           {noticeLine ? (

@@ -12,6 +12,7 @@ import type {
 import { ExternalLink, LoaderCircle } from "lucide-react";
 import { SectionHeader } from "@/ui/aomi/section-header";
 import { shortAddress } from "@aomi-labs/client";
+import { formatAllowanceCredits } from "../account-overview";
 
 /* ---------------------------------------------------------------------- */
 /* Formatting                                                              */
@@ -675,8 +676,8 @@ export function AllowanceSettlementSection({
                 Monthly credits
               </span>
               <span className="text-aomi-muted text-[13px] tabular-nums">
-                {payment.allowanceCredits.used.toLocaleString()} /{" "}
-                {payment.allowanceCredits.included.toLocaleString()} used
+                {formatAllowanceCredits(payment.allowanceCredits.used)} /{" "}
+                {formatAllowanceCredits(payment.allowanceCredits.included)} used
               </span>
             </div>
             <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
@@ -708,7 +709,7 @@ export function AllowanceSettlementSection({
                   className="inline size-3.5 animate-spin motion-reduce:animate-none"
                 />
               ) : hasAllowance ? (
-                `${payment.allowanceCredits.used.toLocaleString()} / ${payment.allowanceCredits.included.toLocaleString()} used`
+                `${formatAllowanceCredits(payment.allowanceCredits.used)} / ${formatAllowanceCredits(payment.allowanceCredits.included)} used`
               ) : (
                 "Unavailable"
               )}

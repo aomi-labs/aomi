@@ -138,8 +138,13 @@ export function useAccountOverview(): AccountOverview | null {
   return useDisplayQuery(useProfileQuery().query).data ?? null;
 }
 
+/** Whole credits for allowance displays; retain precision in the source data. */
+export function formatAllowanceCredits(value: number): string {
+  return Math.trunc(value).toLocaleString();
+}
+
 /** Shared allowance line for the account menu and Usage surfaces. */
 export function formatAllowanceSummary(used: number, included: number): string {
   const remaining = Math.max(0, included - used);
-  return `${remaining.toLocaleString()} left · ${used.toLocaleString()}/${included.toLocaleString()} used`;
+  return `${formatAllowanceCredits(remaining)} left · ${formatAllowanceCredits(used)}/${formatAllowanceCredits(included)} used`;
 }

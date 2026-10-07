@@ -11,6 +11,7 @@ import { useAccountAcl } from "./use-account-acl";
 import { walletConnectionSummary } from "@/wallet/wallet-management-model";
 import {
   creditAllowanceFromPosition,
+  formatAllowanceCredits,
   useAccountOverview,
   useAccountOverviewStore,
 } from "./account-overview";
@@ -237,11 +238,11 @@ function AccountSummaryCard({
           >
             <div className="flex flex-col items-end gap-0.5">
               <span className="text-aomi-fg text-[14px] font-medium tabular-nums">
-                {remaining.toLocaleString()} remaining
+                {formatAllowanceCredits(remaining)} remaining
               </span>
               <span className="text-aomi-accent-strong text-[12px] tabular-nums">
-                {creditsUsed.toLocaleString()} /{" "}
-                {creditsIncluded.toLocaleString()} used
+                {formatAllowanceCredits(creditsUsed)} /{" "}
+                {formatAllowanceCredits(creditsIncluded)} used
               </span>
             </div>
           </SettingRow>

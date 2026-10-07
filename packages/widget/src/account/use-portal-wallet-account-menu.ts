@@ -6,7 +6,7 @@ import { useAomiWalletKit } from "@/wallet/context";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import {
   creditAllowanceFromPosition,
-  formatAllowanceSummary,
+  formatAllowanceCredits,
 } from "./account-overview";
 import { useShellTransport } from "./transport";
 import { useSettings } from "./use-settings";
@@ -36,12 +36,9 @@ export function usePortalWalletAccountMenu(
       : creditAllowanceFromPosition(position.data);
   // Hosts publish this menu into shell state. Keep its memo dependencies on
   // displayed values; the allowance projection is a new object every render.
-  const secondaryLine =
-    credits && credits.included > 0
-      ? formatAllowanceSummary(credits.used, credits.included)
-      : credits
-        ? `${Math.max(0, credits.included - credits.used).toLocaleString()} credits left`
-        : undefined;
+  const secondaryLine = credits
+    ? formatAllowanceCredits(Math.max(0, credits.included - credits.used))
+    : undefined;
   const secondaryLoading = credits === undefined;
   const { settings, updateSetting } = useSettings();
   const { themeRoot } = useShellTransport();

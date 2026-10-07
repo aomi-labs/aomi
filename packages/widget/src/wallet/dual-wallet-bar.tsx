@@ -10,6 +10,7 @@ import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { WalletIconSlot } from "./wallet-icon-slot";
 import { useWalletPicker } from "@/wallet/picker/wallet-picker-context";
 import { AccountMenu } from "@/account/account-menu";
+import { AccountStatusLine } from "@/account/account-status-line";
 import { useAccountSnapshot } from "@/account/account-snapshot";
 import { appName } from "@/account/account-management/wallet-model";
 import { StatusPill } from "@/ui/aomi/status-pill";
@@ -99,12 +100,18 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     .map((wallet) => wallet.detail)
     .filter(Boolean)
     .join(" · ");
+  const connectedWalletCount = adapter.wallets.filter(
+    (wallet) => wallet.connected,
+  ).length;
   const secondaryLine = accountMenuEnabled ? (
     accountMenu?.secondaryLoading ? (
       <LoadingLine className="h-[11px] w-20" />
-    ) : (
-      accountMenu?.secondaryLine
-    )
+    ) : accountMenu?.secondaryLine ? (
+      <AccountStatusLine
+        creditsLine={accountMenu.secondaryLine}
+        connectedWalletCount={connectedWalletCount}
+      />
+    ) : undefined
   ) : connectedWallets.some((wallet) => wallet.detail) ? (
     networkDetail
   ) : undefined;
@@ -382,6 +389,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             address={visibleAddress}
             walletLabel={walletLabel}
             allowanceLine={accountMenu?.secondaryLine}
+            connectedWalletCount={connectedWalletCount}
             allowanceLoading={accountMenu?.secondaryLoading}
             noticeLine={accountMenu?.noticeLine}
             themeLabel={accountMenu?.themeLabel}
