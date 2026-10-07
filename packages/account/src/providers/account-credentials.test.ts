@@ -173,6 +173,7 @@ describe("providerSessionUserSeed", () => {
       email: "person@example.com",
       emailVerified: true,
       name: "person@example.com",
+      label: "person@example.com",
     });
   });
 
@@ -192,7 +193,7 @@ describe("providerSessionUserSeed", () => {
     ).toEqual({
       email: "para-para_user_123@auth.aomi.local",
       emailVerified: false,
-      name: "para user",
+      name: "Aomi user",
     });
   });
 
@@ -212,6 +213,7 @@ describe("providerSessionUserSeed", () => {
       email: "privy-did_privy_user-1@auth.aomi.local",
       emailVerified: false,
       name: "alice",
+      label: "alice",
     });
   });
 });

@@ -94,7 +94,6 @@ class ProviderLinkRollback extends Error {
 export async function signInWithVerifiedProviderCredential(input: {
   betterAuthUserId: string;
   verified: VerifiedProviderTokenCredential;
-  email?: string | null;
   name?: string | null;
 }): Promise<ProviderLinkResult> {
   await ensureAccountSchema();
@@ -115,7 +114,7 @@ export async function signInWithVerifiedProviderCredential(input: {
     policy: nativeProviderResolutionPolicy(prepared.identity.provider),
     additionalRecoverySignals: [betterAuthIdentity, ...betterAuthSignals],
     wallets: prepared.wallets,
-    displayName: input.name ?? input.email,
+    displayName: input.name,
     onResolved: async (user, db) => {
       const betterAuthResolution = await linkProviderIdentity({
         userId: user.id,

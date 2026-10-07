@@ -1137,7 +1137,6 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));
   const address = String(row.address);
   const walletMetadata = asRecord(row.authorization_metadata);
-  const providerMetadata = asRecord(row.wallet_provider_metadata);
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -1153,9 +1152,7 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     provider: provider ? publicProvider(provider) : null,
     providerWalletId: null,
     linkedVia: provider ? publicProvider(provider) : "import",
-    label:
-      optionalString(walletMetadata.display_label) ??
-      optionalString(providerMetadata.display_label),
+    label: optionalString(walletMetadata.display_label),
     walletApp: optionalString(walletMetadata.wallet_app),
     displayMetadata: walletMetadata,
     verifiedAt: secondsToDate(row.created_at),
