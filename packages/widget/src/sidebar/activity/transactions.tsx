@@ -12,6 +12,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Circle, FileSignature, Layers3 } from "lucide-react";
 import { cn, getChainInfo } from "@aomi-labs/react";
 import { getChainIcon } from "@/icons/chain-map";
+import { SolanaIcon } from "@/icons/chain-icons";
 import { StatusPill } from "@/ui/aomi/status-pill";
 import type { ActivityTransaction } from "./model";
 import {
@@ -19,6 +20,13 @@ import {
   friendlyTransactionLabel,
   transactionSemantic,
 } from "./presentation";
+
+const svmNetworkNames: Record<string, string> = {
+  "mainnet-beta": "Solana",
+  mainnet: "Solana",
+  devnet: "Solana Devnet",
+  testnet: "Solana Testnet",
+};
 
 export function TransactionList({
   children,
@@ -143,12 +151,18 @@ export function TransactionCard({
       ? FileSignature
       : (transactionSemantic(label, tx.kind).Icon ?? Layers3);
   const Chain = useMemo(
-    () => (tx.chainId ? (getChainIcon(tx.chainId) ?? Circle) : Circle),
-    [tx.chainId],
+    () =>
+      tx.family === "svm"
+        ? SolanaIcon
+        : tx.chainId
+          ? (getChainIcon(tx.chainId) ?? Circle)
+          : Circle,
+    [tx.family, tx.chainId],
   );
+  const cluster = tx.cluster?.replace(/^solana:/, "") ?? "mainnet-beta";
   const network = tx.chainId
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
-    : (tx.cluster ?? "Solana");
+    : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
   const commitSigned =
     tx.commit?.state === "awaiting_broadcast" ||
@@ -222,7 +236,7 @@ export function TransactionCard({
           >
             {label}
           </span>
-          <StatusPill className="max-w-[100px] font-normal">
+          <StatusPill className="max-w-[128px] font-normal">
             {createElement(Chain, { className: "size-3 shrink-0" })}
             <span className="truncate" title={network}>
               {network}
