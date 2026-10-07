@@ -18,6 +18,7 @@ import { CapabilityPicker } from "./picker";
 import { testIds } from "@/test-ids";
 import {
   CAPABILITY_MENTION_REQUEST_EVENT,
+  pickerGroups,
   type CapabilityMentionRequest,
   type PickerItem,
 } from "./model";
@@ -33,6 +34,8 @@ import {
 } from "./editor-dom";
 
 const BARE_MENTION_LIMIT = 4;
+const TESTNET_QUERY =
+  /test|sepolia|devnet|holesky|goerli|amoy|fuji|local|anvil/;
 export const CapabilityMentionInput: FC<{
   placeholder: string;
   className: string;
@@ -78,32 +81,11 @@ export const CapabilityMentionInput: FC<{
 
   const visibleGroups = useMemo(() => {
     if (!hintsEnabled || query === null) return [];
-    const needle = query.trim().toLowerCase();
     const selectedKeys = new Set(mentions.map((mention) => mention.key));
-    const matching = items.filter(
-      (item) =>
-        !selectedKeys.has(item.key) &&
-        (needle
-          ? `${item.label} ${item.searchText}`.toLowerCase().includes(needle)
-          : true),
+    return pickerGroups(
+      items.filter((item) => !selectedKeys.has(item.key)),
+      query,
     );
-    return (
-      [
-        { kind: "app", label: "Apps" },
-        { kind: "skill", label: "Skills" },
-        { kind: "chain", label: "Chains" },
-      ] as const
-    )
-      .map((group) => {
-        const groupItems = matching.filter((item) => item.kind === group.kind);
-        // A bare "@" previews every section so Chains isn't buried below
-        // the apps and skills; typing searches the full lists.
-        return {
-          ...group,
-          items: needle ? groupItems : groupItems.slice(0, BARE_MENTION_LIMIT),
-        };
-      })
-      .filter((group) => group.items.length > 0);
   }, [hintsEnabled, items, mentions, query]);
 
   const visibleItems = useMemo(

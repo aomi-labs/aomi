@@ -81,6 +81,7 @@ export function useCapabilityCatalog(): PickerItem[] {
         description: evmNetworkDescription(chain),
         chainTarget: { family: "evm" as const, chainId: chain.id },
         searchText: `${chain.name} evm ${chain.id}`,
+        testnet: isTestnet(chain),
         Icon: getChainIcon(chain.id) ?? Globe2Icon,
       })),
       ...(networkPreferences?.supportedSolanaNetworks ?? []).map((network) => ({
@@ -94,6 +95,7 @@ export function useCapabilityCatalog(): PickerItem[] {
           networkId: network.id,
         },
         searchText: `${network.label} solana svm ${network.id}`,
+        testnet: !network.cluster.endsWith("mainnet-beta"),
         Icon: SolanaIcon,
       })),
     ];
@@ -107,4 +109,15 @@ export function useCapabilityCatalog(): PickerItem[] {
   ]);
 
   return items;
+}
+
+const TESTNET_NAME =
+  /sepolia|testnet|devnet|holesky|goerli|amoy|fuji|anvil|localhost/i;
+
+function isTestnet(chain: { id: number; name: string; testnet?: boolean }) {
+  return (
+    Boolean(chain.testnet) ||
+    chain.id === 31337 ||
+    TESTNET_NAME.test(chain.name)
+  );
 }
