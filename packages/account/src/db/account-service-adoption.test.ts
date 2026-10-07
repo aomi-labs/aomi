@@ -137,7 +137,9 @@ describe("getOrCreateAomiUserForBetterAuthSession adoption", () => {
         createdAt: new Date(),
       },
     ]);
-    queryMocks.findSignalOwner.mockResolvedValue(canonicalUser.id);
+    queryMocks.findSignalOwner.mockImplementation(async (signal) =>
+      signal.type === "wallet" ? canonicalUser.id : null,
+    );
     queryMocks.findAomiUserById.mockResolvedValue(canonicalUser);
 
     const { getOrCreateAomiUserForBetterAuthSession } =

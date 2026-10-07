@@ -174,6 +174,7 @@ describe("Better Auth anonymous account upgrade", () => {
     queryMocks.createAomiUser.mockResolvedValue({ id: "guest-canonical" });
     queryMocks.findSignalOwner
       .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce("existing-canonical")
       .mockResolvedValueOnce("guest-canonical");
     queryMocks.listBetterAuthUserIds.mockResolvedValue(["ba-guest"]);

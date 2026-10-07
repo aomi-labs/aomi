@@ -22,6 +22,7 @@ import {
   aomiOAuthResources,
 } from "./oauth-policy";
 import { verifySiweMessage } from "./siwe";
+import { canonicalSiwe } from "./canonical-siwe";
 import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
 import { aomiAccountMergePlugin } from "./account-merge-plugin";
@@ -243,7 +244,7 @@ export const auth = betterAuth({
       },
     }),
     snakeCasedSiwe(
-      siwe({
+      canonicalSiwe({
         get domain() {
           return previewWalletAuthOrigin()
             ? new URL(previewWalletAuthOrigin()!).host
