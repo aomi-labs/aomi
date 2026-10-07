@@ -1,11 +1,14 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const baseDatabaseUrl = process.env.AOMI_AUTH_TEST_DATABASE_URL?.trim();
-const schemaName = `aomi_oauth_device_${randomUUID().replaceAll("-", "")}`;
+// Its own database, not a schema in the shared one: other suites introspect
+// every schema of the shared database and fail when this one is dropped.
+const databaseName = `aomi_oauth_device_${randomUUID().replaceAll("-", "")}`;
 const databaseUrl = baseDatabaseUrl
-  ? withSearchPath(baseDatabaseUrl, schemaName)
+  ? withDatabase(baseDatabaseUrl, databaseName)
   : undefined;
 const describePostgres = isLoopbackPostgres(baseDatabaseUrl)
   ? describe
@@ -17,14 +20,21 @@ const originalBetterAuthUrl = process.env.BETTER_AUTH_URL;
 
 describePostgres("production Better Auth OAuth device route", () => {
   let pool: ReturnType<typeof import("@aomi-labs/account").getPool>;
+  let admin: import("pg").Pool | undefined;
   let route: typeof import("./[...all]/route");
 
   beforeAll(async () => {
+    const { Pool } = createRequire(
+      createRequire(import.meta.url).resolve(
+        "@aomi-labs/account/rate-limits.sql",
+      ),
+    )("pg") as typeof import("pg");
+    admin = new Pool({ connectionString: baseDatabaseUrl });
+    await admin.query(`create database "${databaseName}"`);
     process.env.DATABASE_URL = databaseUrl;
     process.env.BETTER_AUTH_URL = origin;
     const account = await import("@aomi-labs/account");
     pool = account.getPool();
-    await pool.query(`create schema "${schemaName}"`);
     await createAuthSchema(pool);
     const nodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";
@@ -37,10 +47,13 @@ describePostgres("production Better Auth OAuth device route", () => {
 
   afterAll(async () => {
     try {
-      await pool?.query(`drop schema if exists "${schemaName}" cascade`);
+      await pool?.end();
+      await admin?.query(
+        `drop database if exists "${databaseName}" with (force)`,
+      );
     } finally {
       try {
-        await pool?.end();
+        await admin?.end();
       } finally {
         restoreEnv("DATABASE_URL", originalDatabaseUrl);
         restoreEnv("BETTER_AUTH_URL", originalBetterAuthUrl);
@@ -423,9 +436,9 @@ function isLoopbackPostgres(value: string | undefined): value is string {
   }
 }
 
-function withSearchPath(databaseUrl: string, schema: string): string {
+function withDatabase(databaseUrl: string, database: string): string {
   const url = new URL(databaseUrl);
-  url.searchParams.set("options", `-csearch_path=${schema}`);
+  url.pathname = `/${database}`;
   return url.toString();
 }
 
