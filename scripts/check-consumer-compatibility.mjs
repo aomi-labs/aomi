@@ -11,7 +11,11 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyTrustedConsumer } from "./check-consumer-compatibility-baseline.mjs";
+import {
+  copyTrustedConsumer,
+  trustedConsumerImporters,
+  trustedConsumers,
+} from "./check-consumer-compatibility-baseline.mjs";
 import {
   importerResolution,
   importerVersions,
@@ -61,9 +65,13 @@ const packages = [
   ["@aomi-labs/widget", "packages/widget"],
   ["@aomi-labs/widget-lib", "packages/widget-lib"],
 ].filter(([name]) => !onlyWidget || name !== "@aomi-labs/deploy");
-const consumers = onlyWidget
-  ? ["apps/widget-consumer"]
-  : ["apps/examples/headless-client", "apps/widget-consumer"];
+const consumers = trustedConsumers(root, sha, onlyWidget);
+if (
+  (onlyWidget || browserOutput) &&
+  !consumers.some(({ kind }) => kind === "widget")
+) {
+  throw new Error("Trusted base lacks a widget consumer for browser contracts");
+}
 
 function run(command, commandArgs, cwd = root) {
   console.log(`> ${command} ${commandArgs.join(" ")}`);
@@ -81,7 +89,7 @@ function baseFile(path) {
   });
 }
 
-function verifyHostCompositionExport(destination) {
+function verifyHostCompositionExport(destination, widgetPackage) {
   const typeCheckPath = join(destination, "host-composition-check.ts");
   writeFileSync(
     typeCheckPath,
@@ -89,7 +97,7 @@ function verifyHostCompositionExport(destination) {
   HeaderControls,
   getBackendUrl,
   type UsageFixtureData,
-} from "@aomi-labs/widget-lib/host-composition";
+} from "${widgetPackage}/host-composition";
 
 export const HostHeader: typeof HeaderControls = HeaderControls;
 export const backendUrl: string = getBackendUrl();
@@ -119,7 +127,7 @@ export type HostUsage = UsageFixtureData;
   const resolutionCheckPath = join(destination, "host-composition-resolve.mjs");
   writeFileSync(
     resolutionCheckPath,
-    `const resolved = import.meta.resolve("@aomi-labs/widget-lib/host-composition");
+    `const resolved = import.meta.resolve("${widgetPackage}/host-composition");
 if (!resolved.endsWith("/dist/host-composition.js")) {
   throw new Error(\`Packed host-composition export resolved to \${resolved}\`);
 }
@@ -261,12 +269,14 @@ try {
   console.log(
     `Checking consumers from ${sha} against candidate package tarballs`,
   );
+  console.log(
+    `Trusted consumers: ${consumers.map(({ path }) => path).join(", ") || "none (fresh installs only)"}`,
+  );
   const tarballs = {};
   const trustedLockfile = baseFile("pnpm-lock.yaml").toString("utf8");
   const trustedImporters = {
     root: importerVersions(trustedLockfile, "."),
-    widget: importerVersions(trustedLockfile, "apps/widget-consumer"),
-    registry: importerVersions(trustedLockfile, "apps/shadcn-registry"),
+    ...trustedConsumerImporters(trustedLockfile, consumers),
   };
   const trustedTap = packageVersion(
     trustedLockfile,
@@ -310,13 +320,16 @@ try {
 
   if (!onlyWidget) verifyFreshInstall(tarballs, temporary);
 
-  for (const consumer of consumers) {
+  for (const { kind, path: consumer } of consumers) {
+    const legacyWidget = consumer === "apps/widget-consumer";
+    const widgetVersions = trustedImporters.widgets[consumer] ?? {};
+    const registryVersions = trustedImporters.registry;
     const destination = join(temporary, consumer);
     copyTrustedConsumer(root, sha, consumer, temporary);
     const manifestPath = join(destination, "package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     manifest.packageManager = packageManager;
-    if (consumer.endsWith("widget-consumer")) {
+    if (legacyWidget) {
       // The trusted workspace root supplied this peer to the original fixture.
       // Preserve its base version; candidate package changes cannot add peers.
       const baseRoot = JSON.parse(baseFile("package.json").toString("utf8"));
@@ -335,7 +348,7 @@ try {
       if (!manifest.dependencies["@solana/spl-token"])
         throw new Error("Trusted base lacks widget Solana peer");
       manifest.dependencies["@solana/spl-token"] =
-        trustedImporters.registry["@solana/spl-token"];
+        registryVersions["@solana/spl-token"];
       // The historical fixture references process.env and inherited Node's
       // ambient types from the workspace root. Restore that exact base input.
       manifest.devDependencies["@types/node"] =
@@ -348,14 +361,14 @@ try {
         if (tarballs[name]) manifest[field][name] = tarballs[name];
         else if (String(manifest[field][name]).startsWith("workspace:")) {
           throw new Error(`Unmapped workspace package ${name} in ${consumer}`);
-        } else if (consumer.endsWith("widget-consumer")) {
+        } else if (kind === "widget") {
           const locked =
-            trustedImporters.widget[name] ??
+            widgetVersions[name] ??
             (name === "@assistant-ui/react"
               ? trustedImporters.root[name]
               : undefined) ??
             (name === "@solana/spl-token"
-              ? trustedImporters.registry[name]
+              ? registryVersions[name]
               : undefined) ??
             (name === "@types/node" ? trustedImporters.root[name] : undefined);
           if (!locked) {
@@ -372,8 +385,9 @@ try {
       ...manifest.pnpm,
       overrides: {
         ...manifest.pnpm?.overrides,
-        ...trustedImporters.registry,
-        ...trustedImporters.widget,
+        ...registryVersions,
+        ...trustedImporters.widgets["apps/widget-consumer"],
+        ...widgetVersions,
         "@assistant-ui/react": trustedImporters.root["@assistant-ui/react"],
         "@assistant-ui/tap": trustedTap,
         // Preserve the historical fixture's exact transitive input. Fresh
@@ -384,7 +398,7 @@ try {
       },
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    if (consumer.endsWith("headless-client")) {
+    if (kind === "headless") {
       const tsconfigPath = join(destination, "tsconfig.json");
       const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8"));
       delete tsconfig.compilerOptions.baseUrl;
@@ -397,12 +411,17 @@ try {
       destination,
     );
     run("corepack", ["pnpm", "run", "build"], destination);
-    if (consumer.endsWith("widget-consumer")) {
+    if (kind === "widget") {
       // Exercise the packed subpath only after the unchanged trusted fixture
       // has built, reusing its candidate install without source aliases.
-      verifyHostCompositionExport(destination);
+      verifyHostCompositionExport(
+        destination,
+        manifest.dependencies["@aomi-labs/widget"]
+          ? "@aomi-labs/widget"
+          : "@aomi-labs/widget-lib",
+      );
     }
-    if (consumer.endsWith("headless-client")) {
+    if (kind === "headless") {
       run("corepack", ["pnpm", "run", "test"], destination);
       // Import from this install's node_modules so module resolution cannot
       // accidentally find a built artifact in the candidate checkout.
@@ -420,13 +439,14 @@ if (!esm.Aomi || !cjs.Aomi) throw new Error("Packed client facade export missing
     }
   }
   if (browserOutput) {
-    const widgetDirectory = join(temporary, "apps/widget-consumer");
+    const widgetConsumer = consumers.find(({ kind }) => kind === "widget").path;
+    const widgetDirectory = join(temporary, widgetConsumer);
     writeFileSync(
       resolve(root, browserOutput),
       `${JSON.stringify({
         trustedBase: sha,
         consumerDirectory: widgetDirectory,
-        immutableSource: "apps/widget-consumer",
+        immutableSource: widgetConsumer,
       })}\n`,
     );
   }

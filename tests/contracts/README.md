@@ -6,6 +6,15 @@ into the headless and widget examples copied from the trusted base commit, then
 compiles and builds those examples. The headless example's TypeScript source
 alias is removed in the temporary copy so it resolves the packed client.
 
+Consumer selection uses only manifests in the trusted commit, supporting both
+the historical `apps/examples/headless-client` and `apps/widget-consumer` paths
+and the relocated `examples/headless` and `examples/embed-vite` paths. If both
+layouts exist at the base, both are checked. Candidate-only fixtures have no
+historical compatibility contract; the fresh-install checks still run. An
+existing widget fixture must have its matching trusted lockfile importer.
+Browser contracts require a trusted widget fixture and never use candidate
+source as a fallback.
+
 The same command also creates a synthetic clean host with only the public widget
 and React declared directly. It installs the full candidate Aomi package stack,
 public runtime imports must load, and the packed `aomi --version` executable must
