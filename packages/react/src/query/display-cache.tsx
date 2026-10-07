@@ -25,6 +25,7 @@ export type DisplayResource =
   | "skills"
   | "authorized-models"
   | "authorized-apps"
+  | "threads"
   | "profile"
   | "credits"
   | "account-acl"
@@ -77,6 +78,8 @@ export type DisplayCache = {
   client: QueryClient;
   scope: DisplayScope;
   apiClient?: AomiClient;
+  /** Display-only owner recovered while the host confirms its session. */
+  restoredAccount?: RuntimeAccount;
   key: (resource: DisplayResource, parameters?: readonly unknown[]) => QueryKey;
 };
 
@@ -166,14 +169,23 @@ export function DisplayCacheProvider({
     }),
     [normalizedBackend, appId, accountKnown, accountKind, accountId],
   );
+  const [restored, setRestored] = useState<{
+    scope: DisplayScope;
+    account: RuntimeAccount;
+  }>();
+  const restoredAccount =
+    account === undefined && restored?.scope === scope
+      ? restored.account
+      : undefined;
   const cache = useMemo<DisplayCache>(
     () => ({
       client,
       scope,
       apiClient,
+      restoredAccount,
       key: (resource, parameters) => displayKey(scope, resource, parameters),
     }),
-    [client, scope, apiClient],
+    [client, scope, apiClient, restoredAccount],
   );
   useEffect(() => {
     client.mount();
@@ -193,9 +205,23 @@ export function DisplayCacheProvider({
     };
   }, [client, scope]);
   useEffect(
-    () => persistDisplayCache(client, scope, persistence),
+    () =>
+      persistDisplayCache(client, scope, persistence, undefined, (owner) => {
+        setRestored({ scope, account: owner });
+      }),
     [client, scope, persistence],
   );
+  useLayoutEffect(() => {
+    if (!restored || scope.account === undefined) return;
+    if (
+      scope.account?.kind === "user" &&
+      scope.account.id === restored.account.id
+    )
+      return;
+    client.removeQueries({
+      queryKey: displayKeyPrefix(restored.scope, restored.account),
+    });
+  }, [client, scope, restored]);
   return (
     <DisplayCacheContext.Provider value={cache}>
       {children}

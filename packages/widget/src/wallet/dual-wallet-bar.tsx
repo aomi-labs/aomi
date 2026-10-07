@@ -101,14 +101,15 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     .map((wallet) => wallet.detail)
     .filter(Boolean)
     .join(" · ");
+  const accountId = adapter.accountUser?.id;
+  const cachedStatus = snapshot?.accountId === accountId ? snapshot : null;
+  const creditsLine = accountMenu?.secondaryLine ?? cachedStatus?.creditsLine;
+  const planLabel = accountMenu?.planLabel ?? cachedStatus?.planLabel;
   const secondaryLine = accountMenuEnabled ? (
-    accountMenu?.secondaryLoading ? (
+    accountMenu?.secondaryLoading && !creditsLine ? (
       <LoadingLine className="h-[11px] w-20" />
-    ) : accountMenu?.secondaryLine ? (
-      <AccountStatusLine
-        creditsLine={accountMenu.secondaryLine}
-        planLabel={accountMenu.planLabel}
-      />
+    ) : creditsLine ? (
+      <AccountStatusLine creditsLine={creditsLine} planLabel={planLabel} />
     ) : undefined
   ) : connectedWallets.some((wallet) => wallet.detail) ? (
     networkDetail
@@ -128,7 +129,6 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     (adapter.accountStatus === "loading" ||
       walletKitBooting ||
       (signedIn && !connected));
-  const accountId = adapter.accountUser?.id;
   const signedOut = adapter.accountStatus === "ready" && !signedIn;
   const snapshotName = accountMenu?.primaryLine;
   const activeWallets = adapter.wallets
@@ -141,6 +141,8 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
       saveSnapshot({
         accountId,
         name: snapshotName,
+        creditsLine,
+        planLabel,
         wallets: activeWallets
           ? activeWallets.split(",").map((entry) => {
               const [family, address, brand] = entry.split("|");
@@ -162,6 +164,8 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     saveSnapshot,
     signedOut,
     snapshotName,
+    creditsLine,
+    planLabel,
   ]);
 
   useEffect(() => {
@@ -273,7 +277,14 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                     <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
                       {snapshot.name}
                     </span>
-                    <LoadingLine className="h-[11px] w-20" />
+                    {snapshot.creditsLine ? (
+                      <AccountStatusLine
+                        creditsLine={snapshot.creditsLine}
+                        planLabel={snapshot.planLabel}
+                      />
+                    ) : (
+                      <LoadingLine className="h-[11px] w-20" />
+                    )}
                   </span>
                 </>
               ) : (

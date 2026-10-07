@@ -62,6 +62,20 @@ describe("what the display cache saves", () => {
       [{ id: "swap", name: "Swap", instructions: "secret" }],
       [{ id: "swap", name: "Swap" }],
     ],
+    [
+      "threads",
+      [
+        {
+          id: "t",
+          title: "Chat",
+          archived: false,
+          updatedAt: 1,
+          messages: ["private"],
+          bearer: "secret",
+        },
+      ],
+      [{ id: "t", title: "Chat", archived: false, updatedAt: 1 }],
+    ],
     ["models", ["model-a"], ["model-a"]],
     ["account-acl", { allow: true }, undefined],
     ["credits", { balance: 1 }, undefined],
@@ -182,6 +196,24 @@ describe("saved account data on start", () => {
       stop();
     },
   );
+
+  it("removes saved threads immediately when a merge clears their query", async () => {
+    const { saved, store } = memoryStore();
+    const client = createDisplayQueryClient();
+    const key = displayKey(scope, "threads");
+    client.setQueryData(key, [
+      { id: "t", title: "Chat", archived: false, updatedAt: 1 },
+    ]);
+    const stop = persistDisplayCache(client, scope, "account", store);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    client.removeQueries({ queryKey: key, exact: true });
+    await vi.waitFor(() =>
+      expect(
+        (saved.get(accountSlot) as { queries: unknown[] }).queries,
+      ).toEqual([]),
+    );
+    stop();
+  });
 
   it("leaves the saved copy alone while the account is still unknown", async () => {
     const { saved, store } = memoryStore({ [accountSlot]: savedProfile("a") });

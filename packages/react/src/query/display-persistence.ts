@@ -3,6 +3,7 @@ import {
   displayKeyPrefix,
   type DisplayResource,
   type DisplayScope,
+  type RuntimeAccount,
 } from "./display-cache";
 
 /**
@@ -84,6 +85,18 @@ const SAVED_FIELDS: Partial<
       "injectedTools",
       "estimatedTokens",
     ]),
+  threads: (value) =>
+    Array.isArray(value)
+      ? value.flatMap((value) => {
+          const row = pick(value, ["id", "title", "archived", "updatedAt"]);
+          return typeof row?.id === "string" &&
+            typeof row.title === "string" &&
+            typeof row.archived === "boolean" &&
+            typeof row.updatedAt === "number"
+            ? [row]
+            : [];
+        })
+      : undefined,
   profile: (value) => {
     const user = pick(record(value)?.user, [
       "user_id",
@@ -231,11 +244,29 @@ function syncSavedCopy(
         .catch(() => {});
     }, 1_000);
   };
-  const unsubscribe = client.getQueryCache().subscribe(save);
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (
+      active &&
+      ready &&
+      event.type === "removed" &&
+      event.query.queryKey[prefix.length] === "threads"
+    ) {
+      if (timer) clearTimeout(timer);
+      timer = undefined;
+      void store
+        .put(storageKey, snapshotDisplayData(client, prefix, accountId))
+        .catch(() => {});
+    } else save();
+  });
   void store
     .get(storageKey)
     .then((saved) => {
-      if (active) restoreDisplayData(client, prefix, saved, accountId);
+      if (!active) return;
+      if (accountId && record(saved)?.accountId !== accountId) {
+        void store.delete(storageKey).catch(() => {});
+        return;
+      }
+      restoreDisplayData(client, prefix, saved, accountId);
     })
     .catch(() => {})
     .finally(() => {
@@ -257,6 +288,7 @@ export function persistDisplayCache(
   store: SavedCopyStore | null = typeof indexedDB === "undefined"
     ? null
     : indexedDbStore,
+  onRestoredAccount?: (account: RuntimeAccount) => void,
 ): () => void {
   if (persistence === "none" || !store) return () => {};
   const storageKey = (slot: string) =>
@@ -267,8 +299,39 @@ export function persistDisplayCache(
     storageKey("public"),
     displayKeyPrefix(scope, "public"),
   );
-  if (persistence !== "account" || scope.account === undefined)
-    return stopPublic;
+  if (persistence !== "account") return stopPublic;
+  if (scope.account === undefined) {
+    let active = true;
+    void store
+      .get(storageKey("account"))
+      .then((value) => {
+        const saved = record(value);
+        if (!active || typeof saved?.accountId !== "string") return;
+        const account: RuntimeAccount = { kind: "user", id: saved.accountId };
+        const prefix = displayKeyPrefix(scope, account);
+        // Pending identity may preview only the saved list, never account policy.
+        restoreDisplayData(
+          client,
+          prefix,
+          {
+            ...saved,
+            queries: Array.isArray(saved.queries)
+              ? saved.queries.filter(
+                  (entry) => record(entry)?.resource === "threads",
+                )
+              : [],
+          },
+          account.id,
+        );
+        if (client.getQueryData([...prefix, "threads"]) !== undefined)
+          onRestoredAccount?.(account);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      stopPublic();
+    };
+  }
   const user = scope.account?.kind === "user" ? scope.account : null;
   if (!user) {
     // Signed out (here or in another tab): nobody's profile stays on disk.

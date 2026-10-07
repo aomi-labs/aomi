@@ -267,24 +267,30 @@ export function AomiRuntimeCore({
   );
   const refreshAccountData = useCallback(() => {
     const cache = displayCacheRef.current;
-    if (cache?.scope.account)
+    if (cache?.scope.account) {
+      cache.client.removeQueries({
+        queryKey: cache.key("threads"),
+        exact: true,
+      });
       void cache.client.invalidateQueries({
         queryKey: displayKeyPrefix(cache.scope, cache.scope.account),
       });
+    }
     setAccountRevision((revision) => revision + 1);
   }, []);
-  const { isThreadListLoading, threadListError } = useThreadListSync({
-    restoringAccount,
-    aomiClientRef,
-    sessionManager,
-    ensureInitialState,
-    resetConversation,
-    remoteThreadIdsRef,
-    accountSessionAvailable,
-    owner: listOwner,
-    restoredThreadId,
-    onInvalidRestoredThread: forgetPersistedThread,
-  });
+  const { isThreadListLoading, isThreadListRevalidating, threadListError } =
+    useThreadListSync({
+      restoringAccount,
+      aomiClientRef,
+      sessionManager,
+      ensureInitialState,
+      resetConversation,
+      remoteThreadIdsRef,
+      accountSessionAvailable,
+      owner: listOwner,
+      restoredThreadId,
+      onInvalidRestoredThread: forgetPersistedThread,
+    });
 
   const currentThreadId = threadContext.currentThreadId;
   const isThreadLoading =
@@ -496,6 +502,7 @@ export function AomiRuntimeCore({
       threadMetadata: threadContext.allThreadsMetadata,
       threadListError,
       threadListLoading: isThreadListLoading,
+      threadListRevalidating: isThreadListRevalidating,
       isRemoteThread: (threadId) =>
         remoteThreadIdsRef.current.has(threadId) ||
         Boolean(sessionManager.get(threadId)?.getSnapshot().turnId),
@@ -547,6 +554,7 @@ export function AomiRuntimeCore({
       threadListError,
       createThread,
       isThreadListLoading,
+      isThreadListRevalidating,
       sessionManager,
       deleteThread,
       threadListAdapter,

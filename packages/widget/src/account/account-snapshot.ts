@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useLayoutEffect, useSyncExternalStore } from "react";
 import { useAomiDisplayCache } from "@aomi-labs/react";
 import type { WalletFamily } from "@/wallet/types";
 
@@ -12,6 +12,8 @@ import type { WalletFamily } from "@/wallet/types";
 export type AccountSnapshot = {
   accountId: string;
   name: string;
+  creditsLine?: string;
+  planLabel?: string;
   wallets: { family: WalletFamily; address: string; brand: string }[];
 };
 
@@ -36,7 +38,17 @@ function read(key: string): AccountSnapshot | null {
       typeof parsed.accountId === "string" &&
       typeof parsed.name === "string" &&
       Array.isArray(parsed.wallets)
-        ? parsed
+        ? {
+            accountId: parsed.accountId,
+            name: parsed.name,
+            wallets: parsed.wallets,
+            ...(typeof parsed.creditsLine === "string"
+              ? { creditsLine: parsed.creditsLine }
+              : {}),
+            ...(typeof parsed.planLabel === "string"
+              ? { planLabel: parsed.planLabel }
+              : {}),
+          }
         : null;
   } catch {
     value = null;
@@ -72,7 +84,7 @@ export function useAccountSnapshot(): [
 ] {
   const scope = useAomiDisplayCache()?.scope;
   const key = `${PREFIX}${scope ? `${scope.backendUrl}|${scope.appId}` : "default"}`;
-  const snapshot = useSyncExternalStore(
+  const storedSnapshot = useSyncExternalStore(
     subscribe,
     () => read(key),
     () => null,
@@ -81,5 +93,16 @@ export function useAccountSnapshot(): [
     (value: AccountSnapshot | null) => write(key, value),
     [key],
   );
+  const account = scope?.account;
+  const snapshot =
+    scope &&
+    account !== undefined &&
+    (account?.kind !== "user" || account.id !== storedSnapshot?.accountId)
+      ? null
+      : storedSnapshot;
+  useLayoutEffect(() => {
+    if (storedSnapshot && scope && account !== undefined && !snapshot)
+      write(key, null);
+  }, [account, key, scope, snapshot, storedSnapshot]);
   return [snapshot, save];
 }

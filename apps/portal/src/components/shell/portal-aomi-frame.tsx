@@ -20,6 +20,7 @@ import {
   PackagesModal,
   SettingsModal,
   useAccountOverview,
+  useAccountSnapshot,
   useAomiWalletKit,
   usePortalWalletAccountMenu,
   useRuntimeAccount,
@@ -135,12 +136,14 @@ export function ThreadUrlBootstrap({
     createThread,
     threadMetadata,
     getThreadMetadata,
-    threadListLoading,
+    threadListLoading: listLoading,
+    threadListRevalidating,
     threadListError,
     showNotification,
     events = [],
     isRemoteThread,
   } = useAomiRuntime();
+  const threadListLoading = threadListRevalidating ?? listLoading;
   const [localNavigation] = useState(createThreadUrlNavigation);
   const locationState = navigation ?? localNavigation;
   const navigationSnapshot = useSyncExternalStore(
@@ -266,6 +269,28 @@ export function ThreadUrlBootstrap({
   return null;
 }
 
+function PortalHeaderControls({
+  onOpenSettings,
+  onOpenPackages,
+}: {
+  onOpenSettings: () => void;
+  onOpenPackages: () => void;
+}) {
+  const { accountUser, accountGuest, accountStatus, isReady } =
+    useAomiWalletKit();
+  const [snapshot] = useAccountSnapshot();
+  const pending = isReady === false || accountStatus === "loading";
+  return (
+    <HeaderControls
+      showSettings={
+        pending ? Boolean(snapshot) : Boolean(accountUser && !accountGuest)
+      }
+      onOpenSettings={onOpenSettings}
+      onOpenPackages={onOpenPackages}
+    />
+  );
+}
+
 function PortalFrameContents({
   openSettings,
   onWalletAccountMenuChange,
@@ -295,7 +320,7 @@ function PortalFrameContents({
 }
 
 export function PortalAomiFrame() {
-  const { accountStatus, accountUser, isReady } = useAomiWalletKit();
+  const { accountStatus, isReady } = useAomiWalletKit();
   const account = useRuntimeAccount();
   const [accountFrameScope, setAccountFrameScope] = useState(() => ({
     account,
@@ -422,8 +447,7 @@ export function PortalAomiFrame() {
             onWalletAccountMenuChange={setWalletAccountMenu}
           />
           <AomiFrame.Header>
-            <HeaderControls
-              showSettings={Boolean(accountUser)}
+            <PortalHeaderControls
               onOpenSettings={() => openSettings("general")}
               onOpenPackages={() => setOverlay("packages")}
             />

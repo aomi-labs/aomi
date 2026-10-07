@@ -650,6 +650,11 @@ it("shows the saved account at once and saves the confirmed one", () => {
     <DualWalletBar families={["evm"]} disconnectedLabel="Sign in" />,
   );
   expect(screen.getByText("Ada")).toBeInTheDocument();
+  expect(
+    screen
+      .getByRole("button", { name: "Loading account" })
+      .querySelector(".animate-pulse"),
+  ).not.toBeNull();
   expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
 
   adapterState.current.accountStatus = "ready";
@@ -678,6 +683,91 @@ it("shows the saved account at once and saves the confirmed one", () => {
       },
     ],
   });
+});
+
+it("shows saved credits and plan until live values replace them", () => {
+  window.localStorage.setItem(
+    "aomi:account-chip:default",
+    JSON.stringify({
+      accountId: "user-1",
+      name: "Ada",
+      wallets: [],
+      creditsLine: "498",
+      planLabel: "Free",
+    }),
+  );
+  adapterState.current.accountStatus = "loading";
+  const view = render(<DualWalletBar families={["evm"]} />);
+  expect(screen.getByLabelText("498 credits remaining")).toBeInTheDocument();
+  expect(screen.getByTitle("Free plan")).toBeInTheDocument();
+
+  adapterState.current.accountStatus = "ready";
+  adapterState.current.accountUser = { id: "user-1" };
+  view.rerender(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{
+        enabled: true,
+        primaryLine: "Ada",
+        secondaryLoading: true,
+      }}
+    />,
+  );
+  expect(screen.getByLabelText("498 credits remaining")).toBeInTheDocument();
+  view.rerender(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{
+        enabled: true,
+        primaryLine: "Ada",
+        secondaryLine: "490",
+        planLabel: "Pro",
+      }}
+    />,
+  );
+  expect(screen.getByLabelText("490 credits remaining")).toBeInTheDocument();
+  expect(screen.getByTitle("Pro plan")).toBeInTheDocument();
+  expect(
+    JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
+  ).toMatchObject({ creditsLine: "490", planLabel: "Pro" });
+
+  adapterState.current.accountUser = undefined;
+  view.rerender(<DualWalletBar families={["evm"]} />);
+  expect(window.localStorage.getItem("aomi:account-chip:default")).toBeNull();
+  expect(
+    screen.queryByLabelText("490 credits remaining"),
+  ).not.toBeInTheDocument();
+});
+
+it("never borrows another account's cached credits", () => {
+  window.localStorage.setItem(
+    "aomi:account-chip:default",
+    JSON.stringify({
+      accountId: "old-user",
+      name: "Ada",
+      wallets: [],
+      creditsLine: "498",
+      planLabel: "Free",
+    }),
+  );
+  adapterState.current.accountStatus = "ready";
+  adapterState.current.accountUser = { id: "new-user" };
+  render(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{
+        enabled: true,
+        primaryLine: "Grace",
+        secondaryLoading: true,
+      }}
+    />,
+  );
+  expect(
+    screen.queryByLabelText("498 credits remaining"),
+  ).not.toBeInTheDocument();
+  expect(
+    JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
+  ).not.toHaveProperty("creditsLine");
 });
 
 function walletRow(

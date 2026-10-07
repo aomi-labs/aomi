@@ -62,6 +62,7 @@ export { useSvmWalletBinding } from "./wallet/use-svm-wallet-binding";
 export { ShellTransportProvider } from "./account/transport";
 export { SettingsModal, type SettingsTab } from "./account/settings-modal";
 export { HeaderControls } from "./frame/header-controls";
+export { useAccountSnapshot } from "./account/account-snapshot";
 export { useRuntimeAccount } from "./frame/runtime-account";
 export { PackageIcon } from "./library/package-row";
 export { toCatalogPackage } from "./library/packages-catalog";

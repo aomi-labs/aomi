@@ -1,12 +1,21 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { useCallback, type ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentSession, AomiClient } from "@aomi-labs/client";
 import {
   ThreadContextProvider,
   useThreadContext,
 } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
+import {
+  DisplayCacheProvider,
+  createDisplayQueryClient,
+  displayKey,
+  displayKeyPrefix,
+  useAomiDisplayCache,
+  type RuntimeAccount,
+} from "../query/display-cache";
+import * as persistence from "../query/display-persistence";
 import { useThreadListSync } from "./thread-list-sync";
 
 vi.mock("../contexts/ext-user-context", () => ({
@@ -187,5 +196,223 @@ describe("loading the chat list once access arrives", () => {
         .filter((state) => state.scope === "signed" && !state.hasSaved)
         .every((state) => state.loading),
     ).toBe(true);
+  });
+});
+
+describe("saved thread summaries", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const savedRows = [
+    { id: "saved-chat", title: "Old title", archived: false, updatedAt: 2 },
+    { id: "deleted-chat", title: "Deleted", archived: false, updatedAt: 1 },
+  ];
+  function setup(
+    account: RuntimeAccount | null | undefined,
+    initialRemoteIds: string[] = [],
+  ) {
+    const scope = {
+      backendUrl: "/backend",
+      appId: "8",
+      account: { kind: "user", id: "a" } as const,
+    };
+    const original = createDisplayQueryClient();
+    original.setQueryData(displayKey(scope, "threads"), savedRows);
+    const accountSlot = JSON.stringify([
+      "display-v3",
+      "/backend",
+      "8",
+      "account",
+    ]);
+    const saved = new Map<string, unknown>([
+      [
+        accountSlot,
+        persistence.snapshotDisplayData(
+          original,
+          displayKeyPrefix(scope, scope.account),
+          "a",
+        ),
+      ],
+    ]);
+    const persist = persistence.persistDisplayCache;
+    vi.spyOn(persistence, "persistDisplayCache").mockImplementation(
+      (client, scope, mode, _store, callback) =>
+        persist(
+          client,
+          scope,
+          mode,
+          {
+            get: async (key) => saved.get(key),
+            put: async (key, value) => saved.set(key, value),
+            delete: async (key) => saved.delete(key),
+          },
+          callback,
+        ),
+    );
+    const state = { account };
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <DisplayCacheProvider
+          backendUrl="/backend"
+          applicationId={8}
+          account={state.account}
+          persistence="account"
+        >
+          <ThreadContextProvider initialThreadId="new-local">
+            {children}
+          </ThreadContextProvider>
+        </DisplayCacheProvider>
+      );
+    }
+    let resolve!: (rows: AgentSession[]) => void;
+    const all = vi.fn(
+      () =>
+        new Promise<AgentSession[]>((done) => {
+          resolve = done;
+        }),
+    );
+    const options = fixture(all);
+    options.remoteThreadIdsRef.current = new Set(initialRemoteIds);
+    const ownerA = {};
+    const ownerB = {};
+    const view = renderHook(
+      () => {
+        const threads = useThreadContext();
+        const reset = useCallback(() => {
+          options.resetConversation();
+          threads.resetToDefault();
+        }, [threads.resetToDefault]);
+        const sync = useThreadListSync({
+          ...options,
+          owner: state.account?.id === "b" ? ownerB : ownerA,
+          accountSessionAvailable: Boolean(state.account),
+          resetConversation: reset,
+        });
+        return { ...sync, threads, cache: useAomiDisplayCache() };
+      },
+      { wrapper: Wrapper },
+    );
+    return {
+      view,
+      state,
+      options,
+      all,
+      resolve: (rows: AgentSession[]) => resolve(rows),
+      saved,
+      accountSlot,
+    };
+  }
+
+  it("renders the saved list before fetch settles, and live data replaces renamed and deleted rows", async () => {
+    const { view, all, options, resolve } = setup({ kind: "user", id: "a" });
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+      ).toBe("Old title"),
+    );
+    expect(all).toHaveBeenCalledOnce();
+    expect(view.result.current.isThreadListLoading).toBe(false);
+    expect(view.result.current.isThreadListRevalidating).toBe(true);
+    expect(options.remoteThreadIdsRef.current.has("saved-chat")).toBe(true);
+    act(() => view.result.current.threads.setCurrentThreadId("saved-chat"));
+    await act(() =>
+      resolve([
+        {
+          id: "saved-chat",
+          title: "Live title",
+          archived: false,
+          updatedAt: 3,
+        },
+      ]),
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListRevalidating).toBe(false),
+    );
+    expect(
+      view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+    ).toBe("Live title");
+    expect(
+      view.result.current.threads.getThreadMetadata("deleted-chat"),
+    ).toBeUndefined();
+    expect(options.ensureInitialState).toHaveBeenCalledWith("saved-chat");
+    expect(
+      view.result.current.cache?.client.getQueryData(
+        view.result.current.cache.key("threads"),
+      ),
+    ).toEqual([
+      { id: "saved-chat", title: "Live title", archived: false, updatedAt: 3 },
+    ]);
+  });
+
+  it("keeps chats acknowledged locally before the saved list arrives", async () => {
+    const { view, options } = setup({ kind: "user", id: "a" }, ["newer-chat"]);
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat"),
+      ).toBeDefined(),
+    );
+    expect(options.remoteThreadIdsRef.current.has("newer-chat")).toBe(true);
+  });
+
+  it("accepts an explicit generic rename from the live list over a cached title", async () => {
+    const { view, resolve } = setup({ kind: "user", id: "a" });
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+      ).toBe("Old title"),
+    );
+    await act(() =>
+      resolve([
+        { id: "saved-chat", title: "New Chat", archived: false, updatedAt: 3 },
+      ]),
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListRevalidating).toBe(false),
+    );
+    expect(
+      view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+    ).toBe("New Chat");
+  });
+
+  it("previews an unknown account without using the cache to authorize a fetch and clears on sign-out", async () => {
+    const { view, state, all, saved, accountSlot } = setup(undefined);
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat")?.title,
+      ).toBe("Old title"),
+    );
+    expect(view.result.current.isThreadListLoading).toBe(false);
+    expect(all).not.toHaveBeenCalled();
+    state.account = null;
+    view.rerender();
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat"),
+      ).toBeUndefined(),
+    );
+    await waitFor(() => expect(saved.has(accountSlot)).toBe(false));
+    view.unmount();
+  });
+
+  it("never shows another account's saved list", async () => {
+    const { view } = setup({ kind: "user", id: "b" });
+    await act(async () => {});
+    expect(
+      view.result.current.threads.getThreadMetadata("saved-chat"),
+    ).toBeUndefined();
+    expect(view.result.current.isThreadListLoading).toBe(true);
+  });
+
+  it("drops the preview as soon as a different account is confirmed", async () => {
+    const { view, state } = setup({ kind: "user", id: "a" });
+    await waitFor(() =>
+      expect(
+        view.result.current.threads.getThreadMetadata("saved-chat"),
+      ).toBeDefined(),
+    );
+    state.account = { kind: "user", id: "b" };
+    view.rerender();
+    expect(
+      view.result.current.threads.getThreadMetadata("saved-chat"),
+    ).toBeUndefined();
+    expect(view.result.current.isThreadListLoading).toBe(true);
   });
 });

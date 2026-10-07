@@ -3,6 +3,8 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useSyncExternalStore,
   useRef,
   useState,
   type MutableRefObject,
@@ -18,6 +20,7 @@ import {
   reconcileGeneratedThreadTitle,
 } from "./thread-title";
 import { SessionManager } from "./session-manager";
+import { displayKey, useAomiDisplayCache } from "../query/display-cache";
 import { getHttpStatus } from "./http-status";
 
 const THREAD_PREFETCH_LIMIT = 5;
@@ -124,6 +127,7 @@ export function useThreadListSync({
   onInvalidRestoredThread,
 }: ThreadListSyncOptions): {
   isThreadListLoading: boolean;
+  isThreadListRevalidating: boolean;
   threadListError: boolean;
 } {
   const threadContext = useThreadContext();
@@ -139,6 +143,119 @@ export function useThreadListSync({
   invalidRestoredThread.current = onInvalidRestoredThread;
   const isConnected = UserStateHelpers.isConnected(user) === true;
   const canLoadThreads = isConnected || accountSessionAvailable;
+
+  const displayCache = useAomiDisplayCache();
+  const displayAccount =
+    displayCache?.scope.account ?? displayCache?.restoredAccount;
+  const cacheKey =
+    displayCache && displayAccount?.kind === "user"
+      ? displayKey(
+          { ...displayCache.scope, account: displayAccount },
+          "threads",
+        )
+      : null;
+  const cacheKeyId = cacheKey ? JSON.stringify(cacheKey) : null;
+  const cachedThreads = useSyncExternalStore(
+    useCallback(
+      (notify) =>
+        displayCache?.client.getQueryCache().subscribe(notify) ?? (() => {}),
+      [displayCache?.client],
+    ),
+    () =>
+      cacheKey
+        ? displayCache?.client.getQueryData<AgentSession[]>(cacheKey)
+        : undefined,
+    () => undefined,
+  );
+  const [cachedOwner, setCachedOwner] = useState<object | null>(null);
+  const appliedCache = useRef<{ key: string; owner: object } | null>(null);
+  const cachedIds = useRef(new Set<string>());
+  const cachedTitles = useRef(new Map<string, string>());
+  useLayoutEffect(() => {
+    if (restoringAccount) return;
+    if (appliedCache.current && appliedCache.current.key !== cacheKeyId) {
+      // A preview can precede the first confirmed account; core has no old
+      // authenticated owner to tear down in that case.
+      resetConversation();
+      appliedCache.current = null;
+      cachedIds.current.clear();
+      setCachedOwner(null);
+    }
+    if (!cachedThreads || !cacheKeyId || appliedCache.current?.owner === owner)
+      return;
+    appliedCache.current = { key: cacheKeyId, owner };
+    cachedIds.current = new Set(cachedThreads.map((thread) => thread.id));
+    cachedTitles.current = new Map(
+      cachedThreads.map((thread) => [thread.id, thread.title ?? ""]),
+    );
+    remoteThreadIdsRef.current = new Set([
+      ...remoteThreadIdsRef.current,
+      ...cachedIds.current,
+    ]);
+    hadThreadAccessRef.current = true;
+    threadContextRef.current.setThreadMetadata((latest) => {
+      const next = new Map(latest);
+      for (const thread of cachedThreads) {
+        next.set(thread.id, {
+          title: isPlaceholderTitle(thread.title ?? "") ? "" : thread.title!,
+          status: thread.archived ? "archived" : "regular",
+          lastActiveAt: thread.updatedAt,
+          control: latest.get(thread.id)?.control ?? initRemoteThreadControl(),
+        });
+      }
+      return next;
+    });
+    setCachedOwner(owner);
+  }, [
+    cacheKeyId,
+    cachedThreads,
+    owner,
+    restoringAccount,
+    resetConversation,
+    remoteThreadIdsRef,
+  ]);
+
+  // Persist only sidebar summaries of acknowledged remote chats. Messages,
+  // controls and credentials never enter the saved projection.
+  useEffect(() => {
+    if (
+      !displayCache ||
+      !cacheKey ||
+      settledOwner !== owner ||
+      restoringAccount ||
+      !canLoadThreads
+    )
+      return;
+    const rows = [...threadContext.allThreadsMetadata].flatMap(
+      ([id, metadata]) =>
+        remoteThreadIdsRef.current.has(id)
+          ? [
+              {
+                id,
+                title: metadata.title,
+                archived: metadata.status === "archived",
+                updatedAt:
+                  typeof metadata.lastActiveAt === "number"
+                    ? metadata.lastActiveAt
+                    : Date.parse(metadata.lastActiveAt ?? "") || Date.now(),
+              },
+            ]
+          : [],
+    );
+    displayCache.client.setQueryData(cacheKey, rows);
+  }, [
+    displayCache,
+    cacheKeyId,
+    settledOwner,
+    owner,
+    restoringAccount,
+    canLoadThreads,
+    threadContext.allThreadsMetadata,
+    remoteThreadIdsRef,
+  ]);
+
+  const previewingAccount =
+    displayCache?.scope.account === undefined && cachedThreads !== undefined;
 
   const listThreadsWithAuthRetry = useCallback(
     async (isCancelled: () => boolean) => {
@@ -214,6 +331,7 @@ export function useThreadListSync({
   useEffect(() => {
     if (restoringAccount) return;
     if (!canLoadThreads) {
+      if (previewingAccount) return;
       const previouslyHadThreadAccess = hadThreadAccessRef.current;
       hadThreadAccessRef.current = false;
       setIsThreadListLoading(false);
@@ -283,21 +401,36 @@ export function useThreadListSync({
         }
 
         for (const [threadId, metadata] of previousMetadata.entries()) {
-          if (!newMetadata.has(threadId)) {
+          if (!newMetadata.has(threadId) && !cachedIds.current.has(threadId)) {
             newMetadata.set(threadId, metadata);
           }
         }
 
         for (const threadId of remoteThreadIdsRef.current) {
-          if (!remoteThreadIdsAtFetchStart.has(threadId)) {
+          if (
+            !remoteThreadIdsAtFetchStart.has(threadId) &&
+            !cachedIds.current.has(threadId)
+          ) {
             remoteThreadIds.add(threadId);
           }
         }
 
         remoteThreadIdsRef.current = remoteThreadIds;
-        currentContext.setThreadMetadata((latestMetadata) =>
-          mergeThreadListMetadata(newMetadata, latestMetadata),
-        );
+        currentContext.setThreadMetadata((latestMetadata) => {
+          const latest = new Map(latestMetadata);
+          for (const id of cachedIds.current) {
+            if (!remoteThreadIds.has(id) && !latest.get(id)?.pending)
+              latest.delete(id);
+            else if (
+              newMetadata.has(id) &&
+              latest.get(id)?.title === cachedTitles.current.get(id)
+            )
+              latest.delete(id);
+          }
+          cachedIds.current.clear();
+          cachedTitles.current.clear();
+          return mergeThreadListMetadata(newMetadata, latest);
+        });
         if (maxChatNum > baseThreadCount) {
           currentContext.setThreadCnt(maxChatNum);
         }
@@ -363,6 +496,7 @@ export function useThreadListSync({
   }, [
     canLoadThreads,
     restoringAccount,
+    previewingAccount,
     owner,
     ensureInitialState,
     listThreadsWithAuthRetry,
@@ -373,12 +507,15 @@ export function useThreadListSync({
     restoredThreadId,
   ]);
 
+  const revalidating =
+    restoringAccount ||
+    previewingAccount ||
+    (canLoadThreads && (isThreadListLoading || settledOwner !== owner));
   return {
     // Access can settle in the same render that enables URL restoration.
     // Advertise loading before the request effect runs, until its first result.
-    isThreadListLoading:
-      restoringAccount ||
-      (canLoadThreads && (isThreadListLoading || settledOwner !== owner)),
+    isThreadListLoading: revalidating && cachedOwner !== owner,
+    isThreadListRevalidating: revalidating,
     threadListError,
   };
 }

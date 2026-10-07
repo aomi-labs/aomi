@@ -33,6 +33,9 @@ const walletKitState = vi.hoisted(() => ({
     accountGuestUserId?: string;
   },
 }));
+const snapshotState = vi.hoisted(() => ({
+  current: null as null | { accountId: string },
+}));
 const frameInstances = vi.hoisted(() => ({ next: 0 }));
 const frameScope = vi.hoisted(() => ({
   context: undefined as import("react").Context<boolean> | undefined,
@@ -60,6 +63,7 @@ const runtimeState = vi.hoisted(() => ({
     createThread: vi.fn(async () => "thread-new"),
     showNotification: vi.fn(),
     threadListLoading: false,
+    threadListRevalidating: undefined as boolean | undefined,
     threadListError: false,
     isRemoteThread: vi.fn(() => false),
     events: [],
@@ -162,11 +166,23 @@ vi.mock("@aomi-labs/widget/host-composition", async () => {
     useAomiWalletKit: () => walletKitState.current,
     getBackendUrl: () => backendUrlState.current,
     SvmWalletBindingGate: () => null,
-    HeaderControls: ({ onOpenSettings }: { onOpenSettings: () => void }) => (
-      <button type="button" onClick={onOpenSettings}>
-        Open settings
-      </button>
-    ),
+    useAccountSnapshot: () => {
+      if (!React.useContext(frameScope.context!))
+        throw new Error("Snapshot requires frame scope");
+      return [snapshotState.current, vi.fn()];
+    },
+    HeaderControls: ({
+      onOpenSettings,
+      showSettings,
+    }: {
+      onOpenSettings: () => void;
+      showSettings: boolean;
+    }) =>
+      showSettings ? (
+        <button type="button" onClick={onOpenSettings}>
+          Open settings
+        </button>
+      ) : null,
     PackagesModal: () => <div data-testid="packages-modal" />,
     SettingsModal: ({ initialTab }: { initialTab?: string }) => (
       <div data-testid="settings-modal" data-tab={initialTab} />
@@ -214,6 +230,7 @@ describe("PortalAomiFrame account bootstrap", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    snapshotState.current = null;
     frameInstances.next = 0;
     backendUrlState.current = "https://api.example.test";
     walletKitState.current = {
@@ -232,6 +249,18 @@ describe("PortalAomiFrame account bootstrap", () => {
     runtimeState.current.threadMetadata = new Map();
     runtimeState.current.getThreadMetadata = undefined;
     runtimeState.current.threadListLoading = false;
+    runtimeState.current.threadListRevalidating = undefined;
+  });
+
+  it("shows Settings from the scoped snapshot while pending and hides it on sign-out", () => {
+    snapshotState.current = { accountId: "acct-a" };
+    const view = render(<PortalAomiFrame />);
+    expect(screen.getByRole("button", { name: "Open settings" })).toBeVisible();
+    walletKitState.current = { accountStatus: "ready" };
+    view.rerender(<PortalAomiFrame />);
+    expect(
+      screen.queryByRole("button", { name: "Open settings" }),
+    ).not.toBeInTheDocument();
   });
 
   it("reads installed apps from the frame's account display cache", () => {
@@ -810,6 +839,24 @@ describe("ThreadUrlBootstrap", () => {
     expect(window.location.search).toBe("?app=default");
     expect(push).toHaveBeenCalledTimes(1);
     push.mockRestore();
+  });
+
+  it("waits for live history to validate a URL even when the cached list is visible", () => {
+    window.history.replaceState({}, "", "/?thread=saved-chat");
+    runtimeState.current.threadListLoading = false;
+    runtimeState.current.threadListRevalidating = true;
+    const view = render(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.createThread).not.toHaveBeenCalled();
+    expect(runtimeState.current.selectThread).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?thread=saved-chat");
+    runtimeState.current.threadMetadata = new Map([
+      ["saved-chat", { title: "Saved", status: "regular" }],
+    ]);
+    runtimeState.current.threadListRevalidating = false;
+    view.rerender(<ThreadUrlBootstrap />);
+    expect(runtimeState.current.selectThread).toHaveBeenCalledWith(
+      "saved-chat",
+    );
   });
 
   it("does not inspect another account's URL while its session is restoring", () => {

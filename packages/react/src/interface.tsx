@@ -66,6 +66,8 @@ export type AomiRuntimeApi = {
   threadListError: boolean;
   /** True while the account's chat history loads. Optional for custom runtimes. */
   threadListLoading?: boolean;
+  /** True until live history confirms cached rows and URL restoration. */
+  threadListRevalidating?: boolean;
   /** Whether the server has acknowledged this conversation. */
   isRemoteThread?: (threadId: string) => boolean;
   /** Get metadata for a specific thread */
