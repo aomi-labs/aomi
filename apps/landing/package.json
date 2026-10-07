@@ -46,6 +46,8 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@solana-program/system": "^0.7.0",
+    "@solana/kit": "^2.3.0",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.90.10",
     "bs58": "^6.0.0",
