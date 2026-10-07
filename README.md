@@ -32,7 +32,8 @@ The widget scopes its styles, overlays and preferences to each instance.
 
 Advanced hosts compose the compiled `@aomi-labs/widget/frame` entry and supply
 an explicit `backendUrl`. `@aomi-labs/widget-lib` remains a deprecated
-compatibility package during the migration window. The frozen copy-in
+compatibility package during the migration window, including Para, Privy and
+Privy's feature peers for existing integrations. The frozen copy-in
 registry remains available for one release; see
 [registry transition](docs/topics/development/facts/registry-retirement.md).
 
