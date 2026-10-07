@@ -114,7 +114,17 @@ export function AddressRow({
 
   const content = (
     <>
-      <BrandMark brand={app} dot={row.connected ? "on" : "off"} />
+      <span className="relative flex shrink-0">
+        {nested ? (
+          // An L from above into the mark's middle: this address belongs
+          // to the login row above it.
+          <span
+            className="border-aomi-border pointer-events-none absolute -left-2 -top-3 h-7 w-3 rounded-bl-[4px] border-b border-l"
+            aria-hidden="true"
+          />
+        ) : null}
+        <BrandMark brand={app} dot={row.connected ? "on" : "off"} />
+      </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         {draft !== null ? (
           <input
@@ -278,11 +288,7 @@ export function LoginRows({
         ) : null}
       </div>
       {group.rows.map((row) => (
-        <div key={row.key} className="border-aomi-border relative border-t">
-          <span
-            className="border-aomi-border pointer-events-none absolute left-[29.5px] top-3 z-[1] h-[calc(50%-12px)] w-2 rounded-bl-md border-b border-l"
-            aria-hidden="true"
-          />
+        <div key={row.key} className="border-aomi-border border-t">
           <AddressRow row={row} nested {...handlers} />
         </div>
       ))}
