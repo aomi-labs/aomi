@@ -114,17 +114,7 @@ export function AddressRow({
 
   const content = (
     <>
-      <span className="relative flex shrink-0">
-        {nested ? (
-          // An L from above into the mark's middle: this address belongs
-          // to the login row above it.
-          <span
-            className="border-aomi-border pointer-events-none absolute -left-2 -top-3 h-7 w-3 rounded-bl-[4px] border-b border-l"
-            aria-hidden="true"
-          />
-        ) : null}
-        <BrandMark brand={app} dot={row.connected ? "on" : "off"} />
-      </span>
+      <BrandMark brand={app} dot={row.connected ? "on" : "off"} />
       <span className="flex min-w-0 flex-col gap-0.5">
         {draft !== null ? (
           <input
