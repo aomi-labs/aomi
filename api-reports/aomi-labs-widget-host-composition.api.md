@@ -578,6 +578,12 @@ export function useAccountOverviewStore(): {
 };
 
 // @public (undocumented)
+export function useAccountSnapshot(): [
+AccountSnapshot | null,
+(value: AccountSnapshot | null) => void
+];
+
+// @public (undocumented)
 export const useActivityPanel: () => ActivityPanelContextValue;
 
 // @public (undocumented)

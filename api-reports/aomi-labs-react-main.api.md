@@ -108,6 +108,7 @@ export type AomiRuntimeApi = {
     threadMetadata: Map<string, ThreadMetadata>;
     threadListError: boolean;
     threadListLoading?: boolean;
+    threadListRevalidating?: boolean;
     isRemoteThread?: (threadId: string) => boolean;
     getThreadMetadata: (threadId: string) => ThreadMetadata | undefined;
     createThread: () => Promise<string>;
