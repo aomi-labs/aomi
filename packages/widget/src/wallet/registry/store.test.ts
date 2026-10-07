@@ -35,6 +35,24 @@ describe("WalletRegistryStore", () => {
     vi.useRealTimers();
   });
 
+  it("settles an empty registry when its runtime starts", () => {
+    vi.useFakeTimers();
+    const store = new WalletRegistryStore({
+      executors: executors(),
+      storageKey: KEY,
+      initialNow: 0,
+    });
+    store.dispatch({
+      type: "wagmi/connections-changed",
+      connections: [],
+      now: 0,
+    });
+    store.start();
+    vi.advanceTimersByTime(SETTLE_QUIET_MS);
+    expect(store.getSnapshot().phase).toBe("stable");
+    store.dispose();
+  });
+
   it("notifies subscribers and persists active changes", () => {
     const fake = executors();
     const store = new WalletRegistryStore({

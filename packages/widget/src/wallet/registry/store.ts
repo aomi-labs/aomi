@@ -59,6 +59,11 @@ export class WalletRegistryStore {
     this.executors = { ...this.executors, ...executors };
   }
 
+  // Empty wallet snapshots do not change state; they still finish booting.
+  start(): void {
+    this.scheduleSettledPass(SETTLE_QUIET_MS);
+  }
+
   dispatch(event: RegistryEvent): void {
     const prev = this.state;
     const next = reduce(prev, event);

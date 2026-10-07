@@ -32,7 +32,10 @@ export function useWalletRegistry(opts: {
       }),
     [opts.storageKey],
   );
-  useEffect(() => () => store.dispose(), [store]);
+  useEffect(() => {
+    store.start();
+    return () => store.dispose();
+  }, [store]);
   const state = useSyncExternalStore(
     (callback) => store.subscribe(callback),
     () => store.getSnapshot(),
