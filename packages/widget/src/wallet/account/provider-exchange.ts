@@ -5,6 +5,7 @@ import type { AuthRuntime } from "../composer/types";
 import type { AccountConflict, AccountRuntime } from "./types";
 import {
   AomiAccountRequestError,
+  mergeOfferFrom,
   type AomiBackendAccountResponse,
   type createAomiBackendAccountClient,
 } from "./aomi-backend-client";
@@ -58,7 +59,9 @@ export function useProviderCredentialExchange(input: {
   }, [auth.status, auth.subject, reset]);
 
   useEffect(() => {
-    if (!enabled || status === "error" || auth.status !== "authenticated")
+    // Wait for the account: while it loads, a signed-in browser looks signed
+    // out and the exchange would replace its session.
+    if (!enabled || status !== "ready" || auth.status !== "authenticated")
       return;
     if (!auth.getCredential) return;
     let cancelled = false;
@@ -73,17 +76,19 @@ export function useProviderCredentialExchange(input: {
         return;
       const hasDurableAccount =
         Boolean(account?.user) && account?.guest !== true;
-      // The signed-in provider is who is logging in. A browser cookie left by
-      // another Para/Privy user must not turn this sign-in into a link
-      // attempt: that reports a false conflict and strands the user.
+      // A browser cookie left by another Para/Privy user (the account has
+      // this provider, but another login of it) must not turn this sign-in
+      // into a link attempt: that reports a false conflict and strands the
+      // user. Any other signed-in account links the provider.
+      const sameProvider = (account?.linkedAccounts ?? []).filter(
+        (linked) =>
+          linked.provider.toLowerCase() === auth.provider.toLowerCase(),
+      );
       const replacesStaleBrowserSession = Boolean(
         hasDurableAccount &&
-          auth.subject &&
-          !account?.linkedAccounts.some(
-            (linked) =>
-              linked.provider.toLowerCase() === auth.provider.toLowerCase() &&
-              linked.subject === auth.subject,
-          ),
+        auth.subject &&
+        sameProvider.length &&
+        !sameProvider.some((linked) => linked.subject === auth.subject),
       );
       // Link to the current account if there is one, otherwise create one.
       const hasAccount = hasDurableAccount && !replacesStaleBrowserSession;
@@ -113,6 +118,18 @@ export function useProviderCredentialExchange(input: {
         if (result.account) latest.current.onAccount(result.account);
         await latest.current.refresh();
       } catch (cause) {
+        const mergeOffer = mergeOfferFrom(cause);
+        if (mergeOffer) {
+          // The merge sheet answers this; don't offer it again on every refresh.
+          exchanged.current = attempt;
+          setConflict({
+            code: "already_linked_to_another_account",
+            signalType: null,
+            provider: auth.provider,
+            mergeOffer,
+          });
+          return;
+        }
         failed.current = { attempt, at: Date.now() };
         if (replacesStaleBrowserSession)
           latest.current.onAccount({

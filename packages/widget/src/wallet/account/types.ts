@@ -1,6 +1,7 @@
 "use client";
 
 import type { WalletFamily } from "../types";
+import type { MergeOffer } from "./aomi-backend-client";
 
 export type AccountRuntimeStatus = "disabled" | "loading" | "ready" | "error";
 
@@ -10,6 +11,8 @@ export type AccountConflict = {
   code: "already_linked_to_another_account";
   signalType: AccountConflictSignal | null;
   provider: string;
+  /** Set when one confirm merges that account into this one. */
+  mergeOffer?: MergeOffer;
 };
 
 export type AomiUserRef = {

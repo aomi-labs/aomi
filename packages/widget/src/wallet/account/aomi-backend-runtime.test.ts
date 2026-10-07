@@ -44,6 +44,7 @@ vi.mock("./aomi-backend-client", () => ({
       readonly status: number,
       readonly code: string | null,
       readonly signalType: "wallet" | "identity" | "email" | null = null,
+      readonly mergeOffer: unknown = null,
     ) {
       super(
         "This wallet or sign-in method belongs to another Aomi account. Sign in another way to open that account.",
@@ -52,6 +53,8 @@ vi.mock("./aomi-backend-client", () => ({
     }
   },
   createAomiBackendAccountClient: vi.fn(() => mockState.accountClient),
+  mergeOfferFrom: (error: { mergeOffer?: unknown }) =>
+    error?.mergeOffer ?? null,
 }));
 
 beforeEach(() => {
@@ -592,6 +595,137 @@ describe("useAomiBackendAccountRuntime", () => {
       ).toHaveBeenCalledWith(credential, { hasAccount: true }),
     );
     expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+  });
+
+  describe.each(["privy", "para"] as const)(
+    "adding %s while signed in with a wallet",
+    (provider) => {
+      const credential: AomiAccountCredential = {
+        provider,
+        providerToken: "provider-session",
+      };
+      const walletAccount = {
+        user: { id: "wallet-account" },
+        linkedAccounts: [
+          {
+            id: "siwe-identity",
+            provider: "siwe",
+            subject: "eip155:*:0x2858",
+          },
+        ],
+        wallets: [],
+        session: { betterAuthUserId: "wallet-better-auth-user" },
+      };
+      const renderSignedIn = () => {
+        let authenticated = false;
+        const hook = renderHook(() =>
+          useAomiBackendAccountRuntime({
+            enabled: true,
+            baseUrl: "http://localhost:3000",
+            auth: {
+              status: authenticated ? "authenticated" : "unauthenticated",
+              provider,
+              subject: authenticated ? "provider-subject" : undefined,
+              getCredential: vi.fn().mockResolvedValue(credential),
+            } as never,
+            evm: { accounts: () => [] } as never,
+          }),
+        );
+        return {
+          ...hook,
+          signIn: () => {
+            authenticated = true;
+            hook.rerender();
+          },
+        };
+      };
+
+      it("links the login to the account and keeps the session", async () => {
+        mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
+        const { result, signIn } = renderSignedIn();
+        await waitFor(() =>
+          expect(result.current.user?.id).toBe("wallet-account"),
+        );
+        signIn();
+
+        await waitFor(() =>
+          expect(
+            mockState.accountClient?.exchangeProviderCredential,
+          ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+        );
+        expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      });
+
+      it("offers a merge when the login belongs to another account", async () => {
+        mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
+        const offer = { ticket: "ticket-1", other: { name: "privy user" } };
+        mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
+          new AomiAccountRequestError(
+            409,
+            "account_merge_available",
+            null,
+            offer as never,
+          ),
+        );
+        const { result, signIn } = renderSignedIn();
+        await waitFor(() =>
+          expect(result.current.user?.id).toBe("wallet-account"),
+        );
+        signIn();
+
+        await waitFor(() =>
+          expect(result.current.conflict?.mergeOffer).toEqual(offer),
+        );
+        expect(result.current.conflict?.provider).toBe(provider);
+        expect(result.current.user?.id).toBe("wallet-account");
+        expect(result.current.error).toBeUndefined();
+        expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      });
+    },
+  );
+
+  it("waits for the account before exchanging a restored provider login", async () => {
+    let resolveAccount!: (value: unknown) => void;
+    mockState.accountClient!.getAccount.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAccount = resolve;
+      }),
+    );
+    const credential: AomiAccountCredential = {
+      provider: "privy",
+      providerToken: "provider-session",
+    };
+    renderHook(() =>
+      useAomiBackendAccountRuntime({
+        enabled: true,
+        baseUrl: "http://localhost:3000",
+        auth: {
+          status: "authenticated",
+          provider: "privy",
+          subject: "provider-subject",
+          getCredential: vi.fn().mockResolvedValue(credential),
+        } as never,
+        evm: { accounts: () => [] } as never,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(
+      mockState.accountClient?.exchangeProviderCredential,
+    ).not.toHaveBeenCalled();
+
+    await act(async () =>
+      resolveAccount({
+        user: { id: "wallet-account" },
+        linkedAccounts: [],
+        wallets: [],
+        session: null,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        mockState.accountClient?.exchangeProviderCredential,
+      ).toHaveBeenCalledWith(credential, { hasAccount: true }),
+    );
   });
 
   it("shows a failed provider handoff without claiming an Aomi account exists", async () => {
