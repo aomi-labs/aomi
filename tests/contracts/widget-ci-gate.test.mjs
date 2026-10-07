@@ -25,15 +25,10 @@ function job(name) {
 
 test("main CI calls the full widget guard without duplicate PR runs", () => {
   const guard = job("widget-contracts");
-  assert.match(guard, /needs: \[changes, packages\]/);
-  assert.match(
-    guard,
-    /if: always\(\).*needs\.changes\.result == 'success'.*consumer_compat == 'true'/,
-  );
-  assert.match(
-    guard,
-    /needs\.packages\.result == 'success' \|\| needs\.packages\.result == 'skipped'/,
-  );
+  // The guard installs and builds on its own, so it must not wait for (or be
+  // skipped by) the Packages job.
+  assert.match(guard, /needs: changes\n/);
+  assert.match(guard, /if: needs\.changes\.outputs\.consumer_compat == 'true'/);
   assert.match(
     guard,
     /uses: \.\/\.github\/workflows\/widget-package-contracts\.yml/,

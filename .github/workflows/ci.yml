@@ -144,8 +144,8 @@ jobs:
 
   widget-contracts:
     name: Widget package contracts · API, fresh installs, docs
-    needs: [changes, packages]
-    if: always() && needs.changes.result == 'success' && needs.changes.outputs.consumer_compat == 'true' && (needs.packages.result == 'success' || needs.packages.result == 'skipped')
+    needs: changes
+    if: needs.changes.outputs.consumer_compat == 'true'
     uses: ./.github/workflows/widget-package-contracts.yml
     secrets:
       AOMI_DOCS_READ_TOKEN: ${{ secrets.AOMI_DOCS_READ_TOKEN }}
