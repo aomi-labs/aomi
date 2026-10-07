@@ -73,6 +73,7 @@ export type DbAomiWallet = {
   providerWalletId: string | null;
   linkedVia: LinkedVia;
   label: string | null;
+  walletApp: string | null;
   displayMetadata: Record<string, unknown>;
   verifiedAt: Date;
   lastSeenAt: Date;
@@ -108,7 +109,10 @@ export type AccountWallet = {
   chainScope?: string;
   chainId?: number;
   linkedVia: LinkedVia | (string & {});
+  /** The user's name for this address. */
   label: string | null;
+  /** The wallet app it was linked from, e.g. "Rabby". */
+  walletApp?: string;
   verifiedAt?: number;
   lastSeenAt?: number;
 };

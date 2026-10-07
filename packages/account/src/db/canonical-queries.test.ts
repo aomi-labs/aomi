@@ -92,7 +92,7 @@ describe("canonical account queries", () => {
           "user-1",
           42,
           false,
-          JSON.stringify({ display_label: "CLI wallet" }),
+          JSON.stringify({ display_label: "CLI wallet", wallet_app: "Rabby" }),
           expect.any(Number),
         ]);
         return {
@@ -103,7 +103,10 @@ describe("canonical account queries", () => {
               address: "0x1111111111111111111111111111111111111111",
               user_id: "user-1",
               auth_provider_id: 42,
-              authorization_metadata: { display_label: "CLI wallet" },
+              authorization_metadata: {
+                display_label: "CLI wallet",
+                wallet_app: "Rabby",
+              },
               created_at: 1,
               updated_at: 1,
             },
@@ -121,12 +124,14 @@ describe("canonical account queries", () => {
       provider: "siwe",
       linkedVia: "siwe",
       label: "CLI wallet",
+      walletApp: "Rabby",
       db: db as never,
     });
 
     expect(wallet.id).toBe("7");
     expect(wallet.provider).toBe("siwe");
     expect(wallet.label).toBe("CLI wallet");
+    expect(wallet.walletApp).toBe("Rabby");
     expect(calls[0]?.sql).toContain("auth_providers");
     expect(calls[1]?.sql).toContain("public_keys");
   });

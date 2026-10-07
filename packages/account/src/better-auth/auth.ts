@@ -25,6 +25,7 @@ import { verifySiweMessage } from "./siwe";
 import { aomiSiwsPlugin } from "./siws";
 import { aomiProviderAuthPlugin } from "./provider-plugin";
 import { aomiAccountMergePlugin } from "./account-merge-plugin";
+import { aomiSiweWalletAppPlugin, withSiweWalletApp } from "./siwe-wallet-app";
 import { aomiWidgetOAuthBootstrapPlugin } from "./widget-bootstrap-plugin";
 import { observeBetterAuthFailure } from "./failure-observer";
 import {
@@ -364,6 +365,7 @@ export const auth = betterAuth({
     ),
     aomiProviderAuthPlugin(),
     aomiAccountMergePlugin(),
+    aomiSiweWalletAppPlugin(),
     aomiWidgetOAuthBootstrapPlugin(),
     nextCookies(),
   ],
@@ -374,7 +376,7 @@ export function handleWalletAuthRequest(request: Request): Promise<Response> {
     request,
     process.env,
     env.betterAuthUrl,
-    () => auth.handler(request),
+    () => withSiweWalletApp(request, (stripped) => auth.handler(stripped)),
   );
   return Promise.resolve(result);
 }

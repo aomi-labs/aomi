@@ -314,6 +314,8 @@ function widgetSessionExpiresAtMillis(value: Date | string | number): number {
 export async function syncSiweWalletsForUser(input: {
   aomiUserId: AomiUserId;
   betterAuthUserId: string;
+  walletApp?: string;
+  walletAppAddress?: string;
 }): Promise<void> {
   await ensureAccountSchema();
   const wallets = await listBetterAuthSiweWallets(input.betterAuthUserId);
@@ -327,6 +329,10 @@ export async function syncSiweWalletsForUser(input: {
       kind: "external",
       provider: "siwe",
       linkedVia: "siwe",
+      walletApp:
+        wallet.address.toLowerCase() === input.walletAppAddress?.toLowerCase()
+          ? input.walletApp
+          : undefined,
     });
   }
 }
@@ -334,8 +340,8 @@ export async function syncSiweWalletsForUser(input: {
 export async function syncSiwsWalletsForUser(input: {
   aomiUserId: AomiUserId;
   betterAuthUserId: string;
-  label?: string;
-  labelAddress?: string;
+  walletApp?: string;
+  walletAppAddress?: string;
 }): Promise<void> {
   await ensureAccountSchema();
   const wallets = await listBetterAuthSiwsWallets(input.betterAuthUserId);
@@ -349,7 +355,8 @@ export async function syncSiwsWalletsForUser(input: {
       provider: "siws",
       providerSubject: siwsIdentitySubject(wallet.address),
       linkedVia: "siws",
-      label: wallet.address === input.labelAddress ? input.label : undefined,
+      walletApp:
+        wallet.address === input.walletAppAddress ? input.walletApp : undefined,
     });
     if (resolution.status === "conflict") {
       throw new Error("wallet_already_linked_to_another_account");
@@ -405,6 +412,7 @@ export async function upsertVerifiedWallet(input: {
   providerWalletId?: string | null;
   linkedVia: LinkedVia;
   label?: string | null;
+  walletApp?: string | null;
   db?: import("pg").Pool | import("pg").PoolClient;
 }): Promise<SignalResolution> {
   await ensureAccountSchema();
@@ -462,6 +470,8 @@ export async function upsertVerifiedWallet(input: {
     resolution.status === "noop" &&
     (!identityResolution || identityResolution.status === "noop")
   ) {
+    // Already in this account; a sign-in still records the app it came from.
+    if (input.walletApp) await upsertWallet(input);
     return { status: "noop" };
   }
   await upsertWallet(input);

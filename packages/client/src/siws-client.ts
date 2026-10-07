@@ -18,7 +18,7 @@ export interface SiwsNonceResponse {
 export interface SiwsVerifyRequest extends SiwsNonceRequest {
   message: string;
   signature: string;
-  label?: string;
+  walletApp?: string;
 }
 export type SiwsVerifyResponse = {
   success: true;

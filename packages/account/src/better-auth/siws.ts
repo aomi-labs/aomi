@@ -31,7 +31,7 @@ const SIWS_CLUSTER = z.enum(SIWS_CLUSTERS);
 // Linking moved to /v1/account/wallets/link; a link request here must not
 // quietly become a sign-in.
 const SIWS_SIGN_IN_ONLY = z.literal("sign-in").optional();
-const SIWS_LABEL = z
+const SIWS_WALLET_APP = z
   .string()
   .transform((value) =>
     value
@@ -39,7 +39,7 @@ const SIWS_LABEL = z
       .trim()
       .slice(0, 80),
   )
-  .refine(Boolean, { message: "Wallet label cannot be empty" });
+  .refine(Boolean, { message: "Wallet app cannot be empty" });
 
 const nonceBody = z.object({
   walletAddress: SIWS_ADDRESS,
@@ -53,7 +53,7 @@ const verifyBody = z.object({
   walletAddress: SIWS_ADDRESS,
   chainId: SIWS_CLUSTER.optional().default(SIWS_DEFAULT_CLUSTER),
   intent: SIWS_SIGN_IN_ONLY,
-  label: SIWS_LABEL.optional(),
+  walletApp: SIWS_WALLET_APP.optional(),
 });
 
 export type ParsedSiwsMessage = {
@@ -109,7 +109,7 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
           requireRequest: true,
         },
         async (ctx) => {
-          const { message, signature, walletAddress, chainId, label } =
+          const { message, signature, walletAddress, chainId, walletApp } =
             ctx.body;
           const verification =
             await ctx.context.internalAdapter.consumeVerificationValue(
@@ -191,8 +191,8 @@ export function aomiSiwsPlugin(options: AomiSiwsOptions) {
           await syncSiwsWalletsForUser({
             aomiUserId: aomiUser.id,
             betterAuthUserId: user.id,
-            label,
-            labelAddress: walletAddress,
+            walletApp,
+            walletAppAddress: walletAddress,
           });
 
           const session = await ctx.context.internalAdapter.createSession(

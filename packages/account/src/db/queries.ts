@@ -455,6 +455,8 @@ export async function upsertWallet(input: {
   providerWalletId?: string | null;
   linkedVia: LinkedVia;
   label?: string | null;
+  /** The wallet app the address was linked from, e.g. "Rabby". */
+  walletApp?: string | null;
   db?: Db;
 }): Promise<DbAomiWallet> {
   const db = input.db ?? getPool();
@@ -462,8 +464,10 @@ export async function upsertWallet(input: {
   const address = canonicalAddress(input.family, input.address);
   const authProvider = await resolveWalletAuthProvider(input, db);
   const now = nowSeconds();
-  const walletMetadata =
-    input.label !== undefined ? { display_label: input.label } : {};
+  const walletMetadata = {
+    ...(input.label !== undefined ? { display_label: input.label } : {}),
+    ...(input.walletApp ? { wallet_app: input.walletApp } : {}),
+  };
 
   const result = await db.query(
     `insert into public_keys
@@ -477,11 +481,11 @@ export async function upsertWallet(input: {
        is_primary = excluded.is_primary,
        -- A name the user already gave this address wins over one sent at link time.
        authorization_metadata =
+         public_keys.authorization_metadata ||
          case
-           when $6::jsonb ? 'display_label'
-             and coalesce(public_keys.authorization_metadata->>'display_label', '') = ''
-             then public_keys.authorization_metadata || $6::jsonb
-           else public_keys.authorization_metadata
+           when coalesce(public_keys.authorization_metadata->>'display_label', '') = ''
+             then $6::jsonb
+           else $6::jsonb - 'display_label'
          end,
        updated_at = excluded.updated_at
      where public_keys.user_id = excluded.user_id
@@ -1152,6 +1156,7 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     label:
       optionalString(walletMetadata.display_label) ??
       optionalString(providerMetadata.display_label),
+    walletApp: optionalString(walletMetadata.wallet_app),
     displayMetadata: walletMetadata,
     verifiedAt: secondsToDate(row.created_at),
     lastSeenAt: secondsToDate(row.updated_at),
@@ -1184,6 +1189,7 @@ function toAccountWallet(wallet: DbAomiWallet): AccountWallet {
     chainScope: wallet.chainScope ?? undefined,
     linkedVia: wallet.linkedVia,
     label: wallet.label,
+    ...(wallet.walletApp ? { walletApp: wallet.walletApp } : {}),
     verifiedAt: wallet.verifiedAt.getTime(),
     lastSeenAt: wallet.lastSeenAt.getTime(),
   };

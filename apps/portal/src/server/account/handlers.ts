@@ -282,6 +282,7 @@ export async function linkWallet({
     message?: string;
     signature?: string;
     label?: string | null;
+    walletApp?: string | null;
   }>(request);
   if (!input?.family || !input.address)
     return error(400, "family_and_address_required");
@@ -303,6 +304,13 @@ export async function linkWallet({
     return error(401, "invalid_wallet_link_nonce");
 
   const env = readAccountAuthEnv();
+  const walletApp =
+    typeof input.walletApp === "string"
+      ? input.walletApp
+          .replace(/[\u0000-\u001f\u007f]/g, "")
+          .trim()
+          .slice(0, 80) || null
+      : null;
   let resolution: SignalResolution;
   if (target.family === "evm") {
     const signed = {
@@ -329,6 +337,7 @@ export async function linkWallet({
       provider: "siwe",
       linkedVia: "siwe",
       label: input.label ?? null,
+      walletApp,
     });
   } else {
     if (
@@ -353,6 +362,7 @@ export async function linkWallet({
       provider: "siws",
       linkedVia: "siws",
       label: input.label ?? null,
+      walletApp,
     });
   }
   if (resolution.status === "conflict")

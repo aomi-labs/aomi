@@ -2,7 +2,8 @@ export type AccountInternalFailure =
   | { kind: "provider_wallets"; error: unknown }
   | { kind: "widget_ticket_sweep"; error: unknown }
   | { kind: "rate_limit_table"; error: unknown }
-  | { kind: "guest_merge"; error: unknown };
+  | { kind: "guest_merge"; error: unknown }
+  | { kind: "wallet_app"; error: unknown };
 
 export type ObserveAccountInternalFailure = (
   failure: AccountInternalFailure,
