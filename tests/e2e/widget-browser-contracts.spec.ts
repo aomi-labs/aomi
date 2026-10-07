@@ -216,9 +216,9 @@ test("wallet-authenticated packaged widget persists its WST and canonical user",
   await expect(
     page.getByRole("button", { name: "Open account menu" }),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(
-    page.getByRole("dialog", { name: "Finish signing in" }),
-  ).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByRole("dialog", { name: "Check MetaMask" })).toBeHidden(
+    { timeout: 30_000 },
+  );
   await sendPrompt(page, "wallet widget production contract");
   const chat = (await upstreamRecords()).find(
     (record) => record.method === "POST" && record.path === "/v1/agent/chat",

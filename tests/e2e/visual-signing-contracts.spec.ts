@@ -49,8 +49,8 @@ test("signed-in chat, account, settings, and usage surfaces match visual contrac
   });
   await expect(accountSettings).toBeVisible();
   await settleVisuals(page);
-  // PR #702's Claude UI pass (b81442aa) intentionally removed the signer
-  // badge and native balance row. This baseline preserves that approved UI.
+  // The account-linking UI groups the active signer and linked wallets
+  // under Wallets & access.
   await expect(accountSettings).toHaveScreenshot(
     "account-settings.png",
     screenshot(),

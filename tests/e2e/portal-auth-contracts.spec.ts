@@ -115,7 +115,7 @@ test("rejected first-party wallet signature leaves no durable signed-in account"
   expect(verified).toBeUndefined();
   expect(wallet.signatureCount).toBe(0);
   await expect(
-    page.getByRole("dialog", { name: "Finish signing in" }),
+    page.getByRole("dialog", { name: "Check MetaMask" }),
   ).toBeVisible();
   const session = await page.evaluate(async () => {
     const response = await fetch("/api/auth/get-session", {
@@ -137,15 +137,12 @@ test("explicit UI wallet linking adds a second key to the same canonical user", 
   });
   const before = await portalAccount(page);
   await wallet.switchAccount(1);
-  await page.getByRole("button", { name: "Open account menu" }).click();
-  await page.getByRole("button", { name: "Manage account" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings", exact: true });
-  await expect(settings).toBeVisible();
-  await settings
-    .getByRole("button", { name: "Add a wallet", exact: true })
-    .click();
-  const picker = page.getByRole("dialog", { name: /Add a wallet/ });
-  const link = picker.getByRole("button", { name: "Link wallet", exact: true });
+  const picker = page.getByRole("dialog", { name: "New address in MetaMask" });
+  await expect(picker).toBeVisible();
+  const link = picker.getByRole("button", {
+    name: "Verify and add to account",
+    exact: true,
+  });
   await expect(link).toBeEnabled({ timeout: 30_000 });
   await link.click();
   await expect

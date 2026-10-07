@@ -134,16 +134,6 @@ export async function signInThroughUi(
     name: /Sign in to Aomi|Add a wallet/,
   });
   await expect(picker).toBeVisible();
-  await picker
-    .getByRole("button", {
-      name: input.family === "evm" ? "Connect MetaMask" : "Connect Phantom",
-    })
-    .click();
-  const finishDialog = page.getByRole("dialog", { name: "Finish signing in" });
-  const finish = finishDialog.getByRole("button", {
-    name: "Link wallet and sign in",
-  });
-  await expect(finish).toBeEnabled({ timeout: 30_000 });
   const verifyPath =
     input.pageOrigin === input.challengeOrigin
       ? `/api/auth/${input.family === "evm" ? "siwe" : "siws"}/verify`
@@ -155,13 +145,28 @@ export async function signInThroughUi(
           new URL(response.url()).pathname === verifyPath &&
           response.request().method() === "POST",
       );
-  await finish.click();
+  await picker
+    .getByRole("button", {
+      name: input.family === "evm" ? /^MetaMask\b/ : /^Phantom\b/,
+    })
+    .click();
+  const chainPicker = page.getByRole("dialog", {
+    name: "Phantom",
+    exact: true,
+  });
+  if (input.family === "svm" && (await chainPicker.isVisible())) {
+    await chainPicker.getByRole("button", { name: /^SVM\b/ }).click();
+  }
+  const signing = page.getByRole("dialog", { name: /^Check / });
   if (input.rejectSignatures) {
-    await expect(finishDialog).toBeVisible();
+    await expect(signing).toBeVisible();
+    await expect(
+      signing.getByRole("button", { name: "Sign message", exact: true }),
+    ).toBeEnabled({ timeout: 30_000 });
     return { wallet, verified: undefined };
   }
   const verifiedResponse = await verified!;
-  await expect(finishDialog).toBeHidden({ timeout: 30_000 });
+  await expect(signing).toBeHidden({ timeout: 30_000 });
   await expect(
     page.getByRole("button", { name: "Open account menu" }),
   ).toBeVisible({ timeout: 30_000 });
