@@ -21,6 +21,8 @@ import {
 import { DisplayPrefetch } from "../account/display-prefetch";
 import { WidgetStorageProvider } from "../lib/widget-storage";
 import { WidgetScope } from "../ui/widget-scope";
+import { WalletPickerProvider } from "@/wallet/picker/wallet-picker-context";
+import { WalletPicker } from "@/wallet/picker/wallet-picker";
 import { Thread } from "@/thread/thread";
 import {
   ThreadListSidebar,
@@ -216,37 +218,40 @@ const Root: FC<RootProps> = ({
         {...{ threadId, onThreadChange }}
       >
         <WidgetScope className={className}>
-          <DisplayPrefetch />
-          <ActivityPanelProvider>
-            <SidebarProvider
-              defaultOpen={defaultSidebarOpen}
-              className="min-h-0! h-full"
-            >
-              <div
-                data-testid={testIds.frame}
-                className={cn(
-                  "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
-                  className,
-                )}
-                style={frameStyle}
+          <WalletPickerProvider>
+            <DisplayPrefetch />
+            <ActivityPanelProvider>
+              <SidebarProvider
+                defaultOpen={defaultSidebarOpen}
+                className="min-h-0! h-full"
               >
-                {showSidebar && (
-                  <ThreadListSidebar
-                    walletPosition={walletPosition}
-                    walletFamilies={walletFamilies}
-                    walletConnectLabel={walletConnectLabel}
-                    walletAccountMenu={walletAccountMenu}
-                    products={products}
-                    currentProductId={currentProductId}
-                  />
-                )}
-                <SidebarInset className="@container relative flex min-h-0 flex-col">
-                  {children}
-                </SidebarInset>
-              </div>
-            </SidebarProvider>
-            <NotificationToaster />
-          </ActivityPanelProvider>
+                <div
+                  data-testid={testIds.frame}
+                  className={cn(
+                    "rounded-4xl bg-aomi-bg flex h-full w-full overflow-hidden shadow-2xl",
+                    className,
+                  )}
+                  style={frameStyle}
+                >
+                  {showSidebar && (
+                    <ThreadListSidebar
+                      walletPosition={walletPosition}
+                      walletFamilies={walletFamilies}
+                      walletConnectLabel={walletConnectLabel}
+                      walletAccountMenu={walletAccountMenu}
+                      products={products}
+                      currentProductId={currentProductId}
+                    />
+                  )}
+                  <SidebarInset className="@container relative flex min-h-0 flex-col">
+                    {children}
+                  </SidebarInset>
+                </div>
+              </SidebarProvider>
+              <NotificationToaster />
+            </ActivityPanelProvider>
+            <WalletPicker />
+          </WalletPickerProvider>
         </WidgetScope>
       </AomiRuntimeProvider>
     </WidgetStorageProvider>

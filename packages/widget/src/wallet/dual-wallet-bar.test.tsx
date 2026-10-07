@@ -7,13 +7,16 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { createContext } from "react";
 import type { AomiWalletKit } from "./types";
+import type { WalletRow } from "./composer/wallet-state";
 import { ConnectButton } from "./connect-button";
 import { DualWalletBar } from "./dual-wallet-bar";
 
 const openPicker = vi.fn();
 
 vi.mock("@/wallet/picker/wallet-picker-context", () => ({
+  WalletSignInOptionsContext: createContext([]),
   WalletPickerProvider: ({ children }: { children: React.ReactNode }) =>
     children,
   useWalletPicker: () => ({
@@ -38,8 +41,18 @@ vi.mock("@/wallet/context", async (importOriginal) => {
 const adapterState: {
   current: Pick<
     AomiWalletKit,
-    "identity" | "accounts" | "wallets" | "isReady" | "canConnect"
+    | "identity"
+    | "accounts"
+    | "wallets"
+    | "isReady"
+    | "canConnect"
+    | "accountStatus"
+    | "accountUser"
+    | "unlinkedWallet"
   > & {
+    activateWallet: ReturnType<typeof vi.fn>;
+    openAddWallet: ReturnType<typeof vi.fn>;
+    openVerify: ReturnType<typeof vi.fn>;
     selectAccount: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
     signOutAccount: ReturnType<typeof vi.fn>;
@@ -66,6 +79,9 @@ const adapterState: {
       },
     ],
     wallets: [],
+    activateWallet: vi.fn(async () => "active"),
+    openAddWallet: vi.fn(),
+    openVerify: vi.fn(),
     selectAccount: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     signOutAccount: vi.fn(async () => undefined),
@@ -94,6 +110,14 @@ afterEach(() => {
       active: true,
     },
   ];
+  adapterState.current.wallets = [];
+  adapterState.current.accountStatus = undefined;
+  adapterState.current.accountUser = undefined;
+  adapterState.current.unlinkedWallet = undefined;
+  adapterState.current.activateWallet.mockClear();
+  adapterState.current.openAddWallet.mockClear();
+  adapterState.current.openVerify.mockClear();
+  window.localStorage.clear();
   adapterState.current.selectAccount.mockClear();
   adapterState.current.disconnect.mockClear();
   adapterState.current.signOutAccount.mockReset();
@@ -114,7 +138,7 @@ describe("DualWalletBar account menu", () => {
     adapterState.current.isReady = false;
     adapterState.current.canConnect = false;
     const { rerender } = render(<DualWalletBar families={["evm"]} />);
-    const chip = screen.getByRole("button", { name: "Connect wallet" });
+    const chip = screen.getByRole("button", { name: "Loading account" });
     expect(chip).toBeDisabled();
     expect(chip).toHaveAttribute("aria-busy", "true");
     fireEvent.click(chip);
@@ -124,6 +148,7 @@ describe("DualWalletBar account menu", () => {
     adapterState.current.canConnect = true;
     rerender(<DualWalletBar families={["evm"]} />);
     expect(chip).toBeEnabled();
+    expect(chip).toHaveAccessibleName("Connect wallet");
     fireEvent.click(chip);
     expect(openPicker).toHaveBeenCalledTimes(1);
   });
@@ -148,24 +173,12 @@ describe("DualWalletBar account menu", () => {
     ).toBeInTheDocument();
   });
 
-  it("quick-switches connected wallets from the account summary", async () => {
-    adapterState.current.accounts = [
-      {
-        id: "rabby",
-        family: "evm",
-        address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-        walletName: "Rabby",
-        chainId: 1,
-        active: true,
-      },
-      {
-        id: "metamask",
-        family: "evm",
-        address: "0x99C7656EC7ab88b098defB751B7401B5f6d8900",
-        walletName: "MetaMask",
-        chainId: 1,
-        active: false,
-      },
+  it("switches a usable address in place and keeps the menu open", async () => {
+    adapterState.current.wallets = [
+      walletRow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "Rabby", {
+        operating: true,
+      }),
+      walletRow("0x99C7656EC7ab88b098defB751B7401B5f6d8900", "MetaMask"),
     ];
 
     render(
@@ -177,30 +190,62 @@ describe("DualWalletBar account menu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Quick switch wallet" }),
+      screen.getByRole("button", { name: "EVM signs with Rabby" }),
+    );
+    expect(
+      screen.getByRole("menuitemradio", { name: "Use Rabby 0x71C7…976F" }),
+    ).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: "Use MetaMask 0x99C7…8900" }),
     );
 
-    expect(
-      screen.getByRole("group", { name: "Quick wallet switcher" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Rabby is active" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Use MetaMask" }));
-
     await waitFor(() =>
-      expect(adapterState.current.selectAccount).toHaveBeenCalledWith(
-        "metamask",
+      expect(adapterState.current.activateWallet).toHaveBeenCalledWith(
+        "evm:0x99c7656ec7ab88b098defb751b7401b5f6d8900",
       ),
     );
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("group", { name: "Quick wallet switcher" }),
-      ).not.toBeInTheDocument(),
-    );
+    expect(
+      screen.getByRole("menu", { name: "Account menu" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "EVM wallets" }),
+    ).toBeInTheDocument();
   });
 
-  it("opens the redesigned picker from the account summary", () => {
+  it("offers Verify for a connected address that is not in the account", () => {
+    adapterState.current.unlinkedWallet = walletRow(
+      "0x77c1000000000000000000000000000000000a20e",
+      "Rabby",
+      { state: "unlinked", linked: false, linkedWalletId: undefined },
+    );
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{ enabled: true, primaryLine: "Aron" }}
+      />,
+    );
+    expect(screen.getByText("Verify")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    expect(screen.getByText("New address in Rabby")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    expect(adapterState.current.openVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the account menu on Escape", () => {
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{ enabled: true, primaryLine: "Aron" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("menu", { name: "Account menu" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the add sheet from the account summary", () => {
     render(
       <DualWalletBar
         families={["evm"]}
@@ -209,12 +254,9 @@ describe("DualWalletBar account menu", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Quick switch wallet" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Add more" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
 
-    expect(openPicker).toHaveBeenCalledTimes(1);
+    expect(adapterState.current.openAddWallet).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole("menu", { name: "Account menu" }),
     ).not.toBeInTheDocument();
@@ -395,11 +437,11 @@ describe("DualWalletBar account menu", () => {
     expect(adapterState.current.signOutAccount).not.toHaveBeenCalled();
   });
 
-  it("still disconnects the wallet when account sign-out fails", async () => {
-    adapterState.current.signOutAccount.mockRejectedValueOnce(
-      new Error("sign-out failed"),
+  it("closes the dialog before signing out", async () => {
+    let finish: () => void = () => undefined;
+    adapterState.current.signOutAccount.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finish = resolve)),
     );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     render(
       <DualWalletBar
         families={["evm"]}
@@ -412,13 +454,39 @@ describe("DualWalletBar account menu", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sign out/ }));
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
-    await waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(adapterState.current.disconnect).toHaveBeenCalledWith({
-      family: "all",
-    });
-    // The failure is contained and the dialog stays open for an explicit retry.
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    warn.mockRestore();
+    expect(adapterState.current.signOutAccount).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("menu", { name: "Account menu" }),
+    ).not.toBeInTheDocument();
+    finish();
+  });
+
+  it("still disconnects the wallet when account sign-out fails", async () => {
+    adapterState.current.signOutAccount.mockRejectedValueOnce(
+      new Error("sign-out failed"),
+    );
+    render(
+      <DualWalletBar
+        families={["evm"]}
+        accountMenu={{ enabled: true, secondaryLine: "420 credits left" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open account menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Session & wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: /Sign out/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    await waitFor(() =>
+      expect(adapterState.current.disconnect).toHaveBeenCalledWith({
+        family: "all",
+      }),
+    );
+    // Errors from the session being ended are dropped, not shown.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
@@ -478,13 +546,88 @@ it("does not offer Switch network in the account menu", () => {
   expect(screen.queryByText("Switch network")).not.toBeInTheDocument();
 });
 
-it("shows the wallet chip, not the legacy connect button, while booting", () => {
+it("shows a skeleton chip, never Sign in, while the session is unknown", () => {
   adapterState.current.identity = {
     status: "booting",
     isConnected: false,
   } as AomiWalletKit["identity"];
   adapterState.current.accounts = [];
+  adapterState.current.accountStatus = "loading";
   render(<ConnectButton families={["evm", "solana"]} connectLabel="Sign in" />);
-  expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Loading account" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
   expect(screen.queryByText("Connect Wallet")).not.toBeInTheDocument();
 });
+
+it("shows the saved account at once and saves the confirmed one", () => {
+  window.localStorage.setItem(
+    "aomi:account-chip:default",
+    JSON.stringify({ accountId: "user-1", name: "Ada", wallets: [] }),
+  );
+  adapterState.current.accountStatus = "loading";
+  const { rerender } = render(
+    <DualWalletBar families={["evm"]} disconnectedLabel="Sign in" />,
+  );
+  expect(screen.getByText("Ada")).toBeInTheDocument();
+  expect(screen.queryByText("Sign in")).not.toBeInTheDocument();
+
+  adapterState.current.accountStatus = "ready";
+  adapterState.current.accountUser = { id: "user-2" };
+  adapterState.current.wallets = [
+    walletRow("0x71C7656EC7ab88b098defB751B7401B5f6d8976F", "Rabby", {
+      operating: true,
+    }),
+  ];
+  rerender(
+    <DualWalletBar
+      families={["evm"]}
+      accountMenu={{ enabled: true, primaryLine: "Grace" }}
+    />,
+  );
+  expect(
+    JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
+  ).toEqual({
+    accountId: "user-2",
+    name: "Grace",
+    wallets: [
+      {
+        family: "evm",
+        address: "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+        brand: "Rabby",
+      },
+    ],
+  });
+});
+
+function walletRow(
+  address: string,
+  walletName: string,
+  overrides: Partial<WalletRow> = {},
+): WalletRow {
+  return {
+    key: `evm:${address.toLowerCase()}`,
+    family: "evm",
+    address,
+    kind: "external",
+    walletName,
+    brand: walletName,
+    state: "ready",
+    connected: true,
+    linked: true,
+    operating: false,
+    active: Boolean(overrides.operating),
+    linkedWalletId: `linked:${address}`,
+    connectionId: `connection:${address}`,
+    actions: overrides.operating
+      ? []
+      : [
+          {
+            kind: "select",
+            walletKey: `evm:${address.toLowerCase()}`,
+          },
+        ],
+    ...overrides,
+  } as WalletRow;
+}

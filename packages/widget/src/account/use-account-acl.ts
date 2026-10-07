@@ -19,7 +19,6 @@ import {
 } from "@aomi-labs/react";
 import { useAomiWalletKit } from "../wallet/context";
 import { usePrivyDelegation } from "../wallet/providers/privy/privy-delegation-context";
-import { bindWalletVia } from "../wallet/wallet-bind";
 import { useShellTransport, type ShellRequest } from "./transport";
 import { accountProfileQuery } from "./account-overview";
 import {
@@ -82,15 +81,6 @@ export function accountAclQuery(
   };
 }
 
-export type UnboundWallet = {
-  id: string;
-  chain: "evm" | "svm";
-  address: string;
-  walletName?: string;
-  provider?: string;
-  active: boolean;
-};
-
 export type AccountAcl = {
   status: AclStatus;
   error?: string;
@@ -109,8 +99,6 @@ export type AccountAcl = {
     challenge: AomiAuthorizationChallenge,
   ) => Promise<void>;
   selectWallet: (wallet: WalletPolicy) => void;
-  /** Link a connected wallet to the account (bind ceremony). */
-  bindWallet: (wallet: UnboundWallet) => Promise<"bound" | "already_bound">;
   revokeDelegation: (delegation: DelegatedAccountView) => Promise<void>;
   stopAllAuto: () => Promise<void>;
   canConnectPrivy: boolean;
@@ -376,24 +364,6 @@ export function useAccountAcl(): AccountAcl {
     ],
   );
 
-  const bindWallet = useCallback(
-    async (wallet: UnboundWallet) => {
-      const result = await readable(() =>
-        bindWalletVia(post, {
-          chain: wallet.chain,
-          address: wallet.address,
-          signTypedData,
-          signSolanaMessage,
-          svmCluster,
-          signerAddress: signerFor(wallet).address,
-        }),
-      );
-      await refresh();
-      return result;
-    },
-    [signerFor, refresh, signSolanaMessage, signTypedData, svmCluster],
-  );
-
   const revokeDelegation = useCallback(
     async (delegation: DelegatedAccountView) => {
       const providerKey =
@@ -505,7 +475,6 @@ export function useAccountAcl(): AccountAcl {
       prepareMode,
       commitMode,
       selectWallet,
-      bindWallet,
       revokeDelegation,
       stopAllAuto,
       canConnectPrivy,
@@ -515,7 +484,6 @@ export function useAccountAcl(): AccountAcl {
       blockedReason,
     }),
     [
-      bindWallet,
       blockedReason,
       canConnectPrivy,
       prepareMode,

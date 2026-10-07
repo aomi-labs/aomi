@@ -1,300 +1,58 @@
-import {
-  Ellipsis,
-  Copy,
-  Check,
-  Loader2,
-  Unlink,
-  Unplug,
-  UserRoundMinus,
-} from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Check, Copy, Ellipsis, Loader2, Wallet } from "lucide-react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
-import { LoadingLine } from "@/ui/aomi/loading-pane";
-import { StatusPill } from "@/ui/aomi/status-pill";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
-import type { LinkedAuthAccount } from "@/wallet/account/types";
-import { WalletProviderAvatar } from "@/wallet/wallet-brands";
-import type { ManagedWallet } from "@/wallet/wallet-management-model";
-import {
-  addressLineStatus,
-  familyName,
-  providerName,
-  type LoginProvider,
-} from "./wallet-groups";
-import { shortAddress } from "@aomi-labs/client";
-
-type WalletHandler = (wallet: ManagedWallet) => Promise<void>;
-
-export type WalletLineHandlers = {
-  pending: string | null;
-  onLink?: WalletHandler;
-  onConnect?: WalletHandler;
-  onSelect?: WalletHandler;
-  onDisconnect?: WalletHandler;
-  onUnlink?: WalletHandler;
-};
-
-const hasAction = (
-  wallet: ManagedWallet,
-  kind: ManagedWallet["actions"][number]["kind"],
-) => wallet.actions.some((action) => action.kind === kind);
-
-const canUnlink = (wallet: ManagedWallet, onUnlink?: WalletHandler) =>
-  Boolean(onUnlink && wallet.linkedWalletId && hasAction(wallet, "unlink"));
+import { WalletMark, resolveWalletBrandKey } from "@/wallet/wallet-brands";
 
 /**
- * A Para or Privy login: a static header (logo, identifier, whether it is
- * signed in here, and the login's ⋯) over one address line per wallet.
+ * A wallet app's mark. The dot says whether the address is usable here
+ * (green) or needs a step first (grey).
  */
-export function ProviderWalletCard({
-  provider,
-  identity,
-  wallets,
-  onUnlinkSignIn,
-  ...handlers
-}: WalletLineHandlers & {
-  provider: LoginProvider;
-  identity?: LinkedAuthAccount;
-  wallets: ManagedWallet[];
-  onUnlinkSignIn?: (account: LinkedAuthAccount) => Promise<void>;
+export function BrandMark({
+  brand,
+  dot,
+  size = 17,
+  box = 32,
+}: {
+  brand: string;
+  dot?: "on" | "off";
+  size?: number;
+  box?: number;
 }) {
-  const { pending, onDisconnect, onUnlink } = handlers;
-  const name = providerName(provider);
-  const signedIn = wallets.some(
-    (wallet) =>
-      wallet.connected &&
-      (wallet.state === "ready" ||
-        (wallet.state === "offline" && wallet.reason === "selection_required")),
-  );
-  const detail = [
-    identity?.displayLabel ?? identity?.email,
-    wallets.length
-      ? signedIn
-        ? "signed in on this device"
-        : "not signed in on this device"
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  const disconnectable = onDisconnect
-    ? wallets.filter((wallet) => hasAction(wallet, "disconnect"))
-    : [];
-  const actions: WalletMenuAction[] = [];
-  if (disconnectable.length) {
-    actions.push({
-      label: "Disconnect on this device",
-      icon: <Unplug size={15} />,
-      onSelect: async () => {
-        for (const wallet of disconnectable) await onDisconnect!(wallet);
-      },
-    });
-  }
-  for (const wallet of wallets) {
-    if (!canUnlink(wallet, onUnlink)) continue;
-    actions.push({
-      label: `Unlink ${familyName(wallet)} address`,
-      icon: <Unlink size={15} />,
-      onSelect: () => onUnlink!(wallet),
-    });
-  }
-  if (identity && onUnlinkSignIn) {
-    actions.push({
-      label: `Unlink ${name} sign-in`,
-      icon: <UserRoundMinus size={15} />,
-      onSelect: () => onUnlinkSignIn(identity),
-    });
-  }
-  const busy =
-    (identity !== undefined && pending === `unlink-identity:${identity.id}`) ||
-    wallets.some(
-      (wallet) =>
-        pending === `disconnect:${wallet.key}` ||
-        pending === `unlink:${wallet.key}`,
-    );
-
+  const key = resolveWalletBrandKey(brand);
   return (
-    <div data-wallet-provider={provider}>
-      <div className="flex min-h-14 items-center gap-3 px-3.5 py-3">
-        <WalletProviderAvatar markKey={provider} size={17} />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="type-row truncate">{name}</span>
-          {detail ? (
-            <span className="type-meta text-aomi-muted truncate">{detail}</span>
-          ) : null}
-        </div>
-        {actions.length ? (
-          <WalletActionsMenu
-            label={`Actions for ${name}`}
-            actions={actions}
-            disabled={pending !== null}
-            busy={busy}
-          />
-        ) : null}
-      </div>
-      {wallets.map((wallet) => (
-        <AddressLine key={wallet.key} wallet={wallet} nested {...handlers} />
-      ))}
-    </div>
-  );
-}
-
-/** An external wallet: one address line in the shared wallet group. */
-export function ExternalWalletCard({
-  wallet,
-  ...handlers
-}: WalletLineHandlers & { wallet: ManagedWallet }) {
-  return <AddressLine wallet={wallet} {...handlers} />;
-}
-
-/**
- * The click target for a wallet. A selectable line makes that address the
- * active one for its family; the active line carries the green bar and glow.
- * Lines that cannot be selected show only their status and inline fix.
- */
-function AddressLine({
-  wallet,
-  nested = false,
-  pending,
-  onLink,
-  onConnect,
-  onSelect,
-  onDisconnect,
-  onUnlink,
-}: WalletLineHandlers & { wallet: ManagedWallet; nested?: boolean }) {
-  const family = familyName(wallet);
-  const short = shortAddress(wallet.address);
-  const title =
-    wallet.walletName ??
-    wallet.label ??
-    (wallet.provider ? titleCase(wallet.provider) : undefined) ??
-    `${family} wallet`;
-  const status = addressLineStatus(wallet);
-  const inlineHandler =
-    status?.action?.kind === "link"
-      ? onLink
-      : status?.action
-        ? onConnect
-        : undefined;
-  const selectable = Boolean(hasAction(wallet, "select") && onSelect);
-  const busy = pending?.endsWith(wallet.key) ?? false;
-
-  const menuActions: WalletMenuAction[] = [];
-  if (!nested && hasAction(wallet, "disconnect") && onDisconnect) {
-    menuActions.push({
-      label: "Disconnect",
-      icon: <Unplug size={15} />,
-      onSelect: () => onDisconnect(wallet),
-    });
-  }
-  if (!nested && canUnlink(wallet, onUnlink)) {
-    menuActions.push({
-      label: "Unlink wallet",
-      icon: <Unlink size={15} />,
-      onSelect: () => onUnlink!(wallet),
-    });
-  }
-
-  const address = `${short} · ${family}`;
-  const content = nested ? (
-    <span className="type-address text-aomi-fg min-w-0 truncate">
-      {address}
-    </span>
-  ) : (
-    <>
-      <WalletProviderAvatar
-        markKey={`${wallet.walletName ?? ""} ${wallet.label ?? ""} ${wallet.provider ?? ""}`}
-        size={17}
-      />
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="type-row truncate">{title}</span>
-        <span className="type-address text-aomi-muted truncate">{address}</span>
-      </span>
-    </>
-  );
-  const padding = nested ? "min-h-11 py-2.5 pl-[58px]" : "min-h-14 py-3 pl-3.5";
-
-  return (
-    <div
-      data-wallet-state={wallet.operating ? "active" : wallet.state}
-      className={cn(
-        "group relative flex flex-col items-stretch transition-colors sm:flex-row sm:flex-wrap sm:items-center",
-        nested && "border-aomi-border border-t",
-        wallet.operating
-          ? "bg-aomi-success/[0.045]"
-          : selectable &&
-              "hover:bg-aomi-hover has-[:focus-visible]:ring-aomi-accent-strong/40 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset",
-      )}
+    <span
+      className="relative flex shrink-0 items-center justify-center"
+      style={{ width: box, height: box }}
+      data-wallet-brand={key ?? undefined}
     >
-      {wallet.operating ? (
+      {key ? (
+        <WalletMark name={key} size={size} />
+      ) : (
+        <Wallet size={Math.min(size, 16)} className="text-aomi-muted" />
+      )}
+      {dot ? (
         <span
-          className="bg-aomi-success absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full shadow-[0_0_12px_color-mix(in_srgb,var(--aomi-success)_45%,transparent)]"
-          aria-hidden="true"
+          aria-hidden
+          data-dot={dot}
+          className={cn(
+            "ring-aomi-raised absolute rounded-full ring-2",
+            dot === "on" ? "bg-aomi-success" : "bg-aomi-muted/60",
+          )}
+          style={{
+            width: Math.max(6, Math.round(box / 5)),
+            height: Math.max(6, Math.round(box / 5)),
+            right: Math.round((box - size) / 2) - 2,
+            bottom: Math.round((box - size) / 2) - 2,
+          }}
         />
       ) : null}
-      {selectable ? (
-        <button
-          type="button"
-          aria-label={`Make ${short} active`}
-          disabled={pending !== null}
-          onClick={() => void onSelect?.(wallet)}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-3 self-stretch pr-3 text-left outline-none disabled:cursor-default",
-            padding,
-          )}
-        >
-          {content}
-          <span className="type-meta text-aomi-muted ml-auto hidden shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100 sm:inline">
-            Use for {family}
-          </span>
-        </button>
-      ) : (
-        <div
-          className={cn("flex min-w-0 flex-1 items-center gap-3 pr-3", padding)}
-        >
-          {content}
-        </div>
-      )}
-      <div
-        className={cn(
-          "flex shrink-0 flex-wrap items-center gap-2 pb-3 pl-[58px] pr-3.5 sm:py-2 sm:pl-0",
-          nested && "pb-2.5",
-        )}
-      >
-        {status?.loading ? (
-          <span role="status" aria-label={status.label}>
-            <LoadingLine className="h-5 w-16 rounded-full" />
-          </span>
-        ) : status ? (
-          <StatusPill tone={status.tone}>{status.label}</StatusPill>
-        ) : null}
-        {status?.action && inlineHandler ? (
-          <button
-            type="button"
-            disabled={pending !== null}
-            onClick={() => void inlineHandler(wallet)}
-            className={aomiButton({ variant: "secondary", size: "sm" })}
-          >
-            {busy ? <Loader2 className="animate-spin" /> : null}
-            {status.action.label}
-          </button>
-        ) : null}
-        <CopyAddressButton address={wallet.address} />
-        {menuActions.length ? (
-          <WalletActionsMenu
-            label={`Actions for ${title} ${short}`}
-            actions={menuActions}
-            disabled={pending !== null}
-            busy={busy && !(status?.action && inlineHandler)}
-          />
-        ) : null}
-      </div>
-    </div>
+    </span>
   );
 }
 
-function CopyAddressButton({ address }: { address: string }) {
+export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -304,20 +62,21 @@ function CopyAddressButton({ address }: { address: string }) {
   return (
     <button
       type="button"
-      aria-label={copied ? "Address copied" : `Copy address ${address}`}
-      title={address}
-      className={aomiButton({ variant: "ghost", size: "icon" })}
-      onClick={() =>
-        void navigator.clipboard
-          .writeText(address)
-          .then(() => setCopied(true))
-          .catch(() => undefined)
-      }
+      aria-label={copied ? "Copied" : label}
+      title={value}
+      className={aomiButton({ variant: "ghost", size: "icon-sm" })}
+      onClick={(event) => {
+        event.stopPropagation();
+        void copyText(value).then(() => setCopied(true));
+      }}
     >
       {copied ? <Check size={14} /> : <Copy size={14} />}
     </button>
   );
 }
+
+export const copyText = (value: string) =>
+  navigator.clipboard.writeText(value).catch(() => undefined);
 
 export function TextButton({
   children,
@@ -374,24 +133,34 @@ export function IconButton({
   );
 }
 
-type WalletMenuAction = {
-  label: string;
-  icon: ReactNode;
-  onSelect: () => unknown;
-};
+export type MenuItem =
+  | {
+      label: string;
+      detail?: string;
+      danger?: boolean;
+      href?: string;
+      onSelect?: () => unknown;
+    }
+  | "divider";
 
-function WalletActionsMenu({
+/** The ··· menu on a wallet or login row. */
+export function ActionsMenu({
   label,
-  actions,
-  disabled,
+  items,
+  disabled = false,
   busy = false,
 }: {
   label: string;
-  actions: WalletMenuAction[];
-  disabled: boolean;
+  items: MenuItem[];
+  disabled?: boolean;
   busy?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const itemClass = (danger?: boolean) =>
+    cn(
+      "hover:bg-aomi-hover focus:bg-aomi-hover flex w-full flex-col items-start gap-0.5 rounded-[8px] px-3 py-2 text-left outline-none",
+      danger ? "text-aomi-danger" : "text-aomi-fg",
+    );
   return (
     <Popover open={open && !disabled} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -400,7 +169,8 @@ function WalletActionsMenu({
           aria-label={label}
           aria-haspopup="menu"
           disabled={disabled}
-          className={aomiButton({ variant: "ghost", size: "icon" })}
+          onClick={(event) => event.stopPropagation()}
+          className={aomiButton({ variant: "ghost", size: "icon-sm" })}
         >
           {busy ? (
             <Loader2 className="animate-spin" />
@@ -414,47 +184,75 @@ function WalletActionsMenu({
         aria-label={label}
         align="end"
         sideOffset={5}
-        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-40 max-w-[calc(100vw-2rem)] border p-1"
+        className="border-aomi-border bg-aomi-raised text-aomi-fg rounded-card shadow-popover z-[90] w-max min-w-52 max-w-[calc(100vw-2rem)] border p-1"
         onKeyDown={(event) => {
           if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
             return;
           event.preventDefault();
-          const items = Array.from(
-            event.currentTarget.querySelectorAll<HTMLButtonElement>(
+          const nodes = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
               '[role="menuitem"]',
             ),
           );
-          const current = items.indexOf(
-            document.activeElement as HTMLButtonElement,
-          );
+          const current = nodes.indexOf(document.activeElement as HTMLElement);
           const next =
             event.key === "Home"
               ? 0
               : event.key === "End"
-                ? items.length - 1
+                ? nodes.length - 1
                 : (current +
                     (event.key === "ArrowDown" ? 1 : -1) +
-                    items.length) %
-                  items.length;
-          items[next]?.focus();
+                    nodes.length) %
+                  nodes.length;
+          nodes[next]?.focus();
         }}
       >
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            role="menuitem"
-            disabled={disabled}
-            className="hover:bg-aomi-hover focus:bg-aomi-hover type-control flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left outline-none"
-            onClick={() => {
-              setOpen(false);
-              void action.onSelect();
-            }}
-          >
-            <span className="text-aomi-muted">{action.icon}</span>
-            {action.label}
-          </button>
-        ))}
+        {items.map((item, index) => {
+          if (item === "divider")
+            return (
+              <div
+                key={`divider:${index}`}
+                role="separator"
+                className="bg-aomi-border mx-1 my-1 h-px"
+              />
+            );
+          const body = (
+            <>
+              <span className="type-control">{item.label}</span>
+              {item.detail ? (
+                <span className="type-meta text-aomi-muted">{item.detail}</span>
+              ) : null}
+            </>
+          );
+          return (
+            <Fragment key={item.label}>
+              {item.href ? (
+                <a
+                  role="menuitem"
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={itemClass(item.danger)}
+                  onClick={() => setOpen(false)}
+                >
+                  {body}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={itemClass(item.danger)}
+                  onClick={() => {
+                    setOpen(false);
+                    void item.onSelect?.();
+                  }}
+                >
+                  {body}
+                </button>
+              )}
+            </Fragment>
+          );
+        })}
       </PopoverContent>
     </Popover>
   );

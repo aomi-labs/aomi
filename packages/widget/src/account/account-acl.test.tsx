@@ -25,6 +25,7 @@ const PRIVY_SVM = "8xKnQm4kZ7wRt2YbNc5vHj3PqLsDgFxA6eU9QpS1TzWv";
 const walletKit = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   connectSocial: vi.fn(async () => undefined),
+  activateWallet: vi.fn(async () => "connecting" as const),
   signOutAccount: vi.fn(async () => undefined),
   deleteAccount: vi.fn(async () => undefined),
   disconnect: vi.fn(async () => undefined),
@@ -265,6 +266,7 @@ describe("account ACL wiring", () => {
   beforeEach(() => {
     walletKit.connect.mockClear();
     walletKit.connectSocial.mockClear();
+    walletKit.activateWallet.mockClear();
     walletKit.signOutAccount.mockClear();
     walletKit.deleteAccount.mockClear();
     walletKit.disconnect.mockClear();
@@ -292,27 +294,36 @@ describe("account ACL wiring", () => {
     seedAccountOverview(null);
   });
 
-  it("closes account settings after signing out", async () => {
+  it("closes account settings before signing out and drops its errors", async () => {
     installFetchRecorder();
-    const onClose = vi.fn();
-    await act(async () => render(<AccountSettings onClose={onClose} />, {
-          wrapper: AccountOverviewFixture,
-        }));
+    const order: string[] = [];
+    const onClose = vi.fn(() => order.push("close"));
+    walletKit.signOutAccount.mockImplementationOnce(async () => {
+      order.push("sign-out");
+      throw new Error("Unauthorized");
+    });
+    await act(async () =>
+      render(<AccountSettings onClose={onClose} />, {
+        wrapper: AccountOverviewFixture,
+      }),
+    );
 
     await click(await screen.findByRole("button", { name: "Sign out" }));
 
-    expect(walletKit.signOutAccount).toHaveBeenCalledOnce();
+    expect(order).toEqual(["close", "sign-out"]);
     expect(walletKit.disconnect).toHaveBeenCalledWith({ family: "all" });
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("closes after deleting the account but stays open if deletion fails", async () => {
     installFetchRecorder();
     const onClose = vi.fn();
     walletKit.deleteAccount.mockRejectedValueOnce(new Error("Delete failed"));
-    await act(async () => render(<AccountSettings onClose={onClose} />, {
-          wrapper: AccountOverviewFixture,
-        }));
+    await act(async () =>
+      render(<AccountSettings onClose={onClose} />, {
+        wrapper: AccountOverviewFixture,
+      }),
+    );
 
     await click(await screen.findByRole("button", { name: "Delete" }));
     await click(screen.getByRole("button", { name: "Cancel" }));
@@ -467,16 +478,10 @@ describe("account ACL wiring", () => {
     },
   );
 
-  it.each([
-    ["evm", "para", "privy"],
-    ["svm", "para", "privy"],
-    ["evm", "privy", "para"],
-    ["svm", "privy", "para"],
-  ] as const)(
-    "reconnects a linked %s %s wallet through its provider even when %s is selected",
-    async (chain, provider, selectedProvider) => {
+  it.each(["evm", "svm"] as const)(
+    "activates a linked %s wallet through the kit",
+    async (chain) => {
       walletKit.identity.address = "";
-      walletKit.identity.embeddedProvider = selectedProvider;
       const address = chain === "evm" ? CONNECTED_EVM.toLowerCase() : PRIVY_SVM;
       const key = `${chain}:${address}`;
       walletKit.wallets = [
@@ -485,35 +490,38 @@ describe("account ACL wiring", () => {
           family: chain,
           address,
           kind: "embedded",
-          provider,
+          provider: "privy",
           linkedWalletId: `linked-${chain}`,
           state: "offline",
           reason: "disconnected",
           connected: false,
           linked: true,
           operating: false,
-          actions: [{ kind: "connect", walletKey: key, provider }],
+          pendingStep: "connect",
+          actions: [{ kind: "connect", walletKey: key, provider: "privy" }],
         },
       ];
-      const chooseProvider = vi.fn(async () => undefined);
       installFetchRecorder({
         "/api/account": () =>
           Response.json({
             ...ACCOUNT,
             user_accounts: ACCOUNT.user_accounts
               .filter((row) => row.address.chain === chain)
-              .map((row) => ({ ...row, auth_provider: provider })),
+              .map((row) => ({ ...row, auth_provider: "privy" })),
             signing_policies: ACCOUNT.signing_policies.filter(
               (row) => row.address.chain === chain,
             ),
             delegated_accounts: [],
           }),
       });
-      await renderAcl(chooseProvider, provider);
-      await click(screen.getByRole("button", { name: "Connect" }));
-      expect(chooseProvider).toHaveBeenCalledOnce();
-      expect(walletKit.connect).not.toHaveBeenCalled();
-      expect(walletKit.connectSocial).not.toHaveBeenCalled();
+      await renderAcl(
+        vi.fn(async () => undefined),
+        "privy",
+      );
+      await click(
+        screen.getByRole("button", { name: /^Use (EVM|SVM) wallet / }),
+      );
+      expect(walletKit.activateWallet).toHaveBeenCalledWith(key);
     },
   );
 
@@ -811,63 +819,6 @@ describe("account ACL wiring", () => {
     await waitFor(() =>
       expect(paths(calls)).toContain("/api/account/providers/privy/delegation"),
     );
-  });
-
-  it("shows unbound connected wallets and runs the bind ceremony", async () => {
-    const UNBOUND = "0xUnboundWallet00000000000000000000000001";
-    walletKit.accounts = [
-      {
-        id: "rabby",
-        family: "evm",
-        address: UNBOUND,
-        walletName: "Rabby",
-        active: false,
-      },
-    ];
-    walletKit.wallets = [
-      {
-        key: `evm:${UNBOUND.toLowerCase()}`,
-        family: "evm",
-        address: UNBOUND,
-        kind: "external",
-        walletName: "Rabby",
-        connectionId: "rabby",
-        state: "unlinked",
-        connected: true,
-        linked: false,
-        operating: false,
-        actions: [
-          { kind: "link", connectionId: "rabby" },
-          { kind: "disconnect", connectionId: "rabby" },
-        ],
-      },
-    ];
-    const { calls } = installFetchRecorder({
-      "/api/account/authorization/challenge": () =>
-        Response.json({
-          permit: {
-            account: "acct-1",
-            chain_type: "evm",
-            wallet: UNBOUND,
-            mode: "bind",
-            version: 0,
-            expiry: 1_800_000_000,
-          },
-          typed_data: { primaryType: "AuthorizationPermit" },
-        }),
-    });
-
-    await renderAcl(undefined, "para", true);
-    await click(await screen.findByRole("button", { name: "Link wallet" }));
-
-    await waitFor(() =>
-      expect(paths(calls)).toContain("/api/account/authorization/commit"),
-    );
-    expect(bodyOf(calls, "/api/account/authorization/challenge")).toEqual({
-      chain_type: "evm",
-      wallet: UNBOUND,
-      mode: "bind",
-    });
   });
 
   it("does not expose obsolete account-wide Para agent provisioning", async () => {

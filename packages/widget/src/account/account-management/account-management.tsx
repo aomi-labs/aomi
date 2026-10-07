@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type {
-  AomiUserRef,
-  LinkedAuthAccount,
-} from "@/wallet/account/types";
+import type { AomiUserRef, LinkedAuthAccount } from "@/wallet/account/types";
 import {
   Check,
   LogOut,
@@ -15,76 +12,60 @@ import {
   X,
 } from "lucide-react";
 import { aomiButton } from "@/ui/aomi/button";
-import { ListGroup, ListRow } from "@/ui/aomi/list-group";
+import { ListGroup, ListRow, listGroupClass } from "@/ui/aomi/list-group";
 import { SectionHeader } from "@/ui/aomi/section-header";
-import {
-  accountDisplayName,
-  walletConnectionSummary,
-  type ManagedWallet,
-} from "@/wallet/wallet-management-model";
+import { accountDisplayName } from "@/wallet/wallet-management-model";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 
+import { IconButton, TextButton } from "./controls";
+import { SignsWithStrip } from "./signs-with";
+import { AddressRow, LoginRows, type WalletRowHandlers } from "./wallet-rows";
 import {
-  ExternalWalletCard,
-  IconButton,
-  ProviderWalletCard,
-  TextButton,
-} from "./controls";
-import { groupWallets } from "./wallet-groups";
+  addressSummary,
+  walletSections,
+  type LoginGroup,
+} from "./wallet-model";
 
-type AccountManagementProps = {
+type AccountManagementProps = Omit<WalletRowHandlers, "pending"> & {
   user?: AomiUserRef;
   /** Session-derived presentation hint; never persisted as account email. */
   displayEmailHint?: string;
-  wallets: ManagedWallet[];
-  signInMethods: LinkedAuthAccount[];
-  canAddWallet: boolean;
+  rows: readonly WalletRow[];
+  /** A connected address that is not in the account yet. */
+  unlinked?: WalletRow;
+  signInMethods: readonly LinkedAuthAccount[];
   pending: string | null;
   error?: string | null;
   onRenameAccount?: (displayName: string) => Promise<void>;
-  onAddWallet: () => void;
-  onLinkWallet?: (wallet: ManagedWallet) => Promise<void>;
-  onConnectWallet?: (wallet: ManagedWallet) => Promise<void>;
-  onSelectWallet?: (wallet: ManagedWallet) => Promise<void>;
-  onDisconnectWallet?: (wallet: ManagedWallet) => Promise<void>;
-  onUnlinkWallet?: (wallet: ManagedWallet) => Promise<void>;
-  onUnlinkSignIn?: (account: LinkedAuthAccount) => Promise<void>;
-  onSignOut?: () => Promise<void>;
+  onAddWallet?: () => void;
+  onSignOutProvider?: (group: LoginGroup) => void;
+  onRemoveLogin?: (identity: LinkedAuthAccount, group: LoginGroup) => void;
+  onSignOut?: () => void;
   onDeleteAccount?: () => Promise<void>;
 };
 
 export function AccountManagement({
   user,
   displayEmailHint,
-  wallets,
+  rows,
+  unlinked,
   signInMethods,
-  canAddWallet,
   pending,
   error,
   onRenameAccount,
   onAddWallet,
-  onLinkWallet,
-  onConnectWallet,
-  onSelectWallet,
-  onDisconnectWallet,
-  onUnlinkWallet,
-  onUnlinkSignIn,
+  onSignOutProvider,
+  onRemoveLogin,
   onSignOut,
   onDeleteAccount,
+  ...rowHandlers
 }: AccountManagementProps) {
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
-  const groups = groupWallets(wallets, signInMethods);
-  const lineHandlers = {
-    pending,
-    onLink: onLinkWallet,
-    onConnect: onConnectWallet,
-    onSelect: onSelectWallet,
-    onDisconnect: onDisconnectWallet,
-    onUnlink: onUnlinkWallet,
-  };
+  const { wallets, logins } = walletSections(rows, unlinked, signInMethods);
+  const handlers = { pending, ...rowHandlers };
   const visibleName = accountDisplayName(user, displayEmailHint);
-  const onDevice = wallets.filter((wallet) => wallet.connected).length;
-  const walletSummary = walletConnectionSummary(wallets);
+  const walletSummary = addressSummary(rows);
   const accountDetail =
     user?.email && user.email !== visibleName
       ? `${user.email} · ${walletSummary}`
@@ -178,12 +159,9 @@ export function AccountManagement({
         <SectionHeader
           title="Wallets & access"
           className="flex-wrap sm:flex-nowrap"
-          help="Each address can be active for its family: one EVM and one SVM at a time. Click an address to make it active; a status appears only when an address needs attention, such as one that is not on this device or not yet saved to your account."
-          detail={`${wallets.length} ${
-            wallets.length === 1 ? "address" : "addresses"
-          } · ${onDevice} on this device`}
+          detail={walletSummary}
           action={
-            canAddWallet ? (
+            onAddWallet ? (
               <button
                 type="button"
                 onClick={onAddWallet}
@@ -196,27 +174,46 @@ export function AccountManagement({
           }
         />
 
-        {groups.length ? (
-          <ListGroup>
-            {groups.map((group) =>
-              group.kind === "provider" ? (
-                <ProviderWalletCard
-                  key={group.key}
-                  provider={group.provider}
-                  identity={group.identity}
-                  wallets={group.wallets}
-                  onUnlinkSignIn={onUnlinkSignIn}
-                  {...lineHandlers}
+        {wallets.length || logins.length ? (
+          <div className={listGroupClass}>
+            <SignsWithStrip
+              rows={rows}
+              disabled={pending !== null}
+              onActivate={rowHandlers.onActivate}
+            />
+            {wallets.length ? (
+              <>
+                <Divider
+                  title="Wallets"
+                  detail="Sign in by signing a message"
                 />
-              ) : (
-                <ExternalWalletCard
-                  key={group.key}
-                  wallet={group.wallet}
-                  {...lineHandlers}
+                <div className="divide-aomi-border divide-y">
+                  {wallets.map((row) => (
+                    <AddressRow key={row.key} row={row} {...handlers} />
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {logins.length ? (
+              <>
+                <Divider
+                  title="Social sign-in"
+                  detail="Privy and Para logins, with their wallets"
                 />
-              ),
-            )}
-          </ListGroup>
+                <div className="divide-aomi-border divide-y">
+                  {logins.map((group) => (
+                    <LoginRows
+                      key={group.key}
+                      group={group}
+                      onSignOutProvider={onSignOutProvider}
+                      onRemoveLogin={onRemoveLogin}
+                      {...handlers}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
         ) : (
           <ListGroup>
             <p className="type-control text-aomi-muted px-3.5 py-4">
@@ -239,14 +236,7 @@ export function AccountManagement({
                 }
                 title="Sign out"
                 description="End this account session on this device"
-                trailing={
-                  <TextButton
-                    busy={pending === "account:signout"}
-                    onClick={() => void onSignOut()}
-                  >
-                    Sign out
-                  </TextButton>
-                }
+                trailing={<TextButton onClick={onSignOut}>Sign out</TextButton>}
               />
             ) : null}
             {onDeleteAccount ? (
@@ -272,6 +262,16 @@ export function AccountManagement({
           </ListGroup>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/** A section band inside the wallets card. */
+function Divider({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="border-aomi-border bg-aomi-surface-2/60 flex items-baseline gap-2 border-y px-3.5 py-1.5 first:border-t-0">
+      <span className="type-meta text-aomi-fg font-medium">{title}</span>
+      <span className="type-meta text-aomi-muted truncate">{detail}</span>
     </div>
   );
 }

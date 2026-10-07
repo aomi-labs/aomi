@@ -1,59 +1,28 @@
 "use client";
 
-import { useContext, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { shortAddress } from "@aomi-labs/client";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { useAomiWalletKit } from "@/wallet/context";
-import {
-  WalletPickerProvider,
-  useWalletPicker,
-  WalletSignInOptionsContext,
-} from "@/wallet/picker/wallet-picker-context";
-import { WalletPicker } from "@/wallet/picker/wallet-picker";
 import { useConfirmDialog } from "@/ui/aomi/confirm-dialog";
 import { AccountManagement } from "@/account/account-management/account-management";
-import { useAccountAcl } from "./use-account-acl";
+import { providerName } from "@/account/account-management/wallet-model";
 import {
   providerEmailDisplayHint,
   visibleSignInMethods,
-  type ManagedWallet,
 } from "@/wallet/wallet-management-model";
-import { walletKey } from "@/wallet/wallet-utils";
-import { resolveWalletBrandKey } from "@/wallet/wallet-brands";
-import { titleCase } from "@/account/account-management/controls";
-import { LoadingPane } from "@/ui/aomi/loading-pane";
-import { shortAddress } from "@aomi-labs/client";
+import { useAccountAcl } from "./use-account-acl";
+import type { WalletRow } from "@/wallet/composer/wallet-state";
 
 /** Settings › Account is the canonical account, wallet, and signing surface. */
 export function AccountSettings({ onClose }: { onClose?: () => void } = {}) {
-  return (
-    <WalletPickerProvider listenForOpenRequests={false}>
-      <AccountSettingsContent onClose={onClose} />
-    </WalletPickerProvider>
-  );
-}
-
-function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
-  const { openPicker } = useWalletPicker();
   const adapter = useAomiWalletKit();
-  const pendingRef = useRef(false);
-  const providerOptions = useContext(WalletSignInOptionsContext);
   const acl = useAccountAcl();
+  const pendingRef = useRef(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const { confirm, dialog } = useConfirmDialog();
 
-  const wallets = useMemo(
-    () =>
-      adapter.wallets.map(
-        (wallet): ManagedWallet => ({
-          ...wallet,
-          policy: acl.wallets.find(
-            (policy) => walletKey(policy.chain, policy.address) === wallet.key,
-          ),
-        }),
-      ),
-    [acl.wallets, adapter.wallets],
-  );
   const signInMethods = useMemo(
     () => visibleSignInMethods(adapter.accountLinkedAccounts ?? []),
     [adapter.accountLinkedAccounts],
@@ -64,9 +33,11 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
         adapter.accountLinkedAccounts ?? [],
       )
     : undefined;
+  const connectionOf = (row: WalletRow) => row.connectionId;
+
   const run = async (
     key: string,
-    action: () => Promise<void>,
+    action: () => Promise<unknown>,
     refresh = true,
   ): Promise<boolean> => {
     if (pendingRef.current) return false;
@@ -88,121 +59,22 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const linkWallet = async (wallet: ManagedWallet) => {
-    if (!wallet.connectionId) return;
-    await run(`link:${wallet.key}`, async () => {
-      if (adapter.linkWallet) {
-        await adapter.linkWallet({
-          accountId: wallet.connectionId,
-          family: wallet.family,
-          address: wallet.address,
-          chainId: wallet.chainId,
-        });
-        return;
-      }
-      await acl.bindWallet({
-        id: wallet.key,
-        chain: wallet.family,
-        address: wallet.address,
-        walletName: wallet.walletName,
-        provider: wallet.provider,
-        active: wallet.operating,
-      });
-    });
-  };
-
-  const unlinkWallet = async (wallet: ManagedWallet) => {
-    if (!adapter.unlinkLinkedWallet || !wallet.linkedWalletId) return;
-    const confirmed = await confirm({
-      title: "Unlink this wallet?",
-      description: `${shortAddress(wallet.address)} will no longer be saved to this account. The wallet and its funds are not affected.`,
-      confirmLabel: "Unlink",
-      tone: "danger",
-    });
-    if (!confirmed) return;
-    await run(`unlink:${wallet.key}`, () =>
-      adapter.unlinkLinkedWallet!(wallet.linkedWalletId!),
-    );
-  };
-
-  const connectWallet = async (wallet: ManagedWallet) => {
-    await run(`connect:${wallet.key}`, async () => {
-      const provider = wallet.provider?.toLowerCase();
-      if (
-        wallet.kind === "embedded" &&
-        (provider === "para" || provider === "privy")
-      ) {
-        const option = providerOptions.find((option) => option.id === provider);
-        if (option) {
-          await option.connect();
-          return;
-        }
-        if (
-          adapter.identity.embeddedProvider === provider &&
-          adapter.connectSocial
-        ) {
-          await adapter.connectSocial(provider);
-          return;
-        }
-        throw new Error(
-          `${provider === "para" ? "Para" : "Privy"} is not available on this page. It cannot be connected through another provider.`,
-        );
-      }
-      const brand = resolveWalletBrandKey(
-        `${wallet.walletName ?? ""} ${wallet.label ?? ""} ${
-          wallet.provider ?? ""
-        }`,
-      );
-
-      if (wallet.family === "evm" && adapter.connectEvmWallet) {
-        const option = adapter.evmWallets?.find((candidate) => {
-          const candidateBrand = resolveWalletBrandKey(
-            `${candidate.id} ${candidate.label}`,
-          );
-          return brand
-            ? candidateBrand === brand
-            : candidate.label.toLowerCase() ===
-                (wallet.walletName ?? wallet.label ?? "").toLowerCase();
-        });
-        if (option) {
-          await adapter.connectEvmWallet(option.id);
-          return;
-        }
-      }
-
-      if (wallet.family === "svm" && adapter.connectSolanaWallet) {
-        const option = adapter.solanaWallets?.find((candidate) => {
-          const candidateBrand = resolveWalletBrandKey(candidate.name);
-          return brand
-            ? candidateBrand === brand
-            : candidate.name.toLowerCase() ===
-                (wallet.walletName ?? wallet.label ?? "").toLowerCase();
-        });
-        if (option) {
-          await adapter.connectSolanaWallet(option.name);
-          return;
-        }
-      }
-
-      await adapter.connect({ family: wallet.family });
-    });
-  };
-
-  // Wallet rows merge in signing policy from the ACL; show them once it answers.
-  if (acl.status === "loading") {
-    return <LoadingPane label="Loading account" />;
-  }
+  const disconnect = adapter.disconnect;
+  const unlinkWallet = adapter.unlinkLinkedWallet;
+  const unlinkLogin = adapter.unlinkLinkedAccount;
+  const renameWallet = adapter.updateLinkedWallet;
+  const activateWallet = adapter.activateWallet;
 
   return (
     <div className="flex flex-col">
       <AccountManagement
         user={adapter.accountUser}
         displayEmailHint={displayEmailHint}
-        wallets={wallets}
+        rows={adapter.wallets}
+        unlinked={adapter.unlinkedWallet}
         signInMethods={signInMethods}
-        canAddWallet
         pending={pending}
-        error={actionError ?? (acl.status === "error" ? acl.error : null)}
+        error={actionError}
         onRenameAccount={
           adapter.updateAccount
             ? async (displayName) => {
@@ -212,55 +84,94 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
               }
             : undefined
         }
-        onAddWallet={openPicker}
-        onLinkWallet={linkWallet}
-        onConnectWallet={connectWallet}
-        onSelectWallet={async (wallet) => {
-          if (!wallet.connectionId) return;
-          await run(`select:${wallet.key}`, () =>
-            adapter.selectAccount(wallet.connectionId!),
-          );
-        }}
-        onDisconnectWallet={
-          adapter.disconnect
-            ? async (wallet) => {
-                await run(`disconnect:${wallet.key}`, () =>
-                  adapter.disconnect!(
-                    wallet.family === "evm" && wallet.connectionId
-                      ? { accountId: wallet.connectionId }
-                      : { family: wallet.family },
+        onAddWallet={adapter.openAddWallet}
+        onActivate={
+          activateWallet
+            ? (row) =>
+                void run(
+                  `activate:${row.key}`,
+                  () => activateWallet(row.key),
+                  false,
+                )
+            : undefined
+        }
+        onVerify={adapter.openVerify}
+        onRename={
+          renameWallet
+            ? (row, label) =>
+                run(`rename:${row.key}`, () =>
+                  renameWallet({ walletId: row.linkedWalletId!, label }),
+                )
+            : undefined
+        }
+        onDisconnect={
+          disconnect
+            ? (row) => {
+                const connectionId = connectionOf(row);
+                void run(`disconnect:${row.key}`, () =>
+                  disconnect(
+                    row.family === "evm" && connectionId
+                      ? { accountId: connectionId }
+                      : { family: row.family },
                   ),
                 );
               }
             : undefined
         }
-        onUnlinkWallet={adapter.unlinkLinkedWallet ? unlinkWallet : undefined}
-        onUnlinkSignIn={
-          adapter.unlinkLinkedAccount
-            ? async (account) => {
-                const name = titleCase(account.provider);
+        onRemove={
+          unlinkWallet
+            ? async (row) => {
                 const confirmed = await confirm({
-                  title: `Unlink ${name} sign-in?`,
-                  description: `You will no longer be able to sign in to this account with ${name}.`,
-                  confirmLabel: "Unlink",
+                  title: "Remove from account?",
+                  description: `${shortAddress(row.address)} stops signing you in to this account. The wallet and its funds are not affected.`,
+                  confirmLabel: "Remove",
                   tone: "danger",
                 });
                 if (!confirmed) return;
-                await run(`unlink-identity:${account.id}`, () =>
-                  adapter.unlinkLinkedAccount!(account.id),
+                await run(`remove:${row.key}`, () =>
+                  unlinkWallet(row.linkedWalletId!),
                 );
               }
             : undefined
         }
-        onSignOut={async () => {
-          if (
-            await run(
-              "account:signout",
-              () => signOutAndDisconnect(adapter),
-              false,
-            )
-          )
-            onClose?.();
+        onSignOutProvider={
+          disconnect
+            ? (group) => {
+                const connectionId = group.rows.map(connectionOf).find(Boolean);
+                if (!connectionId) return;
+                void run(`provider:${group.key}`, () =>
+                  disconnect({
+                    accountId: connectionId,
+                    providerSignOut: true,
+                  }),
+                );
+              }
+            : undefined
+        }
+        onRemoveLogin={
+          unlinkLogin
+            ? async (identity, group) => {
+                const name = providerName(group.provider);
+                const confirmed = await confirm({
+                  title: `Remove ${name} from account?`,
+                  description: group.rows.length
+                    ? `You can no longer sign in with ${name}, and its ${group.rows.length} ${group.rows.length === 1 ? "address is" : "addresses are"} removed too.`
+                    : `You can no longer sign in to this account with ${name}.`,
+                  confirmLabel: "Remove",
+                  tone: "danger",
+                });
+                if (!confirmed) return;
+                await run(`remove-login:${group.key}`, () =>
+                  unlinkLogin(identity.id),
+                );
+              }
+            : undefined
+        }
+        onSignOut={() => {
+          // Close first so the panel never renders the signed-out account;
+          // errors from the old session have nowhere useful to go.
+          onClose?.();
+          void signOutAndDisconnect(adapter).catch(() => undefined);
         }}
         onDeleteAccount={
           adapter.deleteAccount
@@ -288,7 +199,6 @@ function AccountSettingsContent({ onClose }: { onClose?: () => void }) {
             : undefined
         }
       />
-      <WalletPicker />
       {dialog}
     </div>
   );

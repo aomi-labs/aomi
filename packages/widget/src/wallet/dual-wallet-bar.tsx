@@ -8,12 +8,11 @@ import { useAomiWalletKit } from "./context";
 import { formatWalletAddress } from "./identity";
 import { signOutAndDisconnect } from "@/wallet/account/sign-out";
 import { WalletIconSlot } from "./wallet-icon-slot";
-import { WalletPicker } from "@/wallet/picker/wallet-picker";
-import {
-  WalletPickerProvider,
-  useWalletPicker,
-} from "@/wallet/picker/wallet-picker-context";
+import { useWalletPicker } from "@/wallet/picker/wallet-picker-context";
 import { AccountMenu } from "@/account/account-menu";
+import { useAccountSnapshot } from "@/account/account-snapshot";
+import { appName } from "@/account/account-management/wallet-model";
+import { StatusPill } from "@/ui/aomi/status-pill";
 import { DisconnectConfirmDialog } from "./disconnect-confirm-dialog";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import { shortAddress } from "@aomi-labs/client";
@@ -43,7 +42,8 @@ function solanaClusterLabel(cluster?: string): string | undefined {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-const DualWalletBarInner: FC<DualWalletBarProps> = ({
+/** The account chip. The frame owns the wallet sheet it opens. */
+export const DualWalletBar: FC<DualWalletBarProps> = ({
   families,
   className,
   disconnectedLabel = "Connect wallet",
@@ -53,6 +53,7 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
   const { openPicker } = useWalletPicker();
+  const [snapshot, saveSnapshot] = useAccountSnapshot();
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessionAction, setSessionAction] = useState<
     "signout" | "disconnect" | null
@@ -113,14 +114,50 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
     (primaryWallet?.family === "solana" ? "Solana" : "Ethereum");
   const visibleAddress =
     identity.address ?? identity.svmAddress ?? primaryWallet?.address;
-  const quickSwitchWallets = adapter.accounts
-    .filter((account) => account.family === "evm")
-    .map((account) => ({
-      id: account.id,
-      address: account.address,
-      walletLabel: account.walletName ?? "Ethereum wallet",
-      active: account.active,
-    }));
+  const signedIn = Boolean(adapter.accountUser && !adapter.accountGuest);
+  const needsVerify = accountMenuEnabled && Boolean(adapter.unlinkedWallet);
+  // Until the session is known, show the saved account (or a skeleton of the
+  // same size), never "Sign in".
+  const sessionPending =
+    !accountMenuEnabled &&
+    (adapter.accountStatus === "loading" ||
+      walletKitBooting ||
+      (signedIn && !connected));
+  const accountId = adapter.accountUser?.id;
+  const signedOut = adapter.accountStatus === "ready" && !signedIn;
+  const snapshotName = accountMenu?.primaryLine;
+  const activeWallets = adapter.wallets
+    .filter((row) => row.active)
+    .map((row) => `${row.family}|${row.address}|${appName(row)}`)
+    .join(",");
+
+  useEffect(() => {
+    if (accountMenuEnabled && accountId && snapshotName) {
+      saveSnapshot({
+        accountId,
+        name: snapshotName,
+        wallets: activeWallets
+          ? activeWallets.split(",").map((entry) => {
+              const [family, address, brand] = entry.split("|");
+              return {
+                family: family as "evm" | "svm",
+                address,
+                brand,
+              };
+            })
+          : [],
+      });
+    } else if (signedOut) {
+      saveSnapshot(null);
+    }
+  }, [
+    accountId,
+    accountMenuEnabled,
+    activeWallets,
+    saveSnapshot,
+    signedOut,
+    snapshotName,
+  ]);
 
   useEffect(() => {
     onConnectionChange?.(identity.isConnected);
@@ -148,9 +185,10 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
 
   const handleSessionActionConfirm = async () => {
     if (!sessionAction) return;
-    setSessionActionBusy(true);
-    try {
-      if (sessionAction === "signout") {
+    if (sessionAction === "signout") {
+      // Close first; errors from the session being ended are not shown.
+      setSessionAction(null);
+      try {
         if (accountMenu?.onSignOut) {
           try {
             await accountMenu.onSignOut();
@@ -160,18 +198,23 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
         } else {
           await signOutAndDisconnect(adapter);
         }
+      } catch {
+        // The old session is gone either way.
+      }
+      return;
+    }
+    setSessionActionBusy(true);
+    try {
+      if (accountMenu?.onDisconnect) {
+        await accountMenu.onDisconnect();
       } else {
-        if (accountMenu?.onDisconnect) {
-          await accountMenu.onDisconnect();
-        } else {
-          await adapter.disconnect?.({ family: "all" });
-        }
+        await adapter.disconnect?.({ family: "all" });
       }
       setSessionAction(null);
     } catch (err) {
-      // Keep the dialog open for a retry so either session action remains
-      // explicit and never silently falls through to the other teardown.
-      console.warn(`[DualWalletBar] ${sessionAction} failed`, err);
+      // Keep the dialog open for a retry; disconnect must never silently
+      // fall through to a sign-out.
+      console.warn("[DualWalletBar] disconnect failed", err);
     } finally {
       setSessionActionBusy(false);
     }
@@ -200,15 +243,45 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
         <button
           type="button"
           onClick={handleChipClick}
-          disabled={!accountMenuEnabled && walletKitBooting}
-          aria-busy={!accountMenuEnabled && walletKitBooting ? true : undefined}
+          disabled={sessionPending}
+          aria-busy={sessionPending ? true : undefined}
           className={chipClassName}
           aria-label={
-            accountMenuEnabled ? "Open account menu" : disconnectedLabel
+            accountMenuEnabled
+              ? "Open account menu"
+              : sessionPending
+                ? "Loading account"
+                : disconnectedLabel
           }
           aria-expanded={accountMenuEnabled ? menuOpen : undefined}
         >
-          {accountMenuEnabled ? (
+          {sessionPending ? (
+            <span className="flex min-w-0 flex-1 items-center gap-2.5">
+              {snapshot ? (
+                <>
+                  <WalletIconSlot
+                    label={snapshot.wallets[0]?.brand ?? "Wallet"}
+                    size={AVATAR_SIZE}
+                    className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
+                      {snapshot.name}
+                    </span>
+                    <LoadingLine className="h-[11px] w-20" />
+                  </span>
+                </>
+              ) : (
+                <>
+                  <LoadingLine className="size-7 shrink-0 rounded-full" />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <LoadingLine className="h-[11px] w-28" />
+                    <LoadingLine className="h-[11px] w-16" />
+                  </span>
+                </>
+              )}
+            </span>
+          ) : accountMenuEnabled ? (
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
               <WalletIconSlot
                 label={walletLabel}
@@ -216,14 +289,24 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
                 className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
               />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
-                  {accountMenu?.primaryLine ??
-                    (primaryWallet
-                      ? shortAddress(primaryWallet.address, {
-                          head: 12,
-                          tail: 8,
-                        })
-                      : "Account")}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
+                    {accountMenu?.primaryLine ??
+                      (primaryWallet
+                        ? shortAddress(primaryWallet.address, {
+                            head: 12,
+                            tail: 8,
+                          })
+                        : "Account")}
+                  </span>
+                  {needsVerify ? (
+                    <StatusPill
+                      tone="warning"
+                      className="h-4 px-1.5 text-[10px]"
+                    >
+                      Verify
+                    </StatusPill>
+                  ) : null}
                 </span>
                 {secondaryLine ? (
                   <span className="text-aomi-muted truncate text-[11px] leading-none">
@@ -302,18 +385,20 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
             allowanceLoading={accountMenu?.secondaryLoading}
             noticeLine={accountMenu?.noticeLine}
             themeLabel={accountMenu?.themeLabel}
-            wallets={quickSwitchWallets}
+            rows={adapter.wallets}
+            unlinked={adapter.unlinkedWallet}
             onClose={() => setMenuOpen(false)}
             onManageAccount={wrapMenuAction(accountMenu?.onManageAccount)}
             onToggleTheme={wrapMenuAction(accountMenu?.onToggleTheme)}
             onOpenSettings={wrapMenuAction(accountMenu?.onOpenSettings)}
             onOpenDeployments={wrapMenuAction(accountMenu?.onOpenDeployments)}
             onSignIn={wrapMenuAction(accountMenu?.onSignIn)}
-            onSelectWallet={(id) => adapter.selectAccount(id)}
+            onActivateWallet={adapter.activateWallet}
             onAddWallet={() => {
               setMenuOpen(false);
-              openPicker();
+              adapter.openAddWallet?.();
             }}
+            onVerify={adapter.openVerify}
             onSignOut={() => handleSessionActionRequest("signout")}
             onDisconnect={() => handleSessionActionRequest("disconnect")}
           />
@@ -328,15 +413,6 @@ const DualWalletBarInner: FC<DualWalletBarProps> = ({
         onConfirm={() => void handleSessionActionConfirm()}
         onCancel={() => setSessionAction(null)}
       />
-      <WalletPicker />
     </>
-  );
-};
-
-export const DualWalletBar: FC<DualWalletBarProps> = (props) => {
-  return (
-    <WalletPickerProvider>
-      <DualWalletBarInner {...props} />
-    </WalletPickerProvider>
   );
 };

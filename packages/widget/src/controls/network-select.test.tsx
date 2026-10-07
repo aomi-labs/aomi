@@ -18,6 +18,8 @@ import {
 } from "@/wallet/network-preferences";
 import { NetworkSelect } from "./network-select";
 import { ConnectButton } from "@/wallet/connect-button";
+import { WalletPickerProvider } from "@/wallet/picker/wallet-picker-context";
+import { WalletPicker } from "@/wallet/picker/wallet-picker";
 
 const evmChains = [
   {
@@ -165,8 +167,11 @@ function Harness({
 
   return (
     <AomiWalletKitContextProvider value={value}>
-      <NetworkSelect />
-      <ConnectButton />
+      <WalletPickerProvider>
+        <NetworkSelect />
+        <ConnectButton />
+        <WalletPicker />
+      </WalletPickerProvider>
     </AomiWalletKitContextProvider>
   );
 }
