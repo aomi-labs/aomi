@@ -20,23 +20,27 @@ const nobleHashesAssertCompatPath = path.join(
   "noble-hashes-assert-compat.js",
 );
 
+const buildOrigin = new URL(
+  process.env.AOMI_BUILD_URL || "https://build.aomi.dev",
+).origin;
+
 const nextConfig: NextConfig = {
   distDir: process.env.AOMI_PORTAL_DIST_DIR || ".next",
   async redirects() {
     return [
       {
         source: "/deployments/new",
-        destination: "https://build.aomi.dev/operate/deployments/new",
+        destination: `${buildOrigin}/operate/deployments/new`,
         permanent: false,
       },
       {
         source: "/deployments/:projectId",
-        destination: "https://build.aomi.dev/projects/:projectId",
+        destination: `${buildOrigin}/projects/:projectId`,
         permanent: false,
       },
       {
         source: "/deployments",
-        destination: "https://build.aomi.dev/projects",
+        destination: `${buildOrigin}/projects`,
         permanent: false,
       },
     ];
