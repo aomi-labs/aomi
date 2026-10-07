@@ -714,7 +714,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -725,7 +729,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -738,7 +746,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -961,6 +973,19 @@
         ]
       }
     },
+    "/api/platforms/{name}/telegram/handover/bot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/nonce": {
       "post": {
         "responses": {
@@ -1012,43 +1037,14 @@
           "activation-or-wallet"
         ]
       }
-    },
-    "/api/platforms/{name}/apps": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "platformBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "activation"
-        ]
-      }
-    },
-    "/api/platforms/{name}/apps/{app}": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "platformBearer": []
-          }
-        ],
-        "x-aomi-auth": [
-          "activation"
-        ]
-      }
     }
   },
   "components": {
-    "securitySchemes": {}
+    "securitySchemes": {
+      "accountBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
   }
 }

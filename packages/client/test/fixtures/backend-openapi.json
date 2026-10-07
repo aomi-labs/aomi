@@ -3541,7 +3541,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -3552,7 +3556,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -3565,7 +3573,11 @@
             "description": "OK"
           }
         },
-        "security": [],
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
         "x-aomi-auth": [
           "account"
         ]
@@ -3785,6 +3797,19 @@
         "security": [],
         "x-aomi-auth": [
           "activation-or-wallet"
+        ]
+      }
+    },
+    "/api/platforms/{name}/telegram/handover/bot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
         ]
       }
     },
