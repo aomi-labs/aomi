@@ -1,5 +1,3 @@
-import { CoinsIcon, StarIcon } from "lucide-react";
-
 /** The same compact account summary in the sidebar chip and its menu. */
 export function AccountStatusLine({
   creditsLine,
@@ -9,29 +7,20 @@ export function AccountStatusLine({
   planLabel?: string;
 }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 whitespace-nowrap tabular-nums">
-      <span
-        className="inline-flex items-center gap-1"
-        title="Credits remaining"
-        aria-label={`${creditsLine} credits remaining`}
-      >
-        <CoinsIcon size={12} className="shrink-0" aria-hidden="true" />
-        <span>{creditsLine}</span>
-      </span>
+    <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap tabular-nums">
       {planLabel ? (
         <>
-          <span className="font-normal opacity-40" aria-hidden="true">
-            /
-          </span>
-          <span
-            className="inline-flex items-center gap-1"
-            title={`${planLabel} plan`}
-          >
-            <StarIcon size={12} className="shrink-0" aria-hidden="true" />
-            <span>{planLabel}</span>
+          <span title={`${planLabel} plan`}>{planLabel}</span>
+          <span className="opacity-50" aria-hidden="true">
+            ·
           </span>
         </>
       ) : null}
+      <span title="Credits remaining">
+        {/^[\d,.\s]+$/.test(creditsLine)
+          ? `${creditsLine} credits`
+          : creditsLine}
+      </span>
     </span>
   );
 }

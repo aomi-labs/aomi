@@ -6,22 +6,38 @@ export interface AccountAvatarProps {
   className?: string;
 }
 
-// Ten hues tuned to read on both the light and the dark surface-2 slot.
+// Ten deep hues, so white tiles read on every one in both themes.
 const HUES = [
-  "#4f8fdc",
-  "#7b6ce0",
-  "#c264c9",
-  "#e0699a",
-  "#e8735a",
-  "#e39b34",
-  "#b9b23a",
-  "#5fb35c",
-  "#2fa597",
-  "#3aa6c9",
+  "#3b7ddd",
+  "#6a5ae0",
+  "#a855c8",
+  "#d9548a",
+  "#e0603f",
+  "#d98a1c",
+  "#7a9a2a",
+  "#3f9f5a",
+  "#1f9a8c",
+  "#2a93bf",
+];
+// Mirrored 3x3 patterns as [side rows, middle rows] bitmasks (bit n = row n).
+// Each has 7-9 tiles and no empty top or bottom row, so every avatar looks
+// full and centred.
+const PATTERNS: ReadonlyArray<readonly [number, number]> = [
+  [3, 7],
+  [5, 7],
+  [6, 7],
+  [7, 1],
+  [7, 2],
+  [7, 3],
+  [7, 4],
+  [7, 5],
+  [7, 6],
+  [7, 7],
 ];
 const CELL = 6.4;
 const GAP = 1.9;
 const ORIGIN = 20 - (3 * CELL + 2 * GAP) / 2;
+const ROWS = [0, 1, 2];
 
 function hash(seed: string): number {
   let value = 2166136261;
@@ -35,20 +51,22 @@ function hash(seed: string): number {
 }
 
 /**
- * A mirrored 3x3 pattern of rounded tiles in one hue with one accent tile or pair,
- * derived from the account id. It is the account's identity, independent of
- * its wallets, providers, or display name.
+ * A rounded square in one hue with a mirrored 3x3 pattern of white tiles,
+ * one tile or mirrored pair dimmed, derived from the account id. It is the
+ * account's identity, independent of its wallets, providers, or display name,
+ * and owns its own shape so every surface draws it the same way.
  */
 export function AccountAvatar({
   seed,
   size = 28,
   className = "",
 }: AccountAvatarProps) {
+  const radius = Math.round(size / 4);
   if (!seed) {
     return (
       <span
-        className={`bg-aomi-surface-2 text-aomi-muted inline-flex shrink-0 items-center justify-center rounded-full ${className}`}
-        style={{ width: size, height: size }}
+        className={`bg-aomi-surface-2 text-aomi-muted inline-flex shrink-0 items-center justify-center ${className}`}
+        style={{ width: size, height: size, borderRadius: radius }}
         aria-hidden="true"
       >
         <UserRound size={size / 2} />
@@ -59,26 +77,16 @@ export function AccountAvatar({
   const value = hash(seed);
   // Mix each draw so similar ids do not produce similar patterns.
   const draw = (index: number) => hash(`${value}:${index}`);
-  const hue = draw(9) % HUES.length;
-  const base = HUES[hue];
-  const accent = HUES[(hue + 1 + (draw(0) % 3)) % HUES.length];
-  // The accent lands on one middle tile or one mirrored side pair.
-  const accentSlot = draw(1) % 6;
-  const accentRow = accentSlot % 3;
-  const accentOnSide = accentSlot >= 3;
+  const [sideMask, middleMask] = PATTERNS[draw(0) % PATTERNS.length];
+  const sides = ROWS.filter((row) => sideMask & (1 << row));
+  const middle = ROWS.filter((row) => middleMask & (1 << row));
+  // The dimmed tile is one filled middle tile or one filled side pair.
+  const dimmed = [
+    ...middle.map((row) => `1-${row}`),
+    ...sides.map((row) => `0-${row}`),
+  ][draw(1) % (middle.length + sides.length)];
 
-  // Columns 0 and 2 mirror each other.
-  const sides = [0, 1, 2].map(
-    (row) => (accentOnSide && row === accentRow) || draw(row + 2) % 8 > 2,
-  );
-  const middle = [0, 1, 2].map(
-    (row) => (!accentOnSide && row === accentRow) || draw(row + 5) % 8 > 2,
-  );
-  if (!sides.some(Boolean)) sides[draw(8) % 3] = true;
-  const fill = (side: boolean, row: number) =>
-    side === accentOnSide && row === accentRow ? accent : base;
-
-  const tile = (column: number, row: number, fill: string) => (
+  const tile = (column: number, row: number) => (
     <rect
       key={`${column}-${row}`}
       x={ORIGIN + column * (CELL + GAP)}
@@ -86,7 +94,9 @@ export function AccountAvatar({
       width={CELL}
       height={CELL}
       rx={2}
-      fill={fill}
+      fill="#fff"
+      fillOpacity={dimmed === `${column === 1 ? 1 : 0}-${row}` ? 0.5 : 1}
+      data-avatar-tile=""
     />
   );
 
@@ -99,15 +109,17 @@ export function AccountAvatar({
       aria-hidden="true"
       focusable="false"
       data-account-avatar=""
-      className={`shrink-0 rounded-full ${className}`}
+      className={`shrink-0 ${className}`}
     >
-      <circle cx="20" cy="20" r="20" fill="var(--aomi-surface-2, #f4f4f5)" />
-      {sides.flatMap((on, row) =>
-        on
-          ? [tile(0, row, fill(true, row)), tile(2, row, fill(true, row))]
-          : [],
-      )}
-      {middle.map((on, row) => (on ? tile(1, row, fill(false, row)) : null))}
+      <rect
+        width="40"
+        height="40"
+        rx="10"
+        fill={HUES[draw(2) % HUES.length]}
+        data-avatar-ground=""
+      />
+      {sides.flatMap((row) => [tile(0, row), tile(2, row)])}
+      {middle.map((row) => tile(1, row))}
     </svg>
   );
 }

@@ -698,7 +698,7 @@ it("shows saved credits and plan until live values replace them", () => {
   );
   adapterState.current.accountStatus = "loading";
   const view = render(<DualWalletBar families={["evm"]} />);
-  expect(screen.getByLabelText("498 credits remaining")).toBeInTheDocument();
+  expect(screen.getByText("498 credits")).toBeInTheDocument();
   expect(screen.getByTitle("Free plan")).toBeInTheDocument();
 
   adapterState.current.accountStatus = "ready";
@@ -713,7 +713,7 @@ it("shows saved credits and plan until live values replace them", () => {
       }}
     />,
   );
-  expect(screen.getByLabelText("498 credits remaining")).toBeInTheDocument();
+  expect(screen.getByText("498 credits")).toBeInTheDocument();
   view.rerender(
     <DualWalletBar
       families={["evm"]}
@@ -725,7 +725,7 @@ it("shows saved credits and plan until live values replace them", () => {
       }}
     />,
   );
-  expect(screen.getByLabelText("490 credits remaining")).toBeInTheDocument();
+  expect(screen.getByText("490 credits")).toBeInTheDocument();
   expect(screen.getByTitle("Pro plan")).toBeInTheDocument();
   expect(
     JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
@@ -734,9 +734,7 @@ it("shows saved credits and plan until live values replace them", () => {
   adapterState.current.accountUser = undefined;
   view.rerender(<DualWalletBar families={["evm"]} />);
   expect(window.localStorage.getItem("aomi:account-chip:default")).toBeNull();
-  expect(
-    screen.queryByLabelText("490 credits remaining"),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText("490 credits")).not.toBeInTheDocument();
 });
 
 it("never borrows another account's cached credits", () => {
@@ -762,9 +760,7 @@ it("never borrows another account's cached credits", () => {
       }}
     />,
   );
-  expect(
-    screen.queryByLabelText("498 credits remaining"),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText("498 credits")).not.toBeInTheDocument();
   expect(
     JSON.parse(window.localStorage.getItem("aomi:account-chip:default")!),
   ).not.toHaveProperty("creditsLine");

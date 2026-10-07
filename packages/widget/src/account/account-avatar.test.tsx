@@ -28,6 +28,19 @@ describe("AccountAvatar", () => {
     }
   });
 
+  it("always fills seven to nine tiles with the top and bottom rows in use", () => {
+    for (let i = 0; i < 256; i++) {
+      const markup = render(`account-${i}`);
+      const ys = [...markup.matchAll(/<rect x="[\d.]+" y="([\d.]+)"/g)].map(
+        (m) => Number(m[1]),
+      );
+      expect(ys.length).toBeGreaterThanOrEqual(7);
+      expect(ys.length).toBeLessThanOrEqual(9);
+      // Tiles reach both the top and the bottom row.
+      expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(15);
+    }
+  });
+
   it("uses the same geometry at every size", () => {
     const small = render("guest-session", 16);
     const large = render("guest-session", 40);

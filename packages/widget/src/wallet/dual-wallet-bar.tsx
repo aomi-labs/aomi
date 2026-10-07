@@ -35,7 +35,7 @@ type ConnectedWallet = {
   detail?: string;
 };
 
-const AVATAR_SIZE = 28;
+const AVATAR_SIZE = 30;
 
 function solanaClusterLabel(cluster?: string): string | undefined {
   if (!cluster) return undefined;
@@ -239,10 +239,10 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
 
   const chipClassName = cn(
     "inline-flex w-full items-center justify-between gap-2.5 whitespace-nowrap text-left transition-colors",
-    "border-aomi-border text-aomi-fg hover:bg-aomi-hover/80 bg-transparent",
+    "border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
     "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
     // One chip shape for every state so signing in does not resize it.
-    "@container rounded-xl border p-3",
+    "@container rounded-xl border p-2",
     className,
   );
 
@@ -268,18 +268,14 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
               {snapshot ? (
                 <>
-                  <AccountAvatar
-                    seed={snapshot.accountId}
-                    size={AVATAR_SIZE}
-                    className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
-                  />
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
+                  <AccountAvatar seed={snapshot.accountId} size={AVATAR_SIZE} />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="text-aomi-fg truncate text-[13px] font-medium leading-none">
                       {snapshot.name}
                     </span>
                     {snapshot.creditsLine ? (
                       // Same wrapper as the live line, so nothing shifts on swap.
-                      <span className="text-aomi-muted truncate text-[11px] leading-none">
+                      <span className="text-aomi-muted truncate text-[11.5px] leading-none">
                         <AccountStatusLine
                           creditsLine={snapshot.creditsLine}
                           planLabel={snapshot.planLabel}
@@ -292,7 +288,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                 </>
               ) : (
                 <>
-                  <LoadingLine className="size-7 shrink-0 rounded-full" />
+                  <LoadingLine className="size-[30px] shrink-0 rounded-lg" />
                   <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <LoadingLine className="h-[11px] w-28" />
                     <LoadingLine className="h-[11px] w-16" />
@@ -302,14 +298,10 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
             </span>
           ) : accountMenuEnabled ? (
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
-              <AccountAvatar
-                seed={accountId}
-                size={AVATAR_SIZE}
-                className="ring-aomi-border bg-aomi-surface-2 shrink-0 rounded-full ring-1"
-              />
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <AccountAvatar seed={accountId} size={AVATAR_SIZE} />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="text-aomi-fg truncate text-[12px] font-medium leading-none">
+                  <span className="text-aomi-fg truncate text-[13px] font-medium leading-none">
                     {accountMenu?.primaryLine ??
                       (primaryWallet
                         ? shortAddress(primaryWallet.address, {
@@ -328,7 +320,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                   ) : null}
                 </span>
                 {secondaryLine ? (
-                  <span className="text-aomi-muted truncate text-[11px] leading-none">
+                  <span className="text-aomi-muted truncate text-[11.5px] leading-none">
                     {secondaryLine}
                   </span>
                 ) : null}
