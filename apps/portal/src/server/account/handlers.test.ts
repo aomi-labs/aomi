@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const service = vi.hoisted(() => ({
   consumeWalletLinkNonce: vi.fn(),
+  exchangeProviderForExistingSession: vi.fn(),
   getAccountResponseForBetterAuthSession: vi.fn(),
   mergeAccountWithTicket: vi.fn(),
   offerAccountMerge: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock("./session", () => ({
   sessionUserSeed: () => ({ betterAuthUserId: "ba-a" }),
 }));
 
-import { linkWallet, mergeAccount } from "./handlers";
+import { linkProvider, linkWallet, mergeAccount } from "./handlers";
 
 const principal = {
   kind: "cookie",
@@ -114,6 +115,50 @@ describe("account merge handlers", () => {
       targetUserId: "acct-a",
       sourceUserId: "acct-b",
       credential: wallet,
+    });
+  });
+
+  it("links a Privy login to the signed-in account, or offers a merge", async () => {
+    const identity = {
+      type: "identity",
+      provider: "privy",
+      issuerEnvironment: "production",
+      tenantId: "app",
+      subject: "did:privy:b",
+    };
+    service.exchangeProviderForExistingSession.mockResolvedValue({
+      status: "conflict",
+      reason: "already_linked_to_another_account",
+      signalType: "identity",
+      owner: "acct-b",
+      signal: identity,
+    });
+    service.offerAccountMerge.mockResolvedValue({
+      ticket: "ticket-2",
+      other: { name: "privy user" },
+    });
+
+    const response = await linkProvider(
+      call("/v1/account/provider/exchange", {
+        provider: "privy",
+        providerToken: "token",
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: "account_merge_available",
+      ticket: "ticket-2",
+    });
+    expect(service.exchangeProviderForExistingSession).toHaveBeenCalledWith({
+      betterAuthUserId: "ba-a",
+      currentUserId: "acct-a",
+      credential: { provider: "privy", providerToken: "token" },
+    });
+    expect(service.offerAccountMerge).toHaveBeenCalledWith({
+      targetUserId: "acct-a",
+      sourceUserId: "acct-b",
+      credential: identity,
     });
   });
 
