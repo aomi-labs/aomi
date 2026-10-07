@@ -94,6 +94,36 @@ describe("loading the chat list once access arrives", () => {
     ).toBe(true);
   });
 
+  it("keeps confirmed thread access during account restoration and clears it on sign-out", async () => {
+    const all = vi.fn(async () => [
+      { id: "saved-chat", title: "Saved", archived: false },
+    ]);
+    const options = fixture(all);
+    const view = renderHook(
+      ({ access, restoringAccount }) =>
+        useThreadListSync({
+          ...options,
+          accountSessionAvailable: access,
+          restoringAccount,
+        }),
+      { initialProps: { access: true, restoringAccount: false }, wrapper },
+    );
+    await waitFor(() =>
+      expect(view.result.current.isThreadListLoading).toBe(false),
+    );
+    expect(options.remoteThreadIdsRef.current.has("saved-chat")).toBe(true);
+    view.rerender({ access: false, restoringAccount: true });
+    expect(view.result.current.isThreadListLoading).toBe(true);
+    expect(options.resetConversation).not.toHaveBeenCalled();
+    view.rerender({ access: true, restoringAccount: false });
+    await waitFor(() =>
+      expect(view.result.current.isThreadListLoading).toBe(false),
+    );
+    expect(options.resetConversation).not.toHaveBeenCalled();
+    view.rerender({ access: false, restoringAccount: false });
+    expect(options.resetConversation).toHaveBeenCalledOnce();
+  });
+
   it("settles a list failure truthfully instead of keeping its initial spinner", async () => {
     const all = vi.fn().mockRejectedValue(new Error("unavailable"));
     const options = fixture(all);

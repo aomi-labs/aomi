@@ -72,6 +72,7 @@ type ThreadListSyncOptions = {
   resetConversation: () => void;
   remoteThreadIdsRef: MutableRefObject<Set<string>>;
   accountSessionAvailable?: boolean;
+  restoringAccount?: boolean;
   /** Whose list this is; a new owner refetches it. */
   owner: object;
   restoredThreadId?: string;
@@ -117,6 +118,7 @@ export function useThreadListSync({
   resetConversation,
   remoteThreadIdsRef,
   accountSessionAvailable = false,
+  restoringAccount = false,
   owner,
   restoredThreadId,
   onInvalidRestoredThread,
@@ -210,6 +212,7 @@ export function useThreadListSync({
   );
 
   useEffect(() => {
+    if (restoringAccount) return;
     if (!canLoadThreads) {
       const previouslyHadThreadAccess = hadThreadAccessRef.current;
       hadThreadAccessRef.current = false;
@@ -359,6 +362,7 @@ export function useThreadListSync({
     };
   }, [
     canLoadThreads,
+    restoringAccount,
     owner,
     ensureInitialState,
     listThreadsWithAuthRetry,
@@ -373,7 +377,8 @@ export function useThreadListSync({
     // Access can settle in the same render that enables URL restoration.
     // Advertise loading before the request effect runs, until its first result.
     isThreadListLoading:
-      canLoadThreads && (isThreadListLoading || settledOwner !== owner),
+      restoringAccount ||
+      (canLoadThreads && (isThreadListLoading || settledOwner !== owner)),
     threadListError,
   };
 }

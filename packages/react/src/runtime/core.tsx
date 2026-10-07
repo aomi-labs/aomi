@@ -235,13 +235,25 @@ export function AomiRuntimeCore({
     authSource: accountAuthSource,
   };
   const previousOwner = useRef(owner);
+  // A replacement wallet adapter must confirm the account before closing its chats.
+  const restoringAccount =
+    account === undefined && previousOwner.current.account !== undefined;
   useLayoutEffect(() => {
+    if (
+      restoringAccount &&
+      previousOwner.current.backendUrl === owner.backendUrl &&
+      previousOwner.current.appId === owner.appId
+    )
+      return;
     const change = accountChange(previousOwner.current, owner);
     previousOwner.current = owner;
     if (change !== "keep") resetConversation(change === "sign-in");
   });
 
-  const userId = account?.kind === "user" ? account.id : null;
+  const listAccount = restoringAccount
+    ? previousOwner.current.account
+    : account;
+  const userId = listAccount?.kind === "user" ? listAccount.id : null;
   // Bumped when the account's data changed under the same id (a merge).
   const [accountRevision, setAccountRevision] = useState(0);
   const listOwner = useMemo(
@@ -262,6 +274,7 @@ export function AomiRuntimeCore({
     setAccountRevision((revision) => revision + 1);
   }, []);
   const { isThreadListLoading, threadListError } = useThreadListSync({
+    restoringAccount,
     aomiClientRef,
     sessionManager,
     ensureInitialState,

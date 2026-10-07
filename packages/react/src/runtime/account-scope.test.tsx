@@ -120,6 +120,62 @@ describe("account changes without remounting the shell", () => {
     expect(store.get(beforeBackendSwitch)).toBeUndefined();
     expect(mounts).toHaveBeenCalledOnce();
   });
+  it("keeps the chat and draft while a wallet adapter restores the same account", async () => {
+    let threadId = "";
+    function Shell() {
+      threadId = useAomiRuntime().currentThreadId;
+      return null;
+    }
+    function Draft() {
+      return (
+        <ComposerPrimitive.Root>
+          <ComposerPrimitive.Input aria-label="Restoring draft" />
+        </ComposerPrimitive.Root>
+      );
+    }
+    const options = {
+      fetch: vi.fn(async () => Response.json([])),
+    };
+    const frame = (
+      account: { kind: "user"; id: string } | null | undefined,
+    ) => (
+      <AomiRuntimeProvider
+        backendUrl="https://one.example"
+        initialThreadId="original"
+        clientOptions={options}
+        account={account}
+        accountSessionAvailable={Boolean(account)}
+        displayPersistence="none"
+      >
+        <Shell />
+        <AomiChatBoundary>
+          <Draft />
+        </AomiChatBoundary>
+      </AomiRuntimeProvider>
+    );
+    const owner = { kind: "user", id: "a" } as const;
+    const view = render(frame(owner));
+    await waitFor(() => expect(options.fetch).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText("Restoring draft"), {
+      target: { value: "draft before Para" },
+    });
+    view.rerender(frame(undefined));
+    expect(threadId).toBe("original");
+    expect(screen.getByLabelText("Restoring draft")).toHaveValue(
+      "draft before Para",
+    );
+    view.rerender(frame(owner));
+    expect(threadId).toBe("original");
+    expect(screen.getByLabelText("Restoring draft")).toHaveValue(
+      "draft before Para",
+    );
+    view.rerender(frame(undefined));
+    view.rerender(frame({ kind: "user", id: "b" }));
+    expect(threadId).not.toBe("original");
+    expect(screen.getByLabelText("Restoring draft")).toHaveValue("");
+    view.rerender(frame(null));
+    expect(screen.getByLabelText("Restoring draft")).toHaveValue("");
+  });
   it.each([false, true])(
     "sends with the signed-in credential after sign-in (guest chat started=%s), keeping draft and shell",
     async (started) => {
