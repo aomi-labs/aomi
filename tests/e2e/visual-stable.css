@@ -1,0 +1,5 @@
+/* Generated account avatars depend on the per-run account id; keep their
+   grey slot in screenshots but hide the id-derived tiles. */
+[data-account-avatar] rect {
+  visibility: hidden;
+}

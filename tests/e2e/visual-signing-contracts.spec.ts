@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { testIds } from "../../packages/widget/src/test-ids";
 import {
@@ -858,5 +859,6 @@ function screenshot() {
     caret: "hide" as const,
     scale: "css" as const,
     maxDiffPixelRatio: 0.002,
+    stylePath: fileURLToPath(new URL("./visual-stable.css", import.meta.url)),
   };
 }
