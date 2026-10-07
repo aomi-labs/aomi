@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { Pool, type PoolClient } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mergeAccountRows, previewAccountMerge } from "./queries";
@@ -7,31 +9,53 @@ const connectionString = process.env.AOMI_AUTH_TEST_DATABASE_URL;
 const enabled = Boolean(
   connectionString && process.env.AOMI_TEST_DATABASE_DISPOSABLE === "1",
 );
+const databaseName = `aomi_auth_loopback_test_merge_${randomUUID().replaceAll("-", "")}`;
+const fixtureUrl = new URL(
+  "../../../../tests/fixtures/account-merge/",
+  import.meta.url,
+);
 
-// skip-reason: Requires the disposable PostgreSQL fixture, and the product-mono schema with the account merge migration; everything runs in one rolled-back transaction.
+// skip-reason: Requires the explicitly marked disposable PostgreSQL fixture; CI provides it.
 describe.skipIf(!enabled)("merge_accounts", () => {
+  let admin: Pool;
   let pool: Pool;
   let db: PoolClient;
-  let hasSchema = false;
+  let databaseCreated = false;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString });
+    // The migration scans public, so a schema cannot isolate it from parallel suites.
+    admin = new Pool({ connectionString });
+    await admin.query(`create database "${databaseName}"`);
+    databaseCreated = true;
+    const databaseUrl = new URL(connectionString!);
+    databaseUrl.pathname = `/${databaseName}`;
+    pool = new Pool({ connectionString: databaseUrl.toString() });
     db = await pool.connect();
-    const { rows } = await db.query(
-      `select to_regprocedure('merge_accounts(text,text)') is not null as ready`,
-    );
-    hasSchema = rows[0]?.ready === true;
     await db.query("begin");
+    await db.query(
+      readFileSync(
+        new URL("../../e2e/fixtures/canonical-account-schema.sql", fixtureUrl),
+        "utf8",
+      ),
+    );
+    await db.query(readFileSync(new URL("schema.sql", fixtureUrl), "utf8"));
+    await db.query(
+      readFileSync(
+        new URL("20261007000000_account_merge.sql", fixtureUrl),
+        "utf8",
+      ),
+    );
   });
 
   afterAll(async () => {
     await db?.query("rollback");
     db?.release();
     await pool?.end();
+    if (databaseCreated) await admin.query(`drop database "${databaseName}"`);
+    await admin?.end();
   });
 
-  it("moves everything to the target, keeps its clashing key and closes the source", async (ctx) => {
-    if (!hasSchema) ctx.skip();
+  it("moves everything to the target, keeps its clashing key and closes the source", async () => {
     const suffix = Math.random().toString(36).slice(2, 10);
     const target = `merge-target-${suffix}`;
     const source = `merge-source-${suffix}`;
