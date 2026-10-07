@@ -285,6 +285,45 @@ describe("wallet sheet", () => {
       expect(screen.queryByText("Merge accounts")).not.toBeInTheDocument(),
     );
   });
+
+  it("offers a merge when an added Privy login opens another account", async () => {
+    const mergeAccount = vi.fn(async () => ({ chats: 3 }));
+    render(
+      <Harness
+        open={false}
+        initial={baseKit({ accountUser: { id: "acct-1" }, mergeAccount })}
+      />,
+    );
+    act(() =>
+      setKit((kit) => ({
+        ...kit,
+        accountConflict: {
+          code: "already_linked_to_another_account",
+          signalType: null,
+          provider: "privy",
+          mergeOffer: {
+            ticket: "t2",
+            other: {
+              name: "privy user",
+              createdAt: "2026-09-12T00:00:00Z",
+              chats: 3,
+              wallets: 2,
+              credits: "0",
+              dropped: [],
+            },
+          },
+        },
+      })),
+    );
+    expect(await screen.findByText("Merge accounts")).toBeInTheDocument();
+    expect(
+      screen.getByText("Privy already signs in to another Aomi account."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Merge into this account" }),
+    );
+    await waitFor(() => expect(mergeAccount).toHaveBeenCalledWith("t2"));
+  });
 });
 
 describe("wallet app switching accounts", () => {

@@ -15,6 +15,7 @@ import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { mergeOfferFrom } from "@/wallet/account/aomi-backend-client";
 import { shortAddress } from "@aomi-labs/client";
 import { walletKey } from "@/wallet/wallet-utils";
+import { formatWalletProvider } from "@/wallet/identity";
 import { isExpectedWalletCancellation } from "./wallet-cancellation";
 import { useWalletActivationGuard } from "@/wallet/use-wallet-activation-guard";
 import {
@@ -314,11 +315,12 @@ export function useSheetFlow(
   /** Privy or Para: their own modal takes over, so the sheet steps aside. */
   const pickSocial = useCallback(
     async (connect: () => Promise<void>) => {
-      start();
+      const live = start();
       setBusy(true);
       try {
         await connect();
-        close();
+        // A merge offer for this login may already own the sheet.
+        if (live()) close();
       } catch (cause) {
         setBusy(false);
         if (!isExpectedWalletCancellation(cause))
@@ -367,6 +369,26 @@ export function useSheetFlow(
     signedInAs.current = accountId;
     if (previous && !accountId) close();
   }, [accountId, close]);
+
+  // Adding Privy or Para links it after their own modal closes; when that
+  // login opens another account, offer the merge here, once per offer.
+  const providerOffer = kit.accountConflict?.mergeOffer;
+  const providerOfferFor = kit.accountConflict?.provider;
+  const shownOffer = useRef<string | null>(null);
+  useEffect(() => {
+    if (!providerOffer || !providerOfferFor || !accountId) return;
+    if (shownOffer.current === providerOffer.ticket) return;
+    shownOffer.current = providerOffer.ticket;
+    start();
+    setBusy(false);
+    // A login has no address of its own; the sheet names the provider.
+    const label = formatWalletProvider(providerOfferFor) ?? providerOfferFor;
+    dispatch({
+      type: "merge",
+      target: { family: "evm", address: label, brand: label },
+      offer: providerOffer,
+    });
+  }, [accountId, dispatch, providerOffer, providerOfferFor, start]);
 
   // The switch card completes on its own once the wallet shows the address.
   const switched = useRef<string | null>(null);
