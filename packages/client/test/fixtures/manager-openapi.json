@@ -134,6 +134,19 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/installations": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/builder/applications/{application_id}": {
       "get": {
         "responses": {
@@ -607,6 +620,32 @@
         ]
       }
     },
+    "/api/integrations/github-app/user/bots/{bot_id}/command-secret": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
+    "/api/integrations/github-app/user/bots/{bot_id}/webhook": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "service"
+        ]
+      }
+    },
     "/api/integrations/github-app/user/model-keys": {
       "get": {
         "responses": {
@@ -665,6 +704,55 @@
         "security": [],
         "x-aomi-auth": [
           "service"
+        ]
+      }
+    },
+    "/api/account/bots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/bots/{id}": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "accountBearer": []
+          }
+        ],
+        "x-aomi-auth": [
+          "account"
         ]
       }
     },
@@ -885,6 +973,19 @@
         ]
       }
     },
+    "/api/platforms/{name}/telegram/handover/bot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [],
+        "x-aomi-auth": [
+          "public"
+        ]
+      }
+    },
     "/api/platforms/{name}/telegram/handover/nonce": {
       "post": {
         "responses": {
@@ -939,6 +1040,11 @@
     }
   },
   "components": {
-    "securitySchemes": {}
+    "securitySchemes": {
+      "accountBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
   }
 }

@@ -33,7 +33,7 @@ describe("backend OpenAPI route contract", () => {
 
     // This is deliberately an explicit review point: silently dropping the
     // manager exporter from the generator must not shrink rollback safety.
-    expect(managerRoutes).toHaveLength(74);
+    expect(managerRoutes).toHaveLength(81);
     expect(managerRoutes.every((route) => mergedRoutes.has(route))).toBe(true);
   });
 
@@ -133,6 +133,7 @@ function isAomiAuthList(value: unknown): value is readonly AomiAuthClass[] {
 
 function isAomiAuthClass(value: unknown): value is AomiAuthClass {
   return (
+    value === "public" ||
     value === "thread" ||
     value === "account" ||
     value === "agent_adapter" ||

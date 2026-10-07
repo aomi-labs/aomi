@@ -170,6 +170,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/account/transaction-safety",
+    auth: ["account"],
+  },
+  {
+    method: "GET",
     path: "/api/admin/app-store",
     auth: ["admin"],
   },
@@ -240,7 +245,17 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/integrations/github-app/user/bots/:bot_id/command-secret",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
     path: "/api/integrations/github-app/user/deployments",
+    auth: ["service"],
+  },
+  {
+    method: "GET",
+    path: "/api/integrations/github-app/user/installations",
     auth: ["service"],
   },
   {
@@ -395,6 +410,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/platforms/:name/telegram/handover/bot",
+    auth: ["public"],
+  },
+  {
+    method: "GET",
     path: "/api/platforms/:name/tokens",
     auth: ["activation"],
   },
@@ -467,6 +487,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "GET",
     path: "/api/thread/runtime/models",
     auth: ["thread"],
+  },
+  {
+    method: "GET",
+    path: "/api/thread/transaction-safety",
+    auth: ["account","thread"],
   },
   {
     method: "GET",
@@ -700,6 +725,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/integrations/github-app/user/bots/:bot_id/webhook",
+    auth: ["service"],
+  },
+  {
+    method: "POST",
     path: "/api/integrations/github-app/user/model-keys",
     auth: ["service"],
   },
@@ -910,6 +940,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
   },
   {
     method: "PUT",
+    path: "/api/account/transaction-safety",
+    auth: ["account"],
+  },
+  {
+    method: "PUT",
     path: "/api/admin/apps/public",
     auth: ["admin"],
   },
@@ -932,6 +967,11 @@ export const AOMI_BACKEND_ENDPOINTS = [
     method: "PUT",
     path: "/api/platforms/:name/venue",
     auth: ["activation-admin"],
+  },
+  {
+    method: "PUT",
+    path: "/api/thread/transaction-safety",
+    auth: ["account","thread"],
   },
   {
     method: "PUT",
