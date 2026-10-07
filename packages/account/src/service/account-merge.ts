@@ -74,19 +74,28 @@ export async function mergeAccountWithTicket(input: {
   ticket: string;
   targetUserId: AomiUserId;
 }): Promise<AccountMergeResult> {
-  try {
-    return await withTransaction(async (db) => {
-      const source = await takeLiveTicket(input, db);
-      if (!source) return { status: "invalid_ticket" as const };
-      const moved = await mergeInto(source, input.targetUserId, db);
-      return {
-        status: "merged" as const,
-        moved: { chats: moved.chats, wallets: moved.wallets },
-      };
-    });
-  } catch (error) {
-    if (isPaymentInProgress(error)) return { status: "payment_in_progress" };
-    throw error;
+  const deadline = Date.now() + 8_000;
+  for (;;) {
+    try {
+      return await withTransaction(async (db) => {
+        const source = await takeLiveTicket(input, db);
+        if (!source) return { status: "invalid_ticket" as const };
+        const moved = await mergeInto(source, input.targetUserId, db);
+        return {
+          status: "merged" as const,
+          moved: { chats: moved.chats, wallets: moved.wallets },
+        };
+      });
+    } catch (error) {
+      if (!isPaymentInProgress(error)) throw error;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { status: "payment_in_progress" };
+      // Rollback releases the account locks and restores the ticket before
+      // waiting for the payment worker to finish accounting the last reply.
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.min(500, remaining)),
+      );
+    }
   }
 }
 

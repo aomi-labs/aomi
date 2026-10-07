@@ -54,7 +54,7 @@ const MERGE_ERRORS: Record<string, string> = {
   merge_ticket_invalid:
     "This offer expired. Sign the message again to get a new one.",
   account_merge_payment_in_progress:
-    "Finish the running task in the other account first.",
+    "Your last reply is still being billed — try again in a moment.",
   merge_switch_unavailable:
     "Switching isn’t available here. Merge, or sign in to that account directly.",
 };

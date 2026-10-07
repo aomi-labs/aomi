@@ -210,4 +210,32 @@ describe.skipIf(!enabled)("merge_accounts", () => {
       });
     }
   });
+  it("keeps both accounts intact until the payment lock is released", async () => {
+    const target = `billing-target-${randomUUID()}`;
+    const source = `billing-source-${randomUUID()}`;
+    await db.query(
+      "insert into users (id, username) values ($1, $1), ($2, $2)",
+      [target, source],
+    );
+    await db.query(
+      "insert into account_payment_locks (account_id, expires_at) values ($1, extract(epoch from now())::bigint + 60)",
+      [target],
+    );
+    await db.query("savepoint pending_billing");
+    await expect(
+      mergeAccountRows({ sourceUserId: source, targetUserId: target, db }),
+    ).rejects.toThrow("account_merge_payment_in_progress");
+    await db.query("rollback to savepoint pending_billing");
+    const accounts = await db.query(
+      "select status from users where id in ($1, $2)",
+      [target, source],
+    );
+    expect(accounts.rows).toEqual([{ status: "active" }, { status: "active" }]);
+    await db.query("delete from account_payment_locks where account_id = $1", [
+      target,
+    ]);
+    await expect(
+      mergeAccountRows({ sourceUserId: source, targetUserId: target, db }),
+    ).resolves.toMatchObject({ chats: 0, wallets: 0 });
+  });
 });

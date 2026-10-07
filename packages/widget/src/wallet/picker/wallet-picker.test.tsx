@@ -303,6 +303,50 @@ describe("wallet sheet", () => {
     );
   });
 
+  it("explains billing when a merge remains blocked", async () => {
+    const mergeAccount = vi
+      .fn()
+      .mockRejectedValue(
+        new AomiAccountRequestError(409, "account_merge_payment_in_progress"),
+      );
+    render(
+      <Harness
+        open={false}
+        initial={baseKit({ accountUser: { id: "acct-1" }, mergeAccount })}
+      />,
+    );
+    act(() =>
+      setKit((kit) => ({
+        ...kit,
+        accountConflict: {
+          code: "already_linked_to_another_account",
+          signalType: null,
+          provider: "privy",
+          mergeOffer: {
+            ticket: "billing-ticket",
+            other: {
+              name: "Other account",
+              createdAt: "2026-09-12T00:00:00Z",
+              chats: 1,
+              wallets: 1,
+              credits: "0",
+              dropped: [],
+            },
+          },
+        },
+      })),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Merge into this account" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your last reply is still being billed — try again in a moment.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Merge into this account" }),
+    ).toBeEnabled();
+  });
+
   it("offers a merge when an added Privy login opens another account", async () => {
     const mergeAccount = vi.fn(async () => ({ chats: 3 }));
     render(
