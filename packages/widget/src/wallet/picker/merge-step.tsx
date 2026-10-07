@@ -40,10 +40,7 @@ export function MergeStep({
   const stats = [
     { value: other.chats, label: other.chats === 1 ? "chat" : "chats" },
     { value: other.wallets, label: other.wallets === 1 ? "wallet" : "wallets" },
-    // A free allowance alone is not worth a "0 credits" line.
-    ...(Number(other.credits) > 0
-      ? [{ value: creditsText(other.credits), label: "credits" }]
-      : []),
+    { value: creditsText(other.credits), label: "credits" },
   ];
   return (
     <>

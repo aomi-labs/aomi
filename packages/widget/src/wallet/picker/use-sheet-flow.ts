@@ -13,7 +13,6 @@ import { useOptionalAomiRuntime } from "@aomi-labs/react";
 import type { AomiWalletKit, WalletFamily } from "@/wallet/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import { mergeOfferFrom } from "@/wallet/account/aomi-backend-client";
-import { shortAddress } from "@aomi-labs/client";
 import { walletKey } from "@/wallet/wallet-utils";
 import { formatWalletProvider } from "@/wallet/identity";
 import { isExpectedWalletCancellation } from "./wallet-cancellation";
@@ -89,8 +88,6 @@ export function useSheetFlow(
   const hostOptionsRef = useRef(hostOptions);
   hostOptionsRef.current = hostOptions;
   const runtime = useOptionalAomiRuntime();
-  const notifyRef = useRef(runtime?.showNotification);
-  notifyRef.current = runtime?.showNotification;
   const refreshAccountRef = useRef(runtime?.refreshAccountData);
   refreshAccountRef.current = runtime?.refreshAccountData;
   const canActivateWallet = useWalletActivationGuard();
@@ -341,13 +338,7 @@ export function useSheetFlow(
           const result = await kitRef.current.mergeAccount?.(
             current.offer.ticket,
           );
-          if (result) {
-            refreshAccountRef.current?.();
-            notifyRef.current?.({
-              type: "success",
-              title: `Merged. ${result.chats} ${result.chats === 1 ? "chat" : "chats"} moved.`,
-            });
-          }
+          if (result) refreshAccountRef.current?.();
         } else {
           await kitRef.current.switchToMergeSource?.(current.offer.ticket);
         }
@@ -453,12 +444,7 @@ export function useSheetFlow(
       // Signed out, the chip offers sign-in; an account switch asks nothing.
       if (!current.accountUser) return;
       if (row.state === "ready" && current.activateWallet) {
-        void current.activateWallet(row.key).then(() =>
-          notifyRef.current?.({
-            type: "notice",
-            title: `Using ${shortAddress(row.address)}${row.brand ? ` from ${row.brand}` : ""}`,
-          }),
-        );
+        void current.activateWallet(row.key);
         return;
       }
       // "Not now" only stops this sheet; the Verify row and badge stay.

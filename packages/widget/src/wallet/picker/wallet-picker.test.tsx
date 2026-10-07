@@ -251,7 +251,7 @@ describe("wallet sheet", () => {
           createdAt: "2026-09-12T00:00:00Z",
           chats: 12,
           wallets: 2,
-          credits: "420",
+          credits: "0",
           dropped: ["OpenAI model key"],
         },
       }),
@@ -273,6 +273,10 @@ describe("wallet sheet", () => {
     fireEvent.click(screen.getByText("Rabby"));
     expect(await screen.findByText("Merge accounts")).toBeInTheDocument();
     expect(screen.getByText("OpenAI model key")).toBeInTheDocument();
+    // All three tiles show, even with no credits.
+    expect(screen.getByText("chats")).toBeInTheDocument();
+    expect(screen.getByText("wallets")).toBeInTheDocument();
+    expect(screen.getByText("credits")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Switch to that account instead" }),
     ).toBeInTheDocument();
