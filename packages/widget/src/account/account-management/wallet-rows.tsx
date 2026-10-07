@@ -219,24 +219,6 @@ export function AddressRow({
   );
 }
 
-/** The line tying a login's address to the login above it. */
-function TreeBranch({ last }: { last: boolean }) {
-  return (
-    <>
-      {last ? null : (
-        <span
-          className="bg-aomi-border pointer-events-none absolute bottom-0 left-[29.5px] top-0 z-[1] w-px"
-          aria-hidden="true"
-        />
-      )}
-      <span
-        className="border-aomi-border pointer-events-none absolute left-[29.5px] top-0 z-[1] h-1/2 w-2 rounded-bl-md border-b border-l"
-        aria-hidden="true"
-      />
-    </>
-  );
-}
-
 /** A Para or Privy login, with its addresses nested under it. */
 export function LoginRows({
   group,
@@ -280,13 +262,7 @@ export function LoginRows({
 
   return (
     <div data-wallet-provider={group.provider}>
-      <div className="relative flex min-h-14 items-center gap-3 py-3 pl-3.5 pr-3">
-        {count ? (
-          <span
-            className="bg-aomi-border pointer-events-none absolute bottom-0 left-[29.5px] top-[calc(50%+13px)] w-px"
-            aria-hidden="true"
-          />
-        ) : null}
+      <div className="flex min-h-14 items-center gap-3 py-3 pl-3.5 pr-3">
         <BrandMark brand={group.provider} dot={signedIn ? "on" : "off"} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="type-row truncate">{name}</span>
@@ -301,9 +277,12 @@ export function LoginRows({
           />
         ) : null}
       </div>
-      {group.rows.map((row, index) => (
+      {group.rows.map((row) => (
         <div key={row.key} className="border-aomi-border relative border-t">
-          <TreeBranch last={index === count - 1} />
+          <span
+            className="border-aomi-border pointer-events-none absolute left-[29.5px] top-3 z-[1] h-[calc(50%-12px)] w-2 rounded-bl-md border-b border-l"
+            aria-hidden="true"
+          />
           <AddressRow row={row} nested {...handlers} />
         </div>
       ))}
