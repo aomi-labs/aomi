@@ -278,10 +278,13 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                       {snapshot.name}
                     </span>
                     {snapshot.creditsLine ? (
-                      <AccountStatusLine
-                        creditsLine={snapshot.creditsLine}
-                        planLabel={snapshot.planLabel}
-                      />
+                      // Same wrapper as the live line, so nothing shifts on swap.
+                      <span className="text-aomi-muted truncate text-[11px] leading-none">
+                        <AccountStatusLine
+                          creditsLine={snapshot.creditsLine}
+                          planLabel={snapshot.planLabel}
+                        />
+                      </span>
                     ) : (
                       <LoadingLine className="h-[11px] w-20" />
                     )}
