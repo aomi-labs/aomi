@@ -47,7 +47,8 @@ export type AccountWallet = {
     chainScope?: string;
     chainId?: number;
     linkedVia: "siwe" | "siws" | "para" | "privy" | "challenge" | "import" | "observed" | "migration" | (string & {});
-    label?: string;
+    label?: string | null;
+    walletApp?: string;
     verifiedAt?: number;
     lastSeenAt?: number;
     capability?: "read" | "write";
@@ -132,6 +133,7 @@ export type AomiWalletKit = {
     identity: AomiSessionIdentity;
     isReady: boolean;
     isSwitchingChain: boolean;
+    isSettling?: boolean;
     canConnect: boolean;
     canOpenAccountUI: boolean;
     canDisconnect: boolean;
@@ -161,6 +163,14 @@ export type AomiWalletKit = {
     unlinkLinkedWallet?: (walletId: string) => Promise<void>;
     unlinkLinkedAccount?: (identityId: string) => Promise<void>;
     selectAccount: (id: string) => Promise<void>;
+    activateWallet?: (key: string) => Promise<"active" | "switching" | "connecting">;
+    openAddWallet?: () => void;
+    openVerify?: () => void;
+    unlinkedWallet?: WalletRow;
+    mergeAccount?: (ticket: string) => Promise<{
+        chats: number;
+    }>;
+    switchToMergeSource?: (ticket: string) => Promise<void>;
     solanaWallets?: readonly SvmWalletDescriptor[];
     evmWallets?: readonly AomiWalletOption[];
     connectEvmWallet?: (id: string) => Promise<void>;
@@ -247,7 +257,6 @@ export type AomiWalletKitProviderProps = {
     fullTestnet?: {
         rpcMap: Record<number, string>;
     };
-    providerAttempt?: number;
     initializing?: boolean;
     preset?: "para" | "privy" | "wallets-only" | (string & {});
     providers?: ProvidersConfig;
@@ -319,7 +328,7 @@ export interface DelegatedAccountView {
     status: "provisioning" | "active" | "expired" | "revoked" | "unavailable";
 }
 
-// @public (undocumented)
+// @public
 export const DualWalletBar: FC<DualWalletBarProps>;
 
 // @public (undocumented)
@@ -625,6 +634,7 @@ export type WalletAccountMenuOptions = {
     enabled?: boolean;
     primaryLine?: string;
     secondaryLine?: string;
+    planLabel?: string;
     secondaryLoading?: boolean;
     noticeLine?: string;
     walletLabel?: string;

@@ -183,11 +183,11 @@ export interface SiwsNonceResponse {
 // @public (undocumented)
 export interface SiwsVerifyRequest extends SiwsNonceRequest {
     // (undocumented)
-    label?: string;
-    // (undocumented)
     message: string;
     // (undocumented)
     signature: string;
+    // (undocumented)
+    walletApp?: string;
 }
 
 // @public (undocumented)

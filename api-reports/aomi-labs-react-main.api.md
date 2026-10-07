@@ -97,6 +97,7 @@ export type AomiRuntimeApi = {
     commitController?: CommitController;
     account: AccountTransport;
     transactionSafety?: TransactionSafetyTransport;
+    refreshAccountData?: () => void;
     user: UserState;
     getUserState: () => UserState;
     setUser: (data: Partial<UserState>) => void;
@@ -209,6 +210,7 @@ export type ControlContextProviderProps = {
     backendUrl?: string;
     inferenceFunding?: AomiInferenceFundingSource;
     accountSessionAvailable?: boolean;
+    account?: RuntimeAccount | null;
 };
 
 // @public
