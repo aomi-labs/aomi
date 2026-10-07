@@ -2,7 +2,7 @@
 
 import { formatWalletAddress } from "./identity";
 import type { AomiAccount } from "./types";
-import { walletKey } from "./wallet-utils";
+import { evmAccountId, walletKey } from "./wallet-utils";
 import type { AccountWallet } from "@/wallet/account/types";
 
 export type EvmConnectionInput = {
@@ -22,7 +22,12 @@ export type SvmConnectionInput = {
   walletKind?: AomiAccount["walletKind"];
 };
 
-const GENERIC_WALLET_NAMES = new Set(["", "injected", "browser wallet", "wallet"]);
+const GENERIC_WALLET_NAMES = new Set([
+  "",
+  "injected",
+  "browser wallet",
+  "wallet",
+]);
 
 /** A real brand name beats a generic injected label when picking the display row. */
 function isRealBrandName(name: string | undefined): boolean {
@@ -61,12 +66,14 @@ export function buildAccounts(input: {
       activeConn ??
       conns.find((c) => isRealBrandName(c.walletName)) ??
       conns[0];
+    // One connector can expose several addresses; only the active one is active.
     const isActive = activeConnId
-      ? conns.some((c) => c.id === activeConnId)
+      ? conns.some((c) => c.id === activeConnId) &&
+        (!active || lowerAddr === active)
       : !!active && lowerAddr === active;
 
     accounts.push({
-      id: (activeConn ?? display).id,
+      id: evmAccountId((activeConn ?? display).id, display.address),
       family: "evm",
       address: display.address,
       label: formatWalletAddress(display.address),

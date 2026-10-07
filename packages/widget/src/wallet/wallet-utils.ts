@@ -14,6 +14,15 @@ export function walletKey(family: WalletFamily, address: string): string {
   return `${family}:${normalizeWalletAddress(family, address)}`;
 }
 
+/** EVM account ids name the connector and the address: one connector can expose several. */
+export function evmAccountId(connectorUid: string, address: string): string {
+  return `${connectorUid}#${address.toLowerCase()}`;
+}
+
+export function evmConnectorUid(accountId: string): string {
+  return accountId.split("#")[0] ?? accountId;
+}
+
 export function toRegistryFamily(
   family: PublicWalletFamily | undefined,
   fallback: WalletFamily = "evm",

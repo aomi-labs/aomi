@@ -262,8 +262,11 @@ export function createAomiBackendAccountClient(input: {
       requestVoid("DELETE", endpoints.identityPath(identityId)),
     createSiweNonce: () =>
       request<AomiBackendNonceResponse>("POST", endpoints.siweNoncePath, {}),
-    verifySiwe: (body: { message: string; signature: string }) =>
-      requestVoid("POST", endpoints.siweVerifyPath, body),
+    verifySiwe: (body: {
+      message: string;
+      signature: string;
+      walletApp?: string;
+    }) => requestVoid("POST", endpoints.siweVerifyPath, body),
     createSiwsNonce: (body: { walletAddress: string; chainId: SvmCluster }) =>
       request<AomiBackendNonceResponse>("POST", endpoints.siwsNoncePath, body),
     verifySiws: (body: {
@@ -271,7 +274,7 @@ export function createAomiBackendAccountClient(input: {
       signature: string;
       walletAddress: string;
       chainId: SvmCluster;
-      label?: string;
+      walletApp?: string;
     }) => requestVoid("POST", endpoints.siwsVerifyPath, body),
   };
 }
@@ -283,7 +286,7 @@ type WalletLinkProof<Family, ChainId, Address> = {
   nonce: string;
   message: string;
   signature: string;
-  label?: string | null;
+  walletApp?: string;
 };
 
 function extractMergeOffer(error: unknown): MergeOffer | null {

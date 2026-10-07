@@ -37,6 +37,8 @@ export type AomiRuntimeApi = {
   account: AccountTransport;
   /** Authenticated transaction safety user controls. Optional for older custom runtimes. */
   transactionSafety?: TransactionSafetyTransport;
+  /** Reload the chat list, credits, usage and profile after the account changed in place. */
+  refreshAccountData?: () => void;
   // -------------------------------------------------------------------------
   // USER API
   // -------------------------------------------------------------------------

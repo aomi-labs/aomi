@@ -1,5 +1,7 @@
 import type { AomiAccountAction, WalletFamily } from "@/wallet/types";
 import { walletKey } from "@/wallet/wallet-utils";
+import { formatWalletProvider } from "@/wallet/identity";
+import { brandDisplayName } from "@/wallet/runtime/evm/brands";
 
 type WalletKind = "external" | "embedded";
 
@@ -12,6 +14,7 @@ export type LinkedWalletFact = {
   provider?: string;
   chainId?: number;
   label?: string;
+  walletApp?: string;
   capability?: "read" | "write";
 };
 
@@ -24,7 +27,6 @@ export type WalletConnectionFact = {
   provider?: string;
   chainId?: number;
   walletName?: string;
-  label?: string;
   capability?: "read" | "write";
   manageable?: boolean;
   providerActions?: readonly AomiAccountAction[];
@@ -78,24 +80,36 @@ type WalletFacts = {
   provider?: string;
   chainId?: number;
   walletName?: string;
+  /** The user's own name for the address. */
   label?: string;
+  /** The wallet app the address was linked from. */
+  walletApp?: string;
   capability?: "read" | "write";
   manageable?: boolean;
   linkedWalletId?: string;
   connectionId?: string;
 };
 
+/** What clicking a row that is not ready yet will ask for. */
+export type WalletPendingStep = "switch" | "connect";
+
 export type WalletRow = WalletFacts &
   WalletStatus & {
     connected: boolean;
     linked: boolean;
     operating: boolean;
+    /** The address chosen for its family on this device, even while it needs a step. */
+    active?: boolean;
+    /** The wallet app, e.g. "Rabby", or "Privy" for an embedded wallet. */
+    brand?: string;
+    pendingStep?: WalletPendingStep | null;
     actions: WalletAction[];
   };
 
 export type WalletState = {
   wallets: WalletRow[];
   operating: Partial<Record<WalletFamily, string>>;
+  active: Partial<Record<WalletFamily, string>>;
   /** Families whose stored selection is permanently invalid and must go. */
   clearSelection: WalletFamily[];
   /** Operating wallets that may be saved; a stand-in never replaces a save. */
@@ -128,9 +142,8 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       ...((wallet.chainId ?? connection?.chainId)
         ? { chainId: wallet.chainId ?? connection?.chainId }
         : {}),
-      ...((wallet.label ?? connection?.label)
-        ? { label: wallet.label ?? connection?.label }
-        : {}),
+      ...(wallet.label?.trim() ? { label: wallet.label.trim() } : {}),
+      ...(wallet.walletApp ? { walletApp: wallet.walletApp } : {}),
       ...(connection?.walletName ? { walletName: connection.walletName } : {}),
       ...((wallet.capability ?? connection?.capability)
         ? { capability: wallet.capability ?? connection?.capability }
@@ -203,7 +216,6 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       ...(connection.provider ? { provider: connection.provider } : {}),
       ...(connection.chainId ? { chainId: connection.chainId } : {}),
       ...(connection.walletName ? { walletName: connection.walletName } : {}),
-      ...(connection.label ? { label: connection.label } : {}),
       ...(connection.capability ? { capability: connection.capability } : {}),
       ...(connection.manageable ? { manageable: true } : {}),
       connectionId: connection.id,
@@ -229,6 +241,7 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
   }
 
   const operating: WalletState["operating"] = {};
+  const active: WalletState["active"] = {};
   const clearSelection: WalletFamily[] = [];
   const persist: WalletState["persist"] = {};
   for (const family of ["evm", "svm"] as const) {
@@ -258,7 +271,14 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
     } else if (eligible.length === 1) {
       operating[family] = persist[family] = eligible[0].key;
     }
+    // A saved address its wallet app moved away from stays the active one;
+    // it signs again once the app switches back.
+    active[family] =
+      operating[family] ?? (stored && rows.has(stored) ? stored : undefined);
   }
+  const brands = new Map(
+    [...rows.values()].map((row) => [row.key, rowBrand(row)]),
+  );
 
   const wallets = [...rows.values()].map((row): WalletRow => {
     const isOperating = operating[row.family] === row.key;
@@ -312,13 +332,78 @@ export function resolveWalletState(input: WalletStateInput): WalletState {
       if (row.linkedWalletId)
         actions.push({ kind: "unlink", linkedWalletId: row.linkedWalletId });
     }
+    const brand = brands.get(row.key);
     return {
       ...row,
+      ...(brand ? { brand } : {}),
       connected: Boolean(row.connectionId),
       linked: Boolean(row.linkedWalletId),
       operating: isOperating,
+      active: active[row.family] === row.key,
+      pendingStep: pendingStep(row, rows, brands),
       actions,
     };
   });
-  return { wallets, operating, clearSelection, persist };
+  return { wallets, operating, active, clearSelection, persist };
+}
+
+function rowBrand(row: WalletFacts): string | undefined {
+  if (row.kind === "embedded" && row.provider)
+    return formatWalletProvider(row.provider);
+  if (row.walletName) return brandDisplayName(row.walletName);
+  return row.walletApp;
+}
+
+function pendingStep(
+  row: WalletFacts & WalletStatus,
+  rows: ReadonlyMap<string, WalletFacts & WalletStatus>,
+  brands: ReadonlyMap<string, string | undefined>,
+): WalletPendingStep | null {
+  if (row.state !== "offline" && row.state !== "mismatch") return null;
+  if (row.state === "offline" && row.reason === "account_error") return null;
+  if (row.kind === "embedded") return "connect";
+  const brand = brands.get(row.key);
+  // The app is here on another address: the user switches inside the app.
+  const appIsHere = [...rows.values()].some(
+    (other) =>
+      other.key !== row.key &&
+      other.family === row.family &&
+      Boolean(other.connectionId) &&
+      Boolean(brand) &&
+      brands.get(other.key) === brand,
+  );
+  return appIsHere ? "switch" : "connect";
+}
+
+/** What making a row active takes: nothing, a selection, the app, or a connect. */
+export type WalletActivation =
+  | { kind: "active" }
+  | { kind: "select"; accountId: string }
+  | { kind: "switch"; appAccountId?: string }
+  | { kind: "connect" };
+
+export function planWalletActivation(
+  wallets: readonly WalletRow[],
+  key: string,
+): WalletActivation | null {
+  const row = wallets.find((wallet) => wallet.key === key);
+  if (!row) return null;
+  if (row.state === "ready" || row.state === "guest") {
+    return row.operating || !row.connectionId
+      ? { kind: "active" }
+      : { kind: "select", accountId: row.connectionId };
+  }
+  if (row.pendingStep === "switch") {
+    const app = wallets.find(
+      (wallet) =>
+        wallet.family === row.family &&
+        wallet.connectionId &&
+        wallet.brand === row.brand,
+    );
+    return {
+      kind: "switch",
+      ...(app?.connectionId ? { appAccountId: app.connectionId } : {}),
+    };
+  }
+  return { kind: "connect" };
 }

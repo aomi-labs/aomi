@@ -44,6 +44,8 @@ type UseByokOptions = {
   aomiClientRef: MutableRefObject<AomiClient>;
   /** Null until the host has an account session. */
   accountClient: AomiClient | null;
+  /** Reloads the keys when the session moves to another account. */
+  accountId?: string;
   clientIdRef: MutableRefObject<string | null>;
   /** Stable getter for the current control-session id (clientId + sessionId). */
   getControlSessionId: () => string;
@@ -55,6 +57,7 @@ type UseByokOptions = {
 export function useByokImpl({
   aomiClientRef,
   accountClient,
+  accountId,
   clientIdRef,
   getControlSessionId,
   initialInferenceFunding,
@@ -90,7 +93,7 @@ export function useByokImpl({
     return () => {
       cancelled = true;
     };
-  }, [accountClient, clientIdRef, getControlSessionId]);
+  }, [accountClient, accountId, clientIdRef, getControlSessionId]);
 
   const ingestSecrets = useCallback(
     async (

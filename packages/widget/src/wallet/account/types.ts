@@ -50,6 +50,8 @@ export type AccountWallet = {
     | (string & {});
   /** The user's name for this address; null when unnamed. */
   label?: string | null;
+  /** The wallet app it was linked from, e.g. "Rabby". */
+  walletApp?: string;
   verifiedAt?: number;
   lastSeenAt?: number;
   capability?: "read" | "write";
@@ -97,5 +99,7 @@ export type AccountRuntime = {
   updateWallet?: (input: UpdateWalletInput) => Promise<void>;
   unlinkWallet?: (walletId: string) => Promise<void>;
   unlinkAuthIdentity?: (identityId: string) => Promise<void>;
+  mergeAccount?: (ticket: string) => Promise<{ chats: number }>;
+  switchToMergeSource?: (ticket: string) => Promise<void>;
   getAccountBearer?: import("@aomi-labs/client").GetAccountBearer;
 };

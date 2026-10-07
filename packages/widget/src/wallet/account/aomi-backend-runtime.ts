@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { withBrowserSessionTransition } from "@aomi-labs/client";
 import type { AuthRuntime, SvmWalletRuntime } from "../composer/types";
 import type { EvmWalletRuntime } from "../runtime/evm/wallet-runtime";
-import { brandDisplayName } from "../runtime/evm/brands";
 import type { AccountRuntime, AccountWallet } from "./types";
 import {
   createAomiBackendAccountClient,
@@ -17,9 +17,7 @@ import {
 } from "./use-widget-session-provider";
 import { resolveAuthMessageConfig } from "./auth-message";
 import {
-  buildDefaultWalletLabel,
   normalizeAccountWalletProvider,
-  resolveLinkedWalletName,
   walletAccountKey,
 } from "./wallet-labels";
 import { linkAccountWallet } from "./wallet-sign-in";
@@ -109,7 +107,6 @@ export function useAomiBackendAccountRuntime(input: {
     contextKey: string;
     promise: Promise<void>;
   } | null>(null);
-  const walletLabelSyncInFlight = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!input.enabled) return;
@@ -187,16 +184,6 @@ export function useAomiBackendAccountRuntime(input: {
     input.evm.activeEvmConnection?.address ?? input.evm.activeAccount?.address;
   const activeEvmChainId =
     input.evm.activeEvmConnection?.chainId ?? input.evm.activeAccount?.chainId;
-  const activeEvmWalletName = activeEvmAddress
-    ? resolveLinkedWalletName({
-        accounts: input.evm.accounts(Date.now()),
-        accountId: input.evm.activeAccount?.id,
-        address: activeEvmAddress,
-        fallbackWalletName:
-          input.evm.activeAccount?.walletName ??
-          input.evm.activeEvmConnection?.walletName,
-      })
-    : undefined;
   const activeSvmIdentity = input.svm?.identity(Date.now());
   const activeSvmAccount = input.svm?.activeAccount;
   const activeSvmAddress =
@@ -226,36 +213,6 @@ export function useAomiBackendAccountRuntime(input: {
     input.widgetAuth?.mode,
     refresh,
   ]);
-
-  useEffect(() => {
-    if (!account?.user || account.guest || !activeEvmAddress) return;
-    const brand = brandDisplayName(activeEvmWalletName);
-    if (brand === "Wallet") return;
-    const wallet = account.wallets.find(
-      (candidate) =>
-        candidate.family === "evm" &&
-        candidate.address.toLowerCase() === activeEvmAddress.toLowerCase() &&
-        !candidate.label?.trim(),
-    );
-    if (!wallet) return;
-    const label = buildDefaultWalletLabel({
-      walletName: brand,
-      existingWallets: account.wallets,
-      family: "evm",
-    });
-    const key = `${wallet.id}:${label}`;
-    if (walletLabelSyncInFlight.current === key) return;
-    walletLabelSyncInFlight.current = key;
-    accountClient
-      .renameWallet(wallet.id, label)
-      .then(refresh)
-      .catch(() => setErrorVersion((version) => version + 1))
-      .finally(() => {
-        if (walletLabelSyncInFlight.current === key) {
-          walletLabelSyncInFlight.current = null;
-        }
-      });
-  }, [account, accountClient, activeEvmAddress, activeEvmWalletName, refresh]);
 
   const exchange = useProviderCredentialExchange({
     enabled: input.enabled && !input.widgetAuth,
@@ -400,6 +357,20 @@ export function useAomiBackendAccountRuntime(input: {
     },
     unlinkAuthIdentity: async (identityId) => {
       await accountClient.unlinkAuthIdentity(identityId);
+      await refresh();
+    },
+    mergeAccount: async (ticket) => {
+      const result = await accountClient.mergeAccount(ticket);
+      setAccount(result.account);
+      await refresh();
+      return { chats: result.moved.chats };
+    },
+    // A new session for another account: the account change that follows
+    // drops this account's chats and cached data, as a sign-in does.
+    switchToMergeSource: async (ticket) => {
+      await withBrowserSessionTransition(() =>
+        accountClient.switchToMergeSource(ticket),
+      );
       await refresh();
     },
   };

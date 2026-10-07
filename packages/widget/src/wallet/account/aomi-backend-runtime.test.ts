@@ -11,9 +11,9 @@ import {
   resolveAuthMessageConfig,
 } from "./auth-message";
 import {
-  buildDefaultWalletLabel,
   normalizeAccountWalletProvider,
   resolveLinkedWalletName,
+  walletAppName,
 } from "./wallet-labels";
 import type { AomiAccountCredential } from "../types";
 import { AomiAccountRequestError } from "./aomi-backend-client";
@@ -754,7 +754,7 @@ describe("useAomiBackendAccountRuntime", () => {
       expect.objectContaining({
         walletAddress: address,
         chainId: "solana:devnet",
-        label: "Phantom 1",
+        walletApp: "Phantom",
         signature: "c2lnbmF0dXJl",
       }),
     );
@@ -835,7 +835,7 @@ describe("useAomiBackendAccountRuntime", () => {
         address,
         chainId: "solana:mainnet",
         nonce: "link-nonce",
-        label: "Phantom 1",
+        walletApp: "Phantom",
         signature: "bGlua3NpZw==",
       }),
     );
@@ -877,76 +877,6 @@ describe("useAomiBackendAccountRuntime", () => {
     );
     expect(mockState.accountClient?.createSiwsNonce).not.toHaveBeenCalled();
     expect(signed).not.toHaveBeenCalled();
-  });
-
-  it("labels an unlabeled SIWE wallet from its connected wallet brand", async () => {
-    const address = "0x28581d8065da7e25710f25f9dd30f9d361757a7d";
-    mockState
-      .accountClient!.getAccount.mockResolvedValueOnce({
-        user: { id: "aomi-user" },
-        linkedAccounts: [],
-        wallets: [
-          {
-            id: "evm-wallet",
-            family: "evm",
-            address,
-            linkedVia: "siwe",
-          },
-        ],
-        session: { betterAuthUserId: "ba-user" },
-      })
-      .mockResolvedValue({
-        user: { id: "aomi-user" },
-        linkedAccounts: [],
-        wallets: [
-          {
-            id: "evm-wallet",
-            family: "evm",
-            address,
-            linkedVia: "siwe",
-            label: "Rabby 1",
-          },
-        ],
-        session: { betterAuthUserId: "ba-user" },
-      });
-    mockState.accountClient!.renameWallet.mockResolvedValue(undefined);
-
-    renderHook(() =>
-      useAomiBackendAccountRuntime({
-        enabled: true,
-        baseUrl: "http://localhost:3000",
-        auth: { status: "unauthenticated", provider: "para" } as never,
-        evm: {
-          activeEvmConnection: { address, chainId: 8453, walletName: "Rabby" },
-          activeAccount: {
-            id: "rabby",
-            family: "evm",
-            address,
-            chainId: 8453,
-            walletName: "Rabby",
-            active: true,
-          },
-          accounts: () => [
-            {
-              id: "rabby",
-              family: "evm",
-              address,
-              chainId: 8453,
-              walletName: "Rabby",
-              active: true,
-            },
-          ],
-          signMessageAsync: vi.fn(),
-        } as never,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockState.accountClient?.renameWallet).toHaveBeenCalledWith(
-        "evm-wallet",
-        "Rabby 1",
-      );
-    });
   });
 });
 
@@ -996,43 +926,10 @@ describe("resolveLinkedWalletName", () => {
   });
 });
 
-describe("buildDefaultWalletLabel", () => {
-  it("brands and counts per family", () => {
-    expect(
-      buildDefaultWalletLabel({
-        walletName: "MetaMask",
-        existingWallets: [],
-        family: "evm",
-      }),
-    ).toBe("MetaMask 1");
-  });
-
-  it("increments past same-brand wallets", () => {
-    expect(
-      buildDefaultWalletLabel({
-        walletName: "MetaMask",
-        existingWallets: [
-          {
-            id: "w1",
-            family: "evm",
-            address: "0x1",
-            linkedVia: "siwe",
-            label: "MetaMask 1",
-          },
-        ],
-        family: "evm",
-      }),
-    ).toBe("MetaMask 2");
-  });
-
-  it("falls back to 'Wallet' for an unknown brand", () => {
-    expect(
-      buildDefaultWalletLabel({
-        walletName: undefined,
-        existingWallets: [],
-        family: "evm",
-      }),
-    ).toBe("Wallet 1");
+describe("walletAppName", () => {
+  it("names known wallet apps and leaves unknown ones unnamed", () => {
+    expect(walletAppName("MetaMask")).toBe("MetaMask");
+    expect(walletAppName(undefined)).toBeUndefined();
   });
 });
 

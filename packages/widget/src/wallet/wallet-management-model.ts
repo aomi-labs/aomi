@@ -6,10 +6,6 @@ export {
 } from "@/wallet/account/display";
 import type { WalletPolicy } from "@/account/types";
 
-export type ManagedWallet = WalletRow & {
-  policy?: WalletPolicy;
-};
-
 export function walletConnectionSummary(wallets: readonly WalletRow[]): string {
   const linked = wallets.filter((wallet) => wallet.linked);
   const linkedOffline = linked.filter((wallet) => !wallet.connected).length;

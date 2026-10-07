@@ -73,9 +73,11 @@ function reconcileConnectionOrder(
   previous: readonly RegistryConnectionOrderItem[],
   connections: readonly RegistryConnection[],
 ): RegistryConnectionOrderItem[] {
-  const liveKeys = new Set(connections.map((connection) =>
-    connectionOrderKey(connectionOrderItem(connection)),
-  ));
+  const liveKeys = new Set(
+    connections.map((connection) =>
+      connectionOrderKey(connectionOrderItem(connection)),
+    ),
+  );
   const next: RegistryConnectionOrderItem[] = [];
   const seen = new Set<string>();
 
@@ -136,7 +138,10 @@ function withConnectionOrder(state: WalletRegistryState): WalletRegistryState {
     state.connectionOrder.length > 0
       ? state.connectionOrder
       : state.connections.map(connectionOrderItem);
-  const connectionOrder = reconcileConnectionOrder(baseOrder, state.connections);
+  const connectionOrder = reconcileConnectionOrder(
+    baseOrder,
+    state.connections,
+  );
   return {
     ...state,
     connectionOrder,
@@ -158,9 +163,11 @@ function activeFromPersisted(
   }
   const persistedSvm =
     persisted.active.svm ??
-    (persisted.active as typeof persisted.active & {
-      solana?: { address: string; stableId?: string };
-    }).solana;
+    (
+      persisted.active as typeof persisted.active & {
+        solana?: { address: string; stableId?: string };
+      }
+    ).solana;
   if (persistedSvm?.address) {
     active.svm = {
       family: "svm",
@@ -191,7 +198,7 @@ function classifyConnection(
 
   return {
     ...connection,
-    key: `${connection.family}:${connection.uid}`,
+    key: `${connection.family}:${connection.uid}:${address}`,
     kind,
     address,
     addresses:
@@ -782,7 +789,7 @@ export function reduce(
           providerSessionDetached:
             event.isProviderOwnedAccount && event.othersRemain
               ? true
-            : state.intents.providerSessionDetached,
+              : state.intents.providerSessionDetached,
         },
       });
       next = withEmbeddedSessionConnection(next);
@@ -820,16 +827,16 @@ export function reduce(
       let next: WalletRegistryState = withConnectionOrder({
         ...state,
         activeByFamily,
-        evmGrace:
-          disconnectsEvm
-            ? { last: null, disconnectedAt: null }
-            : state.evmGrace,
+        evmGrace: disconnectsEvm
+          ? { last: null, disconnectedAt: null }
+          : state.evmGrace,
         connections,
         intents: {
           ...state.intents,
           explicitFamilyDisconnect,
-          providerSessionDetached:
-            disconnectsEvm ? true : state.intents.providerSessionDetached,
+          providerSessionDetached: disconnectsEvm
+            ? true
+            : state.intents.providerSessionDetached,
         },
       });
       next = withEmbeddedSessionConnection(next);

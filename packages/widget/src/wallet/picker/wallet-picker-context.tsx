@@ -2,24 +2,27 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useReducer,
   type ReactNode,
 } from "react";
-import type { AomiWalletOption } from "@/wallet/types";
+import { useAomiWalletKit } from "@/wallet/context";
+import { useSheetChannel } from "./sheet-channel";
+import { CLOSED_SHEET, sheetReducer, type SheetState } from "./sheet-machine";
+import { useSheetFlow, type SheetFlow } from "./use-sheet-flow";
+import { useWalletAppSwitch } from "./use-wallet-app-switch";
 
-/** Host-owned provider choices; selecting one does not grant wallet authority. */
-export const WalletSignInOptionsContext = createContext<
-  readonly (AomiWalletOption & { connect: () => Promise<void> })[]
->([]);
+export { WalletSignInOptionsContext } from "./sign-in-options";
 
 export type WalletPickerContextValue = {
   open: boolean;
+  /** Opens the sheet for whatever the user needs next: sign in, verify or add. */
   openPicker: () => void;
   closePicker: () => void;
+  sheet: SheetState;
+  flow: SheetFlow;
 };
 
 const WalletPickerContext = createContext<WalletPickerContextValue | null>(
@@ -28,37 +31,43 @@ const WalletPickerContext = createContext<WalletPickerContextValue | null>(
 
 const OPEN_WALLET_PICKER_EVENT = "aomi:open-wallet-picker";
 
-/** Open the canonical wallet chooser from host-owned overlays such as Settings. */
+/** Open the wallet sheet from host-owned overlays outside the widget. */
 export function requestWalletPickerOpen() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(OPEN_WALLET_PICKER_EVENT));
 }
 
-export function WalletPickerProvider({
-  children,
-  listenForOpenRequests = true,
-}: {
-  children: ReactNode;
-  listenForOpenRequests?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const openPicker = useCallback(() => setOpen(true), []);
-  const closePicker = useCallback(() => setOpen(false), []);
+/**
+ * Owns the frame's one wallet sheet. It answers the kit (`openAddWallet`,
+ * `openVerify`, `activateWallet`) and the wallet app switching accounts on
+ * its own.
+ */
+export function WalletPickerProvider({ children }: { children: ReactNode }) {
+  const kit = useAomiWalletKit();
+  const [sheet, dispatch] = useReducer(sheetReducer, CLOSED_SHEET);
+  const flow = useSheetFlow(kit, sheet, dispatch);
+  const channel = useSheetChannel();
 
   useEffect(() => {
-    if (!listenForOpenRequests) return;
-    window.addEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
+    if (!channel) return;
+    return channel.subscribe(flow.handleRequest);
+  }, [channel, flow.handleRequest]);
+  useEffect(() => {
+    window.addEventListener(OPEN_WALLET_PICKER_EVENT, flow.open);
     return () =>
-      window.removeEventListener(OPEN_WALLET_PICKER_EVENT, openPicker);
-  }, [listenForOpenRequests, openPicker]);
+      window.removeEventListener(OPEN_WALLET_PICKER_EVENT, flow.open);
+  }, [flow.open]);
+  useWalletAppSwitch(kit, flow.handleAppSwitch);
 
   const value = useMemo<WalletPickerContextValue>(
     () => ({
-      open,
-      openPicker,
-      closePicker,
+      open: sheet.step !== "closed",
+      openPicker: flow.open,
+      closePicker: flow.close,
+      sheet,
+      flow,
     }),
-    [open, openPicker, closePicker],
+    [flow, sheet],
   );
 
   return (

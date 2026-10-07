@@ -1,8 +1,9 @@
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { WalletAuthPublisherContext } from "@/wallet/providers/auth-store";
 import { createInitialState } from "@/wallet/registry/reducer";
 import type { AomiWalletKit } from "@/wallet/types";
+import type { AccountWallet } from "@/wallet/account/types";
 import { AomiWalletKitComposer } from "./aomi-wallet-kit-composer";
 import type { AomiWalletKitComposerProps, AuthRuntime } from "./types";
 
@@ -158,4 +159,46 @@ it("preserves a ready custom social login that does not use a modal", async () =
   );
   await kit!.connectSocial!("privy");
   expect(login).toHaveBeenCalledExactlyOnceWith("social-login:privy");
+});
+
+it("stops offering Verify for an address the user removed", async () => {
+  const { props, address } = connectedSigner("evm");
+  const unlinkWallet = vi.fn(async () => undefined);
+  let kit: AomiWalletKit | undefined;
+  const tree = (wallets: AccountWallet[]) => (
+    <WalletAuthPublisherContext.Provider
+      value={(next) => {
+        kit = next;
+      }}
+    >
+      <AomiWalletKitComposer
+        {...props}
+        account={{
+          status: "ready",
+          user: { id: "user-1" },
+          linkedAccounts: [],
+          wallets,
+          unlinkWallet,
+          refresh: async () => undefined,
+        }}
+        auth={{
+          provider: "privy",
+          sessionProvider: "privy",
+          status: "unauthenticated",
+          canOpenModal: false,
+          methods: [],
+        }}
+      >
+        connected chat
+      </AomiWalletKitComposer>
+    </WalletAuthPublisherContext.Provider>
+  );
+  const view = render(
+    tree([{ id: "w1", family: "evm", address, linkedVia: "siwe" }]),
+  );
+  expect(kit!.unlinkedWallet).toBeUndefined();
+  await act(async () => kit!.unlinkLinkedWallet!("w1"));
+  view.rerender(tree([]));
+  expect(unlinkWallet).toHaveBeenCalledWith("w1");
+  expect(kit!.unlinkedWallet).toBeUndefined();
 });

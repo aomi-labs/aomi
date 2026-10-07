@@ -13,10 +13,7 @@ import type {
   createAomiBackendAccountClient,
 } from "./aomi-backend-client";
 import { messageConfigFromNonce, type AuthMessageConfig } from "./auth-message";
-import {
-  buildDefaultWalletLabel,
-  resolveLinkedWalletName,
-} from "./wallet-labels";
+import { resolveLinkedWalletName, walletAppName } from "./wallet-labels";
 import { utf8ToBase64 } from "./encoding";
 
 type AccountClient = ReturnType<typeof createAomiBackendAccountClient>;
@@ -75,11 +72,7 @@ export async function linkAccountWallet(
         "Wallet linking requires the active external Solana signer",
       );
     }
-    const label = buildDefaultWalletLabel({
-      walletName: svm.walletName,
-      existingWallets: account?.wallets ?? [],
-      family: "svm",
-    });
+    const walletApp = walletAppName(svm.walletName);
     const sign = (message: string) =>
       signMessageWithActiveSvm(signMessage, message, svm.cluster);
     if (!signedIn) {
@@ -87,7 +80,7 @@ export async function linkAccountWallet(
         accountClient,
         address: wallet.address,
         chainId: svm.cluster,
-        label,
+        walletApp,
         messageConfig,
         signMessage: sign,
       });
@@ -108,7 +101,7 @@ export async function linkAccountWallet(
       family: "svm",
       address: wallet.address,
       chainId: svm.cluster,
-      label,
+      walletApp,
       message,
       signature: await sign(message),
       nonce: nonceResult.nonce,
@@ -126,11 +119,22 @@ export async function linkAccountWallet(
     accountId && signMessageForAccount
       ? signMessageForAccount({ accountId, chainId, message })
       : signMessageWithActiveEvm(evm.signMessageAsync, message);
+  // The app being linked, not whichever wallet is the active signer: linking
+  // MetaMask while a Privy wallet is active records MetaMask.
+  const walletApp = walletAppName(
+    resolveLinkedWalletName({
+      accounts: evm.accounts(Date.now()),
+      accountId,
+      address: wallet.address,
+      fallbackWalletName: evm.activeEvmConnection?.walletName,
+    }),
+  );
   if (!signedIn) {
     await signInWithEvmWallet({
       accountClient,
       address: wallet.address as `0x${string}`,
       chainId,
+      walletApp,
       signMessage,
       messageConfig,
     });
@@ -147,23 +151,11 @@ export async function linkAccountWallet(
     ...messageConfigFromNonce(nonceResult, messageConfig),
   });
   const signature = await signMessage(message);
-  // Name the label after the wallet being linked, not whichever wallet is the
-  // active signer: linking MetaMask while a Privy wallet is active reads "MetaMask N".
-  const label = buildDefaultWalletLabel({
-    walletName: resolveLinkedWalletName({
-      accounts: evm.accounts(Date.now()),
-      accountId,
-      address: wallet.address,
-      fallbackWalletName: evm.activeEvmConnection?.walletName,
-    }),
-    existingWallets: account?.wallets ?? [],
-    family: wallet.family,
-  });
   const result = await accountClient.linkWallet({
     family: "evm",
     address: wallet.address,
     chainId,
-    label,
+    walletApp,
     message,
     signature,
     nonce: nonceResult.nonce,
@@ -187,6 +179,7 @@ async function signInWithEvmWallet(input: {
   accountClient: AccountClient;
   address: `0x${string}`;
   chainId: number;
+  walletApp?: string;
   signMessage: (message: string) => Promise<`0x${string}`>;
   messageConfig: AuthMessageConfig;
 }): Promise<void> {
@@ -202,6 +195,7 @@ async function signInWithEvmWallet(input: {
     await input.accountClient.verifySiwe({
       message,
       signature,
+      walletApp: input.walletApp,
     });
   });
 }
@@ -223,7 +217,7 @@ async function signInWithSvmWallet(input: {
   accountClient: AccountClient;
   address: string;
   chainId: SvmCluster;
-  label?: string;
+  walletApp?: string;
   signMessage: (message: string) => Promise<string>;
   messageConfig: AuthMessageConfig;
 }): Promise<void> {
@@ -245,7 +239,7 @@ async function signInWithSvmWallet(input: {
       signature,
       walletAddress: input.address,
       chainId: input.chainId,
-      label: input.label,
+      walletApp: input.walletApp,
     });
   });
 }

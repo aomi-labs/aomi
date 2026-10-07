@@ -260,6 +260,8 @@ export type AomiWalletKit = {
   identity: AomiSessionIdentity;
   isReady: boolean;
   isSwitchingChain: boolean;
+  /** Wallet connections are still starting or rebuilding; don't open logins yet. */
+  isSettling?: boolean;
 
   canConnect: boolean;
   canOpenAccountUI: boolean;
@@ -297,6 +299,23 @@ export type AomiWalletKit = {
   unlinkLinkedAccount?: (identityId: string) => Promise<void>;
   /** Make `accounts[id]` the active account for its family. */
   selectAccount: (id: string) => Promise<void>;
+  /**
+   * Make the wallet row `key` the active address for its family. Instant when
+   * the address is ready; otherwise opens the switch card or the connect step.
+   */
+  activateWallet?: (
+    key: string,
+  ) => Promise<"active" | "switching" | "connecting">;
+  /** Open the wallet sheet in add mode. */
+  openAddWallet?: () => void;
+  /** Ask the connected address that is not in the account for its signature. */
+  openVerify?: () => void;
+  /** A connected address that is not in the account yet (badge state). */
+  unlinkedWallet?: WalletRow;
+  /** Merge the account a link conflict revealed into this one. */
+  mergeAccount?: (ticket: string) => Promise<{ chats: number }>;
+  /** Sign this browser in to the account a link conflict revealed instead. */
+  switchToMergeSource?: (ticket: string) => Promise<void>;
 
   /**
    * Installed/loadable Solana wallets the adapter can attach to. Empty

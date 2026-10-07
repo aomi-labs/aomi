@@ -10,7 +10,7 @@ import { buildWalletKitAccounts } from "@/wallet/accounts";
 import { buildWalletKitIdentity } from "./build-identity";
 import { buildWalletKitActions } from "./build-wallet-kit-actions";
 import type { AomiWalletKitComposerProps } from "./types";
-import { resolveWalletState } from "./wallet-state";
+import { planWalletActivation, resolveWalletState } from "./wallet-state";
 import {
   readWalletSelection,
   selectedWalletKeys,
@@ -18,6 +18,7 @@ import {
 } from "./wallet-selection";
 import { preferenceStorage, useWidgetStorage } from "@/lib/widget-storage";
 import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
+import { useSheetChannel } from "@/wallet/picker/sheet-channel";
 import { walletKey } from "@/wallet/wallet-utils";
 
 export function AomiWalletKitComposer({
@@ -37,6 +38,10 @@ export function AomiWalletKitComposer({
   const { registryStore, registryState } = evm;
   const accountId = account.guest ? undefined : account.user?.id;
   const [selectionVersion, setSelectionVersion] = useState(0);
+  // An address the user removed from the account; no Verify nag for it
+  // until the wallet app moves to another address.
+  const [removedKey, setRemovedKey] = useState<string>();
+  const sheetChannel = useSheetChannel();
   const storage = useWidgetStorage();
   const selectionStorage = useMemo(() => preferenceStorage(storage), [storage]);
   const storedSelection = useMemo(
@@ -140,6 +145,7 @@ export function AomiWalletKitComposer({
             provider: wallet.provider,
             chainId: wallet.chainId,
             label: wallet.label ?? undefined,
+            walletApp: wallet.walletApp,
             capability: wallet.capability,
           })),
         connections: accounts
@@ -153,7 +159,6 @@ export function AomiWalletKitComposer({
             provider: connection.provider,
             chainId: connection.chainId,
             walletName: connection.walletName,
-            label: connection.label,
             capability: connection.capability,
             manageable: connection.manageable,
             providerActions: connection.actions,
@@ -185,6 +190,13 @@ export function AomiWalletKitComposer({
       selection,
     ],
   );
+
+  const removedConnected = walletState.wallets.some(
+    (wallet) => wallet.key === removedKey && wallet.connectionId,
+  );
+  useEffect(() => {
+    if (removedKey && !removedConnected) setRemovedKey(undefined);
+  }, [removedConnected, removedKey]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -267,6 +279,18 @@ export function AomiWalletKitComposer({
         family: "svm" as const,
         kind: "solana" as const,
       })) ?? [];
+    const selectAccount = async (id: string) => {
+      const selected = accounts.find((candidate) => candidate.id === id);
+      await actions.selectAccount(id);
+      if (!selected || !accountId) return;
+      writeWalletSelection(
+        selectionStorage,
+        accountId,
+        selected.family,
+        walletKey(selected.family, selected.address),
+      );
+      setSelectionVersion((version) => version + 1);
+    };
     const actions = buildWalletKitActions({
       accounts,
       auth,
@@ -293,6 +317,7 @@ export function AomiWalletKitComposer({
       identity,
       isReady: !isBooting,
       isSwitchingChain: evm.isSwitchingChain,
+      isSettling: registryState.phase !== "stable",
       canConnect:
         Boolean(auth.canOpenModal) ||
         Boolean(solanaWalletDescriptors.length) ||
@@ -333,20 +358,44 @@ export function AomiWalletKitComposer({
         : undefined,
       updateLinkedAccount: account.updateAuthIdentity,
       updateLinkedWallet: account.updateWallet,
-      unlinkLinkedWallet: account.unlinkWallet,
+      unlinkLinkedWallet: account.unlinkWallet
+        ? async (walletId) => {
+            await account.unlinkWallet!(walletId);
+            const removed = walletState.wallets.find(
+              (wallet) => wallet.linkedWalletId === walletId,
+            );
+            if (removed?.connectionId) setRemovedKey(removed.key);
+          }
+        : undefined,
       unlinkLinkedAccount: account.unlinkAuthIdentity,
-      selectAccount: async (id) => {
-        const selected = accounts.find((candidate) => candidate.id === id);
-        await actions.selectAccount(id);
-        if (!selected || !accountId) return;
-        writeWalletSelection(
-          selectionStorage,
-          accountId,
-          selected.family,
-          walletKey(selected.family, selected.address),
-        );
-        setSelectionVersion((version) => version + 1);
+      selectAccount,
+      activateWallet: async (key) => {
+        const plan = planWalletActivation(walletState.wallets, key);
+        if (!plan) throw new Error("This wallet is not in your account.");
+        if (plan.kind === "select") await selectAccount(plan.accountId);
+        if (plan.kind === "active" || plan.kind === "select") return "active";
+        if (plan.kind === "switch") {
+          if (plan.appAccountId)
+            void evm
+              .requestAccountSwitch?.(plan.appAccountId)
+              .catch(() => undefined);
+          sheetChannel?.request({ kind: "switch", key });
+          return "switching";
+        }
+        sheetChannel?.request({ kind: "connect", key });
+        return "connecting";
       },
+      openAddWallet: () => sheetChannel?.request({ kind: "add" }),
+      openVerify: () => sheetChannel?.request({ kind: "verify" }),
+      unlinkedWallet:
+        account.user && !account.guest
+          ? walletState.wallets.find(
+              (wallet) =>
+                wallet.state === "unlinked" && wallet.key !== removedKey,
+            )
+          : undefined,
+      mergeAccount: account.mergeAccount,
+      switchToMergeSource: account.switchToMergeSource,
       evmWallets: evmWalletOptions,
       connectEvmWallet: actions.connectEvmWallet,
       socialLoginOptions: auth.methods,
@@ -388,6 +437,7 @@ export function AomiWalletKitComposer({
       solanaRpcWsUrl: svm?.execution.solanaRpcWsUrl,
     };
   }, [
+    registryState.phase,
     auth,
     account.wallets,
     account.linkedAccounts,
@@ -404,6 +454,10 @@ export function AomiWalletKitComposer({
     account.updateWallet,
     account.user,
     account.getAccountBearer,
+    account.mergeAccount,
+    account.switchToMergeSource,
+    sheetChannel,
+    removedKey,
     additionalEvmWalletOptions,
     accountId,
     accounts,

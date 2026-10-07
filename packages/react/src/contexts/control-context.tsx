@@ -22,6 +22,7 @@ import type {
   ApplicationId,
 } from "@aomi-labs/client";
 import type { ThreadControlState, ThreadMetadata } from "../state/thread-store";
+import type { RuntimeAccount } from "../query/display-cache";
 import {
   getControlSessionId,
   getOrCreateClientId,
@@ -197,6 +198,8 @@ export type ControlContextProviderProps = {
   backendUrl?: string;
   inferenceFunding?: AomiInferenceFundingSource;
   accountSessionAvailable?: boolean;
+  /** Who the session belongs to; a guest has no account data to load. */
+  account?: RuntimeAccount | null;
 };
 
 export function ControlContextProvider({
@@ -211,6 +214,7 @@ export function ControlContextProvider({
   backendUrl = "",
   inferenceFunding,
   accountSessionAvailable = false,
+  account,
 }: ControlContextProviderProps) {
   // ---------------------------------------------------------------------------
   // Stable refs into the central plumbing (aomiClient, the props that change
@@ -258,7 +262,9 @@ export function ControlContextProvider({
 
   const byok = useByokImpl({
     aomiClientRef,
-    accountClient: accountSessionAvailable ? aomiClient : null,
+    accountClient:
+      accountSessionAvailable && account?.kind !== "guest" ? aomiClient : null,
+    accountId: account?.id,
     clientIdRef,
     getControlSessionId: getCurrentControlSessionId,
     initialInferenceFunding: inferenceFunding,

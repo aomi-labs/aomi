@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveWalletState, type WalletStateInput } from "./wallet-state";
+import {
+  planWalletActivation,
+  resolveWalletState,
+  type WalletStateInput,
+} from "./wallet-state";
 
 const METAMASK = "0xAAaa000000000000000000000000000000000001";
 const RABBY = "0xBBbb000000000000000000000000000000000002";
@@ -432,5 +436,75 @@ describe("embedded wallets", () => {
       }),
     ]);
     expect(actionKinds(state.wallets[0].actions)).toEqual(["unlink"]);
+  });
+});
+
+describe("active address and the step it needs", () => {
+  const MAIN = "0xda65000000000000000000000000000000003cf0";
+  const TRADING = "0x12a4000000000000000000000000000000009b3f";
+  const NEW = "0x77c100000000000000000000000000000000a20e";
+
+  it("keeps the saved address active while its app is on an unlinked one", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [
+          { ...linkedEvm("w1", MAIN), walletApp: "Rabby" },
+          { ...linkedEvm("w2", TRADING), label: "Trading", walletApp: "Rabby" },
+        ],
+        connections: [{ ...external("rabby#new", NEW), walletName: "Rabby" }],
+        selection: { evm: key(MAIN) },
+      }),
+    );
+    const main = state.wallets.find((row) => row.key === key(MAIN))!;
+    const trading = state.wallets.find((row) => row.key === key(TRADING))!;
+    const added = state.wallets.find((row) => row.key === key(NEW))!;
+    expect(state.operating.evm).toBeUndefined();
+    expect(main).toMatchObject({
+      active: true,
+      operating: false,
+      brand: "Rabby",
+      pendingStep: "switch",
+    });
+    // Renaming an offline address keeps its app.
+    expect(main.label).toBeUndefined();
+    expect(trading).toMatchObject({
+      label: "Trading",
+      brand: "Rabby",
+      pendingStep: "switch",
+    });
+    expect(added).toMatchObject({ state: "unlinked", pendingStep: null });
+  });
+
+  it("plans activation: instant, select, switch in the app, or connect", () => {
+    const state = resolveWalletState(
+      input({
+        linked: [
+          { ...linkedEvm("w1", MAIN), walletApp: "Rabby" },
+          { ...linkedEvm("w2", TRADING), label: "Trading", walletApp: "Rabby" },
+          { ...linkedEvm("w3", METAMASK), walletApp: "MetaMask" },
+          { ...linkedEvm("w4", RABBY), label: "Main" },
+        ],
+        connections: [
+          { ...external("rabby#main", MAIN), walletName: "Rabby" },
+          { ...external("coinbase#x", RABBY), walletName: "Coinbase" },
+        ],
+        selection: { evm: key(MAIN) },
+      }),
+    );
+    expect(planWalletActivation(state.wallets, key(MAIN))).toEqual({
+      kind: "active",
+    });
+    expect(planWalletActivation(state.wallets, key(RABBY))).toEqual({
+      kind: "select",
+      accountId: "coinbase#x",
+    });
+    expect(planWalletActivation(state.wallets, key(TRADING))).toEqual({
+      kind: "switch",
+      appAccountId: "rabby#main",
+    });
+    expect(planWalletActivation(state.wallets, key(METAMASK))).toEqual({
+      kind: "connect",
+    });
+    expect(planWalletActivation(state.wallets, key(NEW))).toBeNull();
   });
 });

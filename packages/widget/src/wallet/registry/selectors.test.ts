@@ -97,7 +97,7 @@ describe("WalletRegistry selectors", () => {
       walletSource: "embedded",
     });
     expect(selectAccounts(current, "evm", 100, 8453)[0]).toMatchObject({
-      id: "para-session",
+      id: "para-session#0xaaa",
       family: "evm",
       chainId: 8453,
       walletName: "Para",
@@ -149,7 +149,7 @@ describe("WalletRegistry selectors", () => {
     expect(selectEvmIdentity(current, 200)).toEqual({});
   });
 
-  it("maps registry connections to account rows with runtime uid ids", () => {
+  it("maps registry connections to account rows keyed by connector and address", () => {
     const current = state({
       connections: [
         evm({ uid: "rb", walletName: "Rabby", address: "0xaaa" }),
@@ -189,7 +189,7 @@ describe("WalletRegistry selectors", () => {
     expect(accounts).toHaveLength(2);
     expect(accounts[0]).toMatchObject({
       family: "evm",
-      id: "mm",
+      id: "mm#0xaaa",
       walletName: "MetaMask",
       active: true,
     });

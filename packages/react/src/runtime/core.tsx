@@ -30,6 +30,7 @@ import { useRuntimeOrchestrator } from "./orchestrator";
 import { buildThreadListAdapter } from "./threadlist-adapter";
 import { AomiRuntimeApiProvider, type AomiRuntimeApi } from "../interface";
 import {
+  displayKeyPrefix,
   useAomiDisplayCache,
   type RuntimeAccount,
 } from "../query/display-cache";
@@ -241,10 +242,25 @@ export function AomiRuntimeCore({
   });
 
   const userId = account?.kind === "user" ? account.id : null;
+  // Bumped when the account's data changed under the same id (a merge).
+  const [accountRevision, setAccountRevision] = useState(0);
   const listOwner = useMemo(
-    () => ({ backendUrl: owner.backendUrl, appId: owner.appId, userId }),
-    [owner.backendUrl, owner.appId, userId],
+    () => ({
+      backendUrl: owner.backendUrl,
+      appId: owner.appId,
+      userId,
+      accountRevision,
+    }),
+    [owner.backendUrl, owner.appId, userId, accountRevision],
   );
+  const refreshAccountData = useCallback(() => {
+    const cache = displayCacheRef.current;
+    if (cache?.scope.account)
+      void cache.client.invalidateQueries({
+        queryKey: displayKeyPrefix(cache.scope, cache.scope.account),
+      });
+    setAccountRevision((revision) => revision + 1);
+  }, []);
   const { isThreadListLoading, threadListError } = useThreadListSync({
     aomiClientRef,
     sessionManager,
@@ -453,6 +469,7 @@ export function AomiRuntimeCore({
     () => ({
       account: aomiClient.account,
       transactionSafety: aomiClient.transactionSafety,
+      refreshAccountData,
       // User API
       user: userContext.user,
       getUserState: userContext.getUserState,
@@ -509,6 +526,7 @@ export function AomiRuntimeCore({
       userContext,
       aomiClient.account,
       aomiClient.transactionSafety,
+      refreshAccountData,
       currentThreadId,
       threadContext.threadViewKey,
       threadContext.allThreadsMetadata,

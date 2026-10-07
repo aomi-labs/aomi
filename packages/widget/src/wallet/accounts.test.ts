@@ -38,10 +38,25 @@ describe("buildAccounts", () => {
     expect(accounts[0]).toMatchObject({
       family: "evm",
       walletName: "Rabby",
-      id: "rb",
+      id: "rb#0xaaa",
       active: true,
     });
     expect(accounts[0].connectorIds).toEqual(["mm", "rb"]);
+  });
+
+  it("keeps two addresses on one connector apart, with only the active one active", () => {
+    const accounts = buildAccounts({
+      evmConnections: [
+        { id: "rb", walletName: "Rabby", address: "0xAAA", chainId: 1 },
+        { id: "rb", walletName: "Rabby", address: "0xBBB", chainId: 1 },
+      ],
+      activeEvmAddress: "0xbbb",
+      activeEvmConnectionId: "rb",
+    });
+    expect(accounts.map(({ id, active }) => ({ id, active }))).toEqual([
+      { id: "rb#0xaaa", active: false },
+      { id: "rb#0xbbb", active: true },
+    ]);
   });
 
   it("dedupes three connectors for the same address (Rabby/MetaMask impersonation)", () => {
@@ -49,7 +64,12 @@ describe("buildAccounts", () => {
       evmConnections: [
         { id: "rb1", walletName: "Rabby", address: "0xdA6", chainId: 8453 },
         { id: "mm", walletName: "MetaMask", address: "0xDA6", chainId: 8453 },
-        { id: "rb2", walletName: "Rabby Wallet", address: "0xda6", chainId: 8453 },
+        {
+          id: "rb2",
+          walletName: "Rabby Wallet",
+          address: "0xda6",
+          chainId: 8453,
+        },
       ],
       activeEvmAddress: "0xda6",
       activeEvmConnectionId: "mm",

@@ -189,7 +189,7 @@ describe("createAomiBackendAccountClient", () => {
       signature: "signature",
       walletAddress: "SolanaAddress",
       chainId: "solana:devnet",
-      label: "Phantom 1",
+      walletApp: "Phantom",
     });
 
     expect(fetchImpl).toHaveBeenNthCalledWith(
@@ -215,7 +215,7 @@ describe("createAomiBackendAccountClient", () => {
           signature: "signature",
           walletAddress: "SolanaAddress",
           chainId: "solana:devnet",
-          label: "Phantom 1",
+          walletApp: "Phantom",
         }),
       }),
     );
