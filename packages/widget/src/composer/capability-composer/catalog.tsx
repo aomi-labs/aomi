@@ -95,7 +95,7 @@ export function useCapabilityCatalog(): PickerItem[] {
           networkId: network.id,
         },
         searchText: `${network.label} solana svm ${network.id}`,
-        testnet: !network.cluster.endsWith("mainnet-beta"),
+        testnet: network.cluster !== "solana:mainnet",
         Icon: SolanaIcon,
       })),
     ];

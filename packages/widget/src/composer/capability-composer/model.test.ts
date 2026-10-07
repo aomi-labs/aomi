@@ -23,6 +23,7 @@ const items = [
   ...["One", "Two", "Three", "Four", "Five"].map((n) => item("skill", n)),
   item("chain", "Ethereum"),
   item("chain", "Base"),
+  item("chain", "Solana", { searchText: "Solana solana svm mainnet" }),
   item("chain", "Base Sepolia", { testnet: true }),
   item("chain", "Solana Devnet", { testnet: true }),
 ];
@@ -37,8 +38,12 @@ describe("pickerGroups", () => {
     expect(labels("")).toEqual([
       ["Apps", ["Aerodrome", "Uniswap"]],
       ["Skills", ["Bridge", "One", "Two", "Three"]],
-      ["Chains", ["Ethereum", "Base"]],
+      ["Chains", ["Ethereum", "Base", "Solana"]],
     ]);
+  });
+
+  it("lists Solana mainnet as a chain", () => {
+    expect(labels("sol")).toEqual([["Chains", ["Solana"]]]);
   });
 
   it("puts a chain named by the query before apps and skills", () => {
