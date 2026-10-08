@@ -34,6 +34,7 @@ import {
   privyLoginMethodsToOptions,
   useSafePrivy,
   useSafePrivyIdentityToken,
+  useSafePrivyModalOpen,
   useSafeSignTransaction,
   useSafeSmartWallets,
   useSafeSvmWallets,
@@ -72,6 +73,7 @@ export function AomiPrivyPluginProvider({
   const storage = useWidgetStorage();
   const privy = useSafePrivy();
   const identityToken = useSafePrivyIdentityToken();
+  const privyModalOpen = useSafePrivyModalOpen();
   const { client: smartWalletClient, getClientForChain } =
     useSafeSmartWallets();
   const { wallets: solanaWallets, ready: solanaWalletsReady } =
@@ -180,6 +182,7 @@ export function AomiPrivyPluginProvider({
       authValue: primaryLabel,
       methods: privyLoginMethodsToOptions(loginMethods),
       canOpenModal: Boolean(privy.ready && privy.login),
+      modalOpen: privyModalOpen,
       startFlow: startPrivyAuthFlow,
       // Privy ignores login() until it is ready; the caller gets an error instead.
       login: privy.ready
@@ -226,6 +229,7 @@ export function AomiPrivyPluginProvider({
       privy.logout,
       privy.ready,
       privy.user?.id,
+      privyModalOpen,
       evmRuntime.registryStore,
       startPrivyAuthFlow,
     ],

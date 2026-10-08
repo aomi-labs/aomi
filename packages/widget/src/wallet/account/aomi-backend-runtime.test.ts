@@ -628,6 +628,7 @@ describe("useAomiBackendAccountRuntime", () => {
       const renderSignedIn = () => {
         let authenticated = existingLogin === "another provider login";
         let subject = "old-subject";
+        let currentCredential: unknown = credential;
         const logout = vi.fn().mockResolvedValue(undefined);
         const login = vi.fn(async () => {
           authenticated = true;
@@ -644,7 +645,7 @@ describe("useAomiBackendAccountRuntime", () => {
               subject: authenticated ? subject : undefined,
               login,
               logout,
-              getCredential: vi.fn().mockResolvedValue(credential),
+              getCredential: vi.fn().mockResolvedValue(currentCredential),
             } as never,
             evm: { accounts: () => [] } as never,
           }),
@@ -652,6 +653,10 @@ describe("useAomiBackendAccountRuntime", () => {
         return {
           ...hook,
           logout,
+          refreshCredential: (next: unknown) => {
+            currentCredential = next;
+            hook.rerender();
+          },
           restore: (restoredSubject: string) => {
             subject = restoredSubject;
             hook.rerender();
@@ -733,6 +738,40 @@ describe("useAomiBackendAccountRuntime", () => {
         expect(result.current.user?.id).toBe("wallet-account");
         expect(result.current.error).toBeUndefined();
         expect(mockState.accountClient?.signOut).not.toHaveBeenCalled();
+      });
+
+      it("offers one merge per login when the provider refreshes its token", async () => {
+        mockState.accountClient!.getAccount.mockResolvedValue(walletAccount);
+        const offer = { ticket: "ticket-1", other: { name: "privy user" } };
+        mockState.accountClient!.exchangeProviderCredential.mockRejectedValue(
+          new AomiAccountRequestError(
+            409,
+            "account_merge_available",
+            null,
+            offer as never,
+          ),
+        );
+        const { result, signIn, refreshCredential } = renderSignedIn();
+        await waitFor(() =>
+          expect(result.current.user?.id).toBe("wallet-account"),
+        );
+        await signIn();
+        await waitFor(() =>
+          expect(result.current.conflict?.mergeOffer).toEqual(offer),
+        );
+
+        // Privy hands over its identity token after the access token.
+        await act(async () => {
+          refreshCredential({
+            ...(credential as object),
+            providerToken: "next",
+          });
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        });
+        expect(
+          mockState.accountClient?.exchangeProviderCredential,
+        ).toHaveBeenCalledOnce();
+        expect(result.current.conflict?.mergeOffer).toEqual(offer);
       });
     },
   );

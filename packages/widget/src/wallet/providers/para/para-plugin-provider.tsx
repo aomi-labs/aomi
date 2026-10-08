@@ -290,6 +290,7 @@ export function AomiParaPluginProvider({
         ? Array.from(oAuthMethods).map(toSocialLoginOption)
         : [],
       canOpenModal: Boolean(paraModal),
+      modalOpen: Boolean(paraModal?.isOpen),
       startFlow: startParaAuthFlow,
       login: paraModal
         ? async (reason: string, step = "AUTH_MAIN") => {

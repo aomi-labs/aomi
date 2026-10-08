@@ -14,7 +14,7 @@ import { AccountMenu } from "@/account/account-menu";
 import { AccountStatusLine } from "@/account/account-status-line";
 import { useAccountSnapshot } from "@/account/account-snapshot";
 import { appName } from "@/account/account-management/wallet-model";
-import { StatusPill } from "@/ui/aomi/status-pill";
+import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { DisconnectConfirmDialog } from "./disconnect-confirm-dialog";
 import type { WalletAccountMenuOptions } from "@/account/account-menu-types";
 import { shortAddress } from "@aomi-labs/client";
@@ -54,7 +54,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
 }) => {
   const adapter = useAomiWalletKit();
   const identity = adapter.identity;
-  const { openPicker } = useWalletPicker();
+  const { openPicker, sheet } = useWalletPicker();
   const [snapshot, saveSnapshot] = useAccountSnapshot();
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessionAction, setSessionAction] = useState<
@@ -130,6 +130,18 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
       walletKitBooting ||
       (signedIn && !connected));
   const signedOut = adapter.accountStatus === "ready" && !signedIn;
+  // With an account backend, a connected wallet that has not signed in is not
+  // the account yet: the chip says so instead of showing the wallet.
+  const accountBacked =
+    adapter.accountStatus !== undefined && adapter.accountStatus !== "disabled";
+  const showWallet =
+    connected && connectedWallets.length > 0 && !(accountBacked && signedOut);
+  const signingIn =
+    signedOut &&
+    (sheet?.step === "connecting" ||
+      sheet?.step === "signing" ||
+      sheet?.step === "verify") &&
+    sheet.mode === "sign-in";
   const snapshotName = accountMenu?.primaryLine;
   const activeWallets = adapter.wallets
     .filter((row) => row.active)
@@ -326,7 +338,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                 ) : null}
               </span>
             </span>
-          ) : connected && connectedWallets.length ? (
+          ) : showWallet ? (
             <span className="flex min-w-0 items-center gap-2.5">
               <span className="flex shrink-0 items-center">
                 {accountId ? (
@@ -386,8 +398,9 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
                 <AccountAvatar seed={accountId} size={AVATAR_SIZE} />
               ) : null}
               <span className="truncate text-sm font-medium">
-                {disconnectedLabel}
+                {signingIn ? "Signing in…" : disconnectedLabel}
               </span>
+              {signingIn ? <PendingMark /> : null}
             </span>
           )}
           <ChevronsUpDownIcon className="text-aomi-muted size-4 shrink-0" />

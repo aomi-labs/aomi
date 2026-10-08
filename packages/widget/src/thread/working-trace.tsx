@@ -38,7 +38,6 @@ import { useTraceAttribution } from "./trace-attribution";
 import { testIds } from "@/test-ids";
 import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import { agentStepCount, WorkingAgent } from "./working-agent";
-import { CommitHandoff, isCommitTool } from "./commit-handoff";
 import {
   prefersReducedMotion,
   toDetailString,
@@ -134,27 +133,22 @@ const WorkingStep: FC<{
     tool.argsText && tool.argsText !== "undefined" ? tool.argsText : undefined;
 
   return (
-    <>
-      <ToolStepRow
-        viewKey={tool.toolCallId}
-        interpretation={interpretToolStep({
-          attribution,
-          toolName: tool.toolName,
-          argsText,
-          result: tool.result,
-          relatedResults,
-        })}
-        argsText={argsText}
-        detailText={done ? toDetailString(tool.result) : undefined}
-        done={done}
-        active={active}
-        animate={animate}
-        animateUpdates={live}
-      />
-      {done && isCommitTool(tool.toolName) ? (
-        <CommitHandoff result={tool.result} />
-      ) : null}
-    </>
+    <ToolStepRow
+      viewKey={tool.toolCallId}
+      interpretation={interpretToolStep({
+        attribution,
+        toolName: tool.toolName,
+        argsText,
+        result: tool.result,
+        relatedResults,
+      })}
+      argsText={argsText}
+      detailText={done ? toDetailString(tool.result) : undefined}
+      done={done}
+      active={active}
+      animate={animate}
+      animateUpdates={live}
+    />
   );
 };
 

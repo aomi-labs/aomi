@@ -283,15 +283,16 @@ export const CapabilityMentionInput: FC<{
       mention.contentEditable = "false";
       mention.dataset.capabilityKey = item.key;
       mention.dataset.capabilityKind = item.kind;
+      // Plain inline text on the line's baseline, like the sent message.
       mention.className =
-        "text-aomi-accent relative top-px mx-0.5 inline-flex items-center gap-1 whitespace-nowrap align-baseline font-medium";
+        "text-aomi-accent mx-0.5 whitespace-nowrap font-medium";
       const glyph =
         item.kind === "skill" ? "✦" : item.kind === "app" ? "▦" : "◇";
       mention.dataset.capabilityToken = `${glyph} ${item.label}`;
       const iconTarget = document.createElement("span");
       iconTarget.setAttribute("aria-hidden", "true");
       iconTarget.className =
-        "inline-flex size-3.5 shrink-0 items-center justify-center";
+        "mr-1 inline-flex size-3.5 items-center justify-center align-[-0.175em]";
       const label = document.createElement("span");
       label.textContent = item.label;
       mention.append(iconTarget, label);

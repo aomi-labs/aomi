@@ -2,7 +2,16 @@
 
 ## Last Updated
 
-2026-10-08 — WALLET SWITCH FIX (aomi#720, branch `fix/wallet-activation-720`).
+2026-10-08 — LINKING FOLLOW-UPS 2 (branch `fix/linking-followups-2`, #722).
+  One merge offer per Privy/Para login (exchange attempts keyed by login,
+  not token); the provider modal closing stops the pending spinner. The
+  account chip says "Sign in"/"Signing in…" until a connected wallet signs
+  in. Mention tags and explorer links sit on the text baseline; titles drop
+  the ✦ ▦ ◇ markers. The trace's commit hand-off card was removed again
+  (with its `aui-phase-sweep`/`animate-in-rise` CSS): the activity panel
+  alone shows signing.
+
+Previous: 2026-10-08 — WALLET SWITCH FIX (aomi#720, branch `fix/wallet-activation-720`).
   Picking an address that another connected wallet app also lists (one seed in
   MetaMask and Rabby) snapped back to that app's first address, so MetaMask
   stayed Active. The registry now matches the active ref by connector and
@@ -36,16 +45,13 @@ Previous: 2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-front
   chevron, a divider, one 32px icon set with tooltips; hover-close no longer
   returns focus to the trigger. Sidebar groups chats by last activity (the
   sessions API sends Unix seconds) and the open chat's dot blinks while
-  running or turns amber while a wallet request waits. Trace: a hand-off card
-  under each Commit step (`thread/commit-handoff.tsx`) mirrors the panel's
-  phase bar; panel cards show signing order. Settings: square secondary
+  running or turns amber while a wallet request waits. Panel cards show
+  signing order. Settings: square secondary
   buttons, allowance meter, wallet names and three aligned signing slots on
   Safety, sans figures and sentence-case headers on Usage. Motion utilities
-  (`animate-in-pop/rise/fade`, `aui-phase-sweep`) in `themes/default.css`.
+  (`animate-in-pop/fade`) in `themes/default.css`.
 
 Pending:
-- The commit hand-off card was not seen against a live signed commit locally
-  (mock wallet has no funds); verify on the next real transaction.
 - Other threads' running/awaiting state is unknown to the client, so only the
   open chat shows a status dot.
 
