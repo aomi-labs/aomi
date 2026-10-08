@@ -134,15 +134,15 @@ export function MatrixTable({
       <div className="overflow-x-auto">
         <div className="min-w-[540px]">
           <div
-            className={`grid ${MATRIX_COLS} border-aomi-border text-aomi-muted items-center gap-2 border-b text-[10px] font-medium uppercase tracking-wide ${pad} ${
+            className={`grid ${MATRIX_COLS} border-aomi-border text-aomi-muted items-center gap-2 border-b text-[12px] font-medium ${pad} ${
               framed ? "bg-aomi-surface py-2.5" : "pb-2"
             }`}
           >
             <span>App</span>
-            <span className="text-right">model</span>
-            <span className="text-right">tool use</span>
-            <span className="text-right">outcome</span>
-            <span className="text-right">total</span>
+            <span className="text-right">Model</span>
+            <span className="text-right">Tool use</span>
+            <span className="text-right">Outcome</span>
+            <span className="text-right">Total</span>
           </div>
 
           <div className="divide-aomi-border flex flex-col divide-y">
@@ -176,7 +176,7 @@ export function MatrixTable({
                         : undefined
                     }
                   />
-                  <span className="text-right font-mono text-[13px] font-semibold">
+                  <span className="text-right text-[13px] font-semibold tabular-nums">
                     {usd(row.totalUsd)}
                   </span>
                 </div>
@@ -191,16 +191,16 @@ export function MatrixTable({
               }`}
             >
               <span className="text-[13px] font-semibold">Total</span>
-              <span className="text-right font-mono text-[13px] font-semibold">
+              <span className="text-right text-[13px] font-semibold tabular-nums">
                 {usd(month.columnTotals.modelUsd)}
               </span>
-              <span className="text-right font-mono text-[13px] font-semibold">
+              <span className="text-right text-[13px] font-semibold tabular-nums">
                 {usd(month.columnTotals.toolUsd)}
               </span>
-              <span className="text-right font-mono text-[13px] font-semibold">
+              <span className="text-right text-[13px] font-semibold tabular-nums">
                 {usd(month.columnTotals.outcomeUsd)}
               </span>
-              <span className="text-right font-mono text-[13px] font-semibold">
+              <span className="text-right text-[13px] font-semibold tabular-nums">
                 {usd(month.columnTotals.totalUsd)}
               </span>
             </div>
@@ -225,7 +225,7 @@ function MatrixCell({
   }
   return (
     <div className="group relative flex justify-end">
-      <span className="flex items-center gap-1.5 text-right font-mono text-[13px]">
+      <span className="flex items-center gap-1.5 text-right text-[13px] tabular-nums">
         {usd(value)}
         {chip && (
           <span className="border-aomi-border bg-aomi-surface-2 text-aomi-muted whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide">
@@ -268,7 +268,7 @@ export function StatementSection({
           <span className="text-[13px] font-semibold">{title}</span>
           <span className="text-aomi-muted text-[11px]">{subtitle}</span>
         </div>
-        <span className="font-mono text-[13px] font-semibold">{total}</span>
+        <span className="text-[13px] font-semibold tabular-nums">{total}</span>
       </div>
       {children}
     </div>
@@ -301,7 +301,7 @@ export function AppGroup({
           ))}
         {showTools && app.tool && (
           <>
-            <div className="bg-aomi-surface-2/20 text-aomi-muted px-4 py-1.5 text-[10px] font-medium uppercase tracking-wide">
+            <div className="bg-aomi-surface-2/20 text-aomi-muted px-4 py-1.5 text-[12px] font-medium">
               Tool calls
             </div>
             {app.tool.items.map((item) => (
@@ -368,11 +368,11 @@ export function ModelRow({
           in {formatTokens(row.inputTokens)} · out{" "}
           {formatTokens(row.outputTokens)}
         </span>
-        <span className="text-aomi-muted text-right font-mono text-[13px]">
+        <span className="text-aomi-muted text-right text-[13px] tabular-nums">
           {row.turns}
         </span>
         <span
-          className={`text-right font-mono text-[13px] ${isByok ? "text-aomi-muted" : ""}`}
+          className={`text-right text-[13px] tabular-nums ${isByok ? "text-aomi-muted" : ""}`}
         >
           {usd(row.baseUsd)}
         </span>
@@ -381,7 +381,7 @@ export function ModelRow({
             <span className="text-aomi-success text-[13px]">free</span>
           ) : (
             <>
-              <span className="font-mono text-[13px] font-medium">
+              <span className="text-[13px] font-medium tabular-nums">
                 {usd(row.chargedUsd)}
               </span>
               {hasMarkup && (
@@ -414,7 +414,9 @@ export function ToolRow({ item }: { item: AppToolItem }) {
       <span className="text-aomi-muted text-right text-[13px]">
         {item.unitCredits} cr
       </span>
-      <span className="text-right font-mono text-[13px]">{usd(item.usd)}</span>
+      <span className="text-right text-[13px] tabular-nums">
+        {usd(item.usd)}
+      </span>
     </div>
   );
 }
@@ -428,7 +430,7 @@ export function OutcomeTable({
     <div className="overflow-x-auto">
       <div className="divide-aomi-border min-w-[760px] divide-y">
         <div
-          className={`grid ${OUTCOME_COLS} border-aomi-border bg-aomi-surface-2/30 text-aomi-muted gap-2 border-b px-4 py-2 text-[10px] font-medium uppercase tracking-wide`}
+          className={`grid ${OUTCOME_COLS} border-aomi-border bg-aomi-surface-2/30 text-aomi-muted gap-2 border-b px-4 py-2 text-[12px] font-medium`}
         >
           <span>Date</span>
           <span>App · action</span>
@@ -449,13 +451,13 @@ export function OutcomeTable({
             <span className="truncate text-[13px]">
               {app.name} · {item.action}
             </span>
-            <span className="text-right font-mono text-[13px]">
+            <span className="text-right text-[13px] tabular-nums">
               {item.flow}
             </span>
             <span className="text-aomi-muted text-right text-[13px]">
               {item.bps} bps
             </span>
-            <span className="text-right font-mono text-[13px]">
+            <span className="text-right text-[13px] tabular-nums">
               {item.feeToken}
               <span className="text-aomi-muted block text-[11px]">
                 {usd(item.usd)}
@@ -484,24 +486,27 @@ export function StatTile({
   value,
   detail,
   primary,
+  muted,
 }: {
   label: string;
   value: string;
   detail?: string;
   primary?: boolean;
+  /** A zero/none value, drawn quieter than a real figure. */
+  muted?: boolean;
 }) {
   return (
     <div className="border-aomi-border bg-aomi-raised flex min-w-0 flex-col gap-1 rounded-xl border px-3 py-3 sm:px-4 sm:py-3.5">
-      <span className="text-aomi-muted truncate text-[11px]">{label}</span>
+      <span className="text-aomi-muted truncate text-[12px]">{label}</span>
       <span
-        className={`truncate font-mono font-semibold tabular-nums ${
+        className={`truncate font-semibold tabular-nums tracking-[-0.01em] ${
           primary ? "text-lg sm:text-xl" : "text-base sm:text-lg"
-        }`}
+        } ${muted ? "text-aomi-muted/70" : ""}`}
       >
         {value}
       </span>
       {detail && (
-        <span className="text-aomi-muted truncate text-[10px]">{detail}</span>
+        <span className="text-aomi-muted truncate text-[12px]">{detail}</span>
       )}
     </div>
   );
@@ -538,19 +543,17 @@ export function PeriodTotalHero({
   return (
     <div className="border-aomi-border flex items-end justify-between gap-4 border-b pb-4">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-aomi-muted text-[10px] font-medium uppercase tracking-[0.08em]">
-          {periodCaption}
-        </span>
+        <span className="text-aomi-muted text-[12px]">{periodCaption}</span>
         <span className="text-lg font-semibold leading-none tracking-[-0.01em]">
           {periodLabel}
         </span>
       </div>
       <div className="shrink-0 text-right">
-        <span className="font-mono text-2xl font-semibold tabular-nums leading-none">
+        <span className="text-2xl font-semibold tabular-nums leading-none tracking-[-0.02em]">
           {usd(totalUsd)}
         </span>
         <span className="text-aomi-muted mt-1 block text-[11px]">
-          Total spend
+          Total spend this period
         </span>
       </div>
     </div>
@@ -609,7 +612,11 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
     <section className="flex flex-col gap-2.5">
       <SectionHeading
         title="Spend breakdown"
-        detail={`${computeShare}% compute · ${onchainShare}% on-chain`}
+        detail={
+          summary.totalUsd > 0
+            ? `${computeShare}% compute · ${onchainShare}% on-chain`
+            : "No spend yet"
+        }
         hint={
           summary.managedMarkupUsd > 0
             ? `${SPEND_BREAKDOWN_HINT} Compute includes ${usd(summary.managedMarkupUsd)} managed markup on third-party apps.`
@@ -624,16 +631,18 @@ export function SpendBreakdownSection({ month }: { month: MonthlyStatement }) {
         />
         <StatTile
           label="Tool calls"
-          value={hasToolData ? usd(summary.toolUsd) : "—"}
-          detail={hasToolData ? `${toolCalls} calls` : "no charges"}
+          value={hasToolData ? usd(summary.toolUsd) : usd(0)}
+          muted={!hasToolData}
+          detail={hasToolData ? `${toolCalls} calls` : "No charges"}
         />
         <StatTile
           label="On-chain"
-          value={hasOutcomeData ? usd(summary.onchainUsd) : "—"}
+          value={hasOutcomeData ? usd(summary.onchainUsd) : usd(0)}
+          muted={!hasOutcomeData}
           detail={
             hasOutcomeData
               ? `${txns} txn${txns === 1 ? "" : "s"}`
-              : "no charges"
+              : "No charges"
           }
         />
       </div>
@@ -675,9 +684,19 @@ export function AllowanceSettlementSection({
               <span className="text-aomi-fg text-[13px] font-medium">
                 Monthly credits
               </span>
-              <span className="text-aomi-muted text-[13px] tabular-nums">
-                {formatAllowanceCredits(payment.allowanceCredits.used)} /{" "}
-                {formatAllowanceCredits(payment.allowanceCredits.included)} used
+              <span className="text-aomi-muted text-[12px] tabular-nums">
+                <span className="text-aomi-fg font-medium">
+                  {formatAllowanceCredits(
+                    Math.max(
+                      0,
+                      payment.allowanceCredits.included -
+                        payment.allowanceCredits.used,
+                    ),
+                  )}
+                </span>{" "}
+                of {formatAllowanceCredits(payment.allowanceCredits.included)}{" "}
+                left · {formatAllowanceCredits(payment.allowanceCredits.used)}{" "}
+                used
               </span>
             </div>
             <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">

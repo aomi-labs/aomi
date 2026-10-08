@@ -267,7 +267,7 @@ describe("policy confirmation", () => {
       vi.useRealTimers();
     }
   });
-  it("offers Ask me and Locked, but not Auto, for an external wallet", () => {
+  it("shows Auto disabled for an external wallet so every row lines up", () => {
     const external: WalletPolicy = {
       ...wallet,
       id: "rabby-evm",
@@ -280,11 +280,15 @@ describe("policy confirmation", () => {
     const group = screen.getByRole("radiogroup", {
       name: `Signing for Rabby ${external.address}`,
     });
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.map((radio) => radio.textContent)).toEqual([
+      "Ask me",
+      "Auto",
+      "Locked",
+    ]);
     expect(
-      within(group)
-        .getAllByRole("radio")
-        .map((radio) => radio.textContent),
-    ).toEqual(["Ask me", "Locked"]);
+      radios.map((radio) => (radio as HTMLButtonElement).disabled),
+    ).toEqual([false, true, false]);
     expect(screen.queryByText("Automatic signing")).toBeNull();
   });
   it("keeps Auto for a provider wallet and leaves agent wallets to automatic signing", () => {

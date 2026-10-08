@@ -6,7 +6,10 @@ import type { AomiCreditPosition } from "@aomi-labs/client";
 import { AccountAvatar } from "./account-avatar";
 import { useAccountCredits } from "./use-account-credits";
 import { useAomiWalletKit } from "@/wallet/context";
-import { ChevronRight, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { AomiButton } from "@/ui/aomi/button";
+import { getChainIcon } from "@/icons/chain-map";
+import { Meter } from "./usage/usage-shared";
 import { countDriftedWallets } from "@/wallet/wallet-attention";
 import { useAccountAcl } from "./use-account-acl";
 import { walletConnectionSummary } from "@/wallet/wallet-management-model";
@@ -63,8 +66,11 @@ export function GeneralSettings({
     };
   }, [overviewStore]);
 
-  const networkTicker = identity.chainId
-    ? getChainInfo(identity.chainId)?.ticker
+  const networkName = identity.chainId
+    ? getChainInfo(identity.chainId)?.name
+    : undefined;
+  const NetworkIcon = identity.chainId
+    ? getChainIcon(identity.chainId)
     : undefined;
 
   const walletAttentionCount =
@@ -146,9 +152,11 @@ export function GeneralSettings({
           <Divider />
 
           <FlatSettingRow label="Default network">
-            <div className="text-aomi-muted flex items-center gap-1.5 text-[13px]">
-              <span className="bg-aomi-success h-[7px] w-[7px] rounded-full" />
-              <span className="text-aomi-fg">{networkTicker ?? "—"}</span>
+            <div className="text-aomi-fg flex items-center gap-2 text-[13px] font-medium">
+              {NetworkIcon ? (
+                <NetworkIcon className="text-aomi-muted size-4 shrink-0" />
+              ) : null}
+              <span>{networkName ?? "—"}</span>
             </div>
           </FlatSettingRow>
 
@@ -159,13 +167,9 @@ export function GeneralSettings({
             hint={`${connectedWallets} connected · ${linkedWallets} linked`}
           >
             {onManageAccount ? (
-              <button
-                type="button"
-                onClick={onManageAccount}
-                className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors"
-              >
+              <AomiButton size="sm" onClick={onManageAccount}>
                 Manage
-              </button>
+              </AomiButton>
             ) : null}
           </FlatSettingRow>
         </div>
@@ -208,20 +212,27 @@ function AccountSummaryCard({
         leading={<AccountAvatar seed={accountId} size={32} />}
         className="px-4 sm:px-5"
       >
-        <button
-          type="button"
-          onClick={onManageAccount}
-          className="border-aomi-border text-aomi-muted hover:bg-aomi-hover hover:text-aomi-fg flex h-8 shrink-0 items-center rounded-lg border px-3 text-[12px] font-medium leading-none transition-colors"
-        >
+        <AomiButton size="sm" onClick={onManageAccount}>
           Manage account
-        </button>
+        </AomiButton>
       </SettingRow>
 
       <Divider />
 
       <SettingRow
         title="Plan"
-        desc={memberSince ? `Member since ${memberSince}` : "Account plan"}
+        desc={
+          <>
+            {memberSince ? `Member since ${memberSince}` : "Account plan"}
+            {/* Without an allowance row, View usage lives here instead. */}
+            {!hasAllowance ? (
+              <>
+                {" · "}
+                <ViewUsageLink onClick={onViewUsage} />
+              </>
+            ) : null}
+          </>
+        }
         className="px-4 sm:px-5"
       >
         <span className="text-aomi-fg text-[14px] font-medium">
@@ -234,33 +245,43 @@ function AccountSummaryCard({
           <Divider />
           <SettingRow
             title="Monthly allowance"
-            desc={`${periodLabel} · resets each UTC month`}
+            desc={
+              <>
+                {periodLabel} · resets each UTC month
+                {" · "}
+                <ViewUsageLink onClick={onViewUsage} />
+              </>
+            }
             className="px-4 sm:px-5"
           >
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="text-aomi-fg text-[14px] font-medium tabular-nums">
-                {formatAllowanceCredits(remaining)} remaining
-              </span>
-              <span className="text-aomi-accent-strong text-[12px] tabular-nums">
-                {formatAllowanceCredits(creditsUsed)} /{" "}
-                {formatAllowanceCredits(creditsIncluded)} used
-              </span>
+            <div className="flex w-[220px] flex-col gap-1.5">
+              <div className="text-aomi-muted flex justify-between text-[12px] tabular-nums">
+                <span>
+                  <span className="text-aomi-fg font-medium">
+                    {formatAllowanceCredits(remaining)}
+                  </span>{" "}
+                  of {formatAllowanceCredits(creditsIncluded)} left
+                </span>
+                <span>{formatAllowanceCredits(creditsUsed)} used</span>
+              </div>
+              <Meter pct={(creditsUsed / creditsIncluded) * 100} />
             </div>
           </SettingRow>
         </>
       )}
-
-      <div className="border-aomi-border flex justify-end border-t px-4 py-3 sm:px-5">
-        <button
-          type="button"
-          onClick={onViewUsage}
-          className="text-aomi-muted hover:text-aomi-fg flex shrink-0 items-center gap-0.5 text-[13px] font-medium transition-colors"
-        >
-          View usage
-          <ChevronRight size={12} />
-        </button>
-      </div>
     </div>
+  );
+}
+
+function ViewUsageLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-aomi-accent-strong hover:text-aomi-fg font-medium transition-colors"
+    >
+      View usage
+    </button>
   );
 }
 
@@ -287,13 +308,9 @@ function WalletAttentionBanner({
             renewed provider grant before auto-signing can run.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onReview}
-          className="border-aomi-border text-aomi-fg hover:bg-aomi-surface-2 h-9 shrink-0 self-start rounded-lg border px-4 text-[12px] font-medium transition-colors"
-        >
+        <AomiButton size="sm" onClick={onReview} className="self-start">
           Review
-        </button>
+        </AomiButton>
       </div>
     </div>
   );

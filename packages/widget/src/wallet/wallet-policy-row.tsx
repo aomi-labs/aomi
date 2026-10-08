@@ -5,9 +5,12 @@ import {
   modeLabel,
   reconcile,
   signingChoicesFor,
+  unavailableReason,
   walletDisplayName,
   walletMarkKey,
+  walletNameToMarkKey,
 } from "@/account/account-reconcile";
+import { useAomiWalletKit } from "./context";
 import { WalletProviderAvatar } from "./wallet-brands";
 import { Loader2 } from "lucide-react";
 import { cn } from "@aomi-labs/react";
@@ -65,14 +68,29 @@ export function WalletPolicyRow({
 }: WalletPolicyRowProps) {
   const choices = signingChoicesFor(wallet);
   const status = statusLine(wallet, choices);
-  const name = walletDisplayName(wallet);
+  // A SIWE/SIWS wallet carries no brand on the wire; borrow the connector's
+  // name (Rabby, MetaMask) when this browser knows the address.
+  const connector = useAomiWalletKit().wallets.find(
+    (row) => row.address.toLowerCase() === wallet.address.toLowerCase(),
+  );
+  const generic = wallet.linkedVia === "siwe" || wallet.linkedVia === "siws";
+  const name =
+    generic && connector?.walletName
+      ? connector.walletName
+      : walletDisplayName(wallet);
+  const markKey =
+    walletMarkKey(wallet) ??
+    (generic ? walletNameToMarkKey(connector?.walletName) : null);
+  // Every row shows the same three slots so the controls line up; a mode
+  // this wallet can't hold stays visible but disabled.
+  const slots: SignerMode[] = wallet.providerManaged
+    ? choices
+    : ["manual", "client_auto", "denied"];
 
   return (
     <div id={`wallet-${wallet.id}`}>
       <ListRow
-        leading={
-          <WalletProviderAvatar markKey={walletMarkKey(wallet)} size={18} />
-        }
+        leading={<WalletProviderAvatar markKey={markKey} size={18} />}
         title={name}
         description={walletAddressLine(wallet)}
         descriptionMono
@@ -89,10 +107,20 @@ export function WalletPolicyRow({
               label={`Signing for ${name} ${wallet.address}`}
               value={draft ?? wallet.desiredMode}
               onChange={onSelect}
-              options={choices.map((mode) => ({
-                value: mode,
-                label: modeLabel(mode),
-              }))}
+              options={slots.map((mode) => {
+                const available = choices.includes(mode);
+                return {
+                  value: mode,
+                  disabled: !available,
+                  label: available ? (
+                    modeLabel(mode)
+                  ) : (
+                    <span title={unavailableReason(wallet, mode)}>
+                      {modeLabel(mode)}
+                    </span>
+                  ),
+                };
+              })}
             />
           </>
         }

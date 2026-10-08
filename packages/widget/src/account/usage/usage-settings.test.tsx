@@ -1,18 +1,15 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock(
-  "@/account/usage/credit-bank/credit-bank",
-  async () => {
-    const { useEffect } = await import("react");
-    return {
-      CreditBank: ({ onLoad }: { onLoad?: () => void }) => {
-        useEffect(() => onLoad?.(), [onLoad]);
-        return <div>Credit Bank</div>;
-      },
-    };
-  },
-);
+vi.mock("@/account/usage/credit-bank/credit-bank", async () => {
+  const { useEffect } = await import("react");
+  return {
+    CreditBank: ({ onLoad }: { onLoad?: () => void }) => {
+      useEffect(() => onLoad?.(), [onLoad]);
+      return <div>Credit Bank</div>;
+    },
+  };
+});
 
 const account = vi.hoisted(() => ({ id: "" }));
 vi.mock("@/wallet/context", () => ({
@@ -96,9 +93,9 @@ describe("usage settings wiring", () => {
       calls.filter((call) => call.startsWith("/v1/account/credits?")),
     ).toHaveLength(1);
     expect(screen.getAllByText("$0.80").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("No charges").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/1 turn/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/80.*500.*used/)).toBeTruthy();
+    expect(screen.getByText(/of 500 left · 80 used/)).toBeTruthy();
     expect(screen.getByText("Credit Bank")).toBeTruthy();
     const settlement = screen.getByText(/Paid via monthly allowance/);
     expect(settlement.textContent).toContain(
@@ -137,7 +134,7 @@ describe("usage settings wiring", () => {
       render(<UsageSettings />);
     });
 
-    expect(screen.getByText(/1,250.*5,000.*used/)).toBeTruthy();
+    expect(screen.getByText(/of 5,000 left · 1,250 used/)).toBeTruthy();
     expect(screen.getByText("No usage this month yet.")).toBeTruthy();
   });
 

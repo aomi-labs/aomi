@@ -245,9 +245,7 @@ function StatementPeriodHero({
   return (
     <div className="border-aomi-border flex items-end justify-between gap-4 border-b pb-4">
       <div className="flex min-w-0 flex-col gap-2">
-        <span className="text-aomi-muted text-[10px] font-medium uppercase tracking-[0.08em]">
-          Statement period
-        </span>
+        <span className="text-aomi-muted text-[12px]">Statement period</span>
         {children}
       </div>
       <div className="shrink-0 text-right">
@@ -343,7 +341,7 @@ function ItemizedContent({
         >
           {showModels && (
             <div
-              className={`grid ${MODEL_COLS} border-aomi-border bg-aomi-surface-2/30 text-aomi-muted gap-2 border-b px-4 py-2 text-[10px] font-medium uppercase tracking-wide`}
+              className={`grid ${MODEL_COLS} border-aomi-border bg-aomi-surface-2/30 text-aomi-muted gap-2 border-b px-4 py-2 text-[12px] font-medium`}
             >
               <span>Model</span>
               <span>Detail</span>

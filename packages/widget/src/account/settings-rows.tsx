@@ -48,7 +48,7 @@ export function SettingRow({
   children,
 }: {
   title: ReactNode;
-  desc: string;
+  desc: ReactNode;
   descMono?: boolean;
   leading?: ReactNode;
   className?: string;

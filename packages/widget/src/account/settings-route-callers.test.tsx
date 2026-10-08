@@ -236,8 +236,9 @@ describe("settings route callers", () => {
       screen.getByText("2 linked wallets · 1 not connected on this device"),
     ).toBeTruthy();
     expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.getByText(/88 remaining/)).toBeTruthy();
-    expect(screen.getByText(/12 \/ 100 used/)).toBeTruthy();
+    expect(screen.getByText("88")).toBeTruthy();
+    expect(screen.getByText(/of 100 left/)).toBeTruthy();
+    expect(screen.getByText("12 used")).toBeTruthy();
     expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
     expect(screen.queryByText(/Usage shows spend/)).toBeNull();
   });
@@ -255,7 +256,7 @@ describe("settings route callers", () => {
 
     expect(await screen.findByText("Aron")).toBeTruthy();
     expect(screen.getByText("Pro")).toBeTruthy();
-    expect(screen.queryByText(/remaining/)).toBeNull();
+    expect(screen.queryByText(/left/)).toBeNull();
     expect(screen.getByRole("button", { name: "View usage" })).toBeTruthy();
   });
 });
