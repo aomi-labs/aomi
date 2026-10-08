@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   type FC,
   type RefObject,
   type PointerEvent,
@@ -38,10 +39,6 @@ export const ThreadList: FC = () => {
       className="aui-root aui-thread-list-root flex w-full flex-1 list-none flex-col items-stretch gap-0.5 px-2"
     >
       <ThreadListNew />
-      {/* Design mock: a "Recent" section label instead of a hairline */}
-      <span className="aui-thread-list-separator text-aomi-muted px-4 pb-2 pt-5 text-left text-xs font-medium">
-        Recent
-      </span>
       <ThreadListItems />
     </ThreadListPrimitive.Root>
   );
@@ -52,7 +49,7 @@ const ThreadListNew: FC = () => {
     <ThreadListPrimitive.New asChild>
       <Button
         data-testid={testIds.newChat}
-        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/40 hover:bg-aomi-surface-2 flex items-center justify-start gap-2 rounded-lg border px-3 py-[9px] text-start text-sm font-medium"
+        className="aui-thread-list-new border-aomi-border bg-aomi-raised hover:border-aomi-muted/60 hover:bg-aomi-raised flex items-center justify-start gap-2 rounded-[12px] border px-3 py-[9px] text-start text-sm font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors"
         variant="ghost"
       >
         <PlusIcon className="size-4" />
@@ -62,12 +59,57 @@ const ThreadListNew: FC = () => {
   );
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** "Today", "Yesterday", "Previous 7 days", … from a thread's last activity. */
+function recencyGroup(lastActiveAt: string | number | undefined, now: Date) {
+  // The sessions API sends Unix seconds; locally created threads carry an ISO
+  // string. Anything below 1e12 is seconds (1e12 ms is still 2001).
+  const at =
+    typeof lastActiveAt === "number"
+      ? lastActiveAt < 1e12
+        ? lastActiveAt * 1000
+        : lastActiveAt
+      : Date.parse(lastActiveAt ?? "");
+  if (!Number.isFinite(at)) return "Recent";
+  const startOfToday = new Date(now).setHours(0, 0, 0, 0);
+  if (at >= startOfToday) return "Today";
+  if (at >= startOfToday - DAY_MS) return "Yesterday";
+  if (at >= startOfToday - 7 * DAY_MS) return "Previous 7 days";
+  if (at >= startOfToday - 30 * DAY_MS) return "Previous 30 days";
+  return "Older";
+}
+
 const ThreadListItems: FC = () => {
   const threadIds = useThreadList((t) => t.threadIds);
+  const runtime = useOptionalAomiRuntime();
+  const metadata = runtime?.threadMetadata;
+
+  // Rows arrive newest first; a label starts each run of the same recency.
+  const groups = useMemo(() => {
+    const now = new Date();
+    return threadIds.map((id) =>
+      recencyGroup(metadata?.get(id)?.lastActiveAt, now),
+    );
+  }, [threadIds, metadata]);
 
   // Bind subscribers to ids: archiving removes a regular-list index before
   // its old row can unmount, so an index-bound subscriber can look up undefined.
-  return threadIds.map((id) => <ThreadListRow key={id} id={id} />);
+  return threadIds.map((id, index) => (
+    <Fragment key={id}>
+      {groups[index] !== groups[index - 1] ? (
+        <span
+          className={cn(
+            "aui-thread-list-separator text-aomi-muted px-4 pb-2 text-left text-xs font-medium",
+            index === 0 ? "pt-5" : "pt-4",
+          )}
+        >
+          {groups[index]}
+        </span>
+      ) : null}
+      <ThreadListRow id={id} />
+    </Fragment>
+  ));
 };
 
 const ThreadListRow: FC<{ id: string }> = ({ id }) => {
@@ -87,6 +129,17 @@ const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
+  // Only the open chat's live state is known here: the dot blinks while Aomi
+  // works and turns amber while a wallet request waits on the user.
+  const current = runtime?.currentThreadId === thread.id;
+  const status = !current
+    ? null
+    : runtime?.pendingActions?.length ||
+        runtime?.commits?.some((commit) => commit.state === "needs_signature")
+      ? "sign"
+      : runtime?.isRunning
+        ? "run"
+        : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -155,7 +208,7 @@ const ThreadListItem: FC = () => {
     <ThreadListItemPrimitive.Root
       data-thread-id={thread.id}
       data-testid={testIds.threadItem}
-      className="aui-thread-list-item group/thread hover:bg-aomi-hover focus-visible:bg-aomi-hover data-active:bg-aomi-accent-subtle flex w-full min-w-0 flex-wrap items-center rounded-lg pr-2 transition-all focus-visible:outline-none"
+      className="aui-thread-list-item group/thread hover:bg-aomi-hover/60 focus-visible:bg-aomi-hover/60 data-active:bg-aomi-accent-subtle data-active:ring-aomi-accent/20 data-active:ring-1 data-active:ring-inset flex w-full min-w-0 flex-wrap items-center rounded-[12px] pr-2 transition-all focus-visible:outline-none"
       onPointerEnter={cancelClose}
       onPointerLeave={scheduleClose}
     >
@@ -210,8 +263,25 @@ const ThreadListItem: FC = () => {
       ) : (
         <>
           <ThreadListItemPrimitive.Trigger className="aui-thread-list-item-trigger flex min-w-0 flex-1 items-center gap-2 py-2 pl-3 pr-1 text-start">
-            {/* Sky dot marks the active session, per the design mock */}
-            <span className="bg-aomi-accent-strong group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0" />
+            {/* Sky dot marks the active session; it blinks while Aomi works
+                and turns amber while a wallet request waits on the user. */}
+            <span
+              aria-label={
+                status === "sign"
+                  ? "Waiting for your signature"
+                  : status === "run"
+                    ? "Working"
+                    : undefined
+              }
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                status === "sign"
+                  ? "bg-aomi-warning opacity-100"
+                  : "bg-aomi-accent-strong group-data-active/thread:opacity-100 opacity-0",
+                status === "run" &&
+                  "animate-pulse opacity-100 motion-reduce:animate-none",
+              )}
+            />
             <ThreadListItemTitle />
           </ThreadListItemPrimitive.Trigger>
           <ThreadListItemMenu
@@ -238,7 +308,7 @@ const ThreadListItemTitle: FC = () => {
   return (
     <span
       data-testid={testIds.threadItemTitle}
-      className="aui-thread-list-item-title text-aomi-muted group-data-active/thread:text-aomi-fg block truncate text-sm"
+      className="aui-thread-list-item-title text-aomi-muted group-hover/thread:text-aomi-fg group-data-active/thread:text-aomi-fg group-data-active/thread:font-medium block truncate text-sm transition-colors"
     >
       <ThreadListItemPrimitive.Title fallback="New Chat" />
     </span>
