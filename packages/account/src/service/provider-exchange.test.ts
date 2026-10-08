@@ -216,6 +216,33 @@ describe("provider sign-in and linking", () => {
     expect(serviceMocks.syncProviderWallets).not.toHaveBeenCalled();
   });
 
+  it("offers a merge with the wallet owner when the email belongs to a third account", async () => {
+    const wallet = {
+      type: "wallet" as const,
+      family: "evm" as const,
+      normalizedAddress: "0xabc",
+      chainScope: null,
+    };
+    mockState.attachError = new IdentityConflictError(
+      ["user-a", "user-b", "user-c"],
+      "wallet",
+      wallet,
+      "user-c",
+    );
+
+    await expect(
+      linkVerifiedProviderCredentialForUser({
+        userId: "user-b",
+        verified: verifiedCredential(),
+      }),
+    ).resolves.toMatchObject({
+      status: "conflict",
+      signalType: "wallet",
+      owner: "user-c",
+      signal: wallet,
+    });
+  });
+
   it("allows linking after the other account has manually unlinked the signal", async () => {
     mockState.attachError = new IdentityConflictError(
       ["user-a", "user-b"],

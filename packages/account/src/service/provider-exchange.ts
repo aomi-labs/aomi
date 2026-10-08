@@ -414,12 +414,14 @@ function providerConflict(
   if (error instanceof ProviderLinkRollback) return error.resolution;
   if (error instanceof IdentityConflictError) {
     const others = error.owners.filter((owner) => owner !== userId);
-    return userId && others.length === 1 && error.signal
-      ? {
-          ...conflict(error.signalType),
-          owner: others[0],
-          signal: error.signal,
-        }
+    const owner =
+      error.signalOwner && error.signalOwner !== userId
+        ? error.signalOwner
+        : others.length === 1
+          ? others[0]
+          : undefined;
+    return userId && owner && error.signal
+      ? { ...conflict(error.signalType), owner, signal: error.signal }
       : conflict(error.signalType);
   }
   if (isIdentityAlreadyLinkedError(error)) return conflict("identity");
