@@ -4,6 +4,7 @@ import {
   installBrowserWallet,
   type WalletFamily,
 } from "./hosted-wallet-fixture";
+import type { UpstreamRecord } from "./fake-backend/upstream";
 
 export type AccountSnapshot = {
   guest?: boolean;
@@ -13,26 +14,6 @@ export type AccountSnapshot = {
     carrier?: string;
     betterAuthUserId?: string;
     authMethod?: string;
-  } | null;
-};
-
-export type UpstreamRecord = {
-  method: string;
-  path: string;
-  headers: Record<string, string | string[] | undefined>;
-  authorization: "verified-bff-bearer" | "absent";
-  cookie: "present" | "absent";
-  principal: {
-    sub?: string;
-    iss?: string;
-    aud?: string | string[];
-    role?: string;
-    scope?: string;
-    resource?: string;
-    auth_source?: string;
-    principal_class?: string;
-    sid?: string;
-    kid?: string;
   } | null;
 };
 
@@ -50,16 +31,6 @@ export function requiredOrigin(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
   return new URL(value).origin;
-}
-
-export function fixtureKeys(): { evm: string[]; svm: string } {
-  const evm =
-    process.env.BROWSER_CONTRACT_EVM_PRIVATE_KEYS?.split(",").filter(Boolean);
-  const svm = process.env.BROWSER_CONTRACT_SVM_SEED;
-  if (!evm || evm.length < 2 || !svm) {
-    throw new Error("Ephemeral browser contract wallet keys are required");
-  }
-  return { evm, svm };
 }
 
 export async function jsonFromPage<T>(
@@ -163,16 +134,6 @@ export async function signInThroughUi(
     name: /Sign in to Aomi|Add a wallet/,
   });
   await expect(picker).toBeVisible();
-  await picker
-    .getByRole("button", {
-      name: input.family === "evm" ? "Connect MetaMask" : "Connect Phantom",
-    })
-    .click();
-  const finishDialog = page.getByRole("dialog", { name: "Finish signing in" });
-  const finish = finishDialog.getByRole("button", {
-    name: "Link wallet and sign in",
-  });
-  await expect(finish).toBeEnabled({ timeout: 30_000 });
   const verifyPath =
     input.pageOrigin === input.challengeOrigin
       ? `/api/auth/${input.family === "evm" ? "siwe" : "siws"}/verify`
@@ -184,13 +145,28 @@ export async function signInThroughUi(
           new URL(response.url()).pathname === verifyPath &&
           response.request().method() === "POST",
       );
-  await finish.click();
+  await picker
+    .getByRole("button", {
+      name: input.family === "evm" ? /^MetaMask\b/ : /^Phantom\b/,
+    })
+    .click();
+  const chainPicker = page.getByRole("dialog", {
+    name: "Phantom",
+    exact: true,
+  });
+  if (input.family === "svm" && (await chainPicker.isVisible())) {
+    await chainPicker.getByRole("button", { name: /^SVM\b/ }).click();
+  }
+  const signing = page.getByRole("dialog", { name: /^Check / });
   if (input.rejectSignatures) {
-    await expect(finishDialog).toBeVisible();
+    await expect(signing).toBeVisible();
+    await expect(
+      signing.getByRole("button", { name: "Sign message", exact: true }),
+    ).toBeEnabled({ timeout: 30_000 });
     return { wallet, verified: undefined };
   }
   const verifiedResponse = await verified!;
-  await expect(finishDialog).toBeHidden({ timeout: 30_000 });
+  await expect(signing).toBeHidden({ timeout: 30_000 });
   await expect(
     page.getByRole("button", { name: "Open account menu" }),
   ).toBeVisible({ timeout: 30_000 });

@@ -67,4 +67,4 @@ jobs:
           node scripts/publish-package-if-needed.mjs packages/client
           node scripts/publish-package-if-needed.mjs packages/deploy
           node scripts/publish-package-if-needed.mjs packages/react
-          node scripts/publish-package-if-needed.mjs apps/shadcn-registry
+          node scripts/publish-package-if-needed.mjs packages/widget

@@ -6,7 +6,7 @@
  * converts to OKLCH at export time to match the widget's default.css format.
  *
  * Each preset defines light + dark color maps for the 26 shadcn CSS
- * variables used by @aomi-labs/widget-lib.
+ * variables used by @aomi-labs/widget.
  */
 
 // ---------------------------------------------------------------------------

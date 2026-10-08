@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   controlPlaneRetryDelay,
   shouldRetryControlPlaneQuery,
-} from "@build/lib/request-retry";
+} from "@/lib/request-retry";
 
 export function ControlPlaneQueryProvider({
   children,

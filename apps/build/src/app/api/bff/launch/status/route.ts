@@ -1,5 +1,5 @@
-import { launchStatusRoute } from "@build/server/bff/launch/routes";
+import { deploymentStatusRoute } from "@/server/bff/deploy/routes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const GET = launchStatusRoute;
+export const GET = deploymentStatusRoute;

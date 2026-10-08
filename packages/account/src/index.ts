@@ -1,11 +1,7 @@
-// `@aomi-labs/account` — server-only BFF seam for every Aomi frontend (portal,
-// base, landing). Resolve-or-create the canonical user against the database the
-// Rust backend reads (BetterAuth session → `./account`'s
-// `getOrCreateAomiUserForBetterAuthSession`), mint the AccountBearer that
-// carries `sub` = that canonical id, and provide the shared session cookie +
-// backend proxy + auth-exchange route every BFF mounts. Node-only (holds `pg` +
-// the EdDSA private key) — never import into a browser/client bundle. See
-// docs/topics/account-authentication/facts/service-identity.md.
+// `@aomi-labs/account`: the server side of Aomi sign-in. It finds or creates
+// the Aomi account for a Better Auth session, mints the bearers the Rust
+// backend accepts, and forwards allow-listed requests to it. Node-only: it
+// holds the database pool and the signing key, so never import it in a browser.
 
 export {
   mintAccountBearer,
@@ -24,8 +20,6 @@ export {
   type AllowedRoute,
   type ResolveCanonicalUserId,
 } from "./proxy";
-export { createBearerTokenRoute } from "./token";
 export { getPool } from "./db/pool";
 
-// Account auth types folded in from the former `@aomi-labs/auth` root export.
 export * from "./types";

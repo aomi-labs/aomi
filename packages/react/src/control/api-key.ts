@@ -1,62 +1,62 @@
-// =============================================================================
-// useApiKey — apiKey state, persistence, setter
-// =============================================================================
-//
-// Pulled out of the 978-line ControlContextProvider. Owns nothing complex —
-// a single `string | null`, two effects for localStorage round-trip, and the
-// setter. The thing that used to make this "interesting" in the old file was
-// the imperative `callbacks.current.forEach((cb) => cb(next))` pub/sub layer,
-// which had no external consumers and is now deleted entirely.
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createScopedStorage, type StorageScope } from "@aomi-labs/client";
 
-import { useCallback, useEffect, useState } from "react";
+export type ApiKeyState = { apiKey: string | null };
+export type ApiKeyActions = { setApiKey: (apiKey: string | null) => void };
 
-const API_KEY_STORAGE_KEY = "aomi_secret_key";
-
-export type ApiKeyState = {
-  apiKey: string | null;
-};
-
-export type ApiKeyActions = {
-  setApiKey: (apiKey: string | null) => void;
-};
-
-/** Provider-internal: owns the apiKey state. Consumers should use the
- *  `useApiKey` slice reader exported from contexts/control-context.tsx. */
-export function useApiKeyImpl(): {
-  state: ApiKeyState;
-  actions: ApiKeyActions;
-} {
-  const [apiKey, setApiKeyInternal] = useState<string | null>(null);
-
-  // Load from localStorage on mount
-  useEffect(() => {
+/**
+ * Memory is the default. Hosts can retain a credential for this tab explicitly.
+ * `revision` changes whenever the key does, so reads made with it can be keyed
+ * without putting the key itself in a cache key.
+ */
+export function useApiKeyImpl(
+  scope: StorageScope = { backendUrl: "" },
+  persistence: "memory" | "session" = "memory",
+): { state: ApiKeyState; actions: ApiKeyActions; revision: number } {
+  const storage = useMemo(() => {
+    let session: Storage | null = null;
     try {
-      const stored = globalThis.localStorage?.getItem(API_KEY_STORAGE_KEY);
-      if (stored) setApiKeyInternal(stored);
+      session = globalThis.sessionStorage;
     } catch {
-      // localStorage not available
+      /* Browser policy. */
     }
-  }, []);
-
-  // Persist on change
+    return createScopedStorage(scope, {
+      storage: persistence === "session" ? session : null,
+    });
+  }, [scope.backendUrl, scope.appId, scope.principal, persistence]);
+  const [{ apiKey, revision }, setCredential] = useState({
+    apiKey: null as string | null,
+    revision: 0,
+  });
+  const setApiKeyInternal = useCallback(
+    (next: string | null) =>
+      setCredential((current) =>
+        current.apiKey === next
+          ? current
+          : { apiKey: next, revision: current.revision + 1 },
+      ),
+    [],
+  );
   useEffect(() => {
+    let legacy: string | null = null;
     try {
-      if (apiKey) {
-        globalThis.localStorage?.setItem(API_KEY_STORAGE_KEY, apiKey);
-      } else {
-        globalThis.localStorage?.removeItem(API_KEY_STORAGE_KEY);
-      }
+      legacy = globalThis.localStorage?.getItem("aomi_secret_key") ?? null;
+      globalThis.localStorage?.removeItem("aomi_secret_key");
     } catch {
-      // localStorage not available
+      /* Browser policy. */
     }
-  }, [apiKey]);
-
-  const setApiKey = useCallback((next: string | null) => {
-    setApiKeyInternal(next === "" ? null : next);
-  }, []);
-
-  return {
-    state: { apiKey },
-    actions: { setApiKey },
-  };
+    const restored = storage.get("apiKey") ?? legacy;
+    setApiKeyInternal(restored?.trim() || null);
+    if (restored) storage.set("apiKey", restored);
+  }, [storage, setApiKeyInternal]);
+  const setApiKey = useCallback(
+    (next: string | null) => {
+      const value = next?.trim() || null;
+      setApiKeyInternal(value);
+      if (value) storage.set("apiKey", value);
+      else storage.remove("apiKey");
+    },
+    [storage, setApiKeyInternal],
+  );
+  return { state: { apiKey }, actions: { setApiKey }, revision };
 }

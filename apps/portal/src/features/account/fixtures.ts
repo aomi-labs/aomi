@@ -7,7 +7,7 @@
 import type {
   DelegatedAccountView,
   WalletPolicy,
-} from "@aomi-labs/widget-lib/host-composition";
+} from "@aomi-labs/widget/host-composition";
 
 /**
  * Wallet ACL fixtures — one row per `public_keys` record. Chosen to exercise

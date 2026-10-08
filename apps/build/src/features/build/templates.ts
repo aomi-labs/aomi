@@ -1,4 +1,4 @@
-import type { BuildTemplate } from "@build/features/build/contracts";
+import type { BuildTemplate } from "@/features/build/contracts";
 
 /** First-viewport starters on empty Create (order matters). */
 export const FEATURED_TEMPLATE_IDS = [

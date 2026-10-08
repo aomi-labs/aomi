@@ -20,7 +20,7 @@ import {
   type BuildStreamEvent,
   type JourneyStageId,
   type SmithersNode,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 import {
   emptySessions,
   findSessionById,
@@ -28,19 +28,19 @@ import {
   mergeSessions,
   savePersistedSession,
   subscribeBuildSessions,
-} from "@build/features/build/storage/build-session-storage";
-import { sanitizeBuildSession } from "@build/features/build/storage/sanitize-session-copy";
+} from "@/features/build/storage/build-session-storage";
+import { sanitizeBuildSession } from "@/features/build/storage/sanitize-session-copy";
 import {
   deriveSessionTitle,
   uniqueSessionTitle,
-} from "@build/features/build/storage/session-title";
-import type { BuildRunSnapshot } from "@build/features/build/run-contracts";
+} from "@/features/build/storage/session-title";
+import type { BuildRunSnapshot } from "@/features/build/run-contracts";
 import {
   completionMessage,
   flagsFromSnapshot,
   nodesFromSnapshot,
   streamEventsFromSnapshot,
-} from "@build/features/build/smither-run-mapper";
+} from "@/features/build/smither-run-mapper";
 
 /** When set, Create runs a real aomi-smither build through the BFF instead of
  *  the local mock pipeline. */

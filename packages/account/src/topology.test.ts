@@ -38,7 +38,7 @@ describe("account topology", () => {
     // with audience "aomi-sidecar" (never "aomi-backend", so a bearer leaked
     // from the sandbox is useless at the backend).
     const { PORTAL_TOPOLOGIES } = await import("./topology-data");
-    const { parseTopology } = await import("@aomi-labs/service");
+    const { parseTopology } = await import("./service-topology");
     for (const toml of Object.values(PORTAL_TOPOLOGIES)) {
       const bff = parseTopology(toml).services.find(
         (node) => node.name === "aomi-bff",

@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { FailureInput } from "@aomi-labs/bff-observability";
+import type { FailureInput } from "@aomi-labs/observability";
 import {
   createAomiSmither,
   resolveRunBackend,
@@ -9,7 +9,7 @@ import {
 } from "@aomi-labs/smither";
 import { listRunningRuns, updateRun, type BuildRunRecord } from "./registry";
 import { extendSandboxById, stopSandboxById } from "./sandbox-runner";
-import { buildFailures } from "@build/server/bff/failures";
+import { buildFailures } from "@/server/bff/failures";
 
 function identifySupervisorFailure(
   error: unknown,

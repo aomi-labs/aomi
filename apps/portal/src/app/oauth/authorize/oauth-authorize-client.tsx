@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { authClient } from "@aomi-labs/account/better-auth/client";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { authClient } from "@aomi-labs/widget/browser-auth";
+import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
 
 const STASH_KEY = "aomi.oauth.authorize.query";
 

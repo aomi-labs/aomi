@@ -6,22 +6,21 @@ import { defineConfig } from "vitest/config";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const srcDir = resolve(currentDir, "src");
-const registryDir = resolve(currentDir, "../shadcn-registry/src");
+const registryDir = resolve(currentDir, "../../packages/widget/src");
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@build": srcDir,
+      "@": srcDir,
       "@/components": resolve(registryDir, "components"),
       "@/hooks": resolve(registryDir, "hooks"),
       "@/lib": resolve(registryDir, "lib"),
-      "@aomi-labs/widget-lib": registryDir,
+      "@aomi-labs/widget": registryDir,
       "@aomi-labs/account": resolve(currentDir, "../../packages/account/src"),
       "@aomi-labs/client": resolve(currentDir, "../../packages/client/src"),
       "@aomi-labs/deploy": resolve(currentDir, "../../packages/deploy/src"),
       "@aomi-labs/react": resolve(currentDir, "../../packages/react/src"),
-      "@aomi-labs/service": resolve(currentDir, "../../packages/service/src"),
       "server-only": resolve(currentDir, "__mocks__/server-only.ts"),
       "client-only": resolve(currentDir, "__mocks__/client-only.ts"),
     },

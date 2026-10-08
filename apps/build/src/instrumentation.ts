@@ -1,6 +1,6 @@
 import type { captureRequestError } from "@sentry/nextjs";
 
-import { buildFailures } from "@build/server/bff/failures";
+import { buildFailures } from "@/server/bff/failures";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {

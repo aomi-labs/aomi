@@ -53,7 +53,7 @@ export async function findAomiUserById(
 ): Promise<DbAomiUser | null> {
   const result = await db.query(
     `select * from users
-      where id = $1 and coalesce(status, '') <> 'deactivated'
+      where id = $1 and coalesce(status, 'active') = 'active'
       limit 1`,
     [userId],
   );
@@ -78,7 +78,7 @@ export async function claimTelegramSessionOwner(input: {
           and ap.issuer_environment = 'aomi'
           and ap.tenant_id = 'global'
           and ap.subject = $2
-          and coalesce(u.status, '') <> 'deactivated'
+          and coalesce(u.status, 'active') = 'active'
         limit 1
      ), claimed as (
        update threads t
@@ -228,7 +228,7 @@ export async function findSignalOwner(
          join users u on u.id = pk.user_id
         where pk.chain_type = $1
           and pk.address = $2
-          and coalesce(u.status, '') <> 'deactivated'
+          and coalesce(u.status, 'active') = 'active'
         limit 1`,
       [
         canonicalChainType(signal.family),
@@ -246,7 +246,7 @@ export async function findSignalOwner(
           and ap.issuer_environment = $2
           and ap.tenant_id = $3
           and ap.subject = $4
-          and coalesce(u.status, '') <> 'deactivated'
+          and coalesce(u.status, 'active') = 'active'
         limit 1`,
       [
         canonicalProvider(signal.provider),
@@ -264,7 +264,7 @@ export async function findSignalOwner(
       where ap.method = 'email'
         and lower(ap.value) = lower($1)
         and ap.verified_at is not null
-        and coalesce(u.status, '') <> 'deactivated'
+        and coalesce(u.status, 'active') = 'active'
       limit 1`,
     [signal.email],
   );
@@ -284,7 +284,7 @@ export async function findProviderSubjectOwners(
       where ap.provider = $1
         and ap.issuer_environment = $2
         and ap.subject = $3
-        and coalesce(u.status, '') <> 'deactivated'
+        and coalesce(u.status, 'active') = 'active'
       order by ap.user_id`,
     [canonicalProvider(provider), issuerEnvironment, subject],
   );
@@ -455,6 +455,8 @@ export async function upsertWallet(input: {
   providerWalletId?: string | null;
   linkedVia: LinkedVia;
   label?: string | null;
+  /** The wallet app the address was linked from, e.g. "Rabby". */
+  walletApp?: string | null;
   db?: Db;
 }): Promise<DbAomiWallet> {
   const db = input.db ?? getPool();
@@ -462,8 +464,10 @@ export async function upsertWallet(input: {
   const address = canonicalAddress(input.family, input.address);
   const authProvider = await resolveWalletAuthProvider(input, db);
   const now = nowSeconds();
-  const walletMetadata =
-    input.label !== undefined ? { display_label: input.label } : {};
+  const walletMetadata = {
+    ...(input.label !== undefined ? { display_label: input.label } : {}),
+    ...(input.walletApp ? { wallet_app: input.walletApp } : {}),
+  };
 
   const result = await db.query(
     `insert into public_keys
@@ -475,11 +479,13 @@ export async function upsertWallet(input: {
        user_id = excluded.user_id,
        auth_provider_id = excluded.auth_provider_id,
        is_primary = excluded.is_primary,
+       -- A name the user already gave this address wins over one sent at link time.
        authorization_metadata =
+         public_keys.authorization_metadata ||
          case
-           when $6::jsonb ? 'display_label'
-             then public_keys.authorization_metadata || $6::jsonb
-           else public_keys.authorization_metadata
+           when coalesce(public_keys.authorization_metadata->>'display_label', '') = ''
+             then $6::jsonb
+           else $6::jsonb - 'display_label'
          end,
        updated_at = excluded.updated_at
      where public_keys.user_id = excluded.user_id
@@ -581,7 +587,7 @@ export async function deactivateAomiUser(input: {
   const result = await db.query(
     `update users
         set status = 'deactivated', updated_at = $2
-      where id = $1 and coalesce(status, '') <> 'deactivated'
+      where id = $1 and coalesce(status, 'active') = 'active'
       returning *`,
     [input.userId, nowSeconds()],
   );
@@ -879,6 +885,158 @@ export async function deleteBetterAuthSiwsWallet(input: {
   }
 }
 
+export type AccountMergePreview = {
+  name: string | null;
+  createdAt: Date;
+  chats: number;
+  wallets: number;
+  creditsMicrousd: number;
+  dropped: string[];
+};
+
+/** A read-only summary of `sourceUserId`, as merging it into the target would see it. */
+export async function previewAccountMerge(input: {
+  sourceUserId: AomiUserId;
+  targetUserId: AomiUserId;
+  db?: Db;
+}): Promise<AccountMergePreview | null> {
+  const result = await (input.db ?? getPool()).query(
+    `select account_merge_preview($1, $2) as preview`,
+    [input.sourceUserId, input.targetUserId],
+  );
+  const preview = asRecord(result.rows[0]?.preview);
+  if (!("created_at" in preview)) return null;
+  return {
+    name: optionalString(preview.name),
+    createdAt: secondsToDate(preview.created_at),
+    chats: Number(preview.chats ?? 0),
+    wallets: Number(preview.wallets ?? 0),
+    creditsMicrousd: Number(preview.credits_microusd ?? 0),
+    dropped: Array.isArray(preview.dropped) ? preview.dropped.map(String) : [],
+  };
+}
+
+export async function insertAccountMergeTicket(input: {
+  id: string;
+  targetUserId: AomiUserId;
+  sourceUserId: AomiUserId;
+  credential: SignalRef;
+  expiresAt: number;
+  db?: Db;
+}): Promise<void> {
+  await (input.db ?? getPool()).query(
+    `insert into account_merge_tickets
+       (id, target_user_id, source_user_id, credential, created_at, expires_at)
+     values ($1, $2, $3, $4::jsonb, $5, $6)`,
+    [
+      input.id,
+      input.targetUserId,
+      input.sourceUserId,
+      JSON.stringify(input.credential),
+      nowSeconds(),
+      input.expiresAt,
+    ],
+  );
+}
+
+/** Consume a live ticket minted for `targetUserId`. */
+export async function takeAccountMergeTicket(input: {
+  id: string;
+  targetUserId: AomiUserId;
+  db: Db;
+}): Promise<{ sourceUserId: AomiUserId; credential: SignalRef } | null> {
+  const now = nowSeconds();
+  const result = await input.db.query(
+    `update account_merge_tickets
+        set consumed_at = $3
+      where id = $1 and target_user_id = $2
+        and consumed_at is null and expires_at > $3
+      returning source_user_id, credential`,
+    [input.id, input.targetUserId, now],
+  );
+  const row = result.rows[0];
+  return row
+    ? {
+        sourceUserId: String(row.source_user_id),
+        credential: row.credential as SignalRef,
+      }
+    : null;
+}
+
+/** Runs `merge_accounts`; the caller owns the transaction. */
+export async function mergeAccountRows(input: {
+  sourceUserId: AomiUserId;
+  targetUserId: AomiUserId;
+  db: PoolClient;
+}): Promise<{ chats: number; wallets: number; dropped: string[] }> {
+  const result = await input.db.query(
+    `select merge_accounts($1, $2) as merged`,
+    [input.sourceUserId, input.targetUserId],
+  );
+  const merged = asRecord(result.rows[0]?.merged);
+  return {
+    chats: Number(merged.chats ?? 0),
+    wallets: Number(merged.wallets ?? 0),
+    dropped: Array.isArray(merged.dropped) ? merged.dropped.map(String) : [],
+  };
+}
+
+/** The Better Auth users that sign in to this account, newest first. */
+export async function listBetterAuthUserIds(
+  userId: AomiUserId,
+  db: Db = getPool(),
+): Promise<string[]> {
+  const result = await db.query(
+    `select subject from auth_providers
+      where user_id = $1 and provider = $2 and subject is not null
+      order by updated_at desc, id desc`,
+    [userId, BETTER_AUTH_PROVIDER],
+  );
+  return result.rows.map((row) => String(row.subject));
+}
+
+export async function deleteBetterAuthSessions(
+  betterAuthUserIds: readonly string[],
+  db: Db = getPool(),
+): Promise<void> {
+  if (!betterAuthUserIds.length) return;
+  await db.query(`delete from ba_sessions where user_id = any($1::text[])`, [
+    [...betterAuthUserIds],
+  ]);
+}
+
+/** A short-lived single-use value in Better Auth's verification table. */
+export async function storeVerification(input: {
+  identifier: string;
+  value: string;
+  expiresAt: Date;
+  db?: Db;
+}): Promise<void> {
+  await (input.db ?? getPool()).query(
+    `insert into ba_verifications (id, identifier, value, expires_at)
+     values ($1, $2, $3, $4)`,
+    [randomUUID(), input.identifier, input.value, input.expiresAt],
+  );
+}
+
+/** Deletes and returns a live verification value; null if missing or expired. */
+export async function takeVerification(
+  identifier: string,
+  db: Db = getPool(),
+): Promise<string | null> {
+  const result = await db.query(
+    `delete from ba_verifications
+      where identifier = $1
+      returning value, expires_at`,
+    [identifier],
+  );
+  const row = result.rows[0];
+  if (!row || new Date(row.expires_at as string | Date) <= new Date()) {
+    return null;
+  }
+  return String(row.value);
+}
+
 async function resolveWalletAuthProvider(
   input: {
     userId: AomiUserId;
@@ -949,7 +1107,7 @@ function mapUser(row: Row): DbAomiUser {
     primaryEmail: undefinedToNull(row.primary_email),
     avatarUrl: null,
     metadata: {},
-    deactivatedAt: row.status === "deactivated" ? new Date() : null,
+    deactivatedAt: row.status && row.status !== "active" ? new Date() : null,
     createdAt: secondsToDate(row.created_at),
     updatedAt: secondsToDate(row.updated_at),
   };
@@ -979,7 +1137,6 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
   const family = walletFamily(String(row.chain_type));
   const address = String(row.address);
   const walletMetadata = asRecord(row.authorization_metadata);
-  const providerMetadata = asRecord(row.wallet_provider_metadata);
   return {
     id: String(row.id),
     userId: String(row.user_id),
@@ -995,9 +1152,8 @@ function mapWallet(row: Row, provider: string | null): DbAomiWallet {
     provider: provider ? publicProvider(provider) : null,
     providerWalletId: null,
     linkedVia: provider ? publicProvider(provider) : "import",
-    label:
-      optionalString(walletMetadata.display_label) ??
-      optionalString(providerMetadata.display_label),
+    label: optionalString(walletMetadata.display_label),
+    walletApp: optionalString(walletMetadata.wallet_app),
     displayMetadata: walletMetadata,
     verifiedAt: secondsToDate(row.created_at),
     lastSeenAt: secondsToDate(row.updated_at),
@@ -1029,7 +1185,8 @@ function toAccountWallet(wallet: DbAomiWallet): AccountWallet {
     providerWalletId: wallet.providerWalletId ?? undefined,
     chainScope: wallet.chainScope ?? undefined,
     linkedVia: wallet.linkedVia,
-    label: wallet.label ?? undefined,
+    label: wallet.label,
+    ...(wallet.walletApp ? { walletApp: wallet.walletApp } : {}),
     verifiedAt: wallet.verifiedAt.getTime(),
     lastSeenAt: wallet.lastSeenAt.getTime(),
   };

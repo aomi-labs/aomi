@@ -39,7 +39,7 @@ state `rejected`). No transaction was broadcast during reproduction.
 The paired local stack uses its own database
 `aomi_sdk_cli_signing_ea3253c9_20dc85d803`, on loopback PostgreSQL port 54322.
 All 144 canonical migrations applied; no pending versions or checksum mismatch.
-The local Portal origin is `https://agent.minuet-salary.ts.net:3449`.
+The local Portal ran on a private HTTPS origin.
 Execution uses configured Base mainnet RPC, not an Anvil execution wallet.
 
 The installed launcher omitted Payment and Commit Service. Runtime preparation

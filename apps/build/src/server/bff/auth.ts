@@ -1,13 +1,14 @@
 import "server-only";
 
 import { NextResponse } from "next/server";
-import { validateOrigin } from "@build/lib/csrf";
+import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
+import { anonymousBuildAllowed } from "@/server/env";
 import {
   type GitHubCliScope,
   type GitHubSession,
   getGitHubCliSessionFromRequest,
   getGitHubSession,
-} from "@build/server/cookies/github";
+} from "@/server/cookies/github";
 
 type AuthResult =
   | { session: GitHubSession; visibilityGrant: string | null }
@@ -47,18 +48,13 @@ export async function authorize(
     const cli = await getGitHubCliSessionFromRequest(req, options.cliScope);
     if (cli) return { session: cli, visibilityGrant: null };
   }
-  if (options.write && !validateOrigin(req)) {
+  if (options.write && !cookieWriteAllowed(req)) {
     return {
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
     };
   }
   const session = await getGitHubSession();
-  if (
-    !session &&
-    options.allowAnon &&
-    process.env.AOMI_BUILD_ALLOW_ANON === "1" &&
-    process.env.NODE_ENV !== "production"
-  ) {
+  if (!session && options.allowAnon && anonymousBuildAllowed()) {
     return { session: null };
   }
   return session

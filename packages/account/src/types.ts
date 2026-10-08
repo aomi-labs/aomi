@@ -73,6 +73,7 @@ export type DbAomiWallet = {
   providerWalletId: string | null;
   linkedVia: LinkedVia;
   label: string | null;
+  walletApp: string | null;
   displayMetadata: Record<string, unknown>;
   verifiedAt: Date;
   lastSeenAt: Date;
@@ -108,7 +109,10 @@ export type AccountWallet = {
   chainScope?: string;
   chainId?: number;
   linkedVia: LinkedVia | (string & {});
-  label?: string;
+  /** The user's name for this address. */
+  label: string | null;
+  /** The wallet app it was linked from, e.g. "Rabby". */
+  walletApp?: string;
   verifiedAt?: number;
   lastSeenAt?: number;
 };
@@ -198,4 +202,8 @@ export type SignalResolution =
       status: "conflict";
       reason: "already_linked_to_another_account";
       signalType: SignalRef["type"];
+      /** The one other account that owns `signal`, when there is exactly one.
+       * Server-side only: it backs a merge offer and is never sent as is. */
+      owner?: AomiUserId;
+      signal?: SignalRef;
     };

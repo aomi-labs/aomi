@@ -1,13 +1,13 @@
 {
   "name": "@aomi-labs/client",
-  "version": "0.9.14",
+  "version": "0.10.0",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "aomi": "./dist/cli.js"
+    "aomi": "./bin/aomi.js"
   },
   "exports": {
     ".": {
@@ -19,10 +19,21 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./browser-auth": {
+      "import": {
+        "types": "./dist/browser-auth.d.ts",
+        "default": "./dist/browser-auth.js"
+      },
+      "require": {
+        "types": "./dist/browser-auth.d.cts",
+        "default": "./dist/browser-auth.cjs"
+      }
     }
   },
   "files": [
     "dist",
+    "bin",
     "skills",
     "README.md"
   ],
@@ -33,7 +44,10 @@
     "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "devDependencies": {
-    "fast-check": "^4.8.0"
+    "fast-check": "^4.8.0",
+    "better-auth": "1.7.1",
+    "@better-auth/oauth-provider": "1.7.1",
+    "@better-auth/core": "1.7.1"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4",
@@ -41,9 +55,24 @@
     "@x402/evm": "^2.10.0",
     "@x402/fetch": "^2.10.0",
     "bs58": "^6.0.0",
-    "citty": "^0.2.2",
     "jose": "^6.2.3",
     "tweetnacl": "^1.0.3",
     "viem": "^2.47.11"
+  },
+  "peerDependencies": {
+    "better-auth": "1.7.1",
+    "@better-auth/oauth-provider": "1.7.1",
+    "@better-auth/core": "1.7.1"
+  },
+  "peerDependenciesMeta": {
+    "better-auth": {
+      "optional": true
+    },
+    "@better-auth/oauth-provider": {
+      "optional": true
+    },
+    "@better-auth/core": {
+      "optional": true
+    }
   }
 }

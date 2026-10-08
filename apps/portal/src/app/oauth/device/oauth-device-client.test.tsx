@@ -16,17 +16,17 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 
-vi.mock("@aomi-labs/account/better-auth/client", () => ({
+vi.mock("@aomi-labs/widget/browser-auth", () => ({
   authClient: { useSession: mocks.useSession },
 }));
 
-vi.mock("@aomi-labs/widget-lib", () => ({
+vi.mock("@aomi-labs/widget/host-composition", () => ({
   useAomiWalletKit: () => mocks.wallet,
 }));
 
-vi.mock("@portal/lib/device-auth-provider", async (importOriginal) => {
+vi.mock("@/lib/device-auth-provider", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@portal/lib/device-auth-provider")>();
+    await importOriginal<typeof import("@/lib/device-auth-provider")>();
   return { ...actual, providerConfigurationFailure: () => null };
 });
 

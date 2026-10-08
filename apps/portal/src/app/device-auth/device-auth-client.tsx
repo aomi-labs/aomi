@@ -10,19 +10,19 @@ import {
 } from "react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
+import { useAomiWalletKit } from "@aomi-labs/widget/host-composition";
 import {
   classifyProviderInitializationFailure,
   normalizeDeviceAuthProvider,
   providerConfigurationFailure,
   providerFailureText,
   type DeviceAuthProvider,
-} from "@portal/lib/device-auth-provider";
+} from "@/lib/device-auth-provider";
 import {
   deviceGrantFailure,
   providerExchangeFailure,
   waitForProviderCredential,
-} from "@portal/lib/device-auth-handoff";
+} from "@/lib/device-auth-handoff";
 
 type GrantResponse = {
   code?: unknown;

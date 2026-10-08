@@ -7,13 +7,13 @@ import type {
   GitHubRepositoryAccessStatus,
 } from "@aomi-labs/deploy";
 
-import { githubAppInstallUrl } from "@build/features/launch/client";
-import { useGitHubAppInstallations } from "@build/features/launch/hooks/use-github-app";
+import { githubAppInstallUrl } from "@/features/deploy/client";
+import { useGitHubAppInstallations } from "@/features/deploy/hooks/use-github-app";
 import {
   ErrorPanel,
   GitHubSignInPanel,
   LoadingPanel,
-} from "@build/features/launch/components/deployments/ui/state-panels";
+} from "@/features/deploy/components/deployments/ui/state-panels";
 
 const button =
   "border-border hover:bg-accent-hover inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50";

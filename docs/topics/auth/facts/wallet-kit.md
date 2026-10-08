@@ -5,9 +5,9 @@ status: authoritative
 area: auth
 review_after_days: 30
 sources_of_truth:
-  - apps/shadcn-registry/src/lib/wallet-kit/context.tsx
-  - apps/shadcn-registry/src/lib/wallet-kit/composer/wallet-state.ts
-  - apps/shadcn-registry/src/components/account-shell/features/account/use-account-acl.ts
+  - packages/widget/src/wallet/context.tsx
+  - packages/widget/src/wallet/composer/wallet-state.ts
+  - packages/widget/src/account/use-account-acl.ts
   - packages/client/src/user-state/index.ts
   - packages/client/src/session/index.ts
 ---
@@ -53,7 +53,7 @@ expiry, or version checks.
 
 ## Widget library 3.0 migration
 
-`@aomi-labs/widget-lib` 3.0 changes `AomiWalletKit.identity.address` and
+`@aomi-labs/widget` 3.0 changes `AomiWalletKit.identity.address` and
 `identity.svmAddress` from the transport-active addresses to the account-aware
 operating addresses. Either is absent when no linked, signable selection exists.
 Transport state remains available through `accounts`; canonical UI/domain state

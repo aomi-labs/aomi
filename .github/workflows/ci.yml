@@ -21,10 +21,9 @@ jobs:
       apps: ${{ steps.select.outputs.apps }}
       portal: ${{ steps.select.outputs.portal }}
       build: ${{ steps.select.outputs.build }}
-      base: ${{ steps.select.outputs.base }}
       landing: ${{ steps.select.outputs.landing }}
       telegram: ${{ steps.select.outputs.telegram }}
-      guest_browser: ${{ steps.select.outputs.guest_browser }}
+      journeys: ${{ steps.select.outputs.journeys }}
       browser_contracts: ${{ steps.select.outputs.browser_contracts }}
       consumer_compat: ${{ steps.select.outputs.consumer_compat }}
       workflow_policy: ${{ steps.select.outputs.workflow_policy }}
@@ -98,8 +97,16 @@ jobs:
 
       - name: Run workspace tests and committed OpenAPI contract
         run: |
-          pnpm exec vitest run
-          pnpm --filter @aomi-labs/widget-lib exec vitest run --config vitest.config.ts src/components/assistant-ui/onchain-link.test.tsx src/components/assistant-ui/explorer-links.test.tsx
+          pnpm exec vitest run --reporter=default --reporter=json --outputFile=output/ci/workspace-tests.json
+          node scripts/check-test-results.mjs output/ci/workspace-tests.json
+
+      # Full widget suite, including the dist boundary checks that need the
+      # build:packages output above. Locally, `pnpm check` runs the same suite
+      # minus src/package-boundary.test.ts (pnpm run test:widget).
+      - name: Run widget library tests
+        run: |
+          pnpm --filter @aomi-labs/widget test --reporter=default --reporter=json --outputFile=../../output/ci/widget-tests.json
+          node scripts/check-test-results.mjs output/ci/widget-tests.json
 
   consumer-compat:
     name: Consumer compatibility · packed SDK and widget
@@ -134,6 +141,14 @@ jobs:
 
       - name: Check protected consumers against candidate packages
         run: pnpm run test:contracts
+
+  widget-contracts:
+    name: Widget package contracts · API, fresh installs, docs
+    needs: changes
+    if: needs.changes.outputs.consumer_compat == 'true'
+    uses: ./.github/workflows/widget-package-contracts.yml
+    secrets:
+      AOMI_DOCS_READ_TOKEN: ${{ secrets.AOMI_DOCS_READ_TOKEN }}
 
   apps:
     name: Apps · affected surfaces
@@ -181,7 +196,6 @@ jobs:
         env:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
-          CHECK_BASE: ${{ needs.changes.outputs.base }}
           CHECK_LANDING: ${{ needs.changes.outputs.landing }}
           CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
         run: |
@@ -189,16 +203,14 @@ jobs:
           if [ "$CHECK_PORTAL" = true ]; then
             pnpm run lint:portal
             pnpm run typecheck:portal
-            pnpm run test:portal
+            pnpm --filter portal exec vitest run --reporter=default --reporter=json --outputFile=../../output/ci/portal-tests.json
+            node scripts/check-test-results.mjs output/ci/portal-tests.json
           fi
           if [ "$CHECK_BUILD" = true ]; then
             pnpm run lint:aomi-build
             pnpm run typecheck:aomi-build
-            pnpm --filter aomi-build test
-          fi
-          if [ "$CHECK_BASE" = true ]; then
-            pnpm run lint:base
-            pnpm run typecheck:base
+            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=output/ci/build-tests.json
+            node scripts/check-test-results.mjs output/ci/build-tests.json
           fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run lint:landing
@@ -214,7 +226,6 @@ jobs:
         env:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
-          CHECK_BASE: ${{ needs.changes.outputs.base }}
           CHECK_LANDING: ${{ needs.changes.outputs.landing }}
           CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
@@ -234,9 +245,6 @@ jobs:
           if [ "$CHECK_BUILD" = true ]; then
             pnpm run build:aomi-build
           fi
-          if [ "$CHECK_BASE" = true ]; then
-            pnpm run build:base
-          fi
           if [ "$CHECK_LANDING" = true ]; then
             pnpm run build:landing
           fi
@@ -244,12 +252,29 @@ jobs:
             pnpm run build:telegram
           fi
 
-  guest-browser:
-    name: Guest Chat · deterministic Chromium regression
+  journeys:
+    name: Journeys · Portal, Vite embed and mobile on the fake agent
     needs: changes
-    if: needs.changes.outputs.guest_browser == 'true'
+    if: needs.changes.outputs.journeys == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      auth-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aomi_auth_loopback_test_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AOMI_TEST_DATABASE_DISPOSABLE: "1"
+      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -269,18 +294,23 @@ jobs:
       - name: Install matching Chromium
         run: pnpm exec playwright install chromium
 
-      - name: Run isolated guest send and recovery regression
-        run: pnpm run test:browser:guest
+      - name: Typecheck browser suites
+        run: pnpm exec tsc --project tsconfig.journeys.json --noEmit
 
-      - name: Upload sanitized server log and browser diagnostics
+      - name: Build packages
+        run: pnpm run build:packages
+
+      - name: Run journeys
+        run: pnpm run test:journeys
+
+      - name: Upload traces, videos and agent request logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: guest-browser-${{ github.sha }}
+          name: journeys-${{ github.sha }}
           path: |
-            output/playwright/guest-regression/
-            output/playwright/test-results/
-            output/playwright/report/
+            output/playwright/journeys/
+            output/playwright/journeys.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -290,9 +320,25 @@ jobs:
     if: needs.changes.outputs.browser_contracts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    services:
+      auth-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aomi_auth_loopback_test_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       # The immutable consumer comes from the event-selected base, never PR files.
       CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      AOMI_TEST_DATABASE_DISPOSABLE: "1"
+      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
       - name: Checkout candidate and trusted baseline history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -309,21 +355,91 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Use npm11 for strict packed-consumer peer resolution
+        run: npm install --global npm@11
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install matching Chromium
         run: pnpm exec playwright install chromium
 
-      - name: Run production Portal and immutable packaged-widget contracts
+      - name: Run against the production Portal and packed consumers
         run: pnpm run test:browser:contracts
 
-      - name: Upload sanitized browser contract diagnostics
+      - name: Upload sanitized diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: browser-contracts-${{ github.sha }}
-          path: output/playwright/browser-contracts/
+          path: |
+            output/playwright/browser-contracts/
+            output/playwright/test-results/
+          if-no-files-found: error
+          retention-days: 14
+
+  packed-consumers:
+    name: Packed Consumers · journeys and performance gate
+    needs: changes
+    if: needs.changes.outputs.browser_contracts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      auth-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: aomi_auth_loopback_test_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aomi_auth_loopback_test_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The immutable consumer comes from the event-selected base, never PR files.
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      AOMI_TEST_DATABASE_DISPOSABLE: "1"
+      AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
+    steps:
+      - name: Checkout candidate and trusted baseline history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Use npm11 for strict packed-consumer peer resolution
+        run: npm install --global npm@11
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install matching Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: Run against the production Portal and packed consumers
+        run: pnpm run test:browser:consumers
+
+      - name: Upload sanitized diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: packed-consumers-${{ github.sha }}
+          path: |
+            output/playwright/packed-consumers/
+            output/playwright/journeys/
+            output/playwright/journeys.json
           if-no-files-found: error
           retention-days: 14
 
@@ -478,9 +594,11 @@ jobs:
         changes,
         packages,
         apps,
-        guest-browser,
+        journeys,
         browser-contracts,
+        packed-consumers,
         consumer-compat,
+        widget-contracts,
         promotion-policy,
         hotfix-divergence,
         live-production-contract,
@@ -495,12 +613,15 @@ jobs:
           PACKAGES_RESULT: ${{ needs.packages.result }}
           APPS_SELECTED: ${{ needs.changes.outputs.apps }}
           APPS_RESULT: ${{ needs.apps.result }}
-          GUEST_SELECTED: ${{ needs.changes.outputs.guest_browser }}
-          GUEST_RESULT: ${{ needs.guest-browser.result }}
+          JOURNEYS_SELECTED: ${{ needs.changes.outputs.journeys }}
+          JOURNEYS_RESULT: ${{ needs.journeys.result }}
           BROWSER_SELECTED: ${{ needs.changes.outputs.browser_contracts }}
           BROWSER_RESULT: ${{ needs.browser-contracts.result }}
+          PACKED_RESULT: ${{ needs.packed-consumers.result }}
           CONSUMER_SELECTED: ${{ needs.changes.outputs.consumer_compat }}
           CONSUMER_RESULT: ${{ needs.consumer-compat.result }}
+          WIDGET_CONTRACT_SELECTED: ${{ needs.changes.outputs.consumer_compat }}
+          WIDGET_CONTRACT_RESULT: ${{ needs.widget-contracts.result }}
           WORKFLOW_SELECTED: ${{ needs.changes.outputs.workflow_policy }}
           WORKFLOW_RESULT: ${{ needs.workflow-policy.result }}
           PROMOTION_RESULT: ${{ needs.promotion-policy.result }}
@@ -523,9 +644,11 @@ jobs:
           test "$CHANGES_RESULT" = success
           require_selected "$PACKAGES_SELECTED" "$PACKAGES_RESULT" packages
           require_selected "$APPS_SELECTED" "$APPS_RESULT" apps
-          require_selected "$GUEST_SELECTED" "$GUEST_RESULT" guest-browser
+          require_selected "$JOURNEYS_SELECTED" "$JOURNEYS_RESULT" journeys
           require_selected "$BROWSER_SELECTED" "$BROWSER_RESULT" browser-contracts
+          require_selected "$BROWSER_SELECTED" "$PACKED_RESULT" packed-consumers
           require_selected "$CONSUMER_SELECTED" "$CONSUMER_RESULT" consumer-compat
+          require_selected "$WIDGET_CONTRACT_SELECTED" "$WIDGET_CONTRACT_RESULT" widget-contracts
           require_selected "$WORKFLOW_SELECTED" "$WORKFLOW_RESULT" workflow-policy
           case "$PROMOTION_RESULT" in success|skipped) ;; *) exit 1 ;; esac
           case "$HOTFIX_RESULT" in success|skipped) ;; *) exit 1 ;; esac

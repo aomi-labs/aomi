@@ -119,16 +119,16 @@ in `aomi/crates/database/tests/entities.rs`.
   state, icons via app metadata.
 - **Theme switch** in the header toggles `useSettings.colorMode` light/dark;
   "System" remains selectable from Settings → General.
-- **Sidebar** restyle lives in `apps/shadcn-registry` (thread-list +
+- **Sidebar** restyle lives in `packages/widget` (thread-list +
   threadlist-sidebar) and uses the portal-defined `--aomi-*` tokens. Other
   widget-lib consumers (landing, embedded widget) don't define those tokens
-  yet — promote them into `@aomi-labs/widget-lib` theme CSS before shipping
+  yet — promote them into `@aomi-labs/widget` theme CSS before shipping
   beyond the portal.
 
 ## Round 4 — conversation surface + widget-lib token promotion
 
 - The `aomi-*` tokens now live in the **shared widget theme**
-  (`apps/shadcn-registry/src/themes/default.css`), so landing and embedded
+  (`packages/widget/src/themes/default.css`), so landing and embedded
   consumers resolve them too — the round-2 caveat is closed. The portal's
   `globals.css` keeps only its `--font-display` mapping.
 - Conversation surfaces restyled to the mock inside the registry (thread
@@ -169,7 +169,7 @@ for the full rule set.
    no raw opacity utilities left in the redesigned surfaces.
 4. Selection grammar — split by size (pill = solid accent, card/row =
    accent-subtle + accent icon).
-5. shadcn seam — tokens live in @aomi-labs/widget-lib; session panel, thread
+5. shadcn seam — tokens live in @aomi-labs/widget; session panel, thread
    list, composer and the wallet-sheet shell all speak `aomi-*`.
 
 REMAINING: the wallet picker's interior rows (wallet-picker.tsx, ~2.3k lines)

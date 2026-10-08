@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { EmptyPanel } from "@build/features/launch/components/deployments/ui/state-panels";
+import { EmptyPanel } from "@/features/deploy/components/deployments/ui/state-panels";
 
 type EmptyStateProps = {
   title: string;

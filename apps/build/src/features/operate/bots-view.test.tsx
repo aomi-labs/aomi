@@ -3,7 +3,7 @@ import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 
-import type { GitHubAccountState } from "@build/components/control-plane/github-session-context";
+import type { GitHubAccountState } from "@/components/control-plane/github-session-context";
 
 let sessionAccount: GitHubAccountState = {
   loading: true,
@@ -13,7 +13,7 @@ let sessionAccount: GitHubAccountState = {
   installationId: null,
 };
 
-vi.mock("@build/components/control-plane/github-session-context", () => ({
+vi.mock("@/components/control-plane/github-session-context", () => ({
   useGitHubSession: () => ({
     account: sessionAccount,
     setAccount: vi.fn(),

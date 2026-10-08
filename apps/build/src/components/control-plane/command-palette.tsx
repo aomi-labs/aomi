@@ -18,10 +18,10 @@ import {
   lastEnvironmentHref,
   lastProjectHref,
   lastUsageHref,
-} from "@build/lib/deep-links";
-import { getLastProjectId } from "@build/lib/last-project";
-import { platformHref } from "@build/features/launch/platform";
-import { usePlatform } from "@build/features/launch/use-platform";
+} from "@/lib/deep-links";
+import { getLastProjectId } from "@/lib/last-project";
+import { platformHref } from "@/features/deploy/platform";
+import { usePlatform } from "@/features/deploy/use-platform";
 
 type CommandItem = {
   id: string;

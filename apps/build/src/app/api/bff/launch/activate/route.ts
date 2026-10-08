@@ -1,4 +1,4 @@
-import { activateLaunchRoute } from "@build/server/bff/launch/routes";
+import { activateRoute } from "@/server/bff/deploy/routes";
 
 export const runtime = "nodejs";
-export const POST = activateLaunchRoute;
+export const POST = activateRoute;

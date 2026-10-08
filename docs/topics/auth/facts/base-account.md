@@ -5,8 +5,8 @@ status: authoritative
 area: auth
 review_after_days: 30
 sources_of_truth:
-  - apps/shadcn-registry/src/lib/wallet-kit/config/AomiWalletKitProvider.tsx
-  - apps/shadcn-registry/src/lib/wallet-kit/catalog/evm-connector-catalog.ts
+  - packages/widget/src/wallet/config/aomi-wallet-kit-provider.tsx
+  - packages/widget/src/wallet/catalog/evm-connector-catalog.ts
 ---
 
 # Base Account Provider
@@ -20,8 +20,8 @@ Configure Base Account through `AomiWalletKitProvider` with
 
 ## Source Map
 
-- [apps/shadcn-registry/src/lib/wallet-kit/config/AomiWalletKitProvider.tsx](../../../../apps/shadcn-registry/src/lib/wallet-kit/config/AomiWalletKitProvider.tsx)
-- [apps/shadcn-registry/src/lib/wallet-kit/catalog/evm-connector-catalog.ts](../../../../apps/shadcn-registry/src/lib/wallet-kit/catalog/evm-connector-catalog.ts)
+- [packages/widget/src/wallet/config/aomi-wallet-kit-provider.tsx](../../../../packages/widget/src/wallet/config/aomi-wallet-kit-provider.tsx)
+- [packages/widget/src/wallet/catalog/evm-connector-catalog.ts](../../../../packages/widget/src/wallet/catalog/evm-connector-catalog.ts)
 
 ## Key Flows
 

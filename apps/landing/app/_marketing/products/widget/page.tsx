@@ -9,7 +9,7 @@ import {
 import { WidgetInstallCode } from "./widget-install-code";
 import pageStyles from "./widget-product.module.css";
 
-const INSTALL_COMMAND = "npm install @aomi-labs/widget-lib";
+const INSTALL_COMMAND = "npm install @aomi-labs/widget";
 
 export const metadata: Metadata = {
   title: "Widget | Aomi",

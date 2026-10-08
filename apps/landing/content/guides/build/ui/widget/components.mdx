@@ -1,238 +1,29 @@
 ---
-title: Component Catalog
-description: Browse all available UI components from the Aomi registry.
+title: "Widget components"
+description: "Install and configure the compiled Aomi widget."
 ---
 
-# Component Catalog
-
-All UI components available through the Aomi shadcn registry. Each component can be installed individually or comes bundled when you install `aomi-frame`.
-
-Use a Radix-based shadcn project. For a new project, initialize it before adding
-Aomi components:
+Install the compiled widget from npm:
 
 ```bash
-npx shadcn@latest init --base radix
-```
-
-## Aomi Components
-
-These components are maintained by Aomi and include features specific to the platform.
-
-### AomiFrame
-
-The main chat shell with sidebar, thread management, and all runtime wiring.
-
-```bash
-npx shadcn add https://aomi.dev/r/aomi-frame.json
+npm install @aomi-labs/widget
 ```
 
 ```tsx
-import { AomiFrame } from "@/components/aomi-frame";
-
-<AomiFrame height="600px" />
+"use client";
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
+export default function Assistant() { return <AomiWidget applicationId="123" />; }
 ```
 
-### AssistantThread
+The widget includes its styles and browser-wallet integration. Set only your
+hosted Application ID for the default configuration. Add an explicit lazy Para
+or Privy entry only when your product uses that provider.
 
-The chat message list and composer. Renders messages, tool calls, markdown, and streaming responses.
+The canonical [widget quickstart](https://aomi.dev/docs/guides/widget/quickstart),
+[wallet installation](https://aomi.dev/docs/guides/widget/installation) and
+[customization guide](https://aomi.dev/docs/guides/widget/customization) cover
+origin registration, optional wallets, layout and routing.
 
-```bash
-npx shadcn add https://aomi.dev/r/assistant-thread.json
-```
-
-```tsx
-import { Thread } from "@/components/assistant-ui/thread";
-
-<Thread />
-```
-
-### ThreadList
-
-Displays all conversation threads in a list with create, rename, and delete actions.
-
-```bash
-npx shadcn add https://aomi.dev/r/assistant-thread-list.json
-```
-
-```tsx
-import { ThreadList } from "@/components/assistant-ui/thread-list";
-
-<ThreadList />
-```
-
-### ThreadListSidebar
-
-A sidebar wrapper around the thread list with wallet button positioning.
-
-```bash
-npx shadcn add https://aomi.dev/r/threadlist-sidebar.json
-```
-
-```tsx
-import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
-
-<ThreadListSidebar walletPosition="footer" />
-```
-
-### ToolFallback
-
-Fallback renderer for tool call results when no specific renderer is registered.
-
-```bash
-npx shadcn add https://aomi.dev/r/tool-fallback.json
-```
-
-```tsx
-import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
-
-<ToolFallback />
-```
-
-### Notification
-
-Toast notification component for system messages, errors, and wallet events.
-
-```bash
-npx shadcn add https://aomi.dev/r/notification.json
-```
-
-```tsx
-import { NotificationToaster } from "@/components/ui/notification";
-
-<NotificationToaster />
-```
-
-## Control Bar Components
-
-Individual control components that can be used standalone or composed into a custom control bar.
-
-### ControlBar
-
-Composes all control components into a single bar.
-
-```tsx
-import { ControlBar } from "@/components/control-bar";
-
-// Full control bar
-<ControlBar />
-
-// Minimal
-<ControlBar hideApiKey hideWallet />
-
-// With custom controls appended
-<ControlBar hideModel>
-  <MyCustomToggle />
-</ControlBar>
-```
-
-### ModelSelect
-
-Dropdown to select the AI model. Fetches available models from the backend.
-
-```tsx
-import { ModelSelect } from "@/components/control-bar";
-
-<ModelSelect placeholder="Choose model" className="w-[200px]" />
-```
-
-### SafetySelect
-
-Per-chat transaction safety (Strict, Balanced, Yolo). Renders only for a
-signed-in account. In the composer, a level picked on a new chat is saved
-before the first message is sent; placed elsewhere, it unlocks after the first
-message. Yolo asks for confirmation and can never be the account default.
-
-```tsx
-import { SafetySelect } from "@/components/control-bar";
-
-<SafetySelect />
-```
-
-There is no app or mode selector: agent routing is a host setting (the
-`routing` control bar prop).
-
-### ApiKeyInput
-
-Dialog button for entering and managing the API key. Persists the key to localStorage.
-
-```tsx
-import { ApiKeyInput } from "@/components/control-bar";
-
-<ApiKeyInput
-  title="API Key"
-  description="Enter your API key to authenticate."
-/>
-```
-
-### ConnectButton
-
-Button to connect or disconnect a wallet. Syncs wallet state with the Aomi runtime via `useUser`.
-
-```tsx
-import { ConnectButton } from "@/components/control-bar";
-
-<ConnectButton
-  connectLabel="Connect Wallet"
-  onConnectionChange={(connected) => console.log(connected)}
-/>
-```
-
-### NetworkSelect
-
-Dropdown to switch between blockchain networks.
-
-```tsx
-import { NetworkSelect } from "@/components/control-bar";
-
-<NetworkSelect />
-```
-
-## shadcn Primitives
-
-These Radix-based UI primitives are installed from Aomi's registry so their APIs
-match the widget components.
-
-| Component | Description |
-| --- | --- |
-| `Button` | Clickable button with variants |
-| `Input` | Text input field |
-| `Label` | Form label |
-| `Card` | Content container |
-| `Dialog` | Modal dialog |
-| `Sheet` | Side panel overlay |
-| `Popover` | Floating content panel |
-| `Command` | Command palette / search |
-| `Drawer` | Bottom drawer |
-| `Sidebar` | Collapsible sidebar layout |
-| `Separator` | Visual divider |
-| `Breadcrumb` | Navigation breadcrumb |
-| `Tooltip` | Hover tooltip |
-
-## Dependency Tree
-
-When you install `aomi-frame`, it pulls in the full tree:
-
-```
-aomi-frame
-├── assistant-thread
-│   ├── markdown-text (upstream)
-│   ├── tooltip-icon-button (upstream)
-│   └── attachment (upstream)
-├── threadlist-sidebar
-│   ├── thread-list
-│   └── sidebar (shadcn)
-├── control-bar/
-│   ├── model-select
-│   ├── safety-select
-│   ├── api-key-input
-│   ├── wallet-connect
-│   └── network-select
-├── notification
-├── wallet-tx-handler
-├── breadcrumb (shadcn)
-├── separator (shadcn)
-├── popover (shadcn)
-└── button (shadcn)
-```
-
-npm packages installed: `@aomi-labs/react`, `@assistant-ui/react`.
+Existing registry JSON remains frozen during the announced retention window.
+New integrations use npm rather than copied component source.

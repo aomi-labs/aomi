@@ -1,11 +1,11 @@
 import { auth } from "@aomi-labs/account/better-auth";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 
-import { publicDiscoveryResponse } from "@portal/server/oauth/cors";
+import { publicRead } from "@/server/bff/cors";
 import {
   aomiOAuthResourcePolicy,
   aomiOAuthResources,
-} from "@portal/server/oauth/resources";
+} from "@aomi-labs/account/better-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export async function GET() {
   const resources = aomiOAuthResources();
   const policy = aomiOAuthResourcePolicy(resources.agentMcp);
   if (!policy) return Response.json({ error: "not_found" }, { status: 404 });
-  return publicDiscoveryResponse(
+  return publicRead.apply(
     Response.json(
       await oauthProviderResourceClient(auth)
         .getActions()
@@ -39,5 +39,5 @@ export async function HEAD() {
 }
 
 export function OPTIONS() {
-  return publicDiscoveryResponse(new Response(null, { status: 204 }));
+  return publicRead.apply(new Response(null, { status: 204 }));
 }

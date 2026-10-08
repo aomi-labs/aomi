@@ -51,15 +51,15 @@ truth if they disagree.
   (it imports `@/lib/conversion` and `@/lib/backend-api`, which no longer exist). Do
   **not** edit it. Delete it as part of Phase 1.
 - `CLAUDE.md`'s "Key Files" section is also stale — ignore those paths.
-- Message conversion: `packages/react/src/runtime/utils.ts` → `toInboundMessage()`.
+- Message conversion: `packages/react/src/runtime/message-projection.ts` → `toInboundMessage()`.
 - Runtime wiring / where converted messages get set into state:
   `packages/react/src/runtime/orchestrator.ts` → the `session.on("messages", …)` handler
   (around line 273).
-- The canonical chat UI: `apps/shadcn-registry/src/components/assistant-ui/`
+- The canonical chat UI: `packages/widget/src/components/assistant-ui/`
   - `thread.tsx` — the Thread + `AssistantMessage` (this is what you rewire).
   - `tool-fallback.tsx` — current tool-call card (you replace its styling).
   - `markdown-text.tsx` — `MarkdownText` (reuse as-is for the final answer).
-- Theme tokens + animations: `apps/shadcn-registry/src/themes/default.css`.
+- Theme tokens + animations: `packages/widget/src/themes/default.css`.
 - **Also check** `apps/portal/` and `apps/landing/` for their own copies of a Thread /
   assistant-message component. If they maintain duplicates, apply the same Phase 3
   change there. The Phase 1 + Phase 2 changes are in the shared package, so all apps
@@ -185,7 +185,7 @@ Then `pnpm install`.
 surface — the rest of our imports are unaffected):**
 
 1. **`useAssistantApi` and `useAssistantState` were REMOVED in 0.14.0.** Rename to
-   `useAui` and `useAuiState`. Both are used in `apps/shadcn-registry/.../thread.tsx`
+   `useAui` and `useAuiState`. Both are used in `packages/widget/.../thread.tsx`
    (`ThreadWelcome`, `ThreadLoadingSkeleton`, and the composer reset effect). Same
    selector signatures — it's a pure rename.
    - `const api = useAssistantApi()` → `const api = useAui()`
@@ -213,7 +213,7 @@ before_ (still the ugly stack — that's expected). This isolates upgrade risk.
 
 ### Phase 2 — Merge a turn into one message (data layer)
 
-**File:** `packages/react/src/runtime/utils.ts` (+ its callsite in `orchestrator.ts`).
+**File:** `packages/react/src/runtime/message-projection.ts` (+ its callsite in `orchestrator.ts`).
 
 Today `toInboundMessage()` maps one `AomiMessage` → one `ThreadMessageLike`. Add a new
 pass that folds a contiguous run of assistant messages (a "turn") into a **single**
@@ -419,7 +419,7 @@ keyframe):
 
 #### 3.2 `working-trace.tsx` — the accordion container
 
-**File:** `apps/shadcn-registry/src/components/assistant-ui/working-trace.tsx`
+**File:** `packages/widget/src/thread/working-trace.tsx`
 
 Behavior:
 
@@ -696,7 +696,7 @@ No change needed beyond wiring `GroupedParts`.
 
 ## 4. Acceptance criteria (manual QA checklist)
 
-Run the widget (`apps/shadcn-registry`) and a real agent turn with tool calls:
+Run the widget (`packages/widget`) and a real agent turn with tool calls:
 
 - [ ] A turn with tools renders as **one** "Working" accordion, not a stack of cards.
 - [ ] While running: header text **shimmers**, a spinner shows, elapsed ticks, steps

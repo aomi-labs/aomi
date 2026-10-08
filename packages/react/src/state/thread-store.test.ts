@@ -30,4 +30,18 @@ describe("thread title presentation", () => {
       "Cambrian token prices",
     );
   });
+
+  it("does not notify subscribers when an update changes nothing", () => {
+    const store = new ThreadStore({ initialThreadId: "chat" });
+    const before = store.getSnapshot();
+    let notified = 0;
+    store.subscribe(() => notified++);
+    store.updateThreadMetadata("chat", {
+      title: before.allThreadsMetadata.get("chat")!.title,
+    });
+    expect(notified).toBe(0);
+    expect(store.getSnapshot()).toBe(before);
+    store.updateThreadMetadata("chat", { pending: true });
+    expect(notified).toBe(1);
+  });
 });

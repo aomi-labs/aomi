@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, PT_Serif, Source_Serif_4 } from "next/font/google";
-import { COLOR_THEME_INIT_SCRIPT } from "@build/lib/color-theme";
+import { COLOR_THEME_INIT_SCRIPT } from "@/lib/color-theme";
 import "./globals.css";
 
 const geistSans = Geist({

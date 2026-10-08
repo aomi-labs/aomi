@@ -1,0 +1,361 @@
+{
+  "name": "@aomi-labs/widget-lib",
+  "version": "3.0.23",
+  "description": "Deprecated Aomi widget package name. Use @aomi-labs/widget; legacy imports remain supported through 4.x and are removed in 5.0.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./frame": {
+      "types": "./dist/frame.d.ts",
+      "import": "./dist/frame.js"
+    },
+    "./host-composition": {
+      "types": "./dist/host-composition.d.ts",
+      "import": "./dist/host-composition.js"
+    },
+    "./control-bar": {
+      "types": "./dist/control-bar.d.ts",
+      "import": "./dist/control-bar.js"
+    },
+    "./browser-auth": {
+      "types": "./dist/browser-auth.d.ts",
+      "import": "./dist/browser-auth.js"
+    },
+    "./providers/para": {
+      "types": "./dist/providers/para.d.ts",
+      "import": "./dist/providers/para.js"
+    },
+    "./providers/privy": {
+      "types": "./dist/providers/privy.d.ts",
+      "import": "./dist/providers/privy.js"
+    },
+    "./aomi-widget": {
+      "types": "./dist/aomi-widget.d.ts",
+      "import": "./dist/aomi-widget.js"
+    },
+    "./aomi-frame": {
+      "types": "./dist/aomi-frame.d.ts",
+      "import": "./dist/aomi-frame.js"
+    },
+    "./components/assistant-ui/assistant-message-row": {
+      "types": "./dist/components/assistant-ui/assistant-message-row.d.ts",
+      "import": "./dist/components/assistant-ui/assistant-message-row.js"
+    },
+    "./components/assistant-ui/attachment": {
+      "types": "./dist/components/assistant-ui/attachment.d.ts",
+      "import": "./dist/components/assistant-ui/attachment.js"
+    },
+    "./components/assistant-ui/capability-composer": {
+      "types": "./dist/components/assistant-ui/capability-composer.d.ts",
+      "import": "./dist/components/assistant-ui/capability-composer.js"
+    },
+    "./components/assistant-ui/capability-composer/catalog": {
+      "types": "./dist/components/assistant-ui/capability-composer/catalog.d.ts",
+      "import": "./dist/components/assistant-ui/capability-composer/catalog.js"
+    },
+    "./components/assistant-ui/capability-composer/input": {
+      "types": "./dist/components/assistant-ui/capability-composer/input.d.ts",
+      "import": "./dist/components/assistant-ui/capability-composer/input.js"
+    },
+    "./components/assistant-ui/capability-composer/picker": {
+      "types": "./dist/components/assistant-ui/capability-composer/picker.d.ts",
+      "import": "./dist/components/assistant-ui/capability-composer/picker.js"
+    },
+    "./components/assistant-ui/capability-composer/provider": {
+      "types": "./dist/components/assistant-ui/capability-composer/provider.d.ts",
+      "import": "./dist/components/assistant-ui/capability-composer/provider.js"
+    },
+    "./components/assistant-ui/capability-message-text": {
+      "types": "./dist/components/assistant-ui/capability-message-text.d.ts",
+      "import": "./dist/components/assistant-ui/capability-message-text.js"
+    },
+    "./components/assistant-ui/markdown-text": {
+      "types": "./dist/components/assistant-ui/markdown-text.d.ts",
+      "import": "./dist/components/assistant-ui/markdown-text.js"
+    },
+    "./components/assistant-ui/onchain-link": {
+      "types": "./dist/components/assistant-ui/onchain-link.d.ts",
+      "import": "./dist/components/assistant-ui/onchain-link.js"
+    },
+    "./components/assistant-ui/thread-list": {
+      "types": "./dist/components/assistant-ui/thread-list.d.ts",
+      "import": "./dist/components/assistant-ui/thread-list.js"
+    },
+    "./components/assistant-ui/thread": {
+      "types": "./dist/components/assistant-ui/thread.d.ts",
+      "import": "./dist/components/assistant-ui/thread.js"
+    },
+    "./components/assistant-ui/threadlist-sidebar": {
+      "types": "./dist/components/assistant-ui/threadlist-sidebar.d.ts",
+      "import": "./dist/components/assistant-ui/threadlist-sidebar.js"
+    },
+    "./components/assistant-ui/tool-chip": {
+      "types": "./dist/components/assistant-ui/tool-chip.d.ts",
+      "import": "./dist/components/assistant-ui/tool-chip.js"
+    },
+    "./components/assistant-ui/tool-fallback": {
+      "types": "./dist/components/assistant-ui/tool-fallback.d.ts",
+      "import": "./dist/components/assistant-ui/tool-fallback.js"
+    },
+    "./components/assistant-ui/tooltip-icon-button": {
+      "types": "./dist/components/assistant-ui/tooltip-icon-button.d.ts",
+      "import": "./dist/components/assistant-ui/tooltip-icon-button.js"
+    },
+    "./components/assistant-ui/trace-attribution": {
+      "types": "./dist/components/assistant-ui/trace-attribution.d.ts",
+      "import": "./dist/components/assistant-ui/trace-attribution.js"
+    },
+    "./components/assistant-ui/working-agent": {
+      "types": "./dist/components/assistant-ui/working-agent.d.ts",
+      "import": "./dist/components/assistant-ui/working-agent.js"
+    },
+    "./components/assistant-ui/working-trace-rows": {
+      "types": "./dist/components/assistant-ui/working-trace-rows.d.ts",
+      "import": "./dist/components/assistant-ui/working-trace-rows.js"
+    },
+    "./components/assistant-ui/working-trace": {
+      "types": "./dist/components/assistant-ui/working-trace.d.ts",
+      "import": "./dist/components/assistant-ui/working-trace.js"
+    },
+    "./components/control-bar/account-menu": {
+      "types": "./dist/components/control-bar/account-menu.d.ts",
+      "import": "./dist/components/control-bar/account-menu.js"
+    },
+    "./components/control-bar/api-key-input": {
+      "types": "./dist/components/control-bar/api-key-input.d.ts",
+      "import": "./dist/components/control-bar/api-key-input.js"
+    },
+    "./components/control-bar/app-indicator": {
+      "types": "./dist/components/control-bar/app-indicator.d.ts",
+      "import": "./dist/components/control-bar/app-indicator.js"
+    },
+    "./components/control-bar/app-secrets-dialog": {
+      "types": "./dist/components/control-bar/app-secrets-dialog.d.ts",
+      "import": "./dist/components/control-bar/app-secrets-dialog.js"
+    },
+    "./components/control-bar/connect-button": {
+      "types": "./dist/components/control-bar/connect-button.d.ts",
+      "import": "./dist/components/control-bar/connect-button.js"
+    },
+    "./components/control-bar/control-menu": {
+      "types": "./dist/components/control-bar/control-menu.d.ts",
+      "import": "./dist/components/control-bar/control-menu.js"
+    },
+    "./components/control-bar/disconnect-confirm-dialog": {
+      "types": "./dist/components/control-bar/disconnect-confirm-dialog.d.ts",
+      "import": "./dist/components/control-bar/disconnect-confirm-dialog.js"
+    },
+    "./components/control-bar/dual-wallet-bar": {
+      "types": "./dist/components/control-bar/dual-wallet-bar.d.ts",
+      "import": "./dist/components/control-bar/dual-wallet-bar.js"
+    },
+    "./components/control-bar/index": {
+      "types": "./dist/components/control-bar/index.d.ts",
+      "import": "./dist/components/control-bar/index.js"
+    },
+    "./components/control-bar/model-select": {
+      "types": "./dist/components/control-bar/model-select.d.ts",
+      "import": "./dist/components/control-bar/model-select.js"
+    },
+    "./components/control-bar/network-select": {
+      "types": "./dist/components/control-bar/network-select.d.ts",
+      "import": "./dist/components/control-bar/network-select.js"
+    },
+    "./components/control-bar/payment-required-gate": {
+      "types": "./dist/components/control-bar/payment-required-gate.d.ts",
+      "import": "./dist/components/control-bar/payment-required-gate.js"
+    },
+    "./components/control-bar/safety-select": {
+      "types": "./dist/components/control-bar/safety-select.d.ts",
+      "import": "./dist/components/control-bar/safety-select.js"
+    },
+    "./components/control-bar/secret-input": {
+      "types": "./dist/components/control-bar/secret-input.d.ts",
+      "import": "./dist/components/control-bar/secret-input.js"
+    },
+    "./components/control-bar/wallet-icon-slot": {
+      "types": "./dist/components/control-bar/wallet-icon-slot.d.ts",
+      "import": "./dist/components/control-bar/wallet-icon-slot.js"
+    },
+    "./components/control-bar/wallet-picker-context": {
+      "types": "./dist/components/control-bar/wallet-picker-context.d.ts",
+      "import": "./dist/components/control-bar/wallet-picker-context.js"
+    },
+    "./components/control-bar/wallet-picker": {
+      "types": "./dist/components/control-bar/wallet-picker.d.ts",
+      "import": "./dist/components/control-bar/wallet-picker.js"
+    },
+    "./components/ui/accordion": {
+      "types": "./dist/components/ui/accordion.d.ts",
+      "import": "./dist/components/ui/accordion.js"
+    },
+    "./components/ui/alert": {
+      "types": "./dist/components/ui/alert.d.ts",
+      "import": "./dist/components/ui/alert.js"
+    },
+    "./components/ui/aomi/button": {
+      "types": "./dist/components/ui/aomi/button.d.ts",
+      "import": "./dist/components/ui/aomi/button.js"
+    },
+    "./components/ui/aomi/confirm-dialog": {
+      "types": "./dist/components/ui/aomi/confirm-dialog.d.ts",
+      "import": "./dist/components/ui/aomi/confirm-dialog.js"
+    },
+    "./components/ui/aomi/list-group": {
+      "types": "./dist/components/ui/aomi/list-group.d.ts",
+      "import": "./dist/components/ui/aomi/list-group.js"
+    },
+    "./components/ui/aomi/loading-pane": {
+      "types": "./dist/components/ui/aomi/loading-pane.d.ts",
+      "import": "./dist/components/ui/aomi/loading-pane.js"
+    },
+    "./components/ui/aomi/modal-shell": {
+      "types": "./dist/components/ui/aomi/modal-shell.d.ts",
+      "import": "./dist/components/ui/aomi/modal-shell.js"
+    },
+    "./components/ui/aomi/section-header": {
+      "types": "./dist/components/ui/aomi/section-header.d.ts",
+      "import": "./dist/components/ui/aomi/section-header.js"
+    },
+    "./components/ui/aomi/segmented": {
+      "types": "./dist/components/ui/aomi/segmented.d.ts",
+      "import": "./dist/components/ui/aomi/segmented.js"
+    },
+    "./components/ui/aomi/status-pill": {
+      "types": "./dist/components/ui/aomi/status-pill.d.ts",
+      "import": "./dist/components/ui/aomi/status-pill.js"
+    },
+    "./components/ui/avatar": {
+      "types": "./dist/components/ui/avatar.d.ts",
+      "import": "./dist/components/ui/avatar.js"
+    },
+    "./components/ui/badge": {
+      "types": "./dist/components/ui/badge.d.ts",
+      "import": "./dist/components/ui/badge.js"
+    },
+    "./components/ui/breadcrumb": {
+      "types": "./dist/components/ui/breadcrumb.d.ts",
+      "import": "./dist/components/ui/breadcrumb.js"
+    },
+    "./components/ui/button": {
+      "types": "./dist/components/ui/button.d.ts",
+      "import": "./dist/components/ui/button.js"
+    },
+    "./components/ui/card": {
+      "types": "./dist/components/ui/card.d.ts",
+      "import": "./dist/components/ui/card.js"
+    },
+    "./components/ui/collapsible": {
+      "types": "./dist/components/ui/collapsible.d.ts",
+      "import": "./dist/components/ui/collapsible.js"
+    },
+    "./components/ui/command": {
+      "types": "./dist/components/ui/command.d.ts",
+      "import": "./dist/components/ui/command.js"
+    },
+    "./components/ui/dialog": {
+      "types": "./dist/components/ui/dialog.d.ts",
+      "import": "./dist/components/ui/dialog.js"
+    },
+    "./components/ui/drawer": {
+      "types": "./dist/components/ui/drawer.d.ts",
+      "import": "./dist/components/ui/drawer.js"
+    },
+    "./components/ui/input": {
+      "types": "./dist/components/ui/input.d.ts",
+      "import": "./dist/components/ui/input.js"
+    },
+    "./components/ui/label": {
+      "types": "./dist/components/ui/label.d.ts",
+      "import": "./dist/components/ui/label.js"
+    },
+    "./components/ui/modal-backdrop": {
+      "types": "./dist/components/ui/modal-backdrop.d.ts",
+      "import": "./dist/components/ui/modal-backdrop.js"
+    },
+    "./components/ui/notification-icon": {
+      "types": "./dist/components/ui/notification-icon.d.ts",
+      "import": "./dist/components/ui/notification-icon.js"
+    },
+    "./components/ui/notification": {
+      "types": "./dist/components/ui/notification.d.ts",
+      "import": "./dist/components/ui/notification.js"
+    },
+    "./components/ui/popover": {
+      "types": "./dist/components/ui/popover.d.ts",
+      "import": "./dist/components/ui/popover.js"
+    },
+    "./components/ui/separator": {
+      "types": "./dist/components/ui/separator.d.ts",
+      "import": "./dist/components/ui/separator.js"
+    },
+    "./components/ui/sheet": {
+      "types": "./dist/components/ui/sheet.d.ts",
+      "import": "./dist/components/ui/sheet.js"
+    },
+    "./components/ui/sidebar": {
+      "types": "./dist/components/ui/sidebar.d.ts",
+      "import": "./dist/components/ui/sidebar.js"
+    },
+    "./components/ui/skeleton": {
+      "types": "./dist/components/ui/skeleton.d.ts",
+      "import": "./dist/components/ui/skeleton.js"
+    },
+    "./components/ui/sonner": {
+      "types": "./dist/components/ui/sonner.d.ts",
+      "import": "./dist/components/ui/sonner.js"
+    },
+    "./components/ui/tooltip": {
+      "types": "./dist/components/ui/tooltip.d.ts",
+      "import": "./dist/components/ui/tooltip.js"
+    },
+    "./components/ui/widget-scope": {
+      "types": "./dist/components/ui/widget-scope.d.ts",
+      "import": "./dist/components/ui/widget-scope.js"
+    },
+    "./hooks/use-mobile": {
+      "types": "./dist/hooks/use-mobile.d.ts",
+      "import": "./dist/hooks/use-mobile.js"
+    },
+    "./styles.css": {
+      "types": "./dist/styles.d.ts",
+      "default": "./dist/styles.css"
+    },
+    "./themes/*.css": "./themes/*.css"
+  },
+  "files": [
+    "dist",
+    "themes"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "@abstract-foundation/agw-client": "^1.0.0",
+    "@aomi-labs/widget": "workspace:^",
+    "@getpara/react-sdk": "2.19.0",
+    "@getpara/wagmi-v2-connector": "2.19.0",
+    "@privy-io/react-auth": "2.25.0",
+    "@privy-io/wagmi": "1.0.6",
+    "@solana/kit": "^2.3.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
+    "@solana-program/system": "^0.7.0",
+    "@solana-program/token": "^0.5.1",
+    "permissionless": "^0.2.47"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "sideEffects": [
+    "**/*.css",
+    "./dist/providers/**/*.js"
+  ]
+}

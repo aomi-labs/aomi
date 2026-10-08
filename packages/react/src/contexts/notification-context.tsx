@@ -21,7 +21,7 @@ export type Notification = {
   /**
    * Optional discriminator for notifications that have a bespoke UI consumer.
    *
-   * - `payment_required` is consumed by `PaymentRequiredGate` (apps/shadcn-registry)
+   * - `payment_required` is consumed by `PaymentRequiredGate` (packages/widget)
    *   as a blocking modal. The toaster skips this kind. As a result, `type`,
    *   `message`, and `duration` are NOT rendered for this kind — only `kind`
    *   matters for routing. Don't bother passing those fields when firing it.

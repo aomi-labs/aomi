@@ -1,3 +1,3 @@
-import { buildRunDownloadRoute } from "@build/server/bff/build/routes";
+import { buildRunDownloadRoute } from "@/server/bff/build/routes";
 
 export const GET = buildRunDownloadRoute;

@@ -1,38 +1,18 @@
-import type {
-  UserState,
-} from "./index";
+import type { UserState } from "./index";
+import { asRecord } from "../internal/record";
+import { parseChainId } from "../wallet-utils";
 
 type UnknownRecord = Record<string, unknown>;
 
-function asObject(value: unknown): UnknownRecord | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-  return value as UnknownRecord;
-}
-
 function evmBlock(userState?: UserState | null): UnknownRecord | undefined {
-  return asObject(userState?.evm);
+  return asRecord(userState?.evm);
 }
 function svmBlock(userState?: UserState | null): UnknownRecord | undefined {
-  return asObject(userState?.svm);
+  return asRecord(userState?.svm);
 }
 function connBlock(userState?: UserState | null): UnknownRecord | undefined {
-  return asObject(userState?.connection);
+  return asRecord(userState?.connection);
 }
-function parseChainId(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
-    return value;
-  }
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = trimmed.startsWith("0x")
-    ? Number.parseInt(trimmed.slice(2), 16)
-    : Number.parseInt(trimmed, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
 export function address(userState?: UserState | null): string | undefined {
   const value = evmBlock(userState)?.address;
   return typeof value === "string" && value.length > 0 ? value : undefined;
@@ -80,7 +60,7 @@ export function withExt(
   key: string,
   value: unknown,
 ): UserState {
-  const currentExt = asObject(userState.ext) ?? {};
+  const currentExt = asRecord(userState.ext) ?? {};
 
   return {
     ...userState,

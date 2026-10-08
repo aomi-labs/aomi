@@ -3,21 +3,24 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useSyncExternalStore,
   useRef,
   useState,
   type MutableRefObject,
 } from "react";
-import type { AgentSession, AomiClient, UserState } from "@aomi-labs/client";
+import type { AgentSession, AomiClient } from "@aomi-labs/client";
 import { UserState as UserStateHelpers } from "@aomi-labs/client";
 
-import { useControl, type ControlState } from "../contexts/control-context";
-import type { ThreadContext } from "../contexts/thread-context";
 import { useThreadContext } from "../contexts/thread-context";
 import { useUser } from "../contexts/ext-user-context";
 import { initThreadControl, type ThreadMetadata } from "../state/thread-store";
-import { getControlSessionId } from "../utils/client-session";
-import { isPlaceholderTitle } from "./utils";
+import {
+  isPlaceholderTitle,
+  reconcileGeneratedThreadTitle,
+} from "./thread-title";
 import { SessionManager } from "./session-manager";
+import { displayKey, useAomiDisplayCache } from "../query/display-cache";
 import { getHttpStatus } from "./http-status";
 
 const THREAD_PREFETCH_LIMIT = 5;
@@ -64,40 +67,24 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-type RuntimeSessionBridge = {
+type ThreadListSyncOptions = {
   aomiClientRef: MutableRefObject<AomiClient>;
   sessionManager: SessionManager;
-  closeAllSessions: () => void;
   ensureInitialState: (threadId: string) => Promise<void>;
-  setIsThreadLoading: (loading: boolean) => void;
-};
-
-type RemoteThreadRegistry = {
+  /** Close and forget every chat (used when thread access goes away). */
+  resetConversation: () => void;
   remoteThreadIdsRef: MutableRefObject<Set<string>>;
-  warmPromisesRef: MutableRefObject<Map<string, Promise<void>>>;
-  warmedThreadIdsRef: MutableRefObject<Set<string>>;
-  warmThread: (threadId: string) => Promise<void>;
-};
-
-type ThreadListSyncOptions = {
-  sessions: RuntimeSessionBridge;
-  remoteThreads: RemoteThreadRegistry;
   accountSessionAvailable?: boolean;
-  threadPersistence?: {
-    restoredThreadId?: string;
-    onInvalidRestoredThread?: () => void;
-  };
-};
-
-type ThreadListContext = {
-  getControlState: () => ControlState;
-  threadContextRef: MutableRefObject<ThreadContext>;
-  user: UserState;
+  restoringAccount?: boolean;
+  /** Whose list this is; a new owner refetches it. */
+  owner: object;
+  restoredThreadId?: string;
+  onInvalidRestoredThread?: () => void;
 };
 
 /**
  * Apply a fetched thread list without rolling back local changes made while
- * the request was in flight. Server fields remain authoritative, while
+ * the request was in flight. The server's fields win, while
  * composer control belongs to the live client state.
  */
 export function mergeThreadListMetadata(
@@ -109,6 +96,10 @@ export function mergeThreadListMetadata(
   for (const [threadId, metadata] of fetched) {
     merged.set(threadId, {
       ...metadata,
+      title: reconcileGeneratedThreadTitle(
+        latest.get(threadId)?.title,
+        metadata.title,
+      ),
       control: latest.get(threadId)?.control ?? metadata.control,
     });
   }
@@ -123,37 +114,151 @@ export function initRemoteThreadControl() {
   return { ...initThreadControl(), agentMode: "auto" as const };
 }
 
-function useRemoteThreadListSync(
-  context: ThreadListContext,
-  sessions: RuntimeSessionBridge,
-  remoteThreads: RemoteThreadRegistry,
-  accountSessionAvailable: boolean,
-  threadPersistence?: ThreadListSyncOptions["threadPersistence"],
-): { isThreadListLoading: boolean; threadListError: boolean } {
+export function useThreadListSync({
+  aomiClientRef,
+  sessionManager,
+  ensureInitialState,
+  resetConversation,
+  remoteThreadIdsRef,
+  accountSessionAvailable = false,
+  restoringAccount = false,
+  owner,
+  restoredThreadId,
+  onInvalidRestoredThread,
+}: ThreadListSyncOptions): {
+  isThreadListLoading: boolean;
+  isThreadListRevalidating: boolean;
+  threadListError: boolean;
+} {
+  const threadContext = useThreadContext();
+  const threadContextRef = useRef(threadContext);
+  threadContextRef.current = threadContext;
+  const { user } = useUser();
   const [isThreadListLoading, setIsThreadListLoading] = useState(true);
   const [threadListError, setThreadListError] = useState(false);
+  const [settledOwner, setSettledOwner] = useState<object | null>(null);
   const prefetchCancelRef = useRef<(() => void) | null>(null);
   const hadThreadAccessRef = useRef(false);
-  const { getControlState, threadContextRef, user } = context;
-  const {
-    aomiClientRef,
-    closeAllSessions,
-    ensureInitialState,
-    sessionManager,
-    setIsThreadLoading,
-  } = sessions;
-  const {
-    remoteThreadIdsRef,
-    warmPromisesRef,
-    warmedThreadIdsRef,
-    warmThread,
-  } = remoteThreads;
+  const invalidRestoredThread = useRef(onInvalidRestoredThread);
+  invalidRestoredThread.current = onInvalidRestoredThread;
   const isConnected = UserStateHelpers.isConnected(user) === true;
   const canLoadThreads = isConnected || accountSessionAvailable;
-  const restoredThreadId = threadPersistence?.restoredThreadId;
+
+  const displayCache = useAomiDisplayCache();
+  const displayAccount =
+    displayCache?.scope.account ?? displayCache?.restoredAccount;
+  const cacheKey =
+    displayCache && displayAccount?.kind === "user"
+      ? displayKey(
+          { ...displayCache.scope, account: displayAccount },
+          "threads",
+        )
+      : null;
+  const cacheKeyId = cacheKey ? JSON.stringify(cacheKey) : null;
+  const cachedThreads = useSyncExternalStore(
+    useCallback(
+      (notify) =>
+        displayCache?.client.getQueryCache().subscribe(notify) ?? (() => {}),
+      [displayCache?.client],
+    ),
+    () =>
+      cacheKey
+        ? displayCache?.client.getQueryData<AgentSession[]>(cacheKey)
+        : undefined,
+    () => undefined,
+  );
+  const [cachedOwner, setCachedOwner] = useState<object | null>(null);
+  const appliedCache = useRef<{ key: string; owner: object } | null>(null);
+  const cachedIds = useRef(new Set<string>());
+  const cachedTitles = useRef(new Map<string, string>());
+  useLayoutEffect(() => {
+    if (restoringAccount) return;
+    if (appliedCache.current && appliedCache.current.key !== cacheKeyId) {
+      // A preview can precede the first confirmed account; core has no old
+      // authenticated owner to tear down in that case.
+      resetConversation();
+      appliedCache.current = null;
+      cachedIds.current.clear();
+      setCachedOwner(null);
+    }
+    if (!cachedThreads || !cacheKeyId || appliedCache.current?.owner === owner)
+      return;
+    appliedCache.current = { key: cacheKeyId, owner };
+    cachedIds.current = new Set(cachedThreads.map((thread) => thread.id));
+    cachedTitles.current = new Map(
+      cachedThreads.map((thread) => [thread.id, thread.title ?? ""]),
+    );
+    remoteThreadIdsRef.current = new Set([
+      ...remoteThreadIdsRef.current,
+      ...cachedIds.current,
+    ]);
+    hadThreadAccessRef.current = true;
+    threadContextRef.current.setThreadMetadata((latest) => {
+      const next = new Map(latest);
+      for (const thread of cachedThreads) {
+        next.set(thread.id, {
+          title: isPlaceholderTitle(thread.title ?? "") ? "" : thread.title!,
+          status: thread.archived ? "archived" : "regular",
+          lastActiveAt: thread.updatedAt,
+          control: latest.get(thread.id)?.control ?? initRemoteThreadControl(),
+        });
+      }
+      return next;
+    });
+    setCachedOwner(owner);
+  }, [
+    cacheKeyId,
+    cachedThreads,
+    owner,
+    restoringAccount,
+    resetConversation,
+    remoteThreadIdsRef,
+  ]);
+
+  // Persist only sidebar summaries of acknowledged remote chats. Messages,
+  // controls and credentials never enter the saved projection.
+  useEffect(() => {
+    if (
+      !displayCache ||
+      !cacheKey ||
+      settledOwner !== owner ||
+      restoringAccount ||
+      !canLoadThreads
+    )
+      return;
+    const rows = [...threadContext.allThreadsMetadata].flatMap(
+      ([id, metadata]) =>
+        remoteThreadIdsRef.current.has(id)
+          ? [
+              {
+                id,
+                title: metadata.title,
+                archived: metadata.status === "archived",
+                updatedAt:
+                  typeof metadata.lastActiveAt === "number"
+                    ? metadata.lastActiveAt
+                    : Date.parse(metadata.lastActiveAt ?? "") || Date.now(),
+              },
+            ]
+          : [],
+    );
+    displayCache.client.setQueryData(cacheKey, rows);
+  }, [
+    displayCache,
+    cacheKeyId,
+    settledOwner,
+    owner,
+    restoringAccount,
+    canLoadThreads,
+    threadContext.allThreadsMetadata,
+    remoteThreadIdsRef,
+  ]);
+
+  const previewingAccount =
+    displayCache?.scope.account === undefined && cachedThreads !== undefined;
 
   const listThreadsWithAuthRetry = useCallback(
-    async (_sessionId: string, isCancelled: () => boolean) => {
+    async (isCancelled: () => boolean) => {
       let nextDelay = THREAD_LIST_AUTH_RETRY_BASE_DELAY_MS;
       let waitedMs = 0;
 
@@ -207,10 +312,6 @@ function useRemoteThreadListSync(
             }
 
             try {
-              await warmThread(threadId);
-              if (cancelled || !remoteThreadIdsRef.current.has(threadId)) {
-                return;
-              }
               await ensureInitialState(threadId);
             } catch (error) {
               console.debug("Failed to prefetch thread:", threadId, error);
@@ -224,29 +325,24 @@ function useRemoteThreadListSync(
         cancelScheduledTask();
       };
     },
-    [ensureInitialState, remoteThreadIdsRef, sessionManager, warmThread],
+    [ensureInitialState, remoteThreadIdsRef, sessionManager],
   );
 
   useEffect(() => {
+    if (restoringAccount) return;
     if (!canLoadThreads) {
+      if (previewingAccount) return;
       const previouslyHadThreadAccess = hadThreadAccessRef.current;
       hadThreadAccessRef.current = false;
       setIsThreadListLoading(false);
+      setSettledOwner(null);
       prefetchCancelRef.current?.();
       prefetchCancelRef.current = null;
-
-      if (previouslyHadThreadAccess) {
-        const hadRemoteThreads = remoteThreadIdsRef.current.size > 0;
-        const hadSessions = sessionManager.size > 0;
-        remoteThreadIdsRef.current.clear();
-        warmedThreadIdsRef.current.clear();
-        warmPromisesRef.current.clear();
-        closeAllSessions();
-        if (hadRemoteThreads || hadSessions) {
-          threadContextRef.current.resetToDefault();
-          threadPersistence?.onInvalidRestoredThread?.();
-        }
-      }
+      if (
+        previouslyHadThreadAccess &&
+        (remoteThreadIdsRef.current.size > 0 || sessionManager.size > 0)
+      )
+        resetConversation();
       return;
     }
 
@@ -260,20 +356,17 @@ function useRemoteThreadListSync(
       try {
         const remoteThreadIdsAtFetchStart = new Set(remoteThreadIdsRef.current);
         const currentContext = threadContextRef.current;
-        const controlSessionId = getControlSessionId(
-          getControlState().clientId,
-          currentContext.currentThreadId,
-        );
         const threadList: AgentSession[] = await listThreadsWithAuthRetry(
-          controlSessionId,
           () => cancelled,
         );
         if (cancelled) return;
 
         const remoteThreadIds = new Set<string>();
-        const previousMetadata = currentContext.allThreadsMetadata;
+        // An account change can reset the store after this effect started.
+        // Read the latest metadata so the old account's chats never return.
+        const previousMetadata = threadContextRef.current.allThreadsMetadata;
         const newMetadata = new Map<string, ThreadMetadata>();
-        const baseThreadCount = currentContext.threadCnt;
+        const baseThreadCount = threadContextRef.current.threadCnt;
         let maxChatNum = baseThreadCount;
 
         for (const thread of threadList) {
@@ -308,26 +401,36 @@ function useRemoteThreadListSync(
         }
 
         for (const [threadId, metadata] of previousMetadata.entries()) {
-          if (!newMetadata.has(threadId)) {
+          if (!newMetadata.has(threadId) && !cachedIds.current.has(threadId)) {
             newMetadata.set(threadId, metadata);
           }
         }
 
         for (const threadId of remoteThreadIdsRef.current) {
-          if (!remoteThreadIdsAtFetchStart.has(threadId)) {
+          if (
+            !remoteThreadIdsAtFetchStart.has(threadId) &&
+            !cachedIds.current.has(threadId)
+          ) {
             remoteThreadIds.add(threadId);
           }
         }
 
         remoteThreadIdsRef.current = remoteThreadIds;
-        warmedThreadIdsRef.current = new Set(
-          Array.from(warmedThreadIdsRef.current).filter((threadId) =>
-            remoteThreadIds.has(threadId),
-          ),
-        );
-        currentContext.setThreadMetadata((latestMetadata) =>
-          mergeThreadListMetadata(newMetadata, latestMetadata),
-        );
+        currentContext.setThreadMetadata((latestMetadata) => {
+          const latest = new Map(latestMetadata);
+          for (const id of cachedIds.current) {
+            if (!remoteThreadIds.has(id) && !latest.get(id)?.pending)
+              latest.delete(id);
+            else if (
+              newMetadata.has(id) &&
+              latest.get(id)?.title === cachedTitles.current.get(id)
+            )
+              latest.delete(id);
+          }
+          cachedIds.current.clear();
+          cachedTitles.current.clear();
+          return mergeThreadListMetadata(newMetadata, latest);
+        });
         if (maxChatNum > baseThreadCount) {
           currentContext.setThreadCnt(maxChatNum);
         }
@@ -349,7 +452,7 @@ function useRemoteThreadListSync(
           !remoteThreadIds.has(activeThreadId) &&
           !activeHasUserMessage
         ) {
-          threadPersistence?.onInvalidRestoredThread?.();
+          invalidRestoredThread.current?.();
           currentContext.setThreadMetadata((prev) => {
             const next = new Map(prev);
             next.delete(activeThreadId);
@@ -368,19 +471,8 @@ function useRemoteThreadListSync(
           }
         }
 
-        if (remoteThreadIds.has(threadIdToLoad)) {
-          setIsThreadLoading(true);
-          try {
-            await warmThread(threadIdToLoad);
-            if (!cancelled) {
-              await ensureInitialState(threadIdToLoad);
-            }
-          } finally {
-            if (!cancelled) {
-              setIsThreadLoading(false);
-            }
-          }
-        }
+        if (remoteThreadIds.has(threadIdToLoad))
+          await ensureInitialState(threadIdToLoad);
       } catch (error) {
         console.error("Failed to fetch thread list:", error);
         if (!cancelled) {
@@ -388,6 +480,7 @@ function useRemoteThreadListSync(
         }
       } finally {
         if (!cancelled) {
+          setSettledOwner(owner);
           setIsThreadListLoading(false);
         }
       }
@@ -402,64 +495,27 @@ function useRemoteThreadListSync(
     };
   }, [
     canLoadThreads,
-    closeAllSessions,
+    restoringAccount,
+    previewingAccount,
+    owner,
     ensureInitialState,
-    getControlState,
     listThreadsWithAuthRetry,
     remoteThreadIdsRef,
+    resetConversation,
     scheduleThreadPrefetch,
     sessionManager,
-    setIsThreadLoading,
-    threadContextRef,
     restoredThreadId,
-    threadPersistence,
-    warmPromisesRef,
-    warmedThreadIdsRef,
-    warmThread,
   ]);
 
-  return { isThreadListLoading, threadListError };
-}
-
-export function useThreadListSync({
-  sessions: {
-    aomiClientRef,
-    sessionManager,
-    closeAllSessions,
-    ensureInitialState,
-    setIsThreadLoading,
-  },
-  remoteThreads,
-  accountSessionAvailable = false,
-  threadPersistence,
-}: ThreadListSyncOptions): {
-  isThreadListLoading: boolean;
-  threadListError: boolean;
-} {
-  const threadContext = useThreadContext();
-  const { user } = useUser();
-  const { getControlState } = useControl();
-  const threadContextRef = useRef(threadContext);
-  threadContextRef.current = threadContext;
-
-  const context: ThreadListContext = {
-    getControlState,
-    threadContextRef,
-    user,
+  const revalidating =
+    restoringAccount ||
+    previewingAccount ||
+    (canLoadThreads && (isThreadListLoading || settledOwner !== owner));
+  return {
+    // Access can settle in the same render that enables URL restoration.
+    // Advertise loading before the request effect runs, until its first result.
+    isThreadListLoading: revalidating && cachedOwner !== owner,
+    isThreadListRevalidating: revalidating,
+    threadListError,
   };
-  const sessions: RuntimeSessionBridge = {
-    aomiClientRef,
-    sessionManager,
-    closeAllSessions,
-    ensureInitialState,
-    setIsThreadLoading,
-  };
-
-  return useRemoteThreadListSync(
-    context,
-    sessions,
-    remoteThreads,
-    accountSessionAvailable,
-    threadPersistence,
-  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AomiFrame } from "@aomi-labs/widget-lib";
+import { AomiFrame } from "@aomi-labs/widget/frame";
 import { AomiLogo } from "../../../components/aomi-logo";
 import {
   ArrowDown,
