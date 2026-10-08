@@ -436,3 +436,19 @@ html[data-theme="dark"] .om-security-video {
   overflow: hidden;
   box-shadow: 0 0 0 1px var(--landing-theme-border), 0 24px 60px -32px rgba(0, 0, 0, 0.6);
 }
+
+/* Logo marquees can be paused (marquee.js): the strip is a toggle button. */
+html.om-marquee-paused [style*="om-marquee"],
+html.om-marquee-paused .om-trusted-track {
+  animation-play-state: paused !important;
+}
+[data-marquee-control] {
+  cursor: pointer;
+}
+/* the strips fade their edges with a mask, which would also hide the focus ring */
+[data-marquee-control]:focus-visible {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  outline: 2px solid #5288c2;
+  outline-offset: -2px;
+}
