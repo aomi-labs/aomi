@@ -20,6 +20,10 @@ import { preferenceStorage, useWidgetStorage } from "@/lib/widget-storage";
 import { useWalletAuthPublisher } from "@/wallet/providers/auth-store";
 import { useSheetChannel } from "@/wallet/picker/sheet-channel";
 import { walletKey } from "@/wallet/wallet-utils";
+import { shortAddress } from "@aomi-labs/client";
+
+/** How long a picked wallet may take its app's switch or connect step. */
+const ACTIVATION_WAIT_MS = 60_000;
 
 export function AomiWalletKitComposer({
   children,
@@ -41,6 +45,8 @@ export function AomiWalletKitComposer({
   // An address the user removed from the account; no Verify nag for it
   // until the wallet app moves to another address.
   const [removedKey, setRemovedKey] = useState<string>();
+  // The address the user picked that has not taken over signing yet.
+  const [activating, setActivating] = useState<string>();
   const sheetChannel = useSheetChannel();
   const storage = useWidgetStorage();
   const selectionStorage = useMemo(() => preferenceStorage(storage), [storage]);
@@ -205,6 +211,35 @@ export function AomiWalletKitComposer({
     if (removedKey && !removedConnected) setRemovedKey(undefined);
   }, [removedConnected, removedKey]);
 
+  const activatingRow = activating
+    ? walletState.wallets.find((wallet) => wallet.key === activating)
+    : undefined;
+  const activated = !activatingRow || Boolean(activatingRow.active);
+  useEffect(() => {
+    if (!activating) return;
+    if (activated) {
+      setActivating(undefined);
+      return;
+    }
+    // The wallet app may never hand the address over; stop waiting quietly.
+    const timeout = window.setTimeout(
+      () => setActivating(undefined),
+      ACTIVATION_WAIT_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [activated, activating]);
+  const wallets = useMemo(
+    () =>
+      activating
+        ? walletState.wallets.map((wallet) =>
+            wallet.key === activating && !wallet.active
+              ? { ...wallet, activating: true }
+              : wallet,
+          )
+        : walletState.wallets,
+    [activating, walletState.wallets],
+  );
+
   useEffect(() => {
     if (!accountId) return;
     let changed = false;
@@ -335,7 +370,7 @@ export function AomiWalletKitComposer({
         identity.isConnected,
       canDisconnect: hasAnyDisconnectablePath,
       accounts,
-      wallets: walletState.wallets,
+      wallets,
       accountStatus: account.status,
       accountError: account.error,
       accountConflict: account.conflict,
@@ -379,7 +414,24 @@ export function AomiWalletKitComposer({
       activateWallet: async (key) => {
         const plan = planWalletActivation(walletState.wallets, key);
         if (!plan) throw new Error("This wallet is not in your account.");
-        if (plan.kind === "select") await selectAccount(plan.accountId);
+        setActivating(plan.kind === "active" ? undefined : key);
+        if (plan.kind === "select") {
+          await selectAccount(plan.accountId).catch((error: unknown) => {
+            setActivating(undefined);
+            throw error;
+          });
+          // The registry may resolve the pick to another address; say so
+          // instead of leaving the previous wallet quietly in charge.
+          const row = walletState.wallets.find((wallet) => wallet.key === key);
+          const active = registryStore.getSnapshot().activeByFamily;
+          const now = row && active[row.family];
+          if (row && (!now || walletKey(row.family, now.address) !== key)) {
+            setActivating(undefined);
+            throw new Error(
+              `Couldn’t switch to ${shortAddress(row.address)}. Pick it in ${row.brand ?? "your wallet"} and try again.`,
+            );
+          }
+        }
         if (plan.kind === "active" || plan.kind === "select") return "active";
         if (plan.kind === "switch") {
           if (plan.appAccountId)
@@ -472,6 +524,7 @@ export function AomiWalletKitComposer({
     execution,
     gracefulEvmIdentity.identity.address,
     walletState.wallets,
+    wallets,
     registryStore,
     selectionStorage,
     svm,

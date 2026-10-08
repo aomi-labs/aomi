@@ -38,15 +38,25 @@ function matchesActive(
   return true;
 }
 
-function findActiveConnection(
+/**
+ * The live connection behind an active ref. One connector can expose several
+ * addresses (MetaMask lists every permitted account), so the exact address on
+ * the active connector wins; the connector alone only stands in when the
+ * address moved inside the wallet app.
+ */
+export function findActiveConnection(
   connections: readonly RegistryConnection[],
   active: ActiveRef,
 ): RegistryConnection | undefined {
   if (active.uid) {
-    const byUid = connections.find(
+    const onConnector = connections.filter(
       (connection) =>
         connection.family === active.family && connection.uid === active.uid,
     );
+    const byUid =
+      onConnector.find((connection) =>
+        matchesActive(connection, active, false),
+      ) ?? onConnector[0];
     if (byUid) return byUid;
   }
 
