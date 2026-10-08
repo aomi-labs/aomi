@@ -114,7 +114,7 @@ export function OnchainLink({
       href={explorer.href}
       {...props}
       className={cn(
-        "aui-md-a text-aomi-accent relative top-px mx-0.5 inline max-w-full align-baseline font-medium no-underline underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2",
+        "aui-md-a text-aomi-accent mx-0.5 inline max-w-full font-medium no-underline underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2",
         className,
       )}
       target="_blank"
@@ -122,7 +122,7 @@ export function OnchainLink({
     >
       <Icon
         aria-hidden="true"
-        className="mr-1 inline-block size-3.5 align-middle"
+        className="mr-1 inline-block size-3.5 align-[-0.175em]"
       />
       <span className="break-all">{children}</span>
       <span className="sr-only"> on {explorer.chainName} explorer</span>

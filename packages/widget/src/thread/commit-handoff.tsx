@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, type FC } from "react";
-import { Check, CircleCheck, Wallet, X } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { cn, useOptionalAomiRuntime } from "@aomi-labs/react";
 import { projectCommitLifecycle } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { selectActivity } from "@/sidebar/activity/model";
 import { friendlyTransactionLabel } from "@/sidebar/activity/presentation";
-import { transactionProgress } from "@/sidebar/activity/transactions";
+import {
+  PhaseTrack,
+  transactionProgress,
+} from "@/sidebar/activity/transactions";
 import { useActivityPanel } from "@/sidebar/activity/activity-panel-context";
 
 const COMMIT_TOOLS = new Set(["evm_commit_txs", "svm_commit_txs"]);
@@ -37,6 +40,15 @@ function commitIds(result: unknown): string[] {
   }
   return [];
 }
+
+/** The last rows each commit batch showed, kept after its activity is gone. */
+const lastHandoff = new Map<string, HandoffRow[]>();
+
+type HandoffRow = ReturnType<typeof transactionProgress> & {
+  tx: ReturnType<typeof selectActivity>["transactions"][number];
+  confirmed: boolean;
+  inWallet: boolean;
+};
 
 const WALLET_PHASES = new Set([
   "preparing",
@@ -72,9 +84,7 @@ export const CommitHandoff: FC<{ result: unknown }> = ({ result }) => {
     );
   }, [ids, events, pendingActions, commits]);
 
-  if (!rows.length) return null;
-
-  const states = rows.map((tx) => {
+  const liveRows = rows.map((tx) => {
     const progress = transactionProgress(tx);
     const phase = tx.commit
       ? projectCommitLifecycle(
@@ -91,14 +101,21 @@ export const CommitHandoff: FC<{ result: unknown }> = ({ result }) => {
       inWallet: Boolean(phase && WALLET_PHASES.has(phase)),
     };
   });
+  // Finished commits leave the runtime's live activity; the card keeps its
+  // last state so the trace still shows what went to the wallet.
+  const cacheKey = [...ids].sort().join("|");
+  if (liveRows.length && cacheKey) lastHandoff.set(cacheKey, liveRows);
+  const states = liveRows.length ? liveRows : (lastHandoff.get(cacheKey) ?? []);
+  if (!states.length) return null;
+  const finished = !liveRows.length;
   const anyRejected = states.some((row) => row.rejected || row.failed);
   const allConfirmed = states.every((row) => row.confirmed);
   const allSigned = states.every((row) => row.signed);
-  const waiting = !anyRejected && !allSigned;
+  const waiting = !finished && !anyRejected && !allSigned;
   // The first unsigned transaction is the one the wallet asks for next.
   const nextIndex = states.findIndex((row) => !row.signed && !row.terminal);
 
-  const family = rows[0].family;
+  const family = states[0].tx.family;
   const walletName =
     wallets.find((wallet) => wallet.active && wallet.family === family)
       ?.walletName ?? "your wallet";
@@ -115,8 +132,8 @@ export const CommitHandoff: FC<{ result: unknown }> = ({ result }) => {
           : `Ready to sign in ${walletName}`;
   const detail =
     waiting && signedCount > 0
-      ? `${signedCount} of ${rows.length} signed`
-      : `${rows.length} transaction${rows.length === 1 ? "" : "s"}`;
+      ? `${signedCount} of ${states.length} signed`
+      : `${states.length} transaction${states.length === 1 ? "" : "s"}`;
 
   return (
     <div
@@ -133,13 +150,12 @@ export const CommitHandoff: FC<{ result: unknown }> = ({ result }) => {
       )}
     >
       <div className="flex min-w-0 items-center gap-2 text-[12.5px]">
-        {anyRejected ? (
-          <X className="text-aomi-danger size-3.5 shrink-0" />
-        ) : allSigned ? (
-          <CircleCheck className="text-aomi-success size-3.5 shrink-0" />
-        ) : (
-          <Wallet className="text-aomi-muted size-3.5 shrink-0" />
-        )}
+        <Wallet
+          className={cn(
+            "size-3.5 shrink-0",
+            anyRejected ? "text-aomi-danger" : "text-aomi-muted",
+          )}
+        />
         <span className="truncate font-medium">{title}</span>
         <span className="text-aomi-muted shrink-0 tabular-nums">{detail}</span>
         <span className="flex-1" />
@@ -153,66 +169,39 @@ export const CommitHandoff: FC<{ result: unknown }> = ({ result }) => {
           </button>
         ) : null}
       </div>
-      <ol className="flex flex-col gap-1.5">
+      <ol className="flex flex-col gap-2.5">
         {states.map((row, index) => {
           const live = waiting && index === nextIndex;
           const label = friendlyTransactionLabel(row.tx.label, row.tx.kind);
-          const doneSegments = row.signed ? 4 : Math.min(3, row.step + 1);
+          const pending = waiting && !row.signed && !row.terminal;
           return (
             <li
               key={row.tx.id}
               className="flex min-w-0 items-center gap-2.5 text-[12.5px]"
             >
-              <span className="bg-aomi-surface-2 text-aomi-muted flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums">
+              <span
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums",
+                  pending
+                    ? "bg-aomi-accent-subtle text-aomi-accent-strong"
+                    : "bg-aomi-surface-2 text-aomi-muted",
+                )}
+              >
                 {index + 1}
               </span>
               <span className="min-w-0 flex-1 truncate" title={label}>
                 {label}
               </span>
-              <span className="grid w-[104px] shrink-0 grid-cols-4 gap-[3px]">
-                {[0, 1, 2, 3].map((segment) => (
-                  <span
-                    key={segment}
-                    className={cn(
-                      "h-[3px] rounded-full",
-                      row.rejected && segment === 3
-                        ? "bg-aomi-danger"
-                        : live && segment === 3
-                          ? "aui-phase-sweep"
-                          : segment < doneSegments
-                            ? "bg-aomi-accent"
-                            : "bg-aomi-border",
-                    )}
-                  />
-                ))}
-              </span>
-              <span
-                className={cn(
-                  "w-[72px] shrink-0 text-right text-[11.5px]",
-                  row.rejected
-                    ? "text-aomi-danger"
-                    : row.signed
-                      ? "text-aomi-success"
-                      : live
-                        ? "text-aomi-accent-strong"
-                        : "text-aomi-muted",
-                )}
-              >
-                {row.rejected ? (
-                  "Rejected"
-                ) : row.confirmed ? (
-                  "Confirmed"
-                ) : row.signed ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Check className="size-3" />
-                    Signed
-                  </span>
-                ) : live ? (
-                  "Sign now"
-                ) : (
-                  "Next"
-                )}
-              </span>
+              <PhaseTrack
+                className="w-[232px] shrink-0"
+                signature={row.tx.kind === "signature"}
+                stage={row.tx.stage}
+                step={row.step}
+                signed={row.signed}
+                rejected={row.rejected}
+                failed={Boolean(row.failed)}
+                liveStep={live ? (row.inWallet ? 3 : row.step) : undefined}
+              />
             </li>
           );
         })}
