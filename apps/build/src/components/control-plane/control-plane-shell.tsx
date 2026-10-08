@@ -28,27 +28,27 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { AomiLogo } from "@build/components/brand/aomi-logo";
-import { ColorThemeToggle } from "@build/components/control-plane/color-theme-toggle";
-import { ControlPlaneLink } from "@build/components/control-plane/control-plane-link";
-import { platformHref } from "@build/features/launch/platform";
-import { usePlatform } from "@build/features/launch/use-platform";
+import { AomiLogo } from "@/components/brand/aomi-logo";
+import { ColorThemeToggle } from "@/components/control-plane/color-theme-toggle";
+import { ControlPlaneLink } from "@/components/control-plane/control-plane-link";
+import { platformHref } from "@/features/deploy/platform";
+import { usePlatform } from "@/features/deploy/use-platform";
 import {
   CommandPalette,
   openCommandPalette,
-} from "@build/components/control-plane/command-palette";
+} from "@/components/control-plane/command-palette";
 import {
   GitHubSessionProvider,
   signedOutGitHubAccount,
   useGitHubSession,
   type GitHubAccountState,
-} from "@build/components/control-plane/github-session-context";
-import { ToastProvider } from "@build/components/control-plane/toast";
+} from "@/components/control-plane/github-session-context";
+import { ToastProvider } from "@/components/control-plane/toast";
 import {
   GITHUB_SIGNIN_URL,
   signOutGitHub,
-} from "@build/features/launch/dashboard";
-import { cn } from "@build/lib/utils";
+} from "@/features/deploy/dashboard";
+import { cn } from "@/lib/class-names";
 import { ControlPlaneQueryProvider } from "./control-plane-query-provider";
 
 type NavItem = {
@@ -697,6 +697,22 @@ function ControlPlaneShellContent({ children }: { children: React.ReactNode }) {
             />
           </div>
         </header>
+        {account.expired && (
+          <div
+            role="alert"
+            className="border-warning/30 bg-warning/10 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 text-sm"
+          >
+            <p>Session expired.</p>
+            <a
+              href={GITHUB_SIGNIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-warning shrink-0 font-medium underline underline-offset-4"
+            >
+              Sign in again
+            </a>
+          </div>
+        )}
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         <CommandPalette />
       </div>

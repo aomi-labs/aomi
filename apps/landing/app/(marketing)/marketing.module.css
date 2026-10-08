@@ -83,7 +83,7 @@
     "Aomi Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --landing-serif: "Aomi PT Serif", Georgia, serif;
   --landing-display: "Aomi PT Serif", Georgia, serif;
-  /* --- type scale (canonical; see GOAL.md) ---
+  /* --- type scale (canonical) ---
    * Editorial copy and card content intentionally share readable floors.
    * Dense product-demo UI may opt into smaller local values, but page copy
    * should only consume these semantic roles. */

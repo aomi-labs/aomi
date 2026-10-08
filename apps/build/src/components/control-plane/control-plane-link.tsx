@@ -7,7 +7,7 @@ import type { ComponentProps } from "react";
 
 import { useGitHubSession } from "./github-session-context";
 import { prefetchControlPlaneRoute } from "./prefetch-control-plane-route";
-import { githubAccountKey } from "@build/features/launch/query-keys";
+import { githubAccountKey } from "@/features/deploy/query-keys";
 
 type ControlPlaneLinkProps = Omit<
   ComponentProps<typeof Link>,

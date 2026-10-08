@@ -8,10 +8,8 @@ const withMDX = createMDX();
 const landingNodeModules = path.resolve(__dirname, "node_modules");
 const clientPkgSrc = path.resolve(__dirname, "../../packages/client/src");
 const reactPkgSrc = path.resolve(__dirname, "../../packages/react/src");
-const widgetSrc = path.resolve(__dirname, "../shadcn-registry/src");
 const docsSrc = path.resolve(__dirname);
 const landingSrc = path.resolve(__dirname, "src");
-const registryComponents = path.resolve(widgetSrc, "components");
 const contentDir = path.resolve(__dirname, "content");
 const contentExamplesComponents = path.join(
   contentDir,
@@ -28,18 +26,13 @@ const turbopackAliases: Record<string, string> = {
   "@/lib": "./lib",
   // Docs-only examples (API consoles, etc.) — must be listed before `@/components`.
   "@/components/examples": "./content/components/examples",
-  // Widget + shadcn UI live in the registry package (docs MDX imports @/components/...).
-  "@/components": "../shadcn-registry/src/components",
+  // Landing-owned components resolve through the app alias.
+  "@/components": "./src/components",
   // Docs-only interactive components (playground, API consoles) live under content/.
   "@/content": "./content",
   "@/hooks": "./src/hooks",
   "@aomi-labs/client": "../../packages/client/src/index.ts",
   "@aomi-labs/react": "../../packages/react/src/index.ts",
-  "@aomi-labs/widget-lib/providers/para":
-    "../shadcn-registry/src/lib/wallet-kit/providers/para/index.ts",
-  "@aomi-labs/widget-lib/providers/privy":
-    "../shadcn-registry/src/lib/wallet-kit/providers/privy/index.ts",
-  "@aomi-labs/widget-lib": "../shadcn-registry/src/index.ts",
   "@assistant-ui/react": "./node_modules/@assistant-ui/react",
   "@assistant-ui/react-markdown": "./node_modules/@assistant-ui/react-markdown",
   "@getpara/react-sdk": "./node_modules/@getpara/react-sdk",
@@ -74,7 +67,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@aomi-labs/client",
     "@aomi-labs/react",
-    "@aomi-labs/widget-lib",
+    "@aomi-labs/widget",
     "@getpara/react-sdk",
   ],
   // Turbopack aliases (Next.js 16 default bundler) — ensures registry code
@@ -112,20 +105,11 @@ const nextConfig: NextConfig = {
       "@/app": path.join(docsSrc, "app"),
       "@/lib": path.join(docsSrc, "lib"),
       "@/components/examples": contentExamplesComponents,
-      "@/components": registryComponents,
+      "@/components": path.join(landingSrc, "components"),
       "@/content": contentDir,
       "@/hooks": path.join(landingSrc, "hooks"),
       "@aomi-labs/client": path.join(clientPkgSrc, "index.ts"),
       "@aomi-labs/react": path.join(reactPkgSrc, "index.ts"),
-      "@aomi-labs/widget-lib/providers/para": path.join(
-        widgetSrc,
-        "lib/wallet-kit/providers/para/index.ts",
-      ),
-      "@aomi-labs/widget-lib/providers/privy": path.join(
-        widgetSrc,
-        "lib/wallet-kit/providers/privy/index.ts",
-      ),
-      "@aomi-labs/widget-lib": path.join(widgetSrc, "index.ts"),
       "@assistant-ui/react": path.join(
         landingNodeModules,
         "@assistant-ui/react",

@@ -2,8 +2,8 @@
 
 import { Square } from "lucide-react";
 
-import { MarkdownContent } from "@build/features/build/components/markdown-content";
-import { cn } from "@build/lib/utils";
+import { MarkdownContent } from "@/features/build/components/markdown-content";
+import { cn } from "@/lib/class-names";
 
 export type ChatMessageProps = {
   role: "user" | "assistant" | "system";

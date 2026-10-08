@@ -1,7 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
-import { AomiFrame } from "@aomi-labs/widget-lib";
+import { AomiFrame } from "@aomi-labs/widget/frame";
 import { LandingWalletKitProvider } from "../../components/landing-wallet-kit-provider";
 import styles from "../../sections/hero.module.css";
 

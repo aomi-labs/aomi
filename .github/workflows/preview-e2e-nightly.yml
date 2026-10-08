@@ -43,7 +43,7 @@ jobs:
         with:
           name: preview-e2e-nightly-${{ github.run_id }}
           path: |
-            playwright-report/
-            test-results/
+            output/playwright/report/
+            output/playwright/test-results/
           if-no-files-found: warn
           retention-days: 14

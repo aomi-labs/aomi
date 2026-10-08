@@ -2,7 +2,7 @@
 // Supports ?embed=true param for compact iframe layout
 // Theme follows system prefers-color-scheme via CSS light-dark()
 
-import { PlaygroundConfigurator } from "@/content/components/playground/PlaygroundConfigurator";
+import { PlaygroundConfigurator } from "@/content/components/playground/playground-configurator";
 
 export const metadata = {
   title: "Playground — Aomi",

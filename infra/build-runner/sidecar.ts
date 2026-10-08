@@ -51,8 +51,8 @@ function pemToDer(pem: string): Buffer {
 
 /**
  * Verify an `Authorization` header value against the expectations. Same JWT
- * convention as `AomiService.verify` (packages/service), reimplemented on
- * WebCrypto so this file stays dependency-free inside the image.
+ * convention as `AomiService.verify` (packages/account/src/service-topology),
+ * reimplemented on WebCrypto so this file stays dependency-free inside the image.
  */
 export async function verifyBearer(
   authorization: string | null,

@@ -9,8 +9,8 @@
     AomiFrame,
     AomiWalletKitContextProvider,
     ExtUserProvider,
-  } from "@aomi-labs/widget-lib";
-  import "@aomi-labs/widget-lib/styles.css";
+  } from "@aomi-labs/widget";
+  import "@aomi-labs/widget/styles.css";
 
   function KrexaAgentPage() {
     return (
@@ -60,11 +60,11 @@
     AomiWalletKitContextProvider,
     AOMI_SESSION_DISCONNECTED_IDENTITY,
     AOMI_SESSION_BOOTING_IDENTITY,
-  } from "@aomi-labs/widget-lib";
+  } from "@aomi-labs/widget";
   import type {
     AomiWalletKit,
     AomiSessionIdentity,
-  } from "@aomi-labs/widget-lib";
+  } from "@aomi-labs/widget";
   import {
     toViemSignTypedDataArgs,
     type WalletTxPayload,
@@ -183,7 +183,7 @@
   The simple adapter above does single-call EOA sends. If Krexa wants batch transactions or AA (4337), they
    should use the shared execution engine instead of raw sendTransactionAsync:
 
-  import { executeWalletKitTransaction } from "@aomi-labs/widget-lib";
+  import { executeWalletKitTransaction } from "@aomi-labs/widget";
   // ...inside the adapter useMemo:
   sendTransaction: async (payload: WalletTxPayload) => {
     return executeWalletKitTransaction({

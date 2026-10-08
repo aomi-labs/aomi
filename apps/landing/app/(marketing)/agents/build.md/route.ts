@@ -45,7 +45,7 @@ If the user also asked for a chat UI to interact with the app you just built, yo
 Install the published widget package:
 
 \`\`\`bash
-npm install @aomi-labs/widget-lib
+npm install @aomi-labs/widget
 \`\`\`
 
 Then render it in a client component:
@@ -53,15 +53,14 @@ Then render it in a client component:
 \`\`\`tsx
 "use client";
 
-import { AomiWidget } from "@aomi-labs/widget-lib";
-import "@aomi-labs/widget-lib/styles.css";
+import { AomiWidget } from "@aomi-labs/widget";
+import "@aomi-labs/widget/styles.css";
 
 export default function AssistantPage() {
   return (
     <AomiWidget
-      apiUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
+      baseUrl={process.env.NEXT_PUBLIC_AOMI_API_URL!}
       applicationId={process.env.NEXT_PUBLIC_AOMI_APPLICATION_ID!}
-      auth={{ kind: "browser_wallet" }}
       height="100dvh"
     />
   );

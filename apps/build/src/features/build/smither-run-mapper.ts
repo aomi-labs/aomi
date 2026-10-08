@@ -9,12 +9,12 @@ import type {
   BuildStreamStage,
   SmithersNode,
   PlanNodeStatus,
-} from "@build/features/build/contracts";
+} from "@/features/build/contracts";
 import type {
   BuildRunSnapshot,
   BuildRunStage,
   BuildRunStageStatus,
-} from "@build/features/build/run-contracts";
+} from "@/features/build/run-contracts";
 
 function nodeStatus(status: BuildRunStageStatus): PlanNodeStatus {
   switch (status) {
@@ -153,11 +153,11 @@ export function flagsFromSnapshot(snapshot: BuildRunSnapshot): RunViewFlags {
  *  structured report over anything synthesized. */
 export function completionMessage(snapshot: BuildRunSnapshot): string {
   if (snapshot.error) {
-    return `The build hit an error: ${snapshot.error}`;
+    return `The build hit an error: ${snapshot.error}\n\nRun: \`${snapshot.runId}\`.`;
   }
   if (snapshot.status === "failed") {
     const failedStage = snapshot.stages.find((s) => s.status === "failed");
-    return `The build failed${failedStage ? ` at **${failedStage.label}**` : ""}. Check the activity log, adjust your prompt, and run again.`;
+    return `The build failed${failedStage ? ` at **${failedStage.label}**` : ""}. Check the activity log, adjust your prompt, and run again.\n\nRun: \`${snapshot.runId}\`.`;
   }
   if (snapshot.curation?.summary) {
     const followUps = snapshot.curation.followUps.trim();

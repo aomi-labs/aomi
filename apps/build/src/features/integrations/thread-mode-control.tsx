@@ -6,8 +6,8 @@
 // features/operate because bots-view already imports from
 // features/integrations — the other direction would be a cycle.
 
-import { HelpBadge } from "@build/components/help-badge";
-import { cn } from "@build/lib/utils";
+import { HelpBadge } from "@/components/help-badge";
+import { cn } from "@/lib/class-names";
 
 export function ThreadModeToggle({
   value,

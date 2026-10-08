@@ -7,7 +7,6 @@ const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(appRoot, "../..");
 const appNodeModules = path.join(appRoot, "node_modules");
 const buildSrc = path.join(appRoot, "src");
-const widgetSrc = path.join(workspaceRoot, "apps/shadcn-registry/src");
 
 const emptyModulePath = path.join(appRoot, "empty-module.js");
 const nobleHashesAssertCompatPath = path.join(
@@ -25,25 +24,7 @@ function defaultBackendUrl() {
   return "http://127.0.0.1:8080";
 }
 
-// Aomi Build-local code should import from `@build/*`.
-// These `@/components|hooks|lib` aliases exist only so registry source imported
-// through `@aomi-labs/widget-lib` can resolve its own internal paths.
-const widgetTurbopackAliases = {
-  "@/components": "../../apps/shadcn-registry/src/components",
-  "@/hooks": "../../apps/shadcn-registry/src/hooks",
-  "@/lib": "../../apps/shadcn-registry/src/lib",
-  "@aomi-labs/widget-lib": "../../apps/shadcn-registry/src/index.ts",
-} as const;
-
-// Keep these in sync with the corresponding `paths` entries in
-// `apps/build/tsconfig.json`.
-const widgetWebpackAliases = {
-  "@/components": path.join(widgetSrc, "components"),
-  "@/hooks": path.join(widgetSrc, "hooks"),
-  "@/lib": path.join(widgetSrc, "lib"),
-  "@aomi-labs/widget-lib": path.join(widgetSrc, "index.ts"),
-} as const;
-
+// Aomi Build-local code should import from `@/*`.
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BACKEND_URL:
@@ -103,25 +84,23 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@aomi-labs/smither", "smithers-orchestrator"],
   transpilePackages: [
     "@aomi-labs/account",
-    "@aomi-labs/bff-observability",
+    "@aomi-labs/observability",
     "@aomi-labs/client",
     "@aomi-labs/deploy",
     "@aomi-labs/react",
-    "@aomi-labs/service",
-    "@aomi-labs/widget-lib",
+    "@aomi-labs/widget",
     "@getpara/react-sdk",
   ],
   turbopack: {
     resolveAlias: {
-      "@build": "./src",
-      ...widgetTurbopackAliases,
+      "@": "./src",
+
       "@aomi-labs/account/observability":
         "../../packages/account/src/observability.ts",
       "@aomi-labs/account": "../../packages/account/src/index.ts",
       "@aomi-labs/client": "../../packages/client/src/index.ts",
       "@aomi-labs/deploy": "../../packages/deploy/src/index.ts",
       "@aomi-labs/react": "../../packages/react/src/index.ts",
-      "@aomi-labs/service": "../../packages/service/src/index.ts",
       "@assistant-ui/react": "./node_modules/@assistant-ui/react",
       "@noble/hashes/_assert": "./noble-hashes-assert-compat.js",
       "@tanstack/react-query": "./node_modules/@tanstack/react-query",
@@ -139,8 +118,8 @@ const nextConfig: NextConfig = {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      "@build": buildSrc,
-      ...widgetWebpackAliases,
+      "@": buildSrc,
+
       "@aomi-labs/account/observability": path.join(
         workspaceRoot,
         "packages/account/src/observability.ts",
@@ -160,10 +139,6 @@ const nextConfig: NextConfig = {
       "@aomi-labs/react": path.join(
         workspaceRoot,
         "packages/react/src/index.ts",
-      ),
-      "@aomi-labs/service": path.join(
-        workspaceRoot,
-        "packages/service/src/index.ts",
       ),
       "@assistant-ui/react": path.join(appNodeModules, "@assistant-ui/react"),
       "@noble/hashes/_assert": nobleHashesAssertCompatPath,

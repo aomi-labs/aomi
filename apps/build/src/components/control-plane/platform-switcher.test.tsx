@@ -12,12 +12,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/settings/general",
 }));
-vi.mock("@build/features/launch/client", async (importOriginal) => {
+vi.mock("@/features/deploy/client", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("@build/features/launch/client")>();
+    await importOriginal<typeof import("@/features/deploy/client")>();
   return { ...original, deploymentProjects };
 });
-vi.mock("@build/components/control-plane/github-session-context", () => ({
+vi.mock("@/components/control-plane/github-session-context", () => ({
   useGitHubSession: () => ({
     account: {
       loading: false,
@@ -29,8 +29,8 @@ vi.mock("@build/components/control-plane/github-session-context", () => ({
   }),
 }));
 
-import { LaunchRequestError } from "@build/features/launch/client";
-import { buildQueryKeys } from "@build/features/launch/query-keys";
+import { LaunchRequestError } from "@/features/deploy/client";
+import { buildQueryKeys } from "@/features/deploy/query-keys";
 import { PlatformSwitcher } from "./platform-switcher";
 
 function renderSwitcher(currentPlatform: string | null = null) {

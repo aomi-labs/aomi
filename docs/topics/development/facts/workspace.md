@@ -8,7 +8,7 @@ sources_of_truth:
   - package.json
   - pnpm-workspace.yaml
   - apps/landing/package.json
-  - apps/shadcn-registry/package.json
+  - packages/widget/package.json
   - packages/client/package.json
   - packages/react/package.json
 ---
@@ -22,12 +22,12 @@ sources_of_truth:
 - The root package drives shared scripts for building, linting, typechecking, and running app surfaces.
 - `packages/react` publishes `@aomi-labs/react`, the headless runtime and context layer.
 - `packages/client` publishes `@aomi-labs/client`, the platform-agnostic client plus the `aomi` CLI binary.
-- `apps/shadcn-registry` publishes `@aomi-labs/widget-lib`, the UI layer and shadcn-style registry surface.
+- `packages/widget` publishes `@aomi-labs/widget`, the UI layer and shadcn-style registry surface.
 - `apps/landing`, `apps/base`, `apps/portal`, and `apps/telegram` are validation and integration apps that consume the workspace packages.
 
 ## Common Build Flows
 
-- `pnpm run build:lib` builds the client package and the root widget bundle.
+- `pnpm run build:client` builds only the client package.
 - `pnpm run build:packages` builds the client, react runtime, and registry packages.
 - `pnpm run build:apps` builds the main app surfaces after the shared packages are ready.
 - `pnpm run dev:landing:live` is the quickest end-to-end loop for widget changes because it watches the library while serving the landing app.

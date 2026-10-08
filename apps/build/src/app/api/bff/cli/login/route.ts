@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getGitHubSession } from "@build/server/cookies/github";
+import { getGitHubSession } from "@/server/cookies/github";
 import {
   finishCliAuthorization,
   parseCliLoginRequest,
   startGitHubOAuth,
-} from "@build/server/github-auth";
+} from "@/server/github-auth";
 
 export const runtime = "nodejs";
 

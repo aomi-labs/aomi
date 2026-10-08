@@ -1,3 +1,5 @@
+import { AomiApiError } from "../api-error";
+import { AccountGraphTransport } from "./graph";
 import type { AomiHttpMethod, AomiRequestOptions } from "../types";
 
 export const MICROUSD_PER_CREDIT = 10_000;
@@ -40,20 +42,20 @@ export type AomiCreditTopUpResult = AomiCreditPosition & {
   receipt?: AomiCreditPaymentReceipt;
 };
 
-export class AomiCreditApiError extends Error {
-  constructor(
-    readonly status: number,
-    operation: string,
-    detail?: string,
-  ) {
+export class AomiCreditApiError extends AomiApiError {
+  override name = "AomiCreditApiError";
+
+  constructor(status: number, operation: string, detail?: string) {
     super(
+      status,
+      "credit_request_failed",
       `Failed to ${operation}: HTTP ${status}${detail ? `\n${detail}` : ""}`,
     );
-    this.name = "AomiCreditApiError";
   }
 }
 
 export type AomiCreditListOptions = {
+  signal?: AbortSignal;
   limit?: number;
   beforeId?: number;
 };
@@ -99,6 +101,7 @@ export class AccountCreditsTransport {
     }
     const response = await this.requestResponse("GET", this.basePath, {
       query: { limit, before_id: options.beforeId },
+      signal: options.signal,
     });
     return creditPositionFromResponse(
       await responseJson<unknown>(response, "fetch account credits"),
@@ -245,9 +248,10 @@ function invalidCreditResponse(detail: string): TypeError {
   return new TypeError(`Invalid account credits response: ${detail}`);
 }
 
-export class AccountTransport {
+export class AccountTransport extends AccountGraphTransport {
   readonly credits: AccountCreditsTransport;
   constructor(requestResponse: RequestResponse) {
+    super(requestResponse);
     this.credits = new AccountCreditsTransport(requestResponse);
   }
 }

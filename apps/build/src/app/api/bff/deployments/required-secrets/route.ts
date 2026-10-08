@@ -1,3 +1,3 @@
-import { requiredSecretsRoute } from "@build/server/bff/launch/routes";
+import { requiredSecretsRoute } from "@/server/bff/deploy/routes";
 
 export const GET = requiredSecretsRoute;

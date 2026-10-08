@@ -9,7 +9,7 @@ const { createServer } = await import(
 );
 const { default: react } = await import(
   createRequire(
-    new URL("../apps/shadcn-registry/package.json", import.meta.url),
+    new URL("../packages/widget/package.json", import.meta.url),
   ).resolve("@vitejs/plugin-react")
 );
 import { chromium } from "@playwright/test";

@@ -1,51 +1,20 @@
-import { type NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
+import { backendUrlFromEnv } from "./backend-url";
+import {
+  BACKEND_API_HEADERS,
+  forward,
+  UpstreamUnreachableError,
+} from "./forward";
 import { mintAccountBearer } from "./bearer";
-
-/**
- * The shared same-origin proxy that fronts the Rust backend and **injects the
- * AccountBearer server-side** from the Better Auth session cookie. Every Aomi
- * BFF (portal, base, landing) mounts this with its own route allowlist; the
- * machinery — header filtering, upstream forwarding, bearer minting, SSE — is
- * identical, only the policy (`allowedRoutes`) and a couple of hooks differ.
- *
- * The browser holds no bearer: it calls `/api/*` same-origin, this handler
- * resolves the `better-auth.session_token` cookie, mints `sub` = canonical user
- * id, and forwards with `Authorization` set. See
- * docs/topics/account-authentication/facts/service-identity.md ("Transport").
- */
-const HOP_BY_HOP_HEADERS = new Set([
-  "connection",
-  "content-length",
-  "cookie",
-  "host",
-  "origin",
-  "referer",
-  "transfer-encoding",
-]);
-
-// The browser never supplies `authorization` — we mint and inject it from the
-// session below. Anything in the incoming `authorization` header is ignored, and
-// `cookie` is never forwarded upstream (it carries our session, which the backend
-// must never see).
-const ALLOWED_REQUEST_HEADERS = new Set([
-  "accept",
-  "content-type",
-  "aomi-app-key",
-  "payment-signature",
-  "x-session-id",
-  "x-thread-id",
-]);
 
 export type AllowedRoute = {
   pattern: RegExp;
   methods: ReadonlySet<string>;
   /**
-   * `required` (default) means the proxy must inject a trusted AccountBearer
-   * before forwarding. `optional` is for explicitly public backend routes that
-   * may be reached anonymously, while still receiving a bearer when a valid
-   * session is present. `none` is for bearer-independent public routes that
-   * must not touch the account database at all.
+   * `required` (default) forwards only with an account bearer. `optional`
+   * forwards anonymously when no account resolves. `none` never resolves an
+   * account, so the route touches no account state.
    */
   auth?: "required" | "optional" | "none";
 };
@@ -53,12 +22,6 @@ export type AllowedRoute = {
 export type ResolveCanonicalUserId = (
   request: NextRequest,
 ) => Promise<string | null>;
-
-type ProxyAuthState =
-  | { kind: "anonymous" }
-  | { kind: "authenticated"; bearer: string }
-  | { kind: "invalid_credentials" }
-  | { kind: "mint_failed"; error: unknown };
 
 export type ProxyFailure =
   | {
@@ -94,7 +57,7 @@ export type ObserveProxyFailure = (
   failure: ProxyFailure,
 ) => void | Promise<void>;
 
-export function notifyProxyFailure(
+function notifyProxyFailure(
   observer: ObserveProxyFailure | undefined,
   failure: ProxyFailure,
 ): void {
@@ -107,323 +70,91 @@ export function notifyProxyFailure(
 }
 
 export type ProxyConfig = {
-  /**
-   * Backend routes this proxy is willing to forward. A request whose path+method
-   * matches none is rejected with 404. Each app owns its allowlist (they
-   * legitimately differ — portal exposes settings/control, base the widget
-   * surface) while sharing this machinery.
-   */
+  /** Backend routes this proxy forwards; anything else is a 404. */
   allowedRoutes: ReadonlyArray<AllowedRoute>;
-  /** Mutate the upstream URL before forwarding (e.g. inject a default query param). */
+  /** Adjust the upstream URL before forwarding (e.g. a default query param). */
   applyDefaults?: (upstreamUrl: URL) => void;
-  /**
-   * Optionally take over the response for a specific route (e.g. merge extra
-   * data into a backend payload). Return a `NextResponse` to short-circuit, or
-   * `null` to fall through to the default pass-through.
-   */
-  transformResponse?: (ctx: {
-    req: NextRequest;
-    upstreamUrl: URL;
-    upstream: Response;
-    copyResponseHeaders: (upstream: Response) => Headers;
-  }) => Promise<NextResponse | null>;
-  /** Override the upstream backend base URL (defaults to env-derived). */
   upstreamBaseUrl?: string;
-  /** Resolve the canonical backend user id for bearer injection. */
+  /** The account to mint a bearer for, or null for an anonymous request. */
   resolveCanonicalUserId: ResolveCanonicalUserId;
-  /** Observe normalized failures without exposing request or response data. */
+  /** Observe failures without exposing request or response data. */
   observeFailure?: ObserveProxyFailure;
-  /** Replace downstream 5xx bodies with a stable public error code. */
-  sanitizeUpstream5xx?: boolean;
 };
 
-function defaultBackendUrl(): string {
-  if (process.env.VERCEL_ENV === "preview")
-    return "https://api-staging.aomi.dev";
-  if (process.env.VERCEL_ENV === "production") return "https://api.aomi.dev";
-  return "http://127.0.0.1:8080";
-}
-
-function resolveUpstreamBaseUrl(config: ProxyConfig): string {
-  const configured =
-    config.upstreamBaseUrl ?? process.env.AOMI_PROXY_BACKEND_URL;
-  if (configured) {
-    try {
-      return new URL(configured).toString();
-    } catch {
-      // NEXT_PUBLIC_BACKEND_URL may be "/" for same-origin browser calls; the
-      // server-side proxy still needs an absolute upstream, so fall through.
-    }
-  }
-  return (
-    process.env.BACKEND_URL ||
-    process.env.NEXT_PUBLIC_BACKEND_URL ||
-    defaultBackendUrl()
-  ).replace(/\/+$/, "");
-}
-
-function buildUpstreamUrl(
-  baseUrl: string,
-  req: NextRequest,
-  slug: string[] | undefined,
-): URL {
-  const target = new URL(`/api/${(slug ?? []).join("/")}`, baseUrl);
-  target.search = req.nextUrl.search;
-  return target;
-}
-
-function findAllowedProxyRoute(
-  routes: ReadonlyArray<AllowedRoute>,
-  pathname: string,
-  method: string,
-): AllowedRoute | null {
-  return (
-    routes.find(
-      (route) => route.pattern.test(pathname) && route.methods.has(method),
-    ) ?? null
-  );
-}
-
-function routeRequiresAuth(route: AllowedRoute): boolean {
-  return (route.auth ?? "required") === "required";
-}
-
-function bearerMintFailureResponse(): NextResponse {
-  return NextResponse.json(
-    { error: "Account bearer mint failed" },
-    { status: 502 },
-  );
-}
-
-function authenticationRequiredResponse(): NextResponse {
-  return NextResponse.json(
-    { error: "Authentication required" },
-    { status: 401 },
-  );
-}
-
-async function resolveProxyAuthState(
-  req: NextRequest,
-  resolveCanonicalUserId: ResolveCanonicalUserId,
-): Promise<ProxyAuthState> {
-  let canonicalId: string | null;
-  try {
-    canonicalId = await resolveCanonicalUserId(req);
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "status" in error &&
-      Number(error.status) === 401
-    ) {
-      return { kind: "invalid_credentials" };
-    }
-    throw error;
-  }
-  if (!canonicalId) return { kind: "anonymous" };
-
-  try {
-    const { bearer } = await mintAccountBearer(canonicalId);
-    return { kind: "authenticated", bearer };
-  } catch (error) {
-    return { kind: "mint_failed", error };
-  }
-}
-
-function applyProxyAuthState(
-  route: AllowedRoute,
-  authState: ProxyAuthState,
-  headers: Headers,
-  failureContext: {
-    method: string;
-    pathname: string;
-    observeFailure?: ObserveProxyFailure;
-  },
-): NextResponse | null {
-  if (authState.kind === "authenticated") {
-    headers.set("authorization", `Bearer ${authState.bearer}`);
-    return null;
-  }
-
-  if (authState.kind === "mint_failed") {
-    notifyProxyFailure(failureContext.observeFailure, {
-      kind: "bearer_mint",
-      error: authState.error,
-      method: failureContext.method,
-      pathname: failureContext.pathname,
-      responseStatus: 502,
-    });
-    return bearerMintFailureResponse();
-  }
-
-  if (authState.kind === "invalid_credentials") {
-    return authenticationRequiredResponse();
-  }
-
-  if (routeRequiresAuth(route)) {
-    return authenticationRequiredResponse();
-  }
-
-  return null;
-}
-
-function copyRequestHeaders(req: NextRequest): Headers {
-  const headers = new Headers();
-  req.headers.forEach((value, key) => {
-    const lowerKey = key.toLowerCase();
-    if (
-      ALLOWED_REQUEST_HEADERS.has(lowerKey) &&
-      !HOP_BY_HOP_HEADERS.has(lowerKey)
-    ) {
-      headers.set(key, value);
-    }
-  });
-  const legacySessionId = headers.get("x-session-id");
-  if (legacySessionId && !headers.has("x-thread-id")) {
-    headers.set("x-thread-id", legacySessionId);
-  }
-  return headers;
-}
-
-function copyResponseHeaders(upstream: Response): Headers {
-  const headers = new Headers();
-  const contentType = upstream.headers.get("content-type");
-  const cacheControl = upstream.headers.get("cache-control");
-  const paymentRequired = upstream.headers.get("payment-required");
-  const paymentResponse = upstream.headers.get("payment-response");
-  if (contentType) headers.set("content-type", contentType);
-  if (paymentRequired) headers.set("payment-required", paymentRequired);
-  if (paymentResponse) headers.set("payment-response", paymentResponse);
-  if (contentType?.includes("text/event-stream")) {
-    headers.set("cache-control", "no-cache, no-transform");
-  } else if (cacheControl) {
-    headers.set("cache-control", cacheControl);
-  }
-  return headers;
-}
-
 /**
- * Build the `{ GET, POST, PUT, PATCH, DELETE }` route handlers for an app's
- * `app/api/[...slug]/route.ts`. The app stays a thin config:
- *
- * ```ts
- * export const { GET, POST, PUT, PATCH, DELETE } = createBackendProxy({
- *   allowedRoutes: APP_ROUTES,
- * });
- * export const runtime = "nodejs";
- * export const dynamic = "force-dynamic";
- * ```
+ * An allow-listed proxy from an app's /api routes to the Rust backend. The
+ * account bearer is minted server-side; the browser's own credentials never
+ * cross.
  */
 export function createBackendProxy(config: ProxyConfig) {
   async function handle(
     req: NextRequest,
     context: { params: Promise<{ slug?: string[] }> },
-  ): Promise<NextResponse> {
+  ): Promise<Response> {
     const { slug } = await context.params;
-    // Resolve per request, not at factory creation, so the upstream tracks env
-    // (and stays test-friendly — tests can set the backend URL before a call).
-    const upstreamUrl = buildUpstreamUrl(
-      resolveUpstreamBaseUrl(config),
-      req,
-      slug,
+    const url = new URL(
+      `/api/${(slug ?? []).join("/")}`,
+      config.upstreamBaseUrl ?? backendUrlFromEnv(process.env),
     );
-    config.applyDefaults?.(upstreamUrl);
+    url.search = req.nextUrl.search;
+    config.applyDefaults?.(url);
+    const route = config.allowedRoutes.find(
+      (candidate) =>
+        candidate.pattern.test(url.pathname) &&
+        candidate.methods.has(req.method),
+    );
+    if (!route) {
+      return Response.json({ error: "Unsupported API route" }, { status: 404 });
+    }
+    const failure = { method: req.method, pathname: url.pathname };
 
-    const allowedRoute = findAllowedProxyRoute(
-      config.allowedRoutes,
-      upstreamUrl.pathname,
-      req.method,
-    );
-    if (!allowedRoute) {
-      return NextResponse.json(
-        { error: "Unsupported API route" },
-        { status: 404 },
+    const accountId =
+      route.auth === "none" ? null : await config.resolveCanonicalUserId(req);
+    if (!accountId && (route.auth ?? "required") === "required") {
+      return Response.json(
+        { error: "Authentication required" },
+        { status: 401 },
       );
     }
-
-    const headers = copyRequestHeaders(req);
-    const authState =
-      allowedRoute.auth === "none"
-        ? ({ kind: "anonymous" } as const)
-        : await resolveProxyAuthState(req, config.resolveCanonicalUserId);
-    const failureContext = {
-      method: req.method,
-      pathname: upstreamUrl.pathname,
-      observeFailure: config.observeFailure,
-    };
-    const authResponse = applyProxyAuthState(
-      allowedRoute,
-      authState,
-      headers,
-      failureContext,
-    );
-    if (authResponse) return authResponse;
+    let bearer: string | undefined;
+    if (accountId) {
+      try {
+        bearer = (await mintAccountBearer(accountId)).bearer;
+      } catch (error) {
+        notifyProxyFailure(config.observeFailure, {
+          kind: "bearer_mint",
+          error,
+          ...failure,
+          responseStatus: 502,
+        });
+        return Response.json({ error: "bearer_mint_failed" }, { status: 502 });
+      }
+    }
 
     try {
-      const upstream = await fetch(upstreamUrl, {
-        method: req.method,
-        headers,
-        body:
-          req.method === "GET" || req.method === "HEAD"
-            ? undefined
-            : await req.text(),
-        redirect: "manual",
+      const upstream = await forward({
+        request: req,
+        url,
+        policy: BACKEND_API_HEADERS,
+        bearer,
       });
-
       if (upstream.status >= 500) {
         notifyProxyFailure(config.observeFailure, {
           kind: "upstream_response",
           status: upstream.status,
-          method: req.method,
-          pathname: upstreamUrl.pathname,
+          ...failure,
           responseStatus: upstream.status,
         });
-        if (config.sanitizeUpstream5xx) {
-          return NextResponse.json(
-            { error: "upstream_unavailable" },
-            { status: upstream.status },
-          );
-        }
       }
-
-      if (config.transformResponse) {
-        try {
-          const transformed = await config.transformResponse({
-            req,
-            upstreamUrl,
-            upstream,
-            copyResponseHeaders,
-          });
-          if (transformed) return transformed;
-        } catch (error) {
-          notifyProxyFailure(config.observeFailure, {
-            kind: "response_transform",
-            error,
-            method: req.method,
-            pathname: upstreamUrl.pathname,
-            responseStatus: 502,
-          });
-          return NextResponse.json(
-            { error: "Upstream request failed" },
-            { status: 502 },
-          );
-        }
-      }
-
-      return new NextResponse(upstream.body, {
-        status: upstream.status,
-        statusText: upstream.statusText,
-        headers: copyResponseHeaders(upstream),
-      });
+      return upstream;
     } catch (error) {
       notifyProxyFailure(config.observeFailure, {
         kind: "upstream_request",
-        error,
-        method: req.method,
-        pathname: upstreamUrl.pathname,
+        error: error instanceof UpstreamUnreachableError ? error.cause : error,
+        ...failure,
         responseStatus: 502,
       });
-      return NextResponse.json(
+      return Response.json(
         { error: "Upstream request failed" },
         { status: 502 },
       );

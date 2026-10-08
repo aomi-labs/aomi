@@ -4,9 +4,8 @@ import { fileURLToPath } from "node:url";
 import { getMigrations } from "better-auth/db/migration";
 import { auth } from "@aomi-labs/account/better-auth";
 
-const accountRequire = createRequire(
-  new URL("../../../packages/account/package.json", import.meta.url),
-);
+const portalRequire = createRequire(import.meta.url);
+const accountRequire = createRequire(portalRequire.resolve("@aomi-labs/account"));
 const { Pool } = accountRequire("pg") as {
   Pool: new (input: { connectionString: string }) => {
     query(
@@ -39,6 +38,12 @@ async function main() {
     await pool.query(await readFile(schemaPath, "utf8"));
     const migrations = await getMigrations(auth.options);
     await migrations.runMigrations();
+    await pool.query(
+      await readFile(
+        portalRequire.resolve("@aomi-labs/account/rate-limits.sql"),
+        "utf8",
+      ),
+    );
     const required = (await pool.query(
       `select table_name
          from information_schema.tables
@@ -54,11 +59,12 @@ async function main() {
           "ba_verifications",
           "ba_wallet_addresses",
           "public_keys",
+          "rate_limits",
           "users",
         ],
       ],
     )) as { rowCount: number | null; rows: Array<{ table_name: string }> };
-    if (required.rowCount !== 8) {
+    if (required.rowCount !== 9) {
       throw new Error(
         `Browser contract schema incomplete: ${required.rows
           .map((row) => row.table_name)

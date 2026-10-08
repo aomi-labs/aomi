@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 
 const root = new URL(
-  "../apps/shadcn-registry/src/components/icons/skills/",
+  "../packages/widget/src/icons/skills",
   import.meta.url,
 );
 const files = readdirSync(new URL("assets/", root))

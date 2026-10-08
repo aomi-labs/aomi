@@ -3,7 +3,7 @@ import {
   aomiOAuthResources,
   narrowScopesForAomiResource,
   validateAomiResourceScopes,
-} from "./resources";
+} from "@aomi-labs/account/better-auth";
 import { bindAomiPublicClientResource } from "./client-resource-binding";
 
 type OAuthError =
@@ -172,6 +172,13 @@ async function withScope(
     headers: request.headers,
     body: form.toString(),
   });
+}
+
+/** The client_id in a token or revoke request body, form or JSON. */
+export async function oauthClientId(
+  request: Request,
+): Promise<string | undefined> {
+  return (await formValues(request))?.get("client_id") ?? undefined;
 }
 
 const DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code";

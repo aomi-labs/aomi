@@ -3,7 +3,7 @@
 > Historical reference. This May 2026 architecture snapshot predates the
 > wallet-kit path cleanup (`apps/registry/src/lib/aomi-wallet-kit/*` ->
 > `apps/registry/src/lib/wallet-kit/*`) and several later auth-stack changes.
-> Use `specs/DOMAIN.md`, `specs/WIDGET-AUTH-PLAN.md`, and
+> Use `specs/DOMAIN.md` and
 > `docs/topics/auth/facts/wallet-kit.md` for the live architecture. Keep this
 > file for migration rationale until the broader executed wallet plan specs are
 > deleted or archived after merge.
@@ -186,7 +186,7 @@ graph TD
 | `packages/client/src/aa/index.ts`                          | Re-exports AA/native wallet types.                                                                                                                                                        |
 | `packages/client/src/index.ts`                             | Re-exports AA/native wallet types from the package root.                                                                                                                                  |
 | `packages/react/src/index.ts`                              | Re-exports client types through `@aomi-labs/react`.                                                                                                                                       |
-| `packages/client/test/aa/aa-eoa-capabilities.unit.test.ts` | Adds focused tests for EOA/native wallet capabilities, atomic behavior, paymaster behavior, and fail-closed paths.                                                                        |
+| `packages/client/src/aa-eoa-capabilities.unit.test.ts` | Adds focused tests for EOA/native wallet capabilities, atomic behavior, paymaster behavior, and fail-closed paths.                                                                        |
 
 ### Registry and generated artifacts
 
@@ -1183,7 +1183,7 @@ graph TD
 
 Primary test files:
 
-- `packages/client/test/aa/aa-eoa-capabilities.unit.test.ts`
+- `packages/client/src/aa-eoa-capabilities.unit.test.ts`
 - `apps/registry/src/lib/aomi-wallet-kit/wallet-execution.test.ts`
 
 Coverage added:

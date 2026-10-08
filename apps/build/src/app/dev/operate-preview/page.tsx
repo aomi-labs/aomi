@@ -7,12 +7,12 @@
 
 import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitHubSessionProvider } from "@build/components/control-plane/github-session-context";
+import { GitHubSessionProvider } from "@/components/control-plane/github-session-context";
 import {
   OperateView,
   type ViewKind,
-} from "@build/features/operate/operate-view";
-import { AppDetailView } from "@build/features/operate/app-detail-view";
+} from "@/features/operate/operate-view";
+import { AppDetailView } from "@/features/operate/app-detail-view";
 import {
   ALL_LOGS,
   ALL_TRANSACTIONS,
@@ -20,11 +20,11 @@ import {
   appFixture,
   type LogRecord,
   type TxRecord,
-} from "@build/features/operate/fixtures";
+} from "@/features/operate/fixtures";
 import {
   exampleAppCards,
   exampleStatement,
-} from "@build/features/operate/fixtures/wire";
+} from "@/features/operate/fixtures/wire";
 
 const SOURCE = { id: 141779906, repositoryLink: "aomi-labs/apps", apps: [] };
 const SOMM_RECIPIENT = "0x5D907BEa404e6F821d467314a9cA07663CF64c9B";

@@ -14,7 +14,7 @@ export interface AomiConfig {
   /**
    * Privileged admin/service AomiBearer for bootstrap writes — minting the very
    * first platform token, which no activation token can do yet. Mint it with
-   * `@aomi-labs/service` (the signing twin). Server-side only.
+   * `AomiService` in `@aomi-labs/account/service-topology` (the signing twin). Server-side only.
    */
   adminBearer?: string;
 }

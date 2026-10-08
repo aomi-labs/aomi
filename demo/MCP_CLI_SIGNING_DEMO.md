@@ -37,7 +37,7 @@ For a checkout of this branch, build and verify the exact CLI artifact:
 ```bash
 pnpm install --frozen-lockfile
 pnpm --filter @aomi-labs/client build
-node packages/client/dist/cli.js --version
+node packages/cli/dist/bin.js --version
 ```
 
 The last command must print `0.5.1`. After the package is published, the
@@ -96,31 +96,17 @@ Before signing, establish that this new staged action has not executed:
 Do not infer execution from the wallet balance: a self-transfer does not change
 the account's net principal balance.
 
-## Direct deterministic MCP client flow
+## Direct MCP client flow
 
-The repository smoke performs SIWE, OAuth dynamic client registration, PKCE,
-consent, token refresh, MCP discovery, chat/check/list/interrupt, and an
-optional real wallet handoff. It never prints credentials. Load `PRIVATE_KEY`
-from a protected local source without putting the literal value in the command,
-then run:
-
-```bash
-export AOMI_MCP_E2E_ORIGIN="https://chat-staging.aomi.dev"
-export AOMI_MCP_E2E_CHAIN_ID="8453"
-export AOMI_MCP_E2E_PRIVATE_KEY="$PRIVATE_KEY"
-export AOMI_MCP_E2E_WALLET_PROMPT="On Base chain 8453, stage a transfer of exactly 1 wei from 0xYOUR_TEST_WALLET to the same 0xYOUR_TEST_WALLET. Do not send any other transaction. Stop for external wallet approval."
-node scripts/smoke-mcp-chat.mjs
-```
-
-Capture only the final `MCP_E2E_WALLET_SESSION` and
-`MCP_E2E_PENDING_REQUESTS` values. Never capture the process environment. For
-interactive protocol inspection, `npx @modelcontextprotocol/inspector@latest`
-can connect to the same public endpoint and exercise its OAuth flow.
+Use `npx @modelcontextprotocol/inspector@latest` against the public endpoint to
+exercise SIWE, OAuth dynamic client registration, PKCE, consent, token refresh,
+MCP discovery and the chat/check/list/interrupt tools. Never capture the process
+environment or credentials.
 
 ## Resume and sign with the updated CLI
 
 Use an isolated state directory for each take. From a source checkout, use
-`node packages/client/dist/cli.js` in place of `aomi` below.
+`node packages/cli/dist/bin.js` in place of `aomi` below.
 
 ```bash
 export AOMI_STATE_DIR="$(mktemp -d /tmp/aomi-mcp-demo.XXXXXX)"

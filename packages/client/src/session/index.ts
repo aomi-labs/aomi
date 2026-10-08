@@ -125,6 +125,8 @@ export class ClientSession {
     firstTextReceivedMs?: number;
   };
   private closed = false;
+  /** The anonymous user this chat belongs to, once the backend has seen it. */
+  private guestOwner: string | null = null;
   private pendingReject: ((error: unknown) => void) | null = null;
   private pendingResolve: ((result: SendResult) => void) | null = null;
   private pendingSend?: Promise<SendResult>;
@@ -281,9 +283,9 @@ export class ClientSession {
         try {
           await submission;
         } catch (error) {
-          // A definitive client error rejects admission; the send path already
+          // A definite client error means the backend refused the send; the send path already
           // reports it. Timeouts and uncertain network/server errors may have
-          // admitted work and must remain visible to the caller of Stop.
+          // accepted work and must remain visible to the caller of Stop.
           if (isDefinitiveStartRejection(error)) return;
           if (!this.startOperation?.uncertain) throw error;
         }
@@ -360,7 +362,7 @@ export class ClientSession {
           }
         }
       }
-      // An older Stop response may arrive after canonical history accepted a
+      // An older Stop response may arrive after the saved history recorded a
       // newer turn. Keep its scoped outcome without stopping that newer stream.
       if (this.turnId !== turnId) return;
       this.turnState = outcome;
@@ -500,6 +502,9 @@ export class ClientSession {
     options: SendOptions,
   ): Promise<EventPage> {
     this.assertOpen();
+    const guest = this.client.guestIdentity?.() ?? null;
+    if (this.guestOwner && guest && guest !== this.guestOwner)
+      throw AgentApiError.guestIdentityChanged();
     if (options.regenerate !== undefined && !options.regenerate.trim()) {
       throw new TypeError(
         "regenerate requires a completed assistant message key",
@@ -557,7 +562,7 @@ export class ClientSession {
           applicationId: this.applicationId,
         });
         // An uncertain start must replay exactly the same intent and key.
-        // Fresh operations refresh policy; execution still checks live authority.
+        // Fresh operations refresh policy; the backend still checks permissions when it runs them.
         operation.intent = {
           sessionId: this.sessionId,
           clientId: this.clientId,
@@ -660,7 +665,7 @@ export class ClientSession {
     if (operation.turnId) return operation.turnId;
     if (!operation.intent) throw operation.error;
     const settleWithoutActiveTurn = (page?: EventPage) => {
-      // Exhausted canonical history needs no cancellation. Retain the exact
+      // A fully read history needs no cancellation. Retain the exact
       // request for a Send retry without keeping its optimistic running state.
       // Terminal messages cannot establish request ownership by matching text.
       operation.uncertain = false;
@@ -671,7 +676,7 @@ export class ClientSession {
       return undefined;
     };
     // History alone cannot correlate an active turn with this request. Use it
-    // only to establish possible admission; never replay an idle request just
+    // only to find out whether the backend accepted it; never replay an idle request just
     // to cancel it. Follow bounded pages before deciding there is no evidence.
     while (!this.closed) {
       const previousCursor = this.cursor;
@@ -702,7 +707,7 @@ export class ClientSession {
       if (this.cursor === previousCursor) throw operation.error;
     }
     if (this.closed) throw new Error("Session is closed");
-    // Replaying the exact stored intent/key returns its admitted identity,
+    // Replaying the exact stored intent/key returns the turn it started,
     // independent of history position. A different client's active turn is
     // never a Stop target. Runtime option changes cannot alter this replay.
     const page = await this.client.agent.start(
@@ -713,9 +718,7 @@ export class ClientSession {
       },
     );
     if (page.session_id !== this.sessionId || !page.started_turn_id)
-      throw new TypeError(
-        "Unable to confirm the pending request's admitted turn",
-      );
+      throw new TypeError("Unable to confirm the pending request's turn");
     this.applyEventPage(page, page.started_turn_id);
     operation.turnId = page.started_turn_id;
     if (!this.turnId || this.isTerminal() || this.turnId === operation.turnId) {
@@ -770,6 +773,7 @@ export class ClientSession {
     if (page.session_id !== this.sessionId) {
       throw new TypeError("Agent response session does not match the request");
     }
+    this.guestOwner ??= this.client.guestIdentity?.() ?? null;
     this.applyingPage = true;
     this.lastPageNewEvents = 0;
     try {

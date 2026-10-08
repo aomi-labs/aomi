@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
-import { readGitHubOAuthRequest } from "@build/server/cookies/github";
+import { readGitHubOAuthRequest } from "@/server/cookies/github";
 
 describe("GitHub login route", () => {
   beforeEach(() => {

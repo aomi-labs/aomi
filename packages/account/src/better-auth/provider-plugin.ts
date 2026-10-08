@@ -107,8 +107,7 @@ export function aomiProviderAuthPlugin(): BetterAuthPlugin {
           const resolution = await signInWithVerifiedProviderCredential({
             betterAuthUserId: betterAuthUser.id,
             verified,
-            email: seed.email,
-            name: seed.name,
+            name: seed.label,
           });
           if (resolution.status === "conflict") {
             observeAccountDiagnostic({

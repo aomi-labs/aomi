@@ -44,6 +44,8 @@ export class IdentityConflictError extends Error {
   constructor(
     readonly owners: readonly string[],
     readonly signalType: SignalRef["type"] = "identity",
+    /** A credential an owner other than the caller holds, for a merge offer. */
+    readonly signal?: SignalRef,
   ) {
     super("identity_conflict");
     this.name = "IdentityConflictError";
@@ -108,14 +110,26 @@ export async function attachVerifiedProviderIdentityToUser(input: {
       db,
     );
     let conflictType: SignalRef["type"] = "identity";
+    let conflictSignal: SignalRef | undefined = [...owners].some(
+      (owner) => owner !== input.userId,
+    )
+      ? identitySignal(input.identity)
+      : undefined;
     for (const signal of dedupeSignals(input.recoverySignals ?? [])) {
       const owner = await findSignalOwner(signal, db);
       if (!owner) continue;
-      if (owner !== input.userId) conflictType = signal.type;
+      if (owner !== input.userId) {
+        conflictType = signal.type;
+        conflictSignal ??= signal;
+      }
       owners.add(owner);
     }
     if ([...owners].some((owner) => owner !== input.userId)) {
-      throw new IdentityConflictError([...owners].sort(), conflictType);
+      throw new IdentityConflictError(
+        [...owners].sort(),
+        conflictType,
+        conflictSignal,
+      );
     }
     const identity = await upsertAuthIdentity({
       userId: input.userId,
@@ -220,6 +234,16 @@ async function resolveLocked(
   // users.username uniqueness constraint. Explicit profile edits use the
   // account profile route instead.
   return { user, identity, created };
+}
+
+function identitySignal(identity: VerifiedProviderIdentity): SignalRef {
+  return {
+    type: "identity",
+    provider: identity.provider,
+    issuerEnvironment: identity.issuerEnvironment,
+    tenantId: identity.tenantId,
+    subject: identity.subject,
+  };
 }
 
 function credentialKey(identity: VerifiedProviderIdentity): string {

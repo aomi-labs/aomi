@@ -6,18 +6,18 @@ import {
   deploymentFeed,
   deploymentSdkStatus,
   deploymentProjects,
-} from "@build/features/launch/client";
+} from "@/features/deploy/client";
 import {
   buildQueryKeys,
   buildQueryStaleTime,
-} from "@build/features/launch/query-keys";
-import { platformParam } from "@build/features/launch/platform";
+} from "@/features/deploy/query-keys";
+import { platformParam } from "@/features/deploy/platform";
 import {
   modelKeysFetch,
   operateAppDetailFetch,
   operateFetch,
   type OperateKind,
-} from "@build/features/operate/client";
+} from "@/features/operate/client";
 
 const OPERATE_ROUTES: Record<string, OperateKind> = {
   "/operate/bots": "bots",

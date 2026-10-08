@@ -13,9 +13,11 @@ import { hostedPortalOrigin } from "./hosted-portal";
 import { useEffect, useMemo, useState } from "react";
 import { type AomiClientOptions } from "@aomi-labs/react";
 import type { AomiInferenceFundingSource } from "@aomi-labs/client";
-import { useAomiWalletKit } from "@aomi-labs/widget-lib";
-import { createPortalAccountBearerProvider } from "@portal/lib/account-bearer";
-import { createPortalX402Client } from "@portal/lib/payment-fetch";
+import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
+import {
+  createWidgetX402Client,
+  useAomiWalletKit,
+} from "@aomi-labs/widget/host-composition";
 
 export type RequestedAppConfig = {
   app: string | null;
@@ -238,7 +240,7 @@ export function usePortalClientOptions(
 
   const paymentClient = useMemo(
     () =>
-      createPortalX402Client({
+      createWidgetX402Client({
         identity,
         signTypedData,
         switchChain: switchWalletChain,

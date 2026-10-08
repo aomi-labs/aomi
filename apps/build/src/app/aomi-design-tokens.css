@@ -207,7 +207,7 @@
     --aomi-accent-interactive: var(--aomi-sky-500);
 
     /* ------------------------------------------------------------------
-       Canonical aomi-* names, shared with @aomi-labs/widget-lib so the
+       Canonical aomi-* names, shared with @aomi-labs/widget so the
        control plane and the widget speak one vocabulary. Same primitives,
        just the names the design system documents.
        ------------------------------------------------------------------ */
@@ -298,7 +298,7 @@
     /* Canonical aomi-* names — dark. */
     --aomi-fg: var(--aomi-cool-50);
     --aomi-muted: var(--aomi-cool-400);
-    /* Distinct stops, mirroring @aomi-labs/widget-lib. These three all sat on
+    /* Distinct stops, mirroring @aomi-labs/widget. These three all sat on
        cool-800, so a hairline drawn on a panel was the panel's own colour and
        every divider, table rule and icon-button fill disappeared. */
     --aomi-raised: var(--aomi-cool-850);

@@ -1,3 +1,3 @@
-import { operateBotsWebhookRoute } from "@build/server/bff/operate/routes";
+import { operateBotsWebhookRoute } from "@/server/bff/operate/routes";
 
 export const POST = operateBotsWebhookRoute;

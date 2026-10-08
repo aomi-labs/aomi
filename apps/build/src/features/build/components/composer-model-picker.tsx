@@ -3,7 +3,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { cn } from "@build/lib/utils";
+import { cn } from "@/lib/class-names";
 
 /**
  * UI-only Create composer model list.
@@ -16,18 +16,6 @@ const MODEL_OPTIONS = [
     available: true,
     hint: "Current",
   },
-  {
-    id: "auto",
-    label: "Auto",
-    available: false,
-    hint: "Soon",
-  },
-  {
-    id: "custom",
-    label: "Custom",
-    available: false,
-    hint: "Soon",
-  },
 ] as const;
 
 const CURRENT_MODEL_ID = "aomi";
@@ -38,8 +26,7 @@ type ComposerModelPickerProps = {
 };
 
 /**
- * Cursor-like model control for Create. Selection stays on Aomi;
- * other rows are honest Soon stubs until remote models exist.
+ * Cursor-like model control for Create. Selection stays on Aomi.
  */
 export function ComposerModelPicker({
   className,

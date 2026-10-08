@@ -8,7 +8,7 @@
 | `@aomi-labs/client` | `AomiClient`, `ClientSession`/`Session`, CLI, user-state types, wallet helpers, AA helpers |
 | `@aomi-labs/auth` | Better Auth setup, SIWE/provider exchange, account graph helpers, provider wallet sync |
 | `@aomi-labs/account` | Account bearer minting, service topology, shared same-origin backend proxy |
-| `@aomi-labs/widget-lib` | Registry UI components and wallet-kit provider adapters |
+| `@aomi-labs/widget` | Registry UI components and wallet-kit provider adapters |
 
 ## Stack
 
@@ -67,7 +67,7 @@ apps/portal/                       # Portal app and auth/BFF routes
 
 ```bash
 pnpm install
-pnpm run build:lib
+pnpm run build:packages
 pnpm --filter @aomi-labs/client build
 pnpm --filter @aomi-labs/react build
 pnpm --filter @aomi-labs/auth type-check

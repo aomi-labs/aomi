@@ -1,10 +1,6 @@
 import { auth } from "@aomi-labs/account/better-auth";
-import {
-  getAccountResponseForBetterAuthSession,
-  getOrCreateAomiUserForBetterAuthSession,
-} from "@aomi-labs/account/account";
 
-type BetterAuthSessionResult = {
+export type BetterAuthSession = {
   user?: {
     id: string;
     email?: string | null;
@@ -28,14 +24,26 @@ export type BetterAuthSessionSeed = {
   avatarUrl?: string | null;
 };
 
-export async function getBetterAuthSession(req: Request) {
-  return (await auth.api.getSession({
-    headers: req.headers,
-  })) as BetterAuthSessionResult;
+const sessionReads = new WeakMap<Request, Promise<BetterAuthSession>>();
+
+/** The Better Auth session a request carries, read once per request. */
+export async function getBetterAuthSession(
+  req: Request,
+): Promise<BetterAuthSession> {
+  const existing = sessionReads.get(req);
+  if (existing) return existing;
+  // An explicit bearer must never fall back to an unrelated ambient cookie.
+  const headers = new Headers(req.headers);
+  if (headers.has("authorization")) headers.delete("cookie");
+  const pending = auth.api.getSession({
+    headers,
+  }) as Promise<BetterAuthSession>;
+  sessionReads.set(req, pending);
+  return pending;
 }
 
 export function sessionUserSeed(
-  session: BetterAuthSessionResult,
+  session: BetterAuthSession,
 ): BetterAuthSessionSeed | null {
   if (!session?.user?.id) return null;
   return {
@@ -45,34 +53,4 @@ export function sessionUserSeed(
     name: session.user.name,
     avatarUrl: session.user.image,
   };
-}
-
-export async function requireAomiSession(req: Request) {
-  const session = await getBetterAuthSession(req);
-  const seed = sessionUserSeed(session);
-  if (!seed) return null;
-  const user = await getOrCreateAomiUserForBetterAuthSession(seed);
-  return { session, user };
-}
-
-export async function accountResponseFromSession(req: Request) {
-  const session = await getBetterAuthSession(req);
-  const seed = sessionUserSeed(session);
-  if (!seed) {
-    return {
-      user: null,
-      linkedAccounts: [],
-      wallets: [],
-      session: null,
-    } as const;
-  }
-  return getAccountResponseForBetterAuthSession({
-    ...seed,
-    expiresAt: session?.session?.expiresAt,
-    fresh: session?.session?.fresh,
-  });
-}
-
-export function json(status: number, body: unknown): Response {
-  return Response.json(body, { status });
 }

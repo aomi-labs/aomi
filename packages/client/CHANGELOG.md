@@ -1,5 +1,15 @@
 # @aomi-labs/client
 
+## 0.10.0
+
+- Prepare guest sessions on first composer interaction and join preparation before the first send; retain existing cookies and explicit account credentials.
+- Fence anonymous conversation requests when renewal returns a different guest identity; keep backend ownership checks authoritative.
+
+- Keep Better Auth core aligned with the auth and OAuth client release so strict fresh npm installs resolve compatible fetch peers.
+
+- Add shared account graph and project transport, structured fetch errors and scoped browser storage.
+- Emit stable public UserState declarations and a browser authentication entry; move the CLI to its own package.
+
 ## 0.7.5
 
 - Normalize backend-owned Library `feature_catalog` and registration metadata

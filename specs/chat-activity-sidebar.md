@@ -1,7 +1,7 @@
 # Chat activity rail
 
 The selected activity and wallet-impact design now lives in
-`apps/shadcn-registry/src/components/activity-sidebar/` and is mounted once by
+`packages/widget/src/components/activity-sidebar/` and is mounted once by
 `assistant-ui/thread.tsx`. The working trace is unchanged. The old
 `runtime-tx-handler` composer panel and its query-string preview fixtures are
 removed.

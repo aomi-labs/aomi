@@ -83,13 +83,27 @@ export namespace UserState {
     return next;
   }
 
-  export const address = accessors.address;
-  export const evmAddress = accessors.evmAddress;
-  export const svmAddress = accessors.svmAddress;
-  export const chainId = accessors.chainId;
-  export const ensName = accessors.ensName;
-  export const isConnected = accessors.isConnected;
-  export const provider = accessors.provider;
-  export const authMethod = accessors.authMethod;
-  export const withExt = accessors.withExt;
+  export const address: (state?: UserState | null) => string | undefined =
+    accessors.address;
+  export const evmAddress: (state?: UserState | null) => string | undefined =
+    accessors.evmAddress;
+  export const svmAddress: (state?: UserState | null) => string | undefined =
+    accessors.svmAddress;
+  export const chainId: (state?: UserState | null) => number | undefined =
+    accessors.chainId;
+  export const ensName: (state?: UserState | null) => string | undefined =
+    accessors.ensName;
+  export const isConnected: (state?: UserState | null) => boolean | undefined =
+    accessors.isConnected;
+  export const provider: (
+    state?: UserState | null,
+  ) => string | null | undefined = accessors.provider;
+  export const authMethod: (
+    state?: UserState | null,
+  ) => string | null | undefined = accessors.authMethod;
+  export const withExt: (
+    state: UserState,
+    key: string,
+    value: unknown,
+  ) => UserState = accessors.withExt;
 }

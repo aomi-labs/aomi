@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
   expectVerifiedBffRecord,
-  fixtureKeys,
   portalAccount,
   requiredOrigin,
   resetContractState,
@@ -10,9 +9,10 @@ import {
   signOutThroughUi,
   upstreamRecords,
 } from "./browser-contract-helpers";
+import { fixtureKeys } from "./fixture-wallets";
 
 const portalOrigin = requiredOrigin("BROWSER_CONTRACT_PORTAL_URL");
-const keys = fixtureKeys();
+const keys = fixtureKeys;
 
 test.beforeEach(async () => resetContractState());
 test.beforeEach(async ({}, testInfo) => testInfo.setTimeout(90_000));
@@ -50,6 +50,47 @@ for (const family of ["evm", "svm"] as const) {
     expectVerifiedBffRecord(chat, account.user!.id!, "session");
     expect(wallet.blocked).toEqual([]);
 
+    if (family === "evm") {
+      const settingsRequests: string[] = [];
+      page.on("request", (request) => {
+        const path = new URL(request.url()).pathname;
+        if (
+          path === "/v1/account" ||
+          path === "/v1/account/credits" ||
+          path === "/api/account"
+        )
+          settingsRequests.push(path);
+      });
+      let firstOpenRequests = 0;
+      for (let open = 0; open < 2; open++) {
+        await page
+          .getByRole("button", { name: "Open settings", exact: true })
+          .click();
+        const settings = page.getByRole("dialog", {
+          name: "Settings",
+          exact: true,
+        });
+        await expect(
+          settings.getByRole("navigation", { name: "Settings sections" }),
+        ).toBeVisible();
+        await settings
+          .getByRole("button", { name: "Account", exact: true })
+          .click();
+        await expect(
+          settings.getByRole("heading", { name: "Account", exact: true }),
+        ).toBeVisible();
+        await expect(
+          settings.getByRole("button", { name: "Sign out", exact: true }),
+        ).toBeVisible();
+        await settings
+          .getByRole("button", { name: "Close settings", exact: true })
+          .click();
+        await expect(settings).toBeHidden();
+        if (open === 0) firstOpenRequests = settingsRequests.length;
+        else expect(settingsRequests).toHaveLength(firstOpenRequests);
+      }
+    }
+
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(
       page.getByRole("button", { name: "Open account menu" }),
@@ -74,7 +115,7 @@ test("rejected first-party wallet signature leaves no durable signed-in account"
   expect(verified).toBeUndefined();
   expect(wallet.signatureCount).toBe(0);
   await expect(
-    page.getByRole("dialog", { name: "Finish signing in" }),
+    page.getByRole("dialog", { name: "Check MetaMask" }),
   ).toBeVisible();
   const session = await page.evaluate(async () => {
     const response = await fetch("/api/auth/get-session", {
@@ -96,13 +137,12 @@ test("explicit UI wallet linking adds a second key to the same canonical user", 
   });
   const before = await portalAccount(page);
   await wallet.switchAccount(1);
-  await page.getByRole("button", { name: "Open account menu" }).click();
-  await page.getByRole("button", { name: "Manage account" }).click();
-  const settings = page.getByRole("dialog", { name: "Settings", exact: true });
-  await expect(settings).toBeVisible();
-  await settings.getByRole("button", { name: "Add more", exact: true }).click();
-  const picker = page.getByRole("dialog", { name: /Add a wallet/ });
-  const link = picker.getByRole("button", { name: "Link wallet", exact: true });
+  const picker = page.getByRole("dialog", { name: "New address in MetaMask" });
+  await expect(picker).toBeVisible();
+  const link = picker.getByRole("button", {
+    name: "Verify and add to account",
+    exact: true,
+  });
   await expect(link).toBeEnabled({ timeout: 30_000 });
   await link.click();
   await expect

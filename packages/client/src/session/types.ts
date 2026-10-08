@@ -37,9 +37,9 @@ export type SessionSnapshot = Readonly<{
   title?: string;
   isStreaming: boolean;
   isSubmitting: boolean;
-  /** True while Stop awaits authoritative server acknowledgment. */
+  /** True while Stop waits for the server to confirm it. */
   isStopping?: boolean;
-  /** Start admission is unconfirmed; Stop can reconcile and retry its exact intent. */
+  /** The backend may or may not have accepted the send; Stop can check and retry the same request. */
   isStartUncertain?: boolean;
   /** Scoped Stop ACK; the durable terminal event may arrive in a later page. */
   stoppedTurnId?: string;

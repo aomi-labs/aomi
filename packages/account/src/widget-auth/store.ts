@@ -172,7 +172,27 @@ export async function deleteWidgetSessionsForProviderIdentity(input: {
   providerIdentityId: string;
   db?: Db;
 }): Promise<number> {
-  const result = await (input.db ?? getPool()).query(
+  return deleteWidgetSessionsWhere(
+    "providerIdentityId",
+    input.providerIdentityId,
+    input.db,
+  );
+}
+
+/** Ends every widget session of an account, e.g. one merged into another. */
+export async function deleteWidgetSessionsForUser(input: {
+  userId: string;
+  db?: Db;
+}): Promise<number> {
+  return deleteWidgetSessionsWhere("userId", input.userId, input.db);
+}
+
+async function deleteWidgetSessionsWhere(
+  field: "providerIdentityId" | "userId",
+  value: string,
+  db: Db = getPool(),
+): Promise<number> {
+  const result = await db.query(
     // Narrow the scan to widget-session rows by identifier prefix, then guard
     // the jsonb cast with a CASE so it only runs on rows whose value is a JSON
     // object. CASE short-circuits, so a stray non-JSON row scanned under the
@@ -180,9 +200,9 @@ export async function deleteWidgetSessionsForProviderIdentity(input: {
     `delete from ba_verifications
       where identifier like $1
         and (case when value ~ '^\\s*\\{'
-                  then value::jsonb ->> 'providerIdentityId'
+                  then value::jsonb ->> $3
              end) = $2`,
-    [`${WIDGET_SESSION_NAMESPACE}%`, input.providerIdentityId],
+    [`${WIDGET_SESSION_NAMESPACE}%`, value, field],
   );
   return result.rowCount ?? 0;
 }

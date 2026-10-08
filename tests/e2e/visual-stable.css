@@ -1,0 +1,8 @@
+/* Generated account avatars depend on the per-run account id; keep their
+   slot in screenshots with a fixed fill and hide the id-derived tiles. */
+[data-account-avatar] [data-avatar-ground] {
+  fill: #8a8a93;
+}
+[data-account-avatar] [data-avatar-tile] {
+  visibility: hidden;
+}
