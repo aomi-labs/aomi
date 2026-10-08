@@ -177,6 +177,12 @@ export function TransactionReview({
           {status}
         </p>
       )}
+      {!failed && batchProgress && batchProgress.total > 1 ? (
+        <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
+          <Wallet className="size-3.5 shrink-0" />
+          Your wallet asks for {batchProgress.total} signatures, in order.
+        </p>
+      ) : null}
       <footer
         className={
           failed

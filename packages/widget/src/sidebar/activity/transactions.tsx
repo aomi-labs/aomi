@@ -132,37 +132,11 @@ export function TransactionList({
   );
 }
 
-export function TransactionCard({
-  transaction: tx,
-  reviewing = false,
-  executing,
-  current,
-}: {
-  transaction: ActivityTransaction;
-  reviewing?: boolean;
-  executing: boolean;
-  /** Staged in the current turn, including its callback turns. */
-  current: boolean;
-}) {
-  const reduceMotion = useReducedMotion();
-  const label = friendlyTransactionLabel(tx.label, tx.kind);
-  const Icon =
-    tx.kind === "signature"
-      ? FileSignature
-      : (transactionSemantic(label, tx.kind).Icon ?? Layers3);
-  const Chain = useMemo(
-    () =>
-      tx.family === "svm"
-        ? SolanaIcon
-        : tx.chainId
-          ? (getChainIcon(tx.chainId) ?? Circle)
-          : Circle,
-    [tx.family, tx.chainId],
-  );
-  const cluster = tx.cluster?.replace(/^solana:/, "") ?? "mainnet-beta";
-  const network = tx.chainId
-    ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
-    : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
+/**
+ * Where a transaction is in Stage → Simulate → Commit → Signed, shared by the
+ * panel card and the trace's wallet hand-off so both always agree.
+ */
+export function transactionProgress(tx: ActivityTransaction) {
   const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
   const commitSigned =
     tx.commit?.state === "awaiting_broadcast" ||
@@ -194,6 +168,41 @@ export function TransactionCard({
   const terminal = tx.commit
     ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
     : tx.action && tx.action.state !== "pending";
+  return { step, signed, rejected, failed, terminal };
+}
+
+export function TransactionCard({
+  transaction: tx,
+  reviewing = false,
+  executing,
+  current,
+}: {
+  transaction: ActivityTransaction;
+  reviewing?: boolean;
+  executing: boolean;
+  /** Staged in the current turn, including its callback turns. */
+  current: boolean;
+}) {
+  const reduceMotion = useReducedMotion();
+  const label = friendlyTransactionLabel(tx.label, tx.kind);
+  const Icon =
+    tx.kind === "signature"
+      ? FileSignature
+      : (transactionSemantic(label, tx.kind).Icon ?? Layers3);
+  const Chain = useMemo(
+    () =>
+      tx.family === "svm"
+        ? SolanaIcon
+        : tx.chainId
+          ? (getChainIcon(tx.chainId) ?? Circle)
+          : Circle,
+    [tx.family, tx.chainId],
+  );
+  const cluster = tx.cluster?.replace(/^solana:/, "") ?? "mainnet-beta";
+  const network = tx.chainId
+    ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
+    : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
+  const { step, signed, rejected, failed, terminal } = transactionProgress(tx);
   // An unfinished commit or pending action stays live across turns; staged
   // work that never reached either is live only while its turn is current.
   const active = current || tx.commit != null || tx.action?.state === "pending";
@@ -201,6 +210,11 @@ export function TransactionCard({
     (active || executing) && !signed && !rejected && !failed && !terminal;
   const animatedStep = executing ? 3 : step;
   const pendingStyle = active && !signed && !rejected && !terminal;
+  // Signing order inside the wallet request, shown only while it matters.
+  const signingOrder =
+    reviewing && pendingStyle
+      ? (tx.commit?.batch?.index ?? tx.actionIndex)
+      : undefined;
   const phases = ["Stage", "Simulate", "Commit", "Signed"]
     .map((name, index) => ({ name, index }))
     .filter(({ index }) => tx.kind !== "signature" || index !== 1);
@@ -229,6 +243,14 @@ export function TransactionCard({
     >
       <div>
         <div className="flex items-center gap-2">
+          {signingOrder !== undefined ? (
+            <span
+              aria-label={`Signs ${signingOrder + 1}${signingOrder === 0 ? "st" : signingOrder === 1 ? "nd" : "th"}`}
+              className="bg-aomi-accent-subtle text-aomi-accent-strong flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums"
+            >
+              {signingOrder + 1}
+            </span>
+          ) : null}
           <Icon className="text-aomi-muted size-4 shrink-0" />
           <span
             className="type-control min-w-0 flex-1 truncate font-medium"
@@ -299,7 +321,16 @@ export function TransactionCard({
                       : "bg-aomi-border",
                 )}
               />
-              <span className="text-aomi-muted mt-1.5 block text-[10px] leading-3">
+              <span
+                className={cn(
+                  "mt-1.5 block text-[10px] leading-3 transition-colors",
+                  animating && index === animatedStep
+                    ? "text-aomi-fg font-medium"
+                    : index <= step || (index === 3 && signed)
+                      ? "text-aomi-muted"
+                      : "text-aomi-muted/60",
+                )}
+              >
                 {name}
               </span>
             </div>
