@@ -15,6 +15,7 @@
 /tests/e2e/visual-signing-contracts.spec.ts-snapshots/ @CeciliaZ030 @arixoneth
 /playwright.config.ts @CeciliaZ030 @arixoneth
 /.github/ @CeciliaZ030 @arixoneth
+/.github/workflows/publish-npm-token.yml @CeciliaZ030 @arixoneth @h4n0
 /package.json @CeciliaZ030 @arixoneth
 /pnpm-workspace.yaml @CeciliaZ030 @arixoneth
 /AGENTS.md @CeciliaZ030 @arixoneth
