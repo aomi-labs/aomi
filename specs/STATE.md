@@ -5542,6 +5542,23 @@ Controls disabled while isProcessing === true
 - New threads initialize with `createDefaultControlState()` (null model/namespace)
 - Thread switching restores the thread's previous model/namespace selection
 
+## 2026-10-08 — Pin @modelcontextprotocol/sdk security fixes, verify builds/tests
+
+- Added a root pnpm override to force `@modelcontextprotocol/sdk` to 1.32.0 to address:
+  - GHSA-6prh-2h8m-c8cw (cross-origin redirect leakage in HTTP transports/OAuth),
+  - GHSA-6qxp-vccf-f47h (OAuth credentials could be sent to attacker-chosen issuer),
+  - GHSA-22jm-h49p-29qw (experimental tasks not session-isolated).
+- Regenerated `pnpm-lock.yaml`; all resolved copies now point to `@modelcontextprotocol/sdk@1.32.0`.
+- Built `@aomi-labs/smither` and `apps/build`; both builds succeeded.
+- Tests:
+  - `packages/smither`: 83/83 passing (scoped run).
+  - `apps/build`: 561/561 passing after building `@aomi-labs/widget-lib` locally (vitest relies on its dist/).
+- Reachability assessment:
+  - We do not import `@modelcontextprotocol/sdk` directly; it is transitive via `smithers-orchestrator`.
+  - No repository usage of `taskStore` found; the tasks advisory is unlikely to be reachable here.
+  - Our runtime does not use the SDK’s OAuth helpers directly in `apps/build`; the redirect/OAuth paths appear only inside orchestrator internals.
+- Pending follow-ups: none identified beyond routine dependency hygiene.
+
 ## 2026-09-17 — Post-release SDK and pool fixes
 
 - Integrated Build SDK display and canonical pool-budget fixes on a branch
