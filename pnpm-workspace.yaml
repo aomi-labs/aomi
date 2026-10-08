@@ -4,6 +4,7 @@ packages:
   - packages/*
 
 overrides:
+  "@modelcontextprotocol/sdk": 1.32.0
   viem: 2.47.11
   # Collapse react/react-dom to one version. Bun bundles the aomi-smither
   # browser console (packages/smither/src/ui) at gateway request time; with two
