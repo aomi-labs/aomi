@@ -132,45 +132,6 @@ export function TransactionList({
   );
 }
 
-/**
- * Where a transaction is in Stage → Simulate → Commit → Signed, shared by the
- * panel card and the trace's wallet hand-off so both always agree.
- */
-export function transactionProgress(tx: ActivityTransaction) {
-  const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
-  const commitSigned =
-    tx.commit?.state === "awaiting_broadcast" ||
-    tx.commit?.state === "submitted" ||
-    tx.commit?.state === "confirmed";
-  const result = tx.action?.result;
-  const leg =
-    result?.status === "submitted"
-      ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
-      : undefined;
-  const signed =
-    commitSigned ||
-    leg?.status === "submitted" ||
-    (result?.status === "signed" && result.outputs.length > 0);
-  const rejected =
-    tx.commit?.state === "rejected" ||
-    leg?.status === "rejected" ||
-    result?.status === "rejected" ||
-    tx.action?.state === "rejected";
-  const failed =
-    tx.commit?.state === "failed" ||
-    tx.commit?.state === "expired" ||
-    tx.stage === "simulation-failed" ||
-    (tx.action?.request.type !== "sign" &&
-      (tx.action?.request.simulation.status === "failed" ||
-        tx.action?.request.simulation.guards.some(
-          (guard) => guard.status === "failed",
-        )));
-  const terminal = tx.commit
-    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
-    : tx.action && tx.action.state !== "pending";
-  return { step, signed, rejected, failed, terminal };
-}
-
 export function TransactionCard({
   transaction: tx,
   reviewing = false,
@@ -205,7 +166,37 @@ export function TransactionCard({
   const network = tx.chainId
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
     : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
-  const { step, signed, rejected, failed, terminal } = transactionProgress(tx);
+  const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
+  const commitSigned =
+    tx.commit?.state === "awaiting_broadcast" ||
+    tx.commit?.state === "submitted" ||
+    tx.commit?.state === "confirmed";
+  const result = tx.action?.result;
+  const leg =
+    result?.status === "submitted"
+      ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
+      : undefined;
+  const signed =
+    commitSigned ||
+    leg?.status === "submitted" ||
+    (result?.status === "signed" && result.outputs.length > 0);
+  const rejected =
+    tx.commit?.state === "rejected" ||
+    leg?.status === "rejected" ||
+    result?.status === "rejected" ||
+    tx.action?.state === "rejected";
+  const failed =
+    tx.commit?.state === "failed" ||
+    tx.commit?.state === "expired" ||
+    tx.stage === "simulation-failed" ||
+    (tx.action?.request.type !== "sign" &&
+      (tx.action?.request.simulation.status === "failed" ||
+        tx.action?.request.simulation.guards.some(
+          (guard) => guard.status === "failed",
+        )));
+  const terminal = tx.commit
+    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
+    : tx.action && tx.action.state !== "pending";
   // An unfinished commit or pending action stays live across turns; staged
   // work that never reached either is live only while its turn is current.
   const active = current || tx.commit != null || tx.action?.state === "pending";
@@ -218,6 +209,9 @@ export function TransactionCard({
     reviewing && pendingStyle && batchSize > 1
       ? (tx.commit?.batch?.index ?? tx.actionIndex)
       : undefined;
+  const phases = ["Stage", "Simulate", "Commit", "Signed"]
+    .map((name, index) => ({ name, index }))
+    .filter(({ index }) => tx.kind !== "signature" || index !== 1);
   return (
     <m.div
       layout="position"
@@ -265,118 +259,78 @@ export function TransactionCard({
             </span>
           </StatusPill>
         </div>
-        <PhaseTrack
-          className="mt-2.5"
-          signature={tx.kind === "signature"}
-          stage={tx.stage}
-          step={step}
-          signed={signed}
-          rejected={rejected}
-          failed={Boolean(failed)}
-          liveStep={animating ? animatedStep : undefined}
-        />
+        <div
+          className={cn(
+            "mt-2.5 grid gap-1.5",
+            tx.kind === "signature" ? "grid-cols-3" : "grid-cols-4",
+          )}
+          aria-label={`Transaction preparation: ${tx.stage}; signing: ${rejected ? "rejected" : signed ? "signed" : "not signed"}`}
+        >
+          {phases.map(({ name, index }) => (
+            <div
+              key={name}
+              title={
+                index === 3
+                  ? rejected
+                    ? "Signing rejected"
+                    : signed
+                      ? "Signed"
+                      : "Not yet signed"
+                  : name
+              }
+            >
+              <m.div
+                data-active-phase={
+                  (animating && index === animatedStep) || undefined
+                }
+                style={
+                  animating && index === animatedStep
+                    ? {
+                        backgroundImage:
+                          "linear-gradient(90deg, var(--aomi-accent-subtle), var(--aomi-accent), var(--aomi-accent-subtle))",
+                        backgroundSize: "200% 100%",
+                      }
+                    : undefined
+                }
+                animate={{
+                  backgroundPosition:
+                    animating && index === animatedStep && !reduceMotion
+                      ? ["0% 0%", "-200% 0%"]
+                      : "0% 0%",
+                }}
+                transition={{
+                  duration: 1.3,
+                  ease: "linear",
+                  repeat:
+                    animating && index === animatedStep && !reduceMotion
+                      ? Infinity
+                      : 0,
+                }}
+                className={cn(
+                  "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
+                  (index === 1 && failed) || (index === 3 && rejected)
+                    ? "bg-aomi-danger"
+                    : index <= step || (index === 3 && signed)
+                      ? "bg-aomi-accent"
+                      : "bg-aomi-border",
+                )}
+              />
+              <span
+                className={cn(
+                  "mt-1.5 block text-[10px] leading-3 transition-colors",
+                  animating && index === animatedStep
+                    ? "text-aomi-fg font-medium"
+                    : index <= step || (index === 3 && signed)
+                      ? "text-aomi-muted"
+                      : "text-aomi-muted/60",
+                )}
+              >
+                {name}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </m.div>
-  );
-}
-
-/**
- * Stage → Simulate → Commit → Signed as four labelled segments, the live one
- * sweeping. Shared by the panel card and the trace's wallet hand-off so both
- * read the same.
- */
-export function PhaseTrack({
-  signature = false,
-  stage,
-  step,
-  signed,
-  rejected,
-  failed,
-  liveStep,
-  className,
-}: {
-  signature?: boolean;
-  stage?: string;
-  step: number;
-  signed: boolean;
-  rejected: boolean;
-  failed: boolean;
-  /** The segment that is in progress right now, if any. */
-  liveStep?: number;
-  className?: string;
-}) {
-  const reduceMotion = useReducedMotion();
-  const phases = ["Stage", "Simulate", "Commit", "Signed"]
-    .map((name, index) => ({ name, index }))
-    .filter(({ index }) => !signature || index !== 1);
-  return (
-    <div
-      className={cn(
-        "grid gap-1.5",
-        signature ? "grid-cols-3" : "grid-cols-4",
-        className,
-      )}
-      aria-label={`Transaction preparation: ${stage ?? "unknown"}; signing: ${rejected ? "rejected" : signed ? "signed" : "not signed"}`}
-    >
-      {phases.map(({ name, index }) => {
-        const live = liveStep === index;
-        return (
-          <div
-            key={name}
-            title={
-              index === 3
-                ? rejected
-                  ? "Signing rejected"
-                  : signed
-                    ? "Signed"
-                    : "Not yet signed"
-                : name
-            }
-          >
-            <m.div
-              data-active-phase={live || undefined}
-              style={
-                live
-                  ? {
-                      backgroundImage:
-                        "linear-gradient(90deg, var(--aomi-accent-subtle), var(--aomi-accent), var(--aomi-accent-subtle))",
-                      backgroundSize: "200% 100%",
-                    }
-                  : undefined
-              }
-              animate={{
-                backgroundPosition:
-                  live && !reduceMotion ? ["0% 0%", "-200% 0%"] : "0% 0%",
-              }}
-              transition={{
-                duration: 1.3,
-                ease: "linear",
-                repeat: live && !reduceMotion ? Infinity : 0,
-              }}
-              className={cn(
-                "h-[3px] rounded-full transition-colors motion-reduce:transition-none",
-                (index === 1 && failed) || (index === 3 && rejected)
-                  ? "bg-aomi-danger"
-                  : index <= step || (index === 3 && signed)
-                    ? "bg-aomi-accent"
-                    : "bg-aomi-border",
-              )}
-            />
-            <span
-              className={cn(
-                "mt-1.5 block text-[10px] leading-3 transition-colors",
-                live
-                  ? "text-aomi-fg font-medium"
-                  : index <= step || (index === 3 && signed)
-                    ? "text-aomi-muted"
-                    : "text-aomi-muted/60",
-              )}
-            >
-              {name}
-            </span>
-          </div>
-        );
-      })}
-    </div>
   );
 }
