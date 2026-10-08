@@ -735,3 +735,94 @@
     transparent 100%
   );
 }
+
+/* ============================================
+   Motion: three speeds (120 / 180 / 240ms), one ease-out curve.
+   Menus grow from their trigger, panels slide a short way, content that
+   replaces a skeleton fades in place. Nothing bounces.
+   ============================================ */
+
+:root {
+  --aomi-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes aui-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes aui-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes aui-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aui-phase-sweep {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Menus and popovers: grow from the corner nearest the trigger. */
+.animate-in-pop {
+  animation: aui-pop 180ms var(--aomi-ease-out) both;
+  transform-origin: var(--aui-pop-origin, bottom left);
+}
+
+/* A new row or card joining a list. */
+.animate-in-rise {
+  animation: aui-rise 180ms var(--aomi-ease-out) both;
+}
+
+/* Content replacing its skeleton in the same box. */
+.animate-in-fade {
+  animation: aui-fade 180ms linear both;
+}
+
+/* The live phase segment, same sweep as the panel's transaction cards. */
+.aui-phase-sweep {
+  background-image: linear-gradient(
+    90deg,
+    var(--aomi-accent-subtle),
+    var(--aomi-accent),
+    var(--aomi-accent-subtle)
+  );
+  background-size: 200% 100%;
+  animation: aui-phase-sweep 1.3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in-pop,
+  .animate-in-rise,
+  .animate-in-fade {
+    animation: none;
+  }
+  .aui-phase-sweep {
+    animation: none;
+    background-image: none;
+    background-color: var(--aomi-accent);
+  }
+}

@@ -129,7 +129,7 @@ export function AccountMenu({
       <div
         role="menu"
         aria-label="Account menu"
-        className="border-aomi-border bg-aomi-raised absolute bottom-[calc(100%+8px)] left-0 z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]"
+        className="border-aomi-border bg-aomi-raised animate-in-pop absolute bottom-[calc(100%+8px)] left-0 z-50 flex max-h-[calc(100dvh-1rem)] w-[min(248px,calc(100vw-1.5rem))] flex-col overflow-y-auto rounded-xl border p-2 shadow-[0_16px_40px_rgba(0,0,0,0.45)]"
       >
         <div className="bg-aomi-surface-2/55 mx-0.5 mb-2 rounded-lg px-2 pb-1.5 pt-3">
           <div className="flex min-w-0 items-center gap-2 px-1">

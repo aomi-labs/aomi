@@ -67,7 +67,7 @@ export function CapabilityPicker({
     <div
       ref={containerRef}
       style={{ maxHeight: height }}
-      className={`border-aomi-border bg-aomi-raised text-aomi-fg absolute left-0 z-50 flex w-full flex-col overflow-hidden rounded-2xl border p-2 shadow-[0_18px_50px_rgba(0,0,0,0.22)] ${above ? "bottom-full mb-8" : "top-full mt-2"}`}
+      className={`border-aomi-border bg-aomi-raised text-aomi-fg animate-in-pop absolute left-0 z-50 flex w-full flex-col overflow-hidden rounded-2xl border p-2 shadow-[0_18px_50px_rgba(0,0,0,0.22)] ${above ? "bottom-full mb-8" : "top-full mt-2"}`}
     >
       {hasItems ? (
         <div

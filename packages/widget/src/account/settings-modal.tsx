@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
   UserRound,
 } from "lucide-react";
+import { cn } from "@aomi-labs/react";
 import { useAomiWalletKit } from "@/wallet/context";
 import { AomiButton } from "@/ui/aomi/button";
 import { LoadingPane } from "@/ui/aomi/loading-pane";
@@ -22,10 +23,7 @@ import { GeneralSettings } from "./general-settings";
 import { AccountSettings } from "./account-settings";
 import { UsageSettings } from "@/account/usage/usage-settings";
 import { PolicyPage } from "@/account/policy/policy-page";
-import {
-  useAomiSession,
-  type AomiSessionStatus,
-} from "./aomi-session-bridge";
+import { useAomiSession, type AomiSessionStatus } from "./aomi-session-bridge";
 
 /** Tab ids are stable deep-link keys; "policy" is labelled Safety. */
 import type { SettingsTab } from "./settings-events";
@@ -197,7 +195,14 @@ export function SettingsModal({
           </div>
         )}
         {NAV.filter(({ id }) => visited.includes(id)).map(({ id }) => (
-          <div key={id} hidden={tab !== id} className="flex flex-1 flex-col">
+          <div
+            key={id}
+            hidden={tab !== id}
+            className={cn(
+              "flex flex-1 flex-col",
+              tab === id && "animate-in-fade",
+            )}
+          >
             {id === "general" ? (
               <GeneralSettings
                 onManageAccount={() => selectTab("account")}
