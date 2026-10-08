@@ -5,6 +5,7 @@ import { shortAddress } from "@aomi-labs/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
 import type { WalletFamily } from "@/wallet/types";
+import { PendingMark } from "@/ui/aomi/status-pill";
 import { BrandMark } from "./controls";
 import {
   appName,
@@ -158,13 +159,17 @@ function FamilySlot({
             </span>
           </span>
         </span>
-        <span
-          data-hint
-          className="type-meta text-aomi-muted pointer-fine:inline-flex pointer-events-none hidden shrink-0 items-center gap-0.5 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-        >
-          {hint}
-          <ChevronRight className="size-3" />
-        </span>
+        {current.activating ? (
+          <PendingMark />
+        ) : (
+          <span
+            data-hint
+            className="type-meta text-aomi-muted pointer-fine:inline-flex pointer-events-none hidden shrink-0 items-center gap-0.5 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+          >
+            {hint}
+            <ChevronRight className="size-3" />
+          </span>
+        )}
       </button>
     );
   return (
@@ -243,6 +248,8 @@ function FamilySlot({
               </span>
               {row.active ? (
                 <Check className="text-aomi-success size-4 shrink-0" />
+              ) : row.activating ? (
+                <PendingMark className="mx-px" />
               ) : hint ? (
                 <span
                   data-hint

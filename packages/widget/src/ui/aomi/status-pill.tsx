@@ -54,3 +54,26 @@ export function StatusPill({
     </span>
   );
 }
+
+/**
+ * Sits where a row's "Active" pill or check goes while that row is on its way
+ * there: a thin ring in the success tone, so it reads as "becoming Active".
+ */
+export function PendingMark({
+  label = "Activating",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      className={cn(
+        "border-aomi-success/20 border-t-aomi-success inline-block size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] [animation-duration:900ms]",
+        className,
+      )}
+    />
+  );
+}

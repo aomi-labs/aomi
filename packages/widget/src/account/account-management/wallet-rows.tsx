@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
-import { StatusPill } from "@/ui/aomi/status-pill";
+import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { explorerUrl } from "@/thread/explorer-links";
 import type { LinkedAuthAccount } from "@/wallet/account/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
@@ -186,8 +186,8 @@ export function AddressRow({
         <div className={mainClass}>{content}</div>
       )}
       <div className="flex shrink-0 items-center gap-1 pr-3">
-        {busy ? (
-          <Loader2 className="text-aomi-muted size-3.5 animate-spin" />
+        {busy || row.activating ? (
+          <PendingMark className="mx-2" />
         ) : row.active ? (
           <StatusPill tone="success">Active</StatusPill>
         ) : !row.linked && onVerify ? (

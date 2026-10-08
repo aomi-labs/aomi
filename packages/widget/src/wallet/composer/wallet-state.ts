@@ -106,6 +106,8 @@ export type WalletRow = WalletFacts &
     active?: boolean;
     /** The address picked for its family, even while it needs a step first. */
     chosen?: boolean;
+    /** Just picked; waiting for the wallet app to hand it over. */
+    activating?: boolean;
     /** The wallet app, e.g. "Rabby", or "Privy" for an embedded wallet. */
     brand?: string;
     pendingStep?: WalletPendingStep | null;

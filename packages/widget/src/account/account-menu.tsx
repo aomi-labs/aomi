@@ -7,7 +7,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  LoaderCircleIcon,
   LogOutIcon,
   PlusIcon,
   UnplugIcon,
@@ -16,6 +15,7 @@ import {
 import { shortAddress } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
+import { PendingMark } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
@@ -380,11 +380,8 @@ function SignsWithRows({
                   )}
                 >
                   <WalletLine row={row} />
-                  {switching === row.key ? (
-                    <LoaderCircleIcon
-                      className="text-aomi-muted animate-spin"
-                      size={13}
-                    />
+                  {switching === row.key || row.activating ? (
+                    <PendingMark />
                   ) : row.active ? (
                     <CheckIcon className="text-aomi-fg" size={14} />
                   ) : null}
