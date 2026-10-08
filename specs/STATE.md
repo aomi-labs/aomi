@@ -13,9 +13,18 @@
   row being switched to shows a thin spinner (`PendingMark`) where Active
   goes until it takes over (60 s cap).
 
+  Same PR: linking a login whose parts sit in two other accounts (Para wallets
+  in one, the email in another) now offers a merge with the strongest owner
+  (login, then wallet, then email) instead of a plain conflict, and the link
+  is retried after the merge. Choosing Privy/Para no longer blanks Settings
+  while the SDK loads (the auth store holds the last kit through the
+  handover). Privy/Para wallet rows read "Privy" with the email after the
+  address.
+
 Pending:
 - Not reproduced with real extensions; confirm with MetaMask + Rabby sharing
   a seed on the preview.
+- The two-owner Para merge is unit-tested only; confirm on staging.
 
 Previous: 2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-frontend`).
   Account chip: plain "Free · N credits" line and a square tile avatar
