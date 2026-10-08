@@ -661,6 +661,7 @@ export const WorkingTrace: FC<{
                         step={item.step}
                         stepKey={`${viewKey ?? ""}:${item.key}`}
                         animate={animate}
+                        live={running}
                       />
                     );
                   }

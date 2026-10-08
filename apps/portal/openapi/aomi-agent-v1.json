@@ -4372,6 +4372,9 @@
             "$ref": "#/components/schemas/TitleEvent"
           },
           {
+            "$ref": "#/components/schemas/ContextCompactingEvent"
+          },
+          {
             "$ref": "#/components/schemas/ContextCompactedEvent"
           },
           {
@@ -4397,6 +4400,7 @@
             "task_activity": "#/components/schemas/TaskActivityEvent",
             "task_completed": "#/components/schemas/TaskCompletedEvent",
             "title_changed": "#/components/schemas/TitleEvent",
+            "context_compacting": "#/components/schemas/ContextCompactingEvent",
             "context_compacted": "#/components/schemas/ContextCompactedEvent",
             "tool_output_trimmed": "#/components/schemas/ToolOutputTrimmedEvent",
             "error": "#/components/schemas/ErrorEvent",
@@ -4799,6 +4803,30 @@
           }
         ]
       },
+      "ContextCompactingEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "id", "tokens_before"],
+            "description": "Earlier conversation is being summarized to fit the model's context window; the turn waits for it. A ContextCompactedEvent with the same id follows. Never sent to the model.",
+            "properties": {
+              "type": {
+                "const": "context_compacting"
+              },
+              "id": {
+                "type": "string"
+              },
+              "tokens_before": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
       "ContextCompactedEvent": {
         "allOf": [
           {
@@ -4808,14 +4836,22 @@
             "type": "object",
             "required": [
               "type",
+              "id",
+              "published",
               "tokens_before",
               "tokens_after",
               "duration_ms"
             ],
-            "description": "Earlier conversation was summarized to fit the model's context window. A working-trace step; never sent to the model.",
+            "description": "The summary for the compaction with this id finished. published is false when it could not be used and the turn continued without it. A working-trace step; never sent to the model.",
             "properties": {
               "type": {
                 "const": "context_compacted"
+              },
+              "id": {
+                "type": "string"
+              },
+              "published": {
+                "type": "boolean"
               },
               "tokens_before": {
                 "type": "integer",

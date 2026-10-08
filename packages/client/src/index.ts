@@ -94,6 +94,7 @@ export type {
   ActionRequest,
   ActionResult,
   ContextCompactedEvent,
+  ContextCompactingEvent,
   ErrorEvent,
   Event,
   EventPage,

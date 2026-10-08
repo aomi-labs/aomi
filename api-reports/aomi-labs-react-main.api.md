@@ -194,7 +194,11 @@ export const CONTEXT_STEP_TOOL = "aomi:context";
 
 // @public (undocumented)
 export type ContextStep = {
+    kind: "compacting";
+    tokensBefore: number;
+} | {
     kind: "compacted";
+    published: boolean;
     tokensBefore: number;
     tokensAfter: number;
     durationMs: number;

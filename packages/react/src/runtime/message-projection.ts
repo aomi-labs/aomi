@@ -3,6 +3,7 @@ import type { ThreadMessageLike } from "@assistant-ui/react";
 import {
   projectConversationEvents,
   type ContextCompactedEvent,
+  type ContextCompactingEvent,
   type Event,
   type MessageEvent,
   type SessionSnapshot,
@@ -149,34 +150,54 @@ const upsertPart = (
 export const CONTEXT_STEP_TOOL = "aomi:context";
 
 export type ContextStep =
+  | { kind: "compacting"; tokensBefore: number }
   | {
       kind: "compacted";
+      published: boolean;
       tokensBefore: number;
       tokensAfter: number;
       durationMs: number;
     }
   | { kind: "trimmed"; tool: string; bytes: number; tokens: number };
 
-const contextPart = (
-  event: ContextCompactedEvent | ToolOutputTrimmedEvent,
-): MessageContentPart => {
-  const step: ContextStep =
-    event.type === "context_compacted"
-      ? {
-          kind: "compacted",
-          tokensBefore: event.tokens_before,
-          tokensAfter: event.tokens_after,
-          durationMs: event.duration_ms,
-        }
-      : {
-          kind: "trimmed",
-          tool: event.tool,
-          bytes: event.bytes,
-          tokens: event.tokens,
-        };
+type ContextEvent =
+  | ContextCompactingEvent
+  | ContextCompactedEvent
+  | ToolOutputTrimmedEvent;
+
+/** A compaction's start and end share one part, so the live row finishes in place. */
+const contextKey = (event: ContextEvent): string =>
+  event.type === "tool_output_trimmed"
+    ? `context:${event.event_id}`
+    : `context:compaction:${event.id}`;
+
+const contextStep = (event: ContextEvent): ContextStep => {
+  switch (event.type) {
+    case "context_compacting":
+      return { kind: "compacting", tokensBefore: event.tokens_before };
+    case "context_compacted":
+      return {
+        kind: "compacted",
+        published: event.published,
+        tokensBefore: event.tokens_before,
+        tokensAfter: event.tokens_after,
+        durationMs: event.duration_ms,
+      };
+    case "tool_output_trimmed":
+      return {
+        kind: "trimmed",
+        tool: event.tool,
+        bytes: event.bytes,
+        tokens: event.tokens,
+      };
+  }
+};
+
+const contextPart = (event: ContextEvent): MessageContentPart => {
+  const step = contextStep(event);
   return {
     type: "tool-call",
-    toolCallId: `context:${event.event_id}`,
+    toolCallId: contextKey(event),
     toolName: CONTEXT_STEP_TOOL,
     args: step,
     result: step,
@@ -499,6 +520,7 @@ export function projectAssistantMessages(
     }
 
     if (
+      event.type === "context_compacting" ||
       event.type === "context_compacted" ||
       event.type === "tool_output_trimmed"
     ) {
@@ -506,7 +528,7 @@ export function projectAssistantMessages(
       upsertPart(
         projection,
         projection.toolParts,
-        `context:${event.event_id}`,
+        contextKey(event),
         contextPart(event),
       );
       continue;

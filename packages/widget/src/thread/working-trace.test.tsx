@@ -973,7 +973,13 @@ describe("context steps", () => {
     argsText: "{}",
     toolCallId: "context:event-9",
     toolName: "aomi:context",
-    args: { kind: "compacted", tokensBefore: 151_000, tokensAfter: 38_000, durationMs: 2_400 },
+    args: {
+      kind: "compacted",
+      published: true,
+      tokensBefore: 151_000,
+      tokensAfter: 38_000,
+      durationMs: 2_400,
+    },
     result: {},
   } satisfies ToolCallMessagePart;
   const trimmed = {
@@ -981,6 +987,22 @@ describe("context steps", () => {
     toolCallId: "context:event-8",
     args: { kind: "trimmed", tool: "hoodit_scan", bytes: 2_200_000, tokens: 14_000 },
   } satisfies ToolCallMessagePart;
+
+  it("show a summary in progress, then its result in the same row", () => {
+    const compacting = {
+      ...compacted,
+      args: { kind: "compacting", tokensBefore: 151_000 },
+    } satisfies ToolCallMessagePart;
+    const { getByText } = render(
+      <WorkingTrace
+        running
+        items={buildTraceItems([compacting], [])}
+        revealed={1}
+      />,
+    );
+    expect(getByText("Summarizing earlier conversation")).toBeTruthy();
+    expect(getByText("151k tokens")).toBeTruthy();
+  });
 
   it("become their own trace rows in place", () => {
     const items = buildTraceItems([trimmed, compacted], []);

@@ -1795,6 +1795,9 @@ export type CommitWalletAttemptView = components["schemas"]["CommitWalletAttempt
 // @public (undocumented)
 export type ContextCompactedEvent = Schemas$3["ContextCompactedEvent"];
 
+// @public (undocumented)
+export type ContextCompactingEvent = Schemas$3["ContextCompactingEvent"];
+
 // @public
 export function createAccountBearerProvider(input: AccountBearerProviderOptions): AccountBearerProvider;
 

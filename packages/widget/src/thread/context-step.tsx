@@ -28,16 +28,39 @@ export const interpretContextStep = (
   step: ContextStep,
 ): InterpretedToolStep => {
   const chip = (label: string) => ({ label, icon: NoIcon });
-  return step.kind === "compacted"
-    ? {
+  switch (step.kind) {
+    case "compacting":
+      return {
         icon: ArchiveIcon,
-        title: "Summarized earlier conversation",
-        chips: [chip(`${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens`)],
+        title: "Summarizing earlier conversation",
+        chips: [chip(`${tokens(step.tokensBefore)} tokens`)],
         confidence: "high",
-        rawLabel: "context_compacted",
+        rawLabel: "context_compacting",
         failed: false,
-      }
-    : {
+      };
+    case "compacted":
+      return step.published
+        ? {
+            icon: ArchiveIcon,
+            title: "Summarized earlier conversation",
+            chips: [
+              chip(`${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens`),
+            ],
+            confidence: "high",
+            rawLabel: "context_compacted",
+            failed: false,
+          }
+        : {
+            icon: ArchiveIcon,
+            title: "Kept the earlier conversation as it was",
+            chips: [],
+            confidence: "high",
+            rawLabel: "context_compacted",
+            failed: false,
+            outcome: "incomplete",
+          };
+    case "trimmed":
+      return {
         icon: ScissorsIcon,
         title: `Trimmed ${step.tool} output`,
         chips: [chip(`${size(step.bytes)} → ${tokens(step.tokens)} tokens`)],
@@ -45,31 +68,42 @@ export const interpretContextStep = (
         rawLabel: "tool_output_trimmed",
         failed: false,
       };
+  }
 };
 
 /** The one-line explanation shown when the row is opened. */
-const detail = (step: ContextStep): string =>
-  step.kind === "compacted"
-    ? `The conversation grew past the model's working budget, so the earlier part was summarized (${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens, ${seconds(step.durationMs)}). Recent messages are kept word for word, and your stated limits are carried over exactly.`
-    : `${step.tool} returned ${size(step.bytes)}. The model saw a shortened view of about ${tokens(step.tokens)} tokens and can read the rest when it needs it.`;
+const detail = (step: ContextStep): string => {
+  switch (step.kind) {
+    case "compacting":
+      return "The conversation grew past the model's working budget, so the earlier part is being summarized. This can take a minute.";
+    case "compacted":
+      return step.published
+        ? `The conversation grew past the model's working budget, so the earlier part was summarized (${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens, ${seconds(step.durationMs)}). Recent messages are kept word for word, and your stated limits are carried over exactly.`
+        : "A summary could not be used this time, so the reply went ahead with the oldest messages left out instead.";
+    case "trimmed":
+      return `${step.tool} returned ${size(step.bytes)}. The model saw a shortened view of about ${tokens(step.tokens)} tokens and can read the rest when it needs it.`;
+  }
+};
 
 /**
- * A context step in the working trace: earlier conversation summarized, or a
- * large tool output shortened. Context steps are always complete when they
- * arrive, so they never carry the live shimmer.
+ * A context step in the working trace: earlier conversation being or having
+ * been summarized, or a large tool output shortened. Only a summary in
+ * progress, while the turn runs, carries the live shimmer.
  */
 export const ContextStepRow: FC<{
   step: ContextStep;
   stepKey: string;
   animate: boolean;
-}> = ({ step, stepKey, animate }) => {
+  live: boolean;
+}> = ({ step, stepKey, animate, live }) => {
+  const working = step.kind === "compacting" && live;
   return (
     <ToolStepRow
       viewKey={stepKey}
       interpretation={interpretContextStep(step)}
       detailText={detail(step)}
-      done
-      active={false}
+      done={!working}
+      active={working}
       animate={animate}
     />
   );

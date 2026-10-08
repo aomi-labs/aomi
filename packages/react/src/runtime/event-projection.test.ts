@@ -1186,14 +1186,22 @@ it("places context steps in the turn's trace in event order", () => {
       tokens: 14_000,
     },
     {
-      ...meta(3, "context_compacted", "turn-ctx"),
+      ...meta(3, "context_compacting", "turn-ctx"),
+      type: "context_compacting",
+      id: "c_1",
+      tokens_before: 151_000,
+    },
+    {
+      ...meta(4, "context_compacted", "turn-ctx"),
       type: "context_compacted",
+      id: "c_1",
+      published: true,
       tokens_before: 151_000,
       tokens_after: 38_000,
       duration_ms: 2_400,
     },
     {
-      ...meta(4, "message", "turn-ctx"),
+      ...meta(5, "message", "turn-ctx"),
       type: "message",
       sender: "agent",
       message_key: "turn-ctx:response",
@@ -1215,6 +1223,7 @@ it("places context steps in the turn's trace in event order", () => {
   });
   expect(content[1]?.args).toEqual({
     kind: "compacted",
+    published: true,
     tokensBefore: 151_000,
     tokensAfter: 38_000,
     durationMs: 2_400,
