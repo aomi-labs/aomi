@@ -245,6 +245,11 @@
     padding: 72px 20px !important;
   }
 
+  /* the three-gates film carries its own top margin; keep it tight above, open below */
+  .landing-page section[data-screen-label="Security"] > div {
+    padding: 8px 20px 64px !important;
+  }
+
   [data-screen-label="Validation"] > div {
     grid-template-columns: minmax(0, 1fr) !important;
   }
