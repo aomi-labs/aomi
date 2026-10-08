@@ -225,28 +225,40 @@
     font-size: 38px !important;
   }
 
+  /* component-source.js re-serializes inline styles ("position: relative"), so match both forms, as theme.css does */
   .landing-hero-back > div[style*="position:relative"] > div:first-child,
+  .landing-hero-back > div[style*="position: relative"] > div:first-child,
   [data-screen-label="One install"]
     > div[style*="position:relative"]
+    > div:first-child,
+  [data-screen-label="One install"]
+    > div[style*="position: relative"]
     > div:first-child {
     flex-direction: column;
   }
 
   .landing-hero-back > div[style*="position:relative"] > div:first-child > div,
+  .landing-hero-back > div[style*="position: relative"] > div:first-child > div,
   [data-screen-label="One install"]
     > div[style*="position:relative"]
     > div:first-child
+    > div,
+  [data-screen-label="One install"]
+    > div[style*="position: relative"]
+    > div:first-child
     > div {
     width: 100%;
+    box-sizing: border-box;
   }
 
-  .landing-page section[data-screen-label] > div[style*="max-width:1160px"] {
+  .landing-page section[data-screen-label] > div[style*="max-width:1160px"],
+  .landing-page section[data-screen-label] > div[style*="max-width: 1160px"] {
     width: 100%;
     padding: 72px 20px !important;
   }
 
   /* the three-gates film carries its own top margin; keep it tight above, open below */
-  .landing-page section[data-screen-label="Security"] > div {
+  #om-security > div {
     padding: 8px 20px 64px !important;
   }
 
