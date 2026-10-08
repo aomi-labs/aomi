@@ -1,3 +1,8 @@
+/* duplicate "Trusted by" logos exist only to loop the mobile marquee */
+.om-trusted-dup {
+  display: none !important;
+}
+
 .landing-mobile-navigation,
 .landing-mobile-menu {
   display: none;
@@ -254,15 +259,35 @@
     border-right: 0 !important;
   }
 
-  [data-screen-label="Validation"] > div > div:nth-child(2) {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  /* "Trusted by" logos: one row scrolling right to left, like the supported-chains strip */
+  [data-screen-label="Validation"] .om-trusted {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
 
-  [data-screen-label="Validation"] > div > div:nth-child(2) > div {
-    min-height: 70px;
+  [data-screen-label="Validation"] .om-trusted-track {
+    display: flex !important;
+    width: max-content;
+    animation: om-marquee-rev 30s linear infinite;
+  }
+
+  [data-screen-label="Validation"] .om-trusted-track > div {
+    flex: none;
     justify-content: flex-start !important;
-    padding: 18px 20px !important;
+    padding: 22px 24px !important;
+    border-right: 1px solid #e4e4e7 !important;
     font-size: 12px !important;
+  }
+
+  [data-screen-label="Validation"] .om-trusted-track > .om-trusted-dup {
+    display: flex !important;
+  }
+
+  /* "Backed by": investors on one line */
+  [data-screen-label="Validation"] > div > div:nth-child(5) > span:nth-child(2) {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 12px 22px !important;
   }
 
   [data-screen-label="Validation"] > div > div:nth-child(3),
@@ -401,5 +426,19 @@
   .landing-mobile-toggle::after {
     animation: none;
     transition: none;
+  }
+}
+
+@media (max-width: 1159px) and (prefers-reduced-motion: reduce) {
+  [data-screen-label="Validation"] .om-trusted {
+    overflow-x: auto !important;
+  }
+
+  [data-screen-label="Validation"] .om-trusted-track {
+    animation: none;
+  }
+
+  [data-screen-label="Validation"] .om-trusted-track > .om-trusted-dup {
+    display: none !important;
   }
 }
