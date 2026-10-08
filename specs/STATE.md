@@ -2,7 +2,30 @@
 
 ## Last Updated
 
-2026-10-05 — VERIFY BEFORE YOU SIGN (branch `cecilia/client-verify-calls`).
+2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-frontend`).
+  Account chip: plain "Free · N credits" line and a square tile avatar
+  (curated 7–9 tile patterns, same shape on every surface). Outlined buttons
+  (`AomiButton` secondary/danger, New chat, the chip) share one recipe: raised
+  fill, hairline border, faint lift, border darkens on hover; corners scale
+  with height. Composer: grey fill with a soft lift that deepens on focus.
+  Header: network pill in the same recipe with readable 18px logos and a
+  chevron, a divider, one 32px icon set with tooltips; hover-close no longer
+  returns focus to the trigger. Sidebar groups chats by last activity (the
+  sessions API sends Unix seconds) and the open chat's dot blinks while
+  running or turns amber while a wallet request waits. Trace: a hand-off card
+  under each Commit step (`thread/commit-handoff.tsx`) mirrors the panel's
+  phase bar; panel cards show signing order. Settings: square secondary
+  buttons, allowance meter, wallet names and three aligned signing slots on
+  Safety, sans figures and sentence-case headers on Usage. Motion utilities
+  (`animate-in-pop/rise/fade`, `aui-phase-sweep`) in `themes/default.css`.
+
+Pending:
+- The commit hand-off card was not seen against a live signed commit locally
+  (mock wallet has no funds); verify on the next real transaction.
+- Other threads' running/awaiting state is unknown to the client, so only the
+  open chat shows a status dot.
+
+Previous: 2026-10-05 — VERIFY BEFORE YOU SIGN (branch `cecilia/client-verify-calls`).
   `@aomi-labs/client` exports `ExpectedCalls`, which checks a prepared EVM
   request against the calls an app approved before a local key signs:
   chain, contract, function, ABI-encoded arguments, value, and passed
