@@ -11,13 +11,9 @@ import {
 } from "react";
 import { cn } from "@aomi-labs/react";
 import type { Chain } from "viem";
-import { Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { Button } from "@/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/ui/popover";
 import { getChainIcon } from "@/icons/chain-map";
 import { SolanaIcon } from "@/icons/chain-icons";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -139,12 +135,12 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
                 style={{
                   zIndex: STACK_SIZE - index,
                   // Keep closed geometry stable before hydration/CSS settles.
-                  marginLeft: index > 0 ? (open ? -2 : -6) : undefined,
+                  marginLeft: index > 0 ? (open ? 1 : -3) : undefined,
                 }}
-                className="bg-aomi-raised ring-aomi-bg relative flex size-4 items-center justify-center rounded-full text-[7px] font-semibold uppercase ring-2 transition-[margin] duration-300 ease-out motion-reduce:transition-none"
+                className="bg-aomi-surface-2 text-aomi-fg/80 ring-aomi-raised relative flex size-[18px] items-center justify-center rounded-full text-[7px] font-semibold uppercase ring-2 transition-[margin] duration-300 ease-out motion-reduce:transition-none"
               >
                 {network.Icon ? (
-                  <network.Icon className="size-4" />
+                  <network.Icon className="size-3" />
                 ) : (
                   network.fallback
                 )}
@@ -152,6 +148,10 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
             ))}
           </span>
           <span className="truncate">All networks</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-3 shrink-0 opacity-60"
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -161,6 +161,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
         onPointerEnter={hoverOpen}
         onPointerLeave={hoverClose}
         onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => event.preventDefault()}
         className="border-aomi-border bg-aomi-raised w-[280px] overflow-hidden rounded-2xl border p-0 shadow-[0_16px_40px_rgba(0,0,0,0.20)]"
       >
         <div className="px-4 pb-3 pt-4">

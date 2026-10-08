@@ -16,7 +16,11 @@ import {
 } from "./packages-catalog";
 import { selectionName, selectionDescription } from "./model";
 
-const rowAction = aomiButton({ variant: "secondary", size: "sm" });
+// One width for Try, Add and Added so every row's action lines up.
+const rowAction = cn(
+  aomiButton({ variant: "secondary", size: "sm" }),
+  "w-[72px]",
+);
 
 function AppAction({
   app,
@@ -36,7 +40,7 @@ function AppAction({
   const available = isPackageAvailableOnHost(app, hostChainIds);
   if (installed) {
     return (
-      <span className="text-aomi-muted type-meta inline-flex h-7 shrink-0 items-center gap-1.5 px-2.5 font-medium">
+      <span className="text-aomi-muted type-meta inline-flex h-7 w-[72px] shrink-0 items-center justify-center gap-1.5 font-medium">
         <Check className="size-3.5" /> Added
       </span>
     );
@@ -123,7 +127,7 @@ export function CatalogRow({
           </span>
         </span>
       </button>
-      <span className="hidden md:block">
+      <span className="hidden w-24 shrink-0 justify-end md:flex">
         <ChainMarks chainIds={selection.item.chainIds} />
       </span>
       {app ? (

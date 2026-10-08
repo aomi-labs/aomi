@@ -242,7 +242,7 @@ export const DualWalletBar: FC<DualWalletBarProps> = ({
     "border-aomi-border bg-aomi-raised text-aomi-fg hover:border-aomi-muted/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
     "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
     // One chip shape for every state so signing in does not resize it.
-    "@container rounded-xl border p-2",
+    "@container rounded-[12px] border p-2",
     className,
   );
 

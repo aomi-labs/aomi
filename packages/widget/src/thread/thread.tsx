@@ -67,7 +67,10 @@ import { PaymentRequiredGate } from "@/controls/payment-required-gate";
 import { shouldShowThreadLoadingSkeleton } from "./thread-loading";
 import { CapabilityMessageText } from "./capability-message-text";
 import { useThread, useComposerRuntime, useMessage } from "@assistant-ui/react";
-import { CapabilityComposerProvider, useCapabilityComposer } from "@/composer/capability-composer/provider";
+import {
+  CapabilityComposerProvider,
+  useCapabilityComposer,
+} from "@/composer/capability-composer/provider";
 import { CapabilityMentionInput } from "@/composer/capability-composer/input";
 
 import { TraceAttributionProvider } from "./trace-attribution";
@@ -375,7 +378,7 @@ const ComposerBox: FC<{ placeholder: string }> = ({ placeholder }) => {
     <ComposerPrimitive.Root
       onSubmit={submit}
       data-testid={testIds.composer}
-      className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3"
+      className="aui-composer-root border-aomi-border bg-aomi-surface relative flex w-full flex-col rounded-2xl border pt-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_14px_rgba(0,0,0,0.04)] transition-shadow duration-[180ms] focus-within:shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_rgba(0,0,0,0.07)]"
     >
       <CapabilityMentionInput
         placeholder={placeholder}
