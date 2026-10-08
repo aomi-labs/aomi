@@ -12,6 +12,8 @@ export type EvmConnectionInput = {
   chainId?: number;
   provider?: string;
   walletKind?: AomiAccount["walletKind"];
+  /** The address is the one the wallet app has selected, not just permitted. */
+  selected?: boolean;
 };
 
 export type SvmConnectionInput = {
@@ -59,11 +61,15 @@ export function buildAccounts(input: {
   }
 
   for (const [lowerAddr, conns] of evmGroups) {
-    const activeConn = activeConnId
-      ? conns.find((c) => c.id === activeConnId)
-      : undefined;
+    // The active connector only owns its active address: an address it merely
+    // also lists (one seed in MetaMask and Rabby) keeps its own wallet app.
+    const activeConn =
+      activeConnId && (!active || lowerAddr === active)
+        ? conns.find((c) => c.id === activeConnId)
+        : undefined;
     const display =
       activeConn ??
+      conns.find((c) => c.selected && isRealBrandName(c.walletName)) ??
       conns.find((c) => isRealBrandName(c.walletName)) ??
       conns[0];
     // One connector can expose several addresses; only the active one is active.

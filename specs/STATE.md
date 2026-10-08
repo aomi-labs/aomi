@@ -2,7 +2,31 @@
 
 ## Last Updated
 
-2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-frontend`).
+2026-10-08 — WALLET SWITCH FIX (aomi#720, branch `fix/wallet-activation-720`).
+  Picking an address that another connected wallet app also lists (one seed in
+  MetaMask and Rabby) snapped back to that app's first address, so MetaMask
+  stayed Active. The registry now matches the active ref by connector and
+  exact address before connector alone (one `findActiveConnection` in
+  `registry/policy.ts` replaces four copies), and an address belongs to the
+  app that has it selected, not to whichever connector is active. A pick the
+  registry cannot honour now throws a visible error instead of a no-op. The
+  row being switched to shows a thin spinner (`PendingMark`) where Active
+  goes until it takes over (60 s cap).
+
+  Same PR: linking a login whose parts sit in two other accounts (Para wallets
+  in one, the email in another) now offers a merge with the strongest owner
+  (login, then wallet, then email) instead of a plain conflict, and the link
+  is retried after the merge. Choosing Privy/Para no longer blanks Settings
+  while the SDK loads (the auth store holds the last kit through the
+  handover). Privy/Para wallet rows read "Privy" with the email after the
+  address.
+
+Pending:
+- Not reproduced with real extensions; confirm with MetaMask + Rabby sharing
+  a seed on the preview.
+- The two-owner Para merge is unit-tested only; confirm on staging.
+
+Previous: 2026-10-08 — UI POLISH (aomi#716, branch `feat/account-linking-frontend`).
   Account chip: plain "Free · N credits" line and a square tile avatar
   (curated 7–9 tile patterns, same shape on every surface). Outlined buttons
   (`AomiButton` secondary/danger, New chat, the chip) share one recipe: raised

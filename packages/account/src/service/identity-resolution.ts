@@ -46,6 +46,8 @@ export class IdentityConflictError extends Error {
     readonly signalType: SignalRef["type"] = "identity",
     /** A credential an owner other than the caller holds, for a merge offer. */
     readonly signal?: SignalRef,
+    /** The account that holds `signal`. */
+    readonly signalOwner?: string,
   ) {
     super("identity_conflict");
     this.name = "IdentityConflictError";
@@ -109,26 +111,31 @@ export async function attachVerifiedProviderIdentityToUser(input: {
       input.policy,
       db,
     );
-    let conflictType: SignalRef["type"] = "identity";
-    let conflictSignal: SignalRef | undefined = [...owners].some(
-      (owner) => owner !== input.userId,
-    )
-      ? identitySignal(input.identity)
-      : undefined;
+    // Several other accounts can hold parts of this login (its wallets in an
+    // old account, its email in another). Merge offers go one at a time,
+    // strongest proof first: the login itself, then a wallet, then the email.
+    const identityOwner = [...owners].find((owner) => owner !== input.userId);
+    let conflict: { signal: SignalRef; owner: string } | undefined =
+      identityOwner
+        ? { signal: identitySignal(input.identity), owner: identityOwner }
+        : undefined;
     for (const signal of dedupeSignals(input.recoverySignals ?? [])) {
       const owner = await findSignalOwner(signal, db);
       if (!owner) continue;
-      if (owner !== input.userId) {
-        conflictType = signal.type;
-        conflictSignal ??= signal;
-      }
+      if (
+        owner !== input.userId &&
+        (!conflict ||
+          SIGNAL_STRENGTH[signal.type] < SIGNAL_STRENGTH[conflict.signal.type])
+      )
+        conflict = { signal, owner };
       owners.add(owner);
     }
-    if ([...owners].some((owner) => owner !== input.userId)) {
+    if (conflict) {
       throw new IdentityConflictError(
         [...owners].sort(),
-        conflictType,
-        conflictSignal,
+        conflict.signal.type,
+        conflict.signal,
+        conflict.owner,
       );
     }
     const identity = await upsertAuthIdentity({
@@ -235,6 +242,12 @@ async function resolveLocked(
   // account profile route instead.
   return { user, identity, created };
 }
+
+const SIGNAL_STRENGTH: Record<SignalRef["type"], number> = {
+  identity: 0,
+  wallet: 1,
+  email: 2,
+};
 
 function identitySignal(identity: VerifiedProviderIdentity): SignalRef {
   return {

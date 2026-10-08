@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import type { Chain } from "viem";
 import type { Connector } from "wagmi";
 import type { AomiAccount, AomiWalletOption } from "@/wallet/types";
+import { findActiveConnection } from "@/wallet/registry/policy";
 import { selectAccounts, selectEvmIdentity } from "@/wallet/registry/selectors";
 import type { WalletRegistryStore } from "@/wallet/registry/store";
 import { useWalletRegistry } from "@/wallet/registry/use-wallet-registry";
@@ -145,15 +146,7 @@ function findActiveEvmConnection(
   state: WalletRegistryState,
 ): WalletRegistryState["connections"][number] | undefined {
   const active = state.activeByFamily.evm;
-  if (!active) return undefined;
-  return state.connections.find((connection) => {
-    if (connection.family !== "evm") return false;
-    if (active.uid && connection.uid === active.uid) return true;
-    if (active.stableId && connection.stableId !== active.stableId) {
-      return false;
-    }
-    return connection.address.toLowerCase() === active.address.toLowerCase();
-  });
+  return active ? findActiveConnection(state.connections, active) : undefined;
 }
 
 /** An account id, or a bare connector uid for that connector's current address. */
@@ -359,7 +352,9 @@ export function useEvmWalletRuntime({
         registryStore.getSnapshot().connections,
         id,
       );
-      if (!connection) return;
+      if (!connection) {
+        throw new Error("That wallet is no longer connected on this device.");
+      }
       registryStore.dispatch({
         type: "user/select-active",
         family: "evm",

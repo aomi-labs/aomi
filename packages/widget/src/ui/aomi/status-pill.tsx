@@ -54,3 +54,26 @@ export function StatusPill({
     </span>
   );
 }
+
+/**
+ * Sits where a row's "Active" pill or check goes while that row is on its way
+ * there: a thin muted ring, like the buttons' loading state.
+ */
+export function PendingMark({
+  label = "Activating",
+  className,
+}: {
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      className={cn(
+        "border-aomi-muted/25 border-t-aomi-muted inline-block size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] [animation-duration:900ms]",
+        className,
+      )}
+    />
+  );
+}

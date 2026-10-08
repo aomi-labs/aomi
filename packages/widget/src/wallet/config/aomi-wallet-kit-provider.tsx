@@ -651,7 +651,7 @@ function WalletAuthBridge({
   );
 }
 
-/** Clears what the previous runtime published when the active provider changes. */
+/** Hands the previous runtime's kit over when the active provider changes. */
 function RuntimeMount({
   store,
   children,
@@ -661,7 +661,7 @@ function RuntimeMount({
 }) {
   useLayoutEffect(
     () => () => {
-      store.publish(AOMI_BOOTING_WALLET_KIT);
+      store.beginHandover();
       store.publishFailure(null);
     },
     [store],

@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 import { useAomiWalletKit } from "@/wallet/context";
@@ -52,6 +53,12 @@ export function WalletPickerProvider({ children }: { children: ReactNode }) {
     if (!channel) return;
     return channel.subscribe(flow.handleRequest);
   }, [channel, flow.handleRequest]);
+  const isOpen = sheet.step !== "closed";
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !isOpen) channel?.closed();
+    wasOpen.current = isOpen;
+  }, [channel, isOpen]);
   useEffect(() => {
     window.addEventListener(OPEN_WALLET_PICKER_EVENT, flow.open);
     return () =>

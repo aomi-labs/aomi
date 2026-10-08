@@ -1,4 +1,8 @@
-import { resolveActive, countPlannedHealConnects } from "./policy";
+import {
+  countPlannedHealConnects,
+  findActiveConnection,
+  resolveActive,
+} from "./policy";
 import type {
   ActiveRef,
   EmbeddedSessionState,
@@ -225,15 +229,7 @@ function currentActiveEvmConnection(
   state: WalletRegistryState,
 ): RegistryConnection | undefined {
   const active = state.activeByFamily.evm;
-  if (!active) return undefined;
-  return state.connections.find((connection) => {
-    if (connection.family !== "evm") return false;
-    if (active.uid && connection.uid === active.uid) return true;
-    if (active.stableId && connection.stableId !== active.stableId) {
-      return false;
-    }
-    return connection.address.toLowerCase() === active.address.toLowerCase();
-  });
+  return active ? findActiveConnection(state.connections, active) : undefined;
 }
 
 function isSyntheticEmbeddedSessionConnection(

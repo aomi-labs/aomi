@@ -134,7 +134,7 @@ describe("Wallets & access", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Sign in with Privy (EVM EVM wallet)",
+        name: "Sign in with Privy (EVM Privy)",
       }),
     ).toBeInTheDocument();
   });
@@ -143,9 +143,13 @@ describe("Wallets & access", () => {
     const withEmail = { ...privyEvm, loginEmail: "aron@megyeri.eu" };
     const { unmount } = renderSettings([withEmail]);
     const provider = document.querySelector("[data-wallet-provider=privy]")!;
+    // The login card names the email; its wallet row is "Privy", with the
+    // email after the address.
     expect(
-      within(provider as HTMLElement).getAllByText("aron@megyeri.eu"),
-    ).toHaveLength(2);
+      within(provider as HTMLElement).getByText("aron@megyeri.eu"),
+    ).toBeInTheDocument();
+    expect(within(rowFor(withEmail)).getByText("Privy")).toBeInTheDocument();
+    expect(rowFor(withEmail).textContent).toContain("· aron@megyeri.eu ·");
     unmount();
 
     renderSettings([privyEvm], {
@@ -155,7 +159,7 @@ describe("Wallets & access", () => {
     });
     expect(screen.queryByText("privy user")).not.toBeInTheDocument();
     expect(screen.getByText("Signed in with Privy")).toBeInTheDocument();
-    expect(screen.getAllByText("EVM wallet").length).toBeGreaterThan(0);
+    expect(screen.queryByText("EVM wallet")).not.toBeInTheDocument();
   });
 
   it("lays out the signs-with strip, Wallets and Social sign-in", () => {
@@ -164,7 +168,7 @@ describe("Wallets & access", () => {
       screen.getByRole("button", { name: "EVM signs with Main" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "SVM signs with SVM wallet" }),
+      screen.getByRole("button", { name: "SVM signs with Privy" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Sign in by signing a message"),
@@ -305,7 +309,7 @@ describe("Wallets & access", () => {
       onRemove: vi.fn(),
       onDisconnect: vi.fn(),
     });
-    openMenu(privyEvm, "EVM wallet");
+    openMenu(privyEvm, "Privy");
     expect(
       screen.getAllByRole("menuitem").map((item) => item.textContent),
     ).toEqual([

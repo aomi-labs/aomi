@@ -190,6 +190,9 @@ export function useProviderCredentialExchange(input: {
         if (mergeOffer) {
           // The merge sheet answers this; don't offer it again on every refresh.
           exchanged.current = attempt;
+          // Keep the click's intent: once merged, the login may still need
+          // linking, or another account may hold the rest of it.
+          if (explicitLink && intent) setPendingLink(intent);
           setConflict({
             code: "already_linked_to_another_account",
             signalType: null,
@@ -246,10 +249,19 @@ export function useProviderCredentialExchange(input: {
     reset();
   }, [auth, reset]);
 
+  /** After a merge, try the same login again: it may need linking still. */
+  const resumeAfterMerge = useCallback(() => {
+    exchanged.current = null;
+    failed.current = null;
+    setError(undefined);
+    setConflict(undefined);
+  }, []);
+
   return {
     error,
     conflict,
     forgetCredential,
+    resumeAfterMerge,
     loginProvider: auth.login ? loginProvider : undefined,
   };
 }
