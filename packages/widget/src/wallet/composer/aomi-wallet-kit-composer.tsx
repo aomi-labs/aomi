@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AomiWalletKitContextProvider } from "@/wallet/context";
 import type { AomiAccount, AomiWalletKit } from "@/wallet/types";
 import { EVM_IDENTITY_GRACE_MS } from "@/wallet/registry/types";
@@ -233,6 +233,15 @@ export function AomiWalletKitComposer({
     () => sheetChannel?.onClosed(() => setActivating(undefined)),
     [sheetChannel],
   );
+  // Privy and Para sign in through their own modal. Once it closes the row
+  // is Active, or the user gave up; either way stop waiting.
+  const modalOpen = Boolean(auth.modalOpen);
+  const modalWasOpen = useRef(modalOpen);
+  useEffect(() => {
+    const closed = modalWasOpen.current && !modalOpen;
+    modalWasOpen.current = modalOpen;
+    if (closed) setActivating(undefined);
+  }, [modalOpen]);
   const wallets = useMemo(
     () =>
       activating

@@ -89,6 +89,14 @@ export function useSafePrivy(): PrivyAccessTokenHook {
   }
 }
 
+export function useSafePrivyModalOpen(): boolean {
+  try {
+    return privySdk().auth.useModalStatus().isOpen;
+  } catch {
+    return false;
+  }
+}
+
 export function useSafePrivyIdentityToken(): string | null {
   try {
     return privySdk().auth.useIdentityToken().identityToken;
