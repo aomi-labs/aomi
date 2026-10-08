@@ -40,6 +40,7 @@ import {
 } from "@/wallet/use-action-capabilities";
 import { testIds } from "../test-ids";
 import { useRuntimeAccount } from "./runtime-account";
+import { CurrentThreadStatus } from "./current-thread-status";
 
 // =============================================================================
 // Composer Control Context - signals Thread to show inline controls
@@ -218,6 +219,7 @@ const Root: FC<RootProps> = ({
         {...{ threadId, onThreadChange }}
       >
         <WidgetScope className={className}>
+          <CurrentThreadStatus />
           <WalletPickerProvider>
             <DisplayPrefetch />
             <ActivityPanelProvider>

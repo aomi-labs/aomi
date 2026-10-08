@@ -18,6 +18,11 @@ export function scopePackageCss(root) {
       return;
     }
     rule.selectors = rule.selectors.map((selector) => {
+      if (
+        selector === ".aomi-widget" ||
+        selector.startsWith(".aomi-widget:has(")
+      )
+        return selector;
       if (selector === ":root" || selector === ":host" || selector === "html")
         return ".aomi-widget";
       if (selector === ":root.dark")

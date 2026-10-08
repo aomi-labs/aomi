@@ -129,17 +129,6 @@ const ThreadListItem: FC = () => {
   const thread = useThreadListItem();
   const runtime = useOptionalAomiRuntime();
   const saved = runtime?.isRemoteThread?.(thread.id) !== false;
-  // Only the open chat's live state is known here: the dot blinks while Aomi
-  // works and turns amber while a wallet request waits on the user.
-  const current = runtime?.currentThreadId === thread.id;
-  const status = !current
-    ? null
-    : runtime?.pendingActions?.length ||
-        runtime?.commits?.some((commit) => commit.state === "needs_signature")
-      ? "sign"
-      : runtime?.isRunning
-        ? "run"
-        : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");
@@ -266,21 +255,8 @@ const ThreadListItem: FC = () => {
             {/* Sky dot marks the active session; it blinks while Aomi works
                 and turns amber while a wallet request waits on the user. */}
             <span
-              aria-label={
-                status === "sign"
-                  ? "Waiting for your signature"
-                  : status === "run"
-                    ? "Working"
-                    : undefined
-              }
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                status === "sign"
-                  ? "bg-aomi-warning opacity-100"
-                  : "bg-aomi-accent-strong group-data-active/thread:opacity-100 opacity-0",
-                status === "run" &&
-                  "animate-pulse opacity-100 motion-reduce:animate-none",
-              )}
+              aria-hidden="true"
+              className="aui-thread-status group-data-active/thread:opacity-100 size-1.5 shrink-0 rounded-full opacity-0"
             />
             <ThreadListItemTitle />
           </ThreadListItemPrimitive.Trigger>

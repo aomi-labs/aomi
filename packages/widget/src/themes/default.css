@@ -12,6 +12,44 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Status changes live outside the sidebar, keeping chat rows stable per turn.
+   Each widget sets its own variables, including portaled mobile rows, so one
+   embedded widget cannot animate another widget's active chat. */
+.aomi-widget {
+  --aui-thread-status-color: var(--aomi-accent-strong);
+  --animate-aui-thread-status: none;
+}
+
+.aomi-widget:has(> [data-current-thread-status="run"]) {
+  --animate-aui-thread-status: auiThreadStatusPulse 2s
+    cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.aomi-widget:has(> [data-current-thread-status="sign"]) {
+  --aui-thread-status-color: var(--aomi-warning);
+}
+
+.aui-thread-status {
+  background-color: var(--aomi-accent-strong);
+}
+
+.aui-thread-list-item[data-active] .aui-thread-status {
+  background-color: var(--aui-thread-status-color);
+  animation: var(--animate-aui-thread-status);
+}
+
+@keyframes auiThreadStatusPulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aui-thread-list-item[data-active] .aui-thread-status {
+    animation: none;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
