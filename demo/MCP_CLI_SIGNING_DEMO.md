@@ -12,8 +12,8 @@ same address as the signer.
 ## Fixed staging values
 
 - Portal origin: `https://chat-staging.aomi.dev`
-- MCP endpoint: `https://chat-staging.aomi.dev/api/mcp`
-- Direct-tool MCP endpoint: `https://chat-staging.aomi.dev/api/mcp/direct`
+- Agent MCP endpoint: `https://chat-staging.aomi.dev/v1/agent/mcp`
+- Pipeline MCP endpoint: `https://chat-staging.aomi.dev/v1/pipeline/mcp`
 - EVM chain: Base (`8453`)
 - Required CLI version: `@aomi-labs/client@0.5.1` or a build of this change
 
@@ -57,7 +57,7 @@ For ChatGPT developer-mode testing, follow OpenAI's current
 
 1. In ChatGPT, open **Settings → Security and login** and enable Developer mode.
 2. Open ChatGPT Plugins, select the plus button, and create an MCP connection.
-3. Enter `https://chat-staging.aomi.dev/api/mcp` as the public HTTPS endpoint.
+3. Enter `https://chat-staging.aomi.dev/v1/agent/mcp` as the public HTTPS endpoint.
 4. Complete the opened Aomi SIWE sign-in and OAuth consent. Review the discovered
    tools before starting the take.
 5. Start a new chat with the connection enabled.
@@ -68,9 +68,10 @@ discover the protected-resource and authorization metadata, then complete the
 opened Aomi SIWE/OAuth flow. Do not copy OAuth tokens, cookies, authorization
 codes, or PKCE values between clients.
 
-The primary endpoint should expose `aomi_chat`, `aomi_check`,
-`aomi_interrupt`, and `aomi_list_sessions`. The separate `/api/mcp/direct`
-endpoint exposes direct tools and is not used for the signing handoff.
+The Agent endpoint should expose `aomi_chat`, `aomi_check`, `aomi_interrupt`,
+and `aomi_list_sessions`. The separate `/v1/pipeline/mcp` endpoint exposes the
+twelve direct discovery/execution tools, including skill discovery, and is not
+used for the signing handoff.
 
 ## Stage the minimal transaction through MCP
 
@@ -81,14 +82,15 @@ wallet address:
 > `0xYOUR_TEST_WALLET` to the same `0xYOUR_TEST_WALLET`. Do not send any other
 > transaction. Stop for external wallet approval.
 
-The MCP client should call `aomi_chat`. Record the returned `session_id`,
-`cursor`, status, and redacted pending request ID. While the result is
-`processing`, call `aomi_check` with that `session_id` and latest `cursor`.
-Stop when it reports `awaiting_user` and a `tx-N` pending request.
+The MCP client should call `aomi_chat`. Record the returned `session`,
+`started_turn_id`, `cursor`, and redacted pending request ID. Call `aomi_check`
+with that `session` and latest `cursor`; set `wait_ms` only when a bounded long
+poll is useful. Follow `turn_state_changed` events and stop at
+`awaiting_action`, when the result also carries the human handoff.
 
 Before signing, establish that this new staged action has not executed:
 
-- the new session reports `awaiting_user`, not `complete`;
+- the new turn reports `awaiting_action`, not `complete`;
 - `aomi_check` has no confirmed transaction hash for the new staged ID;
 - a fresh isolated CLI state contains no signed journal entry for that ID; and
 - `aomi tx list` shows the ID under **Pending**, not **Signed**.
@@ -164,7 +166,7 @@ missing backend notification). Never continue if it submits a second action.
 ## Confirm MCP completion and the public receipt
 
 Back in the MCP client, call `aomi_check` again with the wallet session ID and
-latest cursor. The state should advance from `awaiting_user` to `complete`, and
+latest cursor. The state should advance from `awaiting_action` to `complete`, and
 the pending request list should be empty. Record the final status and cursor.
 
 Open the action hash at:
@@ -183,7 +185,7 @@ Show, in this order:
 
 1. The staging MCP endpoint and the four discovered primary tools.
 2. The exact 1 wei self-transfer prompt.
-3. `aomi_chat` followed by `aomi_check` reaching `awaiting_user`.
+3. `aomi_chat` followed by `aomi_check` reaching `awaiting_action`.
 4. The session ID and pending staged ID, with all credentials redacted.
 5. CLI `0.5.1`, authenticated wallet address, and resumed MCP session.
 6. `aomi tx list`, the simulation, exact action value, and the fee in ETH plus
@@ -203,13 +205,13 @@ secret file.
 
 ## Troubleshooting and recovery
 
-- **OAuth discovery or connection fails:** verify the exact HTTPS `/api/mcp`
+- **OAuth discovery or connection fails:** verify the exact HTTPS `/v1/agent/mcp`
   URL with the deterministic smoke or MCP Inspector. Refresh the MCP connection
   after server metadata changes.
 - **Wrong account or wallet:** stop before signing. Clear the isolated take and
   repeat SIWE/OAuth with the intended test wallet; do not override a mismatch.
 - **No pending transaction:** keep polling the same session with `aomi_check`.
-  If it ends without `awaiting_user`, create a new session and restage; never
+  If it ends without `awaiting_action`, create a new session and restage; never
   invent a staged ID.
 - **Simulation fails:** do not sign. Capture the redacted failure and create a
   fresh request only after the cause is understood.
@@ -219,7 +221,7 @@ secret file.
 - **Callback was interrupted after broadcast:** rerun `aomi tx sign` for the
   same ID once. The local signed journal should replay only the backend callback
   and report that no transaction was rebroadcast.
-- **MCP remains `awaiting_user`:** first run the same CLI command once to recover
+- **MCP remains `awaiting_action`:** first run the same CLI command once to recover
   a missing callback. If the action is already journaled and the state still
   does not advance, stop and escalate with only session ID, staged ID, public
   hashes, timestamps, and redacted error text.
