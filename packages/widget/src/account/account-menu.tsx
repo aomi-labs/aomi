@@ -23,6 +23,7 @@ import { FamilyTag } from "./account-management/signs-with";
 import {
   appName,
   familySlots,
+  rowEmail,
   rowTitle,
 } from "./account-management/wallet-model";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
@@ -470,6 +471,9 @@ function WalletLine({ row }: { row: WalletRow }) {
         </span>
         <span className="text-aomi-muted block truncate font-mono text-[11px]">
           {shortAddress(row.address)}
+          {rowEmail(row) ? (
+            <span className="font-sans"> · {rowEmail(row)}</span>
+          ) : null}
         </span>
       </span>
     </span>

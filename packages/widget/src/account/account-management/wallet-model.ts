@@ -23,18 +23,23 @@ export const familyTag = (family: WalletFamily) =>
   family === "evm" ? "EVM" : "SVM";
 
 /** The wallet app, e.g. "Rabby" or "Privy". */
-export const appName = (row: WalletRow) => row.brand ?? "Wallet";
+export const appName = (row: WalletRow) => {
+  const provider = loginProvider(row.provider);
+  return row.brand ?? (provider ? providerName(provider) : "Wallet");
+};
 
 /**
  * The row title: the user's own name for the address (with the app name
- * muted beside it), else the login's email for an embedded wallet.
+ * muted beside it), else the wallet app ("Rabby", "Privy").
  */
 export function rowTitle(row: WalletRow): { title: string; app?: string } {
   if (row.label) return { title: row.label, app: appName(row) };
-  if (loginProvider(row.provider))
-    return { title: row.loginEmail ?? `${familyTag(row.family)} wallet` };
   return { title: appName(row) };
 }
+
+/** The login's email beside an embedded wallet's address. */
+export const rowEmail = (row: WalletRow) =>
+  loginProvider(row.provider) ? row.loginEmail : undefined;
 
 /** What a login card shows under its name: an email or another real identifier. */
 export function loginSubtitle(

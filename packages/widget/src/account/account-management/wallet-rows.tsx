@@ -20,6 +20,7 @@ import {
   loginSubtitle,
   pendingHint,
   providerName,
+  rowEmail,
   rowTitle,
   type LoginGroup,
 } from "./wallet-model";
@@ -59,6 +60,7 @@ export function AddressRow({
   const [draft, setDraft] = useState<string | null>(null);
   const short = shortAddress(row.address);
   const { title, app: titleApp } = rowTitle(row);
+  const email = rowEmail(row);
   const hint = pendingHint(row);
   const busy = pending?.endsWith(`:${row.key}`) ?? false;
   const locked = pending !== null;
@@ -141,7 +143,9 @@ export function AddressRow({
           </span>
         )}
         <span className="type-address text-aomi-muted truncate">
-          {short} · {familyTag(row.family)}
+          {short}
+          {email ? <span className="font-sans"> · {email}</span> : null} ·{" "}
+          {familyTag(row.family)}
         </span>
       </span>
     </>

@@ -12,6 +12,7 @@ import {
   familySlots,
   familyTag,
   pendingHint,
+  rowEmail,
   rowTitle,
 } from "./wallet-model";
 
@@ -155,6 +156,7 @@ function FamilySlot({
                 <span className="font-mono">
                   {shortAddress(current.address)}
                 </span>
+                {rowEmail(current) ? ` · ${rowEmail(current)}` : null}
               </span>
             </span>
           </span>
@@ -200,6 +202,7 @@ function FamilySlot({
                   <span className="font-mono">
                     {shortAddress(current.address)}
                   </span>
+                  {rowEmail(current) ? ` · ${rowEmail(current)}` : null}
                 </span>
               </span>
             </span>
@@ -244,6 +247,9 @@ function FamilySlot({
                 </span>
                 <span className="type-address text-aomi-muted truncate">
                   {shortAddress(row.address)}
+                  {rowEmail(row) ? (
+                    <span className="font-sans"> · {rowEmail(row)}</span>
+                  ) : null}
                 </span>
               </span>
               {row.active ? (

@@ -518,9 +518,7 @@ describe("account ACL wiring", () => {
         vi.fn(async () => undefined),
         "privy",
       );
-      await click(
-        screen.getByRole("button", { name: /^Use (EVM|SVM) wallet / }),
-      );
+      await click(screen.getByRole("button", { name: /^Use Privy / }));
       expect(walletKit.activateWallet).toHaveBeenCalledWith(key);
     },
   );
