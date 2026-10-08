@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       allow_package_drift:
-        description: Publish this already-soaked candidate even though publishable package paths changed on main
+        description: Acknowledge reviewed package-path changes on main while publishing this frozen candidate
         required: true
         default: false
         type: boolean
