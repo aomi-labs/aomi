@@ -57,7 +57,7 @@ export function StatusPill({
 
 /**
  * Sits where a row's "Active" pill or check goes while that row is on its way
- * there: a thin ring in the success tone, so it reads as "becoming Active".
+ * there: a thin muted ring, like the buttons' loading state.
  */
 export function PendingMark({
   label = "Activating",
@@ -71,7 +71,7 @@ export function PendingMark({
       role="status"
       aria-label={label}
       className={cn(
-        "border-aomi-success/20 border-t-aomi-success inline-block size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] [animation-duration:900ms]",
+        "border-aomi-muted/25 border-t-aomi-muted inline-block size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] [animation-duration:900ms]",
         className,
       )}
     />

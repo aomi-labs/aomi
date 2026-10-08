@@ -228,6 +228,11 @@ export function AomiWalletKitComposer({
     );
     return () => window.clearTimeout(timeout);
   }, [activated, activating]);
+  // A switch or connect waits in the wallet sheet; closing it gives up.
+  useEffect(
+    () => sheetChannel?.onClosed(() => setActivating(undefined)),
+    [sheetChannel],
+  );
   const wallets = useMemo(
     () =>
       activating

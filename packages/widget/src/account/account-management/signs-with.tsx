@@ -135,7 +135,7 @@ function FamilySlot({
         aria-label={`${hint} (${tag} ${rowTitle(current).title})`}
         disabled={disabled}
         onClick={() => onActivate(current)}
-        className="hover:bg-aomi-hover focus-visible:bg-aomi-hover group flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left outline-none transition-colors"
+        className="hover:bg-aomi-hover focus-visible:bg-aomi-hover group relative flex min-w-0 items-center gap-2 px-3.5 py-2.5 text-left outline-none transition-colors"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="type-meta text-aomi-muted flex items-center gap-1.5">
@@ -164,9 +164,10 @@ function FamilySlot({
         {current.activating ? (
           <PendingMark />
         ) : (
+          // Overlays the line's end on hover, so the email gets the full width.
           <span
             data-hint
-            className="type-meta text-aomi-muted pointer-fine:inline-flex pointer-events-none hidden shrink-0 items-center gap-0.5 whitespace-nowrap opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="type-meta text-aomi-muted pointer-fine:inline-flex from-aomi-hover pointer-events-none absolute inset-y-0 right-0 hidden items-center gap-0.5 whitespace-nowrap bg-gradient-to-l from-70% to-transparent pl-10 pr-3.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
           >
             {hint}
             <ChevronRight className="size-3" />
