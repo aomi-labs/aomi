@@ -30,6 +30,8 @@ import {
   useOptionalAomiRuntime,
   useThreadTaskRuns,
   walletContinuationPending,
+  CONTEXT_STEP_TOOL,
+  type ContextStep,
   type TaskRunState,
 } from "@aomi-labs/react";
 import type { Event, TurnState } from "@aomi-labs/client";
@@ -39,6 +41,7 @@ import { testIds } from "@/test-ids";
 import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import { agentStepCount, WorkingAgent } from "./working-agent";
 import { CommitHandoff, isCommitTool } from "./commit-handoff";
+import { ContextStepRow } from "./context-step";
 import {
   prefersReducedMotion,
   toDetailString,
@@ -165,6 +168,7 @@ const WorkingStep: FC<{
 type TraceItem =
   | { kind: "tool"; tool: ToolCallMessagePart; key: string }
   | { kind: "note"; text: string; key: string }
+  | { kind: "context"; step: ContextStep; key: string }
   | {
       kind: "agent";
       agentId: string;
@@ -650,6 +654,16 @@ export const WorkingTrace: FC<{
                       />
                     );
                   }
+                  if (item.kind === "context") {
+                    return (
+                      <ContextStepRow
+                        key={item.key}
+                        step={item.step}
+                        stepKey={`${viewKey ?? ""}:${item.key}`}
+                        animate={animate}
+                      />
+                    );
+                  }
                   if (item.kind === "agent") {
                     return (
                       <WorkingAgent
@@ -771,6 +785,14 @@ export const buildTraceItems = (
 
   content.forEach((part, i) => {
     if (part.type === "tool-call") {
+      if (part.toolName === CONTEXT_STEP_TOOL) {
+        items.push({
+          kind: "context",
+          step: part.args as unknown as ContextStep,
+          key: part.toolCallId ?? `context-${i}`,
+        });
+        return;
+      }
       if (part.toolName === "task") {
         const resultAgentIds = taskResultAgentIds(part.result);
         const callId = part.toolCallId ?? `task-${i}`;

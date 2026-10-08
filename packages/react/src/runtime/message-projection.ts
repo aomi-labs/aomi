@@ -2,10 +2,12 @@ import type { ThreadMessageLike } from "@assistant-ui/react";
 
 import {
   projectConversationEvents,
+  type ContextCompactedEvent,
   type Event,
   type MessageEvent,
   type SessionSnapshot,
   type ToolCompleteEvent,
+  type ToolOutputTrimmedEvent,
   type ToolUpdateEvent,
   type TurnState,
 } from "@aomi-labs/client";
@@ -136,6 +138,49 @@ const upsertPart = (
         ? { ...previous, ...part, args: part.args ?? previous.args }
         : part;
   }
+};
+
+/**
+ * Reserved part name for context steps (#1240): earlier conversation
+ * summarized, or a large tool output shortened. They ride the turn's content
+ * as tool-call parts so they keep their place in the working trace; no real
+ * tool can have this name.
+ */
+export const CONTEXT_STEP_TOOL = "aomi:context";
+
+export type ContextStep =
+  | {
+      kind: "compacted";
+      tokensBefore: number;
+      tokensAfter: number;
+      durationMs: number;
+    }
+  | { kind: "trimmed"; tool: string; bytes: number; tokens: number };
+
+const contextPart = (
+  event: ContextCompactedEvent | ToolOutputTrimmedEvent,
+): MessageContentPart => {
+  const step: ContextStep =
+    event.type === "context_compacted"
+      ? {
+          kind: "compacted",
+          tokensBefore: event.tokens_before,
+          tokensAfter: event.tokens_after,
+          durationMs: event.duration_ms,
+        }
+      : {
+          kind: "trimmed",
+          tool: event.tool,
+          bytes: event.bytes,
+          tokens: event.tokens,
+        };
+  return {
+    type: "tool-call",
+    toolCallId: `context:${event.event_id}`,
+    toolName: CONTEXT_STEP_TOOL,
+    args: step,
+    result: step,
+  } as MessageContentPart;
 };
 
 const toolPart = (
@@ -450,6 +495,20 @@ export function projectAssistantMessages(
             ? { ...projected, id: previous.id }
             : projected;
       }
+      continue;
+    }
+
+    if (
+      event.type === "context_compacted" ||
+      event.type === "tool_output_trimmed"
+    ) {
+      const projection = assistantTurn(event, index);
+      upsertPart(
+        projection,
+        projection.toolParts,
+        `context:${event.event_id}`,
+        contextPart(event),
+      );
       continue;
     }
 

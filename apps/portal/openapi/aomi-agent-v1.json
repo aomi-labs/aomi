@@ -530,6 +530,7 @@
     "/v1/agent/mcp": {
       "post": {
         "operationId": "agentMcp",
+        "description": "Dual-era stateless MCP endpoint supporting modern 2026-07-28 requests and legacy initialize clients.",
         "requestBody": {
           "required": true,
           "content": {
@@ -540,7 +541,14 @@
         },
         "responses": {
           "200": {
-            "description": "MCP JSON-RPC response"
+            "description": "MCP JSON-RPC response",
+            "headers": {
+              "mcp-protocol-version": {
+                "schema": {
+                  "enum": ["2026-07-28", "2025-06-18"]
+                }
+              }
+            }
           },
           "202": {
             "description": "Notification accepted"
@@ -1197,7 +1205,7 @@
     "/v1/pipeline/mcp": {
       "post": {
         "operationId": "pipelineMcp",
-        "description": "Stateless streamable-HTTP MCP JSON-RPC over the same PipelineApiService as REST.",
+        "description": "Dual-era stateless streamable-HTTP MCP JSON-RPC over the same PipelineApiService as REST. Modern requests use the 2026-07-28 per-request metadata and routing-header contract; legacy initialize clients remain supported.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1212,7 +1220,7 @@
             "headers": {
               "mcp-protocol-version": {
                 "schema": {
-                  "const": "2025-06-18"
+                  "enum": ["2026-07-28", "2025-06-18"]
                 }
               }
             }
@@ -4364,6 +4372,12 @@
             "$ref": "#/components/schemas/TitleEvent"
           },
           {
+            "$ref": "#/components/schemas/ContextCompactedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ToolOutputTrimmedEvent"
+          },
+          {
             "$ref": "#/components/schemas/ErrorEvent"
           },
           {
@@ -4383,6 +4397,8 @@
             "task_activity": "#/components/schemas/TaskActivityEvent",
             "task_completed": "#/components/schemas/TaskCompletedEvent",
             "title_changed": "#/components/schemas/TitleEvent",
+            "context_compacted": "#/components/schemas/ContextCompactedEvent",
+            "tool_output_trimmed": "#/components/schemas/ToolOutputTrimmedEvent",
             "error": "#/components/schemas/ErrorEvent",
             "action": "#/components/schemas/Action"
           }
@@ -4776,6 +4792,71 @@
                 "minimum": 0
               },
               "duration_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "ContextCompactedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "tokens_before",
+              "tokens_after",
+              "duration_ms"
+            ],
+            "description": "Earlier conversation was summarized to fit the model's context window. A working-trace step; never sent to the model.",
+            "properties": {
+              "type": {
+                "const": "context_compacted"
+              },
+              "tokens_before": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tokens_after": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "duration_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "ToolOutputTrimmedEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventMeta"
+          },
+          {
+            "type": "object",
+            "required": ["type", "tool", "id", "bytes", "tokens"],
+            "description": "A tool output was larger than the model's share; the model saw a shortened view (about `tokens`) and can page the full output (`bytes`) by `id`.",
+            "properties": {
+              "type": {
+                "const": "tool_output_trimmed"
+              },
+              "tool": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tokens": {
                 "type": "integer",
                 "minimum": 0
               }

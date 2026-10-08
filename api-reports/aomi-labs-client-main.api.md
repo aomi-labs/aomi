@@ -1792,6 +1792,9 @@ export type CommitWalletAttemptRequest = components["schemas"]["CommitWalletAtte
 // @public (undocumented)
 export type CommitWalletAttemptView = components["schemas"]["CommitWalletAttemptView"];
 
+// @public (undocumented)
+export type ContextCompactedEvent = Schemas$3["ContextCompactedEvent"];
+
 // @public
 export function createAccountBearerProvider(input: AccountBearerProviderOptions): AccountBearerProvider;
 
@@ -3501,6 +3504,9 @@ export function toAAWalletCalls(payload: WalletTxPayload, defaultChainId?: numbe
 
 // @public (undocumented)
 export type ToolCompleteEvent = Schemas$3["ToolCompleteEvent"];
+
+// @public (undocumented)
+export type ToolOutputTrimmedEvent = Schemas$3["ToolOutputTrimmedEvent"];
 
 // @public (undocumented)
 export type ToolUpdateEvent = Schemas$3["ToolUpdateEvent"];

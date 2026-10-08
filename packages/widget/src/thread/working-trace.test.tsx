@@ -966,3 +966,39 @@ it("keeps ownership badges visible in the mother and delegated trace", () => {
   );
   expect(getAllByText("LI.FI")).toHaveLength(2);
 });
+
+describe("context steps", () => {
+  const compacted = {
+    type: "tool-call" as const,
+    argsText: "{}",
+    toolCallId: "context:event-9",
+    toolName: "aomi:context",
+    args: { kind: "compacted", tokensBefore: 151_000, tokensAfter: 38_000, durationMs: 2_400 },
+    result: {},
+  } satisfies ToolCallMessagePart;
+  const trimmed = {
+    ...compacted,
+    toolCallId: "context:event-8",
+    args: { kind: "trimmed", tool: "hoodit_scan", bytes: 2_200_000, tokens: 14_000 },
+  } satisfies ToolCallMessagePart;
+
+  it("become their own trace rows in place", () => {
+    const items = buildTraceItems([trimmed, compacted], []);
+    expect(items.map((item) => item.kind)).toEqual(["context", "context"]);
+  });
+
+  it("read as plain steps with their sizes", () => {
+    const { getByText } = render(
+      <WorkingTrace
+        running={false}
+        outcome="complete"
+        items={buildTraceItems([trimmed, compacted], [])}
+        revealed={2}
+      />,
+    );
+    expect(getByText("Trimmed hoodit_scan output")).toBeTruthy();
+    expect(getByText("2.1 MB → 14k tokens")).toBeTruthy();
+    expect(getByText("Summarized earlier conversation")).toBeTruthy();
+    expect(getByText("151k → 38k tokens")).toBeTruthy();
+  });
+});

@@ -189,6 +189,22 @@ export { ChainInfo }
 // @public
 export function cn(...inputs: ClassValue[]): string;
 
+// @public
+export const CONTEXT_STEP_TOOL = "aomi:context";
+
+// @public (undocumented)
+export type ContextStep = {
+    kind: "compacted";
+    tokensBefore: number;
+    tokensAfter: number;
+    durationMs: number;
+} | {
+    kind: "trimmed";
+    tool: string;
+    bytes: number;
+    tokens: number;
+};
+
 // @public (undocumented)
 export type ControlContextApi = ApiKeyActions & ByokActions & AppSecretsActions & AuthEndpointsActions & PerThreadControlActions & {
     state: ControlState;

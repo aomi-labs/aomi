@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Event } from "@aomi-labs/client";
 
 import {
+  CONTEXT_STEP_TOOL,
   logicalTurnRunning,
   projectAssistantMessages,
   projectRuntimeMessages,
@@ -1165,4 +1166,57 @@ it("targets the completed callback response rather than its projected parent for
   expect(pending?.metadata?.custom?.aomiResponseMessageKey).not.toBe(
     `${callbackTurn}:response`,
   );
+});
+
+it("places context steps in the turn's trace in event order", () => {
+  const events: Event[] = [
+    {
+      ...meta(1, "message", "turn-ctx"),
+      type: "message",
+      sender: "user",
+      message_key: "turn-ctx:prompt",
+      content: "scan everything",
+    },
+    {
+      ...meta(2, "tool_output_trimmed", "turn-ctx"),
+      type: "tool_output_trimmed",
+      tool: "hoodit_scan",
+      id: "t_142a",
+      bytes: 2_200_000,
+      tokens: 14_000,
+    },
+    {
+      ...meta(3, "context_compacted", "turn-ctx"),
+      type: "context_compacted",
+      tokens_before: 151_000,
+      tokens_after: 38_000,
+      duration_ms: 2_400,
+    },
+    {
+      ...meta(4, "message", "turn-ctx"),
+      type: "message",
+      sender: "agent",
+      message_key: "turn-ctx:response",
+      content: "Done.",
+    },
+  ];
+  const [, assistant] = projectAssistantMessages(events);
+  const content = assistant?.content as Array<Record<string, unknown>>;
+  expect(content.map((part) => part.toolName ?? part.type)).toEqual([
+    CONTEXT_STEP_TOOL,
+    CONTEXT_STEP_TOOL,
+    "text",
+  ]);
+  expect(content[0]?.args).toEqual({
+    kind: "trimmed",
+    tool: "hoodit_scan",
+    bytes: 2_200_000,
+    tokens: 14_000,
+  });
+  expect(content[1]?.args).toEqual({
+    kind: "compacted",
+    tokensBefore: 151_000,
+    tokensAfter: 38_000,
+    durationMs: 2_400,
+  });
 });
