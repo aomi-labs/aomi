@@ -69,8 +69,7 @@ vi.mock("./account-service", () => serviceMocks);
 vi.mock("../db/queries", () => queryMocks);
 
 vi.mock("./identity-resolution", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("./identity-resolution")>();
+  const actual = await importOriginal<typeof import("./identity-resolution")>();
   return {
     ...actual,
     resolveVerifiedProviderIdentity: vi.fn(async (input) => {
