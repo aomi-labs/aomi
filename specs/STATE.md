@@ -5544,11 +5544,11 @@ Controls disabled while isProcessing === true
 
 ## 2026-10-08 — Pin @modelcontextprotocol/sdk security fixes, verify builds/tests
 
-- Added a root pnpm override to force `@modelcontextprotocol/sdk` to 1.32.0 to address:
+- Added a workspace `overrides` pin in `pnpm-workspace.yaml` to force `@modelcontextprotocol/sdk` to 1.32.0 to address:
   - GHSA-6prh-2h8m-c8cw (cross-origin redirect leakage in HTTP transports/OAuth),
   - GHSA-6qxp-vccf-f47h (OAuth credentials could be sent to attacker-chosen issuer),
   - GHSA-22jm-h49p-29qw (experimental tasks not session-isolated).
-- Regenerated `pnpm-lock.yaml`; all resolved copies now point to `@modelcontextprotocol/sdk@1.32.0`.
+- Lockfile regen minimized churn: restored `pnpm-lock.yaml` from `main`, then ran `pnpm install --lockfile-only` using pnpm 10.28.0. All resolved copies now point to `@modelcontextprotocol/sdk@1.32.0`.
 - Built `@aomi-labs/smither` and `apps/build`; both builds succeeded.
 - Tests:
   - `packages/smither`: 83/83 passing (scoped run).

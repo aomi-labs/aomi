@@ -21,6 +21,10 @@ overrides:
   # instances → "requires an AuiProvider" at runtime).
   "@types/react": 19.2.14
   "@types/react-dom": 19.2.3
+  # Force a patched MCP TypeScript SDK. Transitive via smithers-orchestrator,
+  # which currently pins 1.29.0; addresses GHSA-6prh-2h8m-c8cw, GHSA-6qxp-vccf-f47h,
+  # and GHSA-22jm-h49p-29qw. Drop once smithers-orchestrator depends on >=1.32.0.
+  "@modelcontextprotocol/sdk": 1.32.0
 
 # @inkjs/ui declares no react dependency (nor peer), so its bare `import react`
 # falls through to a hoisted copy that differs from the one ink's reconciler is
