@@ -176,9 +176,12 @@ export function TransactionCard({
   reviewing = false,
   executing,
   current,
+  batchSize = 1,
 }: {
   transaction: ActivityTransaction;
   reviewing?: boolean;
+  /** Transactions in this card's wallet request; order shows only above one. */
+  batchSize?: number;
   executing: boolean;
   /** Staged in the current turn, including its callback turns. */
   current: boolean;
@@ -212,7 +215,7 @@ export function TransactionCard({
   const pendingStyle = active && !signed && !rejected && !terminal;
   // Signing order inside the wallet request, shown only while it matters.
   const signingOrder =
-    reviewing && pendingStyle
+    reviewing && pendingStyle && batchSize > 1
       ? (tx.commit?.batch?.index ?? tx.actionIndex)
       : undefined;
   const phases = ["Stage", "Simulate", "Commit", "Signed"]
