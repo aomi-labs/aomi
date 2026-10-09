@@ -1019,8 +1019,8 @@ describe("context steps", () => {
       />,
     );
     expect(getByText("Trimmed hoodit_scan output")).toBeTruthy();
-    expect(getByText("2.1 MB → 14k tokens")).toBeTruthy();
+    expect(getByText("2.1 MB to 14k tokens")).toBeTruthy();
     expect(getByText("Summarized earlier conversation")).toBeTruthy();
-    expect(getByText("151k → 38k tokens")).toBeTruthy();
+    expect(getByText("151k to 38k tokens")).toBeTruthy();
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import type { FC } from "react";
-import { ArchiveIcon, ScissorsIcon } from "lucide-react";
+import { ArchiveIcon, LayersIcon, ScissorsIcon } from "lucide-react";
 
 import type { ContextStep } from "@aomi-labs/react";
 import type { InterpretedToolStep } from "@/thread/tool-interpreter/interpret";
@@ -21,13 +21,10 @@ const size = (bytes: number): string =>
 
 const seconds = (ms: number): string => `${(ms / 1_000).toFixed(1)} s`;
 
-/** Chips render only with an icon; the row's own icon says what happened. */
-const NoIcon: FC = () => null;
-
 export const interpretContextStep = (
   step: ContextStep,
 ): InterpretedToolStep => {
-  const chip = (label: string) => ({ label, icon: NoIcon });
+  const chip = (label: string) => ({ label, icon: LayersIcon });
   switch (step.kind) {
     case "compacting":
       return {
@@ -44,7 +41,7 @@ export const interpretContextStep = (
             icon: ArchiveIcon,
             title: "Summarized earlier conversation",
             chips: [
-              chip(`${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens`),
+              chip(`${tokens(step.tokensBefore)} to ${tokens(step.tokensAfter)} tokens`),
             ],
             confidence: "high",
             rawLabel: "context_compacted",
@@ -63,7 +60,7 @@ export const interpretContextStep = (
       return {
         icon: ScissorsIcon,
         title: `Trimmed ${step.tool} output`,
-        chips: [chip(`${size(step.bytes)} → ${tokens(step.tokens)} tokens`)],
+        chips: [chip(`${size(step.bytes)} to ${tokens(step.tokens)} tokens`)],
         confidence: "high",
         rawLabel: "tool_output_trimmed",
         failed: false,
@@ -78,7 +75,7 @@ const detail = (step: ContextStep): string => {
       return "The conversation grew past the model's working budget, so the earlier part is being summarized. This can take a minute.";
     case "compacted":
       return step.published
-        ? `The conversation grew past the model's working budget, so the earlier part was summarized (${tokens(step.tokensBefore)} → ${tokens(step.tokensAfter)} tokens, ${seconds(step.durationMs)}). Recent messages are kept word for word, and your stated limits are carried over exactly.`
+        ? `The conversation grew past the model's working budget, so the earlier part was summarized (${tokens(step.tokensBefore)} to ${tokens(step.tokensAfter)} tokens, ${seconds(step.durationMs)}). Recent messages are kept word for word, and your stated limits are carried over exactly.`
         : "A summary could not be used this time, so the reply went ahead with the oldest messages left out instead.";
     case "trimmed":
       return `${step.tool} returned ${size(step.bytes)}. The model saw a shortened view of about ${tokens(step.tokens)} tokens and can read the rest when it needs it.`;
