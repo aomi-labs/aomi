@@ -796,3 +796,13 @@ function walletRow(
     ...overrides,
   } as WalletRow;
 }
+
+it("asks to sign in, not shows the wallet, before a connected wallet signs in", () => {
+  // The default fixture has a connected EVM wallet and no account user.
+  adapterState.current.accountStatus = "ready";
+  render(<DualWalletBar families={["evm"]} disconnectedLabel="Sign in" />);
+  expect(screen.getByRole("button", { name: "Sign in" })).toHaveTextContent(
+    "Sign in",
+  );
+  expect(screen.queryByText(/0x71C7/)).not.toBeInTheDocument();
+});

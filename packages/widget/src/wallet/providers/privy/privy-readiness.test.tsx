@@ -43,6 +43,7 @@ vi.mock("./privy-auth", () => ({
     getAccessToken: fixture.accessToken,
   }),
   useSafePrivyIdentityToken: () => fixture.identityToken,
+  useSafePrivyModalOpen: () => false,
   useSafeWallets: () => ({ wallets: [], ready: fixture.hydrated }),
   useSafeSmartWallets: () => ({
     client: fixture.smart

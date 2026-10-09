@@ -81,10 +81,17 @@ const logThreadMetadataChange = (
 };
 
 export class ThreadStore {
-  /** Old server titles may contain a flattened, truncated model-only envelope. */
+  /**
+   * Titles read as plain text. Old server titles may contain a flattened,
+   * truncated model-only envelope, and a title taken from the first message
+   * keeps its @-mention markers ("✦ Aave", "◇ Base"); both go.
+   */
   private static cleanTitle(title: string): string {
     const start = title.indexOf("<AOMI_UI_CAPABILITY_HINTS>");
-    return start < 0 ? title : title.slice(0, start).trimEnd() || "New Chat";
+    const text = (start < 0 ? title : title.slice(0, start).trimEnd())
+      .replace(/[✦▦◇]\s*/gu, "")
+      .trim();
+    return text || (title ? "New Chat" : title);
   }
 
   private state: ThreadStoreState;
