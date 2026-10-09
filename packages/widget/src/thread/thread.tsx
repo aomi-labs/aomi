@@ -476,24 +476,22 @@ const ComposerAction: FC = () => {
 
       <div className="shrink-0">
         <ThreadPrimitive.If running={false}>
-          <ComposerPrimitive.Send asChild>
-            <Button
-              type="submit"
-              variant="default"
-              size="icon"
-              data-testid={testIds.send}
-              className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
-              aria-label="Send message"
-              disabled={
-                Boolean(hostError) ||
-                committingSafety ||
-                Boolean(composerControl.sendDisabled)
-              }
-              title={hostError ?? undefined}
-            >
-              <ArrowUpIcon className="aui-composer-send-icon size-4" />
-            </Button>
-          </ComposerPrimitive.Send>
+          <Button
+            type="submit"
+            variant="default"
+            size="icon"
+            data-testid={testIds.send}
+            className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+            aria-label="Send message"
+            disabled={
+              Boolean(hostError) ||
+              committingSafety ||
+              Boolean(composerControl.sendDisabled)
+            }
+            title={hostError ?? undefined}
+          >
+            <ArrowUpIcon className="aui-composer-send-icon size-4" />
+          </Button>
         </ThreadPrimitive.If>
 
         <ThreadPrimitive.If running>

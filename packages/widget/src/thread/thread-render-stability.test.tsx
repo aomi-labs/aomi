@@ -16,7 +16,12 @@ import {
 import { AomiFrame } from "@/frame/aomi-frame";
 import { testIds } from "@/test-ids";
 
-const work = vi.hoisted(() => ({ catalog: vi.fn(), row: vi.fn() }));
+const work = vi.hoisted(() => ({
+  catalog: vi.fn(),
+  row: vi.fn(),
+  sequence: [] as string[],
+  safety: { enabled: false, held: false },
+}));
 vi.mock("@aomi-labs/react", async (importOriginal) => {
   const original = await importOriginal<typeof import("@aomi-labs/react")>();
   return {
@@ -52,7 +57,20 @@ vi.mock("@/controls/payment-required-gate", () => ({
 }));
 vi.mock("@/controls/safety-select", () => ({
   ThreadSafetyProvider: ({ children }: { children: ReactNode }) => children,
-  useThreadSafety: () => null,
+  useThreadSafety: () =>
+    work.safety.enabled
+      ? {
+          pending: work.safety.held,
+          started: false,
+          busy: false,
+          hasHeld: () => work.safety.held,
+          commitHeld: async () => {
+            work.sequence.push("saved");
+            work.safety.held = false;
+            return true;
+          },
+        }
+      : null,
 }));
 vi.mock("@/composer/capability-composer/provider", () => ({
   CapabilityComposerProvider: ({ children }: { children: ReactNode }) =>
@@ -99,7 +117,9 @@ vi.mock("@/sidebar/activity/activity-sidebar", () => ({
 }));
 
 const identity = (message: ThreadMessageLike) => message;
-const onNew = async () => {};
+const onNew = async () => {
+  work.sequence.push("sent");
+};
 const history: ThreadMessageLike[] = [
   {
     id: "history",
@@ -157,6 +177,9 @@ const originalScrollTo = Object.getOwnPropertyDescriptor(
 beforeEach(() => {
   work.catalog.mockClear();
   work.row.mockClear();
+  work.sequence.length = 0;
+  work.safety.enabled = false;
+  work.safety.held = false;
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
     configurable: true,
     value() {},
@@ -354,6 +377,15 @@ describe("thread rendering under live runtime updates", () => {
     await act(async () => {});
     expect(view.getByText("Saved answer")).toBeVisible();
     expect(view.getByRole("button", { name: "Send message" })).toBeEnabled();
+  });
+  it("persists a held safety choice before the send button submits turn one", async () => {
+    work.safety.enabled = true;
+    work.safety.held = true;
+    const view = render(<Fixture api={api()} />);
+    const send = await view.findByRole("button", { name: "Send message" });
+    await waitFor(() => expect(send).toBeEnabled());
+    await act(async () => send.click());
+    await waitFor(() => expect(work.sequence).toEqual(["saved", "sent"]));
   });
   it("adds activity when a runtime arrives and removes it when the runtime leaves", async () => {
     const view = render(<Fixture api={null} />);
