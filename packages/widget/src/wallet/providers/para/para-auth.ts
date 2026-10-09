@@ -92,10 +92,12 @@ export function useSafeParaAccount(): ParaAccountShape {
 }
 
 export function useSafeParaModal(): {
+  isOpen?: boolean;
   openModal: (args?: { step?: string }) => void;
 } | null {
   try {
     return paraSdk().react.useModal() as {
+      isOpen?: boolean;
       openModal: (args?: { step?: string }) => void;
     };
   } catch {

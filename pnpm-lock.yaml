@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@modelcontextprotocol/sdk': 1.32.0
   viem: 2.47.11
   react: 19.2.7
   react-dom: 19.2.7
@@ -3973,8 +3974,8 @@ packages:
   '@microsoft/tsdoc@0.17.1':
     resolution: {integrity: sha512-VHyYyyoH63jFoO3shpw9Zfijk5v/9p/VrClW35z0/q6ooK7sSmxpzOkS4iZPxs3vO4XtBW4H38HRAKkAMIK7DA==}
 
-  '@modelcontextprotocol/sdk@1.29.0':
-    resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
+  '@modelcontextprotocol/sdk@1.32.0':
+    resolution: {integrity: sha512-8BviX/hK4Gd2eL1KdTwm0gfl4d3wdoErW0Jd00h6nomUAtk6IJk5vwQJc6kfWtJTzN5OEV/lgIiJKI8fiDGAlA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -23025,7 +23026,7 @@ snapshots:
 
   '@microsoft/tsdoc@0.17.1': {}
 
-  '@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.32.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.30)
       ajv: 8.20.0
@@ -29919,7 +29920,7 @@ snapshots:
     dependencies:
       '@ai-sdk/anthropic': 4.0.15(zod@4.4.3)
       '@ai-sdk/openai': 4.0.15(zod@4.4.3)
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.32.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
       '@smithers-orchestrator/driver': 0.28.0(d8bbba6d41985dc66c73b96796204f2c)
       '@smithers-orchestrator/errors': 0.28.0
       '@smithers-orchestrator/observability': 0.28.0(abeb2fcb0b8fc261a46de06fcdcb2ebd)
@@ -30034,7 +30035,7 @@ snapshots:
       '@clack/prompts': 1.7.0
       '@effect/workflow': 0.18.2(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4)
       '@mdx-js/esbuild': 3.1.1(esbuild@0.27.2)
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.32.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
       '@opentui/core': 0.4.3(typescript@5.9.3)(web-tree-sitter@0.25.10)
       '@opentui/react': 0.4.3(react-devtools-core@6.1.5(bufferutil@4.1.0)(utf-8-validate@5.0.10))(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))
       '@pierre/diffs': 1.2.12(@shikijs/themes@4.0.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

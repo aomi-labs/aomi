@@ -41,6 +41,8 @@ export type AuthRuntime = {
   providerLabel?: string;
   methods: readonly AomiWalletOption[];
   canOpenModal: boolean;
+  /** The provider's own sign-in modal is showing. */
+  modalOpen?: boolean;
   login?: (reason: string, step?: string) => Promise<void>;
   logout?: () => Promise<void>;
   openAccountUI?: (reason: string, step?: string) => Promise<void>;

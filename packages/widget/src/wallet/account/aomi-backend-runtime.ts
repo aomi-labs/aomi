@@ -362,6 +362,7 @@ export function useAomiBackendAccountRuntime(input: {
     },
     mergeAccount: async (ticket) => {
       const result = await accountClient.mergeAccount(ticket);
+      exchange.resumeAfterMerge();
       setAccount(result.account);
       await refresh();
       return { chats: result.moved.chats };

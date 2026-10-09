@@ -7,7 +7,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  LoaderCircleIcon,
   LogOutIcon,
   PlusIcon,
   UnplugIcon,
@@ -16,6 +15,7 @@ import {
 import { shortAddress } from "@aomi-labs/client";
 import { cn } from "@aomi-labs/react";
 import { aomiButton } from "@/ui/aomi/button";
+import { PendingMark } from "@/ui/aomi/status-pill";
 import { AccountAvatar } from "./account-avatar";
 import type { WalletFamily } from "@/wallet/types";
 import { BrandMark } from "./account-management/controls";
@@ -23,6 +23,7 @@ import { FamilyTag } from "./account-management/signs-with";
 import {
   appName,
   familySlots,
+  rowEmail,
   rowTitle,
 } from "./account-management/wallet-model";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
@@ -380,11 +381,8 @@ function SignsWithRows({
                   )}
                 >
                   <WalletLine row={row} />
-                  {switching === row.key ? (
-                    <LoaderCircleIcon
-                      className="text-aomi-muted animate-spin"
-                      size={13}
-                    />
+                  {switching === row.key || row.activating ? (
+                    <PendingMark />
                   ) : row.active ? (
                     <CheckIcon className="text-aomi-fg" size={14} />
                   ) : null}
@@ -473,6 +471,9 @@ function WalletLine({ row }: { row: WalletRow }) {
         </span>
         <span className="text-aomi-muted block truncate font-mono text-[11px]">
           {shortAddress(row.address)}
+          {rowEmail(row) ? (
+            <span className="font-sans"> · {rowEmail(row)}</span>
+          ) : null}
         </span>
       </span>
     </span>

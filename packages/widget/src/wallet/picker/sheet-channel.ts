@@ -16,6 +16,7 @@ export type SheetRequest =
  */
 export function createSheetChannel() {
   const listeners = new Set<(request: SheetRequest) => void>();
+  const closeListeners = new Set<() => void>();
   return {
     request(request: SheetRequest) {
       [...listeners].at(-1)?.(request);
@@ -24,6 +25,16 @@ export function createSheetChannel() {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    /** The sheet closed, finished or dismissed. */
+    closed() {
+      for (const listener of closeListeners) listener();
+    },
+    onClosed(listener: () => void) {
+      closeListeners.add(listener);
+      return () => {
+        closeListeners.delete(listener);
       };
     },
   };

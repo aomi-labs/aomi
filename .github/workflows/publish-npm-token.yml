@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       allow_package_drift:
-        description: Publish this already-soaked candidate even though publishable package paths changed on main
+        description: Acknowledge reviewed package-path changes on main while publishing this frozen candidate
         required: true
         default: false
         type: boolean
@@ -67,4 +67,14 @@ jobs:
           node scripts/publish-package-if-needed.mjs packages/client
           node scripts/publish-package-if-needed.mjs packages/deploy
           node scripts/publish-package-if-needed.mjs packages/react
-          node scripts/publish-package-if-needed.mjs packages/widget
+          # A frozen candidate can predate the widget package-directory move.
+          # Resolve its package path from that exact checkout; never substitute
+          # the current-main package contents for the release candidate.
+          if [[ -f packages/widget/package.json ]]; then
+            node scripts/publish-package-if-needed.mjs packages/widget
+          elif [[ -f apps/shadcn-registry/package.json ]]; then
+            node scripts/publish-package-if-needed.mjs apps/shadcn-registry
+          else
+            echo "Candidate has no widget package directory" >&2
+            exit 1
+          fi

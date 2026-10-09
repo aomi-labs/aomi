@@ -1,6 +1,7 @@
 import { buildAccounts } from "@/wallet/accounts";
 import type { AomiAccount, WalletFamily, WalletSource } from "@/wallet/types";
 import { resolveGracefulEvmIdentity } from "./identity-grace";
+import { findActiveConnection } from "./policy";
 import { EVM_IDENTITY_GRACE_MS } from "./types";
 import type {
   ActiveRef,
@@ -29,24 +30,12 @@ export function selectSvm(
   return state.connections.find((connection) => connection.family === "svm");
 }
 
-function findActiveConnection(
+function findActive(
   state: WalletRegistryState,
   family: WalletFamily,
 ): RegistryConnection | undefined {
   const active = state.activeByFamily[family];
-  if (!active) return undefined;
-  return state.connections.find((connection) => {
-    if (connection.family !== family) return false;
-    if (active.uid && connection.uid === active.uid) return true;
-    if (active.stableId && connection.stableId !== active.stableId) {
-      return false;
-    }
-    const left =
-      family === "evm" ? connection.address.toLowerCase() : connection.address;
-    const right =
-      family === "evm" ? active.address.toLowerCase() : active.address;
-    return left === right;
-  });
+  return active ? findActiveConnection(state.connections, active) : undefined;
 }
 
 export type EvmIdentity = {
@@ -62,7 +51,7 @@ export function selectEvmIdentity(
   now: number,
   selectedChainId?: number,
 ): EvmIdentity {
-  const activeConnection = findActiveConnection(state, "evm");
+  const activeConnection = findActive(state, "evm");
   const walletSource: WalletSource | undefined =
     activeConnection?.kind === "embedded-session"
       ? "embedded"
@@ -105,7 +94,7 @@ export function selectSvmIdentity(
   address?: string;
   walletName?: string;
 } {
-  const activeConnection = findActiveConnection(state, "svm") ?? selectSvm(state);
+  const activeConnection = findActive(state, "svm") ?? selectSvm(state);
   return activeConnection
     ? {
         address: activeConnection.address,
@@ -137,6 +126,7 @@ export function selectAccounts(
               connection.kind === "embedded-session"
                 ? ("embedded" as const)
                 : undefined,
+            selected: connection.addresses[0] === connection.address,
           }))
       : [];
 
@@ -148,6 +138,7 @@ export function selectAccounts(
       chainId: evmIdentity.chainId,
       provider: undefined,
       walletKind: undefined,
+      selected: true,
     });
   }
 

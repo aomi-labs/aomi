@@ -45,7 +45,7 @@ const signedInAs = (auth: Pick<AuthRuntime, "provider" | "subject">) =>
  * Turn a host sign-in (Privy, Para) into an Aomi account session: link the
  * provider to the current account after an explicit login, or create one.
  * Restored SDK sessions never add a login to an existing account. Each
- * credential is tried once; a failure waits 30 seconds before it is tried again,
+ * login is tried once; a failure waits 30 seconds before it is tried again,
  * and a credential the user signed out of is not used again.
  */
 export function useProviderCredentialExchange(input: {
@@ -138,7 +138,10 @@ export function useProviderCredentialExchange(input: {
       )
         return;
       const hasAccount = Boolean(account?.user) && account?.guest !== true;
-      const attempt = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${signedInAs(auth)}:${key}`;
+      // One attempt per login, not per token: Privy hands over an access
+      // token and then an identity token for the same login, and a second
+      // exchange would mint a second merge offer for the same account.
+      const attempt = `${hasAccount ? "link" : "session"}:${account?.user?.id ?? "new"}:${signedInAs(auth)}`;
       if (!hasAccount && creatingAccount.current) return;
       if (
         inFlight.current === attempt ||
@@ -190,6 +193,9 @@ export function useProviderCredentialExchange(input: {
         if (mergeOffer) {
           // The merge sheet answers this; don't offer it again on every refresh.
           exchanged.current = attempt;
+          // Keep the click's intent: once merged, the login may still need
+          // linking, or another account may hold the rest of it.
+          if (explicitLink && intent) setPendingLink(intent);
           setConflict({
             code: "already_linked_to_another_account",
             signalType: null,
@@ -246,10 +252,19 @@ export function useProviderCredentialExchange(input: {
     reset();
   }, [auth, reset]);
 
+  /** After a merge, try the same login again: it may need linking still. */
+  const resumeAfterMerge = useCallback(() => {
+    exchanged.current = null;
+    failed.current = null;
+    setError(undefined);
+    setConflict(undefined);
+  }, []);
+
   return {
     error,
     conflict,
     forgetCredential,
+    resumeAfterMerge,
     loginProvider: auth.login ? loginProvider : undefined,
   };
 }

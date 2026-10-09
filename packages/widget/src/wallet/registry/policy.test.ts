@@ -56,6 +56,28 @@ describe("WalletRegistry policy", () => {
     expect(active).toMatchObject({ uid: "fresh", stableId: "rabby" });
   });
 
+  it("keeps a picked address that its connector lists second (#720)", () => {
+    // One seed in MetaMask and Rabby: MetaMask lists the Rabby address too.
+    const active = resolveActive(
+      state({
+        connections: [
+          conn({ key: "evm:mm-1:0xaaa", addresses: ["0xaaa", "0xbbb"] }),
+          conn({
+            key: "evm:mm-1:0xbbb",
+            address: "0xbbb",
+            addresses: ["0xaaa", "0xbbb"],
+          }),
+        ],
+        activeByFamily: {
+          evm: { family: "evm", address: "0xbbb", uid: "mm-1" },
+        },
+      }),
+      "evm",
+    );
+
+    expect(active).toMatchObject({ uid: "mm-1", address: "0xbbb" });
+  });
+
   it("plans silent reconnect on the first settled pass after a rebuild", () => {
     const commands = planHeal(
       state({

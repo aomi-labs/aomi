@@ -19,11 +19,17 @@ describe("thread title presentation", () => {
       ]),
     );
     expect(store.getThreadMetadata("chat")?.title).toBe(
-      "▦ Cambrian list ur tools",
+      "Cambrian list ur tools",
     );
     store.updateThreadMetadata("chat", { title });
     expect(store.getSnapshot().allThreadsMetadata.get("chat")?.title).toBe(
-      "▦ Cambrian list ur tools",
+      "Cambrian list ur tools",
+    );
+    store.updateThreadMetadata("chat", {
+      title: "lets deposit 1 usdc to ✦ Aave on ◇ Base",
+    });
+    expect(store.getThreadMetadata("chat")?.title).toBe(
+      "lets deposit 1 usdc to Aave on Base",
     );
     store.updateThreadMetadata("chat", { title: "Cambrian token prices" });
     expect(store.getThreadMetadata("chat")?.title).toBe(

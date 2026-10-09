@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@aomi-labs/react";
 import { shortAddress } from "@aomi-labs/client";
 import { aomiButton } from "@/ui/aomi/button";
-import { StatusPill } from "@/ui/aomi/status-pill";
+import { PendingMark, StatusPill } from "@/ui/aomi/status-pill";
 import { explorerUrl } from "@/thread/explorer-links";
 import type { LinkedAuthAccount } from "@/wallet/account/types";
 import type { WalletRow } from "@/wallet/composer/wallet-state";
@@ -20,6 +20,7 @@ import {
   loginSubtitle,
   pendingHint,
   providerName,
+  rowEmail,
   rowTitle,
   type LoginGroup,
 } from "./wallet-model";
@@ -59,6 +60,7 @@ export function AddressRow({
   const [draft, setDraft] = useState<string | null>(null);
   const short = shortAddress(row.address);
   const { title, app: titleApp } = rowTitle(row);
+  const email = rowEmail(row);
   const hint = pendingHint(row);
   const busy = pending?.endsWith(`:${row.key}`) ?? false;
   const locked = pending !== null;
@@ -141,7 +143,9 @@ export function AddressRow({
           </span>
         )}
         <span className="type-address text-aomi-muted truncate">
-          {short} · {familyTag(row.family)}
+          {short}
+          {email ? <span className="font-sans"> · {email}</span> : null} ·{" "}
+          {familyTag(row.family)}
         </span>
       </span>
     </>
@@ -186,8 +190,8 @@ export function AddressRow({
         <div className={mainClass}>{content}</div>
       )}
       <div className="flex shrink-0 items-center gap-1 pr-3">
-        {busy ? (
-          <Loader2 className="text-aomi-muted size-3.5 animate-spin" />
+        {busy || row.activating ? (
+          <PendingMark className="mx-2" />
         ) : row.active ? (
           <StatusPill tone="success">Active</StatusPill>
         ) : !row.linked && onVerify ? (

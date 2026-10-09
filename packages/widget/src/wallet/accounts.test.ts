@@ -84,6 +84,23 @@ describe("buildAccounts", () => {
     expect(accounts[0].connectorIds).toEqual(["rb1", "mm", "rb2"]);
   });
 
+  it("leaves an address with the app that selected it while another is active (#720)", () => {
+    const accounts = buildAccounts({
+      evmConnections: [
+        { id: "mm", walletName: "MetaMask", address: "0xAAA", selected: true },
+        { id: "mm", walletName: "MetaMask", address: "0xBBB" },
+        { id: "rb", walletName: "Rabby", address: "0xBBB", selected: true },
+      ],
+      activeEvmAddress: "0xaaa",
+      activeEvmConnectionId: "mm",
+    });
+    expect(accounts[1]).toMatchObject({
+      id: "rb#0xbbb",
+      walletName: "Rabby",
+      active: false,
+    });
+  });
+
   it("keeps genuinely distinct EVM addresses as separate rows", () => {
     const accounts = buildAccounts({
       evmConnections: [

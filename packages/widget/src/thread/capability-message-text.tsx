@@ -200,11 +200,13 @@ export const CapabilityMessageText: TextMessagePartComponent = ({ text }) => {
         ) : (
           <span
             key={`${segment.capability.kind}-${segment.capability.id}-${index}`}
-            className="text-aomi-accent relative top-px mx-0.5 inline-flex items-center gap-1 whitespace-nowrap align-baseline font-medium"
+            // Plain inline text on the line's baseline; an inline-flex box
+            // would take its baseline from the icon and ride high.
+            className="text-aomi-accent mx-0.5 whitespace-nowrap font-medium"
           >
             <segment.capability.Icon
               aria-hidden="true"
-              className="size-3.5 shrink-0"
+              className="mr-1 inline-block size-3.5 align-[-0.175em]"
             />
             {segment.capability.label}
           </span>

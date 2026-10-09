@@ -132,45 +132,6 @@ export function TransactionList({
   );
 }
 
-/**
- * Where a transaction is in Stage → Simulate → Commit → Signed, shared by the
- * panel card and the trace's wallet hand-off so both always agree.
- */
-export function transactionProgress(tx: ActivityTransaction) {
-  const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
-  const commitSigned =
-    tx.commit?.state === "awaiting_broadcast" ||
-    tx.commit?.state === "submitted" ||
-    tx.commit?.state === "confirmed";
-  const result = tx.action?.result;
-  const leg =
-    result?.status === "submitted"
-      ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
-      : undefined;
-  const signed =
-    commitSigned ||
-    leg?.status === "submitted" ||
-    (result?.status === "signed" && result.outputs.length > 0);
-  const rejected =
-    tx.commit?.state === "rejected" ||
-    leg?.status === "rejected" ||
-    result?.status === "rejected" ||
-    tx.action?.state === "rejected";
-  const failed =
-    tx.commit?.state === "failed" ||
-    tx.commit?.state === "expired" ||
-    tx.stage === "simulation-failed" ||
-    (tx.action?.request.type !== "sign" &&
-      (tx.action?.request.simulation.status === "failed" ||
-        tx.action?.request.simulation.guards.some(
-          (guard) => guard.status === "failed",
-        )));
-  const terminal = tx.commit
-    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
-    : tx.action && tx.action.state !== "pending";
-  return { step, signed, rejected, failed, terminal };
-}
-
 export function TransactionCard({
   transaction: tx,
   reviewing = false,
@@ -205,7 +166,37 @@ export function TransactionCard({
   const network = tx.chainId
     ? (getChainInfo(tx.chainId)?.name ?? `Chain ${tx.chainId}`)
     : (svmNetworkNames[cluster] ?? tx.cluster ?? "Solana");
-  const { step, signed, rejected, failed, terminal } = transactionProgress(tx);
+  const step = tx.stage === "staged" ? 0 : tx.stage === "committed" ? 2 : 1;
+  const commitSigned =
+    tx.commit?.state === "awaiting_broadcast" ||
+    tx.commit?.state === "submitted" ||
+    tx.commit?.state === "confirmed";
+  const result = tx.action?.result;
+  const leg =
+    result?.status === "submitted"
+      ? result.legs.find((leg) => leg.id === `leg_${(tx.actionIndex ?? 0) + 1}`)
+      : undefined;
+  const signed =
+    commitSigned ||
+    leg?.status === "submitted" ||
+    (result?.status === "signed" && result.outputs.length > 0);
+  const rejected =
+    tx.commit?.state === "rejected" ||
+    leg?.status === "rejected" ||
+    result?.status === "rejected" ||
+    tx.action?.state === "rejected";
+  const failed =
+    tx.commit?.state === "failed" ||
+    tx.commit?.state === "expired" ||
+    tx.stage === "simulation-failed" ||
+    (tx.action?.request.type !== "sign" &&
+      (tx.action?.request.simulation.status === "failed" ||
+        tx.action?.request.simulation.guards.some(
+          (guard) => guard.status === "failed",
+        )));
+  const terminal = tx.commit
+    ? ["confirmed", "rejected", "failed", "expired"].includes(tx.commit.state)
+    : tx.action && tx.action.state !== "pending";
   // An unfinished commit or pending action stays live across turns; staged
   // work that never reached either is live only while its turn is current.
   const active = current || tx.commit != null || tx.action?.state === "pending";
