@@ -4,12 +4,13 @@
     <link rel="stylesheet" href="./atmosphere.css" />
     <link rel="stylesheet" href="./navigation.css?v=3" />
     <link rel="stylesheet" href="./grid-sections.css" />
-    <link rel="stylesheet" href="./mobile.css?v=7" />
-    <link rel="stylesheet" href="./theme.css?v=10" />
+    <link rel="stylesheet" href="./mobile.css?v=12" />
+    <link rel="stylesheet" href="./theme.css?v=12" />
     <script src="./theme.js?v=3"></script>
     <script src="./resources.js"></script>
     <script src="./atmosphere.js" defer></script>
     <script src="./navigation.js?v=4" defer></script>
+    <script src="./marquee.js?v=1" defer></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="./vendor/design-components-runtime.js"></script>
@@ -321,7 +322,8 @@
 <div style="padding:26px 24px 26px 48px;border-right:1px solid #e4e4e7;border-bottom:1px solid #e4e4e7;display:flex;align-items:center">
 <div style="font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.6;color:#09090b">Trusted by<br>teams in production</div>
 </div>
-<div style="grid-column:2 / span 2;border-bottom:1px solid #e4e4e7;display:grid;grid-template-columns:repeat(6,1fr)">
+<div class="om-trusted" style="grid-column:2 / span 2;border-bottom:1px solid #e4e4e7;overflow:hidden">
+<div class="om-trusted-track" style="display:grid;grid-template-columns:repeat(6,1fr)">
 <div style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color: #52525b;
                 "
               >
@@ -388,6 +390,69 @@
               </div>
               <div
                 style="padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color:#52525b"><img src="./logos/molinar.svg" alt="" style="width:18px;height:18px;object-fit:contain;filter:grayscale(1);opacity:.65">Molinar</div>
+<!-- duplicate set: only shown on mobile, where the row becomes a seamless marquee -->
+<div class="om-trusted-dup" aria-hidden="true" style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color: #52525b;
+                "
+              >
+                <img
+                  src="/assets/logos/sommelier.png"
+                  alt=""
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    object-fit: contain;
+                    filter: grayscale(1);
+                    opacity: 0.65;
+                  "
+                />Sommelier
+              </div><div class="om-trusted-dup" aria-hidden="true"
+                style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color: #52525b;
+                "
+              >
+                <img
+                  src="/assets/logos/para.svg"
+                  alt=""
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    object-fit: contain;
+                    filter: grayscale(1);
+                    opacity: 0.65;
+                  "
+                />Para
+              </div><div class="om-trusted-dup" aria-hidden="true"
+                style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color:#52525b"><img src="./logos/khalani.png" alt="" style="width:18px;height:18px;object-fit:contain;filter:grayscale(1);opacity:.65">Khalani</div><div class="om-trusted-dup" aria-hidden="true" style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color: #52525b;
+                "
+              >
+                <img
+                  src="/assets/logos/world-markets.png"
+                  alt=""
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    object-fit: contain;
+                    filter: grayscale(1);
+                    opacity: 0.65;
+                  "
+                />World Markets
+              </div><div class="om-trusted-dup" aria-hidden="true"
+                style="border-right:1px solid #e4e4e7;padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color: #52525b;
+                "
+              >
+                <img
+                  src="/assets/logos/swig.png"
+                  alt=""
+                  style="
+                    width: 18px;
+                    height: 18px;
+                    object-fit: contain;
+                    filter: grayscale(1);
+                    opacity: 0.65;
+                  "
+                />Swig
+              </div><div class="om-trusted-dup" aria-hidden="true"
+                style="padding:32px 18px;display:flex;align-items:center;justify-content:center;gap:9px;font-family:'Geist Mono',monospace;font-size:14px;color:#52525b"><img src="./logos/molinar.svg" alt="" style="width:18px;height:18px;object-fit:contain;filter:grayscale(1);opacity:.65">Molinar</div>
+</div>
 </div>
 <div style="grid-column:1 / span 2;border-bottom:1px solid #e4e4e7;display:flex;align-items:stretch;overflow:hidden">
 <span style="font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.6;color:#09090b;flex:none;width:150px;display:flex;align-items:center;padding-left:48px;box-sizing:content-box">Supported chains</span>
@@ -943,6 +1008,16 @@
 </sc-if>
 </div>
 </div>
+</div>
+</section>
+<section id="om-security" data-screen-label="Security" style="background:#fff">
+<div style="max-width:1160px;margin:0 auto;box-sizing:border-box;padding:0 48px 88px">
+<div class="om-security-video">
+<video controls playsinline preload="metadata" poster="./media/three-gates-poster.jpg" aria-label="Three gates from intent to settlement: narrated walkthrough, 3 minutes 33 seconds, with subtitles">
+<source src="./media/three-gates.mp4" type="video/mp4">
+</video>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-top:14px"><a href="/research/three-gates-onchain" style="font-size:15px;font-weight:500">Read the research →</a></div>
 </div>
 </section>
 <section data-screen-label="Value propositions" style="background:#fff">

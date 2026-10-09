@@ -417,3 +417,38 @@ html[data-theme="dark"] section[data-screen-label="Wallet agnostic"] {
   font-size: var(--landing-type-meta) !important;
   line-height: var(--landing-type-meta-line) !important;
 }
+
+/* Security section: the three-gates film is rendered on pure white so it blends into the light page.
+   On the dark theme it reads as a white card instead of a hard-edged rectangle. */
+.om-security-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+.om-security-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+html[data-theme="dark"] .om-security-video {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--landing-theme-border), 0 24px 60px -32px rgba(0, 0, 0, 0.6);
+}
+
+/* Logo marquees can be paused (marquee.js): the strip is a toggle button. */
+html.om-marquee-paused [style*="om-marquee"],
+html.om-marquee-paused .om-trusted-track {
+  animation-play-state: paused !important;
+}
+[data-marquee-control] {
+  cursor: pointer;
+}
+/* the strips fade their edges with a mask, which would also hide the focus ring */
+[data-marquee-control]:focus-visible {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  outline: 2px solid #5288c2;
+  outline-offset: -2px;
+}
