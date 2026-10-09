@@ -66,7 +66,12 @@ import { ConnectButton } from "@/wallet/connect-button";
 import { PaymentRequiredGate } from "@/controls/payment-required-gate";
 import { shouldShowThreadLoadingSkeleton } from "./thread-loading";
 import { CapabilityMessageText } from "./capability-message-text";
-import { useThread, useComposerRuntime, useMessage } from "@assistant-ui/react";
+import {
+  useComposer,
+  useThread,
+  useComposerRuntime,
+  useMessage,
+} from "@assistant-ui/react";
 import {
   CapabilityComposerProvider,
   useCapabilityComposer,
@@ -451,6 +456,7 @@ const ComposerAction: FC = () => {
   const hideAppSecrets = controlBarProps.hideAppSecrets ?? false;
   const { hostError, selectedApp } = useCapabilityComposer();
   const safety = useThreadSafety();
+  const canSend = useComposer((composer) => composer.canSend);
   const committingSafety = Boolean(safety?.pending && safety.busy);
 
   return (
@@ -476,24 +482,23 @@ const ComposerAction: FC = () => {
 
       <div className="shrink-0">
         <ThreadPrimitive.If running={false}>
-          <ComposerPrimitive.Send asChild>
-            <Button
-              type="submit"
-              variant="default"
-              size="icon"
-              data-testid={testIds.send}
-              className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
-              aria-label="Send message"
-              disabled={
-                Boolean(hostError) ||
-                committingSafety ||
-                Boolean(composerControl.sendDisabled)
-              }
-              title={hostError ?? undefined}
-            >
-              <ArrowUpIcon className="aui-composer-send-icon size-4" />
-            </Button>
-          </ComposerPrimitive.Send>
+          <Button
+            type="submit"
+            variant="default"
+            size="icon"
+            data-testid={testIds.send}
+            className="aui-composer-send bg-aomi-fg text-aomi-bg hover:bg-aomi-fg mr-2 size-8 shrink-0 rounded-full p-1 transition-opacity hover:opacity-90 md:mr-2.5"
+            aria-label="Send message"
+            disabled={
+              !canSend ||
+              Boolean(hostError) ||
+              committingSafety ||
+              Boolean(composerControl.sendDisabled)
+            }
+            title={hostError ?? undefined}
+          >
+            <ArrowUpIcon className="aui-composer-send-icon size-4" />
+          </Button>
         </ThreadPrimitive.If>
 
         <ThreadPrimitive.If running>
