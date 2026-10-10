@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import "@tanstack/react-start/server-only";
 import { hostedPortalOrigin } from "./lib/hosted-portal";
 
 /** Local UI review without copying a hosted database or auth signing secrets.
  * The fixed upstream still verifies every caller's origin-bound widget bearer.
  */
-export async function proxy(request: NextRequest) {
+export async function proxy(request: Request) {
   const upstream = hostedPortalOrigin();
-  if (!upstream) return NextResponse.next();
+  if (!upstream) return null;
   const origin =
     request.headers.get("origin") ??
     (request.headers.get("referer")
       ? new URL(request.headers.get("referer")!).origin
-      : request.nextUrl.origin);
+      : new URL(request.url).origin);
   const cors = new Headers({
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
     headers.delete(name);
   headers.set("origin", origin);
   const target = new URL(
-    request.nextUrl.pathname + request.nextUrl.search,
+    new URL(request.url).pathname + new URL(request.url).search,
     upstream,
   );
   let response: Response;
@@ -65,5 +65,3 @@ export async function proxy(request: NextRequest) {
     headers: outgoing,
   });
 }
-
-export const config = { matcher: ["/api/:path*", "/v1/:path*"] };

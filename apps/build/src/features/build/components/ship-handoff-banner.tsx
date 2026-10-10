@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Download, FolderKanban, Rocket } from "lucide-react";
 
 type ShipHandoffBannerProps = {
@@ -27,7 +27,7 @@ export function ShipHandoffBanner({ onDownload }: ShipHandoffBannerProps) {
           Download code
         </button>
         <Link
-          href="/projects"
+          to="/projects"
           className="bg-primary text-primary-foreground hover:bg-brand-hover inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium transition-colors"
         >
           <FolderKanban className="size-3.5" />

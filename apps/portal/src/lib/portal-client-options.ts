@@ -10,7 +10,8 @@
  */
 
 import { hostedPortalOrigin } from "./hosted-portal";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useSearchParams } from "./navigation";
 import { type AomiClientOptions } from "@aomi-labs/react";
 import type { AomiInferenceFundingSource } from "@aomi-labs/client";
 import { createPortalAccountBearerProvider } from "@/lib/account-bearer";
@@ -63,18 +64,11 @@ function parseInferenceFunding(
 }
 
 export function useRequestedAppConfig(): RequestedAppConfig {
-  const [config, setConfig] = useState<RequestedAppConfig>({
-    app: null,
-    applicationId: null,
-    locked: false,
-    inferenceFunding: undefined,
-  });
-
-  useEffect(() => {
-    setConfig(getRequestedAppConfig(window.location.search));
-  }, []);
-
-  return config;
+  const searchParams = useSearchParams();
+  return useMemo(
+    () => getRequestedAppConfig(searchParams.toString()),
+    [searchParams],
+  );
 }
 
 export function withDebugLogging(

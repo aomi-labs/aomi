@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import { ExternalLink, MessageSquare } from "lucide-react";
 import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";

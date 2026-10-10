@@ -1,20 +1,38 @@
-import nextVitals from "eslint-config-next/core-web-vitals";
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import react from "eslint-plugin-react";
+import hooks from "eslint-plugin-react-hooks";
 
-const eslintConfig = [
-  { ignores: [".next*/**"] },
-  ...nextVitals,
+export default [
   {
-    ignores: [".next/**", ".vercel/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: [
+      ".next/**",
+      ".tanstack/**",
+      ".vercel/**",
+      ".output/**",
+      "dist/**",
+      "node_modules/**",
+      "src/routeTree.gen.ts",
+    ],
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    plugins: { "@typescript-eslint": tsPlugin, react, "react-hooks": hooks },
+    settings: { react: { version: "detect" } },
     rules: {
+      ...react.configs.recommended.rules,
+      ...hooks.configs.recommended.rules,
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
       "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",
     },
   },
   {
-    // Client/shared code must not import server-only modules. The `server-only`
-    // poison pill already fails the build at runtime; this catches it at lint
-    // time with a clearer message. Server code (app/api/**, app/**/{page,layout},
-    // src/server/**) is intentionally out of scope.
     files: [
       "src/components/**/*.{ts,tsx}",
       "src/hooks/**/*.{ts,tsx}",
@@ -27,25 +45,21 @@ const eslintConfig = [
         {
           patterns: [
             {
-              group: ["@portal/server/*", "**/server/*"],
+              group: ["**/server/*"],
               message:
-                "Client/shared code must not import server-only modules — call a /api/bff route instead.",
+                "Client code must call an authorized HTTP route instead of importing server modules.",
               allowTypeImports: true,
             },
             {
-              group: [
-                "@aomi-labs/account",
-                "@aomi-labs/account/*",
-              ],
+              group: ["@aomi-labs/account", "@aomi-labs/account/*"],
               message:
-                "Node-only packages must not be imported from client/shared code.",
+                "Node-only account modules must stay behind the server boundary.",
               allowTypeImports: true,
             },
             {
               regex:
                 "^@aomi-labs/deploy$|^@aomi-labs/deploy/(?!lifecycle$|launch$).+",
-              message:
-                "Node-only packages must not be imported from client/shared code.",
+              message: "Use a browser-safe deployment entrypoint.",
               allowTypeImports: true,
             },
           ],
@@ -54,5 +68,3 @@ const eslintConfig = [
     },
   },
 ];
-
-export default eslintConfig;

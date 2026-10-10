@@ -953,7 +953,7 @@ export function useControl(): ControlContextApi;
 export function useCurrentThreadMetadata(): ThreadMetadata | undefined;
 
 // @public
-export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<_tanstack_react_query.NoInfer<T>, Error>;
+export function useDisplayQuery<T>(query: DisplayQuery<T>): _tanstack_react_query.UseQueryResult<T, Error>;
 
 // @public (undocumented)
 export function useNotification(): NotificationContextValue;

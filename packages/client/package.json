@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/client",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Platform-agnostic TypeScript client for the Aomi backend API",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -28,6 +28,16 @@
       "require": {
         "types": "./dist/browser-auth.d.cts",
         "default": "./dist/browser-auth.cjs"
+      }
+    },
+    "./siws-client": {
+      "import": {
+        "types": "./dist/siws-client.d.ts",
+        "default": "./dist/siws-client.js"
+      },
+      "require": {
+        "types": "./dist/siws-client.d.cts",
+        "default": "./dist/siws-client.cjs"
       }
     }
   },

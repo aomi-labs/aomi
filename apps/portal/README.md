@@ -11,7 +11,7 @@ sources_of_truth:
 
 # Aomi Labs - Frontend
 
-A Next.js client for Aomi Agent sessions, Actions, and settings/account flows.
+A TanStack Start client for Aomi Agent sessions, Actions, and settings/account flows.
 
 ## Current Shape
 
@@ -19,10 +19,10 @@ A Next.js client for Aomi Agent sessions, Actions, and settings/account flows.
 - `@aomi-labs/react` projects one `ClientSession` snapshot per selected thread.
 - The core `ActionHandler` owns Action execution and response state; wallet-kit
   adapters expose only primitive send, sign, and switch capabilities.
-- `src/app/v1/agent/*` and `src/app/v1/pipeline/*` are authenticated BFF
+- `src/routes/v1.agent.*` and `src/routes/v1.pipeline.*` are authenticated BFF
   boundaries over the Rust-owned public protocols.
 
-The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e.md](../docs/topics/frontend-e2e.md).
+The durable walkthrough for this workspace lives in [frontend E2E](../../docs/topics/development/facts/frontend-invariants.md).
 
 ## Setup And Development
 
@@ -38,7 +38,7 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
    pnpm dev
    ```
 
-   Local development defaults to `http://127.0.0.1:8080`. Vercel production defaults to `https://api.aomi.dev`; previews default to `https://api-staging.aomi.dev`. For local full-stack startup use [../scripts/dev.sh](../scripts/dev.sh).
+   Local development defaults to `http://127.0.0.1:8080`. Vercel production defaults to `https://api.aomi.dev`; previews default to `https://api-staging.aomi.dev`. Use the paired `aomi-dev` workspace for local full-stack startup.
 
 3. **Open in browser**:
    ```
@@ -70,8 +70,7 @@ The durable walkthrough for this workspace lives in [../docs/topics/frontend-e2e
 Browser journeys live in `tests/e2e/` and run through Playwright against the
 local stack.
 
-- Use `scripts/dev.sh` from the paired backend checkout to launch the exact
-  frontend/backend worktrees together.
+- Use `aomi-dev up <workspace>` to launch the exact paired worktrees.
 
 ## Commands
 
@@ -80,10 +79,10 @@ local stack.
 - `pnpm build` - Build for production
 - `pnpm test` - run frontend tests
 - `pnpm lint` - run ESLint
-- `pnpm type-check` - run Next type generation and TypeScript checking
+- `pnpm type-check` - generate Router routes and check TypeScript
 
 ## Related Docs
 
-- [../docs/topics/frontend-e2e.md](../docs/topics/frontend-e2e.md)
-- [../docs/topics/tool-flow.md](../docs/topics/tool-flow.md)
-- [../docs/topics/auth.md](../docs/topics/auth.md)
+- [frontend E2E](../../docs/topics/development/facts/frontend-invariants.md)
+- [Migration verification](../../docs/testing/tanstack-migration.md)
+- [Frontend invariants](../../docs/topics/development/facts/frontend-invariants.md)

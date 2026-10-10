@@ -43,6 +43,8 @@ export type UpstreamRecord = {
 
 export type UpstreamOptions = {
   port?: number;
+  /** Finite, delayed SSE used only by the clean production-artifact probe. */
+  artifactStreamingDelayMs?: number;
   /** Address the fake wallet review asks the browser to sign from. */
   transactionFrom?: string;
 };
@@ -85,6 +87,15 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
       return json(response, 204);
     }
 
+    if (url.pathname === "/openapi.json" && ["GET", "HEAD"].includes(method)) {
+      record(null);
+      return json(response, 200, {
+        openapi: "3.1.0",
+        info: { title: "Controlled agent API", version: "1.0.0" },
+        paths: {},
+      });
+    }
+
     if (url.pathname.startsWith("/api/")) {
       const accountRoute = accountResponse(method, url.pathname);
       if (!accountRoute) {
@@ -113,6 +124,29 @@ export async function startAgentUpstream(options: UpstreamOptions = {}) {
     record(principal);
     if (!principal)
       return json(response, 401, { error: { code: "invalid_token" } });
+
+    if (
+      request.method === "GET" &&
+      url.pathname === "/v1/agent/artifact-stream" &&
+      options.artifactStreamingDelayMs
+    ) {
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no",
+      });
+      streams.add(response);
+      response.write('event: artifact\ndata: {"phase":"first"}\n\n');
+      const timer = setTimeout(
+        () => response.end('event: artifact\ndata: {"phase":"last"}\n\n'),
+        options.artifactStreamingDelayMs,
+      );
+      response.once("close", () => {
+        clearTimeout(timer);
+        streams.delete(response);
+      });
+      return;
+    }
 
     if (url.pathname === "/v1/agent/error-fixture") {
       response.setHeader("retry-after", "7");

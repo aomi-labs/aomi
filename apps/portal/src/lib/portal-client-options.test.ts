@@ -131,4 +131,17 @@ describe("getRequestedAppConfig", () => {
       undefined,
     );
   });
+
+  it("preserves supported app aliases and gives explicit application_id priority", () => {
+    expect(getRequestedAppConfig("?aomi_app=goal&app=other&application_id=17&applicationId=18&app_locked=true")).toMatchObject({
+      app: "goal",
+      applicationId: "17",
+      locked: true,
+    });
+    expect(getRequestedAppConfig("?app=goal&applicationId=18")).toMatchObject({
+      app: "goal",
+      applicationId: "18",
+      locked: false,
+    });
+  });
 });

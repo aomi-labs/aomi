@@ -1,12 +1,7 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { getOrCreateAomiUserForBetterAuthSession } from "@aomi-labs/account/account";
-import {
-  AOMI_CANONICAL_USER_CLAIM,
-  AOMI_PRINCIPAL_CLASS_CLAIM,
-  auth,
-  aomiOAuthResources,
-  guestScopesForAomiResource,
-} from "@aomi-labs/account/better-auth";
+import { AOMI_CANONICAL_USER_CLAIM, AOMI_PRINCIPAL_CLASS_CLAIM, aomiOAuthResources, guestScopesForAomiResource } from "@aomi-labs/account/better-auth/core";
+import { auth } from "@/server/auth";
 import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import {
   hasWidgetSessionBearer,

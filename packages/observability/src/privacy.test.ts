@@ -289,6 +289,25 @@ describe("scrubSentryEvent", () => {
     });
   });
 
+  it("retains Start server artifact source maps while stripping URL credentials", () => {
+    const codeFile = "/var/task/.output/server/_ssr/assets/server-abcdef12.mjs";
+    const debugId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const event = scrubSentryEvent({
+      exception: {
+        values: [{
+          stacktrace: { frames: [{ filename: `${codeFile}?token=secret#private`, lineno: 17 }] },
+        }],
+      },
+      debug_meta: {
+        images: [{ type: "sourcemap", code_file: `${codeFile}?cookie=secret`, debug_id: debugId }],
+      },
+    });
+
+    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 17 });
+    expect(event?.debug_meta?.images).toEqual([{ type: "sourcemap", code_file: codeFile, debug_id: debugId }]);
+    expect(JSON.stringify(event)).not.toContain("secret");
+  });
+
   it("drops non-error events and unsafe environment values", () => {
     expect(scrubSentryEvent({ type: "transaction" })).toBeNull();
     expect(scrubSentryEvent({ environment: "preview" })).not.toHaveProperty(

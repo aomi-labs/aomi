@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchProjectDetail } from "@/components/control-plane/prefetch-control-plane-route";
 import { useProjectDetail } from "@/features/deploy/hooks/use-project-detail";
@@ -38,7 +38,9 @@ export function ProjectPage({
   tabBaseHref?: string;
   tabHref?: (tab: TabId) => string;
 }) {
-  const searchParams = useSearchParams();
+  const searchParams = new URLSearchParams(
+    useLocation({ select: (location) => location.searchStr }),
+  );
   const router = useRouter();
   const detail = useProjectDetail(projectId);
   const { accountKey, loadSecrets } = detail;
@@ -56,7 +58,8 @@ export function ProjectPage({
       detail.source?.platformName,
     );
   };
-  const openEnvironment = () => router.push(projectTabHref("environment"));
+  const openEnvironment = () =>
+    router.navigate({ href: projectTabHref("environment") });
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export function ProjectPage({
               role="tab"
               type="button"
               aria-selected={active === tab.id}
-              onClick={() => router.push(projectTabHref(tab.id))}
+              onClick={() => router.navigate({ href: projectTabHref(tab.id) })}
               className={`h-7 rounded px-2.5 text-xs font-medium ${
                 active === tab.id
                   ? "bg-surface-1 text-foreground shadow-sm"

@@ -1,7 +1,5 @@
-import {
-  aomiOAuthResourcePolicy,
-  type AomiOAuthResourcePolicy,
-} from "@aomi-labs/account/better-auth";
+import { aomiOAuthResourcePolicy, type AomiOAuthResourcePolicy } from "@aomi-labs/account/better-auth/core";
+
 import { PrincipalError, type Principal } from "./principal";
 
 /** What a caller may do. Granted by the credential, never by the endpoint. */

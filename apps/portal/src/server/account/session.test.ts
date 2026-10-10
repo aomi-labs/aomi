@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@aomi-labs/account/better-auth", () => ({
+vi.mock("@/server/auth", () => ({
   auth: { api: { getSession } },
 }));
 vi.mock("@aomi-labs/account/account", () => ({
@@ -38,3 +38,7 @@ describe("request session authority", () => {
     expect(getSession).toHaveBeenCalledTimes(2);
   });
 });
+
+vi.mock("@aomi-labs/account/better-auth/core", () => ({
+  auth: { api: { getSession } },
+}));

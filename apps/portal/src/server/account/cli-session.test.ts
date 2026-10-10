@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 const createSession = vi.hoisted(() => vi.fn());
-vi.mock("@aomi-labs/account/better-auth", () => ({
+vi.mock("@/server/auth", () => ({
   auth: { $context: Promise.resolve({ internalAdapter: { createSession } }) },
 }));
 import { createCliSession } from "./cli-session";
@@ -18,3 +18,7 @@ describe("independent CLI session", () => {
     expect(createSession).toHaveBeenCalledWith("ba-user", true);
   });
 });
+
+vi.mock("@aomi-labs/account/better-auth/core", () => ({
+  auth: { $context: Promise.resolve({ internalAdapter: { createSession } }) },
+}));

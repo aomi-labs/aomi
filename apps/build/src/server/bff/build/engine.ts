@@ -1,6 +1,7 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { FailureInput } from "@aomi-labs/observability";
 import {
@@ -81,8 +82,8 @@ function identifyEngineFailure(
  * BFF to one instance, or move execution into a sandbox provider — v2).
  *
  * Runtime note: smithers-orchestrator ships Bun-flavored TS; on Node the
- * module hooks registered in src/instrumentation.ts make it loadable, and
- * next.config.ts lists these packages in serverExternalPackages so the
+ * module hooks registered in src/server.ts make it loadable, and
+ * vite.config.ts lists these packages as SSR externals so the
  * bundler leaves them to the Node loader.
  */
 
@@ -143,7 +144,14 @@ function apiFor(app: string): Promise<AomiSmitherApi> {
   const { apis } = registry();
   let api = apis.get(app);
   if (!api) {
-    api = createAomiSmither(resolveRunBackend(app, { runsRoot: runsRoot() }));
+    api = (async () => {
+      const backend = resolveRunBackend(app, { runsRoot: runsRoot() });
+      if (backend.kind === "pglite") {
+        // PGlite's Node filesystem creates only its final directory.
+        await mkdir(backend.dataDir, { recursive: true });
+      }
+      return createAomiSmither(backend);
+    })();
     api.catch(() => apis.delete(app));
     apis.set(app, api);
   }

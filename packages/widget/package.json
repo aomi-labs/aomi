@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "description": "Embeddable Aomi chat UI and wallet provider islands.",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,6 +33,10 @@
     "./providers/privy": {
       "types": "./dist/providers/privy.d.ts",
       "import": "./dist/providers/privy.js"
+    },
+    "./host-composition/overlays": {
+      "types": "./dist/host-composition/overlays.d.ts",
+      "import": "./dist/host-composition/overlays.js"
     },
     "./aomi-widget": {
       "types": "./dist/aomi-widget.d.ts",

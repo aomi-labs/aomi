@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { storeQuery, type AomiSmitherApi } from "@aomi-labs/smither";
 
@@ -59,7 +59,7 @@ function toRecord(row: Record<string, unknown>): BuildRunRecord {
     runId: String(row.run_id),
     ownerLogin: String(row.owner_login),
     app: String(row.app),
-    runner: (row.runner === "vercel-sandbox" ? "vercel-sandbox" : "local"),
+    runner: row.runner === "vercel-sandbox" ? "vercel-sandbox" : "local",
     status: ["completed", "failed", "cancelled"].includes(String(row.status))
       ? (String(row.status) as BuildRunRecord["status"])
       : "running",
@@ -158,9 +158,7 @@ export async function registerRun(
 export async function updateRun(
   api: AomiSmitherApi,
   runId: string,
-  patch: Partial<
-    Pick<BuildRunRecord, "status" | "sandboxId" | "sidecarUrl">
-  >,
+  patch: Partial<Pick<BuildRunRecord, "status" | "sandboxId" | "sidecarUrl">>,
 ): Promise<void> {
   await ensureRegistry(api);
   const sets: string[] = ["updated_at_ms = ?"];

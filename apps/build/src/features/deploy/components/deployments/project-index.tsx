@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import { FolderKanban } from "lucide-react";
 import { EmptyState } from "@/components/control-plane/empty-state";
 import { useProjects } from "@/features/deploy/hooks/use-projects";
@@ -37,9 +37,10 @@ export function ProjectIndex({
         connectionResult.repo!.toLowerCase(),
     );
     if (project)
-      router.replace(
-        `/projects/${project.id}?tab=deployments&platform=${encodeURIComponent(project.platformName ?? platform ?? "community")}`,
-      );
+      router.navigate({
+        href: `/projects/${project.id}?tab=deployments&platform=${encodeURIComponent(project.platformName ?? platform ?? "community")}`,
+        replace: true,
+      });
   }, [connectionResult, state, platform, router]);
   const requiredSdk =
     state.status === "ready" || state.status === "signed_out"

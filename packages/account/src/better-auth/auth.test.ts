@@ -27,5 +27,6 @@ describe("Better Auth protocol topology", () => {
         "device-authorization",
       ]),
     );
+    expect(pluginIds?.at(-1)).toBe("next-cookies");
   });
 });

@@ -3,11 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { mockStartRouteTree } from "./scripts/mock-start-route-tree";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   plugins: [
+    mockStartRouteTree,
     react(),
     {
       name: "workspace-source-alias",
@@ -56,6 +58,10 @@ export default defineConfig({
         currentDir,
         "apps/portal/__mocks__/server-only.ts",
       ),
+      "@tanstack/react-start/server-only": resolve(
+        currentDir,
+        "apps/portal/__mocks__/server-only.ts",
+      ),
       "client-only": resolve(
         currentDir,
         "apps/portal/__mocks__/client-only.ts",
@@ -64,7 +70,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["./vitest.setup.ts", "./apps/build/vitest.setup.ts"],
     include: [
       "scripts/**/*.{test,spec}.{ts,tsx,mjs,cjs,js}",
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
@@ -72,11 +78,11 @@ export default defineConfig({
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/oauth/consent/**/*.{test,spec}.{ts,tsx}",
+      "apps/portal/src/screens/oauth/consent/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/lib/widget-auth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/api/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/app/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/http/api/**/route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/http/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/http/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
     ],
     exclude: [
       ".claude/**",

@@ -12,7 +12,7 @@ import {
 } from "@/features/deploy";
 import { chatAppUrl } from "@/lib/chat-url";
 import { Stepper } from "./stepper";
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import { LivePanel } from "./live-panel";
 
 const STEPS = [

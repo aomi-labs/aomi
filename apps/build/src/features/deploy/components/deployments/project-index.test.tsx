@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
 const replace = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({
+    navigate: ({ href }: { href: string }) => replace(href),
+  }),
+}));
 vi.mock("@/features/deploy/hooks/use-projects", () => ({
   useProjects: vi.fn(() => ({
     state: {

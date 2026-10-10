@@ -4,6 +4,12 @@ packages:
   - packages/*
 
 overrides:
+  # Keep the root Vitest toolchain on Vite 7; native Start apps use Rolldown.
+  vite: 7.3.7
+  "portal>vite": 8.3.4
+  "aomi-build>vite": 8.3.4
+  "@types/node": 25.6.0
+  "@tanstack/react-query": 5.104.1
   "@modelcontextprotocol/sdk": 1.32.0
   viem: 2.47.11
   # Collapse react/react-dom to one version. Bun bundles the aomi-smither

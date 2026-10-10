@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
 import { proxy } from "./proxy";
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -11,7 +10,7 @@ describe("local hosted Portal transport", () => {
     vi.stubEnv("NEXT_PUBLIC_AOMI_HOSTED_PORTAL_URL", "https://staging.example");
     const fetcher = vi.fn();
     vi.stubGlobal("fetch", fetcher);
-    await proxy(new NextRequest("https://local.example/api/account"));
+    await proxy(new Request("https://local.example/api/account"));
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("forwards the caller bearer and origin, strips cookies, and exposes the response", async () => {
@@ -25,7 +24,7 @@ describe("local hosted Portal transport", () => {
     );
     vi.stubGlobal("fetch", fetcher);
     const response = await proxy(
-      new NextRequest("https://local.example/v1/account/statement?limit=10", {
+      new Request("https://local.example/v1/account/statement?limit=10", {
         headers: {
           Origin: "https://embed.example",
           Authorization: "Bearer test-wst",

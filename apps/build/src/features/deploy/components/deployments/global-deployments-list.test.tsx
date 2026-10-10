@@ -3,9 +3,17 @@ import { render, screen } from "@testing-library/react";
 
 const push = vi.fn();
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams(""),
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({ navigate: ({ href }: { href: string }) => push(href) }),
+  useLocation: (options: {
+    select: (location: { pathname: string; searchStr: string }) => unknown;
+  }) =>
+    options.select({
+      pathname: "/projects",
+      searchStr: new URLSearchParams("").toString(),
+    }),
 }));
 
 vi.mock("./use-global-deployment-records", () => ({

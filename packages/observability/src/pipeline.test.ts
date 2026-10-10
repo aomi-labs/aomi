@@ -4,7 +4,6 @@ import { RequiredSecretsCheckError } from "@aomi-labs/deploy/bff";
 
 const sentry = vi.hoisted(() => ({
   captureException: vi.fn(),
-  captureRequestError: vi.fn(),
   init: vi.fn(),
   logger: { error: vi.fn() },
   requestDataIntegration: vi.fn(() => ({ name: "RequestData" })),
@@ -12,9 +11,8 @@ const sentry = vi.hoisted(() => ({
   withIsolationScope: vi.fn(),
 }));
 
-vi.mock("@sentry/nextjs", () => ({
+vi.mock("@sentry/node", () => ({
   captureException: sentry.captureException,
-  captureRequestError: sentry.captureRequestError,
   init: sentry.init,
   logger: sentry.logger,
   requestDataIntegration: sentry.requestDataIntegration,
@@ -325,9 +323,13 @@ describe("three-layer failure pipeline", () => {
     );
   });
 
-  it("uses Sentry's request-error adapter for uncaught framework errors", () => {
+  it("captures uncaught framework errors once without forwarding request credentials", () => {
     const error = new Error("uncaught");
-    const request = { path: "/api/private", method: "GET", headers: {} };
+    const request = {
+      path: "/api/private?token=secret",
+      method: "GET",
+      headers: { authorization: "Bearer secret", cookie: "session=secret" },
+    };
     const errorContext = {
       routerKind: "App Router",
       routePath: "/api/[id]",
@@ -346,12 +348,37 @@ describe("three-layer failure pipeline", () => {
       },
     });
 
-    expect(sentry.captureRequestError).toHaveBeenCalledWith(
-      error,
-      request,
-      errorContext,
+    expect(sentry.captureException).toHaveBeenCalledOnce();
+    expect(sentry.captureException).toHaveBeenCalledWith(error);
+    expect(sentry.scope.setTags).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route_family: "/api/:param",
+        operation: "next.request_error",
+        handled: false,
+      }),
     );
-    expect(sentry.captureException).not.toHaveBeenCalled();
+    expect(JSON.stringify(sentry.scope.setTags.mock.calls)).not.toContain("secret");
+  });
+
+  it("routes native uncaught errors with approved context and a safe response", async () => {
+    const error = new Error("private native failure");
+    const result = createFailurePipeline("portal-bff").handle({
+      source: "uncaught",
+      error,
+      context: { routeFamily: "/api/auth/[...all]", operation: "start.request_error", method: "POST" },
+    });
+
+    expect(result).toMatchObject({ action: "issue", handled: false, responseStatus: 500 });
+    expect(result).not.toHaveProperty("requestError");
+    await expect(result.response.json()).resolves.toEqual({ error: "internal_error" });
+    expect(sentry.captureException).toHaveBeenCalledOnce();
+    expect(sentry.captureException).toHaveBeenCalledWith(error);
+    expect(sentry.scope.setTags).toHaveBeenCalledWith(expect.objectContaining({
+      service: "portal-bff",
+      operation: "start.request_error",
+      route_family: "/api/auth/:catchall",
+      handled: false,
+    }));
   });
 
   it("does not let a broken local console change routing", () => {

@@ -79,3 +79,13 @@ next-env.d.ts
 # Generated bridge themes and OpenAPI temporary exports
 /packages/widget-lib/themes/
 /.tmp/
+
+# TanStack Start/Nitro app build output
+apps/portal/.output/
+apps/build/.output/
+apps/portal/.tanstack/
+apps/build/.tanstack/
+apps/portal/dist/
+apps/build/dist/
+apps/portal/src/routeTree.gen.ts
+apps/build/src/routeTree.gen.ts

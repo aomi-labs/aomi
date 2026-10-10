@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import { useDeploymentAttempts } from "./use-deployment-attempts";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -610,9 +610,9 @@ export function useProjectDetail(projectId: number) {
     async (branch = "") => {
       const requestEpoch = projectEpochRef.current;
       const operation = startAttempt(branch);
-      router.push(
-        `/projects/${projectId}?tab=deployments&platform=${encodeURIComponent(source?.platformName ?? "community")}`,
-      );
+      router.navigate({
+        href: `/projects/${projectId}?tab=deployments&platform=${encodeURIComponent(source?.platformName ?? "community")}`,
+      });
       const attempt = await operation;
       if (attempt && projectEpochRef.current === requestEpoch) await reload();
       return attempt;
@@ -634,13 +634,7 @@ export function useProjectDetail(projectId: number) {
     void refreshRequiredSecrets().catch(() => undefined);
     // Live appears right after Verify instead of on the next 10 s tick.
     void queryClient.invalidateQueries({ queryKey: runtimeKey });
-  }, [
-    latestAttempt,
-    reload,
-    refreshRequiredSecrets,
-    queryClient,
-    runtimeKey,
-  ]);
+  }, [latestAttempt, reload, refreshRequiredSecrets, queryClient, runtimeKey]);
 
   const upgradeSdk = useCallback(
     () => deploymentUpgradeSdk({ projectId }),

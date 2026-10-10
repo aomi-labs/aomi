@@ -69,11 +69,13 @@ describe("preview wallet auth origin", () => {
       NODE_ENV: process.env.NODE_ENV,
       DATABASE_URL: process.env.DATABASE_URL,
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+      AOMI_AUTH_DOMAIN: process.env.AOMI_AUTH_DOMAIN,
     };
     process.env.NODE_ENV = "test";
     process.env.DATABASE_URL =
       "postgresql://postgres:postgres@localhost:5432/aomi";
     process.env.BETTER_AUTH_URL = canonical;
+    delete process.env.AOMI_AUTH_DOMAIN;
     try {
       const { auth } = await import("./auth");
       const siwe = auth.options.plugins?.find(

@@ -1,1 +1,4 @@
-.vercel
+.output/
+dist/
+src/routeTree.gen.ts
+.tsbuildinfo

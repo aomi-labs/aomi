@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { readFileSync } from "fs";

@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { backendUrlFromEnv } from "@aomi-labs/account/backend-url";
 
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";

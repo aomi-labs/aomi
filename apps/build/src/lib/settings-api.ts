@@ -1,7 +1,5 @@
 "use client";
 
-import "client-only";
-
 const SETTINGS_SESSION_KEY = "aomi_settings_session_id";
 const SECRET_STORAGE_KEY = "aomi_secret_key";
 

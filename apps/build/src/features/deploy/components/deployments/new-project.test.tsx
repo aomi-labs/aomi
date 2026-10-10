@@ -1,5 +1,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createBrowserHistory,
+  type RouterHistory,
+} from "@tanstack/react-router";
+
+let history: RouterHistory;
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({ history }),
+}));
 
 const fetchGitHubSession = vi.hoisted(() => vi.fn());
 
@@ -31,12 +42,14 @@ describe("NewProject", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState({}, "", "/operate/deployments/new");
+    history = createBrowserHistory();
     fetchGitHubSession.mockResolvedValue({
       signedIn: true,
       githubLogin: "alice",
       installationId: "42",
     });
   });
+  afterEach(() => history.destroy());
 
   it("offers both starting points before either flow runs", async () => {
     render(<NewProject platform="somm.finance" />);

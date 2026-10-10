@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
 import type {
   BffService,
@@ -154,19 +154,7 @@ function routeDecision(
     Sentry.withIsolationScope((scope) => {
       scope.setLevel("error");
       scope.setTags(attributes);
-      if (routedDecision.requestError) {
-        Sentry.captureRequestError(
-          error,
-          routedDecision.requestError.request as Parameters<
-            typeof Sentry.captureRequestError
-          >[1],
-          routedDecision.requestError.errorContext as Parameters<
-            typeof Sentry.captureRequestError
-          >[2],
-        );
-      } else {
-        Sentry.captureException(error);
-      }
+      Sentry.captureException(error);
     });
   } catch {
     // Telemetry delivery must never replace the owned response.

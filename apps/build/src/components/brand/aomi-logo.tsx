@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 
 import { cn } from "@/lib/class-names";
 
@@ -72,7 +72,7 @@ export function AomiLogo({
   return (
     <Link
       href={href}
-      prefetch={false}
+      preload={false}
       onClick={onClick}
       className="focus-visible:ring-ring rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-1"
     >

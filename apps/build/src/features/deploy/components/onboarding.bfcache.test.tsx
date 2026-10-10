@@ -18,6 +18,17 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { Onboarding } from "./onboarding";
+import {
+  createMemoryHistory,
+  type RouterHistory,
+} from "@tanstack/react-router";
+
+let history: RouterHistory;
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  useRouter: () => ({ history }),
+}));
 
 vi.mock("@aomi-labs/widget/host-composition", () => ({
   useAomiWalletKit: () => ({ identity: {}, isConnected: false }),
@@ -64,6 +75,9 @@ describe("Onboarding bfcache restore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    history = createMemoryHistory({
+      initialEntries: ["/operate/deployments/new"],
+    });
     // jsdom forbids assigning window.location.href; stub the navigation that
     // beginInstall performs so the component reaches its `installing` state.
     // jsdom forbids assigning window.location.href, and the component reads it
@@ -120,9 +134,7 @@ describe("Onboarding bfcache restore", () => {
 
   it("refreshes the Build login when the App was installed after sign-in", async () => {
     render(<Onboarding platform="community" />);
-    fireEvent.click(
-      screen.getByRole("button", { name: /already installed/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /already installed/i }));
     await waitFor(() =>
       expect(window.location.href).toBe(
         "https://build.test/api/bff/auth/github/login?resume=template&platform=community",
