@@ -1,5 +1,6 @@
 /** Models preferred as default, in priority order. */
 const PREFERRED_DEFAULT_MODEL_PATTERNS: RegExp[] = [
+  /^gpt[- ]?6\.1[- ]sol$/i,
   /^gpt[- ]?6[- ]sol/i,
   /^claude.*opus.*4[.-]?8/i,
   /^claude.*4[.-]?8.*opus/i,
