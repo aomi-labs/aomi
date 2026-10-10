@@ -1,6 +1,6 @@
 {
   "name": "@aomi-labs/widget",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Embeddable Aomi chat UI and wallet provider islands.",
   "type": "module",
   "main": "./dist/index.js",

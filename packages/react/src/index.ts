@@ -114,8 +114,10 @@ export {
   type ChainInfo,
 } from "./chains";
 export {
+  CONTEXT_STEP_TOOL,
   projectAssistantMessages,
   walletContinuationPending,
+  type ContextStep,
 } from "./runtime/message-projection";
 export { resolveAutoModel } from "./control/model-selection";
 

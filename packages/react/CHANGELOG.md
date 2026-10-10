@@ -1,5 +1,9 @@
 # @aomi-labs/react
 
+## 0.8.1
+
+- Project context compaction events into the message runtime.
+
 ## 0.8.0
 
 - Add per-account display caching, controlled thread selection, draft preservation and shared query transport.

@@ -1,5 +1,9 @@
 # @aomi-labs/client
 
+## 0.10.1
+
+- Expose typed context budget and compaction events.
+
 ## 0.10.0
 
 - Prepare guest sessions on first composer interaction and join preparation before the first send; retain existing cookies and explicit account credentials.
