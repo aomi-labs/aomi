@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.1
+
+- Show context compaction progress in the working trace.
+
 ## 3.1.0
 
 - Publish the canonical compiled widget with one required applicationId prop and browser wallets by default.
