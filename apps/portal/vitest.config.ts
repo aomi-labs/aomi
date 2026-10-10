@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
+import { mockStartRouteTree } from "../../scripts/mock-start-route-tree";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const srcDir = resolve(currentDir, "src");
@@ -10,6 +11,7 @@ const widgetSrcDir = resolve(currentDir, "../../packages/widget/src");
 export default defineConfig({
   esbuild: { jsx: "automatic", jsxImportSource: "react" },
   plugins: [
+    mockStartRouteTree,
     {
       name: "workspace-source-alias",
       enforce: "pre",

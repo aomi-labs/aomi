@@ -40,6 +40,7 @@ describePostgres("production Better Auth OAuth device route", () => {
     process.env.NODE_ENV = "development";
     try {
       route = await import("./[...all]/route");
+      expect((await import("../../../auth")).auth.options.database).toBe(pool);
     } finally {
       process.env.NODE_ENV = nodeEnv;
     }
@@ -48,9 +49,7 @@ describePostgres("production Better Auth OAuth device route", () => {
   afterAll(async () => {
     try {
       await pool?.end();
-      await admin?.query(
-        `drop database if exists "${databaseName}" with (force)`,
-      );
+      await admin?.query(`drop database if exists "${databaseName}"`);
     } finally {
       try {
         await admin?.end();

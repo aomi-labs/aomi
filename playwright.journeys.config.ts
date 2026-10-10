@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
 import type { JourneyOptions } from "./tests/e2e/journey-fixture";
 import { portalEnv } from "./tests/e2e/portal-env";
 
@@ -19,7 +19,7 @@ function required(name: string): string {
   return value;
 }
 
-function localHosts() {
+function localHosts(): PlaywrightTestConfig["webServer"] {
   const upstream = `http://127.0.0.1:${ports.upstream}`;
   const databaseUrl = required("AOMI_TEST_DATABASE_URL");
   if (process.env.AOMI_TEST_DATABASE_DISPOSABLE !== "1")

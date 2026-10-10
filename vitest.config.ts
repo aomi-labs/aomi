@@ -3,11 +3,13 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { mockStartRouteTree } from "./scripts/mock-start-route-tree";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   plugins: [
+    mockStartRouteTree,
     react(),
     {
       name: "workspace-source-alias",
