@@ -11,6 +11,10 @@ Portal loads shared Settings and Library UI through
 host-composition exports remain supported. Conversation scroll restoration stays
 with the widget; Router restores other Portal pages. The cold-load JavaScript
 budget, reviewed visual snapshots and immutable consumer assertions are unchanged.
+Portal's Vite build resolves the widget's declared entries from workspace source
+so package prebundling does not combine these overlays with wallet startup. Its
+source imports keep the widget's own alias scope and context instances. Separate
+consumer gates continue to install and execute the published tarballs.
 
 The immutable Next baseline is
 `9ab669efcfa9572ef6166e71588ae00d089c55d3`. The route parity gate reads its

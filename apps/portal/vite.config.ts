@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import react from "@vitejs/plugin-react";
@@ -6,9 +6,27 @@ import { sentryTanstackStart } from "@sentry/tanstackstart-react/vite";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import publicKeys from "./public-env.keys.json" with { type: "json" };
+import widgetEntries from "../../packages/widget/package-entries.json" with { type: "json" };
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const workspace = resolve(root, "../..");
+const portalSource = resolve(root, "src");
+const widgetRoot = resolve(workspace, "packages/widget");
+const widgetSource = resolve(widgetRoot, "src");
+const scopedSourceImports: Plugin = {
+  name: "aomi-scoped-source-imports",
+  enforce: "pre",
+  async resolveId(source, importer) {
+    if (!source.startsWith("@/")) return null;
+    // Widget source keeps its own @/ imports and context instances.
+    const owner = importer?.startsWith(`${widgetSource}/`)
+      ? widgetSource
+      : portalSource;
+    return this.resolve(resolve(owner, source.slice(2)), importer, {
+      skipSelf: true,
+    });
+  },
+};
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, root, ""), ...process.env };
   for (const [key, value] of Object.entries(env)) {
@@ -30,6 +48,7 @@ export default defineConfig(({ mode }) => {
     Boolean(env.SENTRY_ORG && env.SENTRY_AUTH_TOKEN && sha);
   return {
     plugins: [
+      scopedSourceImports,
       tanstackStart({
         importProtection: {
           behavior: "error",
@@ -90,7 +109,14 @@ export default defineConfig(({ mode }) => {
     ),
     resolve: {
       alias: [
-        { find: "@", replacement: resolve(root, "src") },
+        // Let Vite split declared UI entries before package prebundling combines
+        // overlays with the wallet runtime. Consumers still use packed outputs.
+        ...Object.entries(widgetEntries.entries).map(([entry, source]) => ({
+          find: new RegExp(
+            `^@aomi-labs/widget${entry === "index" ? "" : `/${entry}`}$`,
+          ),
+          replacement: resolve(widgetRoot, source),
+        })),
         {
           find: "server-only",
           replacement: "@tanstack/react-start/server-only",
