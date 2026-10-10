@@ -49,7 +49,7 @@ export const interpretContextStep = (
           }
         : {
             icon: ArchiveIcon,
-            title: "Kept the earlier conversation as it was",
+            title: "Could not use the summary",
             chips: [],
             confidence: "high",
             rawLabel: "context_compacted",
