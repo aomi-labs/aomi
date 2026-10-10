@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -8,17 +10,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type {
-  AomiRoutingConfig,
-  DirectRoutingApp,
-} from "@aomi-labs/widget";
+import type { AomiRoutingConfig, DirectRoutingApp } from "@aomi-labs/widget";
 import { AomiFrame } from "@aomi-labs/widget/frame";
 import {
   DEFAULT_SIDEBAR_PRODUCTS,
   getBackendUrl,
   HeaderControls,
-  PackagesModal,
-  SettingsModal,
   useAccountOverview,
   useAccountSnapshot,
   useAomiWalletKit,
@@ -36,6 +33,17 @@ import {
   useRequestedAppConfig,
 } from "@/lib/portal-client-options";
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
+
+const SettingsModal = lazy(() =>
+  import("@aomi-labs/widget/host-composition").then(({ SettingsModal }) => ({
+    default: SettingsModal,
+  })),
+);
+const PackagesModal = lazy(() =>
+  import("@aomi-labs/widget/host-composition").then(({ PackagesModal }) => ({
+    default: PackagesModal,
+  })),
+);
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;
 
@@ -167,11 +175,14 @@ export function ThreadUrlBootstrap({
       }
       if (urlNavigation.href === latest.pendingUrl.previousHref) return;
     }
-    const locationThread = new URLSearchParams(urlNavigation.search)
-      .get("thread")?.trim() || null;
+    const locationThread =
+      new URLSearchParams(urlNavigation.search).get("thread")?.trim() || null;
     // The per-chat boundary remounts this subtree. Reopen a URL only on host
     // restoration or a Router location change, including browser back/forward.
-    if (latest.requestedThread === undefined || locationThread !== latest.requestedThread)
+    if (
+      latest.requestedThread === undefined ||
+      locationThread !== latest.requestedThread
+    )
       locationState.navigate(locationThread);
   }, [locationState, urlNavigation.href, urlNavigation.search]);
 
@@ -419,10 +430,15 @@ export function PortalAomiFrame() {
     const url = new URL(portalUrl.href, "http://portal.local");
     url.searchParams.delete("thread");
     const targetHref = url.pathname + url.search + url.hash;
-    threadUrlState.navigation.navigate(null, targetHref === portalUrl.href ? undefined : {
-      previousHref: portalUrl.href,
-      targetHref,
-    });
+    threadUrlState.navigation.navigate(
+      null,
+      targetHref === portalUrl.href
+        ? undefined
+        : {
+            previousHref: portalUrl.href,
+            targetHref,
+          },
+    );
     if (targetHref !== portalUrl.href) void portalUrl.replace(url);
     setThreadUrlState((current) => ({ ...current, clearThreadUrl: false }));
   }, [threadUrlState, portalUrl]);
@@ -490,16 +506,20 @@ export function PortalAomiFrame() {
             backdrop still covers the sidebar and chat as one surface. */}
           {overlay === "settings" && (
             <OverlayPortal>
-              <SettingsModal
-                key={settingsTab}
-                initialTab={settingsTab}
-                onClose={() => setOverlay("none")}
-              />
+              <Suspense fallback={null}>
+                <SettingsModal
+                  key={settingsTab}
+                  initialTab={settingsTab}
+                  onClose={() => setOverlay("none")}
+                />
+              </Suspense>
             </OverlayPortal>
           )}
           {overlay === "packages" && (
             <OverlayPortal>
-              <PackagesModal onClose={() => setOverlay("none")} />
+              <Suspense fallback={null}>
+                <PackagesModal onClose={() => setOverlay("none")} />
+              </Suspense>
             </OverlayPortal>
           )}
         </AomiFrame.Root>
