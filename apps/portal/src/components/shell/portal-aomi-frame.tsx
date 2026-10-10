@@ -35,14 +35,18 @@ import {
 import { SvmWalletBindingGate } from "@aomi-labs/widget/host-composition";
 
 const SettingsModal = lazy(() =>
-  import("@aomi-labs/widget/host-composition").then(({ SettingsModal }) => ({
-    default: SettingsModal,
-  })),
+  import("@aomi-labs/widget/host-composition/overlays").then(
+    ({ SettingsModal }) => ({
+      default: SettingsModal,
+    }),
+  ),
 );
 const PackagesModal = lazy(() =>
-  import("@aomi-labs/widget/host-composition").then(({ PackagesModal }) => ({
-    default: PackagesModal,
-  })),
+  import("@aomi-labs/widget/host-composition/overlays").then(
+    ({ PackagesModal }) => ({
+      default: PackagesModal,
+    }),
+  ),
 );
 
 const DEFAULT_ENABLED_APPS = ["default"] as const;

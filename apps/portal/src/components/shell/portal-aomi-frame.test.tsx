@@ -15,6 +15,11 @@ import {
 } from "@assistant-ui/react";
 import { AssistantRuntimeBoundary } from "../../../../../packages/react/src/runtime/assistant-runtime-boundary";
 
+vi.mock(
+  "@aomi-labs/widget/host-composition/overlays",
+  () => import("@aomi-labs/widget/host-composition"),
+);
+
 import {
   PortalAomiFrame,
   ThreadUrlBootstrap,
@@ -88,7 +93,8 @@ const urlNavigationState = vi.hoisted(() => ({
 vi.mock("@/lib/navigation", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
   const listeners = new Set<() => void>();
-  const getHref = () => window.location.pathname + window.location.search + window.location.hash;
+  const getHref = () =>
+    window.location.pathname + window.location.search + window.location.hash;
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
     window.addEventListener("popstate", listener);
@@ -104,25 +110,35 @@ vi.mock("@/lib/navigation", async () => {
     };
     if (urlNavigationState.defer) {
       return new Promise<void>((resolve) => {
-        urlNavigationState.commit = () => { commit(); resolve(); };
+        urlNavigationState.commit = () => {
+          commit();
+          resolve();
+        };
       });
     }
     commit();
     return Promise.resolve();
   };
   urlNavigationState.install = () => {
-    urlNavigationState.push.mockImplementation((url: URL) => write("pushState", url));
-    urlNavigationState.replace.mockImplementation((url: URL) => write("replaceState", url));
+    urlNavigationState.push.mockImplementation((url: URL) =>
+      write("pushState", url),
+    );
+    urlNavigationState.replace.mockImplementation((url: URL) =>
+      write("replaceState", url),
+    );
   };
   return {
     usePortalUrlNavigation: () => {
       const href = React.useSyncExternalStore(subscribe, getHref, getHref);
-      return React.useMemo(() => ({
-        href,
-        search: new URL(href, "http://portal.local").search,
-        push: urlNavigationState.push,
-        replace: urlNavigationState.replace,
-      }), [href]);
+      return React.useMemo(
+        () => ({
+          href,
+          search: new URL(href, "http://portal.local").search,
+          push: urlNavigationState.push,
+          replace: urlNavigationState.replace,
+        }),
+        [href],
+      );
     },
   };
 });
@@ -1000,7 +1016,11 @@ describe("ThreadUrlBootstrap", () => {
   });
 
   it("keeps a new chat selected while Router commits its URL after a per-chat remount", async () => {
-    window.history.replaceState({}, "", "/?app=default&thread=saved&applicationId=17#composer");
+    window.history.replaceState(
+      {},
+      "",
+      "/?app=default&thread=saved&applicationId=17#composer",
+    );
     const view = render(<RuntimeUrlHarness />);
     urlNavigationState.defer = true;
 
@@ -1011,7 +1031,9 @@ describe("ThreadUrlBootstrap", () => {
     view.rerender(<RuntimeUrlHarness />);
     expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
 
-    await act(async () => { urlNavigationState.commit?.(); });
+    await act(async () => {
+      urlNavigationState.commit?.();
+    });
     expect(window.location.search).toBe("?app=default&applicationId=17");
     expect(window.location.hash).toBe("#composer");
     expect(screen.queryByText("saved-message")).not.toBeInTheDocument();

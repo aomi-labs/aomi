@@ -6,6 +6,12 @@ The migration preserves public HTTP paths, cookie formats, account ownership,
 wallet Actions and the Rust/manager/payment/commit service contracts. It adds no
 database migration and does not authorize a production deployment.
 
+Portal loads shared Settings and Library UI through
+`@aomi-labs/widget/host-composition/overlays` when an overlay opens. The existing
+host-composition exports remain supported. Conversation scroll restoration stays
+with the widget; Router restores other Portal pages. The cold-load JavaScript
+budget, reviewed visual snapshots and immutable consumer assertions are unchanged.
+
 The immutable Next baseline is
 `9ab669efcfa9572ef6166e71588ae00d089c55d3`. The route parity gate reads its
 TypeScript exports, including destructured handlers, and compares public page
