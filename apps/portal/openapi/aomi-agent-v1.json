@@ -2660,26 +2660,14 @@
     "/v1/task/build": {
       "post": {
         "operationId": "buildTask",
-        "security": [
-          {
-            "aomiOAuth": ["task:build"]
-          }
-        ],
-        "description": "Authenticated natural-language task preparation. First request freezes an unsigned payload and returns a payment challenge valid for at most five minutes and never beyond the frozen build expiry without calldata. Retrieval requires the same principal, quoteId and private retrievalToken plus Payment-Signature, or recovery of an already accepted purchase. Supplying Payment-Signature additionally requires payments:submit scope. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
+        "security": [],
+        "description": "Wallet-native task preparation. Every request is bound to the exact canonical body by a short-lived EIP-712 TaskAuthorization; bearer credentials are rejected. smart_account_calls may include exact ordered calls that Aomi simulates directly with the authenticated wallet as msg.sender. EOA, ERC-1271 and ERC-6492 signatures are supported. Payment and final execution remain separate wallet signatures. The service never signs wallet transactions or executes Task actions. Paid frozen artifacts are recoverable for 30 days from first durable payment acceptance; retries do not extend retention or transaction validity. Mainnet payment is disabled unless explicitly enabled by deployment.",
         "parameters": [
           {
             "in": "header",
             "name": "Payment-Signature",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "Idempotency-Key",
-            "schema": {
-              "type": "string",
-              "maxLength": 160
             }
           }
         ],
@@ -2692,8 +2680,18 @@
                   {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["intent", "chainId", "sender"],
+                    "required": [
+                      "intent",
+                      "chainId",
+                      "sender",
+                      "idempotencyKey",
+                      "authorization"
+                    ],
                     "properties": {
+                      "executionKind": {
+                        "enum": ["eoa_transactions", "smart_account_calls"],
+                        "default": "eoa_transactions"
+                      },
                       "transactionSafetyMode": {
                         "$ref": "#/components/schemas/TransactionSafetyMode",
                         "description": "EVM transaction safety selection. Initial build, stage, and Task requests use the account default when omitted. Simulation and commit inherit the sealed Build selection when omitted; an explicit override requires a fresh assessment and review."
@@ -2711,7 +2709,17 @@
                         "type": "string"
                       },
                       "payer": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Wallet paying for the Task artifact. When omitted on an initial request, the server materializes payer as the normalized sender address before canonicalization and signing; the EIP-712 payer field must therefore equal sender."
+                      },
+                      "calls": {
+                        "type": "array",
+                        "maxItems": 16,
+                        "default": [],
+                        "description": "Exact ordered inner calls. Allowed only with smart_account_calls; signed and simulated without planner reconstruction.",
+                        "items": {
+                          "$ref": "#/components/schemas/TaskWalletCall"
+                        }
                       },
                       "constraints": {
                         "type": "object",
@@ -2761,14 +2769,17 @@
                       },
                       "idempotencyKey": {
                         "type": "string",
-                        "description": "Required in body or Idempotency-Key header."
+                        "maxLength": 160
+                      },
+                      "authorization": {
+                        "$ref": "#/components/schemas/TaskAuthorization"
                       }
                     }
                   },
                   {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["quoteId", "retrievalToken"],
+                    "required": ["quoteId", "retrievalToken", "authorization"],
                     "properties": {
                       "quoteId": {
                         "type": "string",
@@ -2777,6 +2788,14 @@
                       "retrievalToken": {
                         "type": "string",
                         "writeOnly": true
+                      },
+                      "authorization": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/TaskAuthorization"
+                          }
+                        ],
+                        "description": "Authorizes the exact canonical request stored with the quote, not this retrieval body. Reuse the original signature while it remains suitable, or refresh only issuedAt, expiresAt, and signature over the same stored requestHash, EIP-712 domain, typed fields, wallet, and idempotencyKey."
                       }
                     }
                   }
@@ -2787,7 +2806,7 @@
         },
         "responses": {
           "200": {
-            "description": "Exact frozen JSON artifact bytes (build, report, safe summary and pricing), released only after payment acceptance. Payment-Response is returned when available; accepted is distinct from batch settlement.",
+            "description": "Exact frozen JSON artifact bytes (build, report and safe summary), released only after payment acceptance. smart_account_calls artifacts also expose the exact ordered walletCalls simulated with the authenticated wallet as msg.sender. This covers inner calls, not Circle's outer envelope or wallet policy. Payment-Response is returned when available; accepted is distinct from batch settlement.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2796,6 +2815,12 @@
                   "properties": {
                     "summary": {
                       "$ref": "#/components/schemas/TaskSummary"
+                    },
+                    "walletCalls": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TaskWalletCall"
+                      }
                     }
                   }
                 }
@@ -2804,9 +2829,6 @@
           },
           "202": {
             "description": "Payment submitted or ambiguous; retry the same quote/token for recovery. Artifact remains private."
-          },
-          "401": {
-            "$ref": "#/components/responses/Error"
           },
           "402": {
             "description": "Safe summary, pricing, quoteId, expiresAt, SHA-256 payloadHash, EdDSA attestation, retrievalToken and base64 Gateway paymentRequired. No build/calldata/full report.",
@@ -2830,9 +2852,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "$ref": "#/components/responses/Error"
           },
           "409": {
             "description": "Request key conflict, active preparation, or incompatible payment replay."
@@ -6895,6 +6914,27 @@
           }
         }
       },
+      "TaskAuthorization": {
+        "type": "object",
+        "description": "Per-request EIP-712 authorization for both initial Task quote requests and quote-purchase recovery requests. Compute requestHash as keccak256(UTF-8(JCS(request without authorization))) using RFC 8785 canonical JSON after lowercasing EVM addresses, materializing documented defaults (including payer = sender when payer is omitted), encoding numeric quantities as decimal strings, and preserving call-array order. The EIP-712 domain is {name: 'Aomi Task API', version: '1', chainId: request.chainId, salt: keccak256('https://chat.aomi.dev/v1/task')}. The primary type is TaskAuthorization(string endpoint,bytes32 requestHash,uint256 chainId,address sender,address payer,string idempotencyKey,uint64 issuedAt,uint64 expiresAt), where endpoint is '/v1/task/build'. issuedAt and expiresAt are Unix seconds; expiresAt must be after issuedAt and no more than five minutes later, and issuedAt may be at most 30 seconds in the future. The recovered EOA, ERC-1271, or ERC-6492 signer must equal both sender and payer. Before a quote exists, a near-expiry authorization may be replaced only for the identical requestHash and idempotencyKey. After quote creation, purchase and recovery remain bound to the stored original requestHash, domain, typed fields, wallet, and idempotencyKey; clients may refresh only issuedAt, expiresAt, and signature over that same binding until quote expiry, and the authorization cannot authorize another request.",
+        "additionalProperties": false,
+        "required": ["issuedAt", "expiresAt", "signature"],
+        "properties": {
+          "issuedAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]+$",
+            "writeOnly": true
+          }
+        }
+      },
       "TaskSummary": {
         "type": "object",
         "additionalProperties": false,
@@ -6906,6 +6946,9 @@
           "gas",
           "constraints",
           "source",
+          "senderBinding",
+          "requestHash",
+          "authorizationIdentity",
           "actionCount",
           "outgoingUsdcWei"
         ],
@@ -6972,11 +7015,56 @@
               }
             }
           },
+          "senderBinding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["executionKind", "counterfactual", "simulationScope"],
+            "properties": {
+              "executionKind": {
+                "enum": ["eoa_transactions", "smart_account_calls"]
+              },
+              "codeHash": {
+                "type": "string"
+              },
+              "counterfactual": {
+                "type": "boolean"
+              },
+              "simulationScope": {
+                "enum": ["wallet_transactions", "inner_calls_only"]
+              }
+            }
+          },
+          "requestHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "authorizationIdentity": {
+            "type": "string"
+          },
           "actionCount": {
             "type": "integer",
             "minimum": 0
           },
           "outgoingUsdcWei": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "TaskWalletCall": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["to", "data", "value"],
+        "properties": {
+          "to": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "data": {
+            "type": "string",
+            "pattern": "^0x(?:[0-9a-fA-F]{2})*$"
+          },
+          "value": {
             "type": "string",
             "pattern": "^[0-9]+$"
           }
@@ -7260,7 +7348,6 @@
               "agent:write": "Start, continue, interrupt, update, or delete Agent sessions",
               "agent:actions:resolve": "Resolve a durable Agent Action",
               "pipeline:catalog": "Browse public Pipeline apps, skills, and operations",
-              "task:build": "Prepare and purchase an immutable unsigned task artifact",
               "pipeline:execute": "Attempt Pipeline execution subject to Gate F policy",
               "account:transaction-safety:read": "Read owned transaction safety preferences",
               "account:transaction-safety:write": "Update owned transaction safety preferences",
@@ -7282,7 +7369,6 @@
         "x-aomi-resources": {
           "agent": "https://chat.aomi.dev/v1/agent",
           "pipeline": "https://chat.aomi.dev/v1/pipeline",
-          "task": "https://chat.aomi.dev/v1/task",
           "agentMcp": "https://chat.aomi.dev/v1/agent/mcp",
           "pipelineMcp": "https://chat.aomi.dev/v1/pipeline/mcp",
           "account": "https://chat.aomi.dev/v1/account"

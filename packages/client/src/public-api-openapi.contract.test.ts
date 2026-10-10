@@ -8,8 +8,32 @@ describe("public Agent, Pipeline, and Account OpenAPI snapshot", () => {
     expect(publicApi["x-aomi-route-manifest"]).toContain("POST /v1/task/build");
     expect(publicApi.paths["/v1/task/build"].post).toMatchObject({
       operationId: "buildTask",
-      security: [{ aomiOAuth: ["task:build"] }],
+      security: [],
     });
+    expect(
+      publicApi.components.securitySchemes.aomiOAuth.flows.authorizationCode
+        .scopes,
+    ).not.toHaveProperty("task:build");
+    expect(
+      publicApi.components.securitySchemes.aomiOAuth["x-aomi-resources"],
+    ).not.toHaveProperty("task");
+    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
+      "RFC 8785 canonical JSON",
+    );
+    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
+      "TaskAuthorization(string endpoint,bytes32 requestHash",
+    );
+    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
+      "Unix seconds",
+    );
+    expect(publicApi.components.schemas.TaskAuthorization.description).toContain(
+      "payer = sender when payer is omitted",
+    );
+    expect(
+      publicApi.paths["/v1/task/build"].post.requestBody.content[
+        "application/json"
+      ].schema.oneOf[1].properties.authorization.description,
+    ).toContain("not this retrieval body");
     const methods = new Set(["get", "post", "put", "patch", "delete"]);
     const routes = Object.entries(publicApi.paths).flatMap(
       ([path, operations]) =>
