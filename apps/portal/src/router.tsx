@@ -21,7 +21,8 @@ export function getRouter() {
     context: { queryClient },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
-    scrollRestoration: true,
+    // The widget owns saved conversation positions; Router restores other pages.
+    scrollRestoration: ({ location }) => location.pathname !== "/",
     parseSearch: parseUrlSearch,
     stringifySearch: stringifyUrlSearch,
   });
