@@ -8,10 +8,7 @@ import {
   useControl,
   type ControlContextApi,
 } from "./control-context";
-import {
-  initThreadControl,
-  type ThreadMetadata,
-} from "../state/thread-store";
+import { initThreadControl, type ThreadMetadata } from "../state/thread-store";
 
 type HarnessHandle = {
   control: ControlContextApi;
@@ -121,6 +118,58 @@ afterEach(() => {
 });
 
 describe("ControlContextProvider", () => {
+  it("defaults fresh threads to GPT-6.1 Sol", async () => {
+    const threadMetadata = createThreadMetadata();
+    const { getControl } = renderControlContext(
+      {
+        getModels: vi.fn(async () => ["GPT-6 Sol", "GPT-6.1 Sol"]),
+      },
+      threadMetadata,
+    );
+    await waitFor(() => {
+      expect(getControl().state.defaultModel).toBe("GPT-6.1 Sol");
+      expect(threadMetadata.get("session-1")?.control).toMatchObject({
+        model: "GPT-6.1 Sol",
+        modelMode: "auto",
+      });
+    });
+  });
+
+  it.each(["auto", "manual"] as const)(
+    "refreshes %s selection when GPT-6.1 Sol appears",
+    async (mode) => {
+      const threadMetadata = createThreadMetadata();
+      const getModels = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce(["GPT-6 Sol"])
+        .mockResolvedValueOnce(["GPT-6 Sol", "GPT-6.1 Sol"]);
+      const { getControl } = renderControlContext(
+        { getModels },
+        threadMetadata,
+      );
+      await waitFor(() => {
+        expect(threadMetadata.get("session-1")?.control.model).toBe(
+          "GPT-6 Sol",
+        );
+      });
+      await act(async () => {
+        await getControl().onModelSelect("GPT-6 Sol", { mode });
+        await getControl().getAvailableModels();
+      });
+      await waitFor(() => {
+        expect(getControl().state.defaultModel).toBe("GPT-6.1 Sol");
+        expect(threadMetadata.get("session-1")?.control).toMatchObject({
+          model: mode === "auto" ? "GPT-6.1 Sol" : "GPT-6 Sol",
+          modelMode: mode,
+        });
+        expect(getControl().getPreferredThreadControl()).toMatchObject({
+          model: mode === "auto" ? "GPT-6.1 Sol" : "GPT-6 Sol",
+          modelMode: mode,
+        });
+      });
+    },
+  );
+
   it("initializes client id synchronously on first render", () => {
     const { getControl } = renderControlContext();
     expect(getControl().state.clientId).toBeTruthy();

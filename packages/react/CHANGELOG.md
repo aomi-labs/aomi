@@ -1,5 +1,9 @@
 # @aomi-labs/react
 
+## 0.8.2
+
+- Prefer GPT-6.1 Sol for new and Auto threads when available, preserving manual selections and existing fallback models.
+
 ## 0.8.1
 
 - Project context compaction events into the message runtime.
