@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRef, useState, type ReactNode } from "react";
 import {
   MessagePrimitive,
@@ -75,6 +75,63 @@ const settingsOpenRequest = vi.hoisted(() => ({
 const accountOverviewState = vi.hoisted(() => ({
   current: null as null | { user: { user_id: string; apps?: string[] } },
 }));
+const urlNavigationState = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  defer: false,
+  commit: undefined as undefined | (() => void),
+  install: undefined as undefined | (() => void),
+}));
+
+// The host adapter owns history in production. Keep real jsdom history here
+// so the existing back/forward tests still exercise observable URL changes.
+vi.mock("@/lib/navigation", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+  const listeners = new Set<() => void>();
+  const getHref = () => window.location.pathname + window.location.search + window.location.hash;
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    window.addEventListener("popstate", listener);
+    return () => {
+      listeners.delete(listener);
+      window.removeEventListener("popstate", listener);
+    };
+  };
+  const write = (method: "pushState" | "replaceState", url: URL) => {
+    const commit = () => {
+      window.history[method](null, "", url.pathname + url.search + url.hash);
+      listeners.forEach((listener) => listener());
+    };
+    if (urlNavigationState.defer) {
+      return new Promise<void>((resolve) => {
+        urlNavigationState.commit = () => { commit(); resolve(); };
+      });
+    }
+    commit();
+    return Promise.resolve();
+  };
+  urlNavigationState.install = () => {
+    urlNavigationState.push.mockImplementation((url: URL) => write("pushState", url));
+    urlNavigationState.replace.mockImplementation((url: URL) => write("replaceState", url));
+  };
+  return {
+    usePortalUrlNavigation: () => {
+      const href = React.useSyncExternalStore(subscribe, getHref, getHref);
+      return React.useMemo(() => ({
+        href,
+        search: new URL(href, "http://portal.local").search,
+        push: urlNavigationState.push,
+        replace: urlNavigationState.replace,
+      }), [href]);
+    },
+  };
+});
+
+beforeEach(() => {
+  // restoreMocks resets implementations assigned during module collection.
+  // Install the observable host adapter for every test, including URL writes.
+  urlNavigationState.install?.();
+});
 
 vi.mock("@aomi-labs/react", () => ({
   useAomiRuntime: () => ({
@@ -250,6 +307,10 @@ describe("PortalAomiFrame account bootstrap", () => {
     runtimeState.current.getThreadMetadata = undefined;
     runtimeState.current.threadListLoading = false;
     runtimeState.current.threadListRevalidating = undefined;
+    urlNavigationState.push.mockClear();
+    urlNavigationState.replace.mockClear();
+    urlNavigationState.defer = false;
+    urlNavigationState.commit = undefined;
   });
 
   it("shows Settings from the scoped snapshot while pending and hides it on sign-out", () => {
@@ -760,6 +821,10 @@ describe("ThreadUrlBootstrap", () => {
       isRemoteThread: vi.fn(() => false),
       events: [],
     };
+    urlNavigationState.push.mockClear();
+    urlNavigationState.replace.mockClear();
+    urlNavigationState.defer = false;
+    urlNavigationState.commit = undefined;
   });
 
   it("waits for remote metadata before selecting a linked MCP thread", async () => {
@@ -932,6 +997,25 @@ describe("ThreadUrlBootstrap", () => {
     expect(window.location.search).toBe("?thread=saved-chat");
     expect(push).not.toHaveBeenCalled();
     push.mockRestore();
+  });
+
+  it("keeps a new chat selected while Router commits its URL after a per-chat remount", async () => {
+    window.history.replaceState({}, "", "/?app=default&thread=saved&applicationId=17#composer");
+    const view = render(<RuntimeUrlHarness />);
+    urlNavigationState.defer = true;
+
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
+    expect(window.location.search).toContain("thread=saved");
+    expect(urlNavigationState.push).toHaveBeenCalledOnce();
+    view.rerender(<RuntimeUrlHarness />);
+    expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
+
+    await act(async () => { urlNavigationState.commit?.(); });
+    expect(window.location.search).toBe("?app=default&applicationId=17");
+    expect(window.location.hash).toBe("#composer");
+    expect(screen.queryByText("saved-message")).not.toBeInTheDocument();
+    expect(urlNavigationState.push).toHaveBeenCalledOnce();
   });
 
   it("opens a browser-back target once without adding a second history entry", async () => {

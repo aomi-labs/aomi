@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useGitHubSession } from "@/components/control-plane/github-session-context";
 import {
@@ -30,11 +30,7 @@ function operateHref(
   return `${path}${params.size ? `?${params}` : ""}`;
 }
 
-export function AppDetailPage({
-  applicationId,
-}: {
-  applicationId: number;
-}) {
+export function AppDetailPage({ applicationId }: { applicationId: number }) {
   const router = useRouter();
   const { account } = useGitHubSession();
   const accountKey = githubAccountKey(account.githubLogin);
@@ -94,29 +90,29 @@ export function AppDetailPage({
     <AppDetailView
       app={view.app}
       onBack={() =>
-        router.push(
-          operateHref("/operate/observability", {
+        router.navigate({
+          href: operateHref("/operate/observability", {
             project: projectValue,
           }),
-        )
+        })
       }
       onOpenTrace={(tool) =>
-        router.push(
-          operateHref("/operate/logs", {
+        router.navigate({
+          href: operateHref("/operate/logs", {
             app: application,
             tool,
             project: projectValue,
           }),
-        )
+        })
       }
       onOpenTx={(tx) =>
-        router.push(
-          operateHref("/operate/transactions", {
+        router.navigate({
+          href: operateHref("/operate/transactions", {
             app: application,
             tx,
             project: projectValue,
           }),
-        )
+        })
       }
     />
   );

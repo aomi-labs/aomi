@@ -1,6 +1,5 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { NextResponse } from "next/server";
 import { cookieWriteAllowed } from "@aomi-labs/account/csrf";
 import { anonymousBuildAllowed } from "@/server/env";
 import {
@@ -12,10 +11,10 @@ import {
 
 type AuthResult =
   | { session: GitHubSession; visibilityGrant: string | null }
-  | { response: NextResponse };
+  | { response: Response };
 type AnonymousAuthResult =
   | { session: GitHubSession | null }
-  | { response: NextResponse };
+  | { response: Response };
 
 function visibilityGrantFromRequest(req: Request): string | null {
   const cookie = req.headers.get("cookie") ?? "";
@@ -50,7 +49,7 @@ export async function authorize(
   }
   if (options.write && !cookieWriteAllowed(req)) {
     return {
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      response: Response.json({ error: "Forbidden" }, { status: 403 }),
     };
   }
   const session = await getGitHubSession();
@@ -60,7 +59,7 @@ export async function authorize(
   return session
     ? { session, visibilityGrant: visibilityGrantFromRequest(req) }
     : {
-        response: NextResponse.json(
+        response: Response.json(
           { error: "not signed in with GitHub" },
           { status: 401 },
         ),

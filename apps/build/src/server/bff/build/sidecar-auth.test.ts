@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   capture: vi.fn(),
 }));
 
-vi.mock("@aomi-labs/account", () => ({
+vi.mock("@aomi-labs/account/server", () => ({
   portalService: mocks.portalService,
 }));
 

@@ -41,6 +41,29 @@ describe("createBackendProxy", () => {
     vi.restoreAllMocks();
   });
 
+  it("forwards native requests with encoded query values and immediate route params", async () => {
+    const fetchMock = vi.fn(async (_url: URL) => new Response("upstream"));
+    vi.stubGlobal("fetch", fetchMock);
+    const { GET } = createTestProxy({
+      allowedRoutes: [{
+        pattern: /^\/api\/models$/,
+        methods: new Set(["GET"]),
+        auth: "none",
+      }],
+      resolveCanonicalUserId: async () => null,
+    });
+
+    const response = await GET(
+      new Request("https://portal.aomi.dev/api/models?search=a%2Bb&cursor=one%2Ftwo"),
+      { params: { slug: ["models"] } },
+    );
+
+    expect(fetchMock.mock.calls[0]?.[0].toString()).toBe(
+      "https://backend.aomi.dev/api/models?search=a%2Bb&cursor=one%2Ftwo",
+    );
+    expect(await response.text()).toBe("upstream");
+  });
+
   it("fails closed when a session resolves but bearer minting fails", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

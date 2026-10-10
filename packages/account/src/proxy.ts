@@ -1,5 +1,3 @@
-import type { NextRequest } from "next/server";
-
 import { backendUrlFromEnv } from "./backend-url";
 import {
   BACKEND_API_HEADERS,
@@ -19,8 +17,8 @@ export type AllowedRoute = {
   auth?: "required" | "optional" | "none";
 };
 
-export type ResolveCanonicalUserId = (
-  request: NextRequest,
+export type ResolveCanonicalUserId<RequestType extends Request = Request> = (
+  request: RequestType,
 ) => Promise<string | null>;
 
 export type ProxyFailure =
@@ -69,14 +67,14 @@ function notifyProxyFailure(
   }
 }
 
-export type ProxyConfig = {
+export type ProxyConfig<RequestType extends Request = Request> = {
   /** Backend routes this proxy forwards; anything else is a 404. */
   allowedRoutes: ReadonlyArray<AllowedRoute>;
   /** Adjust the upstream URL before forwarding (e.g. a default query param). */
   applyDefaults?: (upstreamUrl: URL) => void;
   upstreamBaseUrl?: string;
   /** The account to mint a bearer for, or null for an anonymous request. */
-  resolveCanonicalUserId: ResolveCanonicalUserId;
+  resolveCanonicalUserId: ResolveCanonicalUserId<RequestType>;
   /** Observe failures without exposing request or response data. */
   observeFailure?: ObserveProxyFailure;
 };
@@ -86,17 +84,19 @@ export type ProxyConfig = {
  * account bearer is minted server-side; the browser's own credentials never
  * cross.
  */
-export function createBackendProxy(config: ProxyConfig) {
+export function createBackendProxy<RequestType extends Request = Request>(
+  config: ProxyConfig<RequestType>,
+) {
   async function handle(
-    req: NextRequest,
-    context: { params: Promise<{ slug?: string[] }> },
+    req: RequestType,
+    context: { params: { slug?: string[] } | Promise<{ slug?: string[] }> },
   ): Promise<Response> {
     const { slug } = await context.params;
     const url = new URL(
       `/api/${(slug ?? []).join("/")}`,
       config.upstreamBaseUrl ?? backendUrlFromEnv(process.env),
     );
-    url.search = req.nextUrl.search;
+    url.search = new URL(req.url).search;
     config.applyDefaults?.(url);
     const route = config.allowedRoutes.find(
       (candidate) =>

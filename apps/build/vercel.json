@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "outputDirectory": null,
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter aomi-build build"
+}

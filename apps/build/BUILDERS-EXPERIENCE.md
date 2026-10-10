@@ -129,9 +129,9 @@ Stay on Account Settings until the builder clicks through. No auto-redirect.
 
 | Piece | Action |
 |---|---|
-| `src/app/(control-plane)/settings/[section]/page.tsx` | Keep server page; render client island when `slug === "secrets"` |
+| `src/routes/_control.settings.$section.tsx` and `src/features/settings/settings-section.tsx` | Keep route selection in the host; render `SettingsSecretsPanel` when `slug === "secrets"` |
 | New `SettingsSecretsPanel` (client) | Uses `useProjects`; lists / routes only |
-| `src/app/(control-plane)/settings/settings-data.ts` | Remove broken `actionHref` to `/operate/deployments?tab=environment` |
+| `src/features/settings/settings-data.ts` | Remove broken `actionHref` to `/operate/deployments?tab=environment` |
 | Links | Only `/projects/{id}?tab=environment` |
 
 **Do not** add a secret editor on this page.

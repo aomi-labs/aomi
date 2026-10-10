@@ -1,6 +1,6 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
-import { portalService } from "@aomi-labs/account";
+import { portalService } from "@aomi-labs/account/server";
 import { BackendClient } from "@aomi-labs/deploy";
 import { backendUrl } from "@/server/env";
 

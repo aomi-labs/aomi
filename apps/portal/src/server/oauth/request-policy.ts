@@ -1,9 +1,5 @@
-import {
-  aomiOAuthResourcePolicy,
-  aomiOAuthResources,
-  narrowScopesForAomiResource,
-  validateAomiResourceScopes,
-} from "@aomi-labs/account/better-auth";
+import { aomiOAuthResourcePolicy, aomiOAuthResources, narrowScopesForAomiResource, validateAomiResourceScopes } from "@aomi-labs/account/better-auth/core";
+
 import { bindAomiPublicClientResource } from "./client-resource-binding";
 
 type OAuthError =

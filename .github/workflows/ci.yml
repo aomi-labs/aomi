@@ -173,9 +173,14 @@ jobs:
       AOMI_AUTH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
+      AOMI_ARTIFACT_SECRET_CANARY: aomi-ci-artifact-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The migration parity gate reads the immutable Next route baseline.
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
@@ -201,15 +206,17 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
+            node scripts/check-start-route-parity.mjs --app portal
             pnpm run lint:portal
             pnpm run typecheck:portal
             pnpm --filter portal exec vitest run --reporter=default --reporter=json --outputFile=../../output/ci/portal-tests.json
             node scripts/check-test-results.mjs output/ci/portal-tests.json
           fi
           if [ "$CHECK_BUILD" = true ]; then
+            node scripts/check-start-route-parity.mjs --app build
             pnpm run lint:aomi-build
             pnpm run typecheck:aomi-build
-            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=output/ci/build-tests.json
+            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=../../output/ci/build-tests.json
             node scripts/check-test-results.mjs output/ci/build-tests.json
           fi
           if [ "$CHECK_LANDING" = true ]; then
@@ -250,6 +257,19 @@ jobs:
           fi
           if [ "$CHECK_TELEGRAM" = true ]; then
             pnpm run build:telegram
+          fi
+
+      - name: Verify isolated native artifacts
+        env:
+          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
+          CHECK_BUILD: ${{ needs.changes.outputs.build }}
+        run: |
+          set -euo pipefail
+          if [ "$CHECK_PORTAL" = true ]; then
+            node scripts/test-start-artifacts.mjs --app portal
+          fi
+          if [ "$CHECK_BUILD" = true ]; then
+            node scripts/test-start-artifacts.mjs --app build
           fi
 
   journeys:

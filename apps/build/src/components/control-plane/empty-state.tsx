@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import type { ReactNode } from "react";
 
 import { EmptyPanel } from "@/features/deploy/components/deployments/ui/state-panels";

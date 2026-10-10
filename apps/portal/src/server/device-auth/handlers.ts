@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 import { exchangeProviderForExistingSession } from "@aomi-labs/account/account";
 import type { AomiAccountCredential } from "@aomi-labs/account";
 

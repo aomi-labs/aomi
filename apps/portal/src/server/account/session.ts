@@ -1,4 +1,4 @@
-import { auth } from "@aomi-labs/account/better-auth";
+import { auth } from "@/server/auth";
 
 export type BetterAuthSession = {
   user?: {

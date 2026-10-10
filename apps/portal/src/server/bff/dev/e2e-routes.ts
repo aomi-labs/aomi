@@ -1,5 +1,5 @@
-import "server-only";
-import { NextRequest, NextResponse } from "next/server";
+import "@tanstack/react-start/server-only";
+import { parse, serialize } from "cookie-es";
 import type {
   WalletSolanaSignMessagePayload,
   WalletSolanaSignPayload,
@@ -25,7 +25,7 @@ import { parseChainId } from "@aomi-labs/client";
 
 /** The local E2E wallet's routes. Loaded only when dev tools are allowed. */
 
-function isSameOrigin(request: NextRequest): boolean {
+function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   try {
@@ -35,12 +35,12 @@ function isSameOrigin(request: NextRequest): boolean {
   }
 }
 
-function redirectTarget(request: NextRequest): URL {
-  const requested = request.nextUrl.searchParams.get("redirect") ?? "/";
+function redirectTarget(request: Request): URL {
+  const requested = new URL(request.url).searchParams.get("redirect") ?? "/";
   const host = request.headers.get("host");
   const origin = host
-    ? `${request.nextUrl.protocol}//${host}`
-    : request.nextUrl.origin;
+    ? `${new URL(request.url).protocol}//${host}`
+    : new URL(request.url).origin;
   const target = new URL(requested, origin);
   if (target.origin !== origin) {
     return new URL("/", origin);
@@ -48,83 +48,83 @@ function redirectTarget(request: NextRequest): URL {
   return target;
 }
 
-export function seedWallet(request: NextRequest): Response {
+export function seedWallet(request: Request): Response {
   if (!isE2EWalletEnabled()) {
-    return new NextResponse("E2E wallet seeding is disabled", {
+    return new Response("E2E wallet seeding is disabled", {
       status: 404,
     });
   }
 
-  const response = NextResponse.redirect(redirectTarget(request));
+  const response = new Response(null, { status: 307, headers: { Location: redirectTarget(request).href } });
 
-  if (request.nextUrl.searchParams.get("clear") === "1") {
-    response.cookies.delete(E2E_WALLET_COOKIE);
+  if (new URL(request.url).searchParams.get("clear") === "1") {
+    response.headers.append("Set-Cookie", serialize(E2E_WALLET_COOKIE, "", { path: "/", expires: new Date(0) }));
     return response;
   }
 
-  if (!validateE2EWalletToken(request.nextUrl.searchParams.get("token"))) {
-    return new NextResponse("Invalid E2E wallet token", { status: 401 });
+  if (!validateE2EWalletToken(new URL(request.url).searchParams.get("token"))) {
+    return new Response("Invalid E2E wallet token", { status: 401 });
   }
 
-  const rawAddress = request.nextUrl.searchParams.get("address");
-  const rawSvmAddress = request.nextUrl.searchParams.get("svmAddress");
+  const rawAddress = new URL(request.url).searchParams.get("address");
+  const rawSvmAddress = new URL(request.url).searchParams.get("svmAddress");
   const address = parseE2EAddress(rawAddress);
   const svmAddress = parseE2ESvmAddress(rawSvmAddress);
   if ((rawAddress && !address) || (rawSvmAddress && !svmAddress)) {
-    return new NextResponse("Invalid E2E wallet address", { status: 400 });
+    return new Response("Invalid E2E wallet address", { status: 400 });
   }
   if (!address && !svmAddress) {
-    return new NextResponse("An EVM or Solana address is required", {
+    return new Response("An EVM or Solana address is required", {
       status: 400,
     });
   }
 
   const chainId =
-    parseChainId(request.nextUrl.searchParams.get("chainId")) ?? 1;
+    parseChainId(new URL(request.url).searchParams.get("chainId")) ?? 1;
   const ttlSeconds = parseE2ETtlSeconds(
-    request.nextUrl.searchParams.get("ttl"),
+    new URL(request.url).searchParams.get("ttl"),
   );
   const cookie = mintE2EWalletCookie({
     address: address ?? undefined,
     chainId: address ? chainId : undefined,
     svmAddress: svmAddress ?? undefined,
     svmCluster: svmAddress
-      ? parseE2ESvmCluster(request.nextUrl.searchParams.get("svmCluster"))
+      ? parseE2ESvmCluster(new URL(request.url).searchParams.get("svmCluster"))
       : undefined,
     ttlSeconds,
   });
   if (!cookie) {
-    return new NextResponse("E2E wallet seeding is unavailable", {
+    return new Response("E2E wallet seeding is unavailable", {
       status: 503,
     });
   }
 
-  response.cookies.set(E2E_WALLET_COOKIE, cookie, {
+  response.headers.append("Set-Cookie", serialize(E2E_WALLET_COOKIE, cookie, {
     httpOnly: true,
     sameSite: "lax",
-    secure: request.nextUrl.protocol === "https:",
+    secure: new URL(request.url).protocol === "https:",
     path: "/",
     maxAge: ttlSeconds,
-  });
+  }));
   return response;
 }
 
-export async function executeEvm(request: NextRequest): Promise<Response> {
+export async function executeEvm(request: Request): Promise<Response> {
   if (!isE2EExecutorEnabled()) {
-    return new NextResponse("E2E execution is disabled", { status: 404 });
+    return new Response("E2E execution is disabled", { status: 404 });
   }
   if (!isSameOrigin(request)) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, code: "unauthorized", error: "Cross-origin request denied" },
       { status: 403 },
     );
   }
 
   const seed = verifyE2EWalletCookie(
-    request.cookies.get(E2E_WALLET_COOKIE)?.value,
+    parse(request.headers.get("cookie") ?? "")[E2E_WALLET_COOKIE],
   );
   if (!seed) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, code: "unauthorized", error: "Missing E2E wallet seed" },
       { status: 401 },
     );
@@ -138,7 +138,7 @@ export async function executeEvm(request: NextRequest): Promise<Response> {
     }
     payload = body.payload;
   } catch {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, code: "invalid_request", error: "Invalid JSON payload" },
       { status: 400 },
     );
@@ -146,7 +146,7 @@ export async function executeEvm(request: NextRequest): Promise<Response> {
 
   const result = await executeE2EvmTransaction({ seed, payload });
   if (result.ok) {
-    return NextResponse.json(result);
+    return Response.json(result);
   }
 
   const status =
@@ -160,7 +160,7 @@ export async function executeEvm(request: NextRequest): Promise<Response> {
             ? 503
             : 500;
 
-  return NextResponse.json(result, { status });
+  return Response.json(result, { status });
 }
 
 type RequestBody =
@@ -170,23 +170,23 @@ type RequestBody =
       payload: WalletSolanaSignPayload;
     };
 
-export async function executeSolana(request: NextRequest): Promise<Response> {
+export async function executeSolana(request: Request): Promise<Response> {
   if (!isE2ESolanaExecutorEnabled()) {
-    return new NextResponse("E2E Solana execution is disabled", {
+    return new Response("E2E Solana execution is disabled", {
       status: 404,
     });
   }
   if (!isSameOrigin(request)) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: "Cross-origin request denied" },
       { status: 403 },
     );
   }
   const seed = verifyE2EWalletCookie(
-    request.cookies.get(E2E_WALLET_COOKIE)?.value,
+    parse(request.headers.get("cookie") ?? "")[E2E_WALLET_COOKIE],
   );
   if (!seed?.svmAddress) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: "Missing Solana wallet seed" },
       { status: 401 },
     );
@@ -197,7 +197,7 @@ export async function executeSolana(request: NextRequest): Promise<Response> {
     body = (await request.json()) as RequestBody;
     if (!body?.action || !body.payload) throw new Error("invalid");
   } catch {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: "Invalid JSON payload" },
       { status: 400 },
     );
@@ -214,5 +214,5 @@ export async function executeSolana(request: NextRequest): Promise<Response> {
           payload: body.payload,
           broadcast: body.action === "sign-and-send",
         });
-  return NextResponse.json(result, { status: result.ok ? 200 : 422 });
+  return Response.json(result, { status: result.ok ? 200 : 422 });
 }

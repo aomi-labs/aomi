@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useLocation } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Layers3, LoaderCircle } from "lucide-react";
 
@@ -11,10 +11,7 @@ import {
   deploymentProjects,
   LaunchRequestError,
 } from "@/features/deploy/client";
-import {
-  buildQueryKeys,
-  githubAccountKey,
-} from "@/features/deploy/query-keys";
+import { buildQueryKeys, githubAccountKey } from "@/features/deploy/query-keys";
 import { writePlatform } from "@/features/deploy/platform";
 import { usePlatform } from "@/features/deploy/use-platform";
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
@@ -25,7 +22,9 @@ export function PlatformSwitcher({
   currentPlatform?: string | null;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = new URLSearchParams(
+    useLocation({ select: (location) => location.searchStr }),
+  );
   const stored = usePlatform();
   // Settings has no `?platform=`, so without the persisted selection this
   // would always render empty and never show which platform you are on.
@@ -76,7 +75,9 @@ export function PlatformSwitcher({
         }
       }
       writePlatform(platform);
-      router.push(`/projects?platform=${encodeURIComponent(platform)}`);
+      router.navigate({
+        href: `/projects?platform=${encodeURIComponent(platform)}`,
+      });
     } catch (cause) {
       setError(
         cause instanceof LaunchRequestError &&
@@ -94,9 +95,9 @@ export function PlatformSwitcher({
     setValue(DEFAULT_DEPLOY_PLATFORM);
     setError(null);
     writePlatform(DEFAULT_DEPLOY_PLATFORM);
-    router.push(
-      `/projects?platform=${encodeURIComponent(DEFAULT_DEPLOY_PLATFORM)}`,
-    );
+    router.navigate({
+      href: `/projects?platform=${encodeURIComponent(DEFAULT_DEPLOY_PLATFORM)}`,
+    });
   }
 
   return (

@@ -1,14 +1,13 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const registryDir = resolve(currentDir, "../../packages/widget/src");
 
 export default defineConfig({
-  plugins: [react()],
+  esbuild: { jsx: "automatic", jsxImportSource: "react" },
   resolve: {
     alias: {
       "@": resolve(currentDir, "src"),
@@ -23,7 +22,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "test/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "test/**/*.{test,spec}.{ts,tsx}",
+    ],
     exclude: ["**/node_modules/**", ".next/**"],
     restoreMocks: true,
   },

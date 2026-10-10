@@ -29,7 +29,7 @@ workflow for the selected workspace.
 
 ## Coding Style & Naming Conventions
 
-The codebase is TypeScript + React 19 on Next 16. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. File names use kebab-case (e.g., `aomi-frame.tsx`), component exports use PascalCase, and hooks use `use-*.ts`. Tests sit next to the code. Widget modules live in their frame, thread, composer, sidebar, controls, account, wallet, or UI feature. Tailwind utility strings should group layout → color → motion classes to minimize churn.
+The codebase is TypeScript + React 19. Portal and Build use TanStack Start; Landing, Telegram, and the existing Next consumer retain Next 16. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. File names use kebab-case (e.g., `aomi-frame.tsx`), component exports use PascalCase, and hooks use `use-*.ts`. Tests sit next to the code. Widget modules live in their frame, thread, composer, sidebar, controls, account, wallet, or UI feature. Tailwind utility strings should group layout → color → motion classes to minimize churn.
 
 ## Testing Guidelines
 

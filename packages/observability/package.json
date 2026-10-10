@@ -20,13 +20,10 @@
   },
   "dependencies": {
     "@aomi-labs/account": "workspace:*",
-    "@aomi-labs/deploy": "workspace:*"
-  },
-  "peerDependencies": {
-    "@sentry/nextjs": "^10.69.0"
+    "@aomi-labs/deploy": "workspace:*",
+    "@sentry/node": "10.69.0"
   },
   "devDependencies": {
-    "@sentry/nextjs": "10.69.0",
     "@types/node": "^25.6.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

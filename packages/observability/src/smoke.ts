@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
 import type { BffService } from "./failure";
 import { createFailurePipeline } from "./pipeline";

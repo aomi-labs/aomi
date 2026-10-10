@@ -28,7 +28,9 @@ const option = (name: string, fallback?: string) => {
 const url = option("--url");
 if (!url || !/^https?:\/\//.test(url))
   throw new Error("Pass --url for a production Portal");
-const buildOutput = resolve(option("--build-output", "apps/portal/.next")!);
+const buildOutput = resolve(
+  option("--build-output", "apps/portal/.output/public")!,
+);
 const directory = resolve(option("--output", "output/performance")!);
 await mkdir(directory, { recursive: true });
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -226,23 +228,16 @@ async function firstLoadScripts(page: Page) {
   const paths = await page.evaluate(() =>
     performance
       .getEntriesByType("resource")
-      .filter(
-        (entry) =>
-          (entry as PerformanceResourceTiming).initiatorType === "script",
-      )
-      .map((entry) => new URL(entry.name).pathname),
+      .map((entry) => new URL(entry.name))
+      .filter((resource) => resource.origin === location.origin)
+      .map((resource) => resource.pathname),
   );
   return [...new Set(paths)]
-    .filter((path) => path.startsWith("/_next/static/"))
+    .filter((path) => path.startsWith("/assets/") && /\.m?js$/.test(path))
     .map((path) => ({
       path,
       gzipBytes: gzipSync(
-        readFileSync(
-          resolve(
-            buildOutput,
-            decodeURIComponent(path.slice("/_next/".length)),
-          ),
-        ),
+        readFileSync(resolve(buildOutput, decodeURIComponent(path.slice(1)))),
       ).length,
     }));
 }

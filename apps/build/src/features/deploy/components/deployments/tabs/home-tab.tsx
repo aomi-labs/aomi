@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, type ReactNode } from "react";
-import Link from "next/link";
+import { UrlLink as Link } from "@/components/url-link";
 import { useQuery } from "@tanstack/react-query";
 import {
   CircleArrowUp,
@@ -265,8 +265,7 @@ export function HomeTab({
     tab: "home" | "deployments" | "providers" | "environment" | "chat",
   ) => tabHref?.(tab) ?? `?tab=${tab}`;
 
-  const isLive =
-    status.isLive && Boolean(lifecycle.chatApp) && !outdated;
+  const isLive = status.isLive && Boolean(lifecycle.chatApp) && !outdated;
   const chatUrl = isLive
     ? chatAppUrl(lifecycle.chatApp!, {
         locked: true,

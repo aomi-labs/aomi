@@ -259,15 +259,15 @@ start_backend() {
 }
 
 start_portal() {
-  if [ ! -x "$PORTAL_DIR/node_modules/.bin/next" ]; then
-    echo "Missing apps/portal/node_modules/.bin/next. Run pnpm install first." >&2
+  if [ ! -x "$PORTAL_DIR/node_modules/.bin/vite" ]; then
+    echo "Missing apps/portal/node_modules/.bin/vite. Run pnpm install first." >&2
     exit 1
   fi
 
   echo "Starting merged portal tmux session: $PORTAL_SESSION"
   rm -f "$PORTAL_LOG"
   tmux new-session -d -s "$PORTAL_SESSION" \
-    "cd '$PORTAL_DIR' && set -a && source .env.local && set +a && export DATABASE_URL='$LOCAL_DB_URL' NEXT_PUBLIC_BACKEND_URL='$BACKEND_URL' && ./node_modules/.bin/next dev -H 127.0.0.1 -p 3000 2>&1 | tee '$PORTAL_LOG'"
+    "cd '$PORTAL_DIR' && set -a && source .env.local && set +a && export DATABASE_URL='$LOCAL_DB_URL' NEXT_PUBLIC_BACKEND_URL='$BACKEND_URL' && corepack pnpm dev --host 127.0.0.1 --port 3000 2>&1 | tee '$PORTAL_LOG'"
   wait_for_url "portal" "$PORTAL_URL/" 90
 }
 

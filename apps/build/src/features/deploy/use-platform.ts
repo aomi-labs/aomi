@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useLocation } from "@tanstack/react-router";
 
 import { DEFAULT_DEPLOY_PLATFORM } from "@/lib/deploy-platform";
 import { readPlatform, writePlatform } from "./platform";
@@ -12,20 +12,16 @@ import { readPlatform, writePlatform } from "./platform";
  * With nothing in the URL or storage the answer is Community: Build has no
  * unscoped view.
  *
- * Reads `window.location` rather than `useSearchParams` so the shell does not
- * need a Suspense boundary to stay statically renderable.
  */
 export function usePlatform(): string {
-  const pathname = usePathname();
+  const search = useLocation({ select: (location) => location.searchStr });
   const [platform, setPlatform] = useState<string | null>(null);
 
   useEffect(() => {
-    const fromUrl =
-      new URLSearchParams(window.location.search).get("platform")?.trim() ||
-      null;
+    const fromUrl = new URLSearchParams(search).get("platform")?.trim() || null;
     if (fromUrl) writePlatform(fromUrl);
     setPlatform(fromUrl ?? readPlatform());
-  }, [pathname]);
+  }, [search]);
 
   return platform ?? DEFAULT_DEPLOY_PLATFORM;
 }

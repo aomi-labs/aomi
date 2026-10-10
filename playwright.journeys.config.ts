@@ -37,9 +37,10 @@ function localHosts() {
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: `pnpm exec tsx apps/portal/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal exec next build && pnpm --dir apps/portal exec next start -H 127.0.0.1 -p ${ports.portal}`,
+      command:
+        "pnpm exec tsx apps/portal/scripts/migrate-browser-contract-db.ts && pnpm --dir apps/portal build && pnpm --dir apps/portal start",
       url: portal,
-      env,
+      env: { ...env, HOST: "127.0.0.1", PORT: String(ports.portal) },
       timeout: 300_000,
       reuseExistingServer: !process.env.CI,
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";
 import {
   githubAppInstallUrl,
@@ -38,6 +39,7 @@ export function Onboarding({
    */
   sessionInstallationId?: string | null;
 }) {
+  const { history } = useRouter();
   const [state, setState] = useState<LaunchState>(() => {
     // Scoped load: wizard progress belongs to exactly one platform, and
     // `loadLaunch` discards progress saved under a different one rather than
@@ -85,7 +87,13 @@ export function Onboarding({
           changed = true;
         }
       }
-      if (changed) window.history.replaceState({}, "", url.toString());
+      if (changed) {
+        history.replace(
+          url.pathname + url.search + url.hash,
+          history.location.state,
+        );
+        history.flush();
+      }
     };
 
     // The backend redirects here with `launch=personal_required` (and no
@@ -165,7 +173,7 @@ export function Onboarding({
     update(next);
     setInstallSuccess(true);
     stripRedirectParams();
-  }, [platform, sessionInstallationId, update]);
+  }, [history, platform, sessionInstallationId, update]);
 
   // --- auto-dismiss the install-success banner after 6s ---------------------
   useEffect(() => {
@@ -184,14 +192,22 @@ export function Onboarding({
       if (id !== currentId) {
         url.searchParams.set("deployment_id", id);
         url.searchParams.set("deploy_path", PATH);
-        window.history.replaceState({}, "", url.toString());
+        history.replace(
+          url.pathname + url.search + url.hash,
+          history.location.state,
+        );
+        history.flush();
       }
     } else if (currentId) {
       url.searchParams.delete("deployment_id");
       url.searchParams.delete("deploy_path");
-      window.history.replaceState({}, "", url.toString());
+      history.replace(
+        url.pathname + url.search + url.hash,
+        history.location.state,
+      );
+      history.flush();
     }
-  }, [state.oneshot.deploymentId]);
+  }, [history, state.oneshot.deploymentId]);
 
   // --- bfcache restore ------------------------------------------------------
   // `beginInstall` sets `installing` and then navigates to GitHub. When GitHub
@@ -216,7 +232,11 @@ export function Onboarding({
       const url = new URL(window.location.href);
       url.searchParams.delete("deployment_id");
       url.searchParams.delete("deploy_path");
-      window.history.replaceState({}, "", url.toString());
+      history.replace(
+        url.pathname + url.search + url.hash,
+        history.location.state,
+      );
+      history.flush();
     }
     setInstalling(false);
     setInstallError(null);
@@ -235,7 +255,7 @@ export function Onboarding({
       pendingInstall: null,
       oneshot: keepInstall ? { installationId: keepInstall } : {},
     });
-  }, [state, update, sessionInstallationId]);
+  }, [history, state, update, sessionInstallationId]);
 
   const patch = useCallback(
     (p: Partial<LaunchProgress>) => update(withProgress(state, PATH, p)),

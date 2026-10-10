@@ -1,4 +1,4 @@
-import "server-only";
+import "@tanstack/react-start/server-only";
 
 /**
  * Node loader hooks that make smithers-orchestrator importable outside Bun.
@@ -6,9 +6,8 @@ import "server-only";
  * The smithers packages publish Bun-flavored projects: raw .ts files, sibling
  * imports written as ".js", a static `bun:sqlite` import in the createSmithers
  * module (never called on the pglite/postgres backends the web engine uses),
- * and a `bun` import in the MDX plugin. next.config.ts keeps these packages in
- * serverExternalPackages so the Node loader — with these hooks — handles them
- * instead of the bundler. Registered once from src/instrumentation.ts.
+ * and a `bun` import in the MDX plugin. vite.config.ts keeps these packages external so the Node loader — with these hooks — handles them
+ * instead of the bundler. Registered before the Start handler loads in src/server.ts.
  */
 
 const REGISTERED_KEY = Symbol.for("aomi-build.bun-compat-hooks");
