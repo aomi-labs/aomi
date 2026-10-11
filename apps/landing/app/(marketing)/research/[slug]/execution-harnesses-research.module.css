@@ -1516,6 +1516,5 @@
   height: auto;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border: 1px solid var(--landing-border);
   background: var(--landing-wash);
 }
