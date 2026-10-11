@@ -58,7 +58,7 @@ export const posts: ResearchPost[] = [
       "A design study in hybrid crypto authentication: why counting users is hard onchain, the four proofs to keep separate, and the patterns — and stack — that hold them apart.",
     cover: "/covers/identity-sessions.jpg",
     readMinutes: 9,
-    research: true,
+    research: false,
     fileName: "auth-across-two-worlds.md",
     format: "markdown",
   },
