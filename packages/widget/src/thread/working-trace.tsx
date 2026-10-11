@@ -47,6 +47,7 @@ import {
   ToolStepRow,
   WorkingNote,
 } from "./working-trace-rows";
+import { isWorkLimitPause } from "./notice-codes";
 
 /** Interstitial prose and tool progress share one chronological trace. */
 
@@ -245,6 +246,8 @@ export const WorkingTrace: FC<{
   startedAtMs?: number;
   phaseEvents?: readonly Event[];
   phaseTurnIds?: readonly string[];
+  /** The turn stopped at its work limit and can be continued. */
+  paused?: boolean;
 }> = ({
   viewKey = "trace",
   running,
@@ -255,6 +258,7 @@ export const WorkingTrace: FC<{
   startedAtMs,
   phaseEvents,
   phaseTurnIds,
+  paused = false,
 }) => {
   const [open, setOpen] = useChatViewFlag(`${viewKey}:open`, running);
   const [expanded, setExpanded] = useChatViewFlag(`${viewKey}:expanded`, false);
@@ -494,7 +498,7 @@ export const WorkingTrace: FC<{
         ? completedSeconds != null
           ? `Worked for ${formatDuration(completedSeconds)}`
           : "Worked it out"
-        : `${outcome === "failed" ? "Failed" : "Stopped"}${elapsedLabel}`;
+        : `${outcome === "failed" ? "Failed" : paused ? "Paused" : "Stopped"}${elapsedLabel}`;
 
   // Keep the status treatment continuous from Thinking into Working. The newest
   // revealed step retains its contextual shimmer while the header consistently
@@ -857,6 +861,12 @@ export const buildTraceItems = (
 /** Keep working notes with their tools; only the final answer sits outside. */
 export const AssistantTurnParts: FC = () => {
   const messageId = useMessage((s) => s.id);
+  const pausedAtWorkLimit = useMessage((s) =>
+    isWorkLimitPause(
+      (s.metadata?.custom as { aomiNoticeCode?: string } | undefined)
+        ?.aomiNoticeCode,
+    ),
+  );
   const content = useMessage((s) => s.content);
   const finalAnswerStartIndex = useMessage(
     (s) =>
@@ -1041,7 +1051,10 @@ export const AssistantTurnParts: FC = () => {
           key="turn-trace"
           viewKey={messageId}
           running={live}
-          outcome={outcome}
+          outcome={
+            pausedAtWorkLimit && outcome === "failed" ? "interrupted" : outcome
+          }
+          paused={pausedAtWorkLimit}
           items={traceItems}
           revealed={traceItems.length}
           collapseReady={!live}
@@ -1060,7 +1073,8 @@ export const AssistantTurnParts: FC = () => {
       {live && parts.length === 0 && pending.length === 0 && (
         <MinimalWorkingTrace />
       )}
-      {outcome === "failed" && <TurnFailureFallback />}
+      {/* A work-limit pause has its own notice with Continue. */}
+      {outcome === "failed" && !pausedAtWorkLimit && <TurnFailureFallback />}
     </>
   );
 };

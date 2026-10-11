@@ -86,10 +86,10 @@ export function GeneralSettings({
     account?.user.verified_email ||
     "Aomi account";
 
-  // The summary card draws from three reads; show it once all have answered.
-  if (!overviewSettled || credits === undefined || acl.status === "loading") {
-    return <LoadingPane label="Loading account overview" />;
-  }
+  // The summary card draws from three reads; it shows once all have answered.
+  // Local preferences below never wait for the account.
+  const accountReady =
+    overviewSettled && credits !== undefined && acl.status !== "loading";
 
   const themeChoices: { mode: ColorMode; label: string }[] = [
     { mode: "dark", label: "Dark" },
@@ -112,16 +112,22 @@ export function GeneralSettings({
           detail="Profile, plan, and allowance"
           hint="Your plan's monthly allowance pays for usage first. Anything beyond it settles from your wallet."
         />
-        <AccountSummaryCard
-          primary={accountName}
-          accountId={adapter.accountUser?.id}
-          walletDesc={linkedWalletStatus}
-          tier={account?.user.tier}
-          memberSince={formatMemberSince(account?.user.created_at)}
-          credits={credits}
-          onManageAccount={onManageAccount}
-          onViewUsage={onViewUsage}
-        />
+        {accountReady ? (
+          <AccountSummaryCard
+            primary={accountName}
+            accountId={adapter.accountUser?.id}
+            walletDesc={linkedWalletStatus}
+            tier={account?.user.tier}
+            memberSince={formatMemberSince(account?.user.created_at)}
+            credits={credits}
+            onManageAccount={onManageAccount}
+            onViewUsage={onViewUsage}
+          />
+        ) : (
+          <div className={settingsPanelClass}>
+            <LoadingPane label="Loading account overview" />
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">

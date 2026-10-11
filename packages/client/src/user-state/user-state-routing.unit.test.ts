@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AomiClient, Session, UserState } from "..";
-import type {
-  AomiAccountProfile,
-  AomiChainKind,
-  AomiSigningPolicy,
-} from "..";
+import type { AomiAccountProfile, AomiChainKind, AomiSigningPolicy } from "..";
 import { buildCliUserState } from "../../../cli/src/user-state";
 import { buildCliConfig } from "../../../cli/src/commands/defs/shared";
 
@@ -100,7 +96,7 @@ describe("preparation route selection", () => {
       state = buildCliUserState("0xDifferent", 8453);
       await session.sendAsync("prepare");
       expect(start.mock.calls[1]).toEqual(start.mock.calls[0]);
-      expect(lookup).toHaveBeenCalledTimes(1);
+      expect(lookup).not.toHaveBeenCalled();
     } finally {
       session.close();
     }
@@ -252,7 +248,7 @@ describe("preparation route selection", () => {
     expect(UserState.route(state, profile("svm", "denied"))).toEqual(state);
   });
 
-  it("refreshes policy at the send boundary and sends without a hosted broadcaster after revocation", async () => {
+  it("sends the selected UserState without reading the profile; the backend routes it", async () => {
     const client = new AomiClient({
       baseUrl: "https://example.test",
       getAccountBearer: async () => "fixture",
@@ -274,18 +270,14 @@ describe("preparation route selection", () => {
     try {
       await session.sendAsync("prepare");
       session.stopStreaming();
-      expect(start.mock.calls[0][0].userState?.evm?.broadcaster).toBe("hosted");
-      const revoked = profile("evm", "auto");
-      revoked.delegated_accounts = [];
-      lookup.mockResolvedValue(revoked);
-      // Chat still goes out; the backend gate blocks execution, not the client.
       await session.sendAsync("prepare again");
       session.stopStreaming();
-      expect(lookup).toHaveBeenCalledTimes(2);
+      expect(lookup).not.toHaveBeenCalled();
       expect(start).toHaveBeenCalledTimes(2);
-      expect(start.mock.calls[1][0].userState?.evm).not.toHaveProperty(
-        "broadcaster",
-      );
+      expect(start.mock.calls[0][0].userState?.evm).toEqual({
+        address: "0xAlice",
+        chain_id: 1,
+      });
       expect(start.mock.calls[1][1]?.idempotencyKey).not.toBe(
         start.mock.calls[0][1]?.idempotencyKey,
       );

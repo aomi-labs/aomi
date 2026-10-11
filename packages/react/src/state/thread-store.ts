@@ -3,6 +3,7 @@ import { safeEnv, type AgentMode } from "@aomi-labs/client";
 
 import type { ThreadContext } from "../contexts/thread-context";
 import { generateUUID } from "../utils/client-session";
+import { DEFAULT_THREAD_TITLE } from "../runtime/thread-title";
 
 const threadLogEnv = safeEnv(() => process.env.NODE_ENV);
 const shouldLogThreadUpdates =
@@ -51,8 +52,9 @@ type ThreadStoreOptions = {
   initialThreadId?: string;
 };
 
+// Untitled: the list shows "New Chat" for it without storing that label.
 const initialMetadata = (): ThreadMetadata => ({
-  title: "New Chat",
+  title: "",
   status: "regular",
   lastActiveAt: new Date().toISOString(),
   control: initThreadControl(),
@@ -91,7 +93,8 @@ export class ThreadStore {
     const text = (start < 0 ? title : title.slice(0, start).trimEnd())
       .replace(/[✦▦◇]\s*/gu, "")
       .trim();
-    return text || (title ? "New Chat" : title);
+    // A title that was only the envelope keeps a visible label.
+    return text || (title ? DEFAULT_THREAD_TITLE : title);
   }
 
   private state: ThreadStoreState;

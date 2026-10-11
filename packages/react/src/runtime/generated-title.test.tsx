@@ -74,6 +74,11 @@ describe("generated chat title", () => {
     update({ terminalTurns: [{ turnId: "turn", state: "complete" }] });
     expect(get).toHaveBeenCalledOnce();
   });
+  it("reads the saved title once the first start is accepted", async () => {
+    const { result, get } = renderOrchestrator();
+    await act(() => result.current.sendMessage("hello", "a"));
+    await waitFor(() => expect(get).toHaveBeenCalledOnce());
+  });
   it("uses streamed titles without an extra request", () => {
     const { get } = renderOrchestrator();
     update({ turnId: "turn", turnState: "processing" });
@@ -109,6 +114,25 @@ describe("work from a closed account", () => {
     nextReady();
     await next;
     expect(fake.hydrate).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("history of a saved chat", () => {
+  it("refuses a send until the saved chat's history has loaded", async () => {
+    const view = renderOrchestrator({ isSavedThread: () => true });
+    fake.hydrate.mockRejectedValueOnce(new Error("offline"));
+    await act(() =>
+      view.result.current.ensureInitialState("a").catch(() => undefined),
+    );
+    expect(view.result.current.hasLoadFailed("a")).toBe(true);
+    await expect(view.result.current.sendMessage("reply", "a")).rejects.toThrow(
+      "hasn't loaded",
+    );
+    expect(fake.send).not.toHaveBeenCalled();
+    await act(() => view.result.current.retryLoad("a"));
+    expect(view.result.current.hasLoadFailed("a")).toBe(false);
+    await act(() => view.result.current.sendMessage("reply", "a"));
+    expect(fake.send).toHaveBeenCalledOnce();
   });
 });
 

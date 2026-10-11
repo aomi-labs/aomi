@@ -24,10 +24,7 @@ import {
 import type { AomiInferenceFundingSource } from "../interface";
 import { useThreadContext } from "../contexts/thread-context";
 import { SessionManager } from "./session-manager";
-import {
-  isPlaceholderTitle,
-  reconcileGeneratedThreadTitle,
-} from "./thread-title";
+import { isGenericTitle, reconcileGeneratedThreadTitle } from "./thread-title";
 import { stripCapabilityHints } from "./capability-hints";
 import { isSending, isTurnActive, isTurnOver } from "./turn-state";
 
@@ -45,6 +42,8 @@ type OrchestratorOptions = {
   /** All chats were closed because the guest behind them expired. */
   onGuestExpired?: () => void;
   onSendError?: (threadId: string, error: unknown) => Promise<void> | void;
+  /** A chat the server already has; its history must load before a Send. */
+  isSavedThread?: (threadId: string) => boolean;
 };
 
 /**
@@ -156,14 +155,14 @@ export function useRuntimeOrchestrator(
           if (
             snapshot.pendingUserMessage &&
             metadata &&
-            (metadata.title === "New Chat" ||
-              isPlaceholderTitle(metadata.title))
+            isGenericTitle(metadata.title)
           ) {
+            // A local fallback until the server's title arrives; "New Chat"
+            // stays a display label, never a stored title.
             threadsRef.current.updateThreadMetadata(threadId, {
-              title:
-                stripCapabilityHints(snapshot.pendingUserMessage)
-                  .trim()
-                  .slice(0, 80) || "New Chat",
+              title: stripCapabilityHints(snapshot.pendingUserMessage)
+                .trim()
+                .slice(0, 80),
             });
           }
           if (snapshot.title && snapshot.title !== lastSeenTitle) {
@@ -248,10 +247,39 @@ export function useRuntimeOrchestrator(
       !loaded.current.has(threadId) && !failedLoads.current.has(threadId),
     [],
   );
+  const isLoaded = useCallback(
+    (threadId: string) => loaded.current.has(threadId),
+    [],
+  );
+  /** The last history request for this chat failed and none is in flight. */
+  const hasLoadFailed = useCallback(
+    (threadId: string) =>
+      failedLoads.current.has(threadId) && !loading.current.has(threadId),
+    [],
+  );
+  /** Ask for the history again and show it loading meanwhile. */
+  const retryLoad = useCallback(
+    (threadId: string) => {
+      const request = ensureInitialState(threadId);
+      loadSettled();
+      return request;
+    },
+    [ensureInitialState],
+  );
 
   const sendOnce = useCallback(
     async (text: string, threadId: string, sendOptions?: SendOptions) => {
+      // A reply into history that never arrived would read as a new chat
+      // and hide the failure; the history has to load first.
+      if (
+        !loaded.current.has(threadId) &&
+        optionsRef.current.isSavedThread?.(threadId)
+      )
+        throw new Error(
+          "This conversation hasn't loaded yet. Load it again, then send your message.",
+        );
       const session = getSession(threadId);
+      const firstTurn = !session.getSnapshot().turnId;
       await session.sendAsync(text, sendOptions);
       if (sessionManager.get(threadId) !== session) return;
       loaded.current.add(threadId);
@@ -259,8 +287,12 @@ export function useRuntimeOrchestrator(
       threadsRef.current.updateThreadMetadata(threadId, {
         lastActiveAt: new Date().toISOString(),
       });
+      // The saved title can exist as soon as the start is accepted; read it
+      // now rather than only when the first turn ends.
+      if (firstTurn && !session.getSnapshot().title)
+        refreshTitle(threadId, session);
     },
-    [getSession, sessionManager],
+    [getSession, refreshTitle, sessionManager],
   );
 
   const reportFailure = useCallback(
@@ -329,6 +361,9 @@ export function useRuntimeOrchestrator(
     getSession,
     ensureInitialState,
     isLoading,
+    isLoaded,
+    hasLoadFailed,
+    retryLoad,
     sendMessage,
     cancelGeneration,
     closeSession,

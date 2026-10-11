@@ -79,6 +79,7 @@ describe("usage settings wiring", () => {
     await act(async () => {
       render(<UsageSettings />);
     });
+    await screen.findByText(/of 500 left · 80 used/);
 
     const statementCall = calls.find((call) =>
       call.startsWith("/v1/account/statement?"),
@@ -134,7 +135,7 @@ describe("usage settings wiring", () => {
       render(<UsageSettings />);
     });
 
-    expect(screen.getByText(/of 5,000 left · 1,250 used/)).toBeTruthy();
+    expect(await screen.findByText(/of 5,000 left · 1,250 used/)).toBeTruthy();
     expect(screen.getByText("No usage this month yet.")).toBeTruthy();
   });
 

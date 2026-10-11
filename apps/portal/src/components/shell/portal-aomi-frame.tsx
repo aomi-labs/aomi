@@ -8,10 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type {
-  AomiRoutingConfig,
-  DirectRoutingApp,
-} from "@aomi-labs/widget";
+import type { AomiRoutingConfig, DirectRoutingApp } from "@aomi-labs/widget";
 import { AomiFrame } from "@aomi-labs/widget/frame";
 import {
   DEFAULT_SIDEBAR_PRODUCTS,
@@ -142,6 +139,7 @@ export function ThreadUrlBootstrap({
     showNotification,
     events = [],
     isRemoteThread,
+    prefetchThread,
   } = useAomiRuntime();
   const threadListLoading = threadListRevalidating ?? listLoading;
   const [localNavigation] = useState(createThreadUrlNavigation);
@@ -167,25 +165,34 @@ export function ThreadUrlBootstrap({
     return () => window.removeEventListener("popstate", readLocation);
   }, [locationState]);
 
+  // The linked chat's history loads while the list that validates it does.
+  useEffect(() => {
+    if (ready && navigating && requestedThread)
+      prefetchThread?.(requestedThread);
+  }, [ready, navigating, requestedThread, prefetchThread]);
+
   useEffect(() => {
     if (locationState.getSnapshot() !== navigationSnapshot) return;
     if (
       !ready ||
       !navigating ||
       requestedThread === undefined ||
-      threadListLoading ||
       threadListError
     )
       return;
     if (requestedThread) {
       // A list can publish its store before this effect's rendered map catches
       // up. Validate the current owned store, including real archive/removal.
+      // An owned chat is opened as soon as any list page lists it; only the
+      // "unavailable" verdict needs every page.
       const metadata = getThreadMetadata(requestedThread);
       if (metadata && metadata.status !== "archived") {
         if (requestedThread !== currentThreadId) {
           selectThread(requestedThread);
           return;
         }
+      } else if (threadListLoading) {
+        return;
       } else {
         const url = new URL(window.location.href);
         url.searchParams.delete("thread");
@@ -200,10 +207,13 @@ export function ThreadUrlBootstrap({
         void createThread();
         return;
       }
+    } else if (threadListLoading) {
+      return;
     } else if (isRemoteThread?.(currentThreadId) ?? events.length > 0) {
       void createThread();
       return;
     }
+    if (threadListLoading) return;
     locationState.settle();
   }, [
     ready,

@@ -15,6 +15,7 @@ import {
 } from "@aomi-labs/react";
 import {
   MICROUSD_PER_CREDIT,
+  type AomiAccountProfile,
   type AomiCreditPosition,
 } from "@aomi-labs/client";
 import { useShellTransport, type ShellRequest } from "./transport";
@@ -31,7 +32,11 @@ export type AccountProfile = {
   application_ids?: number[];
 };
 
-export type AccountOverview = {
+/**
+ * The `/api/account` reply. Everything beside `user` is optional: a profile
+ * restored from disk carries only `user` until the first live read lands.
+ */
+export type AccountOverview = Partial<Omit<AomiAccountProfile, "user">> & {
   user: AccountProfile;
 };
 
@@ -134,8 +139,13 @@ export function useAccountOverviewStore() {
   }, [cache, query, userId]);
 }
 
+/** The shared profile read itself, for callers that refetch or watch status. */
+export function useAccountProfileQuery() {
+  return useDisplayQuery(useProfileQuery().query);
+}
+
 export function useAccountOverview(): AccountOverview | null {
-  return useDisplayQuery(useProfileQuery().query).data ?? null;
+  return useAccountProfileQuery().data ?? null;
 }
 
 /** Whole credits for allowance displays; retain precision in the source data. */

@@ -1,22 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useDisplayQuery } from "@aomi-labs/react";
 import { CheckCircle2, ShieldCheck, TriangleAlert } from "lucide-react";
 import type {
-  AomiAccountProfile,
   AomiBindOnchainPolicy,
   AomiOnchainAddress,
-  AomiOnchainPolicyProviderCtx,
 } from "@aomi-labs/client";
 import { useAomiWalletKit } from "@/wallet/context";
 import { useShellTransport } from "@/account/transport";
+import { useAccountProfileQuery } from "@/account/account-overview";
 import {
   MINT_DECIMALS,
   atomicToSol,
   confirmPolicy,
   confirmPolicyRevoke,
   explainPolicyError,
-  fetchPolicy,
+  fetchPolicyContext,
   fromAtomic,
   isPolicyProviderUnavailable,
   policyErrorCode,
@@ -63,9 +63,32 @@ export function OnchainPolicySettings() {
   const wallet = useAomiWalletKit();
   const { json: request } = useShellTransport();
   const network = chainRef(wallet.identity.svmCluster);
-  const [profile, setProfile] = useState<AomiAccountProfile | null>(null);
-  const [ctx, setCtx] = useState<AomiOnchainPolicyProviderCtx | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  // The account profile is the shared settings read; only the chain's Swig
+  // context is fetched here, cached per chain in the display cache.
+  const profileQuery = useAccountProfileQuery();
+  const overview = profileQuery.data;
+  const profile = useMemo(
+    () =>
+      overview?.signing_policies &&
+      overview.delegated_accounts &&
+      overview.user_accounts
+        ? {
+            signing_policies: overview.signing_policies,
+            delegated_accounts: overview.delegated_accounts,
+            user_accounts: overview.user_accounts,
+          }
+        : null,
+    [overview],
+  );
+  const ctxQuery = useDisplayQuery({
+    resource: "transaction-safety",
+    parameters: ["swig", network],
+    fetcher: (signal) => fetchPolicyContext(network, request, signal),
+  });
+  const ctx = ctxQuery.data ?? null;
+  const unavailable = Boolean(
+    ctxQuery.error && isPolicyProviderUnavailable(ctxQuery.error),
+  );
   const [delegate, setDelegate] = useState("");
   const [targets, setTargets] = useState<string[]>([]);
   const [amount, setAmount] = useState("1");
@@ -76,70 +99,66 @@ export function OnchainPolicySettings() {
   );
   const [slotWindow, setSlotWindow] = useState(216_000);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error =
+    actionError ??
+    (ctxQuery.error && !unavailable
+      ? explainPolicyError(ctxQuery.error)
+      : profileQuery.error
+        ? explainPolicyError(profileQuery.error)
+        : null);
 
+  const refetchCtx = ctxQuery.refetch;
+  const refetchProfile = profileQuery.refetch;
   const load = useCallback(async () => {
-    setError(null);
-    try {
-      const [nextProfile, nextCtx] = await fetchPolicy(network, request);
-      setProfile(nextProfile);
-      setCtx(nextCtx);
-      setSlotWindow((current) =>
-        nextCtx.slot_windows.includes(current)
-          ? current
-          : (nextCtx.slot_windows[0] ?? current),
-      );
-      const binding = nextCtx.binding;
-      if (binding) {
-        setDelegate(binding.delegate.address);
-        setTargets(
-          binding.policy.rules
-            .filter((rule) => rule.type === "allowed_call_target")
-            .map((rule) => rule.target.address),
-        );
-        const limit = binding.policy.rules.find(
-          (rule) =>
-            rule.type === "lifetime_native_asset_limit" ||
-            rule.type === "recurring_native_asset_limit",
-        );
-        if (limit && "amount" in limit) setAmount(atomicToSol(limit.amount));
-        if (limit?.type === "recurring_native_asset_limit") {
-          setLimitKind("recurring");
-          if (limit.window.unit === "slots") setSlotWindow(limit.window.value);
-        } else if (limit?.type === "lifetime_native_asset_limit") {
-          setLimitKind("lifetime");
-        }
-        const symbolByMint = Object.fromEntries(
-          Object.entries(nextCtx.mints).map(([symbol, mint]) => [
-            mint.address,
-            symbol,
-          ]),
-        );
-        const caps: Record<string, string> = {};
-        for (const rule of binding.policy.rules) {
-          if (
-            rule.type !== "lifetime_token_asset_limit" &&
-            rule.type !== "recurring_token_asset_limit"
-          )
-            continue;
-          const decimals = MINT_DECIMALS[symbolByMint[rule.mint.address] ?? ""];
-          if (decimals !== undefined)
-            caps[rule.mint.address] = fromAtomic(rule.amount, decimals);
-        }
-        setTokenCaps(caps);
-      }
-    } catch (cause) {
-      if (isPolicyProviderUnavailable(cause)) {
-        setUnavailable(true);
-        return;
-      }
-      setError(explainPolicyError(cause));
-    }
-  }, [network, request]);
+    setActionError(null);
+    await Promise.all([refetchCtx(), refetchProfile()]);
+  }, [refetchCtx, refetchProfile]);
 
+  // Seed the form from each new provider context (a cached one on remount).
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!ctx) return;
+    setSlotWindow((current) =>
+      ctx.slot_windows.includes(current)
+        ? current
+        : (ctx.slot_windows[0] ?? current),
+    );
+    const binding = ctx.binding;
+    if (!binding) return;
+    setDelegate(binding.delegate.address);
+    setTargets(
+      binding.policy.rules
+        .filter((rule) => rule.type === "allowed_call_target")
+        .map((rule) => rule.target.address),
+    );
+    const limit = binding.policy.rules.find(
+      (rule) =>
+        rule.type === "lifetime_native_asset_limit" ||
+        rule.type === "recurring_native_asset_limit",
+    );
+    if (limit && "amount" in limit) setAmount(atomicToSol(limit.amount));
+    if (limit?.type === "recurring_native_asset_limit") {
+      setLimitKind("recurring");
+      if (limit.window.unit === "slots") setSlotWindow(limit.window.value);
+    } else if (limit?.type === "lifetime_native_asset_limit") {
+      setLimitKind("lifetime");
+    }
+    const symbolByMint = Object.fromEntries(
+      Object.entries(ctx.mints).map(([symbol, mint]) => [mint.address, symbol]),
+    );
+    const caps: Record<string, string> = {};
+    for (const rule of binding.policy.rules) {
+      if (
+        rule.type !== "lifetime_token_asset_limit" &&
+        rule.type !== "recurring_token_asset_limit"
+      )
+        continue;
+      const decimals = MINT_DECIMALS[symbolByMint[rule.mint.address] ?? ""];
+      if (decimals !== undefined)
+        caps[rule.mint.address] = fromAtomic(rule.amount, decimals);
+    }
+    setTokenCaps(caps);
+  }, [ctx]);
 
   const delegates = useMemo(() => {
     if (!profile) return [];
@@ -185,13 +204,13 @@ export function OnchainPolicySettings() {
   // then explain, since `load` clears the error it starts with.
   const fail = async (cause: unknown) => {
     if (policyErrorCode(cause) === "stale_policy_binding") await load();
-    setError(explainPolicyError(cause));
+    setActionError(explainPolicyError(cause));
   };
 
   const save = async () => {
     if (!profile || !ctx || !owner || !delegate) return;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
       if (
         !profile.user_accounts.some(
@@ -264,7 +283,7 @@ export function OnchainPolicySettings() {
   const revoke = async () => {
     if (!ctx?.binding) return;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
       const prepared = await preparePolicyRevoke(ctx.binding.id, request);
       if (!prepared.unsigned_transaction_base64)
