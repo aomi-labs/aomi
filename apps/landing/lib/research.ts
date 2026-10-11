@@ -28,7 +28,7 @@ export const posts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "How the runtime, wallet, smart contract and block builder can constrain agent-built transactions.",
-    cover: "/covers/three-gates-title.jpg",
+    cover: "/covers/three-gates-poster.jpg",
     readMinutes: 14,
     research: true,
     fileName: "three-gates-onchain.md",
@@ -42,7 +42,7 @@ export const posts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "Breaking down the seven-layer agentic payments stack and identifying the missing execution harness that makes financial agents efficient, reliable, and operational.",
-    cover: "/covers/three-gates-overview.jpg",
+    cover: "/covers/why-a-harness.jpg",
     readMinutes: 12,
     research: true,
     format: "execution-harnesses",
