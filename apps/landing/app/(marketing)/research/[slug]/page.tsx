@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Children, isValidElement, type ReactNode } from "react";
@@ -200,6 +201,17 @@ export default async function ResearchPostPage({
         </p>
         <h1>{post.title}</h1>
       </header>
+
+      <figure className={styles.cover}>
+        <Image
+          src={post.cover}
+          alt=""
+          width={1600}
+          height={900}
+          priority
+          sizes="(max-width: 800px) 100vw, 960px"
+        />
+      </figure>
 
       <div className={styles.body}>
         <article className={`${styles.prose} ${styles.proseWide}`}>

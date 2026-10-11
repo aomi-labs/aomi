@@ -703,3 +703,24 @@
     transform: none;
   }
 }
+
+/* Lead image: the post's cover, shown under the header. */
+.cover {
+  margin: 40px 0 0;
+}
+
+.cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border: 1px solid var(--landing-border);
+  background: var(--landing-wash);
+}
+
+.page > .cover {
+  width: var(--landing-page-width);
+  max-width: 960px;
+  margin: 48px auto -32px;
+}
