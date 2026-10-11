@@ -4805,7 +4805,6 @@
   height: auto;
   aspect-ratio: 16 / 9;
   object-fit: cover;
-  border: 1px solid var(--landing-border);
   background: var(--landing-wash);
 }
 
@@ -5044,11 +5043,6 @@
   }
 }
 
-:global(html[data-theme="dark"]) .blogFeatured img,
-:global(html[data-theme="dark"]) .blogList img,
-:global(html[data-theme="dark"]) .researchRow img {
-  border-color: var(--landing-border-strong);
-}
 
 /* ---------- blog card grid ---------- */
 
@@ -5073,16 +5067,14 @@
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
-  border: 1px solid var(--landing-border);
   background: var(--landing-wash);
-  transition: transform 220ms ease, border-color 220ms ease;
+  transition: transform 220ms ease;
 }
 
 .blogGrid > a:hover img {
   transform: translateY(-4px);
-  border-color: var(--landing-border-strong);
 }
 
 .blogGrid small {
