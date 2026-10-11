@@ -1,0 +1,469 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Geist:wght@300;400;500;600;700&family=PT+Serif:wght@400;700&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@aomi-labs/widget/themes/default.css";
+
+@font-face {
+  font-family: "Aomi Source Serif";
+  src: url("/assets/landing/home/fonts/source-serif-semibold-latin.woff2")
+    format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+:root {
+  --font-source-serif-4: "Aomi Source Serif";
+}
+
+/* Scan the npm package dist so Tailwind picks up component classes */
+@source "../../../../packages/widget/src";
+
+/* ============================================
+   Custom Font Faces - Bauhaus
+   ============================================ */
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-SemiBold.otf")
+    format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bauhaus_Chez_Display_2.0";
+  src: url("/assets/fonts/BauhausChezDisplay2.0-Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================
+   Landing Page Specific Variables
+   ============================================ */
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Landing page scrollbar styling - scoped to the page viewport. */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  html:hover,
+  html:focus-within {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+    border: none;
+    margin: 0;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  html:hover::-webkit-scrollbar-thumb,
+  html:focus-within::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.2);
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  html::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Sidebar scrollbar - ultra thin, only visible on hover */
+  [data-sidebar="content"] {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  [data-sidebar="content"]::-webkit-scrollbar {
+    width: 0;
+    display: none;
+  }
+}
+
+@layer base {
+  :root {
+    --primary: var(--docs-color);
+    --docs-color: 220deg 91% 54%;
+  }
+
+  .dark {
+    --docs-color: 217deg 92% 76%;
+  }
+}
+
+/* ============================================
+   Landing Page Components
+   ============================================ */
+
+.glass-panel {
+  -webkit-backdrop-filter: blur(50px);
+  backdrop-filter: blur(50px);
+  background: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  border: 0px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.dark-glass-panel {
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  background: linear-gradient(
+    to bottom right,
+    rgba(0, 0, 0, 0.3),
+    rgba(0, 0, 0, 0.2),
+    transparent
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   Landing Page Animations & Utilities
+   ============================================ */
+
+/* Horizontal marquee animation */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - var(--group-gap, 0px)));
+  }
+}
+
+@utility animate-marquee {
+  animation: marquee var(--duration) linear infinite;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes flow {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ============================================
+   Terminal Animations
+   ============================================ */
+
+@keyframes terminalShrink {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.85) translateY(20px);
+    opacity: 0;
+  }
+}
+
+@keyframes terminalPop {
+  from {
+    transform: scale(0.85) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.terminal-animate-shrink {
+  animation: terminalShrink 0.23s ease forwards;
+}
+
+.terminal-animate-pop {
+  animation: terminalPop 0.35s ease-out forwards;
+}
+
+@layer components {
+  .font-serif {
+    font-family: "Playfair Display", serif;
+  }
+  .font-sans {
+    font-family: "Inter", sans-serif;
+  }
+  .font-geist {
+    font-family: "Geist", "Inter", sans-serif;
+  }
+  .font-pt-serif {
+    font-family: "PT Serif", serif;
+  }
+  .font-bauhaus {
+    font-family: "Bauhaus_Chez_Display_2.0", "Arial Black", sans-serif;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .animate-flow {
+    animation: flow 3s linear infinite;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-delayed {
+    animation: float 6s ease-in-out infinite;
+    animation-delay: 3s;
+  }
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .landing-button-primary {
+    @apply relative flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#733e83] to-[#ec6b83] pt-3 pr-8 pb-3 pl-8 text-xs font-semibold text-stone-50 transition-all duration-300 hover:scale-105 active:scale-95;
+    font-family: "Geist", "Inter", sans-serif;
+  }
+  .js-animate {
+    opacity: 0;
+    transform: translateY(40px);
+    transition:
+      opacity 2.5s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 2.5s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+  }
+  .js-animate[data-animate="right"] {
+    transform: translateX(60px);
+  }
+  .js-animate[data-animate="left"] {
+    transform: translateX(-60px);
+  }
+  .js-animate.is-visible {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-animate {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ============================================
+   Documentation Styles
+   ============================================ */
+
+.examples-page #nd-toc {
+  margin-top: 5rem;
+}
+
+.docs-prose {
+  line-height: 1.7;
+}
+
+.docs-prose :where(h1, h2, h3) {
+  letter-spacing: -0.01em;
+}
+
+.docs-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.docs-prose table th,
+.docs-prose table td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.65rem 0.8rem;
+}
+
+.docs-prose table th {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+}
+
+.docs-prose code:not(pre code) {
+  font-family:
+    ui-monospace, SFMono-Regular, SFMono, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* ============================================
+   Assistant Message Alignment
+   ============================================ */
+
+/* Ensure assistant message content is left-aligned */
+.aui-assistant-message-root,
+.aui-assistant-message-content,
+.aui-assistant-message-content *,
+[data-role="assistant"],
+[data-role="assistant"] * {
+  text-align: left !important;
+}
+
+/* Ensure markdown content and all its children are left-aligned */
+.aui-md,
+.aui-md *,
+.aui-md p,
+.aui-md ul,
+.aui-md ol,
+.aui-md li,
+.aui-md h1,
+.aui-md h2,
+.aui-md h3,
+.aui-md h4,
+.aui-md h5,
+.aui-md h6,
+.aui-md blockquote,
+.aui-md div,
+.aui-md span {
+  text-align: left !important;
+}
+
+/* Override any center alignment on markdown wrapper */
+[data-role="assistant"] .aui-md,
+[data-role="assistant"] .aui-assistant-message-content,
+[data-role="assistant"] p,
+[data-role="assistant"] ul,
+[data-role="assistant"] ol {
+  text-align: left !important;
+}
+
+/* Ensure no flex/grid centering affects the content */
+.aui-assistant-message-content {
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+/* Target any direct children that might be centered */
+.aui-assistant-message-content > * {
+  text-align: left !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+/* ============================================
+   Sidebar Logo Dark Mode Fix
+   ============================================ */
+
+/* Make sidebar header icon white in dark mode */
+.dark .aomi-sidebar-header-icon {
+  filter: brightness(0) invert(1);
+}
+
+/* ============================================
+   Widget Isolation from Fumadocs Styles
+   ============================================ */
+
+/* Reset fumadocs list styles within the widget */
+.aui-thread-list-root,
+.aui-thread-list-root li,
+[data-sidebar] ul,
+[data-sidebar] li {
+  list-style: none !important;
+  margin: 0 !important;
+}
+
+/* Reset fumadocs padding on sidebar elements */
+[data-sidebar="menu"],
+[data-sidebar="menu-item"],
+[data-sidebar="content"] {
+  padding-left: 0 !important;
+}

@@ -20,11 +20,14 @@ export default defineConfig({
           "apps/portal",
           "apps/build",
           "apps/telegram",
+          "apps/landing",
           "packages/widget",
         ]) {
           if (importer.startsWith(resolve(currentDir, directory) + "/")) {
             return this.resolve(
-              resolve(currentDir, directory, "src", source.slice(2)),
+              directory === "apps/landing" && source.startsWith("@/content/")
+                ? resolve(currentDir, directory, source.slice(2))
+                : resolve(currentDir, directory, "src", source.slice(2)),
               importer,
               { skipSelf: true },
             );
@@ -76,6 +79,8 @@ export default defineConfig({
       "packages/**/*.{test,spec}.{ts,tsx,mjs,cjs,js,jsx}",
       "apps/build/src/**/*.{test,spec}.{ts,tsx}",
       "apps/telegram/src/**/*.{test,spec}.{ts,tsx}",
+      "apps/telegram/test/**/*.{test,spec}.{ts,tsx}",
+      "apps/landing/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/screens/oauth/consent/**/*.{test,spec}.{ts,tsx}",

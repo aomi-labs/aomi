@@ -3,6 +3,10 @@ import test from "node:test";
 import {
   compareRoutes,
   nextMethods,
+  nextRoutes,
+  migrationApps,
+  migrationBase,
+  remainingMigrationBase,
   publicPath,
   startRoutes,
 } from "../../scripts/check-start-route-parity.mjs";
@@ -16,6 +20,69 @@ test("route inventory includes destructured, renamed and reexported HTTP methods
     const HEAD = () => {}; // private declarations must not count
   `),
     ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"],
+  );
+});
+
+test("each host keeps its immutable migration baseline and real Next root", () => {
+  assert.equal(migrationApps.portal.base, migrationBase);
+  assert.equal(migrationApps.build.base, migrationBase);
+  assert.equal(migrationApps.landing.base, remainingMigrationBase);
+  assert.equal(migrationApps.telegram.base, remainingMigrationBase);
+  assert.equal(migrationApps.landing.nextRoot, "app");
+  assert.equal(migrationApps.telegram.nextRoot, "src/app");
+});
+
+test("Landing inventory includes TSX handlers and metadata but excludes private template subtrees", () => {
+  const inventory = nextRoutes(
+    "landing",
+    [
+      "apps/landing/app/(marketing)/agents/page.tsx",
+      "apps/landing/app/_marketing/products/widget/page.tsx",
+      "apps/landing/app/(marketing)/_templates/internal/route.ts",
+      "apps/landing/app/api/og/route.tsx",
+      "apps/landing/app/api/proxy/route.ts",
+      "apps/landing/app/robots.ts",
+      "apps/landing/app/sitemap.ts",
+      "apps/landing/src/app/irrelevant/page.tsx",
+    ],
+    (path) => {
+      assert.ok(!path.includes("_marketing") && !path.includes("_templates"));
+      return path.endsWith("route.tsx")
+        ? "export async function GET() { return <div />; }"
+        : "export const GET = proxy, POST = proxy, PUT = proxy, PATCH = proxy, DELETE = proxy;";
+    },
+  );
+  assert.deepEqual(
+    inventory.map(({ path, methods }) => ({ path, methods })),
+    [
+      { path: "/agents", methods: undefined },
+      { path: "/api/og", methods: ["GET"] },
+      {
+        path: "/api/proxy",
+        methods: ["DELETE", "GET", "PATCH", "POST", "PUT"],
+      },
+      { path: "/robots.txt", methods: ["GET"] },
+      { path: "/sitemap.xml", methods: ["GET"] },
+    ],
+  );
+});
+
+test("Telegram inventory preserves its page and launch POST without Landing's root convention", () => {
+  const inventory = nextRoutes(
+    "telegram",
+    [
+      "apps/telegram/src/app/page.tsx",
+      "apps/telegram/src/app/api/telegram/launch/route.ts",
+      "apps/telegram/app/page.tsx",
+    ],
+    () => "export async function POST() {}",
+  );
+  assert.deepEqual(
+    inventory.map(({ path, methods }) => ({ path, methods })),
+    [
+      { path: "/", methods: undefined },
+      { path: "/api/telegram/launch", methods: ["POST"] },
+    ],
   );
 });
 

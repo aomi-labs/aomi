@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cn } from "@aomi-labs/react";
 
 type SidebarNavProps = {
@@ -19,12 +18,12 @@ export function SidebarNav({ sections, currentSlug }: SidebarNavProps) {
       {sections.map((section) => (
         <div key={section.title} className="space-y-2">
           {section.items[0] ? (
-            <Link
+            <a
               href={`/docs/${section.items[0].slug}`}
               className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase transition hover:text-foreground"
             >
               {section.title}
-            </Link>
+            </a>
           ) : (
             <p className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
               {section.title}
@@ -34,7 +33,7 @@ export function SidebarNav({ sections, currentSlug }: SidebarNavProps) {
             {section.items.map((item) => {
               const isActive = item.slug === currentSlug;
               return (
-                <Link
+                <a
                   key={item.slug}
                   href={`/docs/${item.slug}`}
                   className={cn(
@@ -48,7 +47,7 @@ export function SidebarNav({ sections, currentSlug }: SidebarNavProps) {
                   <p className="text-xs text-muted-foreground">
                     {item.description}
                   </p>
-                </Link>
+                </a>
               );
             })}
           </div>

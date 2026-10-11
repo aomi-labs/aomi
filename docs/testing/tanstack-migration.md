@@ -1,7 +1,8 @@
-# Portal and Build framework migration
+# Four-app framework migration
 
-Portal and Build use TanStack Start, Router, Query and Nitro on Node.js. Landing,
-Telegram and the existing packed Next.js consumer keep their Next.js hosts.
+Portal, Build, Landing, and Telegram use TanStack Start, Router, Query, Vite, and
+Nitro on Node.js. Next.js remains for the protected packed consumer, published
+compatibility, and theme utilities.
 The migration preserves public HTTP paths, cookie formats, account ownership,
 wallet Actions and the Rust/manager/payment/commit service contracts. It adds no
 database migration and does not authorize a production deployment.
@@ -16,10 +17,16 @@ so package prebundling does not combine these overlays with wallet startup. Its
 source imports keep the widget's own alias scope and context instances. Separate
 consumer gates continue to install and execute the published tarballs.
 
-The immutable Next baseline is
-`9ab669efcfa9572ef6166e71588ae00d089c55d3`. The route parity gate reads its
-TypeScript exports, including destructured handlers, and compares public page
-paths and explicit HTTP methods with the candidate's Start bindings:
+Portal and Build's immutable Next baseline is
+`9ab669efcfa9572ef6166e71588ae00d089c55d3`. Landing and Telegram's immutable Next
+baseline is `0f903a53d81e4201f8f3cefbd828fb3940582dfd`. That second commit is the
+historical Portal/Build-only migration checkpoint; evidence recorded against it
+does not establish the later Landing or Telegram migration's readiness.
+
+The route parity gate uses the appropriate baseline per host. It reads TypeScript
+exports, including destructured handlers and Next metadata endpoints, and
+compares public page paths and explicit HTTP methods with Start bindings. Next
+private folders contain templates and do not count as public routes:
 
 ```sh
 node scripts/check-start-route-parity.mjs
@@ -30,6 +37,8 @@ node --test tests/contracts/start-route-parity.test.mjs tests/contracts/start-ar
 | ------ | -------------: | ---------------------: | ---------------------------------------------------------------------------------------------------------- |
 | Portal |             11 |                     51 | Shared Better Auth/account services; Portal owns its BFF, first-party guest policy and thread URL handoffs |
 | Build  |             26 |                     54 | Build owns GitHub/CLI sessions, visibility grants and authorization for its control-plane services         |
+| Landing |            24 |                     15 | Landing owns marketing/MDX, public assets, registry and proxy contracts; wallet examples retain their provider boundaries |
+| Telegram |            1 |                      1 | Telegram owns its Privy v3 provider; the native launch verifier and Portal BFF prove identity and authorize account operations |
 
 Start route files bind native `Request`/`Response` handlers. Protocol endpoints
 remain HTTP routes: SDK, widget, CLI, OAuth, MCP, account and deployment clients
@@ -37,7 +46,7 @@ do not need Start server-function identifiers. A shared server policy augments
 native handler metadata with automatic OPTIONS and method rejection while
 preserving explicit HEAD/OPTIONS and the native GET-to-HEAD fallback. Production
 artifact probes check these responses without changing the declared-method
-inventory. Both server entries also retain the baseline's 308 canonical-path
+inventory. All four server entries also retain the baseline's 308 canonical-path
 redirects before page, native HTTP, proxy or legacy redirect dispatch. Root URLs
 stay unchanged; encoded query strings and non-GET methods survive the redirect.
 The copied artifacts exercise those cases. The static parity gate does not
@@ -52,6 +61,19 @@ empty and nested optional catchall paths and encoded route parameters.
 | Build projects, SDK status and deployment feeds | Existing query keys, freshness, retries, polling and invalidation remain in their owning features                                                   |
 | Build server read caches and Postgres pools     | Process-owned services retain their existing limits; authentication and resource authorization still precede access                                 |
 
+Landing's root is a native GET handler that preserves the committed marketing
+HTML and its static assets; it is counted among HTTP bindings. Its examples and
+playground pages use Fumadocs MDX through native routes. Markdown, registry,
+robots/sitemap, proxy, OpenGraph, and legacy redirect endpoints retain their HTTP
+contracts. Server content and asset preparation belong to the host build.
+
+Telegram keeps the Telegram Web App script before hydration. Server HTML shows
+the initial wallet ceremony or the existing missing-configuration card, while
+Privy v3 and launch/wallet hooks load through a browser-only lazy boundary. Only
+server-verified raw `initData` supplies an identity. Its query parser preserves
+opaque bot and session identifiers as strings; neither SSR nor local layout
+preview supplies an authenticated launch.
+
 ## Local and CI checks
 
 Use the selected managed Aomi workspace for installs, builds and full tests.
@@ -60,9 +82,27 @@ does not substitute for `tsc`. CI checks affected app route parity before its
 existing lint, typecheck, unit-test and production-build steps. Root lockfile and
 shared-package changes continue to select the full CI set.
 
-Portal and Build use Vite 8.3.4 with its native Rolldown production bundler.
-The root Vitest 3.2 toolchain retains Vite 7.3.7; app-specific overrides preserve
-that distinction without changing the remaining app toolchains.
+All four deployed apps use Vite 8.3.4 with its native Rolldown production
+bundler. Landing pins `fumadocs-mdx` 14.3.2, whose Vite plugin declares peer
+support for Vite 6, 7, and 8. Its `fumadocs-mdx/vite` integration prepares `.source`
+during postinstall and app typechecking. The root Vitest 3.2 toolchain retains
+Vite 7.3.7; app-specific overrides preserve the separate production and test
+toolchain identities.
+
+After installing and building shared-package prerequisites, select app checks
+through the managed workspace, for example:
+
+```sh
+aomi-dev exec --repo frontend <workspace> -- pnpm run typecheck:apps
+aomi-dev exec --repo frontend <workspace> -- pnpm run lint:apps
+aomi-dev exec --repo frontend <workspace> -- pnpm run test:landing
+aomi-dev exec --repo frontend <workspace> -- pnpm run test:telegram
+aomi-dev exec --repo frontend <workspace> -- pnpm run build:apps
+```
+
+App `build:app` commands build only the host when package prerequisites are
+already ready. Run the copied-output and browser gates against the newly built
+outputs; earlier Portal/Build results remain historical evidence.
 
 Build's inherited Node compatibility hooks require native TypeScript support.
 Use an official Node 22 runtime (22.15 or newer) or Node 24. Some distribution
@@ -90,11 +130,12 @@ aomi-dev exec --repo frontend tanstack-migration -- node scripts/test-start-arti
 ```
 
 The fixture runner requires installed workspace test dependencies, the same
-`AOMI_ARTIFACT_SECRET_CANARY` used while building both apps, and the browser suite's
+`AOMI_ARTIFACT_SECRET_CANARY` used while building the selected apps, and the browser suite's
 `AOMI_TEST_DATABASE_URL` with `AOMI_TEST_DATABASE_DISPOSABLE=1` for Portal. Supply
-these through the managed workspace's private runtime wrapper. `--app portal` or
-`--app build` selects one output; `--portal-output` and `--build-output` accept
-alternate artifact paths. The runner starts only loopback fixtures and removes
+these through the managed workspace's private runtime wrapper. `--app portal`,
+`--app build`, `--app landing`, or `--app telegram` selects one output; the
+corresponding `--<app>-output` option accepts an alternate artifact path.
+`--app <app> --vercel-output <path>` inspects that host's generated Vercel artifact. The runner starts only loopback fixtures and removes
 its owned temporary artifacts and fixture records afterward.
 
 Portal uses the existing browser fixture database, migrates its existing auth
@@ -109,6 +150,14 @@ copied external dependencies, Node Bun compatibility hooks and workflow store;
 it does not claim that generation, Cargo compilation or deployment succeeded.
 Provider, deployment and live database credentials are excluded from the child
 runtime. The fixture stops before those operations.
+
+Landing probes preserve static HTML/assets against their immutable baseline,
+exercise Markdown and registry responses, proxy contracts, redirects, and
+OpenGraph rendering with bundled font/background assets. Telegram probes require
+the honest wallet shell, method rejection/OPTIONS, canonical redirects, valid
+fixture-signed launch verification, and rejected invalid or expired proofs.
+These fixtures do not establish hosted Privy sign-in, wallet delegation, or permit
+signing; provider/browser verification remains a separate prerequisite.
 
 For an independently configured runtime, the lower-level probe accepts a JSON
 list of real endpoint checks:
@@ -154,8 +203,9 @@ Streaming requires multiple chunks, with the first arriving before the controlle
 stream can complete; a buffered body cannot pass. The script copies only the
 artifact into a temporary directory, rejects external symlinks and secret files,
 clears Node workspace-resolution overrides and stops only its own process.
-Both hosts require an authenticated success; Portal also requires an incremental
-stream.
+Portal and Build require an authenticated success; Portal also requires an
+incremental stream. Landing and Telegram have their own public-content and
+launch-verification probes rather than a fabricated account success.
 Build also needs a controlled operation that loads Smither after its Node Bun
 compatibility hooks; startup alone does not establish that engine's readiness.
 
@@ -174,11 +224,13 @@ allowlist. Never define the entire server environment in the browser bundle.
 Verify the generated Vercel function assets and streaming before promotion;
 Node artifact success alone does not prove a hosted Vercel deployment.
 
-Keep the ledgered pre-migration Portal and Build deployments available. A rollback
-restores each host's previous deployment/artifact using the existing production
-rollback workflow, then verifies auth, signed BFF access, streamed turns and
-durable Action recovery. It does not reverse a database migration. Move Portal
-and Build independently; do not replay writes to both versions. Cross-account
+Keep each host's ledgered pre-migration deployment available. A rollback restores
+that host's previous deployment/artifact using the existing production rollback
+workflow. Verify the affected host's contracts: Portal auth/signed BFF/streamed
+turns and durable Actions, Build account/control-plane operations, Landing public
+content/proxies/assets, or Telegram launch/auth/wallet ceremony. It does not
+reverse a database migration. Move hosts independently; do not replay writes to
+both versions. Cross-account
 data exposure, failed authorization, repeated wallet/deployment commands or lost
 Action recovery require immediate rollback.
 

@@ -3,6 +3,7 @@
 // Runtime credentials come from the caller's environment, never CLI arguments.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
@@ -30,6 +31,219 @@ export function artifactNodeOptions(source = process.env.NODE_OPTIONS ?? "") {
     : undefined;
 }
 
+export const artifactApps = ["portal", "build", "landing", "telegram"];
+
+/** Public apps must prove their own contracts, without fake authenticated probes. */
+export function assertArtifactCoverage(app, observed) {
+  const checks = observed.checks ?? [];
+  const has = (path, predicate) =>
+    checks.some(
+      (check) => check.path.split("?")[0] === path && predicate(check),
+    );
+  const ok = (check) => check.status === 200;
+  if (app === "portal" || app === "build")
+    assert.ok(
+      observed.authenticated > 0,
+      "No successful authenticated artifact probe ran",
+    );
+  if (app === "portal")
+    assert.ok(observed.streams > 0, "No incremental Portal stream probe ran");
+  if (app === "landing") {
+    assert.ok(
+      has("/", (check) => ok(check) && check.bytesSha256),
+      "No exact Landing homepage probe ran",
+    );
+    assert.ok(
+      checks.some(
+        (check) =>
+          check.path.startsWith("/assets/") && ok(check) && check.bytesSha256,
+      ),
+      "No exact Landing static asset probe ran",
+    );
+    assert.ok(
+      has("/r/card.json", (check) => ok(check) && check.bytesSha256),
+      "No exact Landing registry probe ran",
+    );
+    assert.ok(
+      has("/agents.md", (check) => ok(check) && check.bytesSha256),
+      "No exact Landing markdown probe ran",
+    );
+    for (const path of [
+      "/robots.txt",
+      "/sitemap.xml",
+      "/agents",
+      "/research/three-gates-onchain",
+    ])
+      assert.ok(
+        has(path, (check) => ok(check) && check.textIncludes?.length),
+        `No rendered Landing ${path} probe ran`,
+      );
+    assert.ok(
+      has("/api/thread/state", (check) => ok(check) && check.json),
+      "No controlled Landing backend read probe ran",
+    );
+    assert.ok(
+      has("/api/thread/updates", (check) => ok(check) && check.stream),
+      "No incremental Landing stream probe ran",
+    );
+  }
+  if (app === "telegram") {
+    assert.ok(
+      has(
+        "/",
+        (check) =>
+          ok(check) &&
+          check.textIncludes?.includes("Aomi Wallet") &&
+          check.textIncludes?.includes("Setting up your wallet…"),
+      ),
+      "No configured Telegram root shell probe ran",
+    );
+    assert.ok(
+      has(
+        "/api/telegram/launch",
+        (check) =>
+          check.method === "POST" &&
+          check.status === 401 &&
+          check.json?.error === "bad_signature" &&
+          check.headers?.["cache-control"] === "no-store",
+      ),
+      "No fail-closed Telegram signature probe ran",
+    );
+  }
+}
+
+export function auditArtifactOutput(source, publicDirectory, secretCanary) {
+  function audit(directory, ancestors = new Set()) {
+    const physical = realpathSync(directory);
+    if (ancestors.has(physical))
+      throw new Error("The artifact contains a circular directory symlink");
+    const nextAncestors = new Set([...ancestors, physical]);
+    for (const name of readdirSync(directory)) {
+      const path = join(directory, name);
+      if (/^\.env(?:\.|$)/.test(name) || /\.(?:pem|key)$/.test(name))
+        throw new Error("Secret files must not be packaged into the artifact");
+      let stat = lstatSync(path);
+      if (stat.isSymbolicLink() && !realpathSync(path).startsWith(source + sep))
+        throw new Error(
+          "The artifact contains a symlink to files outside its output directory",
+        );
+      if (stat.isSymbolicLink()) stat = statSync(path);
+      if (stat.isDirectory()) audit(path, nextAncestors);
+      else if (
+        secretCanary &&
+        path.startsWith(publicDirectory + sep) &&
+        /\.(?:[cm]?js|html?|json|map|css)$/i.test(name) &&
+        readFileSync(path).includes(Buffer.from(secretCanary))
+      )
+        throw new Error(
+          "A server-secret canary leaked into the public artifact",
+        );
+    }
+  }
+  audit(source);
+}
+
+/** Validate local Build Output API packaging; this does not contact or deploy to Vercel. */
+export function verifyVercelArtifact({
+  app,
+  artifact,
+  secretCanary,
+  assets = [],
+}) {
+  assert.ok(artifactApps.includes(app), "Unknown native app");
+  const source = realpathSync(resolve(artifact));
+  const staticRoot = join(source, "static");
+  assert.ok(existsSync(staticRoot), "Vercel static assets are missing");
+  auditArtifactOutput(source, staticRoot, secretCanary);
+  const config = JSON.parse(readFileSync(join(source, "config.json"), "utf8"));
+  assert.equal(config.version, 3, "Vercel Build Output API version");
+  assert.ok(
+    config.routes?.some((route) => route.handle === "filesystem"),
+    "Vercel static routing is missing",
+  );
+  assert.ok(
+    config.routes?.some((route) => route.dest === "/__server"),
+    "Vercel server routing is missing",
+  );
+  const functions = [];
+  function inspect(directory) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (!entry.isDirectory()) continue;
+      if (entry.name.endsWith(".func")) {
+        const metadata = JSON.parse(
+          readFileSync(join(path, ".vc-config.json"), "utf8"),
+        );
+        assert.match(
+          metadata.runtime,
+          /^nodejs\d+\.x$/,
+          `${path}: Node runtime`,
+        );
+        assert.equal(metadata.launcherType, "Nodejs", `${path}: Node launcher`);
+        assert.equal(
+          metadata.supportsResponseStreaming,
+          true,
+          `${path}: streaming support`,
+        );
+        const handler = resolve(path, metadata.handler);
+        assert.ok(
+          handler.startsWith(path + sep) && existsSync(handler),
+          `${path}: packaged handler`,
+        );
+        functions.push({ path, metadata });
+      } else inspect(path);
+    }
+  }
+  inspect(join(source, "functions"));
+  assert.ok(functions.length, "No packaged Vercel functions");
+  if (app === "portal")
+    for (const route of [
+      "v1/agent",
+      "v1/agent/[...]",
+      "v1/pipeline",
+      "v1/pipeline/[...]",
+    ]) {
+      const entry = functions.find(
+        (item) => item.path === join(source, "functions", `${route}.func`),
+      );
+      assert.equal(
+        entry?.metadata.maxDuration,
+        300,
+        `${route}: streaming duration`,
+      );
+    }
+  if (app === "landing")
+    for (const route of ["api/thread/updates", "api/thread/events"]) {
+      const entry =
+        functions.find(
+          (item) => item.path === join(source, "functions", `${route}.func`),
+        ) ??
+        functions.find(
+          (item) => item.path === join(source, "functions", "__server.func"),
+        );
+      assert.equal(
+        entry?.metadata.maxDuration,
+        300,
+        `${route}: streaming duration`,
+      );
+    }
+  for (const asset of assets) {
+    const path = resolve(staticRoot, `.${asset.path}`);
+    assert.ok(
+      path.startsWith(staticRoot + sep),
+      "Assets must remain inside Vercel static output",
+    );
+    assert.equal(
+      createHash("sha256").update(readFileSync(path)).digest("hex"),
+      asset.sha256,
+      `${asset.path}: packaged bytes`,
+    );
+  }
+  console.log(
+    `${app} local Vercel packaging passed (${functions.length} Node functions); hosted deployment was not exercised.`,
+  );
+}
+
 export async function smokeStartArtifact({
   app,
   artifact,
@@ -38,9 +252,9 @@ export async function smokeStartArtifact({
   configureRuntime,
   probe,
 }) {
-  if (!["portal", "build"].includes(app) || !artifact)
+  if (!artifactApps.includes(app) || !artifact)
     throw new Error(
-      "Use --app portal|build --artifact <.output> --checks <controlled HTTP probes.json>",
+      "Use --app portal|build|landing|telegram --artifact <.output> --checks <controlled HTTP probes.json>",
     );
   const source = realpathSync(resolve(artifact));
   const secretCanary = runtimeEnv.AOMI_ARTIFACT_SECRET_CANARY;
@@ -54,13 +268,17 @@ export async function smokeStartArtifact({
   if (!probe) {
     if (!Array.isArray(additional) || !additional.length)
       throw new Error(
-        "Provide authenticated HTTP probes; anonymous readiness alone is insufficient",
+        "Provide controlled HTTP probes; anonymous readiness alone is insufficient",
       );
-    if (app === "portal" && !additional.some((check) => check.stream))
+    if (
+      ["portal", "landing"].includes(app) &&
+      !additional.some((check) => check.stream)
+    )
       throw new Error(
         "Include an incremental streaming probe against a controlled upstream",
       );
     if (
+      ["portal", "build"].includes(app) &&
       !additional.some(
         (check) =>
           Object.keys(check.headersFromEnv ?? {}).length &&
@@ -83,34 +301,7 @@ export async function smokeStartArtifact({
       );
   }
 
-  function audit(directory, ancestors = new Set()) {
-    const physical = realpathSync(directory);
-    if (ancestors.has(physical))
-      throw new Error("The artifact contains a circular directory symlink");
-    const nextAncestors = new Set([...ancestors, physical]);
-    for (const name of readdirSync(directory)) {
-      const path = join(directory, name);
-      if (/^\.env(?:\.|$)/.test(name) || /\.(?:pem|key)$/.test(name))
-        throw new Error("Secret files must not be packaged into the artifact");
-      let stat = lstatSync(path);
-      if (stat.isSymbolicLink() && !realpathSync(path).startsWith(source + sep))
-        throw new Error(
-          "The artifact contains a symlink to files outside its output directory",
-        );
-      if (stat.isSymbolicLink()) stat = statSync(path);
-      if (stat.isDirectory()) audit(path, nextAncestors);
-      else if (
-        secretCanary &&
-        path.startsWith(join(source, "public") + sep) &&
-        /\.(?:[cm]?js|html?|json|map|css)$/i.test(name) &&
-        readFileSync(path).includes(Buffer.from(secretCanary))
-      )
-        throw new Error(
-          "A server-secret canary leaked into the public artifact",
-        );
-    }
-  }
-  audit(source);
+  auditArtifactOutput(source, join(source, "public"), secretCanary);
   console.log(
     secretCanary
       ? "PASS public artifact contains no server-secret canary"
@@ -214,15 +405,17 @@ export async function smokeStartArtifact({
             status: 401,
           },
         ]
-      : [
-          { path: "/", status: 200 },
-          {
-            path: "/api/bff/auth/github/status",
-            status: 200,
-            json: { signedIn: false },
-          },
-          { path: "/api/bff/deployments/projects", status: 401 },
-        ];
+      : app === "build"
+        ? [
+            { path: "/", status: 200 },
+            {
+              path: "/api/bff/auth/github/status",
+              status: 200,
+              json: { signedIn: false },
+            },
+            { path: "/api/bff/deployments/projects", status: 401 },
+          ]
+        : [{ path: "/", status: 200 }];
   try {
     let ready = false;
     for (let attempt = 0; attempt < 100 && !exited; attempt++) {
@@ -238,7 +431,7 @@ export async function smokeStartArtifact({
       throw new Error(
         "The copied artifact did not start; inspect the production bundle and runtime configuration",
       );
-    const observed = { authenticated: 0, streams: 0 };
+    const observed = { authenticated: 0, streams: 0, checks: [] };
     async function checkProbe(check) {
       if (
         typeof check.path !== "string" ||
@@ -325,9 +518,32 @@ export async function smokeStartArtifact({
             expected,
             `${check.path}: JSON ${key}`,
           );
-      } else await response.arrayBuffer();
+      } else {
+        const body = Buffer.from(await response.arrayBuffer());
+        if (check.bytesSha256)
+          assert.equal(
+            createHash("sha256").update(body).digest("hex"),
+            check.bytesSha256,
+            `${check.path}: exact body bytes`,
+          );
+        if (check.bytesPrefixHex)
+          assert.ok(
+            body
+              .subarray(0, check.bytesPrefixHex.length / 2)
+              .equals(Buffer.from(check.bytesPrefixHex, "hex")),
+            `${check.path}: binary signature`,
+          );
+        for (const text of check.textIncludes ?? [])
+          assert.ok(
+            body.toString("utf8").includes(text),
+            `${check.path}: missing expected text ${text}`,
+          );
+        if (check.bodyAbsent)
+          assert.equal(body.length, 0, `${check.path}: unexpected body`);
+      }
       if (Object.keys(check.headersFromEnv ?? {}).length && response.ok)
         observed.authenticated++;
+      observed.checks.push(check);
       console.log(
         `PASS ${check.method ?? "GET"} ${check.path}: ${response.status}${check.stream ? " incremental stream" : ""}`,
       );
@@ -335,12 +551,7 @@ export async function smokeStartArtifact({
     }
     for (const check of [...defaults, ...additional]) await checkProbe(check);
     if (probe) await probe({ origin, directory, check: checkProbe });
-    assert.ok(
-      observed.authenticated > 0,
-      "No successful authenticated artifact probe ran",
-    );
-    if (app === "portal")
-      assert.ok(observed.streams > 0, "No incremental Portal stream probe ran");
+    assertArtifactCoverage(app, observed);
     console.log(`${app} production artifact passed outside the workspace.`);
   } catch (error) {
     let start = Math.max(0, stderr.length - diagnosticLimit);

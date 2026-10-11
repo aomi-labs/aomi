@@ -6,6 +6,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
 
 export const migrationBase = "9ab669efcfa9572ef6166e71588ae00d089c55d3";
+export const remainingMigrationBase =
+  "0f903a53d81e4201f8f3cefbd828fb3940582dfd";
+export const migrationApps = {
+  portal: { base: migrationBase, nextRoot: "src/app" },
+  build: { base: migrationBase, nextRoot: "src/app" },
+  landing: { base: remainingMigrationBase, nextRoot: "app" },
+  telegram: { base: remainingMigrationBase, nextRoot: "src/app" },
+};
 const root = fileURLToPath(new URL("../", import.meta.url));
 const methods = new Set([
   "GET",
@@ -190,35 +198,34 @@ function files(directory) {
   );
 }
 
-function baselineRoutes(app, base) {
-  const prefix = `apps/${app}/src/app/`;
-  const paths = execFileSync(
-    "git",
-    ["ls-tree", "-r", "--name-only", base, "--", prefix],
-    { cwd: root, encoding: "utf8" },
-  )
-    .trim()
-    .split("\n");
-  const routes = paths
-    .filter((path) => /\/(?:page\.tsx|route\.ts)$/.test(path))
+/** Next private folders contain templates, not reachable pages or handlers. */
+export function nextRoutes(app, paths, readSource) {
+  const prefix = `apps/${app}/${migrationApps[app].nextRoot}/`;
+  return paths
+    .filter((path) => {
+      if (!path.startsWith(prefix)) return false;
+      const parts = path.slice(prefix.length).split("/");
+      return (
+        !parts.slice(0, -1).some((part) => part.startsWith("_")) &&
+        /^(?:page\.tsx|route\.tsx?|robots\.ts|sitemap\.ts)$/.test(parts.at(-1))
+      );
+    })
     .map((path) => {
+      const local = path.slice(prefix.length);
+      if (local === "robots.ts" || local === "sitemap.ts")
+        return {
+          path: local === "robots.ts" ? "/robots.txt" : "/sitemap.xml",
+          methods: ["GET"],
+          file: path,
+        };
       const route = {
         path: publicPath(
-          path
-            .slice(prefix.length)
-            .replace(/\/(?:page\.tsx|route\.ts)$/, "")
-            .replace(/^(?:page\.tsx|route\.ts)$/, ""),
+          local.replace(/(?:^|\/)(?:page\.tsx|route\.tsx?)$/, ""),
         ),
         file: path,
       };
-      if (path.endsWith("route.ts")) {
-        route.methods = nextMethods(
-          execFileSync("git", ["show", `${base}:${path}`], {
-            cwd: root,
-            encoding: "utf8",
-          }),
-          path,
-        );
+      if (/\/route\.tsx?$/.test(path)) {
+        route.methods = nextMethods(readSource(path), path);
         if (!route.methods.length)
           throw new Error(
             `${path}: baseline route has no identifiable HTTP methods`,
@@ -226,6 +233,23 @@ function baselineRoutes(app, base) {
       }
       return route;
     });
+}
+
+function baselineRoutes(app, base) {
+  const prefix = `apps/${app}/${migrationApps[app].nextRoot}/`;
+  const paths = execFileSync(
+    "git",
+    ["ls-tree", "-r", "--name-only", base, "--", prefix],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n");
+  const routes = nextRoutes(app, paths, (path) =>
+    execFileSync("git", ["show", `${base}:${path}`], {
+      cwd: root,
+      encoding: "utf8",
+    }),
+  );
   if (!routes.length)
     throw new Error(`No baseline routes for ${app} at ${base}`);
   return routes;
@@ -233,18 +257,19 @@ function baselineRoutes(app, base) {
 
 function main() {
   const args = process.argv.slice(2);
-  const base = args.includes("--base")
+  const requestedBase = args.includes("--base")
     ? args[args.indexOf("--base") + 1]
-    : migrationBase;
-  if (!/^[0-9a-f]{40}$/.test(base ?? ""))
+    : undefined;
+  if (args.includes("--base") && !/^[0-9a-f]{40}$/.test(requestedBase ?? ""))
     throw new Error("--base must name the immutable Next baseline commit");
-  execFileSync("git", ["cat-file", "-e", `${base}^{commit}`], { cwd: root });
   const apps = args.includes("--app")
     ? [args[args.indexOf("--app") + 1]]
-    : ["portal", "build"];
+    : Object.keys(migrationApps);
   for (const app of apps) {
-    if (!["portal", "build"].includes(app))
-      throw new Error("--app must be portal or build");
+    if (!Object.hasOwn(migrationApps, app))
+      throw new Error("--app must be portal, build, landing or telegram");
+    const base = requestedBase ?? migrationApps[app].base;
+    execFileSync("git", ["cat-file", "-e", `${base}^{commit}`], { cwd: root });
     const baseline = baselineRoutes(app, base);
     const candidate = files(resolve(root, `apps/${app}/src/routes`))
       .filter((path) => /\.tsx?$/.test(path))

@@ -180,6 +180,8 @@ jobs:
         with:
           # The migration parity gate reads the immutable Next route baseline.
           fetch-depth: 0
+          # Landing's public videos must be packaged as media, not LFS pointers.
+          lfs: true
           persist-credentials: false
 
       - name: Enable corepack
@@ -220,13 +222,18 @@ jobs:
             node scripts/check-test-results.mjs output/ci/build-tests.json
           fi
           if [ "$CHECK_LANDING" = true ]; then
+            node scripts/check-start-route-parity.mjs --app landing
             pnpm run lint:landing
             pnpm run typecheck:landing
+            pnpm exec vitest run --config apps/landing/vitest.config.ts --reporter=default --reporter=json --outputFile=output/ci/landing-tests.json
+            node scripts/check-test-results.mjs output/ci/landing-tests.json
           fi
           if [ "$CHECK_TELEGRAM" = true ]; then
+            node scripts/check-start-route-parity.mjs --app telegram
             pnpm run lint:telegram
             pnpm run typecheck:telegram
-            pnpm run test:telegram
+            pnpm --filter telegram test:unit --reporter=default --reporter=json --outputFile=../../output/ci/telegram-tests.json
+            node scripts/check-test-results.mjs output/ci/telegram-tests.json
           fi
 
       - name: Build affected apps
@@ -242,6 +249,7 @@ jobs:
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
+          NEXT_PUBLIC_PRIVY_APP_ID: ci-public-artifact-fixture
           NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: |
@@ -263,6 +271,8 @@ jobs:
         env:
           CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
           CHECK_BUILD: ${{ needs.changes.outputs.build }}
+          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
+          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
@@ -270,6 +280,12 @@ jobs:
           fi
           if [ "$CHECK_BUILD" = true ]; then
             node scripts/test-start-artifacts.mjs --app build
+          fi
+          if [ "$CHECK_LANDING" = true ]; then
+            node scripts/test-start-artifacts.mjs --app landing
+          fi
+          if [ "$CHECK_TELEGRAM" = true ]; then
+            node scripts/test-start-artifacts.mjs --app telegram
           fi
 
   journeys:

@@ -1,5 +1,7 @@
+// @vitest-environment node
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 /** Source-level invariants — properties that hold across the whole app and
@@ -8,8 +10,8 @@ import { describe, expect, it } from "vitest";
  *  Deliberately few. Behaviour is covered by real tests next to the code; these
  *  exist only where a violation would be invisible until production. */
 
-// Vitest's root is the app directory (see vitest.config.ts).
-const appRoot = process.cwd();
+// Resolve the source tree for both app and workspace test invocations.
+const appRoot = fileURLToPath(new URL("../", import.meta.url));
 const srcRoot = join(appRoot, "src");
 
 function sourceFiles(dir = srcRoot): string[] {
@@ -79,14 +81,16 @@ describe("app invariants", () => {
     // The Mini App links a wallet and signs permits. Execution is backend-owned;
     // a send path here would be an unreviewed second broadcaster.
     expect(
-      named(/\bsendTransaction\b|\bwaitForTransactionReceipt\b|\beth_sendTransaction\b/),
+      named(
+        /\bsendTransaction\b|\bwaitForTransactionReceipt\b|\beth_sendTransaction\b/,
+      ),
     ).toEqual([]);
   });
 
   it("runs exactly one login flow", () => {
     // A second, parallel Privy login strands the page in its signing state.
     const page = sources.find(({ path }) =>
-      path.endsWith("app/wallet-client.tsx"),
+      path.endsWith("screens/wallet-client.tsx"),
     );
     expect(page).toBeDefined();
     expect(page?.text).not.toMatch(/useLoginWithTelegram|void login\(\)/);

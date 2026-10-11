@@ -1,18 +1,114 @@
 #!/usr/bin/env node
 // Controlled production-artifact integration: no real provider or deploy tokens.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { register } from "tsx/esm/api";
-import { smokeStartArtifact } from "./smoke-start-artifact.mjs";
+import {
+  artifactApps,
+  smokeStartArtifact,
+  verifyVercelArtifact,
+} from "./smoke-start-artifact.mjs";
+import { remainingMigrationBase } from "./check-start-route-parity.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const baselineBytes = (path) =>
+  execFileSync("git", ["show", `${remainingMigrationBase}:${path}`], {
+    cwd: root,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+
+/** Git stores an LFS pointer; the served artifact must contain the original object. */
+export function baselineAssetHash(bytes) {
+  const text = bytes.toString("utf8");
+  if (!text.startsWith("version https://git-lfs.github.com/spec/v1\n"))
+    return sha256(bytes);
+  const pointer = text.match(
+    /^version https:\/\/git-lfs\.github\.com\/spec\/v1\noid sha256:([0-9a-f]{64})\nsize ([1-9]\d*)\n?$/,
+  );
+  assert.ok(pointer, "Malformed immutable Git LFS asset pointer");
+  return pointer[1];
+}
+
+/** Resolve local runtime assets, including relative URLs in the preserved homepage. */
+export function landingAssetPaths(html, sourcePath = "/") {
+  const origin = "https://artifact-fixture.invalid";
+  const base = new URL(
+    html.match(/<base\b[^>]*href=["']([^"']+)["']/i)?.[1] ?? sourcePath,
+    origin,
+  );
+  const assetContent = html.replace(/<base\b[^>]*>/gi, "");
+  const references = [
+    ...assetContent.matchAll(/\b(?:src|href|poster)=["']([^"']+)["']/gi),
+    ...assetContent.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)/gi),
+  ];
+  return [
+    ...new Set(
+      references.flatMap((match) => {
+        const url = new URL(match[1].replaceAll("&amp;", "&"), base);
+        return url.origin === origin &&
+          /^\/(?:assets|videos)\//.test(url.pathname)
+          ? [url.pathname]
+          : [];
+      }),
+    ),
+  ].sort();
+}
+
+function landingStaticAssets() {
+  const html = baselineBytes(
+    "apps/landing/public/assets/landing/home/index.html",
+  ).toString("utf8");
+  const paths = new Set(landingAssetPaths(html));
+  paths.add("/og-bg.jpg");
+  for (const path of paths)
+    if (path.endsWith(".css"))
+      for (const child of landingAssetPaths(
+        baselineBytes(`apps/landing/public${path}`).toString("utf8"),
+        path,
+      ))
+        paths.add(child);
+  return [...paths].map((path) => ({
+    path,
+    sha256: baselineAssetHash(baselineBytes(`apps/landing/public${path}`)),
+  }));
+}
+
+function nativeStaticAssets(app) {
+  if (app === "landing") return landingStaticAssets();
+  const prefix = `apps/${app}/public/`;
+  const paths = execFileSync(
+    "git",
+    ["ls-tree", "-r", "--name-only", remainingMigrationBase, "--", prefix],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  const assets = paths.map((path) => ({
+    path: `/${path.slice(prefix.length)}`,
+    sha256: baselineAssetHash(baselineBytes(path)),
+  }));
+  if (app === "telegram")
+    assets.push({
+      path: "/assets/fonts/geist-latin.woff2",
+      // Telegram uses the immutable Next Geist bytes already preserved by Portal.
+      sha256: sha256(
+        baselineBytes(
+          "apps/portal/public/assets/fonts/google/geist-latin.woff2",
+        ),
+      ),
+    });
+  return assets;
+}
 
 /** Providerless environment; callers cannot accidentally enable charged runs. */
 export function artifactFixtureEnvironment(source = process.env) {
@@ -359,22 +455,371 @@ async function buildArtifact(artifact, fixtureEnv) {
   });
 }
 
+async function landingArtifact(artifact, fixtureEnv, publicUpstreams = false) {
+  const records = [];
+  const upstream = createServer((request, response) => {
+    records.push({
+      path: request.url,
+      cookie: request.headers.cookie,
+      authorization: request.headers.authorization,
+    });
+    if (request.url === "/api/thread/state") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(
+        JSON.stringify({
+          thread_id: "copied-landing-thread",
+          is_processing: false,
+        }),
+      );
+    } else if (request.url === "/api/thread/updates") {
+      response.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+      });
+      response.write('data: {"sequence":1}\n\n');
+      setTimeout(() => response.end('data: {"sequence":2}\n\n'), 1_500);
+    } else response.writeHead(404).end();
+  });
+  await new Promise((done, fail) => {
+    upstream.once("error", fail);
+    upstream.listen(0, "127.0.0.1", done);
+  });
+  const backend = `http://127.0.0.1:${upstream.address().port}`;
+  try {
+    await smokeStartArtifact({
+      app: "landing",
+      artifact,
+      env: {
+        ...fixtureEnv,
+        BACKEND_URL: backend,
+        AOMI_PROXY_BACKEND_URL: backend,
+      },
+      async probe({ check }) {
+        const html = baselineBytes(
+          "apps/landing/public/assets/landing/home/index.html",
+        );
+        await check({
+          path: "/",
+          status: 200,
+          bytesSha256: sha256(html),
+          headers: {
+            "content-type": "text/html",
+            "cache-control": "must-revalidate",
+          },
+        });
+        for (const asset of landingStaticAssets())
+          await check({
+            path: asset.path,
+            status: 200,
+            bytesSha256: asset.sha256,
+          });
+        await check({
+          path: "/",
+          method: "HEAD",
+          status: 200,
+          bodyAbsent: true,
+        });
+        await check({
+          path: "/",
+          method: "OPTIONS",
+          status: 204,
+          headers: { allow: "GET, HEAD, OPTIONS" },
+        });
+        await check({ path: "/agents.md", method: "POST", status: 405 });
+        await check({
+          path: "/agents.md/?migration=a%2Bb",
+          status: 308,
+          headers: { location: "/agents.md?migration=a%2Bb" },
+        });
+        await check({
+          path: "/agents/?migration=a%2Bb",
+          status: 308,
+          headers: {
+            location: "/agents?migration=a%2Bb",
+            refresh: "0;url=/agents?migration=a%2Bb",
+          },
+        });
+        const cache = { "cache-control": "s-maxage=3600" };
+        for (const [path, file, type] of [
+          ["/agents.md", "agents.md", "text/markdown"],
+          ["/faq.md", "faq.md", "text/markdown"],
+          ["/llms.txt", "llms.txt", "text/plain"],
+        ])
+          await check({
+            path,
+            status: 200,
+            bytesSha256: sha256(
+              baselineBytes(`apps/landing/content/agents/${file}`),
+            ),
+            headers: { ...cache, "content-type": type },
+          });
+        for (const [path, text, type] of [
+          ["/agents/build.md", "# Build an Aomi app", "text/markdown"],
+          ["/agents/transact.md", "# Transact with Aomi", "text/markdown"],
+          ["/llms-full.txt", "# Aomi — full agent corpus", "text/plain"],
+        ])
+          await check({
+            path,
+            status: 200,
+            headers: { ...cache, "content-type": type },
+            textIncludes: [text],
+          });
+        await check({
+          path: "/r/card.json",
+          status: 200,
+          bytesSha256: sha256(baselineBytes("apps/landing/public/r/card.json")),
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "s-maxage=300",
+          },
+        });
+        await check({
+          path: "/r/missing-controlled-artifact.json",
+          status: 404,
+          json: { error: "Not found" },
+        });
+        await check({
+          path: "/r/%252e%252e/package.json",
+          status: 404,
+          json: { error: "Not found" },
+        });
+        await check({
+          path: "/robots.txt",
+          status: 200,
+          headers: { "content-type": "text/plain" },
+          textIncludes: [
+            "User-Agent: GPTBot",
+            "Disallow: /api/",
+            "Sitemap: https://aomi.dev/sitemap.xml",
+            "Sitemap: https://aomi.dev/docs/sitemap.xml",
+          ],
+        });
+        await check({
+          path: "/sitemap.xml",
+          status: 200,
+          headers: { "content-type": "application/xml" },
+          textIncludes: [
+            "<urlset",
+            "https://aomi.dev/agents.md",
+            "https://aomi.dev/research/three-gates-onchain",
+          ],
+        });
+        await check({
+          path: "/agents",
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: ["Aomi", "agent"],
+        });
+        await check({ path: "/products/missing", status: 404 });
+        await check({ path: "/solutions/missing", status: 404 });
+        await check({
+          path: "/research/three-gates-onchain",
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: ["Three Gates from Intent to Settlement", "runtime"],
+        });
+        await check({
+          path: "/research/auth-across-two-worlds",
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: ["One User, Many Wallets", "Authentication"],
+        });
+        await check({
+          path: "/examples",
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: ["<html"],
+        });
+        await check({
+          path: "/playground",
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: ["<html"],
+        });
+        // Fixed public upstreams are a separate observation, never a prerequisite
+        // for the deterministic copied-artifact packaging proof.
+        if (publicUpstreams) {
+          await check({
+            path: "/docs",
+            status: 200,
+            headers: { "content-type": "text/html" },
+            textIncludes: ["<html", "Aomi"],
+          });
+          await check({
+            path: "/brand.md",
+            status: 200,
+            headers: { ...cache, "content-type": "text/markdown" },
+            textIncludes: ["Aomi"],
+          });
+        }
+        await check({
+          path: "/api/og",
+          status: 200,
+          headers: { "content-type": "image/png" },
+          bytesPrefixHex: "89504e470d0a1a0a",
+          timeoutMs: 30_000,
+        });
+        await check({
+          path: "/api/proxy",
+          status: 400,
+          json: { error: "Missing ?url= parameter" },
+        });
+        await check({
+          path: `/api/proxy?url=${encodeURIComponent(backend)}`,
+          status: 403,
+          json: { error: "Host not in allowlist" },
+        });
+        await check({
+          path: "/api/account",
+          status: 401,
+          json: { error: "Authentication required" },
+        });
+        const requestHeaders = {
+          cookie: "artifact-browser-cookie=must-not-forward",
+          authorization: "Bearer invalid-artifact-browser-credential",
+        };
+        await check({
+          path: "/api/thread/state",
+          status: 200,
+          requestHeaders,
+          json: { thread_id: "copied-landing-thread", is_processing: false },
+        });
+        await check({
+          path: "/api/thread/updates",
+          status: 200,
+          requestHeaders,
+          headers: {
+            "content-type": "text/event-stream",
+            "cache-control": "no-transform",
+          },
+          stream: { minChunks: 2, maxFirstChunkMs: 800, minDurationMs: 1_200 },
+        });
+        for (const record of records) {
+          assert.equal(
+            record.cookie,
+            undefined,
+            `${record.path}: browser cookie reached upstream`,
+          );
+          assert.equal(
+            record.authorization,
+            undefined,
+            `${record.path}: browser credential reached anonymous upstream`,
+          );
+        }
+        assert.deepEqual(records.map((record) => record.path).sort(), [
+          "/api/thread/state",
+          "/api/thread/updates",
+        ]);
+        await check({
+          path: "/api/widget-fixture/wallet-compound-borrow",
+          status: 200,
+          headers: { "cache-control": "no-store" },
+          json: { fixture: "wallet-compound-borrow", path: "" },
+        });
+        await check({
+          path: "/api/widget-fixture/wallet-compound-borrow/api/thread/state",
+          status: 200,
+          headers: { "cache-control": "no-store" },
+          json: {
+            thread_id: "widget-fixture-wallet-compound-borrow",
+            is_processing: true,
+          },
+        });
+        await check({
+          path: "/api/widget-fixture/wallet-compound-borrow/api/threads",
+          method: "POST",
+          body: {},
+          status: 200,
+          headers: { "cache-control": "no-store" },
+          json: { thread_id: "widget-fixture-wallet-compound-borrow" },
+        });
+      },
+    });
+  } finally {
+    await new Promise((done) => upstream.close(done));
+  }
+}
+
+async function telegramArtifact(artifact, fixtureEnv) {
+  await smokeStartArtifact({
+    app: "telegram",
+    artifact,
+    env: fixtureEnv,
+    async probe({ check }) {
+      await check({
+        path: "/",
+        status: 200,
+        headers: { "content-type": "text/html" },
+        textIncludes: [
+          "Aomi Wallet",
+          "Setting up your wallet…",
+          "Verify Telegram",
+        ],
+      });
+      for (const asset of nativeStaticAssets("telegram"))
+        await check({
+          path: asset.path,
+          status: 200,
+          bytesSha256: asset.sha256,
+        });
+      await check({ path: "/", method: "HEAD", status: 200, bodyAbsent: true });
+      await check({ path: "/api/telegram/launch", status: 405 });
+      await check({
+        path: "/api/telegram/launch",
+        method: "OPTIONS",
+        status: 204,
+        headers: { allow: "POST, OPTIONS" },
+      });
+      await check({
+        path: "/api/telegram/launch/?migration=a%2Bb",
+        method: "POST",
+        body: {},
+        status: 308,
+        headers: { location: "/api/telegram/launch?migration=a%2Bb" },
+      });
+      const launch = (body, status, error) =>
+        check({
+          path: "/api/telegram/launch",
+          method: "POST",
+          body,
+          status,
+          headers: { "cache-control": "no-store" },
+          json: { error },
+        });
+      await launch({}, 400, "malformed");
+      const now = Math.floor(Date.now() / 1_000);
+      const fields = new URLSearchParams({
+        auth_date: String(now),
+        user: JSON.stringify({ id: 900000000000001 }),
+      });
+      await launch(
+        { botId: "900000001", initData: fields.toString() },
+        400,
+        "missing_signature",
+      );
+      fields.set("signature", Buffer.alloc(64).toString("base64url"));
+      await launch(
+        { botId: "900000001", initData: fields.toString() },
+        401,
+        "bad_signature",
+      );
+      fields.set("auth_date", String(now - 24 * 60 * 60 - 1));
+      await launch(
+        { botId: "900000001", initData: fields.toString() },
+        401,
+        "expired",
+      );
+    },
+  });
+}
+
 export async function testStartArtifacts(args = process.argv.slice(2)) {
   register();
   const option = (name, fallback) =>
     args.includes(name) ? args[args.indexOf(name) + 1] : fallback;
-  const apps = option("--app") ? [option("--app")] : ["portal", "build"];
-  if (apps.some((app) => !["portal", "build"].includes(app)))
-    throw new Error("--app must be portal or build");
-  const outputs = {
-    portal: resolve(option("--portal-output", "apps/portal/.output")),
-    build: resolve(option("--build-output", "apps/build/.output")),
-  };
-  for (const app of apps)
-    if (!existsSync(join(outputs[app], "server/index.mjs")))
-      throw new Error(
-        `Build the ${app} Nitro Node artifact before running this check`,
-      );
+  const apps = option("--app") ? [option("--app")] : artifactApps;
+  if (apps.some((app) => !artifactApps.includes(app)))
+    throw new Error("--app must be portal, build, landing or telegram");
   const env = artifactFixtureEnvironment();
   if (
     !env.AOMI_ARTIFACT_SECRET_CANARY ||
@@ -383,10 +828,36 @@ export async function testStartArtifacts(args = process.argv.slice(2)) {
     throw new Error(
       "Set the same AOMI_ARTIFACT_SECRET_CANARY used for the production build",
     );
+  if (args.includes("--vercel-output")) {
+    if (apps.length !== 1)
+      throw new Error("Select one --app with --vercel-output");
+    verifyVercelArtifact({
+      app: apps[0],
+      artifact: option("--vercel-output"),
+      secretCanary: env.AOMI_ARTIFACT_SECRET_CANARY,
+      assets: nativeStaticAssets(apps[0]),
+    });
+    return;
+  }
+  const outputs = Object.fromEntries(
+    apps.map((app) => [
+      app,
+      resolve(option(`--${app}-output`, `apps/${app}/.output`)),
+    ]),
+  );
   for (const app of apps)
-    await (app === "portal"
-      ? portalArtifact(outputs[app], env)
-      : buildArtifact(outputs[app], env));
+    if (!existsSync(join(outputs[app], "server/index.mjs")))
+      throw new Error(
+        `Build the ${app} Nitro Node artifact before running this check`,
+      );
+  const probes = {
+    portal: portalArtifact,
+    build: buildArtifact,
+    landing: landingArtifact,
+    telegram: telegramArtifact,
+  };
+  for (const app of apps)
+    await probes[app](outputs[app], env, args.includes("--public-upstreams"));
 }
 
 if (

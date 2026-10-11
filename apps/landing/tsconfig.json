@@ -17,11 +17,6 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "paths": {
       "@/components/examples/*": [
         "./content/components/examples/*"
@@ -35,11 +30,8 @@
       "@/.source/*": [
         "./.source/*"
       ],
-      "@/app/*": [
-        "./app/*"
-      ],
       "@/lib/*": [
-        "./lib/*"
+        "./src/lib/*"
       ],
       "@aomi-labs/react": [
         "../../packages/react/src/index.ts"
@@ -100,20 +92,31 @@
       ],
       "zustand/*": [
         "./node_modules/zustand/*"
+      ],
+      "@/screens/*": [
+        "./src/screens/*"
       ]
-    }
+    },
+    "types": [
+      "vite/client"
+    ]
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.mdx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "../../.next/types/**/*.ts",
-    "../../.next/dev/types/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "content/**/*.ts",
+    "content/**/*.tsx",
+    "content/**/*.mdx",
+    ".source/**/*.ts",
+    "source.config.ts",
+    "vite.config.ts",
+    "mdx.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    ".output",
+    ".tanstack",
+    ".vercel"
   ]
 }

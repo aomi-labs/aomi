@@ -8,7 +8,7 @@ import {
   useSubscribeToJwtAuthWithFlag,
 } from "@privy-io/react-auth";
 
-import { aomiBffUrl } from "@/app/config";
+import { aomiBffUrl } from "@/lib/config";
 import { embeddedWallet } from "@/lib/privy-wallet";
 import type { LaunchContext } from "@/lib/telegram";
 
