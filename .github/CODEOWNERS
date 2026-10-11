@@ -11,6 +11,8 @@
 /scripts/smoke-start-artifact.mjs @CeciliaZ030 @arixoneth
 /scripts/test-start-artifacts.mjs @CeciliaZ030 @arixoneth
 /scripts/test-native-browser.mjs @CeciliaZ030 @arixoneth
+/scripts/build-vercel-app.mjs @CeciliaZ030 @arixoneth
+/scripts/vercel-projects.json @CeciliaZ030 @arixoneth
 /tests/contracts/ @CeciliaZ030 @arixoneth
 /tests/native-browser/ @CeciliaZ030 @arixoneth
 /tests/e2e/portal-auth-contracts.spec.ts @CeciliaZ030 @arixoneth

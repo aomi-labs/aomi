@@ -42,7 +42,7 @@
     "clean:next": "rm -rf .next apps/landing/.next apps/portal/.next apps/build/.next apps/telegram/.next examples/embed-next/.next",
     "clean:all": "rm -rf .next apps/landing/.output apps/landing/dist apps/portal/.output apps/portal/dist apps/build/.output apps/build/dist apps/telegram/.output apps/telegram/dist examples/embed-next/.next dist .turbo node_modules/.cache .eslintcache",
     "clean": "rm -rf .next apps/landing/.output apps/landing/dist apps/portal/.output apps/portal/dist apps/build/.output apps/build/dist apps/telegram/.output apps/telegram/dist examples/embed-next/.next dist .turbo node_modules/.cache .eslintcache",
-    "vercel-build": "pnpm --filter landing build && node scripts/prepare-landing-vercel-output.mjs",
+    "vercel-build": "node scripts/build-vercel-app.mjs",
     "lint": "eslint .",
     "lint:landing": "pnpm --filter landing lint",
     "lint:portal": "pnpm --filter portal lint",

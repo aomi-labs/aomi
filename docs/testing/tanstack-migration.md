@@ -253,6 +253,15 @@ allowlist. Never define the entire server environment in the browser bundle.
 Verify the generated Vercel function assets and streaming before promotion;
 Node artifact success alone does not prove a hosted Vercel deployment.
 
+The existing Vercel projects may build from the repository root. Its
+`vercel-build` entry selects the host using Vercel's system `VERCEL_PROJECT_ID`
+and `scripts/vercel-projects.json`, whose public IDs match the backend's
+`infra/frontend-surfaces.json`. It publishes that host's native artifact into
+the root `.vercel/output`, clearing cached root output before building. Missing
+or unregistered project IDs fail the Vercel build. Keep system environment
+variables exposed and register a new root project before deploying it; an
+app-directory project can instead use that app's own `vercel.json`.
+
 Keep each host's ledgered pre-migration deployment available. A rollback restores
 that host's previous deployment/artifact using the existing production rollback
 workflow. Verify the affected host's contracts: Portal auth/signed BFF/streamed
