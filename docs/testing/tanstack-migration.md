@@ -22,6 +22,10 @@ Portal and Build's immutable Next baseline is
 baseline is `0f903a53d81e4201f8f3cefbd828fb3940582dfd`. That second commit is the
 historical Portal/Build-only migration checkpoint; evidence recorded against it
 does not establish the later Landing or Telegram migration's readiness.
+The Landing inventory also preserves the editorial rollout from main at
+`6e6a0a225dc384cb24e7d2ff4fc1a2ecbb2a5f49`: `/blog` adds one page to the
+24-page baseline, `/news` redirects to it, and the Task API article remains under
+`/research`. This supplement does not replace either immutable baseline.
 
 The route parity gate uses the appropriate baseline per host. It reads TypeScript
 exports, including destructured handlers and Next metadata endpoints, and
@@ -33,12 +37,12 @@ node scripts/check-start-route-parity.mjs
 node --test tests/contracts/start-route-parity.test.mjs tests/contracts/start-artifact-smoke.test.mjs tests/contracts/start-artifact-environment.test.mjs
 ```
 
-| Host   | Baseline pages | Baseline HTTP bindings | Authentication and data owner                                                                              |
-| ------ | -------------: | ---------------------: | ---------------------------------------------------------------------------------------------------------- |
-| Portal |             11 |                     51 | Shared Better Auth/account services; Portal owns its BFF, first-party guest policy and thread URL handoffs |
-| Build  |             26 |                     54 | Build owns GitHub/CLI sessions, visibility grants and authorization for its control-plane services         |
-| Landing |            24 |                     15 | Landing owns marketing/MDX, public assets, registry and proxy contracts; wallet examples retain their provider boundaries |
-| Telegram |            1 |                      1 | Telegram owns its Privy v3 provider; the native launch verifier and Portal BFF prove identity and authorize account operations |
+| Host     | Baseline pages | Baseline HTTP bindings | Authentication and data owner                                                                                                  |
+| -------- | -------------: | ---------------------: | ------------------------------------------------------------------------------------------------------------------------------ |
+| Portal   |             11 |                     51 | Shared Better Auth/account services; Portal owns its BFF, first-party guest policy and thread URL handoffs                     |
+| Build    |             26 |                     54 | Build owns GitHub/CLI sessions, visibility grants and authorization for its control-plane services                             |
+| Landing  |             24 |                     15 | Landing owns marketing/MDX, public assets, registry and proxy contracts; wallet examples retain their provider boundaries      |
+| Telegram |              1 |                      1 | Telegram owns its Privy v3 provider; the native launch verifier and Portal BFF prove identity and authorize account operations |
 
 Start route files bind native `Request`/`Response` handlers. Protocol endpoints
 remain HTTP routes: SDK, widget, CLI, OAuth, MCP, account and deployment clients
@@ -158,6 +162,31 @@ the honest wallet shell, method rejection/OPTIONS, canonical redirects, valid
 fixture-signed launch verification, and rejected invalid or expired proofs.
 These fixtures do not establish hosted Privy sign-in, wallet delegation, or permit
 signing; provider/browser verification remains a separate prerequisite.
+
+The public production browser gate runs copied Landing and Telegram Node
+artifacts with provider credentials excluded:
+
+```sh
+aomi-dev exec --repo frontend <workspace> -- node scripts/test-native-browser.mjs --app landing
+aomi-dev exec --repo frontend <workspace> -- node scripts/test-native-browser.mjs --app telegram
+```
+
+Landing requires four scenarios: homepage scripts and media, hydrated blog
+navigation and browser history, editing a Polymarket MDX control without sending
+an operation, and the configurator's interactive preview and generated code.
+Telegram requires its hydrated outside-Telegram guard and expandable error
+details. Its test hostname is outside the app's localhost-preview bypass. A
+temporary local HTTPS proxy provides the transport required by the wallet
+provider and browser WebCrypto; only this isolated test context accepts its
+self-signed certificate. The signed-launch requirement remains intact. The
+Telegram artifact must use the valid-shaped, nonsensitive public Privy fixture
+`a123456789012345678901234`. This gate does not prove a signed Telegram launch or
+a hosted wallet-provider ceremony.
+
+All five scenarios are mandatory, with no skips or retries. Screenshots, browser
+evidence, runtime logs and the checked JSON report are saved under
+`output/ci/native-browser/`. The existing 16 auth/visual contracts, 80 packed
+consumer scenarios and 55 journeys retain their own unchanged gates.
 
 For an independently configured runtime, the lower-level probe accepts a JSON
 list of real endpoint checks:

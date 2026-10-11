@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       tanstackStart({
+        router: { routeFileIgnorePattern: "\\.(test|spec)\\.[jt]sx?$" },
         importProtection: {
           behavior: "error",
           include: ["**/apps/telegram/src/**", "**/packages/account/src/**"],
@@ -50,11 +51,17 @@ export default defineConfig(({ mode }) => {
         // Only the Privy-free widget UI and tokens cross this app boundary.
         ...["button", "card"].map((entry) => ({
           find: `@aomi-labs/widget/components/ui/${entry}`,
-          replacement: resolve(workspace, `packages/widget/src/ui/${entry}.tsx`),
+          replacement: resolve(
+            workspace,
+            `packages/widget/src/ui/${entry}.tsx`,
+          ),
         })),
         {
           find: "@aomi-labs/widget/themes/default.css",
-          replacement: resolve(workspace, "packages/widget/src/themes/default.css"),
+          replacement: resolve(
+            workspace,
+            "packages/widget/src/themes/default.css",
+          ),
         },
         {
           find: "server-only",

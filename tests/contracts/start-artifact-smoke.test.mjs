@@ -14,6 +14,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   artifactNodeOptions,
+  assertHtmlHead,
   verifyVercelArtifact,
 } from "../../scripts/smoke-start-artifact.mjs";
 
@@ -22,6 +23,46 @@ const script = fileURLToPath(
 );
 const secretCanary = "private-artifact-canary-throwaway-value";
 const hash = (body) => createHash("sha256").update(body).digest("hex");
+
+test("article and listing metadata must appear in the document head with unique semantic tags", () => {
+  const expected = {
+    title: "Tasks & proofs",
+    names: { robots: "noindex, nofollow" },
+    properties: { "og:type": "article" },
+  };
+  const head = `<title>Tasks &amp; proofs</title><meta content="noindex, nofollow" name="robots"><meta content='article' property='og:type'>`;
+  assert.doesNotThrow(() =>
+    assertHtmlHead(
+      `<html><head>${head}</head><body>Blog</body></html>`,
+      expected,
+    ),
+  );
+  assert.throws(
+    () =>
+      assertHtmlHead(
+        `<html><head></head><body>${head}</body></html>`,
+        expected,
+      ),
+    /document title/,
+  );
+  assert.throws(
+    () =>
+      assertHtmlHead(
+        `<head>${head}<meta name="robots" content="index, follow"></head>`,
+        expected,
+      ),
+    /unique robots/,
+  );
+  assert.throws(
+    () =>
+      assertHtmlHead(
+        `<head>${head.replace("noindex, nofollow", "index, follow")}</head>`,
+        expected,
+      ),
+    /robots metadata/,
+  );
+});
+
 function fixture(buffered) {
   const directory = mkdtempSync(join(tmpdir(), "aomi-artifact-probe-test-"));
   const artifact = join(directory, ".output");

@@ -1,7 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import Page, { metadata } from "@/screens/marketing/news/page";
-import { landingHead } from "@/lib/metadata";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 export const Route = createFileRoute("/_marketing/news")({
-  head: () => landingHead(metadata),
-  component: Page,
+  beforeLoad: () => {
+    throw redirect({ to: "/blog", statusCode: 308 });
+  },
 });

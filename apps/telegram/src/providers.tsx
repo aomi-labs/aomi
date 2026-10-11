@@ -47,25 +47,25 @@ export function Providers({
 
   return (
     <PrivyProvider
-        appId={privyAppId}
-        config={{
-          // Telegram is proven by Aomi's server and synchronized through
-          // Custom JWT. Email OTP is only the explicit recovery/link path for
-          // an existing Privy wallet, never an implicit replacement identity.
-          loginMethods: ["email"],
-          // Hosted signing needs a wallet to exist before the exchange runs;
-          // Privy provisions one during login rather than as a separate step.
-          embeddedWallets: {
-            ethereum: { createOnLogin: "users-without-wallets" },
-          },
-          appearance: {
-            ...appearance,
-            logo: "/favicon.svg",
-            walletList: [],
-          },
-        }}
-      >
-        {children}
+      appId={privyAppId}
+      config={{
+        // Telegram is proven by Aomi's server and synchronized through
+        // Custom JWT. Email OTP is only the explicit recovery/link path for
+        // an existing Privy wallet, never an implicit replacement identity.
+        loginMethods: ["email"],
+        // Hosted signing needs a wallet to exist before the exchange runs;
+        // Privy provisions one during login rather than as a separate step.
+        embeddedWallets: {
+          ethereum: { createOnLogin: "users-without-wallets" },
+        },
+        appearance: {
+          ...appearance,
+          logo: "/favicon.svg",
+          walletList: [],
+        },
+      }}
+    >
+      {children}
     </PrivyProvider>
   );
 }

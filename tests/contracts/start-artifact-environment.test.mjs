@@ -68,10 +68,20 @@ test("Landing runtime assets use the HTML base, CSS-relative URLs and unique loc
     <script src="./theme.js"></script><script src="./theme.js?duplicate=1"></script>
     <img src="/assets/logos/aomi.svg"><img src="https://external.invalid/pixel.png">
     <style>@font-face {src: url('./fonts/geist-latin.woff2')}</style>
+    <div style="background-image: url(&quot;./hero.jpg&quot;)"></div>
+    <div style="background-image: url(&#39;./media/hero&#x2d;mobile.jpg&#39;)"></div>
+    <style>
+      .texture { background: url("data:image/svg+xml,%3Csvg%3E%3Crect filter='url(%23sand)'/%3E%3C/svg%3E") }
+      .filter { filter: url(#sand); clip-path: url(\\#clip); mask: url(\\23 mask) }
+      .image { background: url('./media/escaped\\2d image.png') }
+    </style>
     <a href="/docs">Docs</a>
   `),
     [
       "/assets/landing/home/fonts/geist-latin.woff2",
+      "/assets/landing/home/hero.jpg",
+      "/assets/landing/home/media/escaped-image.png",
+      "/assets/landing/home/media/hero-mobile.jpg",
       "/assets/landing/home/theme.css",
       "/assets/landing/home/theme.js",
       "/assets/logos/aomi.svg",

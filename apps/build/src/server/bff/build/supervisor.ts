@@ -193,7 +193,7 @@ export async function superviseOnce(): Promise<SuperviseAction[]> {
 
 const TICK_MS = 60_000;
 
-/** In-process tick for long-lived servers (next dev / self-hosted). On
+/** In-process tick for long-lived development or self-hosted servers. On
  *  Vercel, functions don't outlive requests — the cron route is the tick. */
 export function ensureSupervisorInterval(): void {
   const s = state();

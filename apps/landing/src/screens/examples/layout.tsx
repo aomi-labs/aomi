@@ -1,6 +1,6 @@
 import { DocsLayout } from "fumadocs-ui/layouts/notebook";
 import type { ReactNode } from "react";
-import type {Root} from "fumadocs-core/page-tree";
+import type { Root } from "fumadocs-core/page-tree";
 import { Provider } from "../provider";
 import "../docs-ui.css";
 import {
@@ -9,7 +9,13 @@ import {
   sharedSidebarOptions,
 } from "../layout-config";
 
-export default function Layout({ children, tree }: { children: ReactNode; tree: Root }) {
+export default function Layout({
+  children,
+  tree,
+}: {
+  children: ReactNode;
+  tree: Root;
+}) {
   return (
     <Provider>
       <DocsLayout

@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 import mdx from "fumadocs-mdx/vite";
 import { fileURLToPath } from "node:url";
 import { resolve, join } from "node:path";
-import { readdirSync, statSync } from "node:fs";
+import { globSync, readdirSync, statSync } from "node:fs";
 import publicKeys from "./public-env.keys.json" with { type: "json" };
 const root = fileURLToPath(new URL(".", import.meta.url));
 const workspace = resolve(root, "../..");
@@ -54,9 +54,18 @@ export default defineConfig(async ({ mode }) => {
   publicEnv.NEXT_PUBLIC_BACKEND_URL ||=
     env.BACKEND_URL || "http://127.0.0.1:8080";
   publicEnv.NEXT_PUBLIC_VERCEL_ENV ||= env.VERCEL_ENV || "";
+  const docsMdx = await mdx(await import("./source.config"));
+  const transformMdx = docsMdx.transform;
+  if (typeof transformMdx !== "function")
+    throw new Error("Fumadocs MDX transform is unavailable");
+  // Native HTTP endpoints bundle exact raw bytes; the docs compiler must not rewrite them.
+  docsMdx.transform = function (source, id, options) {
+    if (new URLSearchParams(id.split("?", 2)[1]).has("raw")) return null;
+    return transformMdx.call(this, source, id, options);
+  };
   const config: UserConfig = {
     plugins: [
-      await mdx(await import("./source.config")),
+      docsMdx,
       researchFiles,
       tanstackStart({
         importProtection: {
@@ -73,6 +82,20 @@ export default defineConfig(async ({ mode }) => {
       }),
       nitro({
         preset: env.VERCEL === "1" ? "vercel" : "node-server",
+        // Public files bypass Start; keep the registry handler's cache policy on existing assets.
+        routeRules: Object.fromEntries(
+          globSync("**/*.json", { cwd: resolve(root, "public/r") }).map(
+            (file) => [
+              `/r/${file.replaceAll("\\", "/")}`,
+              {
+                headers: {
+                  "Cache-Control":
+                    "public, max-age=300, s-maxage=300, stale-while-revalidate=600",
+                },
+              },
+            ],
+          ),
+        ),
         vercel: {
           functionRules: {
             "/api/thread/updates": { maxDuration: 300 },

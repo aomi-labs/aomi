@@ -7,7 +7,10 @@ import {
   migrationApps,
   migrationBase,
   remainingMigrationBase,
+  landingRollout,
   publicPath,
+  startPublicPath,
+  isStartRouteFile,
   startRoutes,
 } from "../../scripts/check-start-route-parity.mjs";
 
@@ -30,6 +33,31 @@ test("each host keeps its immutable migration baseline and real Next root", () =
   assert.equal(migrationApps.telegram.base, remainingMigrationBase);
   assert.equal(migrationApps.landing.nextRoot, "app");
   assert.equal(migrationApps.telegram.nextRoot, "src/app");
+  assert.equal(landingRollout.base, "6e6a0a225dc384cb24e7d2ff4fc1a2ecbb2a5f49");
+  assert.deepEqual(landingRollout.paths, ["/blog"]);
+});
+
+test("incoming Blog parity is additional to the unchanged News migration page", () => {
+  const original = nextRoutes(
+    "landing",
+    ["apps/landing/app/(marketing)/news/page.tsx"],
+    () => "",
+  );
+  const rollout = nextRoutes(
+    "landing",
+    ["apps/landing/app/(marketing)/blog/page.tsx"],
+    () => "",
+  );
+  const redirectPage = startRoutes(
+    `createFileRoute('/_marketing/news')({ beforeLoad: () => { throw redirect({to: '/blog', statusCode: 308}); } });`,
+  );
+  assert.deepEqual(compareRoutes(original, redirectPage), []);
+  assert.match(compareRoutes(rollout, redirectPage)[0], /\/blog: missing page/);
+  const complete = [
+    ...redirectPage,
+    ...startRoutes(`createFileRoute('/_marketing/blog')({ component: Blog });`),
+  ];
+  assert.deepEqual(compareRoutes([...original, ...rollout], complete), []);
 });
 
 test("Landing inventory includes TSX handlers and metadata but excludes private template subtrees", () => {
@@ -97,6 +125,136 @@ test("framework layout groups and renamed parameters preserve public paths", () 
   );
   assert.equal(publicPath("/api/[...slug]"), "/api/*");
   assert.equal(publicPath("/openapi.json"), "/openapi.json");
+});
+
+test("Start non-nested segments preserve public agents, pricing, research and data pages", () => {
+  const fixtures = [
+    ["/_marketing/agents_/build", "_marketing.agents_.build", "/agents/build"],
+    [
+      "/_marketing/agents_/transact",
+      "_marketing.agents_.transact",
+      "/agents/transact",
+    ],
+    [
+      "/_marketing/pricing_/payment-rails",
+      "_marketing.pricing_.payment-rails",
+      "/pricing/payment-rails",
+    ],
+    [
+      "/_marketing/research_/$slug",
+      "_marketing.research_.$slug",
+      "/research/:param",
+    ],
+    [
+      "/_marketing/research_/aomibench-v0-1/data/",
+      "_marketing.research_.aomibench-v0-1.data.index",
+      "/research/aomibench-v0-1/data",
+    ],
+    [
+      "/_marketing/research_/aomibench-v0-1/data/$",
+      "_marketing.research_.aomibench-v0-1.data.$",
+      "/research/aomibench-v0-1/data/*",
+    ],
+  ];
+  const candidate = fixtures.flatMap(([id, file, path]) => {
+    const filename = `apps/landing/src/routes/${file}.tsx`;
+    assert.equal(startPublicPath(id, filename), path);
+    return startRoutes(
+      `createFileRoute('${id}')({ component: Page });`,
+      filename,
+    );
+  });
+  assert.deepEqual(
+    compareRoutes(
+      fixtures.map(([, , path]) => ({ path })),
+      candidate,
+    ),
+    [],
+  );
+});
+
+test("escaped underscore filenames stay literal and cannot collapse HTTP bindings onto root", () => {
+  const candidate = [
+    ...startRoutes(
+      `createFileRoute('/')({server: {handlers: {GET}}})`,
+      "apps/landing/src/routes/index.ts",
+    ),
+    ...startRoutes(
+      `createFileRoute('/_mintlify')({server: {handlers: {GET, POST}}})`,
+      "apps/landing/src/routes/[_]mintlify.ts",
+    ),
+    ...startRoutes(
+      `createFileRoute('/_mintlify/$')({server: {handlers: {GET, POST}}})`,
+      "apps/landing/src/routes/[_]mintlify.$.ts",
+    ),
+  ];
+  assert.deepEqual(
+    compareRoutes(
+      [
+        { path: "/", methods: ["GET"] },
+        { path: "/_mintlify", methods: ["GET", "POST"] },
+        { path: "/_mintlify/*", methods: ["GET", "POST"] },
+      ],
+      candidate,
+    ),
+    [],
+  );
+  assert.equal(
+    startPublicPath("/literal_/", "src/routes/literal[_].index.tsx"),
+    "/literal_",
+  );
+  assert.equal(
+    startPublicPath("/.well-known/auth", "src/routes/[.]well-known.auth.ts"),
+    "/.well-known/auth",
+  );
+  assert.deepEqual(
+    startRoutes(
+      `createFileRoute('/_visible')({component: Page})`,
+      "src/routes/[_]visible.tsx",
+    ).map(({ path }) => path),
+    ["/_visible"],
+  );
+  assert.deepEqual(
+    startRoutes(
+      `createFileRoute('/_layout')({component: Layout})`,
+      "src/routes/_layout.tsx",
+    ),
+    [],
+  );
+  assert.throws(
+    () => startPublicPath("/_different", "src/routes/[_]mintlify.ts"),
+    /does not match/,
+  );
+});
+
+test("colocated test and spec prototype bindings cannot satisfy production route parity", () => {
+  const source = `createFileRoute('/missing')({ component: Prototype });
+    createFileRoute('/missing-api')({server: {handlers: {GET}}});`;
+  for (const extension of ["ts", "tsx", "js", "jsx"])
+    for (const kind of ["test", "spec"]) {
+      const filename = `apps/telegram/src/routes/prototype.${kind}.${extension}`;
+      assert.equal(isStartRouteFile(filename), false);
+      assert.deepEqual(startRoutes(source, filename), []);
+      assert.equal(
+        compareRoutes(
+          [{ path: "/missing" }, { path: "/missing-api", methods: ["GET"] }],
+          startRoutes(source, filename),
+        ).length,
+        2,
+      );
+    }
+  assert.equal(
+    isStartRouteFile("apps/telegram/src/routes/testimonials.tsx"),
+    true,
+  );
+  assert.equal(isStartRouteFile("apps/telegram/src/routes/test-mode.js"), true);
+  assert.deepEqual(
+    compareRoutes(
+      [{ path: "/missing" }, { path: "/missing-api", methods: ["GET"] }],
+      startRoutes(source, "apps/telegram/src/routes/prototype.tsx"),
+    ),
+    [],
+  );
 });
 
 test("missing methods and dropped pages fail route parity", () => {

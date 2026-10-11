@@ -170,10 +170,14 @@ export default function ResearchPostPage({post}: {post: ResearchPost & {body: st
       : markdownComponents;
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles.centered}`}>
       <header className={styles.hero}>
         <p className={styles.byline}>
-          <Link to="/research">Research</Link>
+          {post.research ? (
+            <Link to="/research">Research</Link>
+          ) : (
+            <Link to="/blog">Blog</Link>
+          )}
           <i aria-hidden />
           <span>{post.tag}</span>
           <i aria-hidden />
@@ -181,6 +185,18 @@ export default function ResearchPostPage({post}: {post: ResearchPost & {body: st
         </p>
         <h1>{post.title}</h1>
       </header>
+
+      <figure className={styles.cover}>
+        <img
+          src={post.cover}
+          alt=""
+          width={1600}
+          height={900}
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+        />
+      </figure>
 
       <div className={styles.body}>
         <article className={`${styles.prose} ${styles.proseWide}`}>

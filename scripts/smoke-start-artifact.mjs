@@ -33,6 +33,53 @@ export function artifactNodeOptions(source = process.env.NODE_OPTIONS ?? "") {
 
 export const artifactApps = ["portal", "build", "landing", "telegram"];
 
+/** Inspect emitted document metadata, independent of attribute ordering. */
+export function assertHtmlHead(html, expected, context = "artifact HTML") {
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1];
+  assert.notEqual(head, undefined, `${context}: document head`);
+  const decode = (value) =>
+    value.replace(/&(?:amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi, (entity) => {
+      const names = {
+        "&amp;": "&",
+        "&lt;": "<",
+        "&gt;": ">",
+        "&quot;": '"',
+        "&apos;": "'",
+      };
+      if (entity[1] !== "#") return names[entity.toLowerCase()];
+      return String.fromCodePoint(
+        entity[2].toLowerCase() === "x"
+          ? parseInt(entity.slice(3, -1), 16)
+          : Number(entity.slice(2, -1)),
+      );
+    });
+  if (expected.title)
+    assert.equal(
+      decode(head.match(/<title\b[^>]*>([^<]*)<\/title>/i)?.[1] ?? ""),
+      expected.title,
+      `${context}: document title`,
+    );
+  const tags = [...head.matchAll(/<meta\b([^>]*)>/gi)].map((tag) =>
+    Object.fromEntries(
+      [
+        ...tag[1].matchAll(/([a-z][\w:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi),
+      ].map((attribute) => [
+        attribute[1].toLowerCase(),
+        decode(attribute[2] ?? attribute[3]),
+      ]),
+    ),
+  );
+  for (const [attribute, values] of [
+    ["name", expected.names],
+    ["property", expected.properties],
+  ])
+    for (const [key, value] of Object.entries(values ?? {})) {
+      const matching = tags.filter((tag) => tag[attribute] === key);
+      assert.equal(matching.length, 1, `${context}: unique ${key} metadata`);
+      assert.equal(matching[0].content, value, `${context}: ${key} metadata`);
+    }
+}
+
 /** Public apps must prove their own contracts, without fake authenticated probes. */
 export function assertArtifactCoverage(app, observed) {
   const checks = observed.checks ?? [];
@@ -538,6 +585,13 @@ export async function smokeStartArtifact({
             body.toString("utf8").includes(text),
             `${check.path}: missing expected text ${text}`,
           );
+        for (const text of check.textExcludes ?? [])
+          assert.ok(
+            !body.toString("utf8").includes(text),
+            `${check.path}: unexpected text ${text}`,
+          );
+        if (check.head)
+          assertHtmlHead(body.toString("utf8"), check.head, check.path);
         if (check.bodyAbsent)
           assert.equal(body.length, 0, `${check.path}: unexpected body`);
       }

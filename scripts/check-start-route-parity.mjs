@@ -8,6 +8,10 @@ import ts from "typescript";
 export const migrationBase = "9ab669efcfa9572ef6166e71588ae00d089c55d3";
 export const remainingMigrationBase =
   "0f903a53d81e4201f8f3cefbd828fb3940582dfd";
+export const landingRollout = {
+  base: "6e6a0a225dc384cb24e7d2ff4fc1a2ecbb2a5f49",
+  paths: ["/blog"],
+};
 export const migrationApps = {
   portal: { base: migrationBase, nextRoot: "src/app" },
   build: { base: migrationBase, nextRoot: "src/app" },
@@ -51,6 +55,64 @@ export function publicPath(path) {
   );
 }
 
+function startSegments(path, filename) {
+  const parts = path.split("/").filter(Boolean);
+  // Route IDs have already lost filename escapes. Retain the source spelling
+  // to distinguish literal [_] from pathless/non-nested underscores.
+  const local = filename
+    .replaceAll("\\", "/")
+    .split("/routes/")
+    .at(-1)
+    .replace(/\.[jt]sx?$/, "");
+  const encoded = [];
+  let segment = "";
+  let bracket = false;
+  for (const character of local) {
+    if ((character === "." || character === "/") && !bracket) {
+      if (segment) encoded.push(segment);
+      segment = "";
+    } else {
+      segment += character;
+      if (character === "[") bracket = true;
+      if (character === "]") bracket = false;
+    }
+  }
+  if (segment) encoded.push(segment);
+  if (encoded.at(-1) === "index") encoded.pop();
+  const decode = (value) => value.replace(/\[([^\]]*)\]/g, "$1");
+  const aligned =
+    encoded.length === parts.length &&
+    encoded.every((value, index) => decode(value) === parts[index]);
+  if (!aligned && encoded.some((value) => value.includes("[")))
+    throw new Error(
+      `${filename}: escaped filename does not match its literal route ID`,
+    );
+  return parts.map((value, index) => {
+    const spelling = aligned ? encoded[index] : value;
+    return {
+      value,
+      pathless: value.startsWith("_") && !spelling.startsWith("[_]"),
+      group: /^\(.+\)$/.test(value) && !spelling.includes("["),
+      nonNested: value.endsWith("_") && !spelling.endsWith("[_]"),
+    };
+  });
+}
+
+/** Start routing syntax differs from the immutable Next path convention. */
+export function startPublicPath(path, filename = "route.ts") {
+  return (
+    "/" +
+    startSegments(path, filename)
+      .filter((part) => !part.pathless && !part.group)
+      .map((part) => {
+        const value = part.nonNested ? part.value.slice(0, -1) : part.value;
+        if (value === "$") return "*";
+        return value.startsWith("$") ? ":param" : value;
+      })
+      .join("/")
+  );
+}
+
 /** Export declarations and destructuring are both public Next HTTP bindings. */
 export function nextMethods(source, filename = "route.ts") {
   const file = ts.createSourceFile(
@@ -87,8 +149,17 @@ export function nextMethods(source, filename = "route.ts") {
   return [...found].sort();
 }
 
+// Match the router generation convention; prototype bindings in colocated
+// tests must never stand in for missing production routes.
+export function isStartRouteFile(filename) {
+  return (
+    /\.[jt]sx?$/.test(filename) && !/\.(test|spec)\.[jt]sx?$/.test(filename)
+  );
+}
+
 /** Read real route bindings; nonliteral server handlers fail instead of disappearing. */
 export function startRoutes(source, filename = "route.ts") {
+  if (!isStartRouteFile(filename)) return [];
   const file = ts.createSourceFile(
     filename,
     source,
@@ -146,18 +217,22 @@ export function startRoutes(source, filename = "route.ts") {
         if (names.some((name) => !methods.has(name)))
           throw new Error(`${filename}: uninspectable HTTP handler`);
         routes.push({
-          path: publicPath(path.text),
+          path: startPublicPath(path.text, filename),
           methods: [...new Set(names)].sort(),
           file: filename,
         });
       } else if (
-        !/\/_[^/]+$/.test(path.text) &&
+        (path.text.endsWith("/") ||
+          !startSegments(path.text, filename).at(-1)?.pathless) &&
         !containsOutlet(property(options, "component")?.initializer) &&
         ["component", "beforeLoad", "loader"].some((name) =>
           property(options, name),
         )
       ) {
-        routes.push({ path: publicPath(path.text), file: filename });
+        routes.push({
+          path: startPublicPath(path.text, filename),
+          file: filename,
+        });
       }
     }
     ts.forEachChild(node, visit);
@@ -272,16 +347,30 @@ function main() {
     execFileSync("git", ["cat-file", "-e", `${base}^{commit}`], { cwd: root });
     const baseline = baselineRoutes(app, base);
     const candidate = files(resolve(root, `apps/${app}/src/routes`))
-      .filter((path) => /\.tsx?$/.test(path))
+      .filter(isStartRouteFile)
       .flatMap((path) =>
         startRoutes(readFileSync(path, "utf8"), relative(root, path)),
       );
     const failures = compareRoutes(baseline, candidate);
+    if (app === "landing") {
+      const additional = baselineRoutes(app, landingRollout.base).filter(
+        (route) => landingRollout.paths.includes(route.path),
+      );
+      if (additional.length !== landingRollout.paths.length)
+        throw new Error(
+          "Incoming main's Landing rollout inventory is incomplete",
+        );
+      failures.push(...compareRoutes(additional, candidate));
+    }
     if (failures.length)
       throw new Error(`${app} route parity failed:\n${failures.join("\n")}`);
     console.log(
       `${app}: preserved ${baseline.filter((route) => !route.methods).length} pages and ${baseline.filter((route) => route.methods).length} HTTP bindings from ${base}`,
     );
+    if (app === "landing")
+      console.log(
+        `${app}: also preserved ${landingRollout.paths.join(", ")} from incoming main ${landingRollout.base}`,
+      );
   }
 }
 

@@ -16,12 +16,15 @@ import {
   smokeStartArtifact,
   verifyVercelArtifact,
 } from "./smoke-start-artifact.mjs";
-import { remainingMigrationBase } from "./check-start-route-parity.mjs";
+import {
+  landingRollout,
+  remainingMigrationBase,
+} from "./check-start-route-parity.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const baselineBytes = (path) =>
-  execFileSync("git", ["show", `${remainingMigrationBase}:${path}`], {
+const baselineBytes = (path, base = remainingMigrationBase) =>
+  execFileSync("git", ["show", `${base}:${path}`], {
     cwd: root,
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -41,19 +44,55 @@ export function baselineAssetHash(bytes) {
 /** Resolve local runtime assets, including relative URLs in the preserved homepage. */
 export function landingAssetPaths(html, sourcePath = "/") {
   const origin = "https://artifact-fixture.invalid";
+  // Inline style attributes encode CSS quotes; resolve the actual browser URL.
+  const decoded = html.replace(
+    /&(?:quot|apos|amp|#\d+|#x[0-9a-f]+);/gi,
+    (entity) => {
+      const named = { "&quot;": '"', "&apos;": "'", "&amp;": "&" };
+      if (entity[1] !== "#") return named[entity.toLowerCase()];
+      const code =
+        entity[2].toLowerCase() === "x"
+          ? parseInt(entity.slice(3, -1), 16)
+          : Number(entity.slice(2, -1));
+      return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
+        ? String.fromCodePoint(code)
+        : "\ufffd";
+    },
+  );
   const base = new URL(
-    html.match(/<base\b[^>]*href=["']([^"']+)["']/i)?.[1] ?? sourcePath,
+    decoded.match(/<base\b[^>]*href=["']([^"']+)["']/i)?.[1] ?? sourcePath,
     origin,
   );
-  const assetContent = html.replace(/<base\b[^>]*>/gi, "");
+  const assetContent = decoded.replace(/<base\b[^>]*>/gi, "");
+  const cssUrl =
+    /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'\\)])+))\s*\)/gi;
   const references = [
-    ...assetContent.matchAll(/\b(?:src|href|poster)=["']([^"']+)["']/gi),
-    ...assetContent.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)/gi),
+    ...[
+      ...assetContent.matchAll(/\b(?:src|href|poster)=["']([^"']+)["']/gi),
+    ].map((match) => match[1]),
+    ...[...assetContent.matchAll(cssUrl)].map((match) =>
+      (match[1] ?? match[2] ?? match[3])
+        .replace(/\\(?:\r\n|[\r\n\f])/g, "")
+        .replace(
+          /\\(?:([0-9a-f]{1,6})\s?|([^\r\n\f]))/gi,
+          (_, hex, character) => {
+            if (!hex) return character;
+            const code = parseInt(hex, 16);
+            return code > 0 &&
+              code <= 0x10ffff &&
+              !(code >= 0xd800 && code <= 0xdfff)
+              ? String.fromCodePoint(code)
+              : "\ufffd";
+          },
+        ),
+    ),
   ];
   return [
     ...new Set(
-      references.flatMap((match) => {
-        const url = new URL(match[1].replaceAll("&amp;", "&"), base);
+      references.flatMap((reference) => {
+        // SVG filters target the current document; they are not runtime files.
+        if (!reference || reference.startsWith("#")) return [];
+        const url = new URL(reference, base);
         return url.origin === origin &&
           /^\/(?:assets|videos)\//.test(url.pathname)
           ? [url.pathname]
@@ -76,10 +115,31 @@ function landingStaticAssets() {
         path,
       ))
         paths.add(child);
-  return [...paths].map((path) => ({
+  const original = [...paths].map((path) => ({
     path,
     sha256: baselineAssetHash(baselineBytes(`apps/landing/public${path}`)),
   }));
+  const rollout = execFileSync(
+    "git",
+    [
+      "ls-tree",
+      "-r",
+      "--name-only",
+      landingRollout.base,
+      "--",
+      "apps/landing/public/assets/covers/",
+      "apps/landing/public/research/introducing-the-aomi-task-api/",
+    ],
+    { cwd: root, encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((path) => ({
+      path: path.slice("apps/landing/public".length),
+      sha256: baselineAssetHash(baselineBytes(path, landingRollout.base)),
+    }));
+  return [...original, ...rollout];
 }
 
 function nativeStaticAssets(app) {
@@ -602,6 +662,7 @@ async function landingArtifact(artifact, fixtureEnv, publicUpstreams = false) {
             "<urlset",
             "https://aomi.dev/agents.md",
             "https://aomi.dev/research/three-gates-onchain",
+            "https://aomi.dev/blog",
           ],
         });
         await check({
@@ -624,18 +685,125 @@ async function landingArtifact(artifact, fixtureEnv, publicUpstreams = false) {
           headers: { "content-type": "text/html" },
           textIncludes: ["One User, Many Wallets", "Authentication"],
         });
+        const taskApiTitle =
+          "Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc";
+        const taskApiPath = "/research/introducing-the-aomi-task-api";
         await check({
-          path: "/examples",
+          path: "/blog",
           status: 200,
           headers: { "content-type": "text/html" },
-          textIncludes: ["<html"],
+          textIncludes: [
+            taskApiTitle,
+            "One User, Many Wallets",
+            "Three Gates from Intent to Settlement",
+            'href="/research/introducing-the-aomi-task-api"',
+          ],
+          head: {
+            title: "Blog | Aomi",
+            names: {
+              description: "Launches, announcements and notes from Aomi Labs.",
+              robots: "noindex, nofollow",
+            },
+          },
         });
         await check({
-          path: "/playground",
+          path: "/blog",
+          method: "HEAD",
+          status: 200,
+          bodyAbsent: true,
+        });
+        await check({
+          path: "/blog/?migration=a%2Bb",
+          status: 308,
+          headers: {
+            location: "/blog?migration=a%2Bb",
+            refresh: "0;url=/blog?migration=a%2Bb",
+          },
+        });
+        for (const method of ["GET", "HEAD"])
+          await check({
+            path: "/news?migration=a%2Bb",
+            method,
+            status: 308,
+            headers: { location: "/blog" },
+            ...(method === "HEAD" ? { bodyAbsent: true } : {}),
+          });
+        await check({
+          path: "/news/?migration=a%2Bb",
+          status: 308,
+          headers: { location: "/news?migration=a%2Bb" },
+        });
+        await check({
+          path: "/research",
           status: 200,
           headers: { "content-type": "text/html" },
-          textIncludes: ["<html"],
+          textIncludes: [
+            "Three Gates from Intent to Settlement",
+            "The State of Execution Harnesses",
+            "AomiBench",
+          ],
+          textExcludes: [taskApiTitle, "One User, Many Wallets"],
+          head: {
+            title: "Research | Aomi",
+            names: { robots: "noindex, nofollow" },
+          },
         });
+        await check({
+          path: taskApiPath,
+          status: 200,
+          headers: { "content-type": "text/html" },
+          textIncludes: [
+            taskApiTitle,
+            "The Aomi Task API solves the first problem",
+            "The price is $1 plus 3% of what moves.",
+            "https://arc-canteen.aomi.dev/execution-kit",
+            "/research/introducing-the-aomi-task-api/figures/architecture.png",
+            "/research/introducing-the-aomi-task-api/figures/sequence.png",
+            "/research/introducing-the-aomi-task-api/figures/pricing.png",
+          ],
+          head: {
+            title: `${taskApiTitle} | Aomi Labs Research`,
+            properties: {
+              "og:type": "article",
+              "article:published_time": "2026-10-11",
+              "og:url": `https://aomi.dev${taskApiPath}`,
+            },
+          },
+        });
+        await check({
+          path: taskApiPath,
+          method: "HEAD",
+          status: 200,
+          bodyAbsent: true,
+        });
+        await check({ path: "/research/does-not-exist", status: 404 });
+        // Both immutable Next optional catchalls use redirect() at the index.
+        for (const [index, destination, title] of [
+          ["/examples", "/examples/polymarket", "Polymarket"],
+          ["/playground", "/playground/configurator", "Configurator"],
+        ]) {
+          for (const method of ["GET", "HEAD"])
+            await check({
+              path: index,
+              method,
+              status: 307,
+              headers: { location: destination },
+              ...(method === "HEAD" ? { bodyAbsent: true } : {}),
+            });
+          await check({
+            path: destination,
+            status: 200,
+            headers: { "content-type": "text/html" },
+            textIncludes: ["<html"],
+            head: { title },
+          });
+          await check({
+            path: destination,
+            method: "HEAD",
+            status: 200,
+            bodyAbsent: true,
+          });
+        }
         // Fixed public upstreams are a separate observation, never a prerequisite
         // for the deterministic copied-artifact packaging proof.
         if (publicUpstreams) {
@@ -768,7 +936,7 @@ async function telegramArtifact(artifact, fixtureEnv) {
         path: "/api/telegram/launch",
         method: "OPTIONS",
         status: 204,
-        headers: { allow: "POST, OPTIONS" },
+        headers: { allow: "OPTIONS, POST" },
       });
       await check({
         path: "/api/telegram/launch/?migration=a%2Bb",

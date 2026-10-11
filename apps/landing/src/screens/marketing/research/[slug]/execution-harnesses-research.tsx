@@ -986,6 +986,18 @@ export function ExecutionHarnessesResearch({ post }: Props) {
           </div>
         </header>
 
+        <figure className={styles.cover}>
+          <img
+            src={post.cover}
+            alt=""
+            width={1600}
+            height={900}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
+        </figure>
+
         <aside className={styles.abstract}>
           <h2>Abstract</h2>
           <p>

@@ -71,6 +71,12 @@ function sitemap(): SitemapEntry[] {
       priority: 0.8,
     },
     {
+      url: `${SITE}/blog`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
       url: `${SITE}/llms.txt`,
       lastModified: now,
       changeFrequency: "weekly",

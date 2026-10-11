@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Route } from "./index";
 
 const mocks = vi.hoisted(() => ({
-  privyAppId: "a1234567890123456789012345",
+  privyAppId: "a123456789012345678901234",
   walletModule: vi.fn(),
 }));
 
@@ -22,7 +22,7 @@ const Home = Route.options.component!;
 
 describe("Telegram browser wallet boundary", () => {
   beforeEach(() => {
-    mocks.privyAppId = "a1234567890123456789012345";
+    mocks.privyAppId = "a123456789012345678901234";
     mocks.walletModule.mockClear();
   });
 

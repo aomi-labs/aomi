@@ -126,6 +126,18 @@ export function ThreeGatesResearch({ post }: Props) {
           </div>
         </header>
 
+        <figure className={styles.cover}>
+          <img
+            src={post.cover}
+            alt=""
+            width={1600}
+            height={900}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+          />
+        </figure>
+
         <div className={styles.summary}>
           <span>Abstract</span>
           <p>

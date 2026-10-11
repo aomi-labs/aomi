@@ -14,5 +14,3 @@ export const playground = loader({
   baseUrl: "/playground",
   source: playgroundPages.toFumadocsSource(),
 });
-
-
