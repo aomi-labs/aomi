@@ -28,7 +28,7 @@ export default function BlogPage() {
       </header>
 
       <section className={styles.blogFeatured}>
-        <Link href={featured.href}>
+        <Link href={featured.href} data-tag={featured.tag}>
           <Image
             src={featured.cover}
             alt=""
@@ -52,26 +52,26 @@ export default function BlogPage() {
         </Link>
       </section>
 
-      <section className={styles.blogList}>
+      <section className={styles.blogGrid}>
         {rest.map((post) => (
-          <Link href={post.href} key={post.slug}>
+          <Link href={post.href} key={post.slug} data-tag={post.tag}>
             <Image
               src={post.cover}
               alt=""
-              width={480}
-              height={270}
-              sizes="(max-width: 800px) 100vw, 320px"
+              width={800}
+              height={450}
+              sizes="(max-width: 800px) 100vw, (max-width: 1100px) 50vw, 400px"
             />
-            <span>
-              <small>
-                <span>{post.tag}</span>
-                <time dateTime={post.isoDate}>{post.date}</time>
-                <span>{post.readMinutes} min read</span>
-              </small>
-              <strong>{post.title}</strong>
-              <p>{post.subtitle}</p>
-            </span>
-            <ArrowRight aria-hidden />
+            <small>
+              <span>{post.tag}</span>
+              <time dateTime={post.isoDate}>{post.date}</time>
+              <span>{post.readMinutes} min read</span>
+            </small>
+            <strong>{post.title}</strong>
+            <p>{post.subtitle}</p>
+            <em>
+              Read more <ArrowRight aria-hidden />
+            </em>
           </Link>
         ))}
       </section>
