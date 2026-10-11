@@ -21,6 +21,21 @@ export type ResearchPost = {
 // Single source of truth for published writing, newest first.
 export const posts: ResearchPost[] = [
   {
+    slug: "introducing-the-aomi-task-api",
+    title:
+      "Introducing the Aomi Task API: verified execution as a service, settled in USDC on Arc",
+    date: "October 11, 2026",
+    isoDate: "2026-10-11",
+    tag: "launch",
+    subtitle:
+      "Agents send a task, see the verified outcome before anything moves, and pay for the result in USDC. The builder's own Circle wallet signs. Aomi never holds a key.",
+    cover: "/research/introducing-the-aomi-task-api/figures/architecture.png",
+    readMinutes: 3,
+    research: false,
+    fileName: "introducing-the-aomi-task-api.md",
+    format: "markdown",
+  },
+  {
     slug: "three-gates-onchain",
     title: "Enabling Agentic Finance: Three Gates from Intent to Settlement",
     date: "September 18, 2026",

@@ -193,7 +193,11 @@ export default async function ResearchPostPage({
     <main className={styles.page}>
       <header className={styles.hero}>
         <p className={styles.byline}>
-          <Link href="/research">Research</Link>
+          {post.research ? (
+            <Link href="/research">Research</Link>
+          ) : (
+            <Link href="/blog">Blog</Link>
+          )}
           <i aria-hidden />
           <span>{post.tag}</span>
           <i aria-hidden />
