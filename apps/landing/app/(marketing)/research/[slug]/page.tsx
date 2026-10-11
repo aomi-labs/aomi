@@ -190,7 +190,7 @@ export default async function ResearchPostPage({
       : markdownComponents;
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles.centered}`}>
       <header className={styles.hero}>
         <p className={styles.byline}>
           {post.research ? (

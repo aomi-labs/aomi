@@ -724,3 +724,26 @@
   max-width: 960px;
   margin: 48px auto -32px;
 }
+
+/* Centered article column: research/blog posts only. Legal and agents
+   pages keep the left-aligned layout. */
+.centered .hero {
+  text-align: center;
+}
+
+.centered .hero h1,
+.centered .hero > p:not(.eyebrow) {
+  margin-inline: auto;
+}
+
+.centered .byline {
+  justify-content: center;
+}
+
+.centered .prose {
+  margin-inline: auto;
+}
+
+.centered > .cover {
+  max-width: 860px;
+}
