@@ -4999,6 +4999,14 @@
   margin-top: 24px;
   margin-bottom: 106px;
   padding-top: 0;
+  gap: 40px;
+  border: 0;
+  background: transparent;
+}
+
+.editorialPage .researchFocus article {
+  min-height: 0;
+  padding-inline: 0;
 }
 
 @media (max-width: 1024px) {
