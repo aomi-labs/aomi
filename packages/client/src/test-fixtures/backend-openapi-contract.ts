@@ -75,6 +75,9 @@ export function routeContractFromOpenApi(openApi: OpenApiDocument) {
 
       const auth = operation["x-aomi-auth"];
       expect(isAomiAuthList(auth), `${method} ${path} x-aomi-auth`).toBe(true);
+      if (!isAomiAuthList(auth)) {
+        throw new Error(`${method} ${path} has an invalid x-aomi-auth contract`);
+      }
       routes.push(`${method} ${path} ${authLabel(auth)}`);
     }
   }

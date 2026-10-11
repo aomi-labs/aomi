@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDisplayQuery } from "@aomi-labs/react";
 import { CheckCircle2, ShieldCheck, TriangleAlert } from "lucide-react";
 import type {
@@ -115,7 +115,10 @@ export function OnchainPolicySettings() {
     await Promise.all([refetchCtx(), refetchProfile()]);
   }, [refetchCtx, refetchProfile]);
 
-  // Seed the form from each new provider context (a cached one on remount).
+  // Seed the form when the saved binding changes (first load, a save, another
+  // network), not on every refetch: a background refetch must not discard
+  // edits the user has not saved yet.
+  const seededBinding = useRef<string | null>(null);
   useEffect(() => {
     if (!ctx) return;
     setSlotWindow((current) =>
@@ -125,6 +128,9 @@ export function OnchainPolicySettings() {
     );
     const binding = ctx.binding;
     if (!binding) return;
+    const bindingKey = JSON.stringify(binding);
+    if (seededBinding.current === bindingKey) return;
+    seededBinding.current = bindingKey;
     setDelegate(binding.delegate.address);
     setTargets(
       binding.policy.rules

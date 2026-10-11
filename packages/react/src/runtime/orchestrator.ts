@@ -269,6 +269,9 @@ export function useRuntimeOrchestrator(
 
   const sendOnce = useCallback(
     async (text: string, threadId: string, sendOptions?: SendOptions) => {
+      // A history read already in flight (a restored chat loads before the
+      // list confirms it) finishes first, so a send never lands before it.
+      await loading.current.get(threadId)?.catch(() => undefined);
       // A reply into history that never arrived would read as a new chat
       // and hide the failure; the history has to load first.
       if (

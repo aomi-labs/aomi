@@ -145,6 +145,10 @@ export function useThreadListSync({
   const [firstPageOwner, setFirstPageOwner] = useState<object | null>(null);
   // Live rows already replaced any saved preview for this owner.
   const liveListOwner = useRef<object | null>(null);
+  // The owner this render belongs to. A page from a previous owner can land
+  // before that owner's effect cleanup runs; it must not touch this list.
+  const currentOwner = useRef(owner);
+  currentOwner.current = owner;
   const prefetchCancelRef = useRef<(() => void) | null>(null);
   const hadThreadAccessRef = useRef(false);
   const invalidRestoredThread = useRef(onInvalidRestoredThread);
@@ -383,6 +387,7 @@ export function useThreadListSync({
     hadThreadAccessRef.current = true;
 
     let cancelled = false;
+    const stale = () => cancelled || currentOwner.current !== owner;
     const controller = new AbortController();
     setIsThreadListLoading(true);
     setThreadListError(false);
@@ -496,17 +501,17 @@ export function useThreadListSync({
       try {
         let firstPage = true;
         const threadList: AgentSession[] = await listThreadsWithAuthRetry(
-          () => cancelled,
+          stale,
           controller.signal,
           (sessions, more) => {
-            if (cancelled || !more || !firstPage) return;
+            if (stale() || !more || !firstPage) return;
             // Show the newest chats now; older pages follow.
             firstPage = false;
             applyThreads(sessions, false);
             setFirstPageOwner(owner);
           },
         );
-        if (cancelled) return;
+        if (stale()) return;
 
         applyThreads(threadList, true);
 
@@ -563,14 +568,14 @@ export function useThreadListSync({
           await ensureInitialState(threadIdToLoad).catch((error) =>
             console.debug("Failed to load chat:", threadIdToLoad, error),
           );
-        if (cancelled) return;
+        if (stale()) return;
         scheduleThreadPrefetch(threadList.map((thread) => thread.id));
       } catch (error) {
-        if (cancelled) return;
+        if (stale()) return;
         console.error("Failed to fetch thread list:", error);
         setThreadListError(true);
       } finally {
-        if (!cancelled) {
+        if (!stale()) {
           setSettledOwner(owner);
           setIsThreadListLoading(false);
         }

@@ -1,5 +1,9 @@
 # @aomi-labs/widget
 
+## 3.1.2
+
+- Consume the React runtime that prefers GPT-6.1 Sol for new and Auto threads while preserving manual model selections.
+
 ## 3.1.1
 
 - Show context compaction progress in the working trace.

@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
-import {
-  ArrowRight,
-  BookOpen,
-  Fingerprint,
-  Gauge,
-  Network,
-} from "lucide-react";
+import { ArrowRight, Fingerprint, Gauge, Network } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { researchPosts } from "@/lib/research";
+import { researchPosts, type ResearchPost } from "@/lib/research";
 import styles from "../marketing.module.css";
 
 export const metadata: Metadata = {
@@ -17,23 +12,64 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const publishedResearch = researchPosts.map((post) => ({
-  ...post,
-  href: `/research/${post.slug}`,
-}));
+const groupOrder = ["research", "engineering", "benchmark"] as const;
+const groupLabel: Record<(typeof groupOrder)[number], string> = {
+  research: "Papers",
+  engineering: "Engineering",
+  benchmark: "Benchmarks",
+};
+
+const groups = groupOrder
+  .map((tag) => ({
+    tag,
+    label: groupLabel[tag],
+    posts: researchPosts.filter((post) => post.tag === tag),
+  }))
+  .filter((group) => group.posts.length > 0);
+
+function ResearchRow({ post }: { post: ResearchPost }) {
+  return (
+    <Link href={`/research/${post.slug}`} className={styles.researchRow}>
+      <Image
+        src={post.cover}
+        alt=""
+        width={480}
+        height={270}
+        sizes="(max-width: 800px) 100vw, 320px"
+      />
+      <span>
+        <small>
+          <time dateTime={post.isoDate}>{post.date}</time>
+        </small>
+        <strong>{post.title}</strong>
+        <p>{post.subtitle}</p>
+      </span>
+      <ArrowRight aria-hidden />
+    </Link>
+  );
+}
 
 export default function ResearchPage() {
   return (
     <main className={styles.editorialPage}>
-      <header className={`${styles.editorialHero} ${styles.researchHero}`}>
-        <p className={styles.eyebrow}>Research</p>
-        <h1>Evidence for the systems agents depend on.</h1>
-        <p>
-          We study the boundaries that make financial agents useful: identity,
-          wallet context, tool use, simulation, authorization, evaluation, and
-          verifiable execution.
-        </p>
+      <header
+        className={`${styles.editorialHero} ${styles.editorialHeroCompact} ${styles.researchHero}`}
+      >
+        <h1>Research</h1>
       </header>
+
+      <section className={styles.researchGroups}>
+        {groups.map((group) => (
+          <div key={group.tag} className={styles.researchGroup}>
+            <p className={styles.eyebrow}>{group.label}</p>
+            <div>
+              {group.posts.map((post) => (
+                <ResearchRow post={post} key={post.slug} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
 
       <section className={styles.researchFocus}>
         <article>
@@ -56,35 +92,10 @@ export default function ResearchPage() {
           <Network aria-hidden />
           <span>Execution</span>
           <p>
-            Study construction, simulation, policy, signing, settlement, and
+            Study construction, rehearsal, policy, signing, settlement, and
             evidence as one system.
           </p>
         </article>
-      </section>
-
-      <section className={styles.researchList}>
-        <div className={styles.detailSectionLead}>
-          <p className={styles.eyebrow}>Published work</p>
-          <h2>Research notes and benchmarks</h2>
-        </div>
-        <div>
-          {publishedResearch.map((post, index) => (
-            <Link href={post.href} key={post.slug}>
-              <span className={styles.researchNumber}>0{index + 1}</span>
-              <span className={styles.researchIcon}>
-                <BookOpen aria-hidden />
-              </span>
-              <span>
-                <small>
-                  {post.tag} · {post.date}
-                </small>
-                <strong>{post.title}</strong>
-                <p>{post.subtitle}</p>
-              </span>
-              <ArrowRight aria-hidden />
-            </Link>
-          ))}
-        </div>
       </section>
     </main>
   );
