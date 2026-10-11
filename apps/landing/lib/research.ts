@@ -43,7 +43,7 @@ export const posts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "How the runtime, wallet, smart contract and block builder can constrain agent-built transactions.",
-    cover: "/covers/three-gates-poster.jpg",
+    cover: "/assets/covers/three-gates-poster.jpg",
     readMinutes: 14,
     research: true,
     fileName: "three-gates-onchain.md",
@@ -57,7 +57,7 @@ export const posts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "Breaking down the seven-layer agentic payments stack and identifying the missing execution harness that makes financial agents efficient, reliable, and operational.",
-    cover: "/covers/why-a-harness.jpg",
+    cover: "/assets/covers/why-a-harness.jpg",
     readMinutes: 12,
     research: true,
     format: "execution-harnesses",
@@ -71,7 +71,7 @@ export const posts: ResearchPost[] = [
     tag: "engineering",
     subtitle:
       "A design study in hybrid crypto authentication: why counting users is hard onchain, the four proofs to keep separate, and the patterns — and stack — that hold them apart.",
-    cover: "/covers/one-user-four-proofs.jpg",
+    cover: "/assets/covers/one-user-four-proofs.jpg",
     readMinutes: 9,
     research: false,
     fileName: "auth-across-two-worlds.md",
@@ -85,7 +85,7 @@ export const posts: ResearchPost[] = [
     tag: "benchmark",
     subtitle:
       "A wallet-aware harness for measuring frontier agents on real onchain tasks, simulations, and chain-state evidence.",
-    cover: "/covers/score-the-transaction.jpg",
+    cover: "/assets/covers/score-the-transaction.jpg",
     readMinutes: 7,
     research: true,
     fileName: "aomibench-v0.1.md",
