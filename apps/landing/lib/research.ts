@@ -10,11 +10,16 @@ export type ResearchPost = {
   tag: string;
   subtitle: string;
   cover: string;
+  readMinutes: number;
+  // Every post appears on /blog. Only posts with lasting reference value
+  // (papers, benchmarks) are also shelved on /research.
+  research: boolean;
   fileName?: string;
   format?: "markdown" | "execution-harnesses" | "three-gates";
 };
 
-export const researchPosts: ResearchPost[] = [
+// Single source of truth for published writing, newest first.
+export const posts: ResearchPost[] = [
   {
     slug: "three-gates-onchain",
     title: "Enabling Agentic Finance: Three Gates from Intent to Settlement",
@@ -24,6 +29,8 @@ export const researchPosts: ResearchPost[] = [
     subtitle:
       "How the runtime, wallet, smart contract and block builder can constrain agent-built transactions.",
     cover: "/covers/three-gates-title.jpg",
+    readMinutes: 14,
+    research: true,
     fileName: "three-gates-onchain.md",
     format: "three-gates",
   },
@@ -36,6 +43,8 @@ export const researchPosts: ResearchPost[] = [
     subtitle:
       "Breaking down the seven-layer agentic payments stack and identifying the missing execution harness that makes financial agents efficient, reliable, and operational.",
     cover: "/covers/three-gates-overview.jpg",
+    readMinutes: 12,
+    research: true,
     format: "execution-harnesses",
   },
   {
@@ -48,6 +57,8 @@ export const researchPosts: ResearchPost[] = [
     subtitle:
       "A design study in hybrid crypto authentication: why counting users is hard onchain, the four proofs to keep separate, and the patterns — and stack — that hold them apart.",
     cover: "/covers/identity-sessions.jpg",
+    readMinutes: 9,
+    research: true,
     fileName: "auth-across-two-worlds.md",
     format: "markdown",
   },
@@ -60,13 +71,17 @@ export const researchPosts: ResearchPost[] = [
     subtitle:
       "A wallet-aware harness for measuring frontier agents on real onchain tasks, simulations, and chain-state evidence.",
     cover: "/covers/settled-chain.jpg",
+    readMinutes: 7,
+    research: true,
     fileName: "aomibench-v0.1.md",
     format: "markdown",
   },
 ];
 
+export const researchPosts = posts.filter((post) => post.research);
+
 export function getResearchPost(slug: string) {
-  return researchPosts.find((post) => post.slug === slug) ?? null;
+  return posts.find((post) => post.slug === slug) ?? null;
 }
 
 function renderPendingFigureComments(body: string) {

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { blogPosts } from "@/lib/blog";
+import { posts } from "@/lib/research";
 import { MARKETING_ROOT } from "../site";
 import styles from "../marketing.module.css";
 
@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+const blogPosts = posts.map((post) => ({
+  ...post,
+  href: `/research/${post.slug}`,
+}));
 const [featured, ...rest] = blogPosts;
 
 export default function BlogPage() {
@@ -40,7 +44,7 @@ export default function BlogPage() {
               <span>{featured.readMinutes} min read</span>
             </small>
             <h2>{featured.title}</h2>
-            <p>{featured.excerpt}</p>
+            <p>{featured.subtitle}</p>
             <strong>
               Read more <ArrowRight aria-hidden />
             </strong>
@@ -65,7 +69,7 @@ export default function BlogPage() {
                 <span>{post.readMinutes} min read</span>
               </small>
               <strong>{post.title}</strong>
-              <p>{post.excerpt}</p>
+              <p>{post.subtitle}</p>
             </span>
             <ArrowRight aria-hidden />
           </Link>
