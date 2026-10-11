@@ -55,13 +55,7 @@ export default function ResearchPage() {
       <header
         className={`${styles.editorialHero} ${styles.editorialHeroCompact} ${styles.researchHero}`}
       >
-        <p className={styles.eyebrow}>Research</p>
-        <h1>Evidence for the systems agents depend on.</h1>
-        <p>
-          We study the boundaries that make financial agents useful: identity,
-          wallet context, tool use, authorization, evaluation, and verifiable
-          execution.
-        </p>
+        <h1>Research</h1>
       </header>
 
       <section className={styles.researchGroups}>

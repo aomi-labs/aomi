@@ -20,8 +20,7 @@ export default function BlogPage() {
       <header
         className={`${styles.editorialHero} ${styles.editorialHeroCompact} ${styles.newsHero}`}
       >
-        <p className={styles.eyebrow}>Blog</p>
-        <h1>What we ship, and why.</h1>
+        <h1>Blog</h1>
       </header>
 
       <section className={styles.blogFeatured}>
