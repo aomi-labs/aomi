@@ -362,3 +362,17 @@
     font-size: 24px;
   }
 }
+
+/* Lead image: the post's cover, shown under the header. */
+.cover {
+  margin: 40px 0 0;
+}
+
+.cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--landing-wash);
+}
