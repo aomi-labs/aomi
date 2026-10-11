@@ -2,6 +2,7 @@ import { test as base, expect } from "@playwright/test";
 import {
   expectedProviderNetworkError,
   isPrivyRequest,
+  isVerifiedMediaAbort,
 } from "./requirements.mjs";
 
 const assetTypes = new Set(["script", "stylesheet", "image", "font", "media"]);
@@ -16,6 +17,9 @@ export const test = base.extend({
         assets: [],
         externalFailures: [],
         documents: [],
+        mediaPlayback: [],
+        mediaStates: [],
+        canceledMedia: [],
       };
       const requests = new WeakMap();
       let navigation = 0;
@@ -91,6 +95,27 @@ export const test = base.extend({
           contentType: "image/png",
         });
       }
+      if (!page.isClosed()) {
+        evidence.mediaStates = await page
+          .locator("video")
+          .evaluateAll((videos) =>
+            videos.map((video) => ({
+              url: video.currentSrc,
+              readyState: video.readyState,
+              width: video.videoWidth,
+              height: video.videoHeight,
+              duration: video.duration,
+              currentTime: video.currentTime,
+              paused: video.paused,
+              error: video.error
+                ? { code: video.error.code, message: video.error.message }
+                : null,
+            })),
+          );
+      }
+      evidence.canceledMedia = evidence.assets.filter((asset) =>
+        isVerifiedMediaAbort(asset, evidence),
+      );
       await testInfo.attach("browser-evidence", {
         body: Buffer.from(JSON.stringify(evidence, null, 2)),
         contentType: "application/json",
@@ -113,7 +138,11 @@ export const test = base.extend({
         "React hydration errors",
       ).toEqual([]);
       expect(
-        evidence.assets.filter((asset) => asset.failure || asset.status >= 400),
+        evidence.assets.filter(
+          (asset) =>
+            asset.status >= 400 ||
+            (asset.failure && !isVerifiedMediaAbort(asset, evidence)),
+        ),
         "Failed local scripts, styles, images, fonts, media or documents",
       ).toEqual([]);
     },

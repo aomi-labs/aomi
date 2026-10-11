@@ -4,7 +4,7 @@ import { nativeBrowserCases } from "./requirements.mjs";
 
 const cases = nativeBrowserCases.landing;
 
-test(cases[0], async ({ page }) => {
+test(cases[0], async ({ page, browserEvidence }) => {
   await navigate(page, "/");
   const resources = page
     .locator(".landing-nav-trigger")
@@ -33,6 +33,27 @@ test(cases[0], async ({ page }) => {
   expect(
     await video.evaluate((element) => new URL(element.currentSrc).pathname),
   ).toBe("/assets/landing/home/media/three-gates.mp4");
+  const startTime = await video.evaluate(async (element) => {
+    element.muted = true;
+    await element.play();
+    return element.currentTime;
+  });
+  await expect
+    .poll(() => video.evaluate((element) => element.currentTime))
+    .toBeGreaterThan(startTime + 0.25);
+  const playback = await video.evaluate((element) => ({
+    url: element.currentSrc,
+    endTime: element.currentTime,
+    paused: element.paused,
+    error: element.error?.message ?? null,
+  }));
+  expect(playback.paused).toBe(false);
+  expect(playback.error).toBe(null);
+  browserEvidence.mediaPlayback.push({
+    url: playback.url,
+    startTime,
+    endTime: playback.endTime,
+  });
 });
 
 test(cases[1], async ({ page, browserEvidence }) => {

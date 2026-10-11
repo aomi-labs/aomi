@@ -85,3 +85,49 @@ export function expectedProviderNetworkError(error, failedUrls) {
   const detail = `${message}\n${error.stack ?? ""}`;
   return failedUrls.some((url) => isPrivyRequest(url) && detail.includes(url));
 }
+
+/** Buffered media cancellations require successful playback and a healthy final element. */
+export function isVerifiedMediaAbort(asset, evidence) {
+  if (
+    asset.type !== "media" ||
+    asset.failure !== "net::ERR_ABORTED" ||
+    asset.status >= 400
+  )
+    return false;
+  let url;
+  try {
+    url = new URL(asset.url);
+  } catch {
+    return false;
+  }
+  if (
+    url.pathname !== "/assets/landing/home/media/three-gates.mp4" ||
+    url.search ||
+    url.hash
+  )
+    return false;
+  const playback = evidence.mediaPlayback?.find(
+    (entry) =>
+      entry.url === asset.url &&
+      Number.isFinite(entry.startTime) &&
+      entry.startTime >= 0 &&
+      Number.isFinite(entry.endTime) &&
+      entry.endTime > entry.startTime + 0.25,
+  );
+  if (!playback) return false;
+  return (
+    evidence.mediaStates?.some(
+      (media) =>
+        media.url === asset.url &&
+        media.error === null &&
+        media.readyState >= 2 &&
+        media.width > 0 &&
+        media.height > 0 &&
+        Number.isFinite(media.duration) &&
+        media.duration > 0 &&
+        Number.isFinite(media.currentTime) &&
+        media.currentTime >= playback.endTime &&
+        media.paused === false,
+    ) ?? false
+  );
+}

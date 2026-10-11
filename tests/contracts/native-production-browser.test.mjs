@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   expectedProviderNetworkError,
+  isVerifiedMediaAbort,
   nativeBrowserCases,
   nativeBrowserTransport,
   verifyNativeBrowserReport,
@@ -350,4 +351,49 @@ test("expected public-provider failures do not hide application or unidentified 
     ),
     false,
   );
+});
+
+test("media cancellation requires played video and healthy final state without hiding failures", () => {
+  const url = "http://127.0.0.1:1234/assets/landing/home/media/three-gates.mp4";
+  const abort = { url, type: "media", failure: "net::ERR_ABORTED" };
+  const playback = { url, startTime: 1, endTime: 1.5 };
+  const media = {
+    url,
+    readyState: 2,
+    width: 640,
+    height: 360,
+    duration: 213,
+    currentTime: 1.6,
+    paused: false,
+    error: null,
+  };
+  const evidence = { mediaPlayback: [playback], mediaStates: [media] };
+  assert.equal(isVerifiedMediaAbort(abort, evidence), true);
+  for (const failure of [
+    { ...abort, status: 404 },
+    { ...abort, failure: "net::ERR_CONNECTION_RESET" },
+    { ...abort, type: "image" },
+    { ...abort, url: url.replace("three-gates.mp4", "missing.mp4") },
+  ])
+    assert.equal(isVerifiedMediaAbort(failure, evidence), false);
+  for (const invalid of [
+    { ...evidence, mediaPlayback: [] },
+    { ...evidence, mediaStates: [] },
+    { ...evidence, mediaPlayback: [{ ...playback, endTime: 1 }] },
+    { ...evidence, mediaPlayback: [{ ...playback, endTime: NaN }] },
+    ...[
+      { error: { code: 3, message: "decode failed" } },
+      { paused: true },
+      { readyState: 1 },
+      { width: 0 },
+      { height: 0 },
+      { duration: Infinity },
+      { currentTime: 1 },
+      { url: url.replace("127.0.0.1", "different.example") },
+    ].map((change) => ({
+      ...evidence,
+      mediaStates: [{ ...media, ...change }],
+    })),
+  ])
+    assert.equal(isVerifiedMediaAbort(abort, invalid), false);
 });
