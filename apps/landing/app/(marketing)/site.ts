@@ -515,9 +515,9 @@ export const resources = [
       "Authentication, agent evaluation, and onchain execution systems.",
   },
   {
-    title: "News",
-    href: `${MARKETING_ROOT}/news`,
-    description: "Product notes, company updates, and announcements.",
+    title: "Blog",
+    href: `${MARKETING_ROOT}/blog`,
+    description: "Launches, announcements, and company notes.",
   },
   {
     title: "Contact",

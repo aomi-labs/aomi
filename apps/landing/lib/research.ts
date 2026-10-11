@@ -9,6 +9,7 @@ export type ResearchPost = {
   isoDate: string;
   tag: string;
   subtitle: string;
+  cover: string;
   fileName?: string;
   format?: "markdown" | "execution-harnesses" | "three-gates";
 };
@@ -22,6 +23,7 @@ export const researchPosts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "How the runtime, wallet, smart contract and block builder can constrain agent-built transactions.",
+    cover: "/covers/three-gates-title.jpg",
     fileName: "three-gates-onchain.md",
     format: "three-gates",
   },
@@ -33,6 +35,7 @@ export const researchPosts: ResearchPost[] = [
     tag: "research",
     subtitle:
       "Breaking down the seven-layer agentic payments stack and identifying the missing execution harness that makes financial agents efficient, reliable, and operational.",
+    cover: "/covers/three-gates-overview.jpg",
     format: "execution-harnesses",
   },
   {
@@ -44,6 +47,7 @@ export const researchPosts: ResearchPost[] = [
     tag: "engineering",
     subtitle:
       "A design study in hybrid crypto authentication: why counting users is hard onchain, the four proofs to keep separate, and the patterns — and stack — that hold them apart.",
+    cover: "/covers/identity-sessions.jpg",
     fileName: "auth-across-two-worlds.md",
     format: "markdown",
   },
@@ -55,6 +59,7 @@ export const researchPosts: ResearchPost[] = [
     tag: "benchmark",
     subtitle:
       "A wallet-aware harness for measuring frontier agents on real onchain tasks, simulations, and chain-state evidence.",
+    cover: "/covers/settled-chain.jpg",
     fileName: "aomibench-v0.1.md",
     format: "markdown",
   },
