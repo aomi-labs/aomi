@@ -163,7 +163,14 @@ export type ContextStep =
       tokensAfter: number;
       durationMs: number;
     }
-  | { kind: "trimmed"; tool: string; bytes: number; tokens: number };
+  | {
+      kind: "trimmed";
+      tool: string;
+      /** Saved-output id that `read_tool_output` pages by. */
+      id: string;
+      bytes: number;
+      tokens: number;
+    };
 
 type ContextEvent =
   | ContextCompactingEvent
@@ -192,6 +199,7 @@ const contextStep = (event: ContextEvent): ContextStep => {
       return {
         kind: "trimmed",
         tool: event.tool,
+        id: event.id,
         bytes: event.bytes,
         tokens: event.tokens,
       };
