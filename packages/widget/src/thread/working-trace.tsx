@@ -463,6 +463,17 @@ export const WorkingTrace: FC<{
     return () => observer.disconnect();
   }, [open, windowed, running, animating]);
 
+  // The cap lands a render after the body outgrows it, when the follow above
+  // had nothing to scroll yet; pin the newly capped window to its newest step.
+  useIsomorphicLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || !open || !windowed || !overflowing || animating) return;
+    if (running || followLatestRef.current) {
+      viewport.scrollTop = viewport.scrollHeight;
+      setHasContentBelow(false);
+    }
+  }, [overflowing, open, windowed, animating, running]);
+
   useEffect(() => () => animRef.current?.cancel(), []);
 
   useEffect(() => {
