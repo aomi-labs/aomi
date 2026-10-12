@@ -56,7 +56,12 @@ export function TransactionReview({
   onApprove: () => void;
   onApproveAll?: () => void;
   approveAllDisabled?: boolean;
-  batchProgress?: { current: number; total: number; submitting: boolean };
+  batchProgress?: {
+    current: number;
+    total: number;
+    networks?: number;
+    submitting: boolean;
+  };
   onReject: () => void;
 }) {
   const reviewRef = useRef<HTMLElement>(null);
@@ -180,7 +185,11 @@ export function TransactionReview({
       {!failed && batchProgress && batchProgress.total > 1 ? (
         <p className="type-meta text-aomi-muted mt-3 flex items-center gap-1.5">
           <Wallet className="size-3.5 shrink-0" />
-          Your wallet asks for {batchProgress.total} signatures, in order.
+          Your wallet asks for {batchProgress.total} signatures
+          {batchProgress.networks && batchProgress.networks > 1
+            ? ` across ${batchProgress.networks} networks`
+            : ""}
+          , in order.
         </p>
       ) : null}
       <footer
