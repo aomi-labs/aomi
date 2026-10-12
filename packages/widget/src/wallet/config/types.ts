@@ -74,6 +74,12 @@ export type EvmWalletsConfig = {
   appLogoUrl?: string | null;
   transports?: Record<number, Transport>;
   /**
+   * Per-chain HTTP RPC URLs (chain id → URL) for the default transports.
+   * Chains left out use viem's public endpoint. Ignored where `transports`
+   * names the chain.
+   */
+  rpcUrls?: Record<number, string>;
+  /**
    * Persist the external EVM connector and silently restore it after reload.
    * Defaults to true. An explicit disconnect remains persisted by the wallet
    * connector and prevents the next mount from reconnecting it.

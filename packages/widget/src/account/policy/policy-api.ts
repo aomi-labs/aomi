@@ -1,5 +1,4 @@
 import type {
-  AomiAccountProfile,
   AomiBindOnchainPolicy,
   AomiOnchainAddress,
   AomiOnchainPolicy,
@@ -8,16 +7,16 @@ import type {
 } from "@aomi-labs/client";
 import type { ShellRequest } from "@/account/transport";
 
-export function fetchPolicy(
+/** The Swig provider context for one chain: targets, mints and the binding. */
+export function fetchPolicyContext(
   chainRef: string,
   request: ShellRequest,
-): Promise<[AomiAccountProfile, AomiOnchainPolicyProviderCtx]> {
-  return Promise.all([
-    request<AomiAccountProfile>("/api/account"),
-    request<AomiOnchainPolicyProviderCtx>(
-      `/api/account/onchain-policies/swig?chain_ref=${encodeURIComponent(chainRef)}`,
-    ),
-  ]);
+  signal?: AbortSignal,
+): Promise<AomiOnchainPolicyProviderCtx> {
+  return request<AomiOnchainPolicyProviderCtx>(
+    `/api/account/onchain-policies/swig?chain_ref=${encodeURIComponent(chainRef)}`,
+    { signal },
+  );
 }
 
 type PolicyApiError = { error?: string; error_code?: string };

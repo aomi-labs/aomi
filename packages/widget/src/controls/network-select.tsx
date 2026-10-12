@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type FC,
+  type MouseEvent,
   type PointerEvent,
   type SVGProps,
 } from "react";
@@ -59,6 +60,7 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const hoverOpened = useRef(false);
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   const evmChains =
@@ -102,19 +104,34 @@ export const NetworkSelect: FC<NetworkSelectProps> = ({
 
   if (networks.length <= 1) return null;
 
+  const changeOpen = (next: boolean) => {
+    if (!next) hoverOpened.current = false;
+    setOpen(next);
+  };
   const hoverOpen = (event: PointerEvent) => {
     if (isTouch(event)) return;
     clearTimeout(closeTimer.current);
+    if (!open) hoverOpened.current = true;
     setOpen(true);
   };
   const hoverClose = (event: PointerEvent) => {
     if (isTouch(event)) return;
-    closeTimer.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+    closeTimer.current = setTimeout(
+      () => changeOpen(false),
+      HOVER_CLOSE_DELAY_MS,
+    );
+  };
+  // Hover already opened the menu, so the click that follows means "open",
+  // not "toggle closed". Keyboard activation (detail 0) still toggles.
+  const keepHoverOpen = (event: MouseEvent) => {
+    if (!hoverOpened.current || event.detail === 0) return;
+    hoverOpened.current = false;
+    event.preventDefault();
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover open={open} onOpenChange={changeOpen}>
+      <PopoverTrigger asChild onClick={keepHoverOpen}>
         <Button
           variant="ghost"
           aria-label="Supported networks"

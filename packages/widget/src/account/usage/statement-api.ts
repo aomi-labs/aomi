@@ -21,7 +21,7 @@ type AccountStatementResponse = {
 
 type FundingKind = "platform" | "user_key" | "application_key";
 
-type UsageCharge = {
+export type UsageCharge = {
   applicationId: number | null;
   provider: string;
   model: string;
@@ -65,10 +65,15 @@ export function recentMonthKeys(count: number, now = new Date()): string[] {
   return keys;
 }
 
-export async function fetchMonthlyStatement(
+/**
+ * Every usage charge of one month, parsed. Cursor pages are inherently
+ * serial; 100 is the endpoint's largest page.
+ */
+export async function fetchStatementCharges(
   monthKey: string,
   request: ShellRequest = accountScopedFetch,
-): Promise<MonthlyStatement> {
+  signal?: AbortSignal,
+): Promise<UsageCharge[]> {
   const { from, to } = monthRange(monthKey);
   const start = Date.parse(`${from}T00:00:00Z`) / 1000;
   const end = Date.parse(`${to}T23:59:59Z`) / 1000 + 1;
@@ -84,6 +89,7 @@ export async function fetchMonthlyStatement(
     const page: AccountStatementResponse =
       await request<AccountStatementResponse>(
         `/v1/account/statement?${query.toString()}`,
+        { signal },
       );
     if (!Array.isArray(page.entries)) {
       throw new TypeError(
@@ -93,8 +99,46 @@ export async function fetchMonthlyStatement(
     rawRows.push(...page.entries);
     cursor = page.next_cursor;
   } while (cursor);
-  const rows = rawRows.map(parseUsageCharge);
-  const applicationNames = await fetchApplicationNames(rows, request);
+  return rawRows.map(parseUsageCharge);
+}
+
+export async function fetchMonthlyStatement(
+  monthKey: string,
+  request: ShellRequest = accountScopedFetch,
+): Promise<MonthlyStatement> {
+  const rows = await fetchStatementCharges(monthKey, request);
+  return buildMonthlyStatement(
+    monthKey,
+    rows,
+    await fetchApplicationNames(rows, request),
+  );
+}
+
+/** Application ids → display names, from the account's app rows. */
+export function applicationNamesFrom(
+  apps: readonly { applicationId?: number | string | null; name: string }[],
+): Map<number, string> {
+  const names = new Map<number, string>();
+  for (const app of apps) {
+    const id = Number(app.applicationId);
+    if (
+      app.applicationId !== null &&
+      app.applicationId !== undefined &&
+      Number.isSafeInteger(id) &&
+      app.name.trim()
+    )
+      names.set(id, app.name.trim());
+  }
+  return names;
+}
+
+/** The month/app view of parsed charges. Unnamed apps fall back to their id. */
+export function buildMonthlyStatement(
+  monthKey: string,
+  rows: readonly UsageCharge[],
+  applicationNames: ReadonlyMap<number, string> = new Map(),
+): MonthlyStatement {
+  const { from, to } = monthRange(monthKey);
   const apps = new Map<string, AppAccumulator>();
   let allowanceAppliedMicrousd = 0;
   let creditBankAppliedMicrousd = 0;

@@ -184,3 +184,32 @@ describe("terminal Stop ACK projection", () => {
     ).toBe(false);
   });
 });
+
+describe("notice codes", () => {
+  it("projects a work-limit code on the notice and the turn it ended", () => {
+    const events: Event[] = [
+      ...pendingEvents,
+      { ...meta(4), type: "turn_state_changed", state: "failed" },
+      {
+        ...meta(5),
+        type: "message",
+        sender: "notice",
+        content: "Paused",
+        message_key: "notice-1",
+        code: "execution_active_timeout",
+      },
+    ];
+    const projected = projectRuntimeMessages(events);
+    expect(
+      projected.find((message) => message.id === "turn:turn-1")?.metadata
+        ?.custom,
+    ).toMatchObject({ aomiNoticeCode: "execution_active_timeout" });
+    expect(
+      projected.find((message) => message.id === "aomi-notice-notice-1")
+        ?.metadata?.custom,
+    ).toMatchObject({
+      aomiNoticeKind: "error",
+      aomiNoticeCode: "execution_active_timeout",
+    });
+  });
+});

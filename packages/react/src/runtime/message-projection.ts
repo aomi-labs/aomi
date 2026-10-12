@@ -49,6 +49,9 @@ function toInboundMessage(
         custom: {
           aomiNoticeKind: "error",
           aomiNoticeTitle: "Error",
+          // Why the turn stopped, e.g. `execution_active_timeout`; the UI
+          // decides whether that reads as a failure or a pause.
+          ...(msg.code ? { aomiNoticeCode: msg.code } : {}),
         },
       },
     };
@@ -416,6 +419,9 @@ export function projectAssistantMessages(
     }
   }
   const standaloneMessages = new Map<string, number>();
+  // The notice code that ended each turn, so its trace can drop the generic
+  // failure line when the notice already explains what happened.
+  const noticeCodes = new Map<string, string>();
   let userMessageOrdinal = 0;
   let legacyTurnKey = `legacy:${events[0]?.event_id ?? "empty"}`;
   const continuationOwners = commitContinuationOwners(events);
@@ -499,6 +505,8 @@ export function projectAssistantMessages(
         continue;
       }
 
+      if (event.sender === "notice" && event.code && event.turn_id)
+        noticeCodes.set(turnKeys[index]!, event.code);
       let projected = toInboundMessage(event, output.length);
       if (!projected) continue;
       const key = event.message_key ?? event.event_id;
@@ -567,6 +575,7 @@ export function projectAssistantMessages(
         ...(entry.finalAnswerStartIndex !== undefined ||
         callbackTurns ||
         entry.responseMessageKey ||
+        noticeCodes.has(root) ||
         terminalTurns.has(root)
           ? {
               metadata: {
@@ -585,6 +594,9 @@ export function projectAssistantMessages(
                     : {}),
                   ...(Object.keys(callbackTerminalStates).length
                     ? { aomiContinuationTurnStates: callbackTerminalStates }
+                    : {}),
+                  ...(noticeCodes.has(root)
+                    ? { aomiNoticeCode: noticeCodes.get(root) }
                     : {}),
                 },
               },

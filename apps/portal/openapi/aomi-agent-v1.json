@@ -4448,6 +4448,10 @@
               "content": {
                 "type": "string"
               },
+              "code": {
+                "type": ["string", "null"],
+                "description": "Machine-readable reason on a notice, e.g. `execution_active_timeout`"
+              },
               "tool_call_id": {
                 "type": ["string", "null"]
               },

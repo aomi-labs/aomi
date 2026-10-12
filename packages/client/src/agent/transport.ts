@@ -221,20 +221,36 @@ export class AgentSessionsTransport {
   constructor(private readonly requestResponse: RequestResponse) {}
 
   list(
-    options: { cursor?: string; limit?: number } = {},
+    options: { cursor?: string; limit?: number; signal?: AbortSignal } = {},
   ): Promise<SessionPage> {
     return this.json("GET", "/v1/agent/sessions", {
       query: { cursor: options.cursor, limit: options.limit },
+      signal: options.signal,
     });
   }
 
-  async all(): Promise<Session[]> {
+  /**
+   * Every page in order. `onPage` sees each page as it arrives, with `more`
+   * set while later pages are still to come.
+   */
+  async all(
+    options: {
+      signal?: AbortSignal;
+      onPage?: (sessions: Session[], more: boolean) => void;
+    } = {},
+  ): Promise<Session[]> {
     const sessions: Session[] = [];
     let cursor: string | undefined;
     do {
-      const page = await this.list({ cursor, limit: 100 });
+      options.signal?.throwIfAborted();
+      const page = await this.list({
+        cursor,
+        limit: 100,
+        signal: options.signal,
+      });
       sessions.push(...page.sessions);
       cursor = page.nextCursor ?? undefined;
+      options.onPage?.(page.sessions, Boolean(cursor));
     } while (cursor);
     return sessions;
   }

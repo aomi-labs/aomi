@@ -143,4 +143,38 @@ describe("AgentTransport", () => {
       "https://portal.example/v1/agent/sessions?limit=10",
     );
   });
+
+  it("reports each session page as it arrives and stops when aborted", async () => {
+    const controller = new AbortController();
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ sessions: [{ id: "a" }], nextCursor: "next" }),
+      )
+      .mockImplementationOnce(async (_url: string, init: RequestInit) => {
+        expect(init.signal).toBe(controller.signal);
+        return Response.json({ sessions: [{ id: "b" }] });
+      });
+    const client = new AomiClient({
+      baseUrl: "https://portal.example",
+      fetch,
+      guest: false,
+    });
+    const pages: [string[], boolean][] = [];
+    const sessions = await client.agent.sessions.all({
+      signal: controller.signal,
+      onPage: (page, more) =>
+        pages.push([page.map((session) => session.id), more]),
+    });
+    expect(sessions.map((session) => session.id)).toEqual(["a", "b"]);
+    expect(pages).toEqual([
+      [["a"], true],
+      [["b"], false],
+    ]);
+    controller.abort();
+    await expect(
+      client.agent.sessions.all({ signal: controller.signal }),
+    ).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });

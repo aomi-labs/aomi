@@ -788,8 +788,10 @@ export class AomiClient {
     return (await response.json()) as AomiAccountProfile;
   }
 
-  /** Re-read policy on each new preparation; mode changes and revocations
-   * must not be hidden behind a session-long account cache.
+  /** Apply the account's current signing route to a UserState. Sends no
+   * longer call this: the backend applies the same default server-side.
+   * Re-reads policy on each call; mode changes and revocations must not be
+   * hidden behind a session-long account cache.
    */
   async prepareUserState(
     sessionId: string,

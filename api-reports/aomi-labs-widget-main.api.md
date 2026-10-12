@@ -6,6 +6,7 @@
 
 import type { AgentMode } from '@aomi-labs/react';
 import { AgentTarget } from '@aomi-labs/react';
+import { AomiAccountProfile } from '@aomi-labs/client';
 import { AomiAppDescriptor } from '@aomi-labs/client';
 import * as aomiClient from '@aomi-labs/client';
 import { AomiClientOptions } from '@aomi-labs/react';

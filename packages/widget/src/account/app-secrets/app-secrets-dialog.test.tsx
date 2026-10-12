@@ -60,6 +60,8 @@ vi.mock("@aomi-labs/react", () => ({
   cn: (...classes: Array<string | false | null | undefined>) =>
     classes.filter(Boolean).join(" "),
   useControl: () => control,
+  useAomiDisplayCache: () => null,
+  fetchDisplayQuery: vi.fn(),
 }));
 
 vi.mock("@/ui/button", () => ({

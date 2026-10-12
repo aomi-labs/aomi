@@ -658,7 +658,8 @@ export function AllowanceSettlementSection({
   onRetryAllowance,
   children,
 }: {
-  month: MonthlyStatement;
+  /** Null while the statement loads: the allowance row waits, children show. */
+  month: MonthlyStatement | null;
   /** Hide when viewing a past month — profile credits only match the current month. */
   showAllowance?: boolean;
   allowanceStatus?: "idle" | "loading" | "ready" | "error";
@@ -666,11 +667,83 @@ export function AllowanceSettlementSection({
   onRetryAllowance?: () => void;
   children?: ReactNode;
 }) {
+  if (!showAllowance && !children) return null;
+  if (!month) {
+    return (
+      <AllowanceSettlementFrame>
+        {showAllowance ? (
+          <AllowanceRow
+            status={allowanceStatus === "error" ? "error" : "loading"}
+            error={allowanceError}
+            onRetry={onRetryAllowance}
+          />
+        ) : null}
+        {children}
+      </AllowanceSettlementFrame>
+    );
+  }
   const { payment } = month;
   const { over, hasAllowance, creditsPct } = monthActivityStats(month);
 
-  if (!showAllowance && !children) return null;
+  return (
+    <AllowanceSettlementFrame>
+      {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
+        <>
+          <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
+            <span className="text-aomi-fg text-[13px] font-medium">
+              Monthly credits
+            </span>
+            <span className="text-aomi-muted text-[12px] tabular-nums">
+              <span className="text-aomi-fg font-medium">
+                {formatAllowanceCredits(
+                  Math.max(
+                    0,
+                    payment.allowanceCredits.included -
+                      payment.allowanceCredits.used,
+                  ),
+                )}
+              </span>{" "}
+              of {formatAllowanceCredits(payment.allowanceCredits.included)}{" "}
+              left · {formatAllowanceCredits(payment.allowanceCredits.used)}{" "}
+              used
+            </span>
+          </div>
+          <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
+            <Meter pct={creditsPct} over={over} />
+            <span className="text-aomi-muted text-[12px] leading-snug">
+              Paid via {payment.settledVia}.{" "}
+              {over
+                ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
+                    payment.allowanceAppliedUsd,
+                  )} monthly allowance.`
+                : `Compute fully covered by your allowance (${usd(
+                    payment.allowanceAppliedUsd,
+                  )} applied).`}
+              {payment.onchainNote.trim() && (
+                <> On-chain fees {payment.onchainNote.trim()}.</>
+              )}
+            </span>
+          </div>
+        </>
+      ) : showAllowance ? (
+        <AllowanceRow
+          status={allowanceStatus}
+          error={allowanceError}
+          onRetry={onRetryAllowance}
+          summary={
+            hasAllowance
+              ? `${formatAllowanceCredits(payment.allowanceCredits.used)} / ${formatAllowanceCredits(payment.allowanceCredits.included)} used`
+              : undefined
+          }
+        />
+      ) : null}
+      {children}
+    </AllowanceSettlementFrame>
+  );
+}
 
+/** Same element tree with or without a statement, so children never remount. */
+function AllowanceSettlementFrame({ children }: { children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
       <SectionHeading
@@ -678,76 +751,49 @@ export function AllowanceSettlementSection({
         detail="How usage is paid"
       />
       <div className="border-aomi-border bg-aomi-raised overflow-hidden rounded-xl border">
-        {showAllowance && allowanceStatus === "ready" && hasAllowance ? (
-          <>
-            <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
-              <span className="text-aomi-fg text-[13px] font-medium">
-                Monthly credits
-              </span>
-              <span className="text-aomi-muted text-[12px] tabular-nums">
-                <span className="text-aomi-fg font-medium">
-                  {formatAllowanceCredits(
-                    Math.max(
-                      0,
-                      payment.allowanceCredits.included -
-                        payment.allowanceCredits.used,
-                    ),
-                  )}
-                </span>{" "}
-                of {formatAllowanceCredits(payment.allowanceCredits.included)}{" "}
-                left · {formatAllowanceCredits(payment.allowanceCredits.used)}{" "}
-                used
-              </span>
-            </div>
-            <div className="flex flex-col gap-2.5 px-4 py-3.5 sm:px-5">
-              <Meter pct={creditsPct} over={over} />
-              <span className="text-aomi-muted text-[12px] leading-snug">
-                Paid via {payment.settledVia}.{" "}
-                {over
-                  ? `${usd(payment.creditBankAppliedUsd)} applied from your Credit Bank beyond your ${usd(
-                      payment.allowanceAppliedUsd,
-                    )} monthly allowance.`
-                  : `Compute fully covered by your allowance (${usd(
-                      payment.allowanceAppliedUsd,
-                    )} applied).`}
-                {payment.onchainNote.trim() && (
-                  <> On-chain fees {payment.onchainNote.trim()}.</>
-                )}
-              </span>
-            </div>
-          </>
-        ) : showAllowance ? (
-          <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
-            <span className="text-aomi-fg text-[13px] font-medium">
-              Monthly credits
-            </span>
-            <span className="text-aomi-muted text-[12px]">
-              {allowanceStatus === "loading" || allowanceStatus === "idle" ? (
-                <LoaderCircle
-                  aria-label="Loading"
-                  className="inline size-3.5 animate-spin motion-reduce:animate-none"
-                />
-              ) : hasAllowance ? (
-                `${formatAllowanceCredits(payment.allowanceCredits.used)} / ${formatAllowanceCredits(payment.allowanceCredits.included)} used`
-              ) : (
-                "Unavailable"
-              )}
-              {allowanceStatus === "error" && onRetryAllowance ? (
-                <button
-                  type="button"
-                  title={allowanceError}
-                  onClick={onRetryAllowance}
-                  className="hover:text-aomi-fg ml-2 underline underline-offset-2"
-                >
-                  Retry
-                </button>
-              ) : null}
-            </span>
-          </div>
-        ) : null}
         {children}
       </div>
     </section>
+  );
+}
+
+function AllowanceRow({
+  status,
+  error,
+  onRetry,
+  summary,
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  error?: string;
+  onRetry?: () => void;
+  summary?: string;
+}) {
+  return (
+    <div className="border-aomi-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-5">
+      <span className="text-aomi-fg text-[13px] font-medium">
+        Monthly credits
+      </span>
+      <span className="text-aomi-muted text-[12px]">
+        {status === "loading" || status === "idle" ? (
+          <LoaderCircle
+            aria-label="Loading"
+            className="inline size-3.5 animate-spin motion-reduce:animate-none"
+          />
+        ) : (
+          (summary ?? "Unavailable")
+        )}
+        {status === "error" && onRetry ? (
+          <button
+            type="button"
+            title={error}
+            onClick={onRetry}
+            className="hover:text-aomi-fg ml-2 underline underline-offset-2"
+          >
+            Retry
+          </button>
+        ) : null}
+      </span>
+    </div>
   );
 }
 

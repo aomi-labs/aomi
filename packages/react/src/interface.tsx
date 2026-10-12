@@ -68,6 +68,12 @@ export type AomiRuntimeApi = {
   threadListLoading?: boolean;
   /** True until live history confirms cached rows and URL restoration. */
   threadListRevalidating?: boolean;
+  /** The open saved chat's history failed to load, even after one retry. */
+  threadLoadError?: boolean;
+  /** Load the open chat's history again after `threadLoadError`. */
+  retryThreadLoad?: () => void;
+  /** Start loading a saved chat's history before it is selected. */
+  prefetchThread?: (threadId: string) => void;
   /** Whether the server has acknowledged this conversation. */
   isRemoteThread?: (threadId: string) => boolean;
   /** Get metadata for a specific thread */
@@ -90,6 +96,8 @@ export type AomiRuntimeApi = {
   isRunning: boolean;
   /** True only before the first backend event for a submitted turn. */
   isSubmitting: boolean;
+  /** The start request failed in a way that may still have been accepted. */
+  isStartUncertain?: boolean;
   /** True while Stop awaits the server's acknowledgment. */
   isStopping?: boolean;
   /** Get messages for a thread (defaults to currentThreadId) */

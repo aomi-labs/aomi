@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fetchDisplayQuery,
+  useAomiDisplayCache,
+  type DisplayCache,
+} from "@aomi-labs/react";
 import type {
   AomiSecretSlot,
   AomiUserAppSecretSlot,
@@ -29,6 +34,30 @@ type UseAppSecretsStateOptions = {
   declaredSlots: readonly AomiSecretSlot[];
   operations: AppSecretOperations;
 };
+
+/** Secret status lives in the display cache under the signed-in account. */
+function secretsQuery(
+  cache: DisplayCache | null,
+  applicationId: Exclude<ApplicationId, null>,
+  list: () => Promise<AomiUserAppSecrets>,
+) {
+  if (cache?.scope.account?.kind !== "user") return null;
+  const query = {
+    resource: "account-apps" as const,
+    parameters: ["secrets", String(applicationId)],
+    fetcher: list,
+  };
+  const key = cache.key(query.resource, query.parameters);
+  return {
+    peek: () => cache.client.getQueryData<AomiUserAppSecrets>(key),
+    fetch: () => fetchDisplayQuery(cache, query),
+    // An older read still in flight must not land on top of this write.
+    write: (next: AomiUserAppSecrets) => {
+      void cache.client.cancelQueries({ queryKey: key, exact: true });
+      cache.client.setQueryData(key, next);
+    },
+  };
+}
 
 export function appSecretsReady(status: AomiUserAppSecrets): boolean {
   return (
@@ -62,53 +91,81 @@ export function useAppSecretsState({
   const [loading, setLoading] = useState(false);
   const [busyName, setBusyName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A ref, so the cache's identity changing never resets drafts.
+  const displayCache = useAomiDisplayCache();
+  const cacheRef = useRef(displayCache);
+  cacheRef.current = displayCache;
+  const cached = useCallback(
+    () =>
+      applicationId == null
+        ? null
+        : secretsQuery(cacheRef.current, applicationId, () =>
+            operationsRef.current.list(applicationId),
+          ),
+    [applicationId],
+  );
 
-  const refresh = useCallback(async (): Promise<AomiUserAppSecrets | null> => {
-    if (!enabled || applicationId == null) return null;
-    const requestScope = scopeKey;
-    const lifetime = lifetimeRef.current;
-    const revision = ++requestRevisionRef.current;
-    try {
-      const next = await operationsRef.current.list(applicationId);
-      if (
-        scopeRef.current === requestScope &&
-        lifetimeRef.current === lifetime &&
-        requestRevisionRef.current === revision
-      ) {
-        setStatus(next);
-        setError(null);
+  /** `fresh` skips the shared cache; opening a scope reuses it. */
+  const load = useCallback(
+    async (fresh: boolean): Promise<AomiUserAppSecrets | null> => {
+      if (!enabled || applicationId == null) return null;
+      const requestScope = scopeKey;
+      const lifetime = lifetimeRef.current;
+      const revision = ++requestRevisionRef.current;
+      const cache = cached();
+      try {
+        const next =
+          cache && !fresh
+            ? await cache.fetch()
+            : await operationsRef.current.list(applicationId);
+        if (
+          scopeRef.current === requestScope &&
+          lifetimeRef.current === lifetime &&
+          requestRevisionRef.current === revision
+        ) {
+          // Only the newest read may replace what a later save cached.
+          if (fresh) cache?.write(next);
+          setStatus(next);
+          setError(null);
+        }
+        return next;
+      } catch (cause) {
+        if (
+          scopeRef.current === requestScope &&
+          lifetimeRef.current === lifetime &&
+          requestRevisionRef.current === revision
+        ) {
+          setStatus(null);
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Couldn’t load saved credentials.",
+          );
+        }
+        return null;
       }
-      return next;
-    } catch (cause) {
-      if (
-        scopeRef.current === requestScope &&
-        lifetimeRef.current === lifetime &&
-        requestRevisionRef.current === revision
-      ) {
-        setStatus(null);
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Couldn’t load saved credentials.",
-        );
-      }
-      return null;
-    }
-  }, [applicationId, enabled, scopeKey]);
+    },
+    [applicationId, cached, enabled, scopeKey],
+  );
+  const refresh = useCallback(() => load(true), [load]);
 
   useEffect(() => {
     requestRevisionRef.current += 1;
     setDrafts({});
-    setStatus(null);
     setError(null);
     setBusyName(null);
     if (!enabled || applicationId == null) {
+      setStatus(null);
       setLoading(false);
       return;
     }
+    // A status this account already read shows at once; the cache decides
+    // whether it is fresh enough to skip the network.
+    const known = cached()?.peek() ?? null;
+    setStatus(known);
     let current = true;
-    setLoading(true);
-    void refresh().finally(() => {
+    setLoading(known === null);
+    void load(false).finally(() => {
       if (current && scopeRef.current === scopeKey) setLoading(false);
     });
     return () => {
@@ -116,7 +173,7 @@ export function useAppSecretsState({
       lifetimeRef.current += 1;
       requestRevisionRef.current += 1;
     };
-  }, [applicationId, enabled, refresh, scopeKey]);
+  }, [applicationId, cached, enabled, load, scopeKey]);
 
   const slots = useMemo<AomiUserAppSecretSlot[]>(
     () =>
@@ -152,6 +209,7 @@ export function useAppSecretsState({
     setError(null);
     try {
       const next = await operationsRef.current.save(applicationId, pending);
+      cached()?.write(next);
       if (!isCurrent()) return null;
       requestRevisionRef.current += 1;
       setStatus(next);
@@ -167,7 +225,7 @@ export function useAppSecretsState({
     } finally {
       if (isCurrent()) setBusyName(null);
     }
-  }, [applicationId, pending, scopeKey, status]);
+  }, [applicationId, cached, pending, scopeKey, status]);
 
   const remove = useCallback(
     async (name: string): Promise<boolean> => {
@@ -184,6 +242,7 @@ export function useAppSecretsState({
         await requestOperations.remove(applicationId, name);
         if (!isCurrent()) return false;
         const next = await requestOperations.list(applicationId);
+        cached()?.write(next);
         if (!isCurrent()) return false;
         requestRevisionRef.current += 1;
         setStatus(next);
@@ -201,7 +260,7 @@ export function useAppSecretsState({
         if (isCurrent()) setBusyName(null);
       }
     },
-    [applicationId, scopeKey],
+    [applicationId, cached, scopeKey],
   );
 
   const retry = useCallback(async () => {
