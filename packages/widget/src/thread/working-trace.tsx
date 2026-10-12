@@ -347,8 +347,9 @@ export const WorkingTrace: FC<{
   // Cap the open trace to a scrolling window — live and after completion alike:
   // the newest steps stay pinned at the bottom and older ones remain wheel/touch/
   // keyboard-scrollable under edge fades instead of marching down the page.
-  // Expanding ("Show all") still lifts the cap. The fades only engage once
-  // content actually overflows, so a short trace is never faded.
+  // Expanding ("Show all") still lifts the cap. The cap, fades and Show all
+  // only engage once content actually overflows, so a short trace is never
+  // faded, and one within the tolerance is never scrolled off its top padding.
   const windowed = !expanded;
   useEffect(() => {
     if (windowed && typeof ResizeObserver !== "undefined") return;
@@ -640,7 +641,10 @@ export const WorkingTrace: FC<{
                   !animating &&
                   "aui-working-trace-scroll",
               )}
-              style={{ maxHeight: windowed ? WORKING_WINDOW_PX : undefined }}
+              style={{
+                maxHeight:
+                  windowed && overflowing ? WORKING_WINDOW_PX : undefined,
+              }}
             >
               <div
                 ref={bodyRef}
