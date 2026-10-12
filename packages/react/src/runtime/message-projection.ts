@@ -121,6 +121,8 @@ type AssistantProjection = {
   textParts: Map<string, number>;
   toolParts: Map<string, number>;
   finalAnswerStartIndex?: number;
+  /** Terminal sequence of the callback turn that owns the answer. */
+  finalAnswerSequence?: number;
   responseMessageKey?: string;
 };
 
@@ -489,15 +491,26 @@ export function projectAssistantMessages(
             inlineToolPart(toolResult, key, event.tool_call_id),
           );
         } else {
+          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             continuationOwners.has(event.turn_id ?? "") &&
             !parentsWithCallbacks.has(event.turn_id ?? "") &&
             turnKeys[index] !== event.turn_id &&
             key === `${event.turn_id}:response`
           ) {
-            projection.finalAnswerStartIndex ??= projection.parts.length;
+            // Sibling callbacks (one per chain's commit) each answer. The one
+            // that finished last saw every earlier result, so it is the
+            // answer; the earlier ones stay in the trace.
+            const finished =
+              terminal?.state === "complete"
+                ? terminal.sequence
+                : event.sequence;
+            if (finished >= (projection.finalAnswerSequence ?? -Infinity)) {
+              projection.finalAnswerSequence = finished;
+              projection.finalAnswerStartIndex =
+                projection.textParts.get(key) ?? projection.parts.length;
+            }
           }
-          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             event.message_key &&
             event.content.trim() &&

@@ -21,11 +21,23 @@ export type ActivityTransaction = {
   commit?: CommitView;
 };
 
-export function selectReviewCommit(
+/** Commits awaiting the wallet, in signing order: whole batches in the order
+ * they were committed, each batch by its own leg index. A later batch (another
+ * chain, say) never cuts in while an earlier batch still has legs to sign. */
+export function selectReviewQueue(
   commits: readonly CommitView[],
   review: ((commitId: string) => unknown) | undefined,
-): CommitView | undefined {
-  if (!review) return undefined;
+): CommitView[] {
+  if (!review) return [];
+  const rank = new Map<string, number>();
+  commits.forEach((commit, index) => {
+    if (commit.batch && !rank.has(commit.batch.batch_id))
+      rank.set(commit.batch.batch_id, index);
+  });
+  const order = (commit: CommitView) =>
+    commit.batch
+      ? (rank.get(commit.batch.batch_id) ?? 0)
+      : Number.MAX_SAFE_INTEGER;
   return commits
     .filter(
       (commit) =>
@@ -35,9 +47,15 @@ export function selectReviewCommit(
     )
     .sort(
       (a, b) =>
-        (a.batch?.index ?? Number.MAX_SAFE_INTEGER) -
-        (b.batch?.index ?? Number.MAX_SAFE_INTEGER),
-    )[0];
+        order(a) - order(b) || (a.batch?.index ?? 0) - (b.batch?.index ?? 0),
+    );
+}
+
+export function selectReviewCommit(
+  commits: readonly CommitView[],
+  review: ((commitId: string) => unknown) | undefined,
+): CommitView | undefined {
+  return selectReviewQueue(commits, review)[0];
 }
 
 function record(value: unknown): RecordValue | undefined {
