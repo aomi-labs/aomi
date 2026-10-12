@@ -47,6 +47,7 @@ const coreTitles: Record<string, string> = {
   get_time_and_onchain_context: "Check network",
   svm_get_token_holdings: "Get holdings",
   sync_chain: "Sync network",
+  read_tool_output: "Read saved tool output",
 };
 
 export const coreToolTitle = (label: string): string | undefined => {

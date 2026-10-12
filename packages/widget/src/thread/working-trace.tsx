@@ -42,6 +42,11 @@ import { interpretToolStep } from "@/thread/tool-interpreter/interpret";
 import { agentStepCount, WorkingAgent } from "./working-agent";
 import { ContextStepRow } from "./context-step";
 import {
+  isReadOutputTool,
+  ReadOutputRow,
+  readOutputId,
+} from "./read-output-step";
+import {
   prefersReducedMotion,
   toDetailString,
   ToolStepRow,
@@ -164,6 +169,15 @@ type TraceItem =
   | { kind: "tool"; tool: ToolCallMessagePart; key: string }
   | { kind: "note"; text: string; key: string }
   | { kind: "context"; step: ContextStep; key: string }
+  | {
+      kind: "read";
+      /** Saved-output id every read in this run pages through. */
+      id?: string;
+      parts: ToolCallMessagePart[];
+      /** The tool whose output was shortened, when its trim is in this turn. */
+      sourceTool?: string;
+      key: string;
+    }
   | {
       kind: "agent";
       agentId: string;
@@ -652,6 +666,19 @@ export const WorkingTrace: FC<{
                       />
                     );
                   }
+                  if (item.kind === "read") {
+                    return (
+                      <ReadOutputRow
+                        key={item.key}
+                        parts={item.parts}
+                        sourceTool={item.sourceTool}
+                        stepKey={`${viewKey ?? ""}:${item.key}`}
+                        active={i === activeIndex}
+                        animate={animate}
+                        live={running}
+                      />
+                    );
+                  }
                   if (item.kind === "context") {
                     return (
                       <ContextStepRow
@@ -781,13 +808,22 @@ export const buildTraceItems = (
   const invocationKey = (callId: string, agentId: string) =>
     `agent-${JSON.stringify([callId, agentId])}`;
   let agentOrder = 0;
+  // Saved-output id -> the tool that produced it, from this turn's trims.
+  const trimmedSources = new Map<string, string>();
 
   content.forEach((part, i) => {
     if (part.type === "tool-call") {
       if (part.toolName === CONTEXT_STEP_TOOL) {
+        const step = part.args as unknown as ContextStep;
+        // Shortening a large output is bookkeeping, not a step: the reads
+        // that page it back in carry the source tool's name instead.
+        if (step.kind === "trimmed") {
+          if (step.id) trimmedSources.set(step.id, step.tool);
+          return;
+        }
         items.push({
           kind: "context",
-          step: part.args as unknown as ContextStep,
+          step,
           key: part.toolCallId ?? `context-${i}`,
         });
         return;
@@ -825,6 +861,29 @@ export const buildTraceItems = (
             tool: part,
             order: agentOrder++,
             key: invocationKey(run?.callId ?? callId, agentId),
+          });
+        }
+        return;
+      }
+
+      if (isReadOutputTool(part.toolName)) {
+        const id = readOutputId(part);
+        const prev = items[items.length - 1];
+        // Paging one output is one step. A read still streaming its args most
+        // likely continues the run before it; a finished one without an id
+        // stands alone.
+        const streaming = id === undefined && part.result === undefined;
+        if (prev?.kind === "read" && (streaming || (id && id === prev.id))) {
+          prev.parts.push(part);
+          prev.id ??= id;
+          prev.sourceTool ??= id ? trimmedSources.get(id) : undefined;
+        } else {
+          items.push({
+            kind: "read",
+            id,
+            parts: [part],
+            sourceTool: id ? trimmedSources.get(id) : undefined,
+            key: part.toolCallId ?? `read-${i}`,
           });
         }
         return;

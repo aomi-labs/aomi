@@ -2,6 +2,14 @@
 
 ## Last Updated
 
+2026-10-12 — TRACE: SHORTENED TOOL OUTPUTS (branch `fix/trace-trimmed-tools`).
+  "Trimmed X output" rows are no longer shown; consecutive `read_tool_output`
+  calls on one saved output fold into a single row named after the source tool
+  ("Read commit transactions output") with coverage and read-count
+  chips, and open to the stitched, re-indented content instead of paging
+  envelopes (`packages/widget/src/thread/read-output-step.tsx`). The projected
+  `trimmed` context step now carries the saved-output `id`.
+
 2026-10-10 — PORTAL PERFORMANCE (branch `feat/portal-performance`, with
   product-mono `feat/portal-performance`). Waiting states: the pulsing dot is
   shown only while the start request is in flight again, then the existing

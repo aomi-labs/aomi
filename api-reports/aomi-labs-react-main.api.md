@@ -209,6 +209,7 @@ export type ContextStep = {
 } | {
     kind: "trimmed";
     tool: string;
+    id: string;
     bytes: number;
     tokens: number;
 };

@@ -37,6 +37,7 @@ import {
   WorkingTrace,
 } from "./working-trace";
 import { TraceAttributionContext } from "./trace-attribution";
+import { readOutputDetail } from "./read-output-step";
 import { ToolStepRow } from "./working-trace-rows";
 
 const resizeCallbacks = new Map<Element, ResizeObserverCallback>();
@@ -985,7 +986,13 @@ describe("context steps", () => {
   const trimmed = {
     ...compacted,
     toolCallId: "context:event-8",
-    args: { kind: "trimmed", tool: "hoodit_scan", bytes: 2_200_000, tokens: 14_000 },
+    args: {
+      kind: "trimmed",
+      tool: "evm_commit_txs",
+      id: "t_cc98",
+      bytes: 70_551,
+      tokens: 47,
+    },
   } satisfies ToolCallMessagePart;
 
   it("show a summary in progress, then its result in the same row", () => {
@@ -1004,23 +1011,118 @@ describe("context steps", () => {
     expect(getByText("151k tokens")).toBeTruthy();
   });
 
-  it("become their own trace rows in place", () => {
+  it("become their own trace rows in place, except a trimmed output", () => {
     const items = buildTraceItems([trimmed, compacted], []);
-    expect(items.map((item) => item.kind)).toEqual(["context", "context"]);
+    expect(items.map((item) => item.kind)).toEqual(["context"]);
   });
 
   it("read as plain steps with their sizes", () => {
-    const { getByText } = render(
+    const { getByText, queryByText } = render(
       <WorkingTrace
         running={false}
         outcome="complete"
         items={buildTraceItems([trimmed, compacted], [])}
+        revealed={1}
+      />,
+    );
+    expect(queryByText("Trimmed evm_commit_txs output")).toBeNull();
+    expect(getByText("Summarized earlier conversation")).toBeTruthy();
+    expect(getByText("151k to 38k tokens")).toBeTruthy();
+  });
+});
+
+describe("reading a shortened output", () => {
+  const trimmed = {
+    type: "tool-call" as const,
+    argsText: "{}",
+    toolCallId: "context:event-8",
+    toolName: "aomi:context",
+    args: {
+      kind: "trimmed",
+      tool: "evm_commit_txs",
+      id: "t_cc98",
+      bytes: 70,
+      tokens: 4,
+    },
+    result: {},
+  } satisfies ToolCallMessagePart;
+  const output = JSON.stringify({ commits: [{ id: "c1" }], ok: true });
+  const read = (n: number, offset: number, limit: number) => {
+    const slice = output.slice(offset, offset + limit);
+    const next = offset + slice.length;
+    return {
+      type: "tool-call" as const,
+      toolCallId: `read-${n}`,
+      toolName: "read_tool_output",
+      args: { id: "t_cc98", offset, limit },
+      argsText: JSON.stringify({ id: "t_cc98", offset, limit }),
+      result: {
+        id: "t_cc98",
+        total_chars: output.length,
+        offset,
+        slice,
+        next_offset: next < output.length ? next : null,
+        eof: next >= output.length,
+      },
+    } satisfies ToolCallMessagePart;
+  };
+  const reads = [read(1, 0, 15), read(2, 15, 15), read(3, 30, 15)];
+
+  it("fold consecutive pages into one row named after the source tool", () => {
+    const items = buildTraceItems([trimmed, ...reads], []);
+    expect(items.map((item) => item.kind)).toEqual(["read"]);
+    const { getByText } = render(
+      <WorkingTrace
+        running={false}
+        outcome="complete"
+        items={items}
+        revealed={1}
+      />,
+    );
+    expect(getByText("Read commit transactions output")).toBeTruthy();
+    expect(getByText(`All ${output.length} chars`)).toBeTruthy();
+    expect(getByText("3 reads")).toBeTruthy();
+  });
+
+  it("open to the stitched output instead of the paging envelopes", () => {
+    expect(readOutputDetail(reads)).toBe(
+      JSON.stringify(JSON.parse(output), null, 2),
+    );
+    expect(readOutputDetail(reads.slice(0, 1))).toBe(
+      '{\n  "commits": [\n    {\n      "i',
+    );
+  });
+
+  it("keep a finished read without an id on its own row", () => {
+    const anonymous = {
+      ...reads[1],
+      toolCallId: "read-anon",
+      args: {},
+      argsText: "{}",
+      result: { error: "expired" },
+    } satisfies ToolCallMessagePart;
+    const items = buildTraceItems([trimmed, reads[0], anonymous], []);
+    expect(items.map((item) => item.kind)).toEqual(["read", "read"]);
+  });
+
+  it("report a partial read and an expired output", () => {
+    const expired = {
+      ...read(4, 0, 20),
+      toolCallId: "read-x",
+      args: { id: "t_gone" },
+      argsText: '{"id":"t_gone"}',
+      result: { error: "expired", id: "t_gone" },
+    } satisfies ToolCallMessagePart;
+    const { getByText } = render(
+      <WorkingTrace
+        running={false}
+        outcome="complete"
+        items={buildTraceItems([trimmed, reads[0], expired], [])}
         revealed={2}
       />,
     );
-    expect(getByText("Trimmed hoodit_scan output")).toBeTruthy();
-    expect(getByText("2.1 MB to 14k tokens")).toBeTruthy();
-    expect(getByText("Summarized earlier conversation")).toBeTruthy();
-    expect(getByText("151k to 38k tokens")).toBeTruthy();
+    expect(getByText("43% of 35 chars")).toBeTruthy();
+    expect(getByText("Read saved tool output")).toBeTruthy();
+    expect(getByText("Output expired")).toBeTruthy();
   });
 });
