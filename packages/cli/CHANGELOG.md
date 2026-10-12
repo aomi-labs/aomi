@@ -1,5 +1,9 @@
 # @aomi-labs/cli
 
+## 0.1.1
+
+- Read simulation step evidence under `result` as well as `execution`, so passed batches no longer render as failed with zero gas.
+
 ## 0.1.0
 
 - Publish the CLI independently as @aomi-labs/cli while retaining compatibility forwarding from the client package.
