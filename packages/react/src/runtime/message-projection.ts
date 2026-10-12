@@ -491,6 +491,7 @@ export function projectAssistantMessages(
             inlineToolPart(toolResult, key, event.tool_call_id),
           );
         } else {
+          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             continuationOwners.has(event.turn_id ?? "") &&
             !parentsWithCallbacks.has(event.turn_id ?? "") &&
@@ -501,15 +502,15 @@ export function projectAssistantMessages(
             // that finished last saw every earlier result, so it is the
             // answer; the earlier ones stay in the trace.
             const finished =
-              terminalTurns.get(event.turn_id ?? "")?.sequence ??
-              Number.MAX_SAFE_INTEGER;
+              terminal?.state === "complete"
+                ? terminal.sequence
+                : event.sequence;
             if (finished >= (projection.finalAnswerSequence ?? -Infinity)) {
               projection.finalAnswerSequence = finished;
               projection.finalAnswerStartIndex =
                 projection.textParts.get(key) ?? projection.parts.length;
             }
           }
-          const terminal = terminalTurns.get(event.turn_id ?? "");
           if (
             event.message_key &&
             event.content.trim() &&

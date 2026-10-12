@@ -962,6 +962,15 @@ describe("projectAssistantMessages", () => {
       ],
       metadata: { custom: { aomiFinalAnswerStartIndex: 4 } },
     });
+    const withoutBaseState = projectAssistantMessages(
+      events.filter(
+        (event) =>
+          event.turn_id !== base || event.type !== "turn_state_changed",
+      ),
+    );
+    expect(withoutBaseState[1]?.metadata?.custom).toMatchObject({
+      aomiFinalAnswerStartIndex: 4,
+    });
   });
 
   it("keeps malformed cyclic callback ancestry in separate rows", () => {
