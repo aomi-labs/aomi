@@ -64,7 +64,7 @@ export function SubagentRow({
             open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
           )}
         >
-          <div className="min-h-0 overflow-hidden">
+          <div className="relative min-h-0 overflow-hidden">
             <div className="text-aomi-muted overflow-hidden break-words pl-[26px] pt-2 text-[12px] leading-5 [&_.aui-md>*:first-child]:mt-0 [&_.aui-md>*:last-child]:mb-0 [&_.aui-md]:text-[12px] [&_.aui-md]:leading-5">
               <TextMessagePartProvider text={agent.message!} isRunning={false}>
                 <MarkdownText />

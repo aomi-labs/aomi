@@ -573,7 +573,7 @@ function Group({
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="relative min-h-0 overflow-hidden">
           <div className="pt-3">{children}</div>
         </div>
       </div>
