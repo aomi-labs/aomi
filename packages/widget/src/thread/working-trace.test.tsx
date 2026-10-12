@@ -1093,6 +1093,18 @@ describe("reading a shortened output", () => {
     );
   });
 
+  it("keep a finished read without an id on its own row", () => {
+    const anonymous = {
+      ...reads[1],
+      toolCallId: "read-anon",
+      args: {},
+      argsText: "{}",
+      result: { error: "expired" },
+    } satisfies ToolCallMessagePart;
+    const items = buildTraceItems([trimmed, reads[0], anonymous], []);
+    expect(items.map((item) => item.kind)).toEqual(["read", "read"]);
+  });
+
   it("report a partial read and an expired output", () => {
     const expired = {
       ...read(4, 0, 20),

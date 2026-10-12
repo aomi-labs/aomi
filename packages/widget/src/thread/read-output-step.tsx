@@ -49,9 +49,9 @@ const num = (value: unknown): number | undefined =>
 const readArgs = (part: ToolCallMessagePart): Json =>
   record(part.args) ?? record(part.argsText) ?? {};
 
-/** The saved-output id a read names, once its args have streamed in. */
+/** The saved-output id a read names: in its args once they stream in, else in its result. */
 export const readOutputId = (part: ToolCallMessagePart): string | undefined =>
-  str(readArgs(part).id);
+  str(readArgs(part).id) ?? str(record(part.result)?.id);
 
 /** One answered page, in the shape `read_tool_output` returns. */
 type Page = {

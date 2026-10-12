@@ -869,9 +869,11 @@ export const buildTraceItems = (
       if (isReadOutputTool(part.toolName)) {
         const id = readOutputId(part);
         const prev = items[items.length - 1];
-        // Paging one output is one step; a read still streaming its args
-        // most likely continues the run before it.
-        if (prev?.kind === "read" && (id === undefined || id === prev.id)) {
+        // Paging one output is one step. A read still streaming its args most
+        // likely continues the run before it; a finished one without an id
+        // stands alone.
+        const streaming = id === undefined && part.result === undefined;
+        if (prev?.kind === "read" && (streaming || (id && id === prev.id))) {
           prev.parts.push(part);
           prev.id ??= id;
           prev.sourceTool ??= id ? trimmedSources.get(id) : undefined;
