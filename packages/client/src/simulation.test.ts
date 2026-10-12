@@ -15,6 +15,15 @@ describe("simulation evidence", () => {
       chainIds: [5042002],
     });
   });
+  it("reads steps whose evidence is under the `result` key", () => {
+    const { execution, ...rest } = step;
+    expect(
+      summarizeSimulation({
+        ...report,
+        steps: [{ ...rest, result: execution }],
+      }),
+    ).toEqual({ passed: true, gas: 21000, steps: 1, chainIds: [5042002] });
+  });
   it("does not treat empty, skipped, failed or uncontextualized steps as success", () => {
     expect(summarizeSimulation({ ...report, steps: [] })?.passed).toBe(false);
     expect(
