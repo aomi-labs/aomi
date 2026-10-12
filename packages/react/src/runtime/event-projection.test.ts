@@ -1218,6 +1218,7 @@ it("places context steps in the turn's trace in event order", () => {
   expect(content[0]?.args).toEqual({
     kind: "trimmed",
     tool: "hoodit_scan",
+    id: "t_142a",
     bytes: 2_200_000,
     tokens: 14_000,
   });
