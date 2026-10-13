@@ -1,58 +1,89 @@
 # Aomi
 
-Aomi provides a React chat widget, a headless React runtime, a TypeScript SDK
-and a terminal client for conversations and wallet actions.
+An execution harness for onchain finance. You describe what you want, Aomi simulates it, your wallet signs it, and it's non-custodial.
 
 | Package | Purpose |
 | --- | --- |
-| `@aomi-labs/widget` | Chat UI and browser wallet integration |
 | `@aomi-labs/react` | Headless conversation runtime |
-| `@aomi-labs/client` | Browser and Node transport, accounts and Pipeline SDK |
-| `@aomi-labs/cli` | The `aomi` terminal command |
+| `@aomi-labs/client` | Browser and Node transport, accounts and SDK |
+| `@aomi-labs/widget-lib` | Chat UI and browser wallet integration |
 
-## Widget
+## MCP Server
+
+Connect Aomi to Claude, Cursor, or any MCP client.
 
 ```sh
-npm install @aomi-labs/widget react react-dom
+claude mcp add https://chat.aomi.dev/v1/agent/mcp
+```
+
+Or add to your MCP settings manually:
+
+```json
+{
+  "mcpServers": {
+    "aomi": {
+      "url": "https://chat.aomi.dev/v1/agent/mcp"
+    }
+  }
+}
+```
+
+Read prices, balances, build transactions, simulate them on a forked chain, and sign locally through your wallet.
+
+### Publishing to the MCP Registry
+
+The `server.json` file in this repo contains the MCP server metadata for the official registry. To publish or update:
+
+1. Fork the [MCP registry](https://github.com/modelcontextprotocol/registry)
+2. Add or update `registry/src/servers/io.github.aomi-labs/aomi/server.json` with the contents from this repo
+3. Submit a pull request
+
+The server is also available on Smithery, Glama, and other MCP directories.
+
+## CLI
+
+```sh
+npm install -g @aomi-labs/client
+aomi --help
+```
+
+The `aomi` command is included in the `@aomi-labs/client` package. If not on PATH, use `npx @aomi-labs/client` instead.
+
+```sh
+aomi --prompt "what is the price of ETH?"
+aomi tx build "swap 1 ETH for USDC"
+aomi tx simulate tx-1
+aomi tx sign tx-1
+```
+
+## React Widget
+
+Drop a working AI chat widget into your app with simulation and wallet signing already wired.
+
+```sh
+npm install @aomi-labs/widget-lib react react-dom
 ```
 
 ```tsx
-import { AomiWidget } from "@aomi-labs/widget";
-import "@aomi-labs/widget/styles.css";
+import { AomiWidget } from "@aomi-labs/widget-lib";
+import "@aomi-labs/widget-lib/styles.css";
 
 export function Assistant() {
   return <AomiWidget applicationId="2937810" />;
 }
 ```
 
-The default API origin is `https://chat.aomi.dev`; pass `apiUrl` for another
-Portal/BFF. Browser wallets are the default authentication mode. Optional
-Privy and Para integrations load when selected and require their SDK packages.
-The widget scopes its styles, overlays and preferences to each instance.
+The default API origin is `https://chat.aomi.dev`. Browser wallets are the default authentication mode.
 
-Advanced hosts compose the compiled `@aomi-labs/widget/frame` entry and supply
-an explicit `backendUrl`. `@aomi-labs/widget-lib` remains a deprecated
-compatibility package during the migration window, including Para, Privy and
-Privy's feature peers for existing integrations. The frozen copy-in
-registry remains available for one release; see
-[registry transition](docs/topics/development/facts/registry-retirement.md).
+## Headless React
 
-## SDK and CLI
+For custom UIs, install `@aomi-labs/react` and provide the transport and wallet capabilities explicitly.
 
 ```sh
-npm install @aomi-labs/client
-npm install -g @aomi-labs/cli
-aomi --help
+npm install @aomi-labs/react @aomi-labs/client
 ```
 
-The CLI shares the public SDK's conversation, account, guard and Pipeline
-contracts. `aomi session list` reads remote conversations; `local-list` reads
-local CLI state. Rename and archive, edit and rerun, guard revision checks and
-account statements use the same backend authority as the widget.
-
-For custom React UIs, install `@aomi-labs/react` and provide the transport and
-wallet capabilities explicitly. See the package READMEs and the maintained
-[integration documentation](https://docs.aomi.dev).
+See the package READMEs and the [integration documentation](https://aomi.dev/docs).
 
 ## Workspace
 
