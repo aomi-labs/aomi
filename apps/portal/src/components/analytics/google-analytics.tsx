@@ -1,4 +1,3 @@
-"use client";
 import { useEffect } from "react";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;

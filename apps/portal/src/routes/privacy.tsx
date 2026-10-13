@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Screen from "@/screens/privacy/page";
+import Screen from "@/features/legal/privacy-page";
 export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [

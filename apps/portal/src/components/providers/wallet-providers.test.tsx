@@ -357,14 +357,14 @@ describe("WalletProviders Privy configuration", () => {
       const [{ WalletProviders }, page] = await Promise.all([
         import("./wallet-providers"),
         pathname === "/device-auth"
-          ? import("@/screens/device-auth/device-auth-client")
-          : import("@/screens/oauth/device/oauth-device-client"),
+          ? import("@/features/device-auth/device-auth-client")
+          : import("@/features/oauth/oauth-device-client"),
       ]);
       const Page =
         pathname === "/device-auth"
-          ? (page as typeof import("@/screens/device-auth/device-auth-client"))
+          ? (page as typeof import("@/features/device-auth/device-auth-client"))
               .DeviceAuthClient
-          : (page as typeof import("@/screens/oauth/device/oauth-device-client"))
+          : (page as typeof import("@/features/oauth/oauth-device-client"))
               .OAuthDeviceClient;
 
       const view = render(
