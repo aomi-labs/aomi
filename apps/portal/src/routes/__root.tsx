@@ -13,7 +13,12 @@ import { readE2EWallet } from "@/server-functions";
 import GlobalError from "@/screens/global-error";
 import { reportRenderError } from "@/lib/report-render-error";
 import "@/screens/globals.css";
-import "@/fonts.css";
+import "@aomi-labs/app-kit/fonts.css";
+import geistLatin from "@aomi-labs/app-kit/fonts/geist-latin.woff2?url";
+import geistMonoLatin from "@aomi-labs/app-kit/fonts/geist-mono-latin.woff2?url";
+import ptSerif400Latin from "@aomi-labs/app-kit/fonts/pt-serif-400-latin.woff2?url";
+import ptSerif700Latin from "@aomi-labs/app-kit/fonts/pt-serif-700-latin.woff2?url";
+import sourceSerif4Latin from "@aomi-labs/app-kit/fonts/source-serif-4-latin.woff2?url";
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     loader: () => readE2EWallet(),
@@ -31,41 +36,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       links: [
         { rel: "icon", href: "/assets/images/a.svg" },
         { rel: "apple-touch-icon", href: "/assets/images/a.svg" },
-        {
+        // Same URLs as the @font-face sources, so the preloads are reused.
+        ...[
+          geistLatin,
+          geistMonoLatin,
+          ptSerif400Latin,
+          ptSerif700Latin,
+          sourceSerif4Latin,
+        ].map((href) => ({
           rel: "preload",
-          href: "/assets/fonts/google/geist-latin.woff2",
+          href,
           as: "font",
           type: "font/woff2",
-          crossOrigin: "anonymous",
-        },
-        {
-          rel: "preload",
-          href: "/assets/fonts/google/geist-mono-latin.woff2",
-          as: "font",
-          type: "font/woff2",
-          crossOrigin: "anonymous",
-        },
-        {
-          rel: "preload",
-          href: "/assets/fonts/google/pt-serif-400-latin.woff2",
-          as: "font",
-          type: "font/woff2",
-          crossOrigin: "anonymous",
-        },
-        {
-          rel: "preload",
-          href: "/assets/fonts/google/pt-serif-700-latin.woff2",
-          as: "font",
-          type: "font/woff2",
-          crossOrigin: "anonymous",
-        },
-        {
-          rel: "preload",
-          href: "/assets/fonts/google/source-serif-4-latin.woff2",
-          as: "font",
-          type: "font/woff2",
-          crossOrigin: "anonymous",
-        },
+          crossOrigin: "anonymous" as const,
+        })),
       ],
     }),
     headers: () => ({ "Cache-Control": "private, no-store" }),

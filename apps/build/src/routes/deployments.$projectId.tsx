@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { stringifyUrlSearch } from "@/lib/url-search";
+import { stringifyUrlSearch } from "@aomi-labs/app-kit/url-search";
 
 export const Route = createFileRoute("/deployments/$projectId")({
   validateSearch: (search: Record<string, unknown>) =>

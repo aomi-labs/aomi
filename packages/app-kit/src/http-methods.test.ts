@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { installNativeHttpMethods } from "./http-methods";
+import { installNativeHttpMethods } from "./http";
 
 type NativeHandler = (input: { request: Request }) => Response;
 

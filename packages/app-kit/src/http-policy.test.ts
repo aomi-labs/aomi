@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { trailingSlashRedirect } from "./http-policy";
+import { trailingSlashRedirect } from "./http";
 
 describe("trailingSlashRedirect", () => {
   it.each([

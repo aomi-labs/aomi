@@ -17,7 +17,10 @@ import { describe, expect, it } from "vitest";
 
 import { usePortalUrlNavigation } from "./navigation";
 import { useRequestedAppConfig } from "./portal-client-options";
-import { parseUrlSearch, stringifyUrlSearch } from "./url-search";
+import {
+  parseUrlSearch,
+  stringifyUrlSearch,
+} from "@aomi-labs/app-kit/url-search";
 
 function NavigationHarness() {
   const navigation = usePortalUrlNavigation();

@@ -1,4 +1,7 @@
-/** Keep the host's existing textual, repeated-query-parameter contract. */
+/**
+ * Router search (de)serializers that keep the hosts' textual query contract:
+ * values stay strings and repeated keys become arrays, in URL order.
+ */
 export function parseUrlSearch(
   search: string,
 ): Record<string, string | string[]> {
@@ -17,12 +20,9 @@ export function parseUrlSearch(
 
 export function stringifyUrlSearch(search: Record<string, unknown>): string {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(search)) {
-    if (Array.isArray(value)) {
-      for (const item of value)
-        if (item != null) params.append(key, String(item));
-    } else if (value != null) params.set(key, String(value));
-  }
+  for (const [key, value] of Object.entries(search))
+    for (const item of Array.isArray(value) ? value : [value])
+      if (item != null) params.append(key, String(item));
   const query = params.toString();
   return query ? `?${query}` : "";
 }

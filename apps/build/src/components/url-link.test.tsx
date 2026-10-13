@@ -9,7 +9,10 @@ import {
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UrlLink, urlLinkOptions } from "./url-link";
-import { parseUrlSearch, stringifyUrlSearch } from "@/lib/url-search";
+import {
+  parseUrlSearch,
+  stringifyUrlSearch,
+} from "@aomi-labs/app-kit/url-search";
 
 vi.unmock("@tanstack/react-router");
 

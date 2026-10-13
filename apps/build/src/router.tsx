@@ -9,7 +9,10 @@ import {
   controlPlaneRetryDelay,
   shouldRetryControlPlaneQuery,
 } from "./lib/request-retry";
-import { parseUrlSearch, stringifyUrlSearch } from "./lib/url-search";
+import {
+  parseUrlSearch,
+  stringifyUrlSearch,
+} from "@aomi-labs/app-kit/url-search";
 
 export function getRouter() {
   const queryClient = new QueryClient({

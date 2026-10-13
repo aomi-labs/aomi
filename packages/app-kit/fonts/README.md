@@ -5,8 +5,10 @@ These unchanged Google Fonts WOFF2 subsets preserve the typography supplied by
 `9ab669efcfa9572ef6166e71588ae00d089c55d3`. They were copied from that
 checkout's local Next font cache. Geist latin, Geist Mono latin, and PT Serif
 400/700 latin reuse the byte-identical files already committed in Landing.
-Each app carries its own files, so deployment does not depend on another app.
-`SHA256SUMS` records the exact bytes; `LICENSE.txt` contains the OFL 1.1 notices.
+Portal and Build import `fonts.css` from this package; Vite emits the files as
+hashed `_build` assets in each app's output, so deployment still does not depend
+on another app. `SHA256SUMS` records the exact bytes; `LICENSE.txt` contains
+the OFL 1.1 notices.
 
 The accompanying CSS preserves every cached Unicode subset, normal style,
 Geist/Geist Mono variable weights 100–900, PT Serif weights 400 and 700,

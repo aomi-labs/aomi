@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import { mockStartRouteTree } from "./scripts/mock-start-route-tree";
+import { mockStartRouteTree } from "./packages/app-kit/src/vitest";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 

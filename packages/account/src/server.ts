@@ -21,7 +21,5 @@ export {
   type ResolveCanonicalUserId,
 } from "./proxy";
 export { getPool } from "./db/pool";
-export { installNativeHttpMethods } from "./http-methods";
-export { trailingSlashRedirect } from "./http-policy";
 
 export * from "./types";
