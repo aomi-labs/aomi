@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@aomi-labs/account": "workspace:*",
+    "@aomi-labs/app-kit": "workspace:*",
     "@aomi-labs/client": "workspace:*",
     "@aomi-labs/react": "workspace:*",
     "@aomi-labs/widget": "workspace:*",

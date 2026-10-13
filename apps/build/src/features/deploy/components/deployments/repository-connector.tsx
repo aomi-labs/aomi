@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock, Github } from "lucide-react";
 import { githubAppInstallUrl } from "@/features/deploy/client";

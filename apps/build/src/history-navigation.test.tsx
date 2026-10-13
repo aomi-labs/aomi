@@ -25,7 +25,10 @@ import { platformParam } from "./features/deploy/platform";
 import type { ReactElement } from "react";
 import type { LaunchProgress } from "./features/deploy";
 import { OperateView } from "./features/operate/operate-view";
-import { parseUrlSearch, stringifyUrlSearch } from "./lib/url-search";
+import {
+  parseUrlSearch,
+  stringifyUrlSearch,
+} from "@aomi-labs/app-kit/url-search";
 
 vi.unmock("@tanstack/react-router");
 vi.mock("./features/deploy/dashboard", () => ({

@@ -3,7 +3,7 @@ export const Route = createFileRoute("/")({
   server: {
     handlers: {
       GET: async () => {
-        const handler = await import("@/server/http/index/route");
+        const handler = await import("@/server/home");
         return handler.GET();
       },
     },

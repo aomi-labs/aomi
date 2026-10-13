@@ -33,7 +33,7 @@ tail -f /tmp/aomi-backend.log
 
 ## What The Script Does
 
-`scripts/dev-auth-stack.sh` owns this local dev stack:
+`scripts/dev/dev-auth-stack.sh` owns this local dev stack:
 
 - Uses sibling `../product-mono/run-local-backend.sh` for the Rust backend on
   `127.0.0.1:8080`.
@@ -61,7 +61,7 @@ alone and only overrides the env inside the tmux process.
 pnpm run dev:auth-stack          # restart backend + portal
 pnpm run dev:auth-stack:status   # show health, listeners, tmux sessions
 pnpm run dev:auth-stack:stop     # stop the tmux sessions and free ports
-./scripts/dev-auth-stack.sh db   # only prepare the local DB/schema
+./scripts/dev/dev-auth-stack.sh db   # only prepare the local DB/schema
 ```
 
 ## Expected Local Pieces
@@ -146,14 +146,14 @@ an app key, send a chat message, then sign in with the second wallet and confirm
 it sees the same account/thread:
 
 ```bash
-AOMI_SMOKE_SIWE=1 node scripts/smoke-auth-stack.mjs
+AOMI_SMOKE_SIWE=1 node scripts/dev/smoke-auth-stack.mjs
 ```
 
 You can also smoke an existing browser login by copying the browser's raw Cookie
 header for `localhost:3000`:
 
 ```bash
-AOMI_PORTAL_COOKIE='better-auth.session_token=...' node scripts/smoke-auth-stack.mjs
+AOMI_PORTAL_COOKIE='better-auth.session_token=...' node scripts/dev/smoke-auth-stack.mjs
 ```
 
 The smoke checks the BFF bearer endpoint, direct backend bearer acceptance,

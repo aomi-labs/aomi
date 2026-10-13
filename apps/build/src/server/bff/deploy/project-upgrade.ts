@@ -1,7 +1,7 @@
 import "@tanstack/react-start/server-only";
 
 import { backendClient } from "@/server/bff/backend";
-import { clearDeployReadCache } from "./routes";
+import { clearDeployReadCache } from "./shared";
 import { authorize } from "@/server/bff/auth";
 import { buildFailures } from "@/server/bff/failures";
 

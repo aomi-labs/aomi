@@ -9,7 +9,7 @@ const operateAppDetailFetch = vi.fn();
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
-  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  Link: (await import("@/test/navigation-link")).TestNavigationLink,
   useRouter: () => ({ navigate: ({ href }: { href: string }) => push(href) }),
 }));
 

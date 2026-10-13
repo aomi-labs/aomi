@@ -1,9 +1,18 @@
 name: CI
 
+# Pull requests run a lean, path-selected set: packages build once and are
+# shared as an artifact, apps check in a parallel matrix, and journeys run a
+# smoke subset. The release-gating jobs (consumer-compat, widget-contracts,
+# browser-contracts, packed-consumers) run on PRs only when packages/**,
+# .changeset/** or their own harness change. Push to main, the nightly
+# schedule and manual dispatch run every selected job with full journeys.
 on:
   push:
     branches: [main, prod]
   pull_request:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,16 +27,18 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.select.outputs.packages }}
+      package_build: ${{ steps.select.outputs.package_build }}
       apps: ${{ steps.select.outputs.apps }}
+      app_matrix: ${{ steps.select.outputs.app_matrix }}
       portal: ${{ steps.select.outputs.portal }}
       build: ${{ steps.select.outputs.build }}
       landing: ${{ steps.select.outputs.landing }}
       telegram: ${{ steps.select.outputs.telegram }}
       journeys: ${{ steps.select.outputs.journeys }}
+      journeys_scope: ${{ steps.select.outputs.journeys_scope }}
       browser_contracts: ${{ steps.select.outputs.browser_contracts }}
       consumer_compat: ${{ steps.select.outputs.consumer_compat }}
       workflow_policy: ${{ steps.select.outputs.workflow_policy }}
-      preview: ${{ steps.select.outputs.preview }}
     steps:
       - name: Checkout comparison history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -40,13 +51,50 @@ jobs:
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          CI_DIFF_MODE: ${{ github.event_name == 'push' && 'push' || 'pull_request' }}
-          CI_FORCE_FULL: ${{ (github.ref == 'refs/heads/prod' || github.base_ref == 'prod') && '1' || '0' }}
+          CI_DIFF_MODE: ${{ github.event_name == 'pull_request' && 'pull_request' || 'push' }}
+          CI_FORCE_FULL: ${{ (github.ref == 'refs/heads/prod' || github.base_ref == 'prod' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '0' }}
         run: node .github/scripts/select-ci-paths.mjs
 
-  packages:
-    name: Packages · lint, types, tests, builds
+  build-packages:
+    name: Packages · build once
     needs: changes
+    if: needs.changes.outputs.package_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build every publishable package
+        run: pnpm run build:packages
+
+      - name: Share package builds with downstream jobs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: packages-dist
+          path: |
+            packages/*/dist/
+            packages/widget-lib/themes/
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  packages:
+    name: Packages · lint, types, tests
+    needs: [changes, build-packages]
     if: needs.changes.outputs.packages == 'true'
     runs-on: ubuntu-latest
     services:
@@ -70,6 +118,8 @@ jobs:
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
@@ -89,8 +139,11 @@ jobs:
       - name: Lint and typecheck workspace
         run: pnpm run lint && pnpm run typecheck
 
-      - name: Build every publishable package
-        run: pnpm run build:packages
+      - name: Download built packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-dist
+          path: packages
 
       - name: Verify shared account package tarball
         run: pnpm --filter @aomi-labs/account pack --pack-destination /tmp/aomi-account-pack
@@ -98,15 +151,15 @@ jobs:
       - name: Run workspace tests and committed OpenAPI contract
         run: |
           pnpm exec vitest run --reporter=default --reporter=json --outputFile=output/ci/workspace-tests.json
-          node scripts/check-test-results.mjs output/ci/workspace-tests.json
+          node scripts/ci/check-test-results.mjs output/ci/workspace-tests.json
 
       # Full widget suite, including the dist boundary checks that need the
-      # build:packages output above. Locally, `pnpm check` runs the same suite
+      # shared package build. Locally, `pnpm check` runs the same suite
       # minus src/package-boundary.test.ts (pnpm run test:widget).
       - name: Run widget library tests
         run: |
           pnpm --filter @aomi-labs/widget test --reporter=default --reporter=json --outputFile=../../output/ci/widget-tests.json
-          node scripts/check-test-results.mjs output/ci/widget-tests.json
+          node scripts/ci/check-test-results.mjs output/ci/widget-tests.json
 
   consumer-compat:
     name: Consumer compatibility · packed SDK and widget
@@ -116,7 +169,7 @@ jobs:
     timeout-minutes: 30
     env:
       # Event payload selects the trusted baseline; PR files cannot move it.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
     steps:
       - name: Checkout candidate and trusted baseline history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -151,10 +204,14 @@ jobs:
       AOMI_DOCS_READ_TOKEN: ${{ secrets.AOMI_DOCS_READ_TOKEN }}
 
   apps:
-    name: Apps · affected surfaces
-    needs: changes
+    name: Apps · ${{ matrix.app }}
+    needs: [changes, build-packages]
     if: needs.changes.outputs.apps == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.changes.outputs.app_matrix) }}
     services:
       auth-postgres:
         image: postgres:16-alpine
@@ -170,6 +227,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      APP: ${{ matrix.app }}
       AOMI_AUTH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
@@ -191,48 +249,45 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build package prerequisites
-        run: pnpm run build:packages
+      - name: Download built packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-dist
+          path: packages
 
-      - name: Check affected apps
-        env:
-          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
-          CHECK_BUILD: ${{ needs.changes.outputs.build }}
-          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
+      - name: Lint, typecheck and test
         run: |
           set -euo pipefail
-          if [ "$CHECK_PORTAL" = true ]; then
-            pnpm run lint:portal
-            pnpm run typecheck:portal
-            pnpm --filter portal exec vitest run --reporter=default --reporter=json --outputFile=../../output/ci/portal-tests.json
-            node scripts/check-test-results.mjs output/ci/portal-tests.json
-          fi
-          if [ "$CHECK_BUILD" = true ]; then
-            pnpm run lint:aomi-build
-            pnpm run typecheck:aomi-build
-            pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=../../output/ci/build-tests.json
-            node scripts/check-test-results.mjs output/ci/build-tests.json
-          fi
-          if [ "$CHECK_LANDING" = true ]; then
-            pnpm run lint:landing
-            pnpm run typecheck:landing
-            pnpm exec vitest run --config apps/landing/vitest.config.ts --reporter=default --reporter=json --outputFile=output/ci/landing-tests.json
-            node scripts/check-test-results.mjs output/ci/landing-tests.json
-          fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            pnpm run lint:telegram
-            pnpm run typecheck:telegram
-            pnpm --filter telegram test:unit --reporter=default --reporter=json --outputFile=../../output/ci/telegram-tests.json
-            node scripts/check-test-results.mjs output/ci/telegram-tests.json
-          fi
+          case "$APP" in
+            portal)
+              pnpm run lint:portal
+              pnpm run typecheck:portal
+              pnpm --filter portal exec vitest run --reporter=default --reporter=json --outputFile=../../output/ci/portal-tests.json
+              ;;
+            build)
+              pnpm run lint:aomi-build
+              pnpm run typecheck:aomi-build
+              pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=../../output/ci/build-tests.json
+              ;;
+            landing)
+              pnpm run lint:landing
+              pnpm run typecheck:landing
+              pnpm exec vitest run --config apps/landing/vitest.config.ts --reporter=default --reporter=json --outputFile=output/ci/landing-tests.json
+              ;;
+            telegram)
+              pnpm run lint:telegram
+              pnpm run typecheck:telegram
+              pnpm --filter telegram test:unit --reporter=default --reporter=json --outputFile=../../output/ci/telegram-tests.json
+              ;;
+            *)
+              echo "Unknown app $APP" >&2
+              exit 1
+              ;;
+          esac
+          node scripts/ci/check-test-results.mjs "output/ci/$APP-tests.json"
 
-      - name: Build affected apps
+      - name: Build app
         env:
-          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
-          CHECK_BUILD: ${{ needs.changes.outputs.build }}
-          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
           BETTER_AUTH_SECRET: ci-build-only-secret-at-least-32-bytes-long
           BETTER_AUTH_URL: http://localhost:3000
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
@@ -244,22 +299,14 @@ jobs:
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: |
           set -euo pipefail
-          if [ "$CHECK_PORTAL" = true ]; then
-            pnpm run build:portal
-          fi
-          if [ "$CHECK_BUILD" = true ]; then
-            pnpm run build:aomi-build
-          fi
-          if [ "$CHECK_LANDING" = true ]; then
-            pnpm run build:landing
-          fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            pnpm run build:telegram
-          fi
+          case "$APP" in
+            build) pnpm run build:aomi-build ;;
+            *) pnpm run "build:$APP" ;;
+          esac
 
   journeys:
     name: Journeys · Portal, Vite embed and mobile on the fake agent
-    needs: changes
+    needs: [changes, build-packages]
     if: needs.changes.outputs.journeys == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -283,6 +330,8 @@ jobs:
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Enable corepack
         run: corepack enable
@@ -302,11 +351,23 @@ jobs:
       - name: Typecheck browser suites
         run: pnpm exec tsc --project tsconfig.journeys.json --noEmit
 
-      - name: Build packages
-        run: pnpm run build:packages
+      - name: Download built packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: packages-dist
+          path: packages
 
+      # PRs run the guest send/stream, thread switch and tx review/sign smoke;
+      # main, nightly and manual runs cover every journey.
       - name: Run journeys
-        run: pnpm run test:journeys
+        env:
+          JOURNEYS_SCOPE: ${{ needs.changes.outputs.journeys_scope }}
+        run: |
+          if [ "$JOURNEYS_SCOPE" = full ]; then
+            pnpm run test:journeys
+          else
+            pnpm run test:journeys:smoke
+          fi
 
       - name: Upload traces, videos and agent request logs
         if: always()
@@ -341,7 +402,7 @@ jobs:
           --health-retries 10
     env:
       # The immutable consumer comes from the event-selected base, never PR files.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
@@ -405,7 +466,7 @@ jobs:
           --health-retries 10
     env:
       # The immutable consumer comes from the event-selected base, never PR files.
-      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      CONSUMER_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
     steps:
@@ -597,6 +658,7 @@ jobs:
     needs:
       [
         changes,
+        build-packages,
         packages,
         apps,
         journeys,
@@ -614,6 +676,8 @@ jobs:
       - name: Aggregate required checks
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          PACKAGE_BUILD_SELECTED: ${{ needs.changes.outputs.package_build }}
+          PACKAGE_BUILD_RESULT: ${{ needs.build-packages.result }}
           PACKAGES_SELECTED: ${{ needs.changes.outputs.packages }}
           PACKAGES_RESULT: ${{ needs.packages.result }}
           APPS_SELECTED: ${{ needs.changes.outputs.apps }}
@@ -647,6 +711,7 @@ jobs:
           }
 
           test "$CHANGES_RESULT" = success
+          require_selected "$PACKAGE_BUILD_SELECTED" "$PACKAGE_BUILD_RESULT" build-packages
           require_selected "$PACKAGES_SELECTED" "$PACKAGES_RESULT" packages
           require_selected "$APPS_SELECTED" "$APPS_RESULT" apps
           require_selected "$JOURNEYS_SELECTED" "$JOURNEYS_RESULT" journeys

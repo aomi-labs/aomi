@@ -1,5 +1,3 @@
-"use client";
-
 import {
   UrlLink as Link,
   urlLinkOptions,

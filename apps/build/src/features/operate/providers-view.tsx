@@ -1,5 +1,3 @@
-"use client";
-
 // The global Providers page: builder-owned LLM model keys, provider-centric.
 // One flat card per provider (header + divide-y key rows). Each key row is an
 // accordion: click to expand an inline panel with key metadata, project

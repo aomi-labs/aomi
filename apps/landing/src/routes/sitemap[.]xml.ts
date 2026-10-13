@@ -4,7 +4,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const handler = await import("@/server/http/sitemap.xml/route");
+        const handler = await import("@/server/sitemap");
         return handler.GET();
       },
     },

@@ -2,7 +2,7 @@ import type { Scenario } from "./types";
 
 /**
  * Cross-chain intent, end to end — the scenario the mock relayer was built
- * for (specs/MOCK-RELAYER.md).
+ * for (docs/specs/MOCK-RELAYER.md).
  *
  * Both legs are forked (mainnet + Base) and the `across` chain actor plays
  * the relayer nobody else is running: it watches the mainnet fork's

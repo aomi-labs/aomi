@@ -1,5 +1,3 @@
-"use client";
-
 import { UrlLink as Link } from "@/components/url-link";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";

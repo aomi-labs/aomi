@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Page, { metadata } from "@/screens/embed-playground/page";
+import Page, { metadata } from "@/features/embed-playground/embed-playground-page";
 import { landingHead } from "@/lib/metadata";
 export const Route = createFileRoute("/embed-playground")({
   validateSearch: (search) => ({

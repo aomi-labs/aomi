@@ -5,9 +5,9 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import { COLOR_THEME_INIT_SCRIPT } from "@/screens/marketing/color-theme";
-import NotFound from "@/screens/not-found";
-import "@/screens/globals.css";
+import { COLOR_THEME_INIT_SCRIPT } from "@/features/marketing/color-theme";
+import NotFound from "@/components/not-found";
+import "@/styles/globals.css";
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     head: () => ({

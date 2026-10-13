@@ -26,7 +26,7 @@ afterEach(() => history.destroy());
 
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
-  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  Link: (await import("@/test/navigation-link")).TestNavigationLink,
   useLocation: (options: {
     select: (location: { pathname: string; searchStr: string }) => unknown;
   }) =>

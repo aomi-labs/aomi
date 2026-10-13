@@ -1,5 +1,3 @@
-"use client";
-
 // Page-level explainer for the Telegram integration: numbered steps on the
 // left, a Telegram-styled mock of the real BotFather /setcommands exchange on
 // the right. Ported from the /mock-integration design session.

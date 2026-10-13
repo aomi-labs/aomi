@@ -47,5 +47,5 @@ Use `./scripts/repowiki list` to enumerate topics and `./scripts/repowiki look <
 
 - [../index.md](../index.md): repo wiki entrypoint and policy
 - [../local-dev-stack.md](../local-dev-stack.md): local BFF/BetterAuth stack setup
-- [../../specs/DOMAIN.md](../../specs/DOMAIN.md): architecture rules and flows
-- [../../specs/METADATA.md](../../specs/METADATA.md): package and environment metadata
+- [../specs/DOMAIN.md](../specs/DOMAIN.md): architecture rules and flows
+- [../specs/METADATA.md](../specs/METADATA.md): package and environment metadata

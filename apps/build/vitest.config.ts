@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
-import { mockStartRouteTree } from "../../scripts/mock-start-route-tree";
+import { mockStartRouteTree } from "@aomi-labs/app-kit/vitest";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const srcDir = resolve(currentDir, "src");

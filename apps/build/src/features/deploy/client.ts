@@ -1,5 +1,3 @@
-"use client";
-
 // Launch/deployments BFF client — one @aomi-labs/deploy/launch client instance
 // bound to Aomi Build's route mounts, re-exported as the named functions the
 // call sites (and their test mocks) already use. Only `githubAppInstallUrl`

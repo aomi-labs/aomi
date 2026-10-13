@@ -26,7 +26,7 @@ export default defineConfig({
       use: { trace: "off", screenshot: "off", video: "off" },
     },
     {
-      // Started by scripts/test-browser-contracts.mjs.
+      // Started by scripts/ci/test-browser-contracts.mjs.
       name: "browser-contracts",
       testMatch:
         /(?:portal-auth-contracts|visual-signing-contracts|widget-browser-contracts)\.spec\.ts/,

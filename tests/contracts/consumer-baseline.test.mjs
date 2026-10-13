@@ -14,7 +14,7 @@ import {
   copyTrustedConsumer,
   trustedConsumerImporters,
   trustedConsumers,
-} from "../../scripts/check-consumer-compatibility-baseline.mjs";
+} from "../../scripts/ci/check-consumer-compatibility-baseline.mjs";
 
 for (const paths of [
   ["apps/examples/headless-client", "apps/widget-consumer"],
@@ -168,7 +168,7 @@ for (const baseline of [
       process.execPath,
       [
         new URL(
-          "../../scripts/check-consumer-compatibility.mjs",
+          "../../scripts/ci/check-consumer-compatibility.mjs",
           import.meta.url,
         ).pathname,
         ...(baseline ? ["--base", baseline] : []),

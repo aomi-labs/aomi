@@ -1,5 +1,3 @@
-"use client";
-
 import type { User, WalletWithMetadata } from "@privy-io/react-auth";
 
 /** The embedded EVM wallet as the Privy *user* records it.

@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { invokeHandler } from "@/server/http-handler";
-import * as handlers from "@/server/http/api/delegation/privy/callback/route";
+import { routes } from "@/server/bff/routes";
+
+const callback = routes.delegationCallback("privy");
 
 export const Route = createFileRoute("/api/delegation/privy/callback")({
   server: {
     handlers: {
-      POST: ({ request, params }) =>
-        invokeHandler(handlers.POST, request, params),
-      OPTIONS: ({ request, params }) =>
-        invokeHandler(handlers.OPTIONS, request, params),
+      POST: ({ request }) => callback.POST(request),
+      OPTIONS: ({ request }) => callback.OPTIONS(request),
     },
   },
 });

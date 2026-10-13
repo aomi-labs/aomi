@@ -1,5 +1,3 @@
-"use client";
-
 import { ArrowUp, Laptop, Loader2, Square } from "lucide-react";
 import {
   forwardRef,

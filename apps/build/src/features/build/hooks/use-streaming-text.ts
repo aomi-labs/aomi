@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useStreamingText(fullText: string, enabled: boolean) {

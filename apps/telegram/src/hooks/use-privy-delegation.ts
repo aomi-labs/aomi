@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePrivy, useSessionSigners } from "@privy-io/react-auth";
 import type { AccountSessionProvider } from "@aomi-labs/client";

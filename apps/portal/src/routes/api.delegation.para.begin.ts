@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { invokeHandler } from "@/server/http-handler";
-import * as handlers from "@/server/http/api/delegation/para/begin/route";
+import { routes } from "@/server/bff/routes";
+
+const begin = routes.delegationBegin("para");
 
 export const Route = createFileRoute("/api/delegation/para/begin")({
   server: {
     handlers: {
-      POST: ({ request, params }) =>
-        invokeHandler(handlers.POST, request, params),
-      OPTIONS: ({ request, params }) =>
-        invokeHandler(handlers.OPTIONS, request, params),
+      POST: ({ request }) => begin.POST(request),
+      OPTIONS: ({ request }) => begin.OPTIONS(request),
     },
   },
 });

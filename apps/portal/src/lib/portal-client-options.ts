@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * The portal's runtime fetch stack, extracted from the frame shell so the
  * component file stays presentational.

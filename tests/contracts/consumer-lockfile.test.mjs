@@ -6,7 +6,7 @@ import {
   importerVersions,
   packageVersion,
   snapshotDependencyVersion,
-} from "../../scripts/consumer-lockfile.mjs";
+} from "../../scripts/ci/consumer-lockfile.mjs";
 
 const lockfile = `importers:
 

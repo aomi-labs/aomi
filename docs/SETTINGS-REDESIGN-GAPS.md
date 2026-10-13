@@ -159,7 +159,7 @@ inline-styled (immune to Tailwind arbitrary-class scanning misses).
 
 ## 2026-07-26 — design-system gaps closed
 
-All five gaps from the component inventory are resolved; see specs/STATE.md
+All five gaps from the component inventory are resolved; see docs/specs/STATE.md
 for the full rule set.
 
 1. Focus ring — `--aomi-ring` + a zero-specificity `:focus-visible` rule in

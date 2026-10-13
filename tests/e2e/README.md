@@ -22,7 +22,7 @@ every test.
   account isolation) on a production Portal and the packed Vite consumer.
 - `pnpm run test:browser:consumers`: the journeys and the ordinary-turn
   performance gate (`performance/`) on the production Portal and packed Vite
-  and Next.js consumers, then `scripts/performance/capture-ui.ts`.
+  and Next.js consumers, then `scripts/ci/performance/capture-ui.ts`.
 
 Both need `CONSUMER_BASE_SHA` and the two database variables above. Set
 `AOMI_PERF_PROFILE=1` to attach a CPU profile to the performance gate.

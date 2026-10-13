@@ -1,5 +1,3 @@
-"use client";
-
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 

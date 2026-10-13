@@ -38,4 +38,4 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/publish-tagged-packages.mjs
+        run: node scripts/release/publish-tagged-packages.mjs

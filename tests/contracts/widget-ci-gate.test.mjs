@@ -74,6 +74,7 @@ test("Frontend CI Passed fails closed when selected widget coverage is missing",
     PACKED_RESULT: "skipped",
   };
   for (const prefix of [
+    "PACKAGE_BUILD",
     "PACKAGES",
     "APPS",
     "JOURNEYS",

@@ -1,6 +1,6 @@
 import { Link, linkOptions, type LinkProps } from "@tanstack/react-router";
 import type { AnchorHTMLAttributes } from "react";
-import { parseUrlSearch } from "@/lib/url-search";
+import { parseUrlSearch } from "@aomi-labs/app-kit/url-search";
 
 export type UrlLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> &
   Pick<LinkProps, "preload" | "replace" | "resetScroll"> & {

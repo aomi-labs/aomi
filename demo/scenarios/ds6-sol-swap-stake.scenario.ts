@@ -5,7 +5,7 @@ import type { Scenario } from "./types";
  *
  * Runs entirely on the Surfpool mainnet-fork mirror; phase 0 proved both legs
  * execute there (Jupiter swap finalized, Marinade stake confirmed — see
- * specs/SOLANA-DEMO-PLAN.md "Phase 0 VERDICT"). Not a one-take real-money
+ * docs/specs/SOLANA-DEMO-PLAN.md "Phase 0 VERDICT"). Not a one-take real-money
  * proof video after all: as re-recordable as DS2.
  *
  * Environment contract:

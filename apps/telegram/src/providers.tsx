@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { PrivyProvider } from "@privy-io/react-auth";
-import { WalletConfigurationMissing } from "@/screens/wallet-shell";
+import { WalletConfigurationMissing } from "@/features/wallet/wallet-shell";
 
 import { privyAppId } from "@/lib/config";
 import { webApp } from "@/lib/telegram-ui";

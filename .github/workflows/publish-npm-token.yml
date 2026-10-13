@@ -64,16 +64,16 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          node scripts/publish-package-if-needed.mjs packages/client
-          node scripts/publish-package-if-needed.mjs packages/deploy
-          node scripts/publish-package-if-needed.mjs packages/react
+          node scripts/release/publish-package-if-needed.mjs packages/client
+          node scripts/release/publish-package-if-needed.mjs packages/deploy
+          node scripts/release/publish-package-if-needed.mjs packages/react
           # A frozen candidate can predate the widget package-directory move.
           # Resolve its package path from that exact checkout; never substitute
           # the current-main package contents for the release candidate.
           if [[ -f packages/widget/package.json ]]; then
-            node scripts/publish-package-if-needed.mjs packages/widget
+            node scripts/release/publish-package-if-needed.mjs packages/widget
           elif [[ -f apps/shadcn-registry/package.json ]]; then
-            node scripts/publish-package-if-needed.mjs apps/shadcn-registry
+            node scripts/release/publish-package-if-needed.mjs apps/shadcn-registry
           else
             echo "Candidate has no widget package directory" >&2
             exit 1

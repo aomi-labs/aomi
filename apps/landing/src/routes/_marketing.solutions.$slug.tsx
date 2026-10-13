@@ -1,8 +1,8 @@
-import { solutions } from "@/screens/marketing/site";
+import { solutions } from "@/features/marketing/site";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import Page, {
   getPageMetadata,
-} from "@/screens/marketing/solutions/[slug]/page";
+} from "@/features/solutions/solution-page";
 import { landingHead } from "@/lib/metadata";
 export const Route = createFileRoute("/_marketing/solutions/$slug")({
   beforeLoad: ({ params }) => {

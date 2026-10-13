@@ -6,7 +6,7 @@
     "target": "ES2022"
   },
   "include": [
-    "scripts/performance/**/*.ts",
+    "scripts/ci/performance/**/*.ts",
     "tests/e2e/**/*.ts",
     "playwright.config.ts",
     "playwright.journeys.config.ts"

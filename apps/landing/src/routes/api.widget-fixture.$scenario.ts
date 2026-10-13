@@ -4,22 +4,12 @@ export const Route = createFileRoute("/api/widget-fixture/$scenario")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const handler =
-          await import("@/server/http/api/widget-fixture/[scenario]/[[...path]]/route");
-        return handler.GET(request, {
-          params: Promise.resolve({
-            scenario: params.scenario,
-          }),
-        });
+        const handler = await import("@/server/widget-fixture");
+        return handler.GET(request, { scenario: params.scenario });
       },
       POST: async ({ request, params }) => {
-        const handler =
-          await import("@/server/http/api/widget-fixture/[scenario]/[[...path]]/route");
-        return handler.POST(request, {
-          params: Promise.resolve({
-            scenario: params.scenario,
-          }),
-        });
+        const handler = await import("@/server/widget-fixture");
+        return handler.POST(request, { scenario: params.scenario });
       },
     },
   },

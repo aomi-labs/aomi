@@ -10,9 +10,9 @@ on:
     paths:
       [
         "packages/**",
-        "scripts/check-*widget*",
-        "scripts/check-package-api.mjs",
-        "scripts/fixtures/widget-consumer/**",
+        "scripts/release/check-*widget*",
+        "scripts/release/check-package-api.mjs",
+        "scripts/release/fixtures/widget-consumer/**",
         "api-reports/**",
         ".changeset/**",
         ".github/workflows/widget-package-contracts.yml",

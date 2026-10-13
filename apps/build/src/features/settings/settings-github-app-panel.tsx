@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import type {

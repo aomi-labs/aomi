@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, type ReactNode } from "react";
 import { UrlLink as Link } from "@/components/url-link";
 import { useQuery } from "@tanstack/react-query";

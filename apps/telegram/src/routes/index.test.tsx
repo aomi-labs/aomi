@@ -13,7 +13,7 @@ vi.mock("@/lib/config", () => ({
     return mocks.privyAppId;
   },
 }));
-vi.mock("@/screens/wallet-page", () => {
+vi.mock("@/features/wallet/wallet-page", () => {
   mocks.walletModule();
   return { default: () => <p>Browser wallet</p> };
 });

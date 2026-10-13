@@ -1,5 +1,3 @@
-"use client";
-
 // Telegram bot management for the Integrations page: provider rail, the
 // how-it-works explainer, an inline add flow, and one card per registered
 // bot with in-place app editing. UI ported from the /mock-integration design

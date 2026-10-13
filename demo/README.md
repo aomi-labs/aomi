@@ -3,8 +3,8 @@
 Records repeatable product demo videos against a forked mainnet, so demos stop
 being an afternoon of retakes and start being a build artifact.
 
-Design and scenario catalog: [`specs/DEMO-STUDIO.md`](../specs/DEMO-STUDIO.md),
-[`specs/DEMO-SCENARIOS.md`](../specs/DEMO-SCENARIOS.md).
+Design and scenario catalog: [`docs/specs/DEMO-STUDIO.md`](../docs/specs/DEMO-STUDIO.md),
+[`docs/specs/DEMO-SCENARIOS.md`](../docs/specs/DEMO-SCENARIOS.md).
 
 **Status: the pipeline is proven; most scenarios are not.** Takes 13/14
 (2026-07-31) recorded `ds2-stake-eth` end-to-end — agent staked 5 ETH into Lido

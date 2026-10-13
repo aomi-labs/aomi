@@ -3,7 +3,7 @@ import { createServerEntry } from "@tanstack/react-start/server-entry";
 import {
   installNativeHttpMethods,
   trailingSlashRedirect,
-} from "@aomi-labs/account/server";
+} from "@aomi-labs/app-kit/http";
 import { proxy } from "./proxy";
 import { portalFailures } from "./server/bff/failures";
 import {

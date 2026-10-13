@@ -1,6 +1,6 @@
 # Consumer compatibility acceptance
 
-`node scripts/check-consumer-compatibility.mjs --base <trusted-base-sha>` packs the
+`node scripts/ci/check-consumer-compatibility.mjs --base <trusted-base-sha>` packs the
 candidate client, React runtime, and widget packages. It installs their tarballs
 into the headless and widget examples copied from the trusted base commit, then
 compiles and builds those examples. The headless example's TypeScript source

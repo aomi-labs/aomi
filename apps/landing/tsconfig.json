@@ -92,9 +92,6 @@
       ],
       "zustand/*": [
         "./node_modules/zustand/*"
-      ],
-      "@/screens/*": [
-        "./src/screens/*"
       ]
     },
     "types": [

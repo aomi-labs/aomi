@@ -38,6 +38,6 @@
     "node_modules",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "src/test-navigation-link.tsx"
+    "src/test/**"
   ]
 }

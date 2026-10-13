@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import { mockStartRouteTree } from "./scripts/mock-start-route-tree";
+import { mockStartRouteTree } from "./packages/app-kit/src/vitest";
 
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 
@@ -83,11 +83,11 @@ export default defineConfig({
       "apps/landing/src/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/agent-api-proxy.{test,spec}.{ts,tsx}",
       "apps/portal/src/server/oauth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/screens/oauth/consent/**/*.{test,spec}.{ts,tsx}",
+      "apps/portal/src/features/oauth/**/*.{test,spec}.{ts,tsx}",
       "apps/portal/src/lib/widget-auth/**/*.{test,spec}.{ts,tsx}",
-      "apps/portal/src/server/http/api/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/server/http/v1/{agent,pipeline}/**/route.{test,spec}.{ts,tsx}",
-      "apps/portal/src/server/http/{agent,pipeline}/mcp/route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/widget-auth/*-route.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/bff/{sentry-smoke,delegation-callback}.{test,spec}.{ts,tsx}",
+      "apps/portal/src/server/device-auth/routes.{test,spec}.{ts,tsx}",
     ],
     exclude: [
       ".claude/**",

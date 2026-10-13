@@ -1,5 +1,3 @@
-"use client";
-
 import { Link } from "@tanstack/react-router";
 import { Button } from "@aomi-labs/widget/host-composition";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";

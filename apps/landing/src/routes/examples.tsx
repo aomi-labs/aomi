@@ -1,6 +1,6 @@
 import { useFumadocsLoader } from "fumadocs-core/source/client";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import Layout from "@/screens/examples/layout";
+import Layout from "@/features/examples/examples-layout";
 import { docsTree } from "@/server-functions";
 export const Route = createFileRoute("/examples")({
   loader: () => docsTree({ data: "examples" }),

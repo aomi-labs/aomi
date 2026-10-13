@@ -32,7 +32,7 @@ export default [
     },
   },
   {
-    files: ["src/hooks/**/*.{ts,tsx}", "src/screens/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+    files: ["src/hooks/**/*.{ts,tsx}", "src/features/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

@@ -5,14 +5,27 @@ status: authoritative
 area: bff
 review_after_days: 30
 sources_of_truth:
-  - apps/portal/src/app/api
-  - apps/build/src/app/api
-  - apps/build/src/instrumentation.ts
+  - apps/portal/src/server.ts
+  - apps/portal/src/sentry.server.config.ts
+  - apps/build/src/server.ts
+  - apps/build/src/sentry.server.config.ts
+  - packages/observability/src
   - packages/account/src/proxy.ts
   - packages/account/src/token.ts
 ---
 
 # BFF Sentry Observability Decision Record
+
+> **Current implementation (after the TanStack Start migration).** Portal and
+> Build no longer run on Next.js. Each app depends on
+> `@sentry/tanstackstart-react` (Vite plugin `sentryTanstackStart` in
+> `vite.config.ts` for releases and source maps) and `@aomi-labs/observability`
+> (`@sentry/node`, `initBffSentry`). Server-side init lives in
+> `src/sentry.server.config.ts`, imported by `src/server.ts`, which wraps the
+> TanStack Start fetch handler with `wrapFetchWithSentry`; that replaces the
+> `instrumentation.ts` / `onRequestError` / `withSentryConfig` design below.
+> API routes are TanStack file routes under `src/routes/api.*.ts`, not
+> `src/app/api/**/route.ts`. The decisions below are kept as the original record.
 
 This document records the approved design and implementation plan for adding
 Sentry error diagnosis and structured failure logs to Aomi's Next.js BFF

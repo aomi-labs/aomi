@@ -2,7 +2,7 @@ import { createServerEntry } from "@tanstack/react-start/server-entry";
 import {
   installNativeHttpMethods,
   trailingSlashRedirect,
-} from "@aomi-labs/account/server";
+} from "@aomi-labs/app-kit/http";
 const startHandler = (async () => {
   const { routeTree } = await import("./routeTree.gen");
   installNativeHttpMethods(routeTree);

@@ -1,8 +1,8 @@
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
-import { WalletFallback } from "@/screens/wallet-shell";
+import { WalletFallback } from "@/features/wallet/wallet-shell";
 
-const WalletPage = lazy(() => import("@/screens/wallet-page"));
+const WalletPage = lazy(() => import("@/features/wallet/wallet-page"));
 
 export const Route = createFileRoute("/")({ component: Home });
 

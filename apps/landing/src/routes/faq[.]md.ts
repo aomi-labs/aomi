@@ -4,7 +4,7 @@ export const Route = createFileRoute("/faq.md")({
   server: {
     handlers: {
       GET: async () => {
-        const handler = await import("@/server/http/faq.md/route");
+        const handler = await import("@/server/faq-md");
         return handler.GET();
       },
     },

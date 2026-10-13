@@ -6,7 +6,7 @@ area: apps
 review_after_days: 30
 sources_of_truth:
   - package.json
-  - apps/base/package.json
+  - apps/build/package.json
   - apps/landing/package.json
   - apps/portal/package.json
   - apps/telegram/package.json
@@ -18,9 +18,9 @@ The app surfaces in `apps/` are the main product and validation targets for pack
 
 ## Main Surfaces
 
-- `apps/landing` is the primary marketing and docs surface, and the root `dev` workflow points at it.
-- `apps/base` is a small Next.js app for direct local widget integration checks.
-- `apps/portal` is a fuller TanStack Start (Vite + Nitro) consumer with its own lint, type-check, and test commands.
+- `apps/landing` is the primary marketing and docs surface (TanStack Start), and the root `dev` workflow points at it.
+- `apps/portal` is the chat product, a TanStack Start (Vite + Nitro) consumer with its own lint, type-check, and test commands.
+- `apps/build` is the Aomi Build deployment surface, also on TanStack Start.
 - `apps/telegram` is the Telegram-focused consumer and includes a unit-test path.
 
 ## Common Workflows
