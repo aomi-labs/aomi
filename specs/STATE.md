@@ -2,6 +2,13 @@
 
 ## Last Updated
 
+2026-10-13 — RELOAD SHOWS NO NEW-CHAT FLASH (branch `fix/trace-fold-clip`).
+  Reloading `?thread=` no longer flashes the welcome screen while the account
+  and chat list confirm the link: the portal passes `opening` to
+  `AomiFrame.Composer` and the thread stays empty. The loading-chat skeleton
+  (`thread-loading.ts`, `testIds.skeleton`) is removed; a loading chat shows
+  nothing until it arrives.
+
 2026-10-12 — TRACE: SHORTENED TOOL OUTPUTS (branch `fix/trace-trimmed-tools`).
   "Trimmed X output" rows are no longer shown; consecutive `read_tool_output`
   calls on one saved output fold into a single row named after the source tool

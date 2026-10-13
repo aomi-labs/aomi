@@ -737,6 +737,66 @@ describe("WorkingTrace", () => {
     expect(heightRead).not.toHaveBeenCalled();
   });
 
+  it("leaves a trace within the overflow tolerance uncapped", () => {
+    // The 1-wei staging run settles 9px taller than the window: a cap there
+    // has no Show all or fades, yet scrolls the first row into the divider.
+    const items = [
+      { kind: "note" as const, key: "a", text: "Prepared the transfer" },
+      { kind: "note" as const, key: "b", text: "Waiting for approval" },
+    ];
+    const view = render(
+      <WorkingTrace running={false} items={items} revealed={2} />,
+    );
+    const viewport = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-viewport",
+    )!;
+    const body = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-body",
+    )!;
+    fireEvent.click(view.getByRole("button", { name: /Worked/ }));
+
+    publishBodyLayout(body, 269);
+    expect(viewport.style.maxHeight).toBe("");
+    expect(view.container).not.toHaveTextContent("Show all");
+
+    publishBodyLayout(body, 300);
+    expect(viewport.style.maxHeight).toBe("260px");
+    expect(view.container).toHaveTextContent("Show all 2 steps");
+  });
+
+  it("pins the window to its newest step once the cap lands", () => {
+    // The final note can be the last growth after the run finished: the
+    // follow must scroll the capped window, not the uncapped one before it.
+    const items = [
+      { kind: "note" as const, key: "a", text: "Prepared the transfer" },
+      { kind: "note" as const, key: "b", text: "Waiting for approval" },
+    ];
+    const view = render(
+      <WorkingTrace running={false} items={items} revealed={2} />,
+    );
+    const viewport = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-viewport",
+    )!;
+    const body = view.container.querySelector<HTMLElement>(
+      ".aui-working-trace-body",
+    )!;
+    fireEvent.click(view.getByRole("button", { name: /Worked/ }));
+    const cappedScrolls: string[] = [];
+    Object.defineProperties(viewport, {
+      scrollHeight: { configurable: true, get: () => 300 },
+      scrollTop: {
+        configurable: true,
+        get: () => 0,
+        set: () => cappedScrolls.push(viewport.style.maxHeight),
+      },
+    });
+
+    publishBodyLayout(body, 300);
+
+    expect(viewport.style.maxHeight).toBe("260px");
+    expect(cappedScrolls).toContain("260px");
+  });
+
   it("keeps a failed delegation at its transcript position after recovery", () => {
     const failedRun: TaskRunState = {
       ...run([]),
