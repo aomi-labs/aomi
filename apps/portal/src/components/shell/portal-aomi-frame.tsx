@@ -63,7 +63,7 @@ function PortalComposer({
   sendDisabled: boolean;
   opening: boolean;
 }) {
-  // A list that failed never confirms the link; show the new chat then.
+  // A list that failed never confirms the link; the new chat is usable then.
   const { threadListError } = useAomiRuntime();
   const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
   const routing = useMemo<AomiRoutingConfig>(
@@ -79,7 +79,7 @@ function PortalComposer({
   return (
     <AomiFrame.Composer
       withControl
-      sendDisabled={sendDisabled}
+      sendDisabled={sendDisabled && !threadListError}
       opening={opening && !threadListError}
       controlBarProps={{
         hideApiKey: true,
