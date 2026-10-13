@@ -66,7 +66,6 @@ import { ApiKeyInput } from "@/controls/api-key-input";
 import { NetworkSelect } from "@/controls/network-select";
 import { ConnectButton } from "@/wallet/connect-button";
 import { PaymentRequiredGate } from "@/controls/payment-required-gate";
-import { shouldShowThreadLoadingSkeleton } from "./thread-loading";
 import { CapabilityMessageText } from "./capability-message-text";
 import {
   useThread,
@@ -140,8 +139,6 @@ const ThreadBody = memo(function ThreadBody({
                         <ThreadWelcome />
                       </ThreadPrimitive.If>
 
-                      <ThreadLoadingSkeleton />
-
                       <ThreadPrimitive.Messages
                         components={{
                           UserMessage,
@@ -189,10 +186,11 @@ const ThreadScrollToBottom: FC = () => {
 const ThreadWelcome: FC = () => {
   const isLoading = useThread((t) => t.isLoading);
   const runtime = useOptionalAomiRuntime();
-  const { welcomeTitle = "What should happen on-chain?" } =
+  const { welcomeTitle = "What should happen on-chain?", opening } =
     useComposerControl();
 
-  if (isLoading) return null;
+  // A saved chat on its way in shows nothing rather than a new chat.
+  if (isLoading || opening) return null;
   // A saved chat whose history failed is not a new chat: no hero, no composer.
   if (runtime?.threadLoadError)
     return <ThreadLoadError onRetry={runtime.retryThreadLoad} />;
@@ -578,49 +576,6 @@ const MessageError: FC = () => {
         <ErrorPrimitive.Message className="aui-message-error-message line-clamp-2" />
       </ErrorPrimitive.Root>
     </MessagePrimitive.Error>
-  );
-};
-
-const ThreadLoadingSkeleton: FC = () => {
-  const showSkeleton = useThread((t) =>
-    shouldShowThreadLoadingSkeleton({
-      isLoading: t.isLoading,
-      messageCount: t.messages.length,
-    }),
-  );
-
-  if (!showSkeleton) return null;
-
-  return (
-    <div
-      role="status"
-      aria-label="Loading conversation"
-      aria-live="polite"
-      data-testid={testIds.skeleton}
-      className="aui-thread-loading-skeleton mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-3 px-4 py-6"
-    >
-      <AssistantMessageSkeleton widths={["42%", "68%", "56%"]} />
-      <div className="aui-thread-loading-skeleton-status flex items-center gap-2 px-2 pt-1">
-        <span className="bg-muted-foreground/30 size-2 animate-pulse rounded-full" />
-        <Skeleton className="h-2.5 w-24 rounded-full opacity-60" />
-      </div>
-    </div>
-  );
-};
-
-const AssistantMessageSkeleton: FC<{ widths?: string[] }> = ({
-  widths = ["72%", "56%", "64%"],
-}) => {
-  return (
-    <div className="aui-assistant-message-skeleton flex flex-col gap-2 px-2">
-      {widths.map((width, index) => (
-        <Skeleton
-          key={`${width}-${index}`}
-          className="aui-assistant-message-skeleton-line h-3 rounded-full"
-          style={{ width }}
-        />
-      ))}
-    </div>
   );
 };
 

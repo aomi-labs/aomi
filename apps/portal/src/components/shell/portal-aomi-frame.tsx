@@ -56,11 +56,15 @@ function PortalComposer({
   lockedTarget,
   appTag,
   sendDisabled,
+  opening,
 }: {
   lockedTarget?: DirectRoutingApp;
   appTag?: { app: string; applicationId?: number };
   sendDisabled: boolean;
+  opening: boolean;
 }) {
+  // A list that failed never confirms the link; show the new chat then.
+  const { threadListError } = useAomiRuntime();
   const enabledApps = useAccountOverview()?.user.apps ?? DEFAULT_ENABLED_APPS;
   const routing = useMemo<AomiRoutingConfig>(
     () =>
@@ -76,6 +80,7 @@ function PortalComposer({
     <AomiFrame.Composer
       withControl
       sendDisabled={sendDisabled}
+      opening={opening && !threadListError}
       controlBarProps={{
         hideApiKey: true,
         routing,
@@ -469,6 +474,11 @@ export function PortalAomiFrame() {
             // waits for its target so admission cannot create a different chat.
             sendDisabled={
               urlNavigation.navigating && Boolean(urlNavigation.requestedThread)
+            }
+            // Until the URL is read, or while its chat is confirmed, a reload
+            // shows nothing instead of flashing the new-chat screen.
+            opening={
+              urlNavigation.navigating && urlNavigation.requestedThread !== null
             }
           />
           <SvmWalletBindingGate />
