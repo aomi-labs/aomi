@@ -159,10 +159,12 @@ export default defineConfig(({ mode }) => {
         "tailwindcss",
       ],
     },
-    build: { sourcemap: sentryEnabled },
+    // Hashed bundles get Nitro's immutable cache; keep them apart from the
+    // hand-edited files in public/assets.
+    build: { assetsDir: "_build", sourcemap: sentryEnabled },
     server: {
       host: "127.0.0.1",
-      allowedHosts: ["localhost", "127.0.0.1", "agent.minuet-salary.ts.net"],
+      allowedHosts: ["localhost", "127.0.0.1", ".ts.net"],
       fs: { allow: [workspace] },
     },
   };

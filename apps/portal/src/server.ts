@@ -30,6 +30,13 @@ export default createServerEntry({
             : null;
           const response =
             upstream ?? (await (await startHandler).fetch(request, options));
+          // Start answers unmatched non-HTML requests with 406; API and
+          // discovery clients expect a 404 to move on.
+          if (
+            response.status === 406 &&
+            /^\/(?:api|v1|\.well-known)(?:\/|$)/.test(url.pathname)
+          )
+            return Response.json({ error: "not_found" }, { status: 404 });
           return protectBootstrapResponse(request, response);
         } catch (error) {
           portalFailures.handle({

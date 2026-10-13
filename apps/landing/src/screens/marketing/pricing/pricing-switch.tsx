@@ -166,7 +166,12 @@ export function PricingSwitch() {
                 <ArrowUpRight aria-hidden />
               </a>
             ) : (
-              <Link to={plan.cta.href} className={styles.planCta}>
+              <Link
+                {...(plan.cta.href.startsWith("#")
+                  ? { to: ".", hash: plan.cta.href.slice(1) }
+                  : { to: plan.cta.href })}
+                className={styles.planCta}
+              >
                 {plan.cta.label}
                 <ArrowRight aria-hidden />
               </Link>

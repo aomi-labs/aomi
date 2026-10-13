@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { ProjectPage } from "@/features/deploy/components/deployments/project-page";
 
 export const Route = createFileRoute("/_control/projects/$projectId")({
+  beforeLoad: ({ params }) => {
+    if (!Number.isSafeInteger(Number(params.projectId))) throw notFound();
+  },
   component: ProjectDetailPage,
 });
 
@@ -11,7 +13,6 @@ function ProjectDetailPage() {
   const params = Route.useParams();
   const { projectId } = params;
   const id = Number(projectId);
-  if (!Number.isSafeInteger(id)) throw notFound();
 
   return (
     <ProjectPage

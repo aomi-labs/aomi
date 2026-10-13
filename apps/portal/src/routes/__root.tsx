@@ -11,6 +11,7 @@ import { SettingsInitializer } from "@/components/providers/settings-initializer
 import { WalletProviders } from "@/components/providers/wallet-providers";
 import { readE2EWallet } from "@/server-functions";
 import GlobalError from "@/screens/global-error";
+import { reportRenderError } from "@/lib/report-render-error";
 import "@/screens/globals.css";
 import "@/fonts.css";
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
@@ -70,15 +71,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     headers: () => ({ "Cache-Control": "private, no-store" }),
     component: RootLayout,
     shellComponent: RootDocument,
-    errorComponent: ({ error }) => (
-      <GlobalError
-        error={
-          error instanceof Error ? error : new Error("Portal rendering failed")
-        }
-      />
-    ),
+    errorComponent: ({ error }) => {
+      void reportRenderError(error);
+      return (
+        <GlobalError
+          error={
+            error instanceof Error ? error : new Error("Portal rendering failed")
+          }
+        />
+      );
+    },
     notFoundComponent: () => (
       <main className="p-8">
+        <meta name="robots" content="noindex" />
         <h1>Page not found</h1>
       </main>
     ),

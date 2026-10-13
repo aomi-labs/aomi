@@ -308,6 +308,17 @@ describe("scrubSentryEvent", () => {
     expect(JSON.stringify(event)).not.toContain("secret");
   });
 
+  it("retains Vercel function bundle paths", () => {
+    const codeFile = "/var/task/_ssr/ssr.mjs";
+    const event = scrubSentryEvent({
+      exception: {
+        values: [{ stacktrace: { frames: [{ filename: codeFile, lineno: 3 }] } }],
+      },
+    });
+
+    expect(event?.exception?.values?.[0]?.stacktrace?.frames?.[0]).toMatchObject({ filename: codeFile, lineno: 3 });
+  });
+
   it("drops non-error events and unsafe environment values", () => {
     expect(scrubSentryEvent({ type: "transaction" })).toBeNull();
     expect(scrubSentryEvent({ environment: "preview" })).not.toHaveProperty(

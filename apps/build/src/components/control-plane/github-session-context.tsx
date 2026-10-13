@@ -82,7 +82,10 @@ export function GitHubSessionProvider({ children }: { children: ReactNode }) {
           next.githubLogin,
           next.installationId ?? null,
         ]);
-        if (accountScopes.get(queryClient) !== scope) clearAccountQueries();
+        const previousScope = accountScopes.get(queryClient);
+        // The first resolved session only records its scope; clear on a switch.
+        if (previousScope !== undefined && previousScope !== scope)
+          clearAccountQueries();
         accountScopes.set(queryClient, scope);
       }
       sessionEpoch.current += 1;

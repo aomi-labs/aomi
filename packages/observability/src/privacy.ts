@@ -229,6 +229,8 @@ function scrubStackPath(value: string | undefined): string | undefined {
 function isKnownStackPath(value: string): boolean {
   if (value.startsWith("node:")) return true;
   if (value.startsWith("app:///_next/server/")) return true;
+  // Vercel functions run the Nitro bundle from /var/task (_ssr/, _chunks/, …).
+  if (value.startsWith("/var/task/")) return true;
   if (
     value.startsWith("webpack-internal:///") ||
     value.startsWith("webpack:///")

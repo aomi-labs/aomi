@@ -18,6 +18,7 @@ export function getRouter() {
   });
   const router = createRouter({
     routeTree,
+    caseSensitive: true,
     context: { queryClient },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,

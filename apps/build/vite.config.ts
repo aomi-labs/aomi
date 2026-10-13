@@ -127,9 +127,12 @@ export default defineConfig(({ mode }) => {
       external: ["@aomi-labs/smither", "smithers-orchestrator"],
       noExternal: [/^@aomi-labs\/(?!smither)/, "lucide-react", "tailwindcss"],
     },
+    // Hashed bundles get Nitro's immutable cache; keep them apart from the
+    // hand-edited files in public/assets.
+    build: { assetsDir: "_build" },
     server: {
       host: "0.0.0.0",
-      allowedHosts: ["agent.minuet-salary.ts.net", "localhost", "127.0.0.1"],
+      allowedHosts: ["localhost", "127.0.0.1", ".ts.net"],
       fs: { allow: [workspace] },
     },
   };

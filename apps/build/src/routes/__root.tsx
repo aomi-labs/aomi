@@ -1,11 +1,13 @@
 import {
   createRootRouteWithContext,
+  ErrorComponent,
   HeadContent,
   Outlet,
   Scripts,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { COLOR_THEME_INIT_SCRIPT } from "@/lib/color-theme";
+import { reportRenderError } from "@/lib/report-render-error";
 import "@/styles/globals.css";
 import "@/fonts.css";
 
@@ -61,8 +63,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     }),
     component: Outlet,
     shellComponent: RootDocument,
+    errorComponent: ({ error }) => {
+      void reportRenderError(error);
+      return <ErrorComponent error={error} />;
+    },
     notFoundComponent: () => (
       <main className="p-8">
+        <meta name="robots" content="noindex" />
         <h1>Page not found</h1>
       </main>
     ),

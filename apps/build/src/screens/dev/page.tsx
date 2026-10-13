@@ -1,4 +1,3 @@
-import { notFound } from "@tanstack/react-router";
 import { UrlLink as Link } from "@/components/url-link";
 
 // Index of the dev harness pages. Dev-only, matching the portal's /dev
@@ -28,9 +27,6 @@ const HARNESSES = [
 ] as const;
 
 export default function DevIndexPage() {
-  if (process.env.NODE_ENV === "production") {
-    throw notFound();
-  }
   return (
     <main className="bg-background min-h-screen">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">

@@ -9,9 +9,9 @@ import { buildFailures } from "./server/bff/failures";
 
 // The external Smithers modules must load after their Node compatibility hooks.
 const initialized = (async () => {
+  await import("./sentry.server.config");
   try {
     await registerBunCompatHooks();
-    await import("./sentry.server.config");
     const { routeTree } = await import("./routeTree.gen");
     installNativeHttpMethods(routeTree);
   } catch (error) {

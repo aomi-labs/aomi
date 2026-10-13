@@ -35,7 +35,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   }),
   component: Outlet,
   shellComponent: RootDocument,
-  notFoundComponent: () => <main className="p-6">Page not found</main>,
+  notFoundComponent: () => (
+    <main className="p-6">
+      <meta name="robots" content="noindex" />
+      Page not found
+    </main>
+  ),
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {

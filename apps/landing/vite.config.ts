@@ -82,20 +82,42 @@ export default defineConfig(async ({ mode }) => {
       }),
       nitro({
         preset: env.VERCEL === "1" ? "vercel" : "node-server",
-        // Public files bypass Start; keep the registry handler's cache policy on existing assets.
-        routeRules: Object.fromEntries(
-          globSync("**/*.json", { cwd: resolve(root, "public/r") }).map(
-            (file) => [
-              `/r/${file.replaceAll("\\", "/")}`,
-              {
-                headers: {
-                  "Cache-Control":
-                    "public, max-age=300, s-maxage=300, stale-while-revalidate=600",
-                },
-              },
-            ],
+        routeRules: {
+          // Marketing pages were statically generated under Next; cache them
+          // per deployment instead of rendering every request.
+          ...Object.fromEntries(
+            [
+              "/",
+              "/about",
+              "/agents",
+              "/agents/**",
+              "/blog",
+              "/contact",
+              "/pricing",
+              "/pricing/**",
+              "/privacy",
+              "/products/**",
+              "/research",
+              "/research/**",
+              "/solutions/**",
+              "/terms",
+            ].map((path) => [path, { isr: true }]),
           ),
-        ),
+          // Public files bypass Start; keep the registry handler's cache policy on existing assets.
+          ...Object.fromEntries(
+            globSync("**/*.json", { cwd: resolve(root, "public/r") }).map(
+              (file) => [
+                `/r/${file.replaceAll("\\", "/")}`,
+                {
+                  headers: {
+                    "Cache-Control":
+                      "public, max-age=300, s-maxage=300, stale-while-revalidate=600",
+                  },
+                },
+              ],
+            ),
+          ),
+        },
         vercel: {
           functionRules: {
             "/api/thread/updates": { maxDuration: 300 },
@@ -147,9 +169,12 @@ export default defineConfig(async ({ mode }) => {
         "tailwindcss",
       ],
     },
+    // Hashed bundles get Nitro's immutable cache; keep them apart from the
+    // hand-edited files in public/assets.
+    build: { assetsDir: "_build" },
     server: {
       host: "127.0.0.1",
-      allowedHosts: ["localhost", "127.0.0.1", "agent.minuet-salary.ts.net"],
+      allowedHosts: ["localhost", "127.0.0.1", ".ts.net"],
       fs: { allow: [workspace] },
     },
   };
