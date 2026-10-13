@@ -6,7 +6,6 @@ import hooks from "eslint-plugin-react-hooks";
 export default [
   {
     ignores: [
-      ".next/**",
       ".output/**",
       ".tanstack/**",
       ".vercel/**",

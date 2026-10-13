@@ -10,9 +10,8 @@ the protected consumer and published compatibility/theme utilities.
 
 ## Development and builds
 
-Use an official Node.js 22.15+ or 24 runtime and the repository-pinned pnpm through
-Corepack. Install, build, and full-test commands run through the selected managed
-Aomi workspace. These are the app commands from the repository root:
+Use Node.js 22.15+ or 24 and the repository-pinned pnpm through Corepack. App
+commands from the repository root:
 
 ```sh
 pnpm --filter landing dev         # Vite on PORT, default 3000
@@ -24,24 +23,15 @@ pnpm --filter landing build:app   # Host only when prerequisites are ready
 pnpm --filter landing start       # Run the Node production artifact
 ```
 
-For example, submit a build with:
-
-```sh
-aomi-dev exec --repo frontend <workspace> -- pnpm --filter landing build
-```
-
 The Node preset produces `.output/server/index.mjs` and `.output/public`.
-`VERCEL=1` selects Nitro's Vercel Build Output API preset. `vercel.json` clears
-Next framework/output overrides. Building a Node artifact does not verify a
-hosted Vercel deployment.
+`VERCEL=1` selects Nitro's Vercel Build Output API preset.
 
 ## Host boundaries
 
 - `src/routes` owns native page and HTTP bindings; `src/routeTree.gen.ts` is generated.
 - `src/screens` owns the app's presentation and layouts.
 - `src/server` owns HTTP handlers, content/assets preparation, and upstream calls.
-- `/` serves the committed marketing HTML and assets. The immutable pre-migration
-  inventory contains 24 pages and 15 explicit HTTP bindings, including that root handler.
+- `/` serves the committed marketing HTML and assets.
 - `/examples` and `/playground` render Fumadocs MDX. `/docs`, Mintlify assets, and
   the docs API bridge retain their existing upstream proxy contracts.
 - Markdown, registry, research data, robots/sitemap, API proxy, and OpenGraph
@@ -83,12 +73,3 @@ Keep each directory's `meta.json` navigation order current. Shared MDX component
 registration lives in `src/screens/mdx-components.tsx`, and collection loaders
 live in `src/lib/source.tsx`. Code blocks, tabs, callouts, Mermaid, and Twoslash
 remain configured through the existing Fumadocs pipeline.
-
-## Verification
-
-Follow [the four-app migration procedure](../../docs/testing/tanstack-migration.md)
-for immutable route parity, copied Node/Vercel artifacts, public asset hashes,
-proxy and metadata contracts, and the protected packed-consumer/browser gates.
-Evidence from the earlier Portal/Build-only migration does not establish this
-host's readiness. Provider sign-in and a hosted deployment require their own
-verification.

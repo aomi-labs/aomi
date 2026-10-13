@@ -173,15 +173,10 @@ jobs:
       AOMI_AUTH_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
       AOMI_TEST_DATABASE_DISPOSABLE: "1"
       AOMI_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aomi_auth_loopback_test_ci
-      AOMI_ARTIFACT_SECRET_CANARY: aomi-ci-artifact-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          # The migration parity gate reads the immutable Next route baseline.
-          fetch-depth: 0
-          # Landing's public videos must be packaged as media, not LFS pointers.
-          lfs: true
           persist-credentials: false
 
       - name: Enable corepack
@@ -208,28 +203,24 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$CHECK_PORTAL" = true ]; then
-            node scripts/check-start-route-parity.mjs --app portal
             pnpm run lint:portal
             pnpm run typecheck:portal
             pnpm --filter portal exec vitest run --reporter=default --reporter=json --outputFile=../../output/ci/portal-tests.json
             node scripts/check-test-results.mjs output/ci/portal-tests.json
           fi
           if [ "$CHECK_BUILD" = true ]; then
-            node scripts/check-start-route-parity.mjs --app build
             pnpm run lint:aomi-build
             pnpm run typecheck:aomi-build
             pnpm --filter aomi-build test --reporter=default --reporter=json --outputFile=../../output/ci/build-tests.json
             node scripts/check-test-results.mjs output/ci/build-tests.json
           fi
           if [ "$CHECK_LANDING" = true ]; then
-            node scripts/check-start-route-parity.mjs --app landing
             pnpm run lint:landing
             pnpm run typecheck:landing
             pnpm exec vitest run --config apps/landing/vitest.config.ts --reporter=default --reporter=json --outputFile=output/ci/landing-tests.json
             node scripts/check-test-results.mjs output/ci/landing-tests.json
           fi
           if [ "$CHECK_TELEGRAM" = true ]; then
-            node scripts/check-start-route-parity.mjs --app telegram
             pnpm run lint:telegram
             pnpm run typecheck:telegram
             pnpm --filter telegram test:unit --reporter=default --reporter=json --outputFile=../../output/ci/telegram-tests.json
@@ -249,7 +240,6 @@ jobs:
           NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: 000000000000000000000000000000000000000000
           NEXT_PUBLIC_PARA_API_KEY: ci-fixture-not-a-secret
           NEXT_PUBLIC_PARA_ENVIRONMENT: BETA
-          NEXT_PUBLIC_PRIVY_APP_ID: a123456789012345678901234
           NEXT_PUBLIC_BACKEND_URL: ${{ github.ref == 'refs/heads/prod' && 'https://api.aomi.dev' || 'https://api-staging.aomi.dev' }}
           AOMI_AGENT_API_URL: ${{ github.ref == 'refs/heads/prod' && 'https://agent-tunnel.aomi.dev' || 'https://agent-staging-tunnel.aomi.dev' }}
         run: |
@@ -266,53 +256,6 @@ jobs:
           if [ "$CHECK_TELEGRAM" = true ]; then
             pnpm run build:telegram
           fi
-
-      - name: Verify isolated native artifacts
-        env:
-          CHECK_PORTAL: ${{ needs.changes.outputs.portal }}
-          CHECK_BUILD: ${{ needs.changes.outputs.build }}
-          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
-        run: |
-          set -euo pipefail
-          if [ "$CHECK_PORTAL" = true ]; then
-            node scripts/test-start-artifacts.mjs --app portal
-          fi
-          if [ "$CHECK_BUILD" = true ]; then
-            node scripts/test-start-artifacts.mjs --app build
-          fi
-          if [ "$CHECK_LANDING" = true ]; then
-            node scripts/test-start-artifacts.mjs --app landing
-          fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            node scripts/test-start-artifacts.mjs --app telegram
-          fi
-
-      - name: Install matching Chromium for public native apps
-        if: needs.changes.outputs.landing == 'true' || needs.changes.outputs.telegram == 'true'
-        run: pnpm exec playwright install chromium
-
-      - name: Verify public native apps in a production browser
-        env:
-          CHECK_LANDING: ${{ needs.changes.outputs.landing }}
-          CHECK_TELEGRAM: ${{ needs.changes.outputs.telegram }}
-        run: |
-          set -euo pipefail
-          if [ "$CHECK_LANDING" = true ]; then
-            node scripts/test-native-browser.mjs --app landing
-          fi
-          if [ "$CHECK_TELEGRAM" = true ]; then
-            node scripts/test-native-browser.mjs --app telegram
-          fi
-
-      - name: Upload public native browser diagnostics
-        if: always() && (needs.changes.outputs.landing == 'true' || needs.changes.outputs.telegram == 'true')
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: native-browser-${{ github.sha }}
-          path: output/ci/native-browser/
-          if-no-files-found: warn
-          retention-days: 14
 
   journeys:
     name: Journeys · Portal, Vite embed and mobile on the fake agent

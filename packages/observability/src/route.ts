@@ -185,7 +185,7 @@ function invalidContextAttributes(
     operation: "observability.invalid_context",
     "http.status_code": decision.responseStatus,
     handled: decision.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
 }
 
@@ -225,7 +225,7 @@ export function initBffSentry(options: BffSentryOptions): boolean {
         }),
       ],
       initialScope: {
-        tags: { service: options.service, runtime: bffRuntime() },
+        tags: { service: options.service, runtime: "nodejs" },
       },
     });
     INITIALIZED_SERVICES.add(options.service);
@@ -279,7 +279,7 @@ function eventAttributes(
     operation: context.operation,
     "http.status_code": context.status,
     handled: context.handled,
-    runtime: bffRuntime(),
+    runtime: "nodejs",
   };
   const environment = bffEnvironment();
   if (environment) attributes.environment = environment;
@@ -332,10 +332,6 @@ function isValidContext(context: EventContext): boolean {
   return (
     context.smokeTest === undefined || typeof context.smokeTest === "boolean"
   );
-}
-
-function bffRuntime(): "edge" | "nodejs" {
-  return process.env.NEXT_RUNTIME === "edge" ? "edge" : "nodejs";
 }
 
 function bffEnvironment(): "staging" | "production" | undefined {

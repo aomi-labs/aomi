@@ -1,8 +1,2 @@
 .source
 .vercel
-
-.output
-.tanstack
-dist
-src/routeTree.gen.ts
-*.tsbuildinfo

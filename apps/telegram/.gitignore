@@ -1,15 +1,6 @@
 # Dependencies
 /node_modules
 
-# TanStack Start, Nitro and Vercel output
-/.output/
-/.tanstack/
-/dist/
-/.vercel/
-/src/routeTree.gen.ts
-# Retained local output from before the migration
-/.next/
-
 # Local environment and logs
 .env*
 !.env.example

@@ -80,9 +80,3 @@ local stack.
 - `pnpm test` - run frontend tests
 - `pnpm lint` - run ESLint
 - `pnpm type-check` - generate Router routes and check TypeScript
-
-## Related Docs
-
-- [frontend E2E](../../docs/topics/development/facts/frontend-invariants.md)
-- [Migration verification](../../docs/testing/tanstack-migration.md)
-- [Frontend invariants](../../docs/topics/development/facts/frontend-invariants.md)

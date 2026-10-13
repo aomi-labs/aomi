@@ -27,7 +27,7 @@ sources_of_truth:
 - `packages/client` publishes `@aomi-labs/client`, the platform-agnostic client plus the `aomi` CLI binary.
 - `packages/widget` publishes `@aomi-labs/widget`, the UI layer and shadcn-style registry surface.
 - `apps/landing`, `apps/portal`, `apps/build`, and `apps/telegram` are the deployed app hosts. All four consume workspace packages through TanStack Start, Router, and Query, with Vite and Nitro. Other apps and examples provide validation surfaces.
-- The protected Next.js consumer and published compatibility/theme utilities retain their existing Next integration; they are not additional deployed Next hosts.
+- `examples/embed-next` and the published compatibility/theme utilities keep their Next integration; they are not deployed app hosts.
 
 ## Common Build Flows
 
@@ -38,31 +38,12 @@ sources_of_truth:
 - `pnpm run lint:apps`, `pnpm run test:landing`, `pnpm run test:portal`, and `pnpm run test:telegram` select app checks. Build tests run with `pnpm --filter aomi-build exec vitest run`.
 - `pnpm run dev:landing:live` is the quickest end-to-end loop for widget changes because it watches the library while serving the landing app.
 
-## Runtime and Managed Checks
+## Runtime
 
-Use the repository-pinned pnpm through Corepack and an official Node.js 22.15+
-or 24 runtime. Build's inherited compatibility hooks also require native
-TypeScript stripping; some distribution Node builds omit it despite meeting the
-version requirement.
-
-Submit heavy commands through the selected workspace's manager:
-
-```sh
-aomi-dev exec --repo frontend <workspace> -- pnpm run build:packages
-aomi-dev exec --repo frontend <workspace> -- pnpm run typecheck:apps
-aomi-dev exec --repo frontend <workspace> -- pnpm run build:apps
-```
-
-Each app's `dev` command serves Vite on `PORT` (default 3000). Node production
-builds produce `.output/server/index.mjs` and `.output/public`; each app's `start`
-command runs that artifact. Builds with `VERCEL=1` select Nitro's Vercel preset,
-which produces the Build Output API artifact rather than a Next `.next` tree.
-
-All four deployed hosts use Vite 8.3.4. Landing pins `fumadocs-mdx` 14.3.2,
-whose Vite integration declares peer support for Vite 6, 7, and 8. The root
-Vitest toolchain retains Vite 7.3.7. See the
-[migration verification procedure](../../../testing/tanstack-migration.md) for
-route baselines, copied-artifact checks, and consumer/browser requirements.
+Use the repository-pinned pnpm through Corepack and Node.js 22.15+ or 24. Each
+app's `dev` serves Vite on `PORT` (default 3000); Node production builds emit
+`.output/server/index.mjs` and `.output/public`, and `VERCEL=1` selects Nitro's
+Vercel preset. All four deployed hosts use Vite 8.3.4; the root Vitest toolchain stays on Vite 7.3.7.
 
 ## Operational Notes
 

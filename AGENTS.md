@@ -29,7 +29,7 @@ workflow for the selected workspace.
 
 ## Coding Style & Naming Conventions
 
-The codebase is TypeScript + React 19. Portal, Build, Landing, and Telegram use TanStack Start, Router, and Query with Vite and Nitro. Next.js remains for the protected consumer, published compatibility, and theme utilities. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. File names use kebab-case (e.g., `aomi-frame.tsx`), component exports use PascalCase, and hooks use `use-*.ts`. Tests sit next to the code. Widget modules live in their frame, thread, composer, sidebar, controls, account, wallet, or UI feature. Tailwind utility strings should group layout → color → motion classes to minimize churn.
+The codebase is TypeScript + React 19. Portal, Build, Landing, and Telegram use TanStack Start, Router, and Query with Vite and Nitro. Next.js remains only in `examples/embed-next` and the published compatibility and theme utilities. Prefer functional components with explicit prop interfaces exported near the component. Follow Prettier defaults (2-space indent, double quotes, trailing commas) and rely on `clsx` + `class-variance-authority` for styling variants. File names use kebab-case (e.g., `aomi-frame.tsx`), component exports use PascalCase, and hooks use `use-*.ts`. Tests sit next to the code. Widget modules live in their frame, thread, composer, sidebar, controls, account, wallet, or UI feature. Tailwind utility strings should group layout → color → motion classes to minimize churn.
 
 ## Testing Guidelines
 

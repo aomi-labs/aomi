@@ -20,7 +20,7 @@ The app surfaces in `apps/` are the main product and validation targets for pack
 
 - `apps/landing` is the primary marketing and docs surface, and the root `dev` workflow points at it.
 - `apps/base` is a small Next.js app for direct local widget integration checks.
-- `apps/portal` is a fuller Next.js consumer with its own lint, type-check, and test commands.
+- `apps/portal` is a fuller TanStack Start (Vite + Nitro) consumer with its own lint, type-check, and test commands.
 - `apps/telegram` is the Telegram-focused consumer and includes a unit-test path.
 
 ## Common Workflows
