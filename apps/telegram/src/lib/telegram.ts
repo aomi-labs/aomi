@@ -1,5 +1,3 @@
-"use client";
-
 export type TelegramLaunch = {
   botId: string;
   telegramUserId: string;

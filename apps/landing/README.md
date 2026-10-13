@@ -29,7 +29,7 @@ The Node preset produces `.output/server/index.mjs` and `.output/public`.
 ## Host boundaries
 
 - `src/routes` owns native page and HTTP bindings; `src/routeTree.gen.ts` is generated.
-- `src/screens` owns the app's presentation and layouts.
+- `src/features/<domain>` owns page content, layouts, and their CSS modules (marketing, products, solutions, research, docs, …); `src/components` and `src/styles` hold app-wide pieces.
 - `src/server` owns HTTP handlers, content/assets preparation, and upstream calls.
 - `/` serves the committed marketing HTML and assets.
 - `/examples` and `/playground` render Fumadocs MDX. `/docs`, Mintlify assets, and
@@ -70,6 +70,6 @@ Your content here.
 ```
 
 Keep each directory's `meta.json` navigation order current. Shared MDX component
-registration lives in `src/screens/mdx-components.tsx`, and collection loaders
+registration lives in `src/features/docs/mdx-components.tsx`, and collection loaders
 live in `src/lib/source.tsx`. Code blocks, tabs, callouts, Mermaid, and Twoslash
 remain configured through the existing Fumadocs pipeline.

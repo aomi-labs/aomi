@@ -1,36 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { mintlifyRoute } from "@/lib/mintlify-route";
 
 export const Route = createFileRoute("/_mintlify")({
-  server: {
-    handlers: {
-      GET: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      HEAD: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      POST: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      PUT: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      PATCH: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      DELETE: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-      OPTIONS: async ({ request }) => {
-        const { proxyMintlify } = await import("@/server/http/mintlify");
-        return proxyMintlify(request);
-      },
-    },
-  },
+  server: { handlers: mintlifyRoute() },
 });

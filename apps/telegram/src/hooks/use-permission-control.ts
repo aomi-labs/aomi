@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePrivy, useSignTypedData } from "@privy-io/react-auth";
 import type { SignTypedDataParams } from "@privy-io/react-auth";

@@ -1,8 +1,0 @@
-/* Docs-only CSS. Marketing routes must not load Fumadocs styles. */
-@import "tailwindcss";
-@import "fumadocs-ui/css/shadcn.css";
-@import "fumadocs-ui/css/preset.css";
-
-/* Dependency files are excluded from automatic scanning. Include the actual
-   Fumadocs component classes used by the native notebook layouts. */
-@source "../../node_modules/fumadocs-ui/dist/**/*.js";

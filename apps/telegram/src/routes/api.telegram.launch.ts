@@ -4,7 +4,7 @@ export const Route = createFileRoute("/api/telegram/launch")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { POST } = await import("@/server/http/api/telegram/launch/route");
+        const { POST } = await import("@/server/telegram-launch");
         return POST(request);
       },
     },

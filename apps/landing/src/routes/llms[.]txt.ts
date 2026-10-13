@@ -4,7 +4,7 @@ export const Route = createFileRoute("/llms.txt")({
   server: {
     handlers: {
       GET: async () => {
-        const handler = await import("@/server/http/llms.txt/route");
+        const handler = await import("@/server/llms-txt");
         return handler.GET();
       },
     },

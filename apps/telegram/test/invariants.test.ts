@@ -90,7 +90,7 @@ describe("app invariants", () => {
   it("runs exactly one login flow", () => {
     // A second, parallel Privy login strands the page in its signing state.
     const page = sources.find(({ path }) =>
-      path.endsWith("screens/wallet-client.tsx"),
+      path.endsWith("features/wallet/wallet-flow.tsx"),
     );
     expect(page).toBeDefined();
     expect(page?.text).not.toMatch(/useLoginWithTelegram|void login\(\)/);
@@ -98,7 +98,7 @@ describe("app invariants", () => {
 
   it("verifies every Telegram launch server-side", () => {
     const route = sources.find(({ path }) =>
-      path.endsWith("api/telegram/launch/route.ts"),
+      path.endsWith("server/telegram-launch.ts"),
     );
     expect(route?.text).toMatch(/verifyTelegramInitData/);
     const launch = sources.find(({ path }) => path.endsWith("lib/telegram.ts"));

@@ -4,7 +4,7 @@ export const Route = createFileRoute("/agents.md")({
   server: {
     handlers: {
       GET: async () => {
-        const handler = await import("@/server/http/agents.md/route");
+        const handler = await import("@/server/agents-md");
         return handler.GET();
       },
     },

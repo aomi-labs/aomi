@@ -1,7 +1,7 @@
 import { createClientLoader } from "fumadocs-mdx/runtime/browser";
 import type { CompiledMDXProperties } from "fumadocs-mdx";
 import { DocsPage, DocsBody } from "fumadocs-ui/page";
-import { getMDXComponents } from "@/screens/mdx-components";
+import { getMDXComponents } from "@/features/docs/mdx-components";
 type Doc = CompiledMDXProperties<{
   title: string;
   description?: string;

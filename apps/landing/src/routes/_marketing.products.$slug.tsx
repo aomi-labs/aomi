@@ -1,8 +1,8 @@
-import { productBySlug } from "@/screens/marketing/site";
+import { productBySlug } from "@/features/marketing/site";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import Page, {
   getPageMetadata,
-} from "@/screens/marketing/products/[slug]/page";
+} from "@/features/products/product-page";
 import { landingHead } from "@/lib/metadata";
 export const Route = createFileRoute("/_marketing/products/$slug")({
   beforeLoad: ({ params }) => {

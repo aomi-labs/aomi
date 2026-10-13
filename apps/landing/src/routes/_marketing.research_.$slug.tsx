@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import Page, {
   getPageMetadata,
-} from "@/screens/marketing/research/[slug]/page";
+} from "@/features/research/research-article-page";
 import { researchArticle } from "@/server-functions";
 import { landingHead } from "@/lib/metadata";
 export const Route = createFileRoute("/_marketing/research_/$slug")({

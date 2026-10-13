@@ -4,7 +4,7 @@ export const Route = createFileRoute("/api/og")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const handler = await import("@/server/http/api/og/route");
+        const handler = await import("@/server/og-image");
         return handler.GET(request);
       },
     },
