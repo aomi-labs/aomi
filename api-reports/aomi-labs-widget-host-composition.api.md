@@ -534,7 +534,6 @@ export const testIds: {
     readonly rerun: "aomi-rerun";
     readonly trace: "aomi-trace";
     readonly traceStep: "aomi-trace-step";
-    readonly skeleton: "aomi-skeleton";
     readonly sidebar: "aomi-sidebar";
     readonly sidebarToggle: "aomi-sidebar-toggle";
     readonly threadList: "aomi-thread-list";

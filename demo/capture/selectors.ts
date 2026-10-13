@@ -9,7 +9,7 @@
  *
  * Sources (packages/widget/src/components/assistant-ui/):
  *   thread.tsx        — "Message input", "Send message", "Stop generating",
- *                       data-role="assistant" | "user", "Loading conversation"
+ *                       data-role="assistant" | "user"
  *   working-trace.tsx — "Worked it out" heading, "Show all N steps"
  */
 
@@ -24,8 +24,6 @@ export const sel = {
    * needs a fixed sleep.
    */
   streaming: '[aria-label="Stop generating"]',
-  /** Thread hydration spinner; wait for it to clear before typing. */
-  loading: '[aria-label="Loading conversation"]',
   /** Assistant message bubbles. */
   assistantMessage: '[data-role="assistant"]',
   /** User message bubbles. */

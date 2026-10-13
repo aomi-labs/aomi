@@ -16,7 +16,6 @@ export const testIds = {
   rerun: "aomi-rerun",
   trace: "aomi-trace",
   traceStep: "aomi-trace-step",
-  skeleton: "aomi-skeleton",
   sidebar: "aomi-sidebar",
   sidebarToggle: "aomi-sidebar-toggle",
   threadList: "aomi-thread-list",
