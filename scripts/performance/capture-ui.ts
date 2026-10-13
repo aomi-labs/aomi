@@ -233,7 +233,7 @@ async function firstLoadScripts(page: Page) {
       .map((resource) => resource.pathname),
   );
   return [...new Set(paths)]
-    .filter((path) => path.startsWith("/assets/") && /\.m?js$/.test(path))
+    .filter((path) => path.startsWith("/_build/") && /\.m?js$/.test(path))
     .map((path) => ({
       path,
       gzipBytes: gzipSync(
