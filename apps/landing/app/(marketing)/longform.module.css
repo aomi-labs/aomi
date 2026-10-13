@@ -278,6 +278,13 @@
   background: #fff;
 }
 
+/* The Task API diagrams already include their own white canvas and spacing. */
+.borderlessFigures img {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
 .prose figcaption,
 .prose .caption {
   margin-top: 10px;
@@ -660,7 +667,338 @@
   height: 13px;
 }
 
+/* ---------- Task API article modules ---------- */
+
+.taskExample {
+  overflow: hidden;
+  margin: 38px 0;
+  border: 1px solid var(--landing-border);
+  border-radius: 12px;
+  background: var(--landing-paper);
+}
+
+.taskExampleHeader {
+  border-bottom: 1px solid var(--landing-border);
+  padding: 27px 29px;
+  background: var(--landing-wash);
+}
+
+.taskExampleHeader p,
+.taskExampleCopy h4,
+.taskExampleMath h4 {
+  margin: 0;
+  color: var(--landing-blue-dark);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-micro);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.taskExampleHeader h3 {
+  margin: 9px 0 0;
+  color: var(--landing-ink);
+  font-family: var(--landing-serif);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.27;
+}
+
+.taskExampleGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+}
+
+.taskExampleCopy,
+.taskExampleMath {
+  padding: 27px 29px;
+}
+
+.taskExampleCopy {
+  border-right: 1px solid var(--landing-border);
+}
+
+.taskExampleCopy > p {
+  margin: 14px 0 16px;
+}
+
+.taskSteps {
+  margin: 17px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: task-step;
+}
+
+.taskSteps li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  margin: 11px 0;
+}
+
+.taskSteps li::before {
+  color: var(--landing-blue-dark);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-micro);
+  font-weight: 600;
+  line-height: 2;
+  content: counter(task-step, decimal-leading-zero);
+  counter-increment: task-step;
+}
+
+.taskExampleMath table {
+  margin-top: 14px;
+  font-family: var(--landing-mono);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.taskExampleMath td {
+  border-bottom: 1px solid var(--landing-border);
+  padding: 10px 0;
+}
+
+.taskExampleMath td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.taskExampleMath .taskTotal td {
+  border-bottom: 0;
+  color: var(--landing-green, #26775e);
+  font-weight: 700;
+}
+
+.taskFinePrint {
+  margin: 17px 0 0;
+  color: var(--landing-muted);
+  font-size: var(--landing-small);
+  line-height: 1.55;
+}
+
+.taskReality {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: 1fr 1fr;
+  margin: 25px 0 42px;
+  border: 1px solid var(--landing-border);
+  border-radius: 12px;
+  background: var(--landing-paper);
+}
+
+.taskReality > div {
+  padding: 23px 25px;
+}
+
+.taskReality > div + div {
+  border-left: 1px solid var(--landing-border);
+}
+
+.taskReality h3 {
+  margin: 0 0 9px;
+  font-family: var(--landing-sans);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.taskReality ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--landing-muted);
+  font-size: 14px;
+}
+
+.taskLive h3 {
+  color: var(--landing-green, #26775e);
+}
+
+.taskLater h3 {
+  color: #8a6332;
+}
+
+.taskBuilder {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.taskPanel {
+  overflow: hidden;
+  border: 1px solid var(--landing-border);
+  border-radius: 12px;
+  background: var(--landing-paper);
+}
+
+.taskPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--landing-border);
+  padding: 13px 16px;
+  color: var(--landing-muted);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+pre.taskCode {
+  min-height: 360px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 19px;
+  color: #ececec;
+  background: #171719;
+  font-family: var(--landing-mono);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+pre.taskCode code {
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.taskCodeKeyword {
+  color: #9cc4f0;
+}
+
+.taskCodeString {
+  color: #8ed4b4;
+}
+
+.taskActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 15px;
+}
+
+.taskButton {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--landing-ink);
+  border-radius: 7px;
+  padding: 0 14px;
+  color: var(--landing-ink);
+  background: var(--landing-paper);
+  font-family: var(--landing-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.taskButton:hover {
+  color: var(--landing-paper);
+  background: var(--landing-ink);
+  text-decoration: none;
+}
+
+.taskButtonPrimary {
+  color: var(--landing-paper);
+  background: var(--landing-ink);
+}
+
+.taskQuickstart {
+  padding: 24px;
+}
+
+.taskQuickstart h3 {
+  margin: 0 0 10px;
+  color: var(--landing-ink);
+  font-family: var(--landing-serif);
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.taskQuickstart > p {
+  margin: 0 0 22px;
+  color: var(--landing-muted);
+}
+
+.taskQuickstart ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: quickstart-step;
+}
+
+.taskQuickstart li {
+  display: grid;
+  grid-template-columns: 35px 1fr;
+  gap: 12px;
+  margin: 0;
+  border-top: 1px solid var(--landing-border);
+  padding: 15px 0;
+}
+
+.taskQuickstart li::before {
+  color: var(--landing-blue-dark);
+  font-family: var(--landing-mono);
+  font-size: var(--landing-micro);
+  font-weight: 600;
+  line-height: 2.1;
+  content: counter(quickstart-step, decimal-leading-zero);
+  counter-increment: quickstart-step;
+}
+
+.taskQuickstart li strong,
+.taskQuickstart li span {
+  display: block;
+}
+
+.taskQuickstart li span {
+  margin-top: 3px;
+  color: var(--landing-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.taskQuickstart .taskActions {
+  padding: 20px 0 0;
+}
+
+.taskDisclaimer {
+  margin: 20px 0 0;
+  border: 1px solid var(--landing-border);
+  border-radius: 9px;
+  padding: 17px 19px;
+  color: var(--landing-muted);
+  background: var(--landing-wash);
+  font-size: 13px;
+}
+
 /* ---------- responsive ---------- */
+
+@media (max-width: 820px) {
+  .taskExampleGrid,
+  .taskReality,
+  .taskBuilder {
+    grid-template-columns: 1fr;
+  }
+
+  .taskExampleCopy {
+    border-right: 0;
+    border-bottom: 1px solid var(--landing-border);
+  }
+
+  .taskReality > div + div {
+    border-top: 1px solid var(--landing-border);
+    border-left: 0;
+  }
+}
 
 @media (max-width: 1024px) {
   .hero {
