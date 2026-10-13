@@ -12,6 +12,7 @@ import {
 } from "@/lib/research";
 import styles from "../../longform.module.css";
 import { ExecutionHarnessesResearch } from "./execution-harnesses-research";
+import { TaskApiResearchBody } from "./task-api-research";
 import { ThreeGatesResearch } from "./three-gates-research";
 
 function textFromChildren(children: ReactNode): string {
@@ -225,9 +226,13 @@ export default async function ResearchPostPage({
 
       <div className={styles.body}>
         <article className={articleClassName}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-            {post.body}
-          </ReactMarkdown>
+          {post.slug === "introducing-the-aomi-task-api" ? (
+            <TaskApiResearchBody body={post.body} components={components} />
+          ) : (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+              {post.body}
+            </ReactMarkdown>
+          )}
         </article>
       </div>
     </main>

@@ -27,14 +27,14 @@ The Task API itself participates as a service-selling agent, packaging simulatio
 
 Arc is one settlement rail for this emerging economy, but the shift extends well beyond crypto. AI, cloud, payments and commerce companies are building the same missing machinery: verifiable intent, bounded authority, deterministic guardrails and payment tied to observable outcomes.
 
-| Industry signal | What is changing |
-|---|---|
-| **Google · AP2** | [Signed mandates](https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol) preserve what a buyer requested, approved and ultimately purchased—even when an agent finishes the job later. |
-| **Visa · Cloudflare** | [Trusted Agent Protocol](https://corporate.visa.com/en/sites/visa-perspectives/newsroom/visa-unveils-trusted-agent-protocol-for-ai-commerce.html) and [secure agentic commerce](https://blog.cloudflare.com/secure-agentic-commerce/) give merchants signals for distinguishing authorized agents from hostile bots. |
-| **AWS · AgentCore** | [Payment guardrails](https://aws.amazon.com/blogs/machine-learning/enable-safe-agentic-payments-with-built-in-guardrails-using-amazon-bedrock-agentcore-payments/) evaluate identity, tool and parameters before an agent action is allowed. |
-| **Mysten · Google Cloud** | [Verifiable Agent Arbiter](https://www.prnewswire.com/news-releases/mysten-labs-announces-verifiable-agent-arbiter-in-collaboration-with-google-cloud-302899202.html) is designed to prove what an agent was allowed to do, what it did and what resulted. |
-| **Intercom · Salesforce** | [Fin prices resolved outcomes](https://www.intercom.com/blog/building-outcome-based-pricing-for-fin-for-sales); [Agentforce meters agent work](https://help.salesforce.com/s/articleView?id=004811240&language=en_US&type=1). Software economics are moving closer to completed work. |
-| **Arc · Circle** | [Arc](https://www.arc.io/blog/arc-economic-os-internet), [USDC](https://www.circle.com/usdc) and [Gateway with x402](https://www.circle.com/blog/enabling-machine-to-machine-micropayments-with-gateway-and-usdc) provide dollar-denominated settlement that software can use directly. |
+| Industry signal           | What is changing                                                                                                                                                                                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Google · AP2**          | [Signed mandates](https://cloud.google.com/blog/products/ai-machine-learning/announcing-agents-to-payments-ap2-protocol) preserve what a buyer requested, approved and ultimately purchased—even when an agent finishes the job later.                                                                               |
+| **Visa · Cloudflare**     | [Trusted Agent Protocol](https://corporate.visa.com/en/sites/visa-perspectives/newsroom/visa-unveils-trusted-agent-protocol-for-ai-commerce.html) and [secure agentic commerce](https://blog.cloudflare.com/secure-agentic-commerce/) give merchants signals for distinguishing authorized agents from hostile bots. |
+| **AWS · AgentCore**       | [Payment guardrails](https://aws.amazon.com/blogs/machine-learning/enable-safe-agentic-payments-with-built-in-guardrails-using-amazon-bedrock-agentcore-payments/) evaluate identity, tool and parameters before an agent action is allowed.                                                                         |
+| **Mysten · Google Cloud** | [Verifiable Agent Arbiter](https://www.prnewswire.com/news-releases/mysten-labs-announces-verifiable-agent-arbiter-in-collaboration-with-google-cloud-302899202.html) is designed to prove what an agent was allowed to do, what it did and what resulted.                                                           |
+| **Intercom · Salesforce** | [Fin prices resolved outcomes](https://www.intercom.com/blog/building-outcome-based-pricing-for-fin-for-sales); [Agentforce meters agent work](https://help.salesforce.com/s/articleView?id=004811240&language=en_US&type=1). Software economics are moving closer to completed work.                                |
+| **Arc · Circle**          | [Arc](https://www.arc.io/blog/arc-economic-os-internet), [USDC](https://www.circle.com/usdc) and [Gateway with x402](https://www.circle.com/blog/enabling-machine-to-machine-micropayments-with-gateway-and-usdc) provide dollar-denominated settlement that software can use directly.                              |
 
 ## How it works
 
@@ -70,35 +70,7 @@ Alice runs a trading agent across an order-book venue and Arc liquidity. The age
 
 Alice already holds EURC. Her agent sells 900 EURC into the firm bid for 990 USDC, then asks the Task API to replenish that inventory from the Arc pool—but only if it can buy at least 900 EURC for no more than 940.50 USDC through contracts Alice has approved.
 
-> **Illustrative future swap integration**
->
-> “Buy at least 900 EURC. Spend at most 940.50 USDC. Refuse if the route changes.”
-
-The signed task binds the chain, wallet, exact pool and approval targets, maximum outgoing USDC, minimum EURC received, gas ceiling, call order, idempotency key and a five-minute expiry.
-
-1. The Task API reconstructs the request and verifies Alice’s wallet.
-2. The calls are simulated against pinned Arc state.
-3. Changed targets, excess spend, insufficient output or failed calls are rejected.
-4. The agent receives a signed 402 preview and checks whether the rehearsed edge still clears its threshold.
-5. Payment and execution require separate wallet signatures.
-
-| Known before purchase | Amount |
-|---|---:|
-| Order-book proceeds | 990.000 USDC |
-| Maximum Arc repurchase | −940.500 USDC |
-| Gross trading edge | 49.500 USDC |
-| Task price: $1 + 3% | −29.215 USDC |
-| **Edge before gas** | **20.285 USDC** |
-
-These prices are illustrative, not a claim about an available spread. The point is that simulation-verified execution and its price enter the agent’s decision before it commits.
-
-| Available at launch | Next protocol frontier |
-|---|---|
-| Signature-only Task authorization | Pool-aware swap preparation |
-| Arc Mainnet simulation | Approval and multicall validation |
-| Signed 402 quote and artifact hash | Minimum-received verification |
-| Separate USDC service payment | Live route and receipt proof |
-| Bounded native-USDC execution | Independently verifiable simulation |
+::task-api-alice::
 
 ## Agents buying from agents
 
@@ -110,12 +82,7 @@ That distribution model is also the larger thesis. A builder’s pricing model, 
 
 The fastest way to understand the protocol is to send one bounded task. The production Task API exposes the complete signature-first exchange, from wallet authorization to a simulation-verified 402 outcome.
 
-1. **Define one bounded task.** State the intent, allowed targets, value limits, slippage and expiry.
-2. **Authorize the exact request.** The buyer’s wallet signs the EIP-712 Task authorization.
-3. **Inspect the rehearsed outcome.** Review the calls, state changes, constraints, price and artifact hash returned with the 402.
-4. **Pay, then execute.** Approve the service payment and sign the exact transaction as separate wallet actions.
-
-Task authorization, service payment and final execution remain three independent approvals. The [Task client](https://github.com/aomi-labs/arc-canteen/tree/main/packages/task-client) and [Execution Kit guide](https://arc-canteen.aomi.dev/execution-kit) contain the integration surface and complete request flow.
+::task-api-quickstart::
 
 **From hackathon infrastructure to Task API.** The Task API grew out of the [Tameion Agents Hackathon](https://tameion.thecanteenapp.com/), hosted by the [Canteen](https://thecanteenapp.com/) team and sponsored by Aomi Labs. It began as an [Execution Kit](https://arc-canteen.aomi.dev/execution-kit) for builders bringing financial agents to Arc. Working alongside those builders revealed a broader need: inspectable execution, machine-native fair exchange and agents selling services to other agents are not hackathon-specific problems. The Task API turns that builder infrastructure into a service for the wider agent economy.
 
