@@ -1,5 +1,3 @@
-"use client";
-
 // Project-scoped lens on the builder's provider keys: which providers fund
 // THIS project's apps, via which key. Read-mostly — apply/remove toggles
 // grants for this project's apps; key management (add/rotate/remove) lives

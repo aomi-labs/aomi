@@ -1,5 +1,3 @@
-"use client";
-
 import { History } from "lucide-react";
 
 import type { BuildSession } from "@/features/build/contracts";

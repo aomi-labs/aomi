@@ -1,5 +1,3 @@
-"use client";
-
 import { UrlLink as Link } from "@/components/url-link";
 import { ArrowRight } from "lucide-react";
 

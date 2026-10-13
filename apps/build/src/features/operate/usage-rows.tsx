@@ -1,5 +1,3 @@
-"use client";
-
 // Usage page: builder-facing revenue-share statement (gross / platform fee /
 // net + charges) when the backend emits `statement`; falls back to the
 // legacy token/credits meter until then. End-user spend stays in Chat billing.

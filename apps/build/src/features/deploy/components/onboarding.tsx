@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { CheckCircle2 } from "lucide-react";

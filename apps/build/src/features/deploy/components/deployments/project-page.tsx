@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";

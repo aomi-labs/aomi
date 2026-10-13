@@ -1,5 +1,3 @@
-"use client";
-
 import { useRouter } from "@tanstack/react-router";
 import { useDeploymentAttempts } from "./use-deployment-attempts";
 

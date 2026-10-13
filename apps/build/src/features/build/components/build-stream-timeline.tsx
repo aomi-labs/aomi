@@ -1,5 +1,3 @@
-"use client";
-
 import { Check, Circle, Loader2 } from "lucide-react";
 
 import {

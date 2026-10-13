@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";

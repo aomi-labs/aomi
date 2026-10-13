@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { ExternalLink, Loader2, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@aomi-labs/widget/host-composition";

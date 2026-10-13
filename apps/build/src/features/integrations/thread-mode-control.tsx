@@ -1,5 +1,3 @@
-"use client";
-
 // Shared thread-mode slide bar: the sliding pill toggle plus the `?` whose
 // tooltip carries the explanation. Used on each bot card (bots-view) and in
 // the "How Telegram bots work" explainer. Lives here rather than in

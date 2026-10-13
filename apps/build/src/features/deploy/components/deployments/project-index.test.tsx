@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 const replace = vi.hoisted(() => vi.fn());
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@tanstack/react-router")>()),
-  Link: (await import("@/test-navigation-link")).TestNavigationLink,
+  Link: (await import("@/test/navigation-link")).TestNavigationLink,
   useRouter: () => ({
     navigate: ({ href }: { href: string }) => replace(href),
   }),

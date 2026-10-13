@@ -1,5 +1,3 @@
-"use client";
-
 import type { Project } from "@aomi-labs/deploy";
 import {
   Activity,

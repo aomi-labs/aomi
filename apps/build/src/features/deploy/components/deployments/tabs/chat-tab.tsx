@@ -1,5 +1,3 @@
-"use client";
-
 import { UrlLink as Link } from "@/components/url-link";
 import { ExternalLink, MessageSquare } from "lucide-react";
 import { deploymentLifecycleFromProject } from "@aomi-labs/deploy/lifecycle";

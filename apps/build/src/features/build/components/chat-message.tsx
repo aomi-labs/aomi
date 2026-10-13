@@ -1,5 +1,3 @@
-"use client";
-
 import { Square } from "lucide-react";
 
 import { MarkdownContent } from "@/features/build/components/markdown-content";

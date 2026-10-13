@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Screen from "@/screens/cli/auth-complete/page";
+import CliAuthCompletePage from "@/features/cli/auth-complete";
 
 export const Route = createFileRoute("/cli/auth-complete")({
   validateSearch: (search: Record<string, unknown>) =>
@@ -9,5 +9,5 @@ export const Route = createFileRoute("/cli/auth-complete")({
 });
 
 function CliAuthComplete() {
-  return <Screen searchParams={Route.useSearch()} />;
+  return <CliAuthCompletePage searchParams={Route.useSearch()} />;
 }

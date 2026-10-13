@@ -1,5 +1,3 @@
-"use client";
-
 import { useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useGitHubSession } from "@/components/control-plane/github-session-context";
