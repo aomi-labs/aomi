@@ -847,7 +847,7 @@
   text-transform: uppercase;
 }
 
-.taskCode {
+pre.taskCode {
   min-height: 360px;
   margin: 0;
   border: 0;
@@ -860,7 +860,7 @@
   line-height: 1.65;
 }
 
-.taskCode code {
+pre.taskCode code {
   color: inherit;
   font-family: inherit;
   font-size: inherit;
